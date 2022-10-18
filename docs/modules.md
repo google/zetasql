@@ -172,8 +172,8 @@ AS (
 );
 ```
 
-The following example creates a public TVF with a scalar argument using a public
-UDF defined in the same module.
+The following example creates a public TVF with a scalar
+argument using a public UDF defined in the same module.
 
 ```sql
 CREATE PUBLIC TABLE FUNCTION ScalarTvf(a INT64)

@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/percentile.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 

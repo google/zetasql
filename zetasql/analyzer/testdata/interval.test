@@ -866,3 +866,30 @@ QueryStmt
     |     +-Literal(type=INTERVAL, value=0-1 0 0:0:0)
     +-input_scan=
       +-SingleRowScan
+
+==
+
+[language_features=INTERVAL_TYPE]
+SELECT EXTRACT({{DATE|QUARTER}} FROM INTERVAL '0' YEAR)
+--
+ALTERNATION GROUP: DATE
+--
+ERROR: No matching signature for function EXTRACT for argument types: DATE FROM INTERVAL. Supported signature: EXTRACT(DATE FROM TIMESTAMP [AT TIME ZONE STRING]) [at 1:8]
+SELECT EXTRACT(DATE FROM INTERVAL '0' YEAR)
+       ^
+--
+ALTERNATION GROUP: QUARTER
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$extract(INTERVAL, ENUM<zetasql.functions.DateTimestampPart>) -> INT64)
+    |     +-Literal(type=INTERVAL, value=0-0 0 0:0:0)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=QUARTER)
+    +-input_scan=
+      +-SingleRowScan

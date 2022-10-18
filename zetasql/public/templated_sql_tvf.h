@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
@@ -28,6 +29,7 @@
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/status.h"
 
 // This file includes interfaces and classes related to templated SQL
@@ -39,7 +41,6 @@
 namespace zetasql {
 
 class AnalyzerOptions;
-class ResolvedQueryStmt;
 class TableValuedFunctionProto;
 
 // This represents a templated table-valued function with a SQL body. The
@@ -68,6 +69,8 @@ class TemplatedSQLTVF : public TableValuedFunction {
                             tvf_options),
         arg_name_list_(arg_name_list),
         parse_resume_location_(parse_resume_location) {}
+
+  ~TemplatedSQLTVF() override = default;
 
   const std::vector<std::string>& GetArgumentNames() const {
     return arg_name_list_;
@@ -164,20 +167,20 @@ class TemplatedSQLTVFSignature : public TVFSignature {
       const std::vector<TVFInputArgumentType>& input_arguments,
       const TVFRelation& output_schema,
       const TVFSignatureOptions& tvf_signature_options,
-      const ResolvedQueryStmt* resolved_templated_query,
+      std::unique_ptr<const ResolvedQueryStmt> resolved_templated_query,
       const std::vector<std::string>& arg_name_list)
       : TVFSignature(input_arguments, output_schema, tvf_signature_options),
-        resolved_templated_query_(resolved_templated_query),
+        resolved_templated_query_(std::move(resolved_templated_query)),
         arg_name_list_(arg_name_list) {}
 
   TemplatedSQLTVFSignature(const TemplatedSQLTVFSignature&) = delete;
   TemplatedSQLTVFSignature& operator=(const TemplatedSQLTVFSignature&) = delete;
-  ~TemplatedSQLTVFSignature() override;
+  ~TemplatedSQLTVFSignature() override = default;
 
   // This contains the fully-resolved function body in context of the actual
   // concrete types of the provided arguments to the function call.
   const ResolvedQueryStmt* resolved_templated_query() const {
-    return resolved_templated_query_;
+    return resolved_templated_query_.get();
   }
 
   // The list of names of all the function arguments, in the same order that
@@ -187,7 +190,7 @@ class TemplatedSQLTVFSignature : public TVFSignature {
   }
 
  private:
-  const ResolvedQueryStmt* const resolved_templated_query_ = nullptr;
+  std::unique_ptr<const ResolvedQueryStmt> resolved_templated_query_;
   const std::vector<std::string> arg_name_list_;
 };
 

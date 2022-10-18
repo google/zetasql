@@ -33,12 +33,12 @@
 #include "zetasql/public/constant.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/procedure.h"
+#include "zetasql/public/sql_view.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/value.h"
-#include <cstdint>
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -51,6 +51,7 @@
 
 namespace zetasql {
 
+class ResolvedScan;
 class SimpleCatalogProto;
 class SimpleColumn;
 class SimpleColumnProto;
@@ -126,6 +127,7 @@ class SimpleCatalog : public EnumerableCatalog {
       const absl::Span<const std::string>& mistyped_path) override;
   std::string SuggestConstant(
       const absl::Span<const std::string>& mistyped_path) override;
+
   // TODO: Implement SuggestModel function.
   // TODO: Implement SuggestConnection function.
 
@@ -484,6 +486,10 @@ class SimpleCatalog : public EnumerableCatalog {
   TypeFactory* type_factory_ ABSL_GUARDED_BY(mutex_);
   std::unique_ptr<TypeFactory> owned_type_factory_ ABSL_GUARDED_BY(mutex_);
 
+  // global_names_ is to avoid naming conflict of top tier objects including
+  // tables etc. When inserting into tables_, insert into global_names
+  // as well
+  absl::flat_hash_set<std::string> global_names_ ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const Table*> tables_
       ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_map<std::string, const Connection*> connections_
@@ -762,6 +768,59 @@ class SimpleTable : public Table {
       const std::string& column_name);
 };
 
+// SimpleSQLView is a concrete implementation of the SQLView interface.
+class SimpleSQLView : public SQLView {
+ public:
+  struct NameAndType {
+    std::string name;
+    const Type* type;
+  };
+
+  // Create a new SQLView object. The lifetime of 'query' must meet or
+  // exceed the liftime of the created SimpleSQLView object. SimpleSQLView does
+  // not take ownership of 'query'.
+  static absl::StatusOr<std::unique_ptr<SimpleSQLView>> Create(
+      absl::string_view name, std::vector<NameAndType> columns,
+      SqlSecurity security, bool is_value_table, const ResolvedScan* query);
+
+  SqlSecurity sql_security() const override { return security_; }
+  const ResolvedScan* view_query() const override { return query_; }
+
+  std::string Name() const override { return name_; }
+  std::string FullName() const override { return name_; }
+
+  int NumColumns() const override {
+    return static_cast<int>(owned_columns_.size());
+  }
+  const Column* GetColumn(int i) const override {
+    return owned_columns_[i].get();
+  }
+  const Column* FindColumnByName(const std::string& name) const override {
+    return columns_map_.at(name);
+  }
+  bool IsValueTable() const override { return is_value_table_; }
+
+ private:
+  std::string name_;
+  SqlSecurity security_;
+  bool is_value_table_;
+  const ResolvedScan* query_;
+  std::vector<std::unique_ptr<const Column>> owned_columns_;
+  absl::flat_hash_map<const std::string, const Column*> columns_map_;
+
+  SimpleSQLView(absl::string_view name, SqlSecurity security,
+                bool is_value_table, const ResolvedScan* query)
+      : name_(name),
+        security_(security),
+        is_value_table_(is_value_table),
+        query_(query) {}
+
+  void AddColumn(std::unique_ptr<const Column> column) {
+    columns_map_[column->Name()] = column.get();
+    owned_columns_.emplace_back(std::move(column));
+  }
+};
+
 // SimpleModel is a concrete implementation of the Model interface.
 class SimpleModel : public Model {
  public:
@@ -841,6 +900,14 @@ class SimpleConnection : public Connection {
 // SimpleColumn is a concrete implementation of the Column interface.
 class SimpleColumn : public Column {
  public:
+  // Optional column expression attributes.
+  // Used to store the string and ResolvedExpr versions of default value
+  // expressions.
+  struct ExpressionAttributes {
+    std::string expression_string;
+    const ResolvedExpr* resolved_expr = nullptr;
+  };
+
   // Optional column attributes.
   //
   // Example use:
@@ -858,6 +925,12 @@ class SimpleColumn : public Column {
     // Whether an unwritable column can be set to DEFAULT in an UPDATE DML
     // statement.
     bool can_update_unwritable_to_default = false;
+
+    // Whether the column has a default value.
+    bool has_default_value = false;
+
+    // An optional attribute for column expression;
+    std::optional<ExpressionAttributes> column_expression = std::nullopt;
   };
 
   // Constructor.
@@ -907,6 +980,32 @@ class SimpleColumn : public Column {
   }
   bool CanUpdateUnwritableToDefault() const override {
     return attributes_.can_update_unwritable_to_default;
+  }
+
+  bool HasDefaultValue() const override {
+    // The ResolvedExpr may not be analyzed yet.
+    return attributes_.has_default_value &&
+           attributes_.column_expression.has_value();
+  }
+
+  const ResolvedExpr* Expression() const override {
+    if (!attributes_.has_default_value) {
+      return nullptr;
+    }
+    if (attributes_.column_expression == std::nullopt) {
+      return nullptr;
+    }
+    return attributes_.column_expression->resolved_expr;
+  }
+
+  std::optional<std::string> ExpressionString() const override {
+    if (!attributes_.has_default_value) {
+      return std::nullopt;
+    }
+    if (attributes_.column_expression == std::nullopt) {
+      return std::nullopt;
+    }
+    return attributes_.column_expression->expression_string;
   }
 
   // Serialize this column into protobuf, the provided map is used to store

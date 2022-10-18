@@ -724,6 +724,29 @@ static zetasql_bison_parser::location FirstNonEmptyLocation(
   return locations[0];
 }
 
+static zetasql_bison_parser::location NonEmptyRangeLocation(
+    absl::Span<const zetasql_bison_parser::location> locations) {
+  std::optional<zetasql_bison_parser::location> range;
+  for (const zetasql_bison_parser::location& location : locations) {
+    if (location.begin.column != location.end.column) {
+      if (!range.has_value()) {
+        range = location;
+      } else {
+        if (location.begin.column < range->begin.column) {
+          range->begin = location.begin;
+        }
+        if (location.end.column > range->end.column) {
+          range->end = location.end;
+        }
+
+      }
+    }
+  }
+  if (range.has_value()) {
+    return *range;
+  }
+  return locations[0];
+}
 static bool IsUnparenthesizedNotExpression(zetasql::ASTNode* node) {
   using zetasql::ASTUnaryExpression;
   const ASTUnaryExpression* expr =
@@ -936,6 +959,7 @@ using zetasql::ASTDropStatement;
 %token KW_INCLUDE "INCLUDE"
 %token KW_INDEX "INDEX"
 %token KW_INOUT "INOUT"
+%token KW_INPUT "INPUT"
 %token KW_INSERT "INSERT"
 %token KW_INVOKER "INVOKER"
 %token KW_ITERATE "ITERATE"
@@ -961,6 +985,7 @@ using zetasql::ASTDropStatement;
 %token KW_ONLY "ONLY"
 %token KW_OPTIONS "OPTIONS"
 %token KW_OUT "OUT"
+%token KW_OUTPUT "OUTPUT"
 %token KW_OVERWRITE "OVERWRITE"
 %token KW_PERCENT "PERCENT"
 %token KW_PIVOT "PIVOT"
@@ -1297,6 +1322,7 @@ using zetasql::ASTDropStatement;
 %type <identifier> opt_identifier
 %type <node> opt_index_storing_list
 %type <node> opt_index_unnest_expression_list
+%type <node> opt_input_output_clause
 %type <identifier> opt_language
 %type <language_or_remote_with_connection> opt_language_or_remote_with_connection
 %type <node> opt_like_string_literal
@@ -1392,6 +1418,7 @@ using zetasql::ASTDropStatement;
 %type <query_set_operation> query_set_operation_prefix_maybe_expression
 %type <node> query_statement
 %type <expression> range_literal
+%type <node> range_type
 %type <node> raw_type
 %type <node> raw_column_schema_inner
 %type <language_or_remote_with_connection> remote_with_connection_clause
@@ -1507,7 +1534,6 @@ using zetasql::ASTDropStatement;
 %type <node> opt_column_position
 %type <expression> fill_using_expression
 %type <expression> opt_fill_using_expression
-
 %type <all_or_distinct_keyword> all_or_distinct
 %type <all_or_distinct_keyword> opt_all_or_distinct
 %type <schema_object_kind_keyword> schema_object_kind
@@ -2131,6 +2157,26 @@ alter_statement:
       {
         $$ = MAKE_NODE(ASTAlterAllRowAccessPoliciesStatement, @$, {$7, $8});
       }
+    ;
+
+// Uses table_element_list to reduce redundancy.
+// However, constraints clauses are not allowed.
+opt_input_output_clause:
+    "INPUT" table_element_list "OUTPUT" table_element_list
+      {
+        auto* input = $2->GetAsOrDie<zetasql::ASTTableElementList>();
+        if (input->HasConstraints()) {
+          YYERROR_AND_ABORT_AT(@2,
+                "Syntax error: Element list contains unexpected constraint");
+        }
+        auto* output = $4->GetAsOrDie<zetasql::ASTTableElementList>();
+        if (output->HasConstraints()) {
+          YYERROR_AND_ABORT_AT(@4,
+                "Syntax error: Element list contains unexpected constraint");
+        }
+        $$ = MAKE_NODE(ASTInputOutputClause, @$, {$2, $4});
+      }
+    | /* Nothing */ { $$ = nullptr; }
     ;
 
 opt_transform_clause:
@@ -3155,14 +3201,25 @@ create_entity_statement:
 
 create_model_statement:
     "CREATE" opt_or_replace opt_create_scope "MODEL" opt_if_not_exists
-    path_expression opt_transform_clause opt_options_list opt_as_query
+    path_expression opt_input_output_clause opt_transform_clause
+    opt_remote_with_connection_clause opt_options_list opt_as_query
       {
-        zetasql::ASTCreateStatement* create =
-            MAKE_NODE(ASTCreateModelStatement, @$, {$6, $7, $8, $9});
-        create->set_is_or_replace($2);
-        create->set_scope($3);
-        create->set_is_if_not_exists($5);
-        $$ = create;
+        auto* node = MAKE_NODE(
+            ASTCreateModelStatement,
+            @$,
+            {
+              $path_expression,
+              $opt_input_output_clause,
+              $opt_transform_clause,
+              $opt_remote_with_connection_clause.with_connection_clause,
+              $opt_options_list,
+              $opt_as_query
+            });
+        node->set_is_or_replace($opt_or_replace);
+        node->set_scope($opt_create_scope);
+        node->set_is_if_not_exists($opt_if_not_exists);
+        node->set_is_remote($opt_remote_with_connection_clause.is_remote);
+        $$ = node;
       }
     ;
 
@@ -5401,9 +5458,11 @@ join:
     opt_on_or_using_clause_list
       {
         zetasql::parser::ErrorInfo error_info;
+        auto *join_location =
+            parser->MakeLocation(NonEmptyRangeLocation({@2, @3, @4, @5}));
         auto node = zetasql::parser::JoinRuleAction(
-            FirstNonEmptyLocation({@2, @3, @4, @5}), @$,
-            $1, $2, $3, $4, $6, $7, $8, parser, &error_info);
+            @1, @$,
+            $1, $2, $3, $4, $6, $7, $8, join_location, parser, &error_info);
         if (node == nullptr) {
           YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
         }
@@ -5417,8 +5476,9 @@ from_clause_contents:
     | from_clause_contents "," table_primary
       {
         zetasql::parser::ErrorInfo error_info;
+        auto* comma_location = parser->MakeLocation(@2);
         auto node = zetasql::parser::CommaJoinRuleAction(
-            @2, @3, $1, $3, parser, &error_info);
+            @1, @3, $1, $3, comma_location, parser, &error_info);
         if (node == nullptr) {
           YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
         }
@@ -5459,9 +5519,12 @@ from_clause_contents:
         }
 
         zetasql::parser::ErrorInfo error_info;
+        auto* join_location = parser->MakeLocation(
+            NonEmptyRangeLocation({@2, @3, @4, @5}));
         auto node = zetasql::parser::JoinRuleAction(
-            FirstNonEmptyLocation({@2, @3, @4, @5}), @$,
+            @1, @$,
             $1, $2, $3, $4, $6, $7, $8,
+            join_location,
             parser, &error_info);
         if (node == nullptr) {
           YYERROR_AND_ABORT_AT(error_info.location, error_info.message);
@@ -6997,9 +7060,9 @@ array_constructor:
     ;
 
 range_literal:
-    "RANGE" "<" type ">" string_literal
+    range_type string_literal
       {
-        $$ = MAKE_NODE(ASTRangeLiteral, @$, {$3, $5});
+        $$ = MAKE_NODE(ASTRangeLiteral, @$, {$1, $2});
       }
     ;
 
@@ -7110,8 +7173,15 @@ struct_type:
       }
     ;
 
+range_type:
+    "RANGE" "<" type ">"
+      {
+        $$ = MAKE_NODE(ASTRangeType, @$, {$3});
+      }
+    ;
+
 raw_type:
-    array_type | struct_type | type_name ;
+    array_type | struct_type | type_name | range_type;
 
 type_parameter:
       integer_literal
@@ -8387,6 +8457,7 @@ keyword_as_identifier:
     | "INCLUDE"
     | "INDEX"
     | "INOUT"
+    | "INPUT"
     | "INSERT"
     | "INVOKER"
     | "ISOLATION"
@@ -8412,6 +8483,7 @@ keyword_as_identifier:
     | "ONLY"
     | "OPTIONS"
     | "OUT"
+    | "OUTPUT"
     | "OVERWRITE"
     | "PERCENT"
     | "PIVOT"

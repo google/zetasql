@@ -33,6 +33,7 @@
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
 
@@ -118,6 +119,10 @@ class LanguageOptions {
   void EnableLanguageFeature(LanguageFeature feature) {
     zetasql_base::InsertIfNotPresent(&enabled_language_features_, feature);
   }
+  // Disables support for the specified <feature>.
+  void DisableLanguageFeature(LanguageFeature feature) {
+    enabled_language_features_.erase(feature);
+  }
 
   void SetEnabledLanguageFeatures(const LanguageFeatureSet& features) {
     enabled_language_features_ = features;
@@ -192,11 +197,11 @@ class LanguageOptions {
     }
   }
 
-  bool GenericEntityTypeSupported(const std::string& type) const {
+  bool GenericEntityTypeSupported(absl::string_view type) const {
     return supported_generic_entity_types_.contains(type);
   }
 
-  bool GenericSubEntityTypeSupported(const std::string& type) const {
+  bool GenericSubEntityTypeSupported(absl::string_view type) const {
     return supported_generic_sub_entity_types_.contains(type);
   }
 

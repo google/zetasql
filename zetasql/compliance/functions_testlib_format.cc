@@ -651,7 +651,8 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
        String("[TIME \"00:00:00\", TIME \"15:23:27.123456\"]")},
   });
   for (const auto& each : civil_time_test_cases) {
-    test_cases.emplace_back("format", WrapResultForCivilTimeAndNanos(each));
+    AddTestCaseWithWrappedResultForCivilTimeAndNanos(each, "format",
+                                                     &test_cases);
   }
 
   return test_cases;

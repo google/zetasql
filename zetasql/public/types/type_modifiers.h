@@ -41,6 +41,12 @@ class TypeModifiers {
 
   const Collation& collation() const { return collation_; }
 
+  TypeParameters&& release_type_parameters() {
+    return std::move(type_parameters_);
+  }
+
+  Collation&& release_collation() { return std::move(collation_); }
+
   bool Equals(const TypeModifiers& that) const;
 
   absl::Status Serialize(TypeModifiersProto* proto) const;

@@ -62,6 +62,14 @@ static absl::Status GetZetaSqlCollators(
         return ::zetasql_base::OutOfRangeErrorBuilder()
                << "COLLATE requires non-NULL collation name";
       }
+      if (context->GetLanguageOptions().LanguageFeatureEnabled(
+              FEATURE_DISALLOW_LEGACY_UNICODE_COLLATION) &&
+          collation_value.type_kind() == TYPE_STRING &&
+          absl::StartsWith(collation_value.string_value(), "unicode:")) {
+        return ::zetasql_base::OutOfRangeErrorBuilder()
+               << "COLLATE has invalid collation name '"
+               << collation_value.string_value() << "'";
+      }
 
       std::unique_ptr<const ZetaSqlCollator> collator;
       switch (collation_value.type_kind()) {

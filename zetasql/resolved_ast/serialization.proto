@@ -111,3 +111,8 @@ message ResolvedCollationProto {
   optional string collation_name = 1;
   repeated ResolvedCollationProto child_list = 2;
 }
+
+message ColumnRefProto {
+  optional TableRefProto table_ref = 1;
+  optional string name = 2;
+}

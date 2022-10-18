@@ -17,8 +17,13 @@
 #include "zetasql/scripting/control_flow_graph.h"
 
 #include <algorithm>
+#include <list>
+#include <memory>
+#include <set>
 #include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"

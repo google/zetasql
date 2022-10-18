@@ -19,10 +19,13 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -41,6 +44,13 @@ struct ValidatorOptions {
   // When set to false disables checking that all parameter columns of a
   // ResolvedSubquery are referenced somewhere in that subquery.
   bool validate_no_unreferenced_subquery_params = true;
+
+  // This specifies the set of allowed hints and options, their expected
+  // types, and whether to give errors on unrecognized names.
+  // See the class definition for details. Currently only anonymization options
+  // are checked.
+  // TODO: Add validation for non anonymization options and hints.
+  AllowedHintsAndOptions allowed_hints_and_options;
 };
 
 // Used to validate generated Resolved AST structures.

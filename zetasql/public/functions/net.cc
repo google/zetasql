@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <string>
 
 #include "zetasql/public/functions/util.h"

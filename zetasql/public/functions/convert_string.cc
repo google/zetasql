@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/convert_string.h"
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 
@@ -68,7 +69,8 @@ constexpr absl::string_view kFalseStringValue = "false";
 }  // anonymous namespace
 
 template <>
-bool NumericToString(bool value, std::string* out, absl::Status* error) {
+bool NumericToString(bool value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero) {
   if (value) {
     out->assign(kTrueStringValue.data(), kTrueStringValue.length());
   } else {
@@ -78,48 +80,60 @@ bool NumericToString(bool value, std::string* out, absl::Status* error) {
 }
 
 template <>
-bool NumericToString(int32_t value, std::string* out, absl::Status* error) {
+bool NumericToString(int32_t value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero) {
   out->clear();
   absl::StrAppend(out, value);
   return true;
 }
 
 template <>
-bool NumericToString(int64_t value, std::string* out, absl::Status* error) {
+bool NumericToString(int64_t value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero) {
   out->clear();
   absl::StrAppend(out, value);
   return true;
 }
 
 template <>
-bool NumericToString(uint32_t value, std::string* out, absl::Status* error) {
+bool NumericToString(uint32_t value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero) {
   out->clear();
   absl::StrAppend(out, value);
   return true;
 }
 
 template <>
-bool NumericToString(uint64_t value, std::string* out, absl::Status* error) {
+bool NumericToString(uint64_t value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero) {
   out->clear();
   absl::StrAppend(out, value);
   return true;
 }
 
 template <>
-bool NumericToString(float value, std::string* out, absl::Status* error) {
+bool NumericToString(float value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero) {
+  if (canonicalize_zero && value == -0.0f) {
+    value = 0.0f;
+  }
   *out = RoundTripFloatToString(value);
   return true;
 }
 
 template <>
-bool NumericToString(double value, std::string* out, absl::Status* error) {
+bool NumericToString(double value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero) {
+  if (canonicalize_zero && value == -0.0) {
+    value = 0.0;
+  }
   *out = RoundTripDoubleToString(value);
   return true;
 }
 
 template <>
-bool NumericToString(NumericValue value, std::string* out,
-                     absl::Status* error) {
+bool NumericToString(NumericValue value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero) {
   // Use NumericValue::AppendToString instead of NumericValue::ToString()
   // for minimizing memory allocations.
   out->clear();
@@ -129,7 +143,7 @@ bool NumericToString(NumericValue value, std::string* out,
 
 template <>
 bool NumericToString(BigNumericValue value, std::string* out,
-                     absl::Status* error) {
+                     absl::Status* error, bool canonicalize_zero) {
   // Use BigNumericValue::AppendToString instead of BigNumericValue::ToString()
   // for minimizing memory allocations.
   out->clear();

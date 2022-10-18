@@ -17,6 +17,7 @@
 #include "zetasql/testdata/sample_catalog.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,6 +43,7 @@
 #include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/sql_tvf.h"
+#include "zetasql/public/sql_view.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
@@ -51,6 +53,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/ambiguous_has.pb.h"
 #include "zetasql/testdata/sample_annotation.h"
@@ -264,14 +267,15 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadTables();
   LoadConnections();
   LoadProtoTables();
+  LoadViews(language_options);
   LoadNestedCatalogs();
   LoadFunctions();
   LoadExtendedSubscriptFunctions();
   LoadFunctionsWithDefaultArguments();
+  LoadFunctionsWithStructArgs();
   LoadTemplatedSQLUDFs();
   LoadTableValuedFunctions1();
   LoadTableValuedFunctions2();
-  LoadTableValuedFunctionsWithStructArgs();
   LoadTVFWithExtraColumns();
   LoadDescriptorTableValuedFunctions();
   LoadConnectionTableValuedFunctions();
@@ -377,6 +381,10 @@ void SampleCatalog::LoadTypes() {
 
   // Add a simple type for testing alias type from engine catalog
   catalog_->AddType("INT64AliasType", types_->get_int64());
+
+  // TODO: Remove once this is part of the builtin
+  //                               catalog
+  catalog_->AddType("ROUNDING_MODE", types::RoundingModeEnumType());
 }
 
 namespace {
@@ -518,6 +526,28 @@ void SampleCatalog::LoadTables() {
       " Value",
       {{" Key", types_->get_int64()}, {" Value", types_->get_string()}});
   AddOwnedTable(space_value_table);
+
+  SimpleTable* table_with_default_column = new SimpleTable(
+      "TableWithDefaultColumn",
+      {{"id", types_->get_int64()}, {"a", types_->get_int64()}});
+
+  const std::string default_expr = "10";
+  AnalyzerOptions analyzer_options;
+  std::unique_ptr<const AnalyzerOutput> output;
+  ZETASQL_CHECK_OK(AnalyzeExpression(default_expr, analyzer_options, catalog_.get(),
+                             catalog_->type_factory(), &output));
+
+  SimpleColumn::ExpressionAttributes expr_attributes{
+      .expression_string = default_expr,
+      .resolved_expr = output->resolved_expr()};
+  ZETASQL_CHECK_OK(table_with_default_column->AddColumn(
+      new SimpleColumn(
+          table_with_default_column->Name(), "default_col", types_->get_int64(),
+          {.has_default_value = true, .column_expression = expr_attributes}),
+      /*is_owned=*/true));
+
+  sql_object_artifacts_.emplace_back(std::move(output));
+  AddOwnedTable(table_with_default_column);
 
   // Create two tables with the following schema.
   // GeoStructTable1: geo STRUCT<a GEOGRAPHY>
@@ -865,7 +895,8 @@ void SampleCatalog::LoadTables() {
   {
     auto table_with_string_uid = std::make_unique<SimpleTable>(
         "T1StringAnonymizationUid",
-        std::vector<SimpleTable::NameAndType>{{"uid", types_->get_string()}});
+        std::vector<SimpleTable::NameAndType>{{"uid", types_->get_string()},
+                                              {"c2", types_->get_string()}});
     ZETASQL_CHECK_OK(table_with_string_uid->SetAnonymizationInfo("uid"));
     AddOwnedTable(table_with_string_uid.release());
   }
@@ -873,7 +904,8 @@ void SampleCatalog::LoadTables() {
   {
     auto table_with_string_uid = std::make_unique<SimpleTable>(
         "T2StringAnonymizationUid",
-        std::vector<SimpleTable::NameAndType>{{"uid", types_->get_string()}});
+        std::vector<SimpleTable::NameAndType>{{"c1", types_->get_string()},
+                                              {"uid", types_->get_string()}});
     ZETASQL_CHECK_OK(table_with_string_uid->SetAnonymizationInfo("uid"));
     AddOwnedTable(table_with_string_uid.release());
   }
@@ -1228,6 +1260,75 @@ void SampleCatalog::LoadProtoTables() {
 
   AddOwnedTable(
       new SimpleTable("AnnotatedEnumTable", enum_TestEnumWithAnnotations_));
+}
+
+void SampleCatalog::LoadViews(const LanguageOptions& language_options) {
+  // Ensure the language options used allow CREATE FUNCTION
+  LanguageOptions language = language_options;
+  language.AddSupportedStatementKind(RESOLVED_CREATE_VIEW_STMT);
+  language.EnableLanguageFeature(FEATURE_CREATE_VIEW_WITH_COLUMN_LIST);
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_language(language);
+
+  auto add_view = [&analyzer_options, this](absl::string_view create_view) {
+    std::unique_ptr<const AnalyzerOutput> analyzer_output;
+    ZETASQL_CHECK_OK(AnalyzeStatement(create_view, analyzer_options, catalog_.get(),
+                              catalog_->type_factory(), &analyzer_output))
+        << create_view;
+    const ResolvedStatement* resolved = analyzer_output->resolved_statement();
+    ZETASQL_CHECK(resolved->Is<ResolvedCreateViewStmt>());
+    auto stmt = resolved->GetAs<ResolvedCreateViewStmt>();
+    std::vector<SimpleSQLView::NameAndType> columns;
+    for (int i = 0; i < stmt->output_column_list_size(); ++i) {
+      const ResolvedOutputColumn* col = stmt->output_column_list(i);
+      columns.push_back({.name = col->name(), .type = col->column().type()});
+    }
+    SimpleSQLView::SqlSecurity security = stmt->sql_security();
+    // ZetaSQL defines the default SQL security to be "DEFINER"
+    if (security == SQLView::kSecurityUnspecified) {
+      security = SQLView::kSecurityDefiner;
+    }
+    std::unique_ptr<SQLView> view =
+        SimpleSQLView::Create(stmt->name_path(0), columns, security,
+                              stmt->is_value_table(), stmt->query())
+            .value();
+    catalog_->AddOwnedTable(view.release());
+    sql_object_artifacts_.emplace_back(std::move(analyzer_output));
+  };
+  add_view("CREATE VIEW TwoIntsView SQL SECURITY INVOKER AS SELECT 1 a, 2 b;");
+  add_view(
+      "CREATE VIEW UnprojectedColumnView SQL SECURITY INVOKER AS "
+      "SELECT a, b FROM (SELECT 1 AS a, 2 AS b, 3 AS c);");
+  add_view(
+      "CREATE VIEW ColumnListView(a, b) SQL SECURITY INVOKER AS "
+      "SELECT 1, 2;");
+  add_view(
+      "CREATE VIEW CteView SQL SECURITY INVOKER AS "
+      "WITH t AS (SELECT 1 a, 2 b) SELECT * FROM t;");
+  add_view(
+      "CREATE VIEW OneStructView SQL SECURITY INVOKER AS "
+      "SELECT STRUCT(1 AS a, 2 AS b) AS ab;");
+  add_view(
+      "CREATE VIEW AsStructView SQL SECURITY INVOKER AS "
+      "SELECT AS STRUCT 1 a, 2 b;");
+  add_view(
+      "CREATE VIEW OneScalarView SQL SECURITY INVOKER AS "
+      "SELECT '123' AS ab");
+  add_view(
+      "CREATE VIEW AsScalarView SQL SECURITY INVOKER AS "
+      "SELECT AS VALUE '123'");
+  add_view(
+      "CREATE VIEW ScanTableView SQL SECURITY INVOKER AS "
+      "SELECT key AS a, value AS b FROM TwoIntegers;");
+  add_view(
+      "CREATE VIEW ScanViewView SQL SECURITY INVOKER AS "
+      "SELECT a, 'b' AS b FROM ScanTableView;");
+  add_view(
+      "CREATE VIEW UnspecifiedRightsView SQL SECURITY DEFINER AS "
+      "SELECT 1 AS a;");
+  add_view(
+      "CREATE VIEW DefinerRightsView SQL SECURITY DEFINER AS "
+      "SELECT 1 AS a;");
 }
 
 void SampleCatalog::LoadNestedCatalogs() {
@@ -2919,6 +3020,23 @@ void SampleCatalog::LoadTemplatedSQLUDFs() {
            (allow_nulls AND COUNTIF(cval IS NOT NULL) = COUNT(DISTINCT cval)),
            NULL, "NOT NULL"))"),
       Function::AGGREGATE));
+
+  // Add a templated (scalar) SQL function with definer rights
+  auto templated_scalar_definer_rights_function =
+      std::make_unique<TemplatedSQLFunction>(
+          std::vector<std::string>{"templated_scalar_definer_rights"},
+          FunctionSignature(
+              result_type,
+              {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                    FunctionArgumentType::REQUIRED)},
+              context_id++),
+          /*argument_names=*/std::vector<std::string>{"x"},
+          ParseResumeLocation::FromString(
+              "x + (select count(*) from KeyValue)"));
+  templated_scalar_definer_rights_function->set_sql_security(
+      ResolvedCreateStatementEnums::SQL_SECURITY_DEFINER);
+  catalog_->AddOwnedFunction(
+      std::move(templated_scalar_definer_rights_function));
 }
 
 namespace {
@@ -3769,7 +3887,7 @@ void SampleCatalog::LoadTableValuedFunctions2() {
       output_schema_two_types));
 }
 
-void SampleCatalog::LoadTableValuedFunctionsWithStructArgs() {
+void SampleCatalog::LoadFunctionsWithStructArgs() {
   const std::vector<OutputColumn> kOutputColumnsAllTypes =
       GetOutputColumnsForAllTypes(types_);
   TVFRelation output_schema_two_types =
@@ -3805,6 +3923,13 @@ void SampleCatalog::LoadTableValuedFunctionsWithStructArgs() {
                         /*context_id=*/-1},
       output_schema_two_types);
   catalog_->AddOwnedTableValuedFunction(tvf.release());
+
+  auto function = std::make_unique<Function>(
+      "fn_named_struct_args", "sample_functions", Function::SCALAR);
+  function->AddSignature({zetasql::FunctionArgumentType(array_string_type),
+                          {named_struct_arg1, named_struct_arg2},
+                          /*context_id=*/-1});
+  catalog_->AddOwnedFunction(std::move(function));
 }
 
 void SampleCatalog::LoadTVFWithExtraColumns() {
@@ -4385,8 +4510,11 @@ void SampleCatalog::AddSqlDefinedTableFunctionFromCreate(
   language.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_FUNCTION_STMT);
   language.EnableLanguageFeature(FEATURE_CREATE_TABLE_FUNCTION);
   language.EnableLanguageFeature(FEATURE_TABLE_VALUED_FUNCTIONS);
+  language.EnableLanguageFeature(FEATURE_TEMPLATE_FUNCTIONS);
   language.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   language.EnableLanguageFeature(FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
+  language.EnableLanguageFeature(
+      FEATURE_FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES);
   AnalyzerOptions analyzer_options;
   analyzer_options.set_language(language);
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
@@ -4403,9 +4531,12 @@ void SampleCatalog::AddSqlDefinedTableFunctionFromCreate(
     ZETASQL_CHECK_OK(SQLTableValuedFunction::Create(resolved_create, &function));
     catalog_->AddOwnedTableValuedFunction(std::move(function));
   } else {
-    ZETASQL_LOG(FATAL) << "Template functions not suppororted here yet.";
+    catalog_->AddOwnedTableValuedFunction(std::make_unique<TemplatedSQLTVF>(
+        resolved_create->name_path(), resolved_create->signature(),
+        resolved_create->argument_name_list(),
+        ParseResumeLocation::FromString(resolved_create->code())));
   }
-  sql_function_artifacts_.emplace_back(std::move(analyzer_output));
+  sql_object_artifacts_.emplace_back(std::move(analyzer_output));
 }
 
 void SampleCatalog::LoadNonTemplatedSqlTableValuedFunctions(
@@ -4460,6 +4591,116 @@ void SampleCatalog::LoadNonTemplatedSqlTableValuedFunctions(
       R"(CREATE TABLE FUNCTION UnaryTableArg(arg0 TABLE<a INT64>)
          AS SELECT * FROM arg0;)",
       language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+            CREATE TABLE FUNCTION ScalarParamUsedAsTVFArgument(arg0 INT64)
+            AS (SELECT * FROM UnaryScalarArg(arg0))
+        )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION UnaryAbTableArg(arg0 TABLE<a INT64, b STRING>)
+          AS SELECT * FROM arg0;
+        )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION UnaryAbTableArgSelfJoin(
+            arg0 TABLE<a INT64, b STRING>)
+          AS SELECT * FROM arg0 CROSS JOIN arg0 AS t1;
+        )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION UnaryAbTableArgScannedInCTE(
+             arg0 TABLE<a INT64, b STRING>)
+          AS WITH t AS (SELECT * FROM arg0) SELECT * FROM t;
+        )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION BinaryTableArg(
+             arg0 TABLE<a INT64, b STRING>, arg1 TABLE<c INT64, d STRING>)
+          AS SELECT * FROM arg0 CROSS JOIN arg1;
+        )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION BinaryAbTableArg(
+            arg0 TABLE<a INT64, b STRING>, arg1 TABLE<a INT64, b STRING>)
+          AS SELECT * FROM arg0 CROSS JOIN arg1;
+        )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION UnaryAbTableArgWithScalarArgs(
+            a INT64, arg0 TABLE<a INT64, b STRING>, b STRING)
+          AS SELECT * FROM arg0 WHERE arg0.a = a AND arg0.b = b;
+        )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION UnaryAbTableArgWithScalarArgsTempl(
+            a ANY TYPE, arg0 ANY TABLE, b ANY TYPE)
+          AS SELECT * FROM arg0 WHERE arg0.a = a AND arg0.b = b;
+      )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION CallsUnaryAbTableArgWithScalarArgsTempl(
+            ignored_param ANY TYPE)
+          AS SELECT * FROM UnaryAbTableArgWithScalarArgsTempl(
+              1, (SELECT 1 a, "2" b, DATE '2020-08-22' AS c), "b");
+      )sql",
+      language_options);
+
+  // Functions for definer-rights inlining
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+        CREATE TABLE FUNCTION DefinerRightsTvf(a INT64) SQL SECURITY DEFINER
+          AS SELECT * FROM  KeyValue WHERE KeyValue.Key = a; )sql",
+      language_options);
+
+  if (language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_COLLATION_SUPPORT) &&
+      language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_ANNOTATION_FRAMEWORK)) {
+    AddSqlDefinedTableFunctionFromCreate(
+        R"(CREATE TABLE FUNCTION ScalarArgWithCollatedOutputCols(arg0 STRING)
+         AS SELECT
+           COLLATE(arg0, 'und:ci') AS col_ci,
+           [COLLATE(arg0, 'und:ci')] AS col_array_ci,
+           ([COLLATE(arg0, 'und:ci')], 1) AS col_struct_ci;)",
+        language_options);
+    AddSqlDefinedTableFunctionFromCreate(
+        R"(CREATE TABLE FUNCTION TableArgWithCollatedOutputCols(
+          arg0 TABLE<a STRING>)
+         AS SELECT
+           COLLATE(a, 'und:ci') AS col_ci,
+           [COLLATE(a, 'und:ci')] AS col_array_ci,
+           ([COLLATE(a, 'und:ci')], 1) AS col_struct_ci
+         FROM arg0;)",
+        language_options);
+    AddSqlDefinedTableFunctionFromCreate(
+        R"(CREATE TABLE FUNCTION ValueTableArgWithCollatedOutputCols(
+          arg0 TABLE<STRUCT<str_field STRING>>)
+         AS SELECT
+           COLLATE(str_field, 'und:ci') AS col_ci,
+           [COLLATE(str_field, 'und:ci')] AS col_array_ci,
+           ([COLLATE(str_field, 'und:ci')], 1) AS col_struct_ci
+         FROM arg0;)",
+        language_options);
+    AddSqlDefinedTableFunctionFromCreate(
+        R"(CREATE TABLE FUNCTION ScalarArgWithCollatedOutputValueTableCol(
+          arg0 STRING)
+         AS SELECT AS VALUE COLLATE(arg0, 'und:ci');)",
+        language_options);
+    AddSqlDefinedTableFunctionFromCreate(
+        R"(CREATE TABLE FUNCTION ScalarArgsOfCollatableTypes(
+          arg0 STRING, arg1 ARRAY<STRING>, arg2 STRUCT<STRING, INT64>)
+         AS SELECT arg0, arg1, arg2;)",
+        language_options);
+  }
 }
 
 void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {
@@ -4877,6 +5118,90 @@ void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {
       signature_return_key_int64_and_value_string_cols,
       /*arg_name_list=*/{"key", "value"},
       ParseResumeLocation::FromString("select value, key, 42 as x")));
+
+  // Add a templated TVF which returns three columns of collated string type,
+  // collated array type and struct type with collated field by calling COLLATE
+  // function over input scalar argument.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_collated_output_columns_with_collate_function"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY),
+                         FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                        context_id++),
+      /*arg_name_list=*/{"x", "y"},
+      ParseResumeLocation::FromString(
+          "select COLLATE(x, 'und:ci') as col_ci, [COLLATE(x, 'und:ci')] as "
+          "col_array_ci, (COLLATE(x, 'und:ci'), y) as col_struct_ci")));
+
+  // Add a templated TVF which returns three columns of collated string type,
+  // collated array type and struct type with collated field by referencing
+  // collated table column.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_collated_output_columns_with_collated_column_ref"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                        context_id++),
+      /*arg_name_list=*/{"x"},
+      ParseResumeLocation::FromString(
+          "select CONCAT(x, string_ci) as concat_ci, array_with_string_ci, "
+          "struct_with_string_ci from CollatedTable")));
+
+  // Add a templated TVF which returns columns of collated types with input
+  // relation argument.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_collated_output_columns_with_relation_arg"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_RELATION),
+                         FunctionArgumentType(types::Int64Type())},
+                        context_id++),
+      /*arg_name_list=*/{"x", "y"},
+      ParseResumeLocation::FromString(
+          "select COLLATE(col_str, 'und:ci') as col_ci, [COLLATE(col_str, "
+          "'und:ci')] as col_array_ci, (COLLATE(col_str, 'und:ci'), y) as "
+          "col_struct_ci from x")));
+
+  // Add a templated TVF which returns a value table with collated output
+  // column.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_collated_output_column_as_value_table"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY),
+                         FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                        context_id++),
+      /*arg_name_list=*/{"x", "y"},
+      ParseResumeLocation::FromString(
+          "select as value CONCAT(COLLATE(x, 'und:ci'), y)")));
+
+  // Add a templated TVF which returns a collated output column and has an
+  // explicit result schema.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_collated_output_column_returns_int64_string_col"},
+      signature_return_key_int64_and_value_string_cols,
+      /*arg_name_list=*/{"x", "y"},
+      ParseResumeLocation::FromString(
+          "select x as key, COLLATE(y, 'und:ci') as value")));
+
+  // Add a templated TVF which returns a collated output column and has an
+  // explicit value table result schema.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_collated_output_column_returns_value_table_string_"
+       "col"},
+      signature_return_value_table_string_col,
+      /*arg_name_list=*/{"x"},
+      ParseResumeLocation::FromString("select as value COLLATE(x, 'und:ci')")));
+
+  // Add a templated definer-rights TVF
+  auto templated_definer_rights_tvf = std::make_unique<TemplatedSQLTVF>(
+      std::vector<std::string>{"definer_rights_templated_tvf"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                        context_id++),
+      /*arg_name_list=*/std::vector<std::string>{"x"},
+      ParseResumeLocation::FromString("select * from KeyValue WHERE key = x"));
+  templated_definer_rights_tvf->set_sql_security(
+      ResolvedCreateStatementEnums::SQL_SECURITY_DEFINER);
+  catalog_->AddOwnedTableValuedFunction(
+      std::move(templated_definer_rights_tvf));
 }
 
 void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
@@ -5415,7 +5740,7 @@ void SampleCatalog::AddSqlDefinedFunction(
       /*aggregate_expression_list=*/{}, /*parse_resume_location=*/{},
       &function));
   catalog_->AddOwnedFunction(function.release());
-  sql_function_artifacts_.emplace_back(std::move(analyzer_output));
+  sql_object_artifacts_.emplace_back(std::move(analyzer_output));
 }
 
 // Add a SQL function to catalog starting from a full create_function
@@ -5434,9 +5759,9 @@ void SampleCatalog::AddSqlDefinedFunctionFromCreate(
   analyzer_options.set_enabled_rewrites(/*rewrites=*/{});
   analyzer_options.enable_rewrite(REWRITE_INLINE_SQL_FUNCTIONS,
                                   inline_sql_functions);
-  sql_function_artifacts_.emplace_back();
+  sql_object_artifacts_.emplace_back();
   ZETASQL_CHECK_OK(AddFunctionFromCreateFunction(
-      create_function, analyzer_options, sql_function_artifacts_.back(),
+      create_function, analyzer_options, sql_object_artifacts_.back(),
       *catalog_, /*allow_persistent_function=*/true));
 }
 
@@ -5546,6 +5871,12 @@ void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
                      "());"),
         language_options, /*inline_sql_functions=*/false);
   }
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION scalar_function_definer_rights() SQL SECURITY DEFINER
+              AS ((SELECT COUNT(*) FROM KeyValue)); )",
+      language_options,
+      /*inline_sql_functions=*/true);
 }
 
 }  // namespace zetasql

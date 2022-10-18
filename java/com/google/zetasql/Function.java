@@ -163,7 +163,7 @@ public class Function implements Serializable {
       // the leading '$' and convert all '_' to ' '.
       name = getName().substring(1).replace('_', ' ');
     } else if (isZetaSQLBuiltin()) {
-      name = getFullName(/* includeGroup */ false);
+      name = getFullName(/* includeGroup= */ false);
     } else {
       name = getFullName();
     }

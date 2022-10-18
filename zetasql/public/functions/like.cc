@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/like.h"
 
 #include <cstddef>
+#include <memory>
 #include <string>
 
 #include "zetasql/base/logging.h"

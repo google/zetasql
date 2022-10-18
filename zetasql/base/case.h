@@ -108,12 +108,14 @@ struct CaseLess {
 };
 
 struct StringViewCaseEqual {
+  typedef void is_transparent;
   bool operator()(absl::string_view s1, absl::string_view s2) const {
     return CaseEqual(s1, s2);
   }
 };
 
 struct StringViewCaseHash {
+  typedef void is_transparent;
   size_t operator()(absl::string_view s1) const {
     return std::hash<std::string>()(absl::AsciiStrToLower(s1));
   }

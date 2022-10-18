@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <string>
 
 #include "zetasql/base/logging.h"

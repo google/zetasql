@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -136,7 +137,7 @@ namespace {
 // the same as AggregateAccumulator,
 class IntermediateAggregateAccumulator {
  public:
-  virtual ~IntermediateAggregateAccumulator() {}
+  virtual ~IntermediateAggregateAccumulator() = default;
 
   virtual absl::Status Reset() = 0;
 
@@ -920,27 +921,6 @@ static absl::Status PopulateSlotsForKeysAndValues(
 
   return absl::OkStatus();
 }
-
-namespace {
-
-absl::StatusOr<CollatorList> MakeCollatorList(
-    const std::vector<ResolvedCollation>& collation_list) {
-  CollatorList collator_list;
-
-  if (collation_list.empty()) {
-    return collator_list;
-  }
-
-  for (const ResolvedCollation& resolved_collation : collation_list) {
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ZetaSqlCollator> collator,
-                     GetCollatorFromResolvedCollation(resolved_collation));
-    collator_list.push_back(std::move(collator));
-  }
-
-  return std::move(collator_list);
-}
-
-}  // namespace
 
 absl::StatusOr<std::unique_ptr<AggregateArgAccumulator>>
 AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,

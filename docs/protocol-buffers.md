@@ -73,7 +73,7 @@ NEW Universe {
   }, {
     key: "Venus"
     distance: 107,480,000
-  }]
+  }],
   (UniverseExtraInfo.extension) {
     ...
   }
@@ -297,53 +297,19 @@ NEW ProtocolBuffer(expr1 AS (path.to.extension), ...)
     +---------------------------------------------+
     ```
 
-### SELECT AS ProtocolBuffer
+### SELECT AS typename 
+<a id="select_as_typename_proto"></a>
 
-```
-SELECT AS catalog.ProtocolBufferName
-  expr1 [[AS] protocol_buffer_field1]
-  [, ...]
-FROM ...
-```
+A `SELECT AS typename` statement can produce a value table where the
+row type is a specific named protocol buffer type. To learn more, see
+[Query syntax][select-as-typename].
 
-A `SELECT AS ProtocolBuffer` statement produces a value table where the row type
-is a specific named type. Currently, protocol buffers are the only supported
-type that can be used with this syntax.
-
-The `SELECT` list may produce multiple columns.  Each produced column must have
-an alias (explicitly or implicitly) that matches a unique protocol buffer field
-name; to construct the protocol buffer, the query matches each expression with a
-protocol buffer field by name. If no explicit alias is given, the expression
-must have an implicit alias according to the rules in
-[Implicit Aliases][implicit-alias].
-
-When used with `SELECT DISTINCT`, or `GROUP BY` or `ORDER BY` using column
-ordinals, these operators are applied first, on the columns in the `SELECT`
-list, and then the value construction happens last.  This means that `DISTINCT`
-can be applied on the input columns to the value construction, including in
-cases where `DISTINCT` would not be allowed after value construction because
-equality is not supported on protocol buffer types.
-
-The following is an example of a `SELECT AS ProtocolBuffer` query.
-
-```sql 
-SELECT AS tests.TestProtocolBuffer mytable.key int64_val, mytable.name string_val
-FROM mytable;
-
-```
-
-The query returns the output as a `tests.TestProtocolBuffer` protocol
-buffer. `mytable.key int64_val` means that values from the `key` column are
-stored in the `int64_val` field in the protocol buffer. Similarly, values from
-the `mytable.name` column are stored in the `string_val` protocol buffer field.
-
- `SELECT AS` does not support setting protocol
-buffer extensions. To do so, use the [NEW][new-keyword] keyword instead. For
-example,  to create a protocol buffer with an extension, change a query like
-this:
+`SELECT AS` does not support setting protocol buffer extensions. To do so, use
+the [NEW][new-keyword] keyword instead. For example,  to create a
+protocol buffer with an extension, change a query like this:
 
 ```sql
-SELECT AS ProtoType field1, field2, ...
+SELECT AS typename field1, field2, ...
 ```
 
 to a query like this:
@@ -1055,6 +1021,8 @@ FROM
 [correlated-join]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#correlated_join
 
 [unnest-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[select-as-typename]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_as_typename
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 

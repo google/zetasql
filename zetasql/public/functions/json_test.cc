@@ -24,8 +24,10 @@
 #include <cmath>
 #include <cstdint>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -715,7 +717,7 @@ TEST(JsonPathExtractorTest, SimpleValidPath) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValidJSONPathIterator> iptr,
       ValidJSONPathIterator::Create("$.a.b", /*sql_standard_mode=*/true));
-  ValidJSONPathIterator& itr = *(iptr.get());
+  ValidJSONPathIterator& itr = *(iptr);
 
   ASSERT_TRUE(!itr.End());
 
@@ -732,7 +734,7 @@ TEST(JsonPathExtractorTest, BackAndForthIteration) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValidJSONPathIterator> iptr,
       ValidJSONPathIterator::Create(input, /*sql_standard_mode=*/true));
-  ValidJSONPathIterator& itr = *(iptr.get());
+  ValidJSONPathIterator& itr = *(iptr);
 
   ++itr;
   EXPECT_EQ(*itr, "a");
@@ -753,7 +755,7 @@ TEST(JsonPathExtractorTest, EscapedPathTokens) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValidJSONPathIterator> iptr,
       ValidJSONPathIterator::Create(esc_text, /*sql_standard_mode=*/false));
-  ValidJSONPathIterator& itr = *(iptr.get());
+  ValidJSONPathIterator& itr = *(iptr);
   const std::vector<ValidJSONPathIterator::Token> gold = {"", "a", "''\\s ",
                                                           "g", "1"};
 
@@ -770,7 +772,7 @@ TEST(JsonPathExtractorTest, EscapedPathTokensStandard) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValidJSONPathIterator> iptr,
       ValidJSONPathIterator::Create(esc_text, /*sql_standard_mode=*/true));
-  ValidJSONPathIterator& itr = *(iptr.get());
+  ValidJSONPathIterator& itr = *(iptr);
   const std::vector<ValidJSONPathIterator::Token> gold = {"", "a", "\"\"\\s ",
                                                           "g", "1"};
 
@@ -820,7 +822,7 @@ TEST(JsonPathExtractorTest, MixedPathTokens) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValidJSONPathIterator> iptr,
       ValidJSONPathIterator::Create(input_path, /*sql_standard_mode=*/false));
-  ValidJSONPathIterator& itr = *(iptr.get());
+  ValidJSONPathIterator& itr = *(iptr);
   const std::vector<ValidJSONPathIterator::Token> gold = {
       "", "a", "b", "423490", "c", "d::d", "e", "abc\\\\''     "};
 
@@ -1926,7 +1928,7 @@ TEST(ValidJSONPathIterator, BasicTest) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValidJSONPathIterator> iptr,
       ValidJSONPathIterator::Create(path, /*sql_standard_mode=*/true));
-  ValidJSONPathIterator& itr = *(iptr.get());
+  ValidJSONPathIterator& itr = *(iptr);
   itr.Rewind();
   EXPECT_EQ(*itr, "");
   ++itr;
@@ -1969,7 +1971,7 @@ TEST(ValidJSONPathIterator, DegenerateCases) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValidJSONPathIterator> iptr,
       ValidJSONPathIterator::Create(path, /*sql_standard_mode=*/true));
-  ValidJSONPathIterator& itr = *(iptr.get());
+  ValidJSONPathIterator& itr = *(iptr);
 
   EXPECT_FALSE(itr.End());
   EXPECT_EQ(*itr, "");
@@ -1978,7 +1980,7 @@ TEST(ValidJSONPathIterator, DegenerateCases) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValidJSONPathIterator> iptr1,
       ValidJSONPathIterator::Create(path, /*sql_standard_mode=*/true));
-  ValidJSONPathIterator& itr1 = *(iptr1.get());
+  ValidJSONPathIterator& itr1 = *(iptr1);
 
   EXPECT_FALSE(itr1.End());
   EXPECT_EQ(*itr1, "");
@@ -2037,7 +2039,7 @@ void ComplianceJSONExtractArrayTest(const std::vector<FunctionTestCall>& tests,
     }
     const std::string json = test.params.param(0).string_value();
     const std::string json_path = test.params.param(1).string_value();
-    const Value& expected_result = test.params.results().begin()->second.result;
+    const Value& expected_result = test.params.result();
 
     std::vector<std::optional<std::string>> output;
     std::vector<Value> result_array;

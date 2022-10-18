@@ -194,6 +194,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:strings",
         "//zetasql/common:errors",
+        "//zetasql/common:timer_util",
         "//zetasql/common:utf_util",
         "//zetasql/proto:internal_error_location_cc_proto",
         "//zetasql/public:error_location_cc_proto",
@@ -217,6 +218,25 @@ cc_library(
         "@com_google_absl//absl/types:span",
         "@com_google_absl//absl/types:variant",
         "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_library(
+    name = "ast_node_util",
+    srcs = ["ast_node_util.cc"],
+    hdrs = ["ast_node_util.h"],
+    deps = [":parser"],
+)
+
+cc_test(
+    name = "ast_node_util_test",
+    srcs = ["ast_node_util_test.cc"],
+    deps = [
+        ":ast_node_util",
+        ":parse_tree_serializer",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -264,7 +284,6 @@ cc_library(
         "//zetasql/public:language_options",
         "//zetasql/public:parse_location",
         "//zetasql/public:strings",
-        "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
@@ -313,6 +332,7 @@ cc_library(
         ":parse_tree_cc_proto",
         "//zetasql/base:arena",
         "//zetasql/base:status",
+        "//zetasql/common:timer_util",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "@com_google_absl//absl/strings",
@@ -344,7 +364,6 @@ cc_library(
         "//zetasql/base:arena_allocator",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
-        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/common:errors",
         "//zetasql/common:utf_util",
@@ -365,7 +384,6 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
-        "@icu//:common",
     ],
 )
 
@@ -428,6 +446,7 @@ cc_library(
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_helpers",
         "//zetasql/public:parse_resume_location",
+        "//zetasql/public/testing:test_case_options_util",
         "//zetasql/scripting:parse_helpers",
         "//zetasql/scripting:script_segment",
         "@com_google_absl//absl/algorithm:container",

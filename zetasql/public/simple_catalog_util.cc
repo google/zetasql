@@ -16,6 +16,7 @@
 
 #include "zetasql/public/simple_catalog_util.h"
 
+#include <memory>
 #include <utility>
 
 #include "zetasql/public/analyzer.h"
@@ -59,6 +60,9 @@ absl::Status AddFunctionFromCreateFunction(
         resolved_create->argument_name_list(),
         ParseResumeLocation::FromStringView(resolved_create->code()));
   }
+
+  function->set_sql_security(resolved_create->sql_security());
+
   ZETASQL_RET_CHECK(catalog.AddOwnedFunctionIfNotPresent(&function));
   return absl::OkStatus();
 }

@@ -1,61 +1,58 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 CREATE FUNCTION foo(ANY TYPE);
 --
-CreateFunctionStatement [0-29]
-  FunctionDeclaration [16-29]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-29]
-      FunctionParameter [20-28]
-        TemplatedParameterType [20-28]
+CreateFunctionStatement [0-29] [CREATE FUNCTION foo(ANY TYPE)]
+  FunctionDeclaration [16-29] [foo(ANY TYPE)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-29] [(ANY TYPE)]
+      FunctionParameter [20-28] [ANY TYPE]
+        TemplatedParameterType [20-28] [ANY TYPE]
 --
 CREATE FUNCTION foo(ANY TYPE)
 ==
 
 CREATE FUNCTION foo(a ANY TYPE);
 --
-CreateFunctionStatement [0-31]
-  FunctionDeclaration [16-31]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-31]
-      FunctionParameter [20-30]
-        Identifier(a) [20-21]
-        TemplatedParameterType [22-30]
+CreateFunctionStatement [0-31] [CREATE FUNCTION...ANY TYPE)]
+  FunctionDeclaration [16-31] [foo(a ANY TYPE)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-31] [(a ANY TYPE)]
+      FunctionParameter [20-30] [a ANY TYPE]
+        Identifier(a) [20-21] [a]
+        TemplatedParameterType [22-30] [ANY TYPE]
 --
 CREATE FUNCTION foo(a ANY TYPE)
 ==
 
 CREATE FUNCTION foo(a ANY TYPE AS b);
 --
-CreateFunctionStatement [0-36]
-  FunctionDeclaration [16-36]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-36]
-      FunctionParameter [20-35]
-        Identifier(a) [20-21]
-        TemplatedParameterType [22-30]
-        Alias [31-35]
-          Identifier(b) [34-35]
+CreateFunctionStatement [0-36] [CREATE FUNCTION...TYPE AS b)]
+  FunctionDeclaration [16-36] [foo(a ANY TYPE AS b)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-36] [(a ANY TYPE AS b)]
+      FunctionParameter [20-35] [a ANY TYPE AS b]
+        Identifier(a) [20-21] [a]
+        TemplatedParameterType [22-30] [ANY TYPE]
+        Alias [31-35] [AS b]
+          Identifier(b) [34-35] [b]
 --
 CREATE FUNCTION foo(a ANY TYPE AS b)
 ==
 
 CREATE FUNCTION foo(a ANY TYPE AS b NOT AGGREGATE);
 --
-CreateFunctionStatement [0-50]
-  FunctionDeclaration [16-50]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-50]
-      FunctionParameter(is_not_aggregate=true) [20-49]
-        Identifier(a) [20-21]
-        TemplatedParameterType [22-30]
-        Alias [31-35]
-          Identifier(b) [34-35]
+CreateFunctionStatement [0-50] [CREATE FUNCTION...AGGREGATE)]
+  FunctionDeclaration [16-50] [foo(a ANY...AGGREGATE)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-50] [(a ANY TYPE...AGGREGATE)]
+      FunctionParameter(is_not_aggregate=true) [20-49] [a ANY TYPE AS b NOT AGGREGATE]
+        Identifier(a) [20-21] [a]
+        TemplatedParameterType [22-30] [ANY TYPE]
+        Alias [31-35] [AS b]
+          Identifier(b) [34-35] [b]
 --
 CREATE FUNCTION foo(a ANY TYPE AS b NOT AGGREGATE)
 ==
@@ -65,91 +62,91 @@ CREATE FUNCTION foo(a ANY {{TYPE|PROTO|ENUM|TABLE|STRUCT|ARRAY}} AS b NOT AGGREG
 --
 ALTERNATION GROUP: TYPE
 --
-CreateFunctionStatement [0-50]
-  FunctionDeclaration [16-50]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-50]
-      FunctionParameter(is_not_aggregate=true) [20-49]
-        Identifier(a) [20-21]
-        TemplatedParameterType [22-30]
-        Alias [31-35]
-          Identifier(b) [34-35]
+CreateFunctionStatement [0-50] [CREATE FUNCTION...AGGREGATE)]
+  FunctionDeclaration [16-50] [foo(a ANY...AGGREGATE)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-50] [(a ANY TYPE...AGGREGATE)]
+      FunctionParameter(is_not_aggregate=true) [20-49] [a ANY TYPE AS b NOT AGGREGATE]
+        Identifier(a) [20-21] [a]
+        TemplatedParameterType [22-30] [ANY TYPE]
+        Alias [31-35] [AS b]
+          Identifier(b) [34-35] [b]
 --
 CREATE FUNCTION foo(a ANY TYPE AS b NOT AGGREGATE)
 --
 ALTERNATION GROUP: PROTO
 --
-CreateFunctionStatement [0-51]
-  FunctionDeclaration [16-51]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-51]
-      FunctionParameter(is_not_aggregate=true) [20-50]
-        Identifier(a) [20-21]
-        TemplatedParameterType [22-31]
-        Alias [32-36]
-          Identifier(b) [35-36]
+CreateFunctionStatement [0-51] [CREATE FUNCTION...AGGREGATE)]
+  FunctionDeclaration [16-51] [foo(a ANY...AGGREGATE)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-51] [(a ANY PROTO...AGGREGATE)]
+      FunctionParameter(is_not_aggregate=true) [20-50] [a ANY PROTO AS b NOT AGGREGATE]
+        Identifier(a) [20-21] [a]
+        TemplatedParameterType [22-31] [ANY PROTO]
+        Alias [32-36] [AS b]
+          Identifier(b) [35-36] [b]
 --
 CREATE FUNCTION foo(a ANY PROTO AS b NOT AGGREGATE)
 --
 ALTERNATION GROUP: ENUM
 --
-CreateFunctionStatement [0-50]
-  FunctionDeclaration [16-50]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-50]
-      FunctionParameter(is_not_aggregate=true) [20-49]
-        Identifier(a) [20-21]
-        TemplatedParameterType [22-30]
-        Alias [31-35]
-          Identifier(b) [34-35]
+CreateFunctionStatement [0-50] [CREATE FUNCTION...AGGREGATE)]
+  FunctionDeclaration [16-50] [foo(a ANY...AGGREGATE)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-50] [(a ANY ENUM...AGGREGATE)]
+      FunctionParameter(is_not_aggregate=true) [20-49] [a ANY ENUM AS b NOT AGGREGATE]
+        Identifier(a) [20-21] [a]
+        TemplatedParameterType [22-30] [ANY ENUM]
+        Alias [31-35] [AS b]
+          Identifier(b) [34-35] [b]
 --
 CREATE FUNCTION foo(a ANY ENUM AS b NOT AGGREGATE)
 --
 ALTERNATION GROUP: TABLE
 --
-CreateFunctionStatement [0-51]
-  FunctionDeclaration [16-51]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-51]
-      FunctionParameter(is_not_aggregate=true) [20-50]
-        Identifier(a) [20-21]
-        TemplatedParameterType [22-31]
-        Alias [32-36]
-          Identifier(b) [35-36]
+CreateFunctionStatement [0-51] [CREATE FUNCTION...AGGREGATE)]
+  FunctionDeclaration [16-51] [foo(a ANY...AGGREGATE)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-51] [(a ANY TABLE...AGGREGATE)]
+      FunctionParameter(is_not_aggregate=true) [20-50] [a ANY TABLE AS b NOT AGGREGATE]
+        Identifier(a) [20-21] [a]
+        TemplatedParameterType [22-31] [ANY TABLE]
+        Alias [32-36] [AS b]
+          Identifier(b) [35-36] [b]
 --
 CREATE FUNCTION foo(a ANY TABLE AS b NOT AGGREGATE)
 --
 ALTERNATION GROUP: STRUCT
 --
-CreateFunctionStatement [0-52]
-  FunctionDeclaration [16-52]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-52]
-      FunctionParameter(is_not_aggregate=true) [20-51]
-        Identifier(a) [20-21]
-        TemplatedParameterType [22-32]
-        Alias [33-37]
-          Identifier(b) [36-37]
+CreateFunctionStatement [0-52] [CREATE FUNCTION...AGGREGATE)]
+  FunctionDeclaration [16-52] [foo(a ANY...AGGREGATE)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-52] [(a ANY STRUCT...AGGREGATE)]
+      FunctionParameter(is_not_aggregate=true) [20-51] [a ANY STRUCT...AGGREGATE]
+        Identifier(a) [20-21] [a]
+        TemplatedParameterType [22-32] [ANY STRUCT]
+        Alias [33-37] [AS b]
+          Identifier(b) [36-37] [b]
 --
 CREATE FUNCTION foo(a ANY STRUCT AS b NOT AGGREGATE)
 --
 ALTERNATION GROUP: ARRAY
 --
-CreateFunctionStatement [0-51]
-  FunctionDeclaration [16-51]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-51]
-      FunctionParameter(is_not_aggregate=true) [20-50]
-        Identifier(a) [20-21]
-        TemplatedParameterType [22-31]
-        Alias [32-36]
-          Identifier(b) [35-36]
+CreateFunctionStatement [0-51] [CREATE FUNCTION...AGGREGATE)]
+  FunctionDeclaration [16-51] [foo(a ANY...AGGREGATE)]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-51] [(a ANY ARRAY...AGGREGATE)]
+      FunctionParameter(is_not_aggregate=true) [20-50] [a ANY ARRAY AS b NOT AGGREGATE]
+        Identifier(a) [20-21] [a]
+        TemplatedParameterType [22-31] [ANY ARRAY]
+        Alias [32-36] [AS b]
+          Identifier(b) [35-36] [b]
 --
 CREATE FUNCTION foo(a ANY ARRAY AS b NOT AGGREGATE)
 ==

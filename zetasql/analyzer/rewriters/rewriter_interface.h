@@ -49,6 +49,23 @@ class Rewriter {
   // The rewriter must use pools and sequence numbers from 'options' to allocate
   // new columns and ids. Likewise, any new types must be allocated via
   // 'type_factory'.
+  //
+  // The rewriter may return an error if the rewrite fails. In general, a
+  // rewriter should never do semantic validation of the query being rewritten.
+  // There are some other cases that can result in errors returned.
+  // kInvalidArgument errors are possible especially if a catalog object is
+  //     invalid. Because semantic validation is always handled before
+  //     rewriting, a KInvalidArgument typically is the fault of the query
+  //     engine and are generally not interesting to the user.
+  // kInternal errors typically mean a broken invariant and likely signal a bug
+  //     in the rewriter or an unexpected input shape. This typically is the
+  //     fault of the compiler library and is generally not interesting to the
+  //     user.
+  // kUnimplemented errors are likely for legal shapes that are not supported by
+  //     the rewriter implementation. Presumably, if the engine enables the
+  //     rewrite and the rewrite doesn't support a shape, the engine doesn't
+  //     support that shape either. The user needs to see these errors so they
+  //     can work around the unsupported shape.
   virtual absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,

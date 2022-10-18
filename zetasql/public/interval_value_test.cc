@@ -16,8 +16,10 @@
 
 #include "zetasql/public/interval_value.h"
 
+#include <array>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/functions/datetime.pb.h"

@@ -7,49 +7,46 @@
 # statement type.
 
 # An empty options list is allowed.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 MODULE foo OPTIONS();
 --
-ModuleStatement [0-20]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
-  OptionsList [18-20]
+ModuleStatement [0-20] [MODULE foo OPTIONS()]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  OptionsList [18-20] [()]
 --
 MODULE foo OPTIONS()
 ==
 
 MODULE foo OPTIONS(a=1);
 --
-ModuleStatement [0-23]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
-  OptionsList [18-23]
-    OptionsEntry [19-22]
-      Identifier(a) [19-20]
-      IntLiteral(1) [21-22]
+ModuleStatement [0-23] [MODULE foo OPTIONS(a=1)]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  OptionsList [18-23] [(a=1)]
+    OptionsEntry [19-22] [a=1]
+      Identifier(a) [19-20] [a]
+      IntLiteral(1) [21-22] [1]
 --
 MODULE foo OPTIONS(a = 1)
 ==
 
 MODULE foo OPTIONS(a=1, b = 'b', c = 2.0+57);
 --
-ModuleStatement [0-44]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
-  OptionsList [18-44]
-    OptionsEntry [19-22]
-      Identifier(a) [19-20]
-      IntLiteral(1) [21-22]
-    OptionsEntry [24-31]
-      Identifier(b) [24-25]
-      StringLiteral('b') [28-31]
-    OptionsEntry [33-43]
-      Identifier(c) [33-34]
-      BinaryExpression(+) [37-43]
-        FloatLiteral(2.0) [37-40]
-        IntLiteral(57) [41-43]
+ModuleStatement [0-44] [MODULE foo...= 2.0+57)]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  OptionsList [18-44] [(a=1, b = 'b', c = 2.0+57)]
+    OptionsEntry [19-22] [a=1]
+      Identifier(a) [19-20] [a]
+      IntLiteral(1) [21-22] [1]
+    OptionsEntry [24-31] [b = 'b']
+      Identifier(b) [24-25] [b]
+      StringLiteral('b') [28-31] ['b']
+    OptionsEntry [33-43] [c = 2.0+57]
+      Identifier(c) [33-34] [c]
+      BinaryExpression(+) [37-43] [2.0+57]
+        FloatLiteral(2.0) [37-40] [2.0]
+        IntLiteral(57) [41-43] [57]
 --
 MODULE foo OPTIONS(a = 1, b = 'b', c = 2.0 + 57)
 ==
@@ -59,19 +56,19 @@ MODULE foo OPTIONS(a = 1, b = 'b', c = 2.0 + 57)
 # expression is not a constant expression.
 MODULE foo OPTIONS(a=strcat(b, c));
 --
-ModuleStatement [0-34]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
-  OptionsList [18-34]
-    OptionsEntry [19-33]
-      Identifier(a) [19-20]
-      FunctionCall [21-33]
-        PathExpression [21-27]
-          Identifier(strcat) [21-27]
-        PathExpression [28-29]
-          Identifier(b) [28-29]
-        PathExpression [31-32]
-          Identifier(c) [31-32]
+ModuleStatement [0-34] [MODULE foo...strcat(b, c))]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  OptionsList [18-34] [(a=strcat(b, c))]
+    OptionsEntry [19-33] [a=strcat(b, c)]
+      Identifier(a) [19-20] [a]
+      FunctionCall [21-33] [strcat(b, c)]
+        PathExpression [21-27] [strcat]
+          Identifier(strcat) [21-27] [strcat]
+        PathExpression [28-29] [b]
+          Identifier(b) [28-29] [b]
+        PathExpression [31-32] [c]
+          Identifier(c) [31-32] [c]
 --
 MODULE foo OPTIONS(a = strcat(b, c))
 ==
@@ -136,13 +133,13 @@ MODULE foo OPTIONS(ALL=1);
 # Unreserved keywords generally do work.
 MODULE foo OPTIONS(ALTER=1);
 --
-ModuleStatement [0-27]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
-  OptionsList [18-27]
-    OptionsEntry [19-26]
-      Identifier(ALTER) [19-24]
-      IntLiteral(1) [25-26]
+ModuleStatement [0-27] [MODULE foo OPTIONS(ALTER=1)]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  OptionsList [18-27] [(ALTER=1)]
+    OptionsEntry [19-26] [ALTER=1]
+      Identifier(ALTER) [19-24] [ALTER]
+      IntLiteral(1) [25-26] [1]
 --
 MODULE foo OPTIONS(ALTER = 1)
 ==
@@ -151,39 +148,39 @@ MODULE foo OPTIONS(ALTER = 1)
 # reserved keywords.
 MODULE foo OPTIONS(HASH=1);
 --
-ModuleStatement [0-26]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
-  OptionsList [18-26]
-    OptionsEntry [19-25]
-      Identifier(`HASH`) [19-23]
-      IntLiteral(1) [24-25]
+ModuleStatement [0-26] [MODULE foo OPTIONS(HASH=1)]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  OptionsList [18-26] [(HASH=1)]
+    OptionsEntry [19-25] [HASH=1]
+      Identifier(`HASH`) [19-23] [HASH]
+      IntLiteral(1) [24-25] [1]
 --
 MODULE foo OPTIONS(`HASH` = 1)
 ==
 
 MODULE foo OPTIONS(PROTO=1);
 --
-ModuleStatement [0-27]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
-  OptionsList [18-27]
-    OptionsEntry [19-26]
-      Identifier(`PROTO`) [19-24]
-      IntLiteral(1) [25-26]
+ModuleStatement [0-27] [MODULE foo OPTIONS(PROTO=1)]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  OptionsList [18-27] [(PROTO=1)]
+    OptionsEntry [19-26] [PROTO=1]
+      Identifier(`PROTO`) [19-24] [PROTO]
+      IntLiteral(1) [25-26] [1]
 --
 MODULE foo OPTIONS(`PROTO` = 1)
 ==
 
 MODULE foo OPTIONS(PARTITION=1);
 --
-ModuleStatement [0-31]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
-  OptionsList [18-31]
-    OptionsEntry [19-30]
-      Identifier(`PARTITION`) [19-28]
-      IntLiteral(1) [29-30]
+ModuleStatement [0-31] [MODULE foo...PARTITION=1)]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  OptionsList [18-31] [(PARTITION=1)]
+    OptionsEntry [19-30] [PARTITION=1]
+      Identifier(`PARTITION`) [19-28] [PARTITION]
+      IntLiteral(1) [29-30] [1]
 --
 MODULE foo OPTIONS(`PARTITION` = 1)
 ==
@@ -194,44 +191,44 @@ ALTER {{TABLE|VIEW}} foo SET OPTIONS (a=1);
 --
 ALTERNATION GROUP: TABLE
 --
-AlterTableStatement [0-33]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-33]
-    SetOptionsOperation [16-33]
-      OptionsList [28-33]
-        OptionsEntry [29-32]
-          Identifier(a) [29-30]
-          IntLiteral(1) [31-32]
+AlterTableStatement [0-33] [ALTER TABLE...OPTIONS (a=1)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-33] [SET OPTIONS (a=1)]
+    SetOptionsOperation [16-33] [SET OPTIONS (a=1)]
+      OptionsList [28-33] [(a=1)]
+        OptionsEntry [29-32] [a=1]
+          Identifier(a) [29-30] [a]
+          IntLiteral(1) [31-32] [1]
 --
 ALTER TABLE foo SET OPTIONS(a = 1)
 --
 ALTERNATION GROUP: VIEW
 --
-AlterViewStatement [0-32]
-  PathExpression [11-14]
-    Identifier(foo) [11-14]
-  AlterActionList [15-32]
-    SetOptionsOperation [15-32]
-      OptionsList [27-32]
-        OptionsEntry [28-31]
-          Identifier(a) [28-29]
-          IntLiteral(1) [30-31]
+AlterViewStatement [0-32] [ALTER VIEW...OPTIONS (a=1)]
+  PathExpression [11-14] [foo]
+    Identifier(foo) [11-14] [foo]
+  AlterActionList [15-32] [SET OPTIONS (a=1)]
+    SetOptionsOperation [15-32] [SET OPTIONS (a=1)]
+      OptionsList [27-32] [(a=1)]
+        OptionsEntry [28-31] [a=1]
+          Identifier(a) [28-29] [a]
+          IntLiteral(1) [30-31] [1]
 --
 ALTER VIEW foo SET OPTIONS(a = 1)
 ==
 
 CREATE FUNCTION foo() OPTIONS (a=1);
 --
-CreateFunctionStatement [0-35]
-  FunctionDeclaration [16-21]
-    PathExpression [16-19]
-      Identifier(foo) [16-19]
-    FunctionParameters [19-21]
-  OptionsList [30-35]
-    OptionsEntry [31-34]
-      Identifier(a) [31-32]
-      IntLiteral(1) [33-34]
+CreateFunctionStatement [0-35] [CREATE FUNCTION...PTIONS (a=1)]
+  FunctionDeclaration [16-21] [foo()]
+    PathExpression [16-19] [foo]
+      Identifier(foo) [16-19] [foo]
+    FunctionParameters [19-21] [()]
+  OptionsList [30-35] [(a=1)]
+    OptionsEntry [31-34] [a=1]
+      Identifier(a) [31-32] [a]
+      IntLiteral(1) [33-34] [1]
 --
 CREATE FUNCTION foo()
 OPTIONS
@@ -240,20 +237,20 @@ OPTIONS
 
 CREATE TABLE foo OPTIONS (a=1) as SELECT 1 a;
 --
-CreateTableStatement [0-44]
-  PathExpression [13-16]
-    Identifier(foo) [13-16]
-  OptionsList [25-30]
-    OptionsEntry [26-29]
-      Identifier(a) [26-27]
-      IntLiteral(1) [28-29]
-  Query [34-44]
-    Select [34-44]
-      SelectList [41-44]
-        SelectColumn [41-44]
-          IntLiteral(1) [41-42]
-          Alias [43-44]
-            Identifier(a) [43-44]
+CreateTableStatement [0-44] [CREATE TABLE...SELECT 1 a]
+  PathExpression [13-16] [foo]
+    Identifier(foo) [13-16] [foo]
+  OptionsList [25-30] [(a=1)]
+    OptionsEntry [26-29] [a=1]
+      Identifier(a) [26-27] [a]
+      IntLiteral(1) [28-29] [1]
+  Query [34-44] [SELECT 1 a]
+    Select [34-44] [SELECT 1 a]
+      SelectList [41-44] [1 a]
+        SelectColumn [41-44] [1 a]
+          IntLiteral(1) [41-42] [1]
+          Alias [43-44] [a]
+            Identifier(a) [43-44] [a]
 --
 CREATE TABLE foo OPTIONS(a = 1) AS
 SELECT
@@ -262,20 +259,20 @@ SELECT
 
 CREATE MODEL foo OPTIONS (a=1) as SELECT 1 a;
 --
-CreateModelStatement [0-44]
-  PathExpression [13-16]
-    Identifier(foo) [13-16]
-  OptionsList [25-30]
-    OptionsEntry [26-29]
-      Identifier(a) [26-27]
-      IntLiteral(1) [28-29]
-  Query [34-44]
-    Select [34-44]
-      SelectList [41-44]
-        SelectColumn [41-44]
-          IntLiteral(1) [41-42]
-          Alias [43-44]
-            Identifier(a) [43-44]
+CreateModelStatement [0-44] [CREATE MODEL...SELECT 1 a]
+  PathExpression [13-16] [foo]
+    Identifier(foo) [13-16] [foo]
+  OptionsList [25-30] [(a=1)]
+    OptionsEntry [26-29] [a=1]
+      Identifier(a) [26-27] [a]
+      IntLiteral(1) [28-29] [1]
+  Query [34-44] [SELECT 1 a]
+    Select [34-44] [SELECT 1 a]
+      SelectList [41-44] [1 a]
+        SelectColumn [41-44] [1 a]
+          IntLiteral(1) [41-42] [1]
+          Alias [43-44] [a]
+            Identifier(a) [43-44] [a]
 --
 CREATE MODEL foo OPTIONS(a = 1) AS
 SELECT
@@ -284,20 +281,20 @@ SELECT
 
 CREATE VIEW foo OPTIONS (a=1) as SELECT 1 a;
 --
-CreateViewStatement [0-43]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  OptionsList [24-29]
-    OptionsEntry [25-28]
-      Identifier(a) [25-26]
-      IntLiteral(1) [27-28]
-  Query [33-43]
-    Select [33-43]
-      SelectList [40-43]
-        SelectColumn [40-43]
-          IntLiteral(1) [40-41]
-          Alias [42-43]
-            Identifier(a) [42-43]
+CreateViewStatement [0-43] [CREATE VIEW...SELECT 1 a]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  OptionsList [24-29] [(a=1)]
+    OptionsEntry [25-28] [a=1]
+      Identifier(a) [25-26] [a]
+      IntLiteral(1) [27-28] [1]
+  Query [33-43] [SELECT 1 a]
+    Select [33-43] [SELECT 1 a]
+      SelectList [40-43] [1 a]
+        SelectColumn [40-43] [1 a]
+          IntLiteral(1) [40-41] [1]
+          Alias [42-43] [a]
+            Identifier(a) [42-43] [a]
 --
 CREATE VIEW foo OPTIONS(a = 1) AS
 SELECT
@@ -306,18 +303,18 @@ SELECT
 
 EXPORT DATA OPTIONS (a=1) AS SELECT 1 a;
 --
-ExportDataStatement [0-39]
-  OptionsList [20-25]
-    OptionsEntry [21-24]
-      Identifier(a) [21-22]
-      IntLiteral(1) [23-24]
-  Query [29-39]
-    Select [29-39]
-      SelectList [36-39]
-        SelectColumn [36-39]
-          IntLiteral(1) [36-37]
-          Alias [38-39]
-            Identifier(a) [38-39]
+ExportDataStatement [0-39] [EXPORT DATA...SELECT 1 a]
+  OptionsList [20-25] [(a=1)]
+    OptionsEntry [21-24] [a=1]
+      Identifier(a) [21-22] [a]
+      IntLiteral(1) [23-24] [1]
+  Query [29-39] [SELECT 1 a]
+    Select [29-39] [SELECT 1 a]
+      SelectList [36-39] [1 a]
+        SelectColumn [36-39] [1 a]
+          IntLiteral(1) [36-37] [1]
+          Alias [38-39] [a]
+            Identifier(a) [38-39] [a]
 --
 EXPORT DATA OPTIONS(a = 1) AS
 SELECT
@@ -326,38 +323,38 @@ SELECT
 
 IMPORT MODULE foo OPTIONS (a=1);
 --
-ImportStatement [0-31]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
-  OptionsList [26-31]
-    OptionsEntry [27-30]
-      Identifier(a) [27-28]
-      IntLiteral(1) [29-30]
+ImportStatement [0-31] [IMPORT MODULE...OPTIONS (a=1)]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  OptionsList [26-31] [(a=1)]
+    OptionsEntry [27-30] [a=1]
+      Identifier(a) [27-28] [a]
+      IntLiteral(1) [29-30] [1]
 --
 IMPORT MODULE foo OPTIONS(a = 1)
 ==
 
 MODULE foo OPTIONS (a=1);
 --
-ModuleStatement [0-24]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
-  OptionsList [19-24]
-    OptionsEntry [20-23]
-      Identifier(a) [20-21]
-      IntLiteral(1) [22-23]
+ModuleStatement [0-24] [MODULE foo OPTIONS (a=1)]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  OptionsList [19-24] [(a=1)]
+    OptionsEntry [20-23] [a=1]
+      Identifier(a) [20-21] [a]
+      IntLiteral(1) [22-23] [1]
 --
 MODULE foo OPTIONS(a = 1)
 ==
 
 DEFINE TABLE foo (a=1);
 --
-DefineTableStatement [0-22]
-  PathExpression [13-16]
-    Identifier(foo) [13-16]
-  OptionsList [17-22]
-    OptionsEntry [18-21]
-      Identifier(a) [18-19]
-      IntLiteral(1) [20-21]
+DefineTableStatement [0-22] [DEFINE TABLE foo (a=1)]
+  PathExpression [13-16] [foo]
+    Identifier(foo) [13-16] [foo]
+  OptionsList [17-22] [(a=1)]
+    OptionsEntry [18-21] [a=1]
+      Identifier(a) [18-19] [a]
+      IntLiteral(1) [20-21] [1]
 --
 DEFINE TABLE foo(a = 1)

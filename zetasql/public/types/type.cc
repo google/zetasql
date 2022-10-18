@@ -26,6 +26,7 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -361,6 +362,79 @@ std::string Type::DebugString(bool details) const {
   return debug_string;
 }
 
+std::string Type::CapitalizedName() const {
+  switch (kind()) {
+    case TYPE_INT32:
+      return "Int32";
+    case TYPE_INT64:
+      return "Int64";
+    case TYPE_UINT32:
+      return "Uint32";
+    case TYPE_UINT64:
+      return "Uint64";
+    case TYPE_BOOL:
+      return "Bool";
+    case TYPE_FLOAT:
+      return "Float";
+    case TYPE_DOUBLE:
+      return "Double";
+    case TYPE_STRING:
+      return "String";
+    case TYPE_BYTES:
+      return "Bytes";
+    case TYPE_DATE:
+      return "Date";
+    case TYPE_TIMESTAMP:
+      return "Timestamp";
+    case TYPE_TIME:
+      return "Time";
+    case TYPE_DATETIME:
+      return "Datetime";
+    case TYPE_INTERVAL:
+      return "Interval";
+    case TYPE_GEOGRAPHY:
+      return "Geography";
+    case TYPE_NUMERIC:
+      return "Numeric";
+    case TYPE_BIGNUMERIC:
+      return "BigNumeric";
+    case TYPE_JSON:
+      return "Json";
+    case TYPE_RANGE:
+      // TODO: Consider moving to the types library and audit use of
+      // DebugString.
+      // TODO: Add tests for this logic after implementing range
+      // in zetasql::Value.
+      return absl::StrCat("Range<",
+                          this->AsRange()->element_type()->DebugString(), ">");
+    case TYPE_ENUM: {
+      if (AsEnum()->IsOpaque()) {
+        return AsEnum()->ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
+      } else {
+        return absl::StrCat("Enum<", AsEnum()->enum_descriptor()->full_name(),
+                            ">");
+      }
+    }
+    case TYPE_ARRAY:
+      // TODO: Consider moving to the types library and audit use of
+      // DebugString.
+      return absl::StrCat("Array<",
+                          this->AsArray()->element_type()->DebugString(), ">");
+    case TYPE_STRUCT:
+      return "Struct";
+    case TYPE_PROTO:
+      ZETASQL_CHECK(AsProto()->descriptor() != nullptr);
+      return absl::StrCat("Proto<", AsProto()->descriptor()->full_name(), ">");
+    case TYPE_EXTENDED:
+      // TODO: move this logic into an appropriate function of
+      // Type's interface.
+      return ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
+    case TYPE_UNKNOWN:
+    case __TypeKind__switch_must_have_a_default__:
+      ZETASQL_LOG(FATAL) << "Unexpected type kind expected internally only: " << kind();
+  }
+}
+
 bool Type::SupportsGrouping(const LanguageOptions& language_options,
                             std::string* type_description) const {
   const Type* no_grouping_type;
@@ -533,6 +607,17 @@ absl::StatusOr<std::string> Type::TypeNameWithParameters(
     const TypeParameters& type_params, ProductMode mode) const {
   return TypeNameWithModifiers(
       TypeModifiers::MakeTypeModifiers(type_params, Collation()), mode);
+}
+
+std::string Type::AddCapitalizedTypePrefix(const std::string& input,
+                                           bool is_null) const {
+  if (kind() == TYPE_PROTO && !is_null) {
+    // Proto types wrap their values using curly brackets, so don't need
+    // to add additional parentheses.
+    return absl::StrCat(CapitalizedName(), input);
+  }
+
+  return absl::StrCat(CapitalizedName(), "(", input, ")");
 }
 
 }  // namespace zetasql

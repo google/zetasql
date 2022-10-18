@@ -16,8 +16,10 @@
 
 #include "zetasql/resolved_ast/validator.h"
 
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/simple_catalog.h"
@@ -25,6 +27,7 @@
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -691,6 +694,59 @@ TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabled) {
   language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
   Validator validator(language_options);
   ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_procedure_stmt.get()));
+}
+
+TEST(ValidateTest, AnonymizedAggregateScan) {
+  IdStringPool pool;
+  auto anon_function = std::make_unique<Function>("anon_count", "test_group",
+                                                  Function::AGGREGATE);
+  FunctionSignature sig(FunctionArgumentType(types::Int64Type(), 1), {},
+                        static_cast<int64_t>(1234));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto anon_count_call,
+                       ResolvedAggregateFunctionCallBuilder()
+                           .set_type(types::Int64Type())
+                           .set_function(anon_function.get())
+                           .set_signature(std::move(sig))
+                           .Build());
+
+  ResolvedColumn column_anon_count =
+      ResolvedColumn(1, pool.Make("agg"), pool.Make("c"), types::Int64Type());
+  auto custom_option = MakeResolvedOption(
+      "", "custom_option",
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)));
+
+  auto query_stmt_builder =
+      ResolvedQueryStmtBuilder()
+          .add_output_column_list(
+              MakeResolvedOutputColumn("c", column_anon_count))
+          .set_query(ResolvedProjectScanBuilder()
+                         .add_column_list(column_anon_count)
+                         .set_input_scan(
+                             ResolvedAnonymizedAggregateScanBuilder()
+                                 .add_column_list(column_anon_count)
+                                 .set_input_scan(MakeResolvedSingleRowScan())
+                                 .add_aggregate_list(
+                                     ResolvedComputedColumnBuilder()
+                                         .set_column(column_anon_count)
+                                         .set_expr(std::move(anon_count_call)))
+                                 .set_k_threshold_expr(
+                                     ResolvedColumnRefBuilder()
+                                         .set_type(types::Int64Type())
+                                         .set_column(column_anon_count)
+                                         .set_is_correlated(false))
+                                 .add_anonymization_option_list(
+                                     std::move(custom_option))));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto query_stmt, std::move(query_stmt_builder).Build());
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_ANONYMIZATION);
+  AllowedHintsAndOptions allowed_hints_and_options;
+  allowed_hints_and_options.AddAnonymizationOption("custom_option",
+                                                   types::Int64Type());
+  ValidatorOptions validator_options{.allowed_hints_and_options =
+                                         allowed_hints_and_options};
+  Validator validator(language_options, validator_options);
+  ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(query_stmt.get()));
 }
 
 }  // namespace testing

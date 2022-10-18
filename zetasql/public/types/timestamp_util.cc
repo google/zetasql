@@ -16,6 +16,8 @@
 
 #include "zetasql/public/types/timestamp_util.h"
 
+#include <type_traits>
+
 namespace zetasql::types {
 
 absl::Time TimestampMaxBaseTime() {

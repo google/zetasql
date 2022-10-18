@@ -16,11 +16,14 @@
 
 #include "zetasql/public/function_signature.h"
 
+#include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "google/protobuf/util/message_differencer.h"
 #include "zetasql/common/errors.h"
@@ -71,6 +74,7 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_STRUCT_ANY:
     case ARG_ENUM_ANY:
     case ARG_TYPE_ARBITRARY:
+    case ARG_RANGE_TYPE_ANY:
       return true;
     case ARG_TYPE_RELATION:
     case ARG_TYPE_VOID:
@@ -163,6 +167,13 @@ absl::Status FunctionArgumentTypeOptions::Deserialize(
   options->set_is_not_aggregate(options_proto.is_not_aggregate());
   options->set_must_support_equality(options_proto.must_support_equality());
   options->set_must_support_ordering(options_proto.must_support_ordering());
+  options->set_must_support_grouping(options_proto.must_support_grouping());
+  options->set_array_element_must_support_ordering(
+      options_proto.array_element_must_support_ordering());
+  options->set_array_element_must_support_equality(
+      options_proto.array_element_must_support_equality());
+  options->set_array_element_must_support_grouping(
+      options_proto.array_element_must_support_grouping());
   if (options_proto.has_procedure_argument_mode()) {
     options->set_procedure_argument_mode(
         options_proto.procedure_argument_mode());
@@ -178,14 +189,10 @@ absl::Status FunctionArgumentTypeOptions::Deserialize(
         options_proto.extra_relation_input_columns_allowed());
   }
   if (options_proto.has_relation_input_schema()) {
-    // TODO: propagate TypeDeserializer through TVFRelation::Deserialize.
-    ZETASQL_ASSIGN_OR_RETURN(TVFRelation relation,
-                     TVFRelation::Deserialize(
-                         options_proto.relation_input_schema(),
-                         std::vector<const google::protobuf::DescriptorPool*>(
-                             type_deserializer.descriptor_pools().begin(),
-                             type_deserializer.descriptor_pools().end()),
-                         type_deserializer.type_factory()));
+    ZETASQL_ASSIGN_OR_RETURN(
+        TVFRelation relation,
+        TVFRelation::Deserialize(options_proto.relation_input_schema(),
+                                 type_deserializer));
     *options = FunctionArgumentTypeOptions(
         relation, options->extra_relation_input_columns_allowed());
   }
@@ -310,6 +317,21 @@ absl::Status FunctionArgumentTypeOptions::Serialize(
   }
   if (must_support_ordering()) {
     options_proto->set_must_support_ordering(must_support_ordering());
+  }
+  if (must_support_grouping()) {
+    options_proto->set_must_support_grouping(must_support_grouping());
+  }
+  if (array_element_must_support_ordering()) {
+    options_proto->set_array_element_must_support_ordering(
+        array_element_must_support_ordering());
+  }
+  if (array_element_must_support_equality()) {
+    options_proto->set_array_element_must_support_equality(
+        array_element_must_support_equality());
+  }
+  if (array_element_must_support_grouping()) {
+    options_proto->set_array_element_must_support_grouping(
+        array_element_must_support_grouping());
   }
   if (has_min_value()) {
     options_proto->set_min_value(min_value());
@@ -486,6 +508,8 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
       return "<void>";
     case ARG_TYPE_LAMBDA:
       return "ANY LAMBDA";
+    case ARG_RANGE_TYPE_ANY:
+      return "<range<T>>";
     case __SignatureArgumentKind__switch_must_have_a_default__:
       break;  // Handling this case is only allowed internally.
   }
@@ -604,7 +628,8 @@ bool FunctionArgumentType::IsScalar() const {
          kind_ == ARG_ARRAY_TYPE_ANY_2 || kind_ == ARG_PROTO_MAP_ANY ||
          kind_ == ARG_PROTO_MAP_KEY_ANY || kind_ == ARG_PROTO_MAP_VALUE_ANY ||
          kind_ == ARG_PROTO_ANY || kind_ == ARG_STRUCT_ANY ||
-         kind_ == ARG_ENUM_ANY || kind_ == ARG_TYPE_ARBITRARY;
+         kind_ == ARG_ENUM_ANY || kind_ == ARG_TYPE_ARBITRARY ||
+         kind_ == ARG_RANGE_TYPE_ANY;
 }
 
 // Intentionally restrictive for known functional programming functions. If this
@@ -1097,6 +1122,48 @@ std::string FunctionSignature::SignaturesToString(
   return out;
 }
 
+namespace {
+absl::StatusOr<bool> HasColumnWithCollation(const TVFRelation& relation) {
+  for (const TVFSchemaColumn& column : relation.columns()) {
+    if (column.annotation_map != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(Collation collation,
+                       Collation::MakeCollation(*column.annotation_map));
+      if (!collation.Empty()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Decides if a FunctionSignature should have "RETURNS" clause in its SQL
+// declaration based on its <result_type> field.
+absl::StatusOr<bool> ShouldHaveReturnsClauseInSQLDeclaration(
+    const FunctionArgumentType& result_type) {
+  if (result_type.IsVoid() || result_type.kind() == ARG_TYPE_ARBITRARY) {
+    return false;
+  }
+
+  if (result_type.IsRelation()) {
+    if (!result_type.options().has_relation_input_schema()) {
+      return false;
+    }
+
+    // When TVF query has collated output columns, if an explicit result schema
+    // is present, the analyzer will throw an error. To avoid failing the
+    // reparsing test, we do not generate "RETURNS" clause for this situation.
+    ZETASQL_ASSIGN_OR_RETURN(
+        bool has_column_with_collation,
+        HasColumnWithCollation(result_type.options().relation_input_schema()));
+    if (has_column_with_collation) {
+      return false;
+    }
+  }
+
+  return true;
+}
+}  // namespace
+
 std::string FunctionSignature::GetSQLDeclaration(
     const std::vector<std::string>& argument_names,
     ProductMode product_mode) const {
@@ -1116,10 +1183,14 @@ std::string FunctionSignature::GetSQLDeclaration(
     absl::StrAppend(&out, arguments_[i].GetSQLDeclaration(product_mode));
   }
   absl::StrAppend(&out, ")");
-  if (!result_type_.IsVoid() &&
-      result_type_.kind() != ARG_TYPE_ARBITRARY &&
-      !(result_type_.IsRelation() &&
-        !result_type_.options().has_relation_input_schema())) {
+  absl::StatusOr<bool> status_or_should_have_returns_clause =
+      ShouldHaveReturnsClauseInSQLDeclaration(result_type());
+  if (!status_or_should_have_returns_clause.ok()) {
+    absl::StrAppend(&out, " [Error in generating RETURNS clause: ",
+                    status_or_should_have_returns_clause.status().message(),
+                    "] ");
+  }
+  if (status_or_should_have_returns_clause.value()) {
     absl::StrAppend(&out, " RETURNS ",
                     result_type_.GetSQLDeclaration(product_mode));
   }
@@ -1154,7 +1225,8 @@ bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
       (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_KEY_ANY) ||
       (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_KEY_ANY) ||
       (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_VALUE_ANY) ||
-      (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_VALUE_ANY)) {
+      (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_VALUE_ANY) ||
+      (kind_ == ARG_TYPE_ANY_1 && kind == ARG_RANGE_TYPE_ANY)) {
     return true;
   }
   return false;

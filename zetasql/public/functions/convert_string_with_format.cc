@@ -17,6 +17,8 @@
 #include "zetasql/public/functions/convert_string_with_format.h"
 
 #include <algorithm>
+#include <cctype>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -1285,7 +1287,7 @@ absl::StatusOr<std::string> FormatAsDecimalInternal(
 
 absl::StatusOr<std::string> FormatAsDecimal(
     const ParsedFormatElementInfo& parsed_info, const Value& v,
-    ProductMode product_mode) {
+    ProductMode product_mode, bool canonicalize_zero) {
   if (v.type()->IsInteger()) {
     // If the input value is an integer, convert it to NUMERIC first.
     Value new_value;
@@ -1308,7 +1310,8 @@ absl::StatusOr<std::string> FormatAsDecimal(
         break;
     }
 
-    return FormatAsDecimal(parsed_info, new_value, product_mode);
+    return FormatAsDecimal(parsed_info, new_value, product_mode,
+                           canonicalize_zero);
   }
 
   // Formats the input value by calling FORMAT().
@@ -1321,7 +1324,8 @@ absl::StatusOr<std::string> FormatAsDecimal(
   bool is_null = false;
   std::string numeric_string;
   ZETASQL_RETURN_IF_ERROR(zetasql::functions::StringFormatUtf8(
-      format_string, {v}, product_mode, &numeric_string, &is_null));
+      format_string, {v}, product_mode, &numeric_string, &is_null,
+  canonicalize_zero));
   ZETASQL_RET_CHECK(!is_null);
 
   ZETASQL_ASSIGN_OR_RETURN(ParsedNumberString n,
@@ -1540,7 +1544,8 @@ absl::StatusOr<std::string> NumericalToStringFormatter::Format(const Value& v) {
 
   switch (parsed_info_.value().output_type) {
     case internal::OutputType::kDecimal:
-      return FormatAsDecimal(parsed_info_.value(), v, product_mode_);
+      return FormatAsDecimal(parsed_info_.value(), v, product_mode_,
+                             canonicalize_zero_);
     case internal::OutputType::kTextMinimal:
       return zetasql_base::UnimplementedErrorBuilder()
              << "Text minimal output is not supported yet";
@@ -1567,8 +1572,9 @@ absl::Status ValidateNumericalToStringFormat(absl::string_view format) {
 }
 
 absl::StatusOr<std::string> NumericalToStringWithFormat(
-    const Value& v, absl::string_view format, ProductMode product_mode) {
-  NumericalToStringFormatter formatter(product_mode);
+    const Value& v, absl::string_view format, ProductMode product_mode,
+    bool canonicalize_zero) {
+  NumericalToStringFormatter formatter(product_mode, canonicalize_zero);
   ZETASQL_RETURN_IF_ERROR(formatter.SetFormatString(format));
   return formatter.Format(v);
 }

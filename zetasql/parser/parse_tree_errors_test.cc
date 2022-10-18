@@ -17,6 +17,7 @@
 #include "zetasql/parser/parse_tree_errors.h"
 
 #include <functional>
+#include <memory>
 #include <string>
 
 #include "zetasql/common/status_payload_utils.h"

@@ -1,20 +1,18 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
+[default language_features=V_1_4_ORDERED_PRIMARY_KEYS]
 create external table t1
 options (a=b, c="def")
 --
-CreateExternalTableStatement [0-47]
-  PathExpression [22-24]
-    Identifier(t1) [22-24]
-  OptionsList [33-47]
-    OptionsEntry [34-37]
-      Identifier(a) [34-35]
-      PathExpression [36-37]
-        Identifier(b) [36-37]
-    OptionsEntry [39-46]
-      Identifier(c) [39-40]
-      StringLiteral("def") [41-46]
+CreateExternalTableStatement [0-47] [create external..., c="def")]
+  PathExpression [22-24] [t1]
+    Identifier(t1) [22-24] [t1]
+  OptionsList [33-47] [(a=b, c="def")]
+    OptionsEntry [34-37] [a=b]
+      Identifier(a) [34-35] [a]
+      PathExpression [36-37] [b]
+        Identifier(b) [36-37] [b]
+    OptionsEntry [39-46] [c="def"]
+      Identifier(c) [39-40] [c]
+      StringLiteral("def") [41-46] ["def"]
 --
 CREATE EXTERNAL TABLE t1 OPTIONS(a = b, c = "def")
 ==
@@ -24,61 +22,61 @@ options (size=10)
 --
 ALTERNATION GROUP: temp
 --
-CreateExternalTableStatement(is_temp) [0-53]
-  PathExpression [27-35]
-    Identifier(a) [27-28]
-    Identifier(b) [29-30]
-    Identifier(c) [31-32]
-    Identifier(t1) [33-35]
-  OptionsList [44-53]
-    OptionsEntry [45-52]
-      Identifier(size) [45-49]
-      IntLiteral(10) [50-52]
+CreateExternalTableStatement(is_temp) [0-53] [create temp...(size=10)]
+  PathExpression [27-35] [a.b.c.t1]
+    Identifier(a) [27-28] [a]
+    Identifier(b) [29-30] [b]
+    Identifier(c) [31-32] [c]
+    Identifier(t1) [33-35] [t1]
+  OptionsList [44-53] [(size=10)]
+    OptionsEntry [45-52] [size=10]
+      Identifier(size) [45-49] [size]
+      IntLiteral(10) [50-52] [10]
 --
 CREATE TEMP EXTERNAL TABLE a.b.c.t1 OPTIONS(size = 10)
 --
 ALTERNATION GROUP: temporary
 --
-CreateExternalTableStatement(is_temp) [0-58]
-  PathExpression [32-40]
-    Identifier(a) [32-33]
-    Identifier(b) [34-35]
-    Identifier(c) [36-37]
-    Identifier(t1) [38-40]
-  OptionsList [49-58]
-    OptionsEntry [50-57]
-      Identifier(size) [50-54]
-      IntLiteral(10) [55-57]
+CreateExternalTableStatement(is_temp) [0-58] [create temporary...(size=10)]
+  PathExpression [32-40] [a.b.c.t1]
+    Identifier(a) [32-33] [a]
+    Identifier(b) [34-35] [b]
+    Identifier(c) [36-37] [c]
+    Identifier(t1) [38-40] [t1]
+  OptionsList [49-58] [(size=10)]
+    OptionsEntry [50-57] [size=10]
+      Identifier(size) [50-54] [size]
+      IntLiteral(10) [55-57] [10]
 --
 CREATE TEMP EXTERNAL TABLE a.b.c.t1 OPTIONS(size = 10)
 --
 ALTERNATION GROUP: public
 --
-CreateExternalTableStatement(is_public) [0-55]
-  PathExpression [29-37]
-    Identifier(a) [29-30]
-    Identifier(b) [31-32]
-    Identifier(c) [33-34]
-    Identifier(t1) [35-37]
-  OptionsList [46-55]
-    OptionsEntry [47-54]
-      Identifier(size) [47-51]
-      IntLiteral(10) [52-54]
+CreateExternalTableStatement(is_public) [0-55] [create public...(size=10)]
+  PathExpression [29-37] [a.b.c.t1]
+    Identifier(a) [29-30] [a]
+    Identifier(b) [31-32] [b]
+    Identifier(c) [33-34] [c]
+    Identifier(t1) [35-37] [t1]
+  OptionsList [46-55] [(size=10)]
+    OptionsEntry [47-54] [size=10]
+      Identifier(size) [47-51] [size]
+      IntLiteral(10) [52-54] [10]
 --
 CREATE PUBLIC EXTERNAL TABLE a.b.c.t1 OPTIONS(size = 10)
 --
 ALTERNATION GROUP: private
 --
-CreateExternalTableStatement(is_private) [0-56]
-  PathExpression [30-38]
-    Identifier(a) [30-31]
-    Identifier(b) [32-33]
-    Identifier(c) [34-35]
-    Identifier(t1) [36-38]
-  OptionsList [47-56]
-    OptionsEntry [48-55]
-      Identifier(size) [48-52]
-      IntLiteral(10) [53-55]
+CreateExternalTableStatement(is_private) [0-56] [create private...(size=10)]
+  PathExpression [30-38] [a.b.c.t1]
+    Identifier(a) [30-31] [a]
+    Identifier(b) [32-33] [b]
+    Identifier(c) [34-35] [c]
+    Identifier(t1) [36-38] [t1]
+  OptionsList [47-56] [(size=10)]
+    OptionsEntry [48-55] [size=10]
+      Identifier(size) [48-52] [size]
+      IntLiteral(10) [53-55] [10]
 --
 CREATE PRIVATE EXTERNAL TABLE a.b.c.t1 OPTIONS(size = 10)
 ==
@@ -96,109 +94,109 @@ options ()
 --
 ALTERNATION GROUP: <empty>
 --
-CreateExternalTableStatement [0-37]
-  PathExpression [25-26]
-    Identifier(T) [25-26]
-  OptionsList [35-37]
+CreateExternalTableStatement [0-37] [create   external...options ()]
+  PathExpression [25-26] [T]
+    Identifier(T) [25-26] [T]
+  OptionsList [35-37] [()]
 --
 CREATE EXTERNAL TABLE T OPTIONS()
 --
 ALTERNATION GROUP: if not exists
 --
-CreateExternalTableStatement(is_if_not_exists) [0-50]
-  PathExpression [38-39]
-    Identifier(T) [38-39]
-  OptionsList [48-50]
+CreateExternalTableStatement(is_if_not_exists) [0-50] [create   external...options ()]
+  PathExpression [38-39] [T]
+    Identifier(T) [38-39] [T]
+  OptionsList [48-50] [()]
 --
 CREATE EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
 --
 ALTERNATION GROUP: temporary,
 --
-CreateExternalTableStatement(is_temp) [0-46]
-  PathExpression [34-35]
-    Identifier(T) [34-35]
-  OptionsList [44-46]
+CreateExternalTableStatement(is_temp) [0-46] [create  temporary...options ()]
+  PathExpression [34-35] [T]
+    Identifier(T) [34-35] [T]
+  OptionsList [44-46] [()]
 --
 CREATE TEMP EXTERNAL TABLE T OPTIONS()
 --
 ALTERNATION GROUP: temporary,if not exists
 --
-CreateExternalTableStatement(is_temp, is_if_not_exists) [0-59]
-  PathExpression [47-48]
-    Identifier(T) [47-48]
-  OptionsList [57-59]
+CreateExternalTableStatement(is_temp, is_if_not_exists) [0-59] [create  temporary...options ()]
+  PathExpression [47-48] [T]
+    Identifier(T) [47-48] [T]
+  OptionsList [57-59] [()]
 --
 CREATE TEMP EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
 --
 ALTERNATION GROUP: temp,
 --
-CreateExternalTableStatement(is_temp) [0-41]
-  PathExpression [29-30]
-    Identifier(T) [29-30]
-  OptionsList [39-41]
+CreateExternalTableStatement(is_temp) [0-41] [create  temp...options ()]
+  PathExpression [29-30] [T]
+    Identifier(T) [29-30] [T]
+  OptionsList [39-41] [()]
 --
 CREATE TEMP EXTERNAL TABLE T OPTIONS()
 --
 ALTERNATION GROUP: temp,if not exists
 --
-CreateExternalTableStatement(is_temp, is_if_not_exists) [0-54]
-  PathExpression [42-43]
-    Identifier(T) [42-43]
-  OptionsList [52-54]
+CreateExternalTableStatement(is_temp, is_if_not_exists) [0-54] [create  temp...options ()]
+  PathExpression [42-43] [T]
+    Identifier(T) [42-43] [T]
+  OptionsList [52-54] [()]
 --
 CREATE TEMP EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
 --
 ALTERNATION GROUP: or replace,,
 --
-CreateExternalTableStatement(is_or_replace) [0-47]
-  PathExpression [35-36]
-    Identifier(T) [35-36]
-  OptionsList [45-47]
+CreateExternalTableStatement(is_or_replace) [0-47] [create or...options ()]
+  PathExpression [35-36] [T]
+    Identifier(T) [35-36] [T]
+  OptionsList [45-47] [()]
 --
 CREATE OR REPLACE EXTERNAL TABLE T OPTIONS()
 --
 ALTERNATION GROUP: or replace,,if not exists
 --
-CreateExternalTableStatement(is_or_replace, is_if_not_exists) [0-60]
-  PathExpression [48-49]
-    Identifier(T) [48-49]
-  OptionsList [58-60]
+CreateExternalTableStatement(is_or_replace, is_if_not_exists) [0-60] [create or...options ()]
+  PathExpression [48-49] [T]
+    Identifier(T) [48-49] [T]
+  OptionsList [58-60] [()]
 --
 CREATE OR REPLACE EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
 --
 ALTERNATION GROUP: or replace,temporary,
 --
-CreateExternalTableStatement(is_temp, is_or_replace) [0-56]
-  PathExpression [44-45]
-    Identifier(T) [44-45]
-  OptionsList [54-56]
+CreateExternalTableStatement(is_temp, is_or_replace) [0-56] [create or...options ()]
+  PathExpression [44-45] [T]
+    Identifier(T) [44-45] [T]
+  OptionsList [54-56] [()]
 --
 CREATE OR REPLACE TEMP EXTERNAL TABLE T OPTIONS()
 --
 ALTERNATION GROUP: or replace,temporary,if not exists
 --
-CreateExternalTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-69]
-  PathExpression [57-58]
-    Identifier(T) [57-58]
-  OptionsList [67-69]
+CreateExternalTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-69] [create or...options ()]
+  PathExpression [57-58] [T]
+    Identifier(T) [57-58] [T]
+  OptionsList [67-69] [()]
 --
 CREATE OR REPLACE TEMP EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
 --
 ALTERNATION GROUP: or replace,temp,
 --
-CreateExternalTableStatement(is_temp, is_or_replace) [0-51]
-  PathExpression [39-40]
-    Identifier(T) [39-40]
-  OptionsList [49-51]
+CreateExternalTableStatement(is_temp, is_or_replace) [0-51] [create or...options ()]
+  PathExpression [39-40] [T]
+    Identifier(T) [39-40] [T]
+  OptionsList [49-51] [()]
 --
 CREATE OR REPLACE TEMP EXTERNAL TABLE T OPTIONS()
 --
 ALTERNATION GROUP: or replace,temp,if not exists
 --
-CreateExternalTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-64]
-  PathExpression [52-53]
-    Identifier(T) [52-53]
-  OptionsList [62-64]
+CreateExternalTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-64] [create or...options ()]
+  PathExpression [52-53] [T]
+    Identifier(T) [52-53] [T]
+  OptionsList [62-64] [()]
 --
 CREATE OR REPLACE TEMP EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
 ==
@@ -256,10 +254,10 @@ create external table function options();
 
 create external table `function` options();
 --
-CreateExternalTableStatement [0-42]
-  PathExpression [22-32]
-    Identifier(`function`) [22-32]
-  OptionsList [40-42]
+CreateExternalTableStatement [0-42] [create external...options()]
+  PathExpression [22-32] [`function`]
+    Identifier(`function`) [22-32] [`function`]
+  OptionsList [40-42] [()]
 --
 CREATE EXTERNAL TABLE `function` OPTIONS()
 ==
@@ -288,10 +286,10 @@ create external table function option as select 1;
 
 create external table `function` options();
 --
-CreateExternalTableStatement [0-42]
-  PathExpression [22-32]
-    Identifier(`function`) [22-32]
-  OptionsList [40-42]
+CreateExternalTableStatement [0-42] [create external...options()]
+  PathExpression [22-32] [`function`]
+    Identifier(`function`) [22-32] [`function`]
+  OptionsList [40-42] [()]
 --
 CREATE EXTERNAL TABLE `function` OPTIONS()
 ==
@@ -301,16 +299,16 @@ options ()
 --
 ALTERNATION GROUP: <empty>
 --
-CreateExternalTableStatement [0-44]
-  PathExpression [23-24]
-    Identifier(t) [23-24]
-  TableElementList [24-33]
-    ColumnDefinition [25-32]
-      Identifier(x) [25-26]
-      SimpleColumnSchema [27-32]
-        PathExpression [27-32]
-          Identifier(int64) [27-32]
-  OptionsList [42-44]
+CreateExternalTableStatement [0-44] [create  external...options ()]
+  PathExpression [23-24] [t]
+    Identifier(t) [23-24] [t]
+  TableElementList [24-33] [(x int64)]
+    ColumnDefinition [25-32] [x int64]
+      Identifier(x) [25-26] [x]
+      SimpleColumnSchema [27-32] [int64]
+        PathExpression [27-32] [int64]
+          Identifier(int64) [27-32] [int64]
+  OptionsList [42-44] [()]
 --
 CREATE EXTERNAL TABLE t
 (
@@ -319,16 +317,16 @@ CREATE EXTERNAL TABLE t
 --
 ALTERNATION GROUP: temp
 --
-CreateExternalTableStatement(is_temp) [0-48]
-  PathExpression [27-28]
-    Identifier(t) [27-28]
-  TableElementList [28-37]
-    ColumnDefinition [29-36]
-      Identifier(x) [29-30]
-      SimpleColumnSchema [31-36]
-        PathExpression [31-36]
-          Identifier(int64) [31-36]
-  OptionsList [46-48]
+CreateExternalTableStatement(is_temp) [0-48] [create temp...options ()]
+  PathExpression [27-28] [t]
+    Identifier(t) [27-28] [t]
+  TableElementList [28-37] [(x int64)]
+    ColumnDefinition [29-36] [x int64]
+      Identifier(x) [29-30] [x]
+      SimpleColumnSchema [31-36] [int64]
+        PathExpression [31-36] [int64]
+          Identifier(int64) [31-36] [int64]
+  OptionsList [46-48] [()]
 --
 CREATE TEMP EXTERNAL TABLE t
 (
@@ -337,16 +335,16 @@ CREATE TEMP EXTERNAL TABLE t
 --
 ALTERNATION GROUP: temporary
 --
-CreateExternalTableStatement(is_temp) [0-53]
-  PathExpression [32-33]
-    Identifier(t) [32-33]
-  TableElementList [33-42]
-    ColumnDefinition [34-41]
-      Identifier(x) [34-35]
-      SimpleColumnSchema [36-41]
-        PathExpression [36-41]
-          Identifier(int64) [36-41]
-  OptionsList [51-53]
+CreateExternalTableStatement(is_temp) [0-53] [create temporary...options ()]
+  PathExpression [32-33] [t]
+    Identifier(t) [32-33] [t]
+  TableElementList [33-42] [(x int64)]
+    ColumnDefinition [34-41] [x int64]
+      Identifier(x) [34-35] [x]
+      SimpleColumnSchema [36-41] [int64]
+        PathExpression [36-41] [int64]
+          Identifier(int64) [36-41] [int64]
+  OptionsList [51-53] [()]
 --
 CREATE TEMP EXTERNAL TABLE t
 (
@@ -355,16 +353,16 @@ CREATE TEMP EXTERNAL TABLE t
 --
 ALTERNATION GROUP: public
 --
-CreateExternalTableStatement(is_public) [0-50]
-  PathExpression [29-30]
-    Identifier(t) [29-30]
-  TableElementList [30-39]
-    ColumnDefinition [31-38]
-      Identifier(x) [31-32]
-      SimpleColumnSchema [33-38]
-        PathExpression [33-38]
-          Identifier(int64) [33-38]
-  OptionsList [48-50]
+CreateExternalTableStatement(is_public) [0-50] [create public...options ()]
+  PathExpression [29-30] [t]
+    Identifier(t) [29-30] [t]
+  TableElementList [30-39] [(x int64)]
+    ColumnDefinition [31-38] [x int64]
+      Identifier(x) [31-32] [x]
+      SimpleColumnSchema [33-38] [int64]
+        PathExpression [33-38] [int64]
+          Identifier(int64) [33-38] [int64]
+  OptionsList [48-50] [()]
 --
 CREATE PUBLIC EXTERNAL TABLE t
 (
@@ -373,16 +371,16 @@ CREATE PUBLIC EXTERNAL TABLE t
 --
 ALTERNATION GROUP: private
 --
-CreateExternalTableStatement(is_private) [0-51]
-  PathExpression [30-31]
-    Identifier(t) [30-31]
-  TableElementList [31-40]
-    ColumnDefinition [32-39]
-      Identifier(x) [32-33]
-      SimpleColumnSchema [34-39]
-        PathExpression [34-39]
-          Identifier(int64) [34-39]
-  OptionsList [49-51]
+CreateExternalTableStatement(is_private) [0-51] [create private...options ()]
+  PathExpression [30-31] [t]
+    Identifier(t) [30-31] [t]
+  TableElementList [31-40] [(x int64)]
+    ColumnDefinition [32-39] [x int64]
+      Identifier(x) [32-33] [x]
+      SimpleColumnSchema [34-39] [int64]
+        PathExpression [34-39] [int64]
+          Identifier(int64) [34-39] [int64]
+  OptionsList [49-51] [()]
 --
 CREATE PRIVATE EXTERNAL TABLE t
 (
@@ -395,16 +393,16 @@ options ()
 --
 ALTERNATION GROUP: <empty>
 --
-CreateExternalTableStatement [0-46]
-  PathExpression [25-26]
-    Identifier(t) [25-26]
-  TableElementList [26-35]
-    ColumnDefinition [27-34]
-      Identifier(x) [27-28]
-      SimpleColumnSchema [29-34]
-        PathExpression [29-34]
-          Identifier(int64) [29-34]
-  OptionsList [44-46]
+CreateExternalTableStatement [0-46] [create   external...options ()]
+  PathExpression [25-26] [t]
+    Identifier(t) [25-26] [t]
+  TableElementList [26-35] [(x int64)]
+    ColumnDefinition [27-34] [x int64]
+      Identifier(x) [27-28] [x]
+      SimpleColumnSchema [29-34] [int64]
+        PathExpression [29-34] [int64]
+          Identifier(int64) [29-34] [int64]
+  OptionsList [44-46] [()]
 --
 CREATE EXTERNAL TABLE t
 (
@@ -413,16 +411,16 @@ CREATE EXTERNAL TABLE t
 --
 ALTERNATION GROUP: if not exists
 --
-CreateExternalTableStatement(is_if_not_exists) [0-59]
-  PathExpression [38-39]
-    Identifier(t) [38-39]
-  TableElementList [39-48]
-    ColumnDefinition [40-47]
-      Identifier(x) [40-41]
-      SimpleColumnSchema [42-47]
-        PathExpression [42-47]
-          Identifier(int64) [42-47]
-  OptionsList [57-59]
+CreateExternalTableStatement(is_if_not_exists) [0-59] [create   external...options ()]
+  PathExpression [38-39] [t]
+    Identifier(t) [38-39] [t]
+  TableElementList [39-48] [(x int64)]
+    ColumnDefinition [40-47] [x int64]
+      Identifier(x) [40-41] [x]
+      SimpleColumnSchema [42-47] [int64]
+        PathExpression [42-47] [int64]
+          Identifier(int64) [42-47] [int64]
+  OptionsList [57-59] [()]
 --
 CREATE EXTERNAL TABLE IF NOT EXISTS t
 (
@@ -431,16 +429,16 @@ CREATE EXTERNAL TABLE IF NOT EXISTS t
 --
 ALTERNATION GROUP: temp,
 --
-CreateExternalTableStatement(is_temp) [0-50]
-  PathExpression [29-30]
-    Identifier(t) [29-30]
-  TableElementList [30-39]
-    ColumnDefinition [31-38]
-      Identifier(x) [31-32]
-      SimpleColumnSchema [33-38]
-        PathExpression [33-38]
-          Identifier(int64) [33-38]
-  OptionsList [48-50]
+CreateExternalTableStatement(is_temp) [0-50] [create  temp...options ()]
+  PathExpression [29-30] [t]
+    Identifier(t) [29-30] [t]
+  TableElementList [30-39] [(x int64)]
+    ColumnDefinition [31-38] [x int64]
+      Identifier(x) [31-32] [x]
+      SimpleColumnSchema [33-38] [int64]
+        PathExpression [33-38] [int64]
+          Identifier(int64) [33-38] [int64]
+  OptionsList [48-50] [()]
 --
 CREATE TEMP EXTERNAL TABLE t
 (
@@ -449,16 +447,16 @@ CREATE TEMP EXTERNAL TABLE t
 --
 ALTERNATION GROUP: temp,if not exists
 --
-CreateExternalTableStatement(is_temp, is_if_not_exists) [0-63]
-  PathExpression [42-43]
-    Identifier(t) [42-43]
-  TableElementList [43-52]
-    ColumnDefinition [44-51]
-      Identifier(x) [44-45]
-      SimpleColumnSchema [46-51]
-        PathExpression [46-51]
-          Identifier(int64) [46-51]
-  OptionsList [61-63]
+CreateExternalTableStatement(is_temp, is_if_not_exists) [0-63] [create  temp...options ()]
+  PathExpression [42-43] [t]
+    Identifier(t) [42-43] [t]
+  TableElementList [43-52] [(x int64)]
+    ColumnDefinition [44-51] [x int64]
+      Identifier(x) [44-45] [x]
+      SimpleColumnSchema [46-51] [int64]
+        PathExpression [46-51] [int64]
+          Identifier(int64) [46-51] [int64]
+  OptionsList [61-63] [()]
 --
 CREATE TEMP EXTERNAL TABLE IF NOT EXISTS t
 (
@@ -467,16 +465,16 @@ CREATE TEMP EXTERNAL TABLE IF NOT EXISTS t
 --
 ALTERNATION GROUP: or replace,,
 --
-CreateExternalTableStatement(is_or_replace) [0-56]
-  PathExpression [35-36]
-    Identifier(t) [35-36]
-  TableElementList [36-45]
-    ColumnDefinition [37-44]
-      Identifier(x) [37-38]
-      SimpleColumnSchema [39-44]
-        PathExpression [39-44]
-          Identifier(int64) [39-44]
-  OptionsList [54-56]
+CreateExternalTableStatement(is_or_replace) [0-56] [create or...options ()]
+  PathExpression [35-36] [t]
+    Identifier(t) [35-36] [t]
+  TableElementList [36-45] [(x int64)]
+    ColumnDefinition [37-44] [x int64]
+      Identifier(x) [37-38] [x]
+      SimpleColumnSchema [39-44] [int64]
+        PathExpression [39-44] [int64]
+          Identifier(int64) [39-44] [int64]
+  OptionsList [54-56] [()]
 --
 CREATE OR REPLACE EXTERNAL TABLE t
 (
@@ -485,16 +483,16 @@ CREATE OR REPLACE EXTERNAL TABLE t
 --
 ALTERNATION GROUP: or replace,,if not exists
 --
-CreateExternalTableStatement(is_or_replace, is_if_not_exists) [0-69]
-  PathExpression [48-49]
-    Identifier(t) [48-49]
-  TableElementList [49-58]
-    ColumnDefinition [50-57]
-      Identifier(x) [50-51]
-      SimpleColumnSchema [52-57]
-        PathExpression [52-57]
-          Identifier(int64) [52-57]
-  OptionsList [67-69]
+CreateExternalTableStatement(is_or_replace, is_if_not_exists) [0-69] [create or...options ()]
+  PathExpression [48-49] [t]
+    Identifier(t) [48-49] [t]
+  TableElementList [49-58] [(x int64)]
+    ColumnDefinition [50-57] [x int64]
+      Identifier(x) [50-51] [x]
+      SimpleColumnSchema [52-57] [int64]
+        PathExpression [52-57] [int64]
+          Identifier(int64) [52-57] [int64]
+  OptionsList [67-69] [()]
 --
 CREATE OR REPLACE EXTERNAL TABLE IF NOT EXISTS t
 (
@@ -503,16 +501,16 @@ CREATE OR REPLACE EXTERNAL TABLE IF NOT EXISTS t
 --
 ALTERNATION GROUP: or replace,temp,
 --
-CreateExternalTableStatement(is_temp, is_or_replace) [0-60]
-  PathExpression [39-40]
-    Identifier(t) [39-40]
-  TableElementList [40-49]
-    ColumnDefinition [41-48]
-      Identifier(x) [41-42]
-      SimpleColumnSchema [43-48]
-        PathExpression [43-48]
-          Identifier(int64) [43-48]
-  OptionsList [58-60]
+CreateExternalTableStatement(is_temp, is_or_replace) [0-60] [create or...options ()]
+  PathExpression [39-40] [t]
+    Identifier(t) [39-40] [t]
+  TableElementList [40-49] [(x int64)]
+    ColumnDefinition [41-48] [x int64]
+      Identifier(x) [41-42] [x]
+      SimpleColumnSchema [43-48] [int64]
+        PathExpression [43-48] [int64]
+          Identifier(int64) [43-48] [int64]
+  OptionsList [58-60] [()]
 --
 CREATE OR REPLACE TEMP EXTERNAL TABLE t
 (
@@ -521,16 +519,16 @@ CREATE OR REPLACE TEMP EXTERNAL TABLE t
 --
 ALTERNATION GROUP: or replace,temp,if not exists
 --
-CreateExternalTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-73]
-  PathExpression [52-53]
-    Identifier(t) [52-53]
-  TableElementList [53-62]
-    ColumnDefinition [54-61]
-      Identifier(x) [54-55]
-      SimpleColumnSchema [56-61]
-        PathExpression [56-61]
-          Identifier(int64) [56-61]
-  OptionsList [71-73]
+CreateExternalTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-73] [create or...options ()]
+  PathExpression [52-53] [t]
+    Identifier(t) [52-53] [t]
+  TableElementList [53-62] [(x int64)]
+    ColumnDefinition [54-61] [x int64]
+      Identifier(x) [54-55] [x]
+      SimpleColumnSchema [56-61] [int64]
+        PathExpression [56-61] [int64]
+          Identifier(int64) [56-61] [int64]
+  OptionsList [71-73] [()]
 --
 CREATE OR REPLACE TEMP EXTERNAL TABLE IF NOT EXISTS t
 (
@@ -541,27 +539,27 @@ CREATE OR REPLACE TEMP EXTERNAL TABLE IF NOT EXISTS t
 create external table t1(element1 bool, element2 string)
 options (a='{"jsonkey": "jsonvalue"}', c="def")
 --
-CreateExternalTableStatement [0-104]
-  PathExpression [22-24]
-    Identifier(t1) [22-24]
-  TableElementList [24-56]
-    ColumnDefinition [25-38]
-      Identifier(element1) [25-33]
-      SimpleColumnSchema [34-38]
-        PathExpression [34-38]
-          Identifier(bool) [34-38]
-    ColumnDefinition [40-55]
-      Identifier(element2) [40-48]
-      SimpleColumnSchema [49-55]
-        PathExpression [49-55]
-          Identifier(string) [49-55]
-  OptionsList [65-104]
-    OptionsEntry [66-94]
-      Identifier(a) [66-67]
-      StringLiteral('{"jsonkey": "jsonvalue"}') [68-94]
-    OptionsEntry [96-103]
-      Identifier(c) [96-97]
-      StringLiteral("def") [98-103]
+CreateExternalTableStatement [0-104] [create external..., c="def")]
+  PathExpression [22-24] [t1]
+    Identifier(t1) [22-24] [t1]
+  TableElementList [24-56] [(element1...element2 string)]
+    ColumnDefinition [25-38] [element1 bool]
+      Identifier(element1) [25-33] [element1]
+      SimpleColumnSchema [34-38] [bool]
+        PathExpression [34-38] [bool]
+          Identifier(bool) [34-38] [bool]
+    ColumnDefinition [40-55] [element2 string]
+      Identifier(element2) [40-48] [element2]
+      SimpleColumnSchema [49-55] [string]
+        PathExpression [49-55] [string]
+          Identifier(string) [49-55] [string]
+  OptionsList [65-104] [(a='{"jsonkey..., c="def")]
+    OptionsEntry [66-94] [a='{"jsonkey": "jsonvalue"}']
+      Identifier(a) [66-67] [a]
+      StringLiteral('{"jsonkey": "jsonvalue"}') [68-94] ['{"jsonkey": "jsonvalue"}']
+    OptionsEntry [96-103] [c="def"]
+      Identifier(c) [96-97] [c]
+      StringLiteral("def") [98-103] ["def"]
 --
 CREATE EXTERNAL TABLE t1
 (
@@ -581,22 +579,22 @@ create external table t1(x int64)
 create external table t1(x int64 NOT NULL)
 options(a=b)
 --
-CreateExternalTableStatement [0-55]
-  PathExpression [22-24]
-    Identifier(t1) [22-24]
-  TableElementList [24-42]
-    ColumnDefinition [25-41]
-      Identifier(x) [25-26]
-      SimpleColumnSchema [27-41]
-        PathExpression [27-32]
-          Identifier(int64) [27-32]
-        ColumnAttributeList [33-41]
-          NotNullColumnAttribute [33-41]
-  OptionsList [50-55]
-    OptionsEntry [51-54]
-      Identifier(a) [51-52]
-      PathExpression [53-54]
-        Identifier(b) [53-54]
+CreateExternalTableStatement [0-55] [create external...options(a=b)]
+  PathExpression [22-24] [t1]
+    Identifier(t1) [22-24] [t1]
+  TableElementList [24-42] [(x int64 NOT NULL)]
+    ColumnDefinition [25-41] [x int64 NOT NULL]
+      Identifier(x) [25-26] [x]
+      SimpleColumnSchema [27-41] [int64 NOT NULL]
+        PathExpression [27-32] [int64]
+          Identifier(int64) [27-32] [int64]
+        ColumnAttributeList [33-41] [NOT NULL]
+          NotNullColumnAttribute [33-41] [NOT NULL]
+  OptionsList [50-55] [(a=b)]
+    OptionsEntry [51-54] [a=b]
+      Identifier(a) [51-52] [a]
+      PathExpression [53-54] [b]
+        Identifier(b) [53-54] [b]
 --
 CREATE EXTERNAL TABLE t1
 (
@@ -611,40 +609,40 @@ create external table projectid.datasetid.tablename(
   PRIMARY KEY(x, y ASC, z DESC)
 ) options (a=b)
 --
-CreateExternalTableStatement [0-135]
-  PathExpression [22-51]
-    Identifier(projectid) [22-31]
-    Identifier(datasetid) [32-41]
-    Identifier(tablename) [42-51]
-  TableElementList [51-121]
-    ColumnDefinition [55-62]
-      Identifier(x) [55-56]
-      SimpleColumnSchema [57-62]
-        PathExpression [57-62]
-          Identifier(int64) [57-62]
-    ColumnDefinition [66-74]
-      Identifier(y) [66-67]
-      SimpleColumnSchema [68-74]
-        PathExpression [68-74]
-          Identifier(string) [68-74]
-    ColumnDefinition [78-86]
-      Identifier(z) [78-79]
-      SimpleColumnSchema [80-86]
-        PathExpression [80-86]
-          Identifier(string) [80-86]
-    PrimaryKey(ENFORCED) [90-119]
-      PrimaryKeyElementList [101-119]
-        PrimaryKeyElement(ASC) [102-103]
-          Identifier(x) [102-103]
-        PrimaryKeyElement(ASC EXPLICITLY) [105-110]
-          Identifier(y) [105-106]
-        PrimaryKeyElement(DESC) [112-118]
-          Identifier(z) [112-113]
-  OptionsList [130-135]
-    OptionsEntry [131-134]
-      Identifier(a) [131-132]
-      PathExpression [133-134]
-        Identifier(b) [133-134]
+CreateExternalTableStatement [0-135] [create external...ptions (a=b)]
+  PathExpression [22-51] [projectid.datasetid.tablename]
+    Identifier(projectid) [22-31] [projectid]
+    Identifier(datasetid) [32-41] [datasetid]
+    Identifier(tablename) [42-51] [tablename]
+  TableElementList [51-121] [(   x int64...z DESC) )]
+    ColumnDefinition [55-62] [x int64]
+      Identifier(x) [55-56] [x]
+      SimpleColumnSchema [57-62] [int64]
+        PathExpression [57-62] [int64]
+          Identifier(int64) [57-62] [int64]
+    ColumnDefinition [66-74] [y string]
+      Identifier(y) [66-67] [y]
+      SimpleColumnSchema [68-74] [string]
+        PathExpression [68-74] [string]
+          Identifier(string) [68-74] [string]
+    ColumnDefinition [78-86] [z string]
+      Identifier(z) [78-79] [z]
+      SimpleColumnSchema [80-86] [string]
+        PathExpression [80-86] [string]
+          Identifier(string) [80-86] [string]
+    PrimaryKey(ENFORCED) [90-119] [PRIMARY KEY(x, y ASC, z DESC)]
+      PrimaryKeyElementList [101-119] [(x, y ASC, z DESC)]
+        PrimaryKeyElement(ASC) [102-103] [x]
+          Identifier(x) [102-103] [x]
+        PrimaryKeyElement(ASC EXPLICITLY) [105-110] [y ASC]
+          Identifier(y) [105-106] [y]
+        PrimaryKeyElement(DESC) [112-118] [z DESC]
+          Identifier(z) [112-113] [z]
+  OptionsList [130-135] [(a=b)]
+    OptionsEntry [131-134] [a=b]
+      Identifier(a) [131-132] [a]
+      PathExpression [133-134] [b]
+        Identifier(b) [133-134] [b]
 --
 
 CREATE EXTERNAL TABLE projectid.datasetid.tablename
@@ -708,29 +706,29 @@ create external table a.b.c.T(x int64)
 ==
 
 [no_test_get_parse_tokens]
-[{{no_|}}allow_dashed_table_names]
+[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 create external table t1-2
 options (a=b, c="def")
 --
-ALTERNATION GROUP: no_
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `t1-2` [at 1:23]
 create external table t1-2
                       ^
 --
-ALTERNATION GROUP: <empty>
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
 --
-CreateExternalTableStatement [0-49]
-  PathExpression [22-26]
-    Identifier(`t1-2`) [22-26]
-  OptionsList [35-49]
-    OptionsEntry [36-39]
-      Identifier(a) [36-37]
-      PathExpression [38-39]
-        Identifier(b) [38-39]
-    OptionsEntry [41-48]
-      Identifier(c) [41-42]
-      StringLiteral("def") [43-48]
+CreateExternalTableStatement [0-49] [create external..., c="def")]
+  PathExpression [22-26] [t1-2]
+    Identifier(`t1-2`) [22-26] [t1-2]
+  OptionsList [35-49] [(a=b, c="def")]
+    OptionsEntry [36-39] [a=b]
+      Identifier(a) [36-37] [a]
+      PathExpression [38-39] [b]
+        Identifier(b) [38-39] [b]
+    OptionsEntry [41-48] [c="def"]
+      Identifier(c) [41-42] [c]
+      StringLiteral("def") [43-48] ["def"]
 --
 CREATE EXTERNAL TABLE `t1-2` OPTIONS(a = b, c = "def")
 ==
@@ -739,13 +737,13 @@ create external table projectid.datasetid.tablename
 with partition columns
 options ()
 --
-CreateExternalTableStatement [0-85]
-  PathExpression [22-51]
-    Identifier(projectid) [22-31]
-    Identifier(datasetid) [32-41]
-    Identifier(tablename) [42-51]
-  WithPartitionColumnsClause [52-74]
-  OptionsList [83-85]
+CreateExternalTableStatement [0-85] [create external...options ()]
+  PathExpression [22-51] [projectid.datasetid.tablename]
+    Identifier(projectid) [22-31] [projectid]
+    Identifier(datasetid) [32-41] [datasetid]
+    Identifier(tablename) [42-51] [tablename]
+  WithPartitionColumnsClause [52-74] [with partition columns]
+  OptionsList [83-85] [()]
 --
 
 CREATE EXTERNAL TABLE projectid.datasetid.tablename WITH PARTITION COLUMNS OPTIONS()
@@ -755,30 +753,30 @@ create external table projectid.datasetid.tablename(x int64)
 with partition columns (y int64, z string)
 options ()
 --
-CreateExternalTableStatement [0-114]
-  PathExpression [22-51]
-    Identifier(projectid) [22-31]
-    Identifier(datasetid) [32-41]
-    Identifier(tablename) [42-51]
-  TableElementList [51-60]
-    ColumnDefinition [52-59]
-      Identifier(x) [52-53]
-      SimpleColumnSchema [54-59]
-        PathExpression [54-59]
-          Identifier(int64) [54-59]
-  WithPartitionColumnsClause [61-103]
-    TableElementList [84-103]
-      ColumnDefinition [85-92]
-        Identifier(y) [85-86]
-        SimpleColumnSchema [87-92]
-          PathExpression [87-92]
-            Identifier(int64) [87-92]
-      ColumnDefinition [94-102]
-        Identifier(z) [94-95]
-        SimpleColumnSchema [96-102]
-          PathExpression [96-102]
-            Identifier(string) [96-102]
-  OptionsList [112-114]
+CreateExternalTableStatement [0-114] [create external...options ()]
+  PathExpression [22-51] [projectid.datasetid.tablename]
+    Identifier(projectid) [22-31] [projectid]
+    Identifier(datasetid) [32-41] [datasetid]
+    Identifier(tablename) [42-51] [tablename]
+  TableElementList [51-60] [(x int64)]
+    ColumnDefinition [52-59] [x int64]
+      Identifier(x) [52-53] [x]
+      SimpleColumnSchema [54-59] [int64]
+        PathExpression [54-59] [int64]
+          Identifier(int64) [54-59] [int64]
+  WithPartitionColumnsClause [61-103] [with partition...z string)]
+    TableElementList [84-103] [(y int64, z string)]
+      ColumnDefinition [85-92] [y int64]
+        Identifier(y) [85-86] [y]
+        SimpleColumnSchema [87-92] [int64]
+          PathExpression [87-92] [int64]
+            Identifier(int64) [87-92] [int64]
+      ColumnDefinition [94-102] [z string]
+        Identifier(z) [94-95] [z]
+        SimpleColumnSchema [96-102] [string]
+          PathExpression [96-102] [string]
+            Identifier(string) [96-102] [string]
+  OptionsList [112-114] [()]
 --
 
 CREATE EXTERNAL TABLE projectid.datasetid.tablename
@@ -794,23 +792,23 @@ create external table projectid.datasetid.tablename
 with partition columns (y int64, PRIMARY KEY(y))
 options ()
 --
-CreateExternalTableStatement [0-111]
-  PathExpression [22-51]
-    Identifier(projectid) [22-31]
-    Identifier(datasetid) [32-41]
-    Identifier(tablename) [42-51]
-  WithPartitionColumnsClause [52-100]
-    TableElementList [75-100]
-      ColumnDefinition [76-83]
-        Identifier(y) [76-77]
-        SimpleColumnSchema [78-83]
-          PathExpression [78-83]
-            Identifier(int64) [78-83]
-      PrimaryKey(ENFORCED) [85-99]
-        PrimaryKeyElementList [96-99]
-          PrimaryKeyElement(ASC) [97-98]
-            Identifier(y) [97-98]
-  OptionsList [109-111]
+CreateExternalTableStatement [0-111] [create external...options ()]
+  PathExpression [22-51] [projectid.datasetid.tablename]
+    Identifier(projectid) [22-31] [projectid]
+    Identifier(datasetid) [32-41] [datasetid]
+    Identifier(tablename) [42-51] [tablename]
+  WithPartitionColumnsClause [52-100] [with partition...IMARY KEY(y))]
+    TableElementList [75-100] [(y int64, PRIMARY KEY(y))]
+      ColumnDefinition [76-83] [y int64]
+        Identifier(y) [76-77] [y]
+        SimpleColumnSchema [78-83] [int64]
+          PathExpression [78-83] [int64]
+            Identifier(int64) [78-83] [int64]
+      PrimaryKey(ENFORCED) [85-99] [PRIMARY KEY(y)]
+        PrimaryKeyElementList [96-99] [(y)]
+          PrimaryKeyElement(ASC) [97-98] [y]
+            Identifier(y) [97-98] [y]
+  OptionsList [109-111] [()]
 --
 
 CREATE EXTERNAL TABLE projectid.datasetid.tablename WITH PARTITION COLUMNS(
@@ -832,29 +830,29 @@ create external table projectid.datasetid.tablename(x int64, PRIMARY KEY(x))
 with partition columns (CHECK(x > 0))
 options ()
 --
-CreateExternalTableStatement [0-125]
-  PathExpression [22-51]
-    Identifier(projectid) [22-31]
-    Identifier(datasetid) [32-41]
-    Identifier(tablename) [42-51]
-  TableElementList [51-76]
-    ColumnDefinition [52-59]
-      Identifier(x) [52-53]
-      SimpleColumnSchema [54-59]
-        PathExpression [54-59]
-          Identifier(int64) [54-59]
-    PrimaryKey(ENFORCED) [61-75]
-      PrimaryKeyElementList [72-75]
-        PrimaryKeyElement(ASC) [73-74]
-          Identifier(x) [73-74]
-  WithPartitionColumnsClause [77-114]
-    TableElementList [100-114]
-      CheckConstraint(ENFORCED) [101-113]
-        BinaryExpression(>) [107-112]
-          PathExpression [107-108]
-            Identifier(x) [107-108]
-          IntLiteral(0) [111-112]
-  OptionsList [123-125]
+CreateExternalTableStatement [0-125] [create external...options ()]
+  PathExpression [22-51] [projectid.datasetid.tablename]
+    Identifier(projectid) [22-31] [projectid]
+    Identifier(datasetid) [32-41] [datasetid]
+    Identifier(tablename) [42-51] [tablename]
+  TableElementList [51-76] [(x int64, PRIMARY KEY(x))]
+    ColumnDefinition [52-59] [x int64]
+      Identifier(x) [52-53] [x]
+      SimpleColumnSchema [54-59] [int64]
+        PathExpression [54-59] [int64]
+          Identifier(int64) [54-59] [int64]
+    PrimaryKey(ENFORCED) [61-75] [PRIMARY KEY(x)]
+      PrimaryKeyElementList [72-75] [(x)]
+        PrimaryKeyElement(ASC) [73-74] [x]
+          Identifier(x) [73-74] [x]
+  WithPartitionColumnsClause [77-114] [with partition...CHECK(x > 0))]
+    TableElementList [100-114] [(CHECK(x > 0))]
+      CheckConstraint(ENFORCED) [101-113] [CHECK(x > 0)]
+        BinaryExpression(>) [107-112] [x > 0]
+          PathExpression [107-108] [x]
+            Identifier(x) [107-108] [x]
+          IntLiteral(0) [111-112] [0]
+  OptionsList [123-125] [()]
 --
 CREATE EXTERNAL TABLE projectid.datasetid.tablename
 (
@@ -913,26 +911,26 @@ create external table projectid.datasetid.tablename(x int64)
 with connection conn_1
 options (x=foo)
 --
-CreateExternalTableStatement [0-99]
-  PathExpression [22-51]
-    Identifier(projectid) [22-31]
-    Identifier(datasetid) [32-41]
-    Identifier(tablename) [42-51]
-  TableElementList [51-60]
-    ColumnDefinition [52-59]
-      Identifier(x) [52-53]
-      SimpleColumnSchema [54-59]
-        PathExpression [54-59]
-          Identifier(int64) [54-59]
-  WithConnectionClause [61-83]
-    ConnectionClause [66-83]
-      PathExpression [77-83]
-        Identifier(conn_1) [77-83]
-  OptionsList [92-99]
-    OptionsEntry [93-98]
-      Identifier(x) [93-94]
-      PathExpression [95-98]
-        Identifier(foo) [95-98]
+CreateExternalTableStatement [0-99] [create external...ions (x=foo)]
+  PathExpression [22-51] [projectid.datasetid.tablename]
+    Identifier(projectid) [22-31] [projectid]
+    Identifier(datasetid) [32-41] [datasetid]
+    Identifier(tablename) [42-51] [tablename]
+  TableElementList [51-60] [(x int64)]
+    ColumnDefinition [52-59] [x int64]
+      Identifier(x) [52-53] [x]
+      SimpleColumnSchema [54-59] [int64]
+        PathExpression [54-59] [int64]
+          Identifier(int64) [54-59] [int64]
+  WithConnectionClause [61-83] [with connection conn_1]
+    ConnectionClause [66-83] [connection conn_1]
+      PathExpression [77-83] [conn_1]
+        Identifier(conn_1) [77-83] [conn_1]
+  OptionsList [92-99] [(x=foo)]
+    OptionsEntry [93-98] [x=foo]
+      Identifier(x) [93-94] [x]
+      PathExpression [95-98] [foo]
+        Identifier(foo) [95-98] [foo]
 --
 CREATE EXTERNAL TABLE projectid.datasetid.tablename
 (
@@ -945,28 +943,28 @@ create external table projectid.datasetid.tablename(x int64)
 with connection proj.loc.conn_id
 options (x=foo)
 --
-CreateExternalTableStatement [0-109]
-  PathExpression [22-51]
-    Identifier(projectid) [22-31]
-    Identifier(datasetid) [32-41]
-    Identifier(tablename) [42-51]
-  TableElementList [51-60]
-    ColumnDefinition [52-59]
-      Identifier(x) [52-53]
-      SimpleColumnSchema [54-59]
-        PathExpression [54-59]
-          Identifier(int64) [54-59]
-  WithConnectionClause [61-93]
-    ConnectionClause [66-93]
-      PathExpression [77-93]
-        Identifier(proj) [77-81]
-        Identifier(loc) [82-85]
-        Identifier(conn_id) [86-93]
-  OptionsList [102-109]
-    OptionsEntry [103-108]
-      Identifier(x) [103-104]
-      PathExpression [105-108]
-        Identifier(foo) [105-108]
+CreateExternalTableStatement [0-109] [create external...ions (x=foo)]
+  PathExpression [22-51] [projectid.datasetid.tablename]
+    Identifier(projectid) [22-31] [projectid]
+    Identifier(datasetid) [32-41] [datasetid]
+    Identifier(tablename) [42-51] [tablename]
+  TableElementList [51-60] [(x int64)]
+    ColumnDefinition [52-59] [x int64]
+      Identifier(x) [52-53] [x]
+      SimpleColumnSchema [54-59] [int64]
+        PathExpression [54-59] [int64]
+          Identifier(int64) [54-59] [int64]
+  WithConnectionClause [61-93] [with connection...loc.conn_id]
+    ConnectionClause [66-93] [connection proj.loc.conn_id]
+      PathExpression [77-93] [proj.loc.conn_id]
+        Identifier(proj) [77-81] [proj]
+        Identifier(loc) [82-85] [loc]
+        Identifier(conn_id) [86-93] [conn_id]
+  OptionsList [102-109] [(x=foo)]
+    OptionsEntry [103-108] [x=foo]
+      Identifier(x) [103-104] [x]
+      PathExpression [105-108] [foo]
+        Identifier(foo) [105-108] [foo]
 --
 CREATE EXTERNAL TABLE projectid.datasetid.tablename
 (
@@ -992,27 +990,27 @@ with partition columns
 with connection `project.country-region-5.connection_1`
 options (x=bar)
 --
-CreateExternalTableStatement [0-155]
-  PathExpression [22-51]
-    Identifier(projectid) [22-31]
-    Identifier(datasetid) [32-41]
-    Identifier(tablename) [42-51]
-  TableElementList [51-60]
-    ColumnDefinition [52-59]
-      Identifier(x) [52-53]
-      SimpleColumnSchema [54-59]
-        PathExpression [54-59]
-          Identifier(int64) [54-59]
-  WithPartitionColumnsClause [61-83]
-  WithConnectionClause [84-139]
-    ConnectionClause [89-139]
-      PathExpression [100-139]
-        Identifier(`project.country-region-5.connection_1`) [100-139]
-  OptionsList [148-155]
-    OptionsEntry [149-154]
-      Identifier(x) [149-150]
-      PathExpression [151-154]
-        Identifier(bar) [151-154]
+CreateExternalTableStatement [0-155] [create external...ions (x=bar)]
+  PathExpression [22-51] [projectid.datasetid.tablename]
+    Identifier(projectid) [22-31] [projectid]
+    Identifier(datasetid) [32-41] [datasetid]
+    Identifier(tablename) [42-51] [tablename]
+  TableElementList [51-60] [(x int64)]
+    ColumnDefinition [52-59] [x int64]
+      Identifier(x) [52-53] [x]
+      SimpleColumnSchema [54-59] [int64]
+        PathExpression [54-59] [int64]
+          Identifier(int64) [54-59] [int64]
+  WithPartitionColumnsClause [61-83] [with partition columns]
+  WithConnectionClause [84-139] [with connection...onnection_1`]
+    ConnectionClause [89-139] [connection...connection_1`]
+      PathExpression [100-139] [`project.country...nnection_1`]
+        Identifier(`project.country-region-5.connection_1`) [100-139] [`project.country...nnection_1`]
+  OptionsList [148-155] [(x=bar)]
+    OptionsEntry [149-154] [x=bar]
+      Identifier(x) [149-150] [x]
+      PathExpression [151-154] [bar]
+        Identifier(bar) [151-154] [bar]
 --
 CREATE EXTERNAL TABLE projectid.datasetid.tablename
 (
@@ -1031,37 +1029,37 @@ options (x=baz)
 
 ALTERNATION GROUP: <empty>
 --
-CreateExternalTableStatement [0-126]
-  PathExpression [22-23]
-    Identifier(t) [22-23]
-  TableElementList [23-32]
-    ColumnDefinition [24-31]
-      Identifier(x) [24-25]
-      SimpleColumnSchema [26-31]
-        PathExpression [26-31]
-          Identifier(int64) [26-31]
-  WithPartitionColumnsClause [33-88]
-    TableElementList [56-88]
-      ColumnDefinition [60-67]
-        Identifier(y) [60-61]
-        SimpleColumnSchema [62-67]
-          PathExpression [62-67]
-            Identifier(int64) [62-67]
-      PrimaryKey(ENFORCED) [71-86]
-        PrimaryKeyElementList [82-86]
-          PrimaryKeyElement(ASC) [83-84]
-            Identifier(y) [83-84]
-  WithConnectionClause [89-110]
-    ConnectionClause [94-110]
-      PathExpression [105-110]
-        Identifier(a) [105-106]
-        Identifier(b) [107-108]
-        Identifier(c) [109-110]
-  OptionsList [119-126]
-    OptionsEntry [120-125]
-      Identifier(x) [120-121]
-      PathExpression [122-125]
-        Identifier(baz) [122-125]
+CreateExternalTableStatement [0-126] [create external...ions (x=baz)]
+  PathExpression [22-23] [t]
+    Identifier(t) [22-23] [t]
+  TableElementList [23-32] [(x int64)]
+    ColumnDefinition [24-31] [x int64]
+      Identifier(x) [24-25] [x]
+      SimpleColumnSchema [26-31] [int64]
+        PathExpression [26-31] [int64]
+          Identifier(int64) [26-31] [int64]
+  WithPartitionColumnsClause [33-88] [with partition...KEY(y ) )]
+    TableElementList [56-88] [(   y int64...KEY(y ) )]
+      ColumnDefinition [60-67] [y int64]
+        Identifier(y) [60-61] [y]
+        SimpleColumnSchema [62-67] [int64]
+          PathExpression [62-67] [int64]
+            Identifier(int64) [62-67] [int64]
+      PrimaryKey(ENFORCED) [71-86] [PRIMARY KEY(y )]
+        PrimaryKeyElementList [82-86] [(y )]
+          PrimaryKeyElement(ASC) [83-84] [y]
+            Identifier(y) [83-84] [y]
+  WithConnectionClause [89-110] [with connection a.b.c]
+    ConnectionClause [94-110] [connection a.b.c]
+      PathExpression [105-110] [a.b.c]
+        Identifier(a) [105-106] [a]
+        Identifier(b) [107-108] [b]
+        Identifier(c) [109-110] [c]
+  OptionsList [119-126] [(x=baz)]
+    OptionsEntry [120-125] [x=baz]
+      Identifier(x) [120-121] [x]
+      PathExpression [122-125] [baz]
+        Identifier(baz) [122-125] [baz]
 --
 CREATE EXTERNAL TABLE t
 (
@@ -1073,37 +1071,37 @@ CREATE EXTERNAL TABLE t
 --
 ALTERNATION GROUP: ASC
 --
-CreateExternalTableStatement [0-129]
-  PathExpression [22-23]
-    Identifier(t) [22-23]
-  TableElementList [23-32]
-    ColumnDefinition [24-31]
-      Identifier(x) [24-25]
-      SimpleColumnSchema [26-31]
-        PathExpression [26-31]
-          Identifier(int64) [26-31]
-  WithPartitionColumnsClause [33-91]
-    TableElementList [56-91]
-      ColumnDefinition [60-67]
-        Identifier(y) [60-61]
-        SimpleColumnSchema [62-67]
-          PathExpression [62-67]
-            Identifier(int64) [62-67]
-      PrimaryKey(ENFORCED) [71-89]
-        PrimaryKeyElementList [82-89]
-          PrimaryKeyElement(ASC EXPLICITLY) [83-88]
-            Identifier(y) [83-84]
-  WithConnectionClause [92-113]
-    ConnectionClause [97-113]
-      PathExpression [108-113]
-        Identifier(a) [108-109]
-        Identifier(b) [110-111]
-        Identifier(c) [112-113]
-  OptionsList [122-129]
-    OptionsEntry [123-128]
-      Identifier(x) [123-124]
-      PathExpression [125-128]
-        Identifier(baz) [125-128]
+CreateExternalTableStatement [0-129] [create external...ions (x=baz)]
+  PathExpression [22-23] [t]
+    Identifier(t) [22-23] [t]
+  TableElementList [23-32] [(x int64)]
+    ColumnDefinition [24-31] [x int64]
+      Identifier(x) [24-25] [x]
+      SimpleColumnSchema [26-31] [int64]
+        PathExpression [26-31] [int64]
+          Identifier(int64) [26-31] [int64]
+  WithPartitionColumnsClause [33-91] [with partition...KEY(y ASC) )]
+    TableElementList [56-91] [(   y int64...KEY(y ASC) )]
+      ColumnDefinition [60-67] [y int64]
+        Identifier(y) [60-61] [y]
+        SimpleColumnSchema [62-67] [int64]
+          PathExpression [62-67] [int64]
+            Identifier(int64) [62-67] [int64]
+      PrimaryKey(ENFORCED) [71-89] [PRIMARY KEY(y ASC)]
+        PrimaryKeyElementList [82-89] [(y ASC)]
+          PrimaryKeyElement(ASC EXPLICITLY) [83-88] [y ASC]
+            Identifier(y) [83-84] [y]
+  WithConnectionClause [92-113] [with connection a.b.c]
+    ConnectionClause [97-113] [connection a.b.c]
+      PathExpression [108-113] [a.b.c]
+        Identifier(a) [108-109] [a]
+        Identifier(b) [110-111] [b]
+        Identifier(c) [112-113] [c]
+  OptionsList [122-129] [(x=baz)]
+    OptionsEntry [123-128] [x=baz]
+      Identifier(x) [123-124] [x]
+      PathExpression [125-128] [baz]
+        Identifier(baz) [125-128] [baz]
 --
 CREATE EXTERNAL TABLE t
 (
@@ -1115,37 +1113,37 @@ CREATE EXTERNAL TABLE t
 --
 ALTERNATION GROUP: DESC
 --
-CreateExternalTableStatement [0-130]
-  PathExpression [22-23]
-    Identifier(t) [22-23]
-  TableElementList [23-32]
-    ColumnDefinition [24-31]
-      Identifier(x) [24-25]
-      SimpleColumnSchema [26-31]
-        PathExpression [26-31]
-          Identifier(int64) [26-31]
-  WithPartitionColumnsClause [33-92]
-    TableElementList [56-92]
-      ColumnDefinition [60-67]
-        Identifier(y) [60-61]
-        SimpleColumnSchema [62-67]
-          PathExpression [62-67]
-            Identifier(int64) [62-67]
-      PrimaryKey(ENFORCED) [71-90]
-        PrimaryKeyElementList [82-90]
-          PrimaryKeyElement(DESC) [83-89]
-            Identifier(y) [83-84]
-  WithConnectionClause [93-114]
-    ConnectionClause [98-114]
-      PathExpression [109-114]
-        Identifier(a) [109-110]
-        Identifier(b) [111-112]
-        Identifier(c) [113-114]
-  OptionsList [123-130]
-    OptionsEntry [124-129]
-      Identifier(x) [124-125]
-      PathExpression [126-129]
-        Identifier(baz) [126-129]
+CreateExternalTableStatement [0-130] [create external...ions (x=baz)]
+  PathExpression [22-23] [t]
+    Identifier(t) [22-23] [t]
+  TableElementList [23-32] [(x int64)]
+    ColumnDefinition [24-31] [x int64]
+      Identifier(x) [24-25] [x]
+      SimpleColumnSchema [26-31] [int64]
+        PathExpression [26-31] [int64]
+          Identifier(int64) [26-31] [int64]
+  WithPartitionColumnsClause [33-92] [with partition...(y DESC) )]
+    TableElementList [56-92] [(   y int64...(y DESC) )]
+      ColumnDefinition [60-67] [y int64]
+        Identifier(y) [60-61] [y]
+        SimpleColumnSchema [62-67] [int64]
+          PathExpression [62-67] [int64]
+            Identifier(int64) [62-67] [int64]
+      PrimaryKey(ENFORCED) [71-90] [PRIMARY KEY(y DESC)]
+        PrimaryKeyElementList [82-90] [(y DESC)]
+          PrimaryKeyElement(DESC) [83-89] [y DESC]
+            Identifier(y) [83-84] [y]
+  WithConnectionClause [93-114] [with connection a.b.c]
+    ConnectionClause [98-114] [connection a.b.c]
+      PathExpression [109-114] [a.b.c]
+        Identifier(a) [109-110] [a]
+        Identifier(b) [111-112] [b]
+        Identifier(c) [113-114] [c]
+  OptionsList [123-130] [(x=baz)]
+    OptionsEntry [124-129] [x=baz]
+      Identifier(x) [124-125] [x]
+      PathExpression [126-129] [baz]
+        Identifier(baz) [126-129] [baz]
 --
 CREATE EXTERNAL TABLE t
 (
@@ -1160,20 +1158,20 @@ create external table t1 (a int32, PRIMARY KEY(a {{|ASC|DESC}})) options ()
 --
 ALTERNATION GROUP: <empty>
 --
-CreateExternalTableStatement [0-62]
-  PathExpression [22-24]
-    Identifier(t1) [22-24]
-  TableElementList [25-51]
-    ColumnDefinition [26-33]
-      Identifier(a) [26-27]
-      SimpleColumnSchema [28-33]
-        PathExpression [28-33]
-          Identifier(int32) [28-33]
-    PrimaryKey(ENFORCED) [35-50]
-      PrimaryKeyElementList [46-50]
-        PrimaryKeyElement(ASC) [47-48]
-          Identifier(a) [47-48]
-  OptionsList [60-62]
+CreateExternalTableStatement [0-62] [create external...options ()]
+  PathExpression [22-24] [t1]
+    Identifier(t1) [22-24] [t1]
+  TableElementList [25-51] [(a int32, PRIMARY KEY(a ))]
+    ColumnDefinition [26-33] [a int32]
+      Identifier(a) [26-27] [a]
+      SimpleColumnSchema [28-33] [int32]
+        PathExpression [28-33] [int32]
+          Identifier(int32) [28-33] [int32]
+    PrimaryKey(ENFORCED) [35-50] [PRIMARY KEY(a )]
+      PrimaryKeyElementList [46-50] [(a )]
+        PrimaryKeyElement(ASC) [47-48] [a]
+          Identifier(a) [47-48] [a]
+  OptionsList [60-62] [()]
 --
 CREATE EXTERNAL TABLE t1
 (
@@ -1183,20 +1181,20 @@ CREATE EXTERNAL TABLE t1
 --
 ALTERNATION GROUP: ASC
 --
-CreateExternalTableStatement [0-65]
-  PathExpression [22-24]
-    Identifier(t1) [22-24]
-  TableElementList [25-54]
-    ColumnDefinition [26-33]
-      Identifier(a) [26-27]
-      SimpleColumnSchema [28-33]
-        PathExpression [28-33]
-          Identifier(int32) [28-33]
-    PrimaryKey(ENFORCED) [35-53]
-      PrimaryKeyElementList [46-53]
-        PrimaryKeyElement(ASC EXPLICITLY) [47-52]
-          Identifier(a) [47-48]
-  OptionsList [63-65]
+CreateExternalTableStatement [0-65] [create external...options ()]
+  PathExpression [22-24] [t1]
+    Identifier(t1) [22-24] [t1]
+  TableElementList [25-54] [(a int32, PRIMARY KEY(a ASC))]
+    ColumnDefinition [26-33] [a int32]
+      Identifier(a) [26-27] [a]
+      SimpleColumnSchema [28-33] [int32]
+        PathExpression [28-33] [int32]
+          Identifier(int32) [28-33] [int32]
+    PrimaryKey(ENFORCED) [35-53] [PRIMARY KEY(a ASC)]
+      PrimaryKeyElementList [46-53] [(a ASC)]
+        PrimaryKeyElement(ASC EXPLICITLY) [47-52] [a ASC]
+          Identifier(a) [47-48] [a]
+  OptionsList [63-65] [()]
 --
 CREATE EXTERNAL TABLE t1
 (
@@ -1206,20 +1204,20 @@ CREATE EXTERNAL TABLE t1
 --
 ALTERNATION GROUP: DESC
 --
-CreateExternalTableStatement [0-66]
-  PathExpression [22-24]
-    Identifier(t1) [22-24]
-  TableElementList [25-55]
-    ColumnDefinition [26-33]
-      Identifier(a) [26-27]
-      SimpleColumnSchema [28-33]
-        PathExpression [28-33]
-          Identifier(int32) [28-33]
-    PrimaryKey(ENFORCED) [35-54]
-      PrimaryKeyElementList [46-54]
-        PrimaryKeyElement(DESC) [47-53]
-          Identifier(a) [47-48]
-  OptionsList [64-66]
+CreateExternalTableStatement [0-66] [create external...options ()]
+  PathExpression [22-24] [t1]
+    Identifier(t1) [22-24] [t1]
+  TableElementList [25-55] [(a int32, PRIMARY KEY(a DESC))]
+    ColumnDefinition [26-33] [a int32]
+      Identifier(a) [26-27] [a]
+      SimpleColumnSchema [28-33] [int32]
+        PathExpression [28-33] [int32]
+          Identifier(int32) [28-33] [int32]
+    PrimaryKey(ENFORCED) [35-54] [PRIMARY KEY(a DESC)]
+      PrimaryKeyElementList [46-54] [(a DESC)]
+        PrimaryKeyElement(DESC) [47-53] [a DESC]
+          Identifier(a) [47-48] [a]
+  OptionsList [64-66] [()]
 --
 CREATE EXTERNAL TABLE t1
 (
@@ -1228,25 +1226,25 @@ CREATE EXTERNAL TABLE t1
 ) OPTIONS()
 ==
 
-[no_allow_ordered_primary_keys]
+[language_features=]
 create external table t1 (a int32, PRIMARY KEY(a {{|ASC|DESC}})) options ()
 --
 ALTERNATION GROUP: <empty>
 --
-CreateExternalTableStatement [0-62]
-  PathExpression [22-24]
-    Identifier(t1) [22-24]
-  TableElementList [25-51]
-    ColumnDefinition [26-33]
-      Identifier(a) [26-27]
-      SimpleColumnSchema [28-33]
-        PathExpression [28-33]
-          Identifier(int32) [28-33]
-    PrimaryKey(ENFORCED) [35-50]
-      PrimaryKeyElementList [46-50]
-        PrimaryKeyElement(ASC) [47-48]
-          Identifier(a) [47-48]
-  OptionsList [60-62]
+CreateExternalTableStatement [0-62] [create external...options ()]
+  PathExpression [22-24] [t1]
+    Identifier(t1) [22-24] [t1]
+  TableElementList [25-51] [(a int32, PRIMARY KEY(a ))]
+    ColumnDefinition [26-33] [a int32]
+      Identifier(a) [26-27] [a]
+      SimpleColumnSchema [28-33] [int32]
+        PathExpression [28-33] [int32]
+          Identifier(int32) [28-33] [int32]
+    PrimaryKey(ENFORCED) [35-50] [PRIMARY KEY(a )]
+      PrimaryKeyElementList [46-50] [(a )]
+        PrimaryKeyElement(ASC) [47-48] [a]
+          Identifier(a) [47-48] [a]
+  OptionsList [60-62] [()]
 --
 CREATE EXTERNAL TABLE t1
 (
@@ -1265,4 +1263,3 @@ ALTERNATION GROUP: DESC
 ERROR: Ordering for primary keys is not supported [at 1:50]
 create external table t1 (a int32, PRIMARY KEY(a DESC)) options ()
                                                  ^
-==

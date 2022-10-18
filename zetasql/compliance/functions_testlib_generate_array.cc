@@ -15,6 +15,8 @@
 //
 
 #include <cstdint>
+#include <limits>
+#include <vector>
 
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"

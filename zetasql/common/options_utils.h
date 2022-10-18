@@ -20,10 +20,13 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <utility>
 
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/evaluator.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/strings.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -267,6 +270,68 @@ absl::StatusOr<EnumOptionsEntry<EnumT>> ParseEnumOptionsSet(
 
 // Returns all ResolvedAST Rewrites except the special "INVALID" value (0).
 AnalyzerOptions::ASTRewriteSet GetAllRewrites();
+
+// Implementations for AbslParseFlag()/AbslUnparseFlag() for wrapper classes
+// which represent a list of named query parameters and values.
+//
+// syntax: name1=value1;name2=value2...
+//  - General syntax notes:
+//    - Trailing semi-colons are allowed, but ignored.
+//    - Comments and whitespace are allowed anywhere (including surrounding ;
+//      and "=" tokens).
+//    - LanguageOptions for parsing are determined from
+//      'analyzer_options.GetParserOptions()'.
+//  - Parameter names:
+//    - Are parsed as ZetaSQL identifier tokens.
+//    - May not be empty (positional parameters are not supported).
+//    - Must be enclosed in backticks if a reserved keyword, or is not a valid
+//      identifier.
+//    - Are converted to lowercase in the returned ParameterValueMap
+//    - May not be duplicates (after lowercase conversion).
+//  - Parameter values:
+//    - Are parsed and evaluated as ZetaSQL expressions
+//    - Analyzed using 'catalog' and 'analyzer_options'.
+//    - Evaluated using the ZetaSQL evaluator.
+//    - May reference previously-defined query parameters.
+//
+// Example usage:
+//
+// namespace MyNamespace {
+//   struct MyParameterValueMap {
+//     ParameterValueMap map;
+//   };
+//   bool AbslParseFlag(absl::string_view text, MyParameterValueMap* m,
+//                      std::string* err) {
+//      AnalyzerOptions analyzer_options = ...;
+//      Catalog* catalog = ...;
+//      return ParseQueryParameterFlag(text, analyzer_options, catalog, &m.map,
+//                                     err);
+//   }
+//   std::string AbslUnparseFlag(const MyParameterValueMap& m) {
+//      return UnparseQueryParameterFlag(m.map);
+//   }
+// }  // namespace MyNamespace
+//
+// ABSL_FLAG(MyParameterValueMap, parameters, {}, kQueryParameterMapHelpstring);
+// $ foo ... '--parameters=p1=1;p2="abc" || "def";p3=CAST(@p1 AS STRING) || @p2'
+
+bool ParseQueryParameterFlag(absl::string_view text,
+                             const AnalyzerOptions& analyzer_options,
+                             Catalog* catalog, ParameterValueMap* map,
+                             std::string* err);
+
+std::string UnparseQueryParameterFlag(const ParameterValueMap& map);
+
+// Default helpstring for flags defined using ParseQueryParameterFlag()/
+// UnparseQueryParameterFlag(). May be used as is, or annotated with scenario-
+// specific detail about which language features, proto types, etc. are
+// supported.
+constexpr absl::string_view kQueryParameterMapHelpstring =
+    "List of Query parameters, specified according to the syntax: "
+    "name1=value1;name2=value2;...\n"
+    "Parameter names are parsed as ZetaSQL identifiers. Parameter values are "
+    "parsed as ZetaSQL expressions, and may reference previously-defined "
+    "parameters.";
 
 }  // namespace zetasql::internal
 

@@ -23,6 +23,7 @@
 
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/container_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "absl/hash/hash.h"
@@ -45,7 +46,7 @@ class TypeModifiers;
 // partitionable, and orderable. Range element types must be orderable,
 // groupable, and partitionable. Only ranges of DATE, DATETIME, and TIMESTAMP
 // are supported.
-class RangeType : public Type {
+class RangeType : public ContainerType {
  public:
 #ifndef SWIG
   RangeType(const RangeType&) = delete;
@@ -75,6 +76,9 @@ class RangeType : public Type {
     return element_type_->nesting_depth() + 1;
   }
 
+  // Helper function for determining if a type is a valid range element type.
+  static bool IsValidElementType(const Type* element_type);
+
  protected:
   // Return estimated size of memory owned by this type. Range's owned memory
   // does not include its element type's memory (which is owned by some
@@ -83,12 +87,31 @@ class RangeType : public Type {
     return sizeof(*this);
   }
 
+  std::string GetFormatPrefix(
+      const ValueContent& value_content,
+      const Type::FormatValueContentOptions& options) const override {
+    if (options.mode == Type::FormatValueContentOptions::Mode::kDebug) {
+      return "Range(";
+    }
+    return absl::StrCat(TypeName(options.product_mode), "[");
+  }
+
+  char GetFormatClosingCharacter(
+      const Type::FormatValueContentOptions& options) const override {
+    return ')';
+  }
+
+  const Type* GetElementType(int index) const override;
+
+  std::string GetFormatElementPrefix(
+      const int index, const bool is_null,
+      const FormatValueContentOptions& options) const override {
+    return "";
+  }
+
  private:
   RangeType(const TypeFactory* factory, const Type* element_type);
   ~RangeType() override;
-
-  // Helper function for determining if a type is a valid range element type.
-  static bool IsValidElementType(const Type* element_type);
 
   // Helper function for determining if a type kind is a supported range element
   // type kind.
@@ -123,15 +146,17 @@ class RangeType : public Type {
   absl::HashState HashTypeParameter(absl::HashState state) const override;
   absl::HashState HashValueContent(const ValueContent& value,
                                    absl::HashState state) const override;
-
+  std::string FormatValueContentContainerElement(
+      const internal::ValueContentContainerElement& element,
+      const Type::FormatValueContentOptions& options) const;
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
   bool ValueContentEquals(
       const ValueContent& x, const ValueContent& y,
       const ValueEqualityCheckOptions& options) const override;
   bool ValueContentLess(const ValueContent& x, const ValueContent& y,
                         const Type* other_type) const override;
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
   absl::Status SerializeValueContent(const ValueContent& value,
                                      ValueProto* value_proto) const override;
   absl::Status DeserializeValueContent(const ValueProto& value_proto,

@@ -46,21 +46,12 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoercedModulo();
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayConcatOperator();
 std::vector<QueryParamsWithResult> GetFunctionTestsStringConcatOperator();
 
-// TODO: Remove 'include_nano_timestamp' by always generating all
-// compliance tests, possibly with features set in QueryParamsWithResult. We
-// should avoid adding new bools.
-std::vector<QueryParamsWithResult> GetFunctionTestsEqual(
-    bool include_nano_timestamp);
-std::vector<QueryParamsWithResult> GetFunctionTestsNotEqual(
-    bool include_nano_timestamp);
-std::vector<QueryParamsWithResult> GetFunctionTestsGreater(
-    bool include_nano_timestamp);
-std::vector<QueryParamsWithResult> GetFunctionTestsGreaterOrEqual(
-    bool include_nano_timestamp);
-std::vector<QueryParamsWithResult> GetFunctionTestsLess(
-    bool include_nano_timestamp);
-std::vector<QueryParamsWithResult> GetFunctionTestsLessOrEqual(
-    bool include_nano_timestamp);
+std::vector<QueryParamsWithResult> GetFunctionTestsEqual();
+std::vector<QueryParamsWithResult> GetFunctionTestsNotEqual();
+std::vector<QueryParamsWithResult> GetFunctionTestsGreater();
+std::vector<QueryParamsWithResult> GetFunctionTestsGreaterOrEqual();
+std::vector<QueryParamsWithResult> GetFunctionTestsLess();
+std::vector<QueryParamsWithResult> GetFunctionTestsLessOrEqual();
 
 // Get all IN tests.
 std::vector<QueryParamsWithResult> GetFunctionTestsIn();
@@ -122,24 +113,28 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIfNull();
 std::vector<QueryParamsWithResult> GetFunctionTestsNullIf();
 std::vector<QueryParamsWithResult> GetFunctionTestsCoalesce();
 
-// TODO: Remove 'include_nano_timestamp' by always generating all
-// compliance tests, possibly with features set in QueryParamsWithResult. We
-// should avoid adding new bools.
-std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
-    bool include_nano_timestamp);
-std::vector<QueryParamsWithResult> GetFunctionTestsLeast(
-    bool include_nano_timestamp);
+std::vector<QueryParamsWithResult> GetFunctionTestsGreatest();
+std::vector<QueryParamsWithResult> GetFunctionTestsLeast();
 
-// Test function for ARRAY_FIRST and ARRAY_LAST
+// Test function for ARRAY_FIRST and ARRAY_LAST.
 // `is_safe` controls the SAFE version of function call.
 // true means `SAFE.ARRAY_FIRST` tests and false means `ARRAY_FIRST` tests.
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirst(bool is_safe);
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayLast(bool is_safe);
 
+// Test function for ARRAY_MIN and ARRAY_MAX
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayMin(bool is_safe);
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayMax(bool is_safe);
+
+// Test function for ARRAY_SUM
+std::vector<QueryParamsWithResult> GetFunctionTestsArraySum(bool is_safe);
+
 // Test function for ARRAY_SLICE
 std::vector<QueryParamsWithResult> GetFunctionTestsArraySlice(bool is_safe);
 
 std::vector<QueryParamsWithResult> GetFunctionTestsLike();
+std::vector<QueryParamsWithResult> GetFunctionTestsLikeString();
+std::vector<QueryParamsWithResult> GetFunctionTestsLikeWithCollation();
 
 std::vector<FunctionTestCall> GetFunctionTestsDateTime();
 // Include all date/time functions with standard function call syntax here.
@@ -163,6 +158,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampSub();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampTrunc();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket();
+std::vector<FunctionTestCall> GetFunctionTestsDatetimeBucket();
 std::vector<FunctionTestCall> GetFunctionTestsExtractFrom();
 std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp();
 std::vector<FunctionTestCall> GetFunctionTestsFormatDatetime();
@@ -256,10 +252,6 @@ std::vector<FunctionTestCall> GetFunctionTestsRangeBucket();
 // Engines should prefer GetFunctionTest{String,Native}Json{Query,Value} over
 // GetFunctionTests{String,Native}JsonExtract{,Scalar}. The former group
 // contains the functions defined in the SQL2016 standard.
-//
-// TODO: Remove 'include_nano_timestamp' by always generating all
-// compliance tests, possibly with features set in QueryParamsWithResult. We
-// should avoid adding new bools.
 std::vector<FunctionTestCall> GetFunctionTestsStringJsonQuery();
 std::vector<FunctionTestCall> GetFunctionTestsStringJsonExtract();
 std::vector<FunctionTestCall> GetFunctionTestsStringJsonValue();
@@ -277,10 +269,8 @@ std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractArray();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractStringArray();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonQueryArray();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValueArray();
-std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
-    bool include_nano_timestamp);
-std::vector<FunctionTestCall> GetFunctionTestsToJson(
-    bool include_nano_timestamp);
+std::vector<FunctionTestCall> GetFunctionTestsToJsonString();
+std::vector<FunctionTestCall> GetFunctionTestsToJson();
 std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
 std::vector<FunctionTestCall> GetFunctionTestsParseJson();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJson();

@@ -21,8 +21,7 @@
 
 namespace zetasql {
 
-// Gets a pointer to scalar functions rewriter.
-// This is currently in use for functions: ARRAY_FIRST and ARRAY_LAST.
+// Gets a pointer to unary scalar functions rewriter.
 const Rewriter* GetUnaryFunctionRewriter();
 
 }  // namespace zetasql

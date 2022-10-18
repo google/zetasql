@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>

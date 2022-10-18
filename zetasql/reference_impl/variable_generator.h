@@ -19,9 +19,11 @@
 #ifndef ZETASQL_REFERENCE_IMPL_VARIABLE_GENERATOR_H_
 #define ZETASQL_REFERENCE_IMPL_VARIABLE_GENERATOR_H_
 
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/public/analyzer.h"
 #include "zetasql/reference_impl/parameters.h"

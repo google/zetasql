@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/strings.h"

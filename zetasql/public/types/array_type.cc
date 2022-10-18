@@ -16,6 +16,9 @@
 
 #include "zetasql/public/types/array_type.h"
 
+#include <algorithm>
+#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,23 +28,148 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
+#include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value_content.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/substitute.h"
 #include "zetasql/base/simple_reference_counted.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
+struct HashableValueContentContainerElementIgnoringFloat {
+  explicit HashableValueContentContainerElementIgnoringFloat(
+      const internal::ValueContentContainerElement element, const Type* type)
+      : element(element), type(type) {}
+  const internal::ValueContentContainerElement element;
+  const Type* type;
+
+  template <typename H>
+  H Hash(H h) const {
+    type->HashValueContent(element.value_content(),
+                           absl::HashState::Create(&h));
+    return h;
+  }
+
+  template <typename H>
+  friend H AbslHashValue(
+      H h, const HashableValueContentContainerElementIgnoringFloat& v) {
+    static constexpr uint64_t kFloatApproximateHashCode = 0x1192AA60660CCFABull;
+    static constexpr uint64_t kDoubleApproximateHashCode =
+        0x520C31647E82D8E6ull;
+    static constexpr uint64_t
+        kMessageWithFloatingPointFieldApproximateHashCode =
+            0x1F6432686AAF52A4ull;
+    if (v.element.is_null()) {
+      return H::combine(std::move(h), kNullHashCode);
+    }
+    switch (v.type->kind()) {
+      case TYPE_FLOAT:
+        return H::combine(std::move(h), kFloatApproximateHashCode);
+      case TYPE_DOUBLE:
+        return H::combine(std::move(h), kDoubleApproximateHashCode);
+      case TYPE_ARRAY: {
+        // We must hash arrays as if unordered to support hash_map and hash_set
+        // of values containing arrays with order_kind()=kIgnoresOrder.
+        // absl::Hash lacks support for unordered containers, so we create a
+        // cheapo solution of just adding the hashcodes.
+        absl::Hash<HashableValueContentContainerElementIgnoringFloat>
+            element_hasher;
+        size_t combined_hash = 1;
+        const internal::ValueContentContainer* container =
+            v.element.value_content()
+                .GetAs<internal::ValueContentContainerRef*>()
+                ->value();
+        for (int i = 0; i < container->num_elements(); i++) {
+          const Type* element_type = v.type->AsArray()->element_type();
+          combined_hash +=
+              element_hasher(HashableValueContentContainerElementIgnoringFloat(
+                  container->element(i), element_type));
+        }
+        return H::combine(std::move(h), TYPE_ARRAY, combined_hash);
+      }
+      case TYPE_STRUCT: {
+        const internal::ValueContentContainer* container =
+            v.element.value_content()
+                .GetAs<internal::ValueContentContainerRef*>()
+                ->value();
+        absl::Hash<HashableValueContentContainerElementIgnoringFloat>
+            field_hasher;
+        h = H::combine(std::move(h), TYPE_STRUCT);
+        for (int i = 0; i < container->num_elements(); i++) {
+          const StructType* struct_type = v.type->AsStruct();
+          const Type* field_type = struct_type->field(i).type;
+          h = H::combine(
+              std::move(h),
+              field_hasher(HashableValueContentContainerElementIgnoringFloat(
+                  container->element(i), field_type)));
+        }
+        return h;
+      }
+      case TYPE_PROTO: {
+        absl::flat_hash_set<const google::protobuf::Descriptor*> visited;
+        const ProtoType* p = v.type->AsProto();
+        if (HasFloatingPointFields(p->descriptor(), visited)) {
+          return H::combine(std::move(h),
+                            kMessageWithFloatingPointFieldApproximateHashCode);
+        }
+        ABSL_FALLTHROUGH_INTENDED;
+      }
+      default:
+        return v.Hash(std::move(h));
+    }
+  }
+
+ private:
+  static bool HasFloatingPointFields(
+      const google::protobuf::Descriptor* d,
+      absl::flat_hash_set<const google::protobuf::Descriptor*>& visited) {
+    for (int i = 0; i < d->field_count(); ++i) {
+      const google::protobuf::FieldDescriptor* f = d->field(i);
+      if (f->type() == google::protobuf::FieldDescriptor::TYPE_FLOAT ||
+          f->type() == google::protobuf::FieldDescriptor::TYPE_DOUBLE) {
+        return true;
+      } else if (f->type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE &&
+                 visited.insert(f->message_type()).second &&
+                 HasFloatingPointFields(f->message_type(), visited)) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
+// Hasher used by EqualElementMultiSet in tests only.
+struct MultisetValueContentContainerElementHasher {
+  explicit MultisetValueContentContainerElementHasher(
+      FloatMargin float_margin_arg, const Type* type)
+      : float_margin(float_margin_arg), type(type) {}
+
+  size_t operator()(const internal::ValueContentContainerElement& x) const {
+    if (!float_margin.IsExactEquality()) {
+      return absl::Hash<HashableValueContentContainerElementIgnoringFloat>()(
+          HashableValueContentContainerElementIgnoringFloat(x, type));
+    }
+    return absl::Hash<ContainerType::HashableValueContentContainerElement>()(
+        ContainerType::HashableValueContentContainerElement{x, type});
+  }
+
+ private:
+  FloatMargin float_margin;
+  const Type* type;
+};
+
 ArrayType::ArrayType(const TypeFactory* factory, const Type* element_type)
-    : Type(factory, TYPE_ARRAY),
-      element_type_(element_type) {
+    : ContainerType(factory, TYPE_ARRAY), element_type_(element_type) {
   ZETASQL_CHECK(!element_type->IsArray());  // Blocked in MakeArrayType.
 }
 
@@ -217,33 +345,166 @@ absl::HashState ArrayType::HashTypeParameter(absl::HashState state) const {
 
 absl::HashState ArrayType::HashValueContent(const ValueContent& value,
                                             absl::HashState state) const {
-  // TODO: currently ArrayType cannot create a list of Values
-  // itself because "types" package doesn't depend on "value" (to avoid
-  // dependency cycle). In the future we will create a virtual list factory
-  // interface defined outside of "value", but which Value can provide to
-  // Array/Struct to use to construct lists.
-  ZETASQL_LOG(FATAL) << "HashValueContent should never be called for ArrayType, since "
-                "its value content is created in Value class";
+  const internal::ValueContentContainer* container =
+      value.GetAs<internal::ValueContentContainerRef*>()->value();
+  // We must hash arrays as if unordered to support hash_map and hash_set of
+  // values containing arrays with order_kind()=kIgnoresOrder.
+  // absl::Hash lacks support for unordered containers, so we create a
+  // cheapo solution of just adding the hashcodes.
+  size_t combined_hash = 1;
+  for (int i = 0; i < container->num_elements(); i++) {
+    ValueContentContainerElementHasher hasher(element_type());
+    combined_hash += hasher(container->element(i));
+  }
+  return absl::HashState::combine(std::move(state), combined_hash);
+}
+
+// Compares arrays as multisets. Used in tests only. The current algorithm,
+// which counts the number of the same elements, may return false negatives if
+// !float_margin.IsExactEquality(). Specifically, the method may return 'false'
+// on almost-equal bags if those contain elements for which approximate equality
+// is non-transitive, e.g., {a, b, c} such that a~b==true, b~c==true,
+// a~c==false. See a repro in value_test.cc:AlmostEqualsStructArray.
+// TODO: potential fix is to implement Hopcroft-Karp algorithm:
+// http://en.wikipedia.org/wiki/Hopcroft%E2%80%93Karp_algorithm
+// Its complexity is O(|E|*sqrt(|V|)). Computing E requires |V|^2 comparisons,
+// so we get O(|V|^2.5).
+bool ArrayType::EqualElementMultiSet(
+    const ValueContent& x, const ValueContent& y,
+    const ValueEqualityCheckOptions& options) const {
+  const internal::ValueContentContainer* x_container =
+      x.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentContainer* y_container =
+      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  std::string* reason = options.reason;
+  using CountMap =
+      absl::flat_hash_map<internal::ValueContentContainerElement, int,
+                          MultisetValueContentContainerElementHasher,
+                          ValueContentContainerElementEq>;
+
+  MultisetValueContentContainerElementHasher hasher(options.float_margin,
+                                                    element_type());
+  ValueContentContainerElementEq eq(options, element_type());
+  CountMap x_multiset(x_container->num_elements(), hasher, eq);
+  CountMap y_multiset(y_container->num_elements(), hasher, eq);
+  ZETASQL_DCHECK_EQ(x_container->num_elements(), y_container->num_elements());
+  for (int i = 0; i < x_container->num_elements(); i++) {
+    x_multiset[x_container->element(i)]++;
+    y_multiset[y_container->element(i)]++;
+  }
+  const auto& format_options = DebugFormatValueContentOptions();
+  for (const auto& p : x_multiset) {
+    const internal::ValueContentContainerElement& element = p.first;
+    auto it = y_multiset.find(element);
+    if (it == y_multiset.end()) {
+      if (reason) {
+        absl::StrAppend(
+            reason,
+            absl::Substitute("Multiset element $0 of $1 is missing in $2\n",
+                             FormatValueContentContainerElement(
+                                 element, element_type(), format_options),
+                             FormatValueContent(x, format_options),
+                             FormatValueContent(y, format_options)));
+      }
+      return false;
+    }
+    if (it->second != p.second) {
+      if (reason) {
+        absl::StrAppend(
+            reason,
+            absl::Substitute(
+                "Number of occurrences of multiset element $0 is $1 and $2 "
+                "respectively in multisets $3 and $4\n",
+                FormatValueContentContainerElement(element, element_type(),
+                                                   format_options),
+                p.second, it->second, FormatValueContent(x, format_options),
+                FormatValueContent(y, format_options)));
+      }
+      return false;
+    }
+  }
+  if (x_multiset.size() == y_multiset.size()) {
+    return true;  // All of x is in y and the sizes agree.
+  }
+  if (reason) {
+    // There exists an element in y that's missing from x. Report it.
+    for (const auto& p : y_multiset) {
+      const internal::ValueContentContainerElement& element = p.first;
+      if (x_multiset.find(element) == x_multiset.end()) {
+        absl::StrAppend(
+            reason,
+            absl::Substitute("Multiset element $0 of $1 is missing in $2\n",
+                             FormatValueContentContainerElement(
+                                 element, element_type(), format_options),
+                             FormatValueContent(x, format_options),
+                             FormatValueContent(y, format_options)));
+      }
+    }
+    ZETASQL_DCHECK(!reason->empty());
+  }
+  return false;
 }
 
 bool ArrayType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  ZETASQL_LOG(FATAL) << "ValueContentEquals should never be called for ArrayType,"
-                "since its value content is compared in Value class";
+  const internal::ValueContentContainer* x_container =
+      x.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentContainer* y_container =
+      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  if (x_container->num_elements() != y_container->num_elements()) {
+    if (options.reason) {
+      const auto& format_options = DebugFormatValueContentOptions();
+      absl::StrAppend(
+          options.reason,
+          absl::Substitute(
+              "Number of array elements is {$0} and {$1} in respective "
+              "arrays {$2} and {$3}\n",
+              x_container->num_elements(), y_container->num_elements(),
+              FormatValueContent(x, format_options),
+              FormatValueContent(y, format_options)));
+    }
+    return false;
+  }
+
+  // By default use options provided in arguments
+  ValueEqualityCheckOptions const* element_options = &options;
+  std::unique_ptr<ValueEqualityCheckOptions> options_copy = nullptr;
+  if (options.deep_order_spec != nullptr) {
+    options_copy = std::make_unique<ValueEqualityCheckOptions>(options);
+    options_copy->deep_order_spec = &options.deep_order_spec->children[0];
+    element_options = options_copy.get();
+    if (options.deep_order_spec->ignores_order) {
+      return EqualElementMultiSet(x, y, *element_options);
+    }
+  }
+
+  ValueContentContainerElementEq eq(*element_options, element_type());
+  for (int i = 0; i < x_container->num_elements(); i++) {
+    if (!eq(x_container->element(i), y_container->element(i))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool ArrayType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                  const Type* other_type) const {
-  ZETASQL_LOG(FATAL) << "ValueContentLess should never be called for ArrayType,"
-                "since its value content is compared in Value class";
-}
-
-std::string ArrayType::FormatValueContent(
-    const ValueContent& value, const FormatValueContentOptions& options) const {
-  ZETASQL_LOG(FATAL)
-      << "FormatValueContent should never be called for ArrayType, since "
-         "its value content is maintained in the Value class";
+  const internal::ValueContentContainer* x_container =
+      x.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentContainer* y_container =
+      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  const Type* x_element_type = element_type();
+  const Type* y_element_type = other_type->AsArray()->element_type();
+  for (int i = 0;
+       i < std::min(x_container->num_elements(), y_container->num_elements());
+       ++i) {
+    const std::optional<bool> is_less = ValueContentContainerElementLess(
+        x_container->element(i), y_container->element(i), x_element_type,
+        y_element_type);
+    if (is_less.has_value()) return *is_less;
+  }
+  return x_container->num_elements() < y_container->num_elements();
 }
 
 absl::Status ArrayType::SerializeValueContent(const ValueContent& value,
@@ -258,6 +519,51 @@ absl::Status ArrayType::DeserializeValueContent(const ValueProto& value_proto,
   return absl::FailedPreconditionError(
       "DeserializeValueContent should never be called for ArrayType, since its "
       "value content is maintained in the Value class");
+}
+
+std::string ArrayType::GetFormatPrefix(
+    const ValueContent& value_content,
+    const FormatValueContentOptions& options) const {
+  std::string prefix;
+  switch (options.mode) {
+    case Type::FormatValueContentOptions::Mode::kDebug: {
+      const internal::ValueContentContainerRef* container_ref =
+          value_content.GetAs<internal::ValueContentContainerRef*>();
+      if (options.verbose) {
+        const internal::ValueContentContainer* container =
+            container_ref->value();
+        if (container->num_elements() == 0) {
+          prefix.append(CapitalizedName());
+        } else {
+          prefix.append("Array");
+        }
+      }
+      prefix.push_back('[');
+      if (!container_ref->preserves_order()) {
+        prefix.append("unordered: ");
+      }
+      break;
+    }
+    case Type::FormatValueContentOptions::Mode::kSQLLiteral: {
+      prefix.push_back('[');
+      break;
+    }
+    case Type::FormatValueContentOptions::Mode::kSQLExpression: {
+      prefix.append(TypeName(options.product_mode));
+      prefix.push_back('[');
+      break;
+    }
+  }
+  return prefix;
+}
+
+char ArrayType::GetFormatClosingCharacter(
+    const Type::FormatValueContentOptions& options) const {
+  return ']';
+}
+
+const Type* ArrayType::GetElementType(int index) const {
+  return element_type();
 }
 
 }  // namespace zetasql

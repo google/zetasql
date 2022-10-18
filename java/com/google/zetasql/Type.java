@@ -319,7 +319,7 @@ public abstract class Type implements Serializable {
    * @return Whether this type is equivalent to the given other type.
    */
   public boolean equivalent(Type other) {
-    return equalsInternal(other, true  /* equivalent */);
+    return equalsInternal(other, /* equivalent= */ true);
   }
 
   /**
@@ -336,7 +336,7 @@ public abstract class Type implements Serializable {
    */
   @Override
   public boolean equals(Object other) {
-    return (other instanceof Type) && equalsInternal((Type) other, false  /* equivalent */);
+    return (other instanceof Type) && equalsInternal((Type) other, /* equivalent= */ false);
   }
 
   @Override

@@ -253,6 +253,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Visit methods for types of ResolvedExpr.
   absl::Status VisitResolvedExpressionColumn(
       const ResolvedExpressionColumn* node) override;
+  absl::Status VisitResolvedCatalogColumnRef(
+      const ResolvedCatalogColumnRef* node) override;
   absl::Status VisitResolvedLiteral(const ResolvedLiteral* node) override;
   absl::Status VisitResolvedConstant(const ResolvedConstant* node) override;
   absl::Status VisitResolvedFunctionCall(

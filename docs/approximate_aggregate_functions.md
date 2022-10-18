@@ -33,7 +33,7 @@ APPROX_COUNT_DISTINCT(
 **Description**
 
 Returns the approximate result for `COUNT(DISTINCT expression)`. The value
-returned is a statistical estimate&mdash;not necessarily the actual value.
+returned is a statistical estimate, not necessarily the actual value.
 
 This function is less accurate than `COUNT(DISTINCT expression)`, but performs
 better on huge input.
@@ -41,13 +41,14 @@ better on huge input.
 **Supported Argument Types**
 
 Any data type **except**:
-`ARRAY`
-`STRUCT`
-`PROTO`
+
++ `ARRAY`
++ `STRUCT`
++ `PROTO`
 
 **Returned Data Types**
 
-INT64
+`INT64`
 
 **Examples**
 
@@ -80,6 +81,9 @@ Returns the approximate boundaries for a group of `expression` values, where
 an array of `number` + 1 elements, where the first element is the approximate
 minimum and the last element is the approximate maximum.
 
+Returns `NULL` if there are zero input rows or `expression` evaluates to
+`NULL` for all rows.
+
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
 
@@ -91,20 +95,16 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Supported Argument Types**
 
-`expression` can be any supported data type **except**:
-`ARRAY`
-`STRUCT`
-`PROTO`
++ `expression`: Any supported data type **except**:
 
-`number` must be INT64.
+  + `ARRAY`
+  + `STRUCT`
+  + `PROTO`
++ `number`: `INT64` literal or query parameter.
 
 **Returned Data Types**
 
-An ARRAY of the type specified by the `expression`
-parameter.
-
-Returns `NULL` if there are zero input
-rows or `expression` evaluates to NULL for all rows.
+`ARRAY<T>` where `T` is the type specified by `expression`.
 
 **Examples**
 
@@ -174,8 +174,14 @@ APPROX_TOP_COUNT(
 
 **Description**
 
-Returns the approximate top elements of `expression`. The `number` parameter
-specifies the number of elements returned.
+Returns the approximate top elements of `expression` as an array of `STRUCT`s.
+The `number` parameter specifies the number of elements returned.
+
+Each `STRUCT` contains two fields. The first field (named `value`) contains an
+input value. The second field (named `count`) contains an `INT64` specifying the
+number of times the value was returned.
+
+Returns `NULL` if there are zero input rows.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -188,19 +194,12 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Supported Argument Types**
 
-`expression` can be of any data type that the `GROUP BY` clause supports.
-
-`number` must be INT64.
++ `expression`: Any data type that the `GROUP BY` clause supports.
++ `number`: `INT64` literal or query parameter.
 
 **Returned Data Types**
 
-An ARRAY of type STRUCT.
-The STRUCT contains two fields. The first field
-(named `value`) contains an input value. The second field (named `count`)
-contains an INT64 specifying the number of times the
-value was returned.
-
-Returns `NULL` if there are zero input rows.
+`ARRAY<STRUCT>`
 
 **Examples**
 
@@ -217,7 +216,7 @@ FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x;
 
 **NULL handling**
 
-APPROX_TOP_COUNT does not ignore NULLs in the input. For example:
+`APPROX_TOP_COUNT` does not ignore `NULL`s in the input. For example:
 
 ```sql
 SELECT APPROX_TOP_COUNT(x, 2) as approx_top_count
@@ -247,6 +246,14 @@ returned.
 
 If the `weight` input is negative or `NaN`, this function returns an error.
 
+The elements are returned as an array of `STRUCT`s.
+Each `STRUCT` contains two fields: `value` and `sum`.
+The `value` field contains the value of the input expression. The `sum` field is
+the same type as `weight`, and is the approximate sum of the input weight
+associated with the `value` field.
+
+Returns `NULL` if there are zero input rows.
+
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
 
@@ -258,27 +265,19 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Supported Argument Types**
 
-`expression` can be of any data type that the `GROUP BY` clause supports.
++ `expression`: Any data type that the `GROUP BY` clause supports.
++ `weight`: One of the following:
 
-`weight` must be one of the following:
-
-+ `INT64`
-+ `UINT64`
-+ `NUMERIC`
-+ `BIGNUMERIC`
-+ `DOUBLE`
-
-`number` must be INT64.
+  + `INT64`
+  + `UINT64`
+  + `NUMERIC`
+  + `BIGNUMERIC`
+  + `DOUBLE`
++ `number`: `INT64` literal or query parameter.
 
 **Returned Data Types**
 
-An ARRAY of type STRUCT.
-The STRUCT contains two fields: `value` and `sum`.
-The `value` field contains the value of the input expression. The `sum` field is
-the same type as `weight`, and is the approximate sum of the input weight
-associated with the `value` field.
-
-Returns `NULL` if there are zero input rows.
+`ARRAY<STRUCT>`
 
 **Examples**
 
@@ -301,7 +300,7 @@ UNNEST([
 
 **NULL handling**
 
-APPROX_TOP_SUM does not ignore NULL values for the `expression` and `weight`
+`APPROX_TOP_SUM` does not ignore `NULL` values for the `expression` and `weight`
 parameters.
 
 ```sql
@@ -337,8 +336,6 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 +----------------------------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
 [hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md#hyperloglog_functions
 
 [kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions.md#kll_quantile_functions
@@ -346,6 +343,4 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 [aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-<!-- mdlint on -->
 

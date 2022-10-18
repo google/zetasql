@@ -19,8 +19,11 @@
 
 #include <iostream>
 #include <memory>
+#include <optional>
+#include <ostream>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/analyzer_options.h"

@@ -35,7 +35,6 @@
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/substitute.h"
@@ -44,18 +43,20 @@
 namespace zetasql {
 namespace functions {
 
+using ::zetasql_base::testing::StatusIs;
+
 TEST(GenerateArrayTest, TooManyElementsInt) {
   std::vector<int64_t> values;
   absl::Status status = GenerateArray<int64_t, int64_t>(
       int64_t{1}, int64_t{1000000000}, int64_t{1}, &values);
-  EXPECT_THAT(status, zetasql_base::testing::StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(GenerateArrayTest, TooManyElementsDouble) {
   std::vector<double> values;
   absl::Status status = GenerateArray<double, double>(
       double{0}, double{1}, std::numeric_limits<double>::min(), &values);
-  EXPECT_THAT(status, zetasql_base::testing::StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(GenerateArrayTest, ComplianceTests) {
@@ -70,9 +71,6 @@ TEST(GenerateArrayTest, ComplianceTests) {
         }) != params.end()) {
       continue;
     }
-    const Value& expected_result = test.params.results().begin()->second.result;
-    const absl::Status& expected_status =
-        test.params.results().begin()->second.status;
 
     const std::string params_string =
         absl::StrJoin(params, ", ", [](std::string* out, const Value& param) {
@@ -149,19 +147,19 @@ TEST(GenerateArrayTest, ComplianceTests) {
         break;
     }
 
-    if (expected_status.ok()) {
+    if (test.params.status().ok()) {
       ZETASQL_EXPECT_OK(status);
       if (status.ok()) {
         std::string reason;
         EXPECT_TRUE(InternalValue::Equals(
-            expected_result, result,
+            test.params.result(), result,
             ValueEqualityCheckOptions{.float_margin = kDefaultFloatMargin,
                                       .reason = &reason}))
-            << "Expected: " << expected_result << "\nActual:   " << result
+            << "Expected: " << test.params.result() << "\nActual:   " << result
             << "\nReason: " << reason;
       }
     } else {
-      EXPECT_THAT(status, ::zetasql_base::testing::StatusIs(expected_status.code()));
+      EXPECT_THAT(status, StatusIs(test.params.status().code()));
     }
   }
 }

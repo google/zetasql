@@ -16,8 +16,10 @@
 
 #include "zetasql/public/templated_sql_function.h"
 
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/function.pb.h"

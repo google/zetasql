@@ -271,6 +271,19 @@ CREATE PROCEDURE procedure_name(OUT param_a string(10))
                                                   ^
 ==
 
+# Type with collation name is not supported.
+CREATE PROCEDURE procedure_name(OUT collated_a string collate 'und:ci')
+BEGIN
+  DECLARE a int32;
+  SET a = 1;
+  SET collated_a = "test";
+END;
+--
+ERROR: Type with collation name is not supported in function arguments [at 1:55]
+CREATE PROCEDURE procedure_name(OUT collated_a string collate 'und:ci')
+                                                      ^
+==
+
 # Non SQL procedure is not enabled.
 CREATE PROCEDURE procedure_name()
 LANGUAGE python;

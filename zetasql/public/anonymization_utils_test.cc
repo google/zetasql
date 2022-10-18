@@ -16,8 +16,12 @@
 
 #include "zetasql/public/anonymization_utils.h"
 
+#include <cmath>
 #include <cstdint>
+#include <limits>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"

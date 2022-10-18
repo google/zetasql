@@ -1,18 +1,15 @@
 # This contains every type of "Unicode" whitespace between the "SELECT" and the
 # 1, but no regular whitespace. This should verify that all of these are
 # recognized and treated as whitespace.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 SELECT
               　1
 --
-QueryStatement [0-52]
-  Query [0-52]
-    Select [0-52]
-      SelectList [51-52]
-        SelectColumn [51-52]
-          IntLiteral(1) [51-52]
+QueryStatement [0-52] [SELECT               　1]
+  Query [0-52] [SELECT               　1]
+    Select [0-52] [SELECT               　1]
+      SelectList [51-52] [1]
+        SelectColumn [51-52] [1]
+          IntLiteral(1) [51-52] [1]
 --
 SELECT
   1

@@ -213,8 +213,10 @@ cc_library(
         "//zetasql/public:simple_catalog",
         "//zetasql/public:sql_function",
         "//zetasql/public:sql_tvf",
+        "//zetasql/public:sql_view",
         "//zetasql/public:strings",
         "//zetasql/public:templated_sql_function",
+        "//zetasql/public:templated_sql_tvf_no_resolver",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
@@ -284,6 +286,7 @@ cc_library(
     deps = [
         ":anonymization_rewriter",
         "//zetasql/analyzer/rewriters:array_functions_rewriter",
+        "//zetasql/analyzer/rewriters:binary_function_rewriter",
         "//zetasql/analyzer/rewriters:flatten_rewriter",
         "//zetasql/analyzer/rewriters:like_any_all_rewriter",
         "//zetasql/analyzer/rewriters:map_function_rewriter",
@@ -292,11 +295,13 @@ cc_library(
         "//zetasql/analyzer/rewriters:registration",
         "//zetasql/analyzer/rewriters:rewriter_interface",
         "//zetasql/analyzer/rewriters:sql_function_inliner",
+        "//zetasql/analyzer/rewriters:sql_view_inliner",
         "//zetasql/analyzer/rewriters:ternary_function_rewriter",
         "//zetasql/analyzer/rewriters:typeof_function_rewriter",
         "//zetasql/analyzer/rewriters:unary_function_rewriter",
         "//zetasql/analyzer/rewriters:unpivot_rewriter",
         "//zetasql/analyzer/rewriters:with_expr_rewriter",
+        "//zetasql/public:options_cc_proto",
         "@com_google_absl//absl/base",
     ],
 )
@@ -313,6 +318,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/common:errors",
         "//zetasql/common:internal_analyzer_options",
+        "//zetasql/common:timer_util",
         "//zetasql/parser",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
@@ -511,6 +517,7 @@ cc_library(
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/common:errors",
         "//zetasql/common:internal_analyzer_options",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
@@ -587,6 +594,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/common:errors",
         "//zetasql/common:internal_analyzer_options",
+        "//zetasql/common:timer_util",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:analyzer_output_properties",
@@ -606,6 +614,22 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "rewrite_resolved_ast_test",
+    srcs = ["rewrite_resolved_ast_test.cc"],
+    deps = [
+        "//zetasql/analyzer/rewriters:map_function_rewriter",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public/testing:test_case_options_util",
+        "//zetasql/public/types",
+        "//zetasql/testdata:test_schema_cc_proto",
+    ],
+)
+
 cc_library(
     name = "analyzer_test_options",
     testonly = 1,
@@ -617,6 +641,7 @@ cc_library(
         "//zetasql/common:options_utils",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:type",
+        "//zetasql/public/testing:test_case_options_util",
         "//zetasql/public/types",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/strings",
@@ -643,6 +668,7 @@ cc_library(
     deps = [
         ":analyzer_test_options",
         "//zetasql/base",
+        "//zetasql/base:enum_utils",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
@@ -669,6 +695,7 @@ cc_library(
         "//zetasql/public:type",
         "//zetasql/public:value",
         "//zetasql/public/functions:date_time_util",
+        "//zetasql/public/testing:test_case_options_util",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:comparator",

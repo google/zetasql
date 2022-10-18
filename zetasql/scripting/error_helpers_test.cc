@@ -16,6 +16,7 @@
 
 #include "zetasql/scripting/error_helpers.h"
 
+#include <memory>
 #include <string>
 
 #include "zetasql/common/errors.h"

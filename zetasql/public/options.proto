@@ -108,7 +108,7 @@ message LanguageFeatureOptions {
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
 enum LanguageFeature {
-  reserved 36 to 39, 45, 48, 74, 13046, 999003;
+  reserved 36 to 39, 44 to 46, 48, 74, 13046, 14001, 999003;
   // CROSS-VERSION FEATURES
   //
   // These are features that can be opted into independently from versioning.
@@ -337,16 +337,6 @@ enum LanguageFeature {
   // JSON data type. (broken link)
   FEATURE_JSON_TYPE = 43 [(language_feature_options).in_development = true];
 
-  // If true, JSON values are not parsed and validated.
-  FEATURE_JSON_NO_VALIDATION = 44
-      [(language_feature_options).ideally_enabled = false];
-
-  // If true, JSON string documents will be parsed using the proto JSON parse
-  // rules that are more relaxed than the JSON RFC (for example allowing single
-  // quotes in the documents).
-  FEATURE_JSON_LEGACY_PARSE = 46
-      [(language_feature_options).ideally_enabled = false];
-
   // Enables support for WITH PARTITION COLUMNS in CREATE EXTERNAL TABLE.
   // Example:
   // CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS (x int64)
@@ -370,8 +360,6 @@ enum LanguageFeature {
   // If precision loss occurs as a result of the round-trip, the number is not
   // considered valid (i.e. 0.142857142857142857142857142857142857 -> double ->
   // 14285714285714285 is not valid).
-  // NOTE: FEATURE_JSON_LEGACY_PARSE does not work with
-  // FEATURE_JSON_STRICT_NUMBER_PARSING
   FEATURE_JSON_STRICT_NUMBER_PARSING = 52
       [(language_feature_options).ideally_enabled = false];
   // When enabled, (table) function argument names will hide column names in
@@ -504,6 +492,22 @@ enum LanguageFeature {
     ideally_enabled: false,
     in_development: true
   }];
+
+  // This feature can be enabled to disable the new SQL functions ARRAY_MIN and
+  // ARRAY_MAX. It is here to ensure there is a way to turn these functions off
+  // in case they cause trouble.
+  FEATURE_DISABLE_ARRAY_MIN_AND_MAX = 79
+      [(language_feature_options) = { ideally_enabled: false }];
+
+  // When FEATURE_FUNCTION_ARGUMENTS_WITH_DEFAULTS is also enabled, apply a
+  // strict (and correct) type coercion from the given default argument value to
+  // the specified argument type.
+  // This feature is disabled by default, to avoid breaking existing production
+  // queries that rely on FEATURE_FUNCTION_ARGUMENTS_WITH_DEFAULTS.
+  // TODO: Roll out this feature to the engines that have
+  // FEATURE_FUNCTION_ARGUMENTS_WITH_DEFAULTS enabled.
+  FEATURE_STRICT_FUNCTION_DEFAULT_ARG_TYPE_COERCION = 80
+      [(language_feature_options) = { ideally_enabled: false }];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -849,11 +853,6 @@ enum LanguageFeature {
   // Allow WITH-expressions. See (broken link).
   FEATURE_V_1_4_WITH_EXPRESSION = 14000;
 
-  // Enables collation in standalone type.
-  // TODO: Remove "in_development" flag.
-  FEATURE_V_1_4_COLLATION_IN_TYPE = 14001
-      [(language_feature_options).in_development = true];
-
   // Allow ordered elements in primary key definition.
   // See (broken link).
   FEATURE_V_1_4_ORDERED_PRIMARY_KEYS = 14002
@@ -864,6 +863,22 @@ enum LanguageFeature {
 
   // Allow bare array access like a[0]. See (broken link)
   FEATURE_V_1_4_BARE_ARRAY_ACCESS = 14004;
+
+  // Enable builtin functions ARRAY_MIN, ARRAY_MAX, ARRAY_SUM and ARRAY_AVG.
+  FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS = 14005
+      [(language_feature_options).in_development = true];
+
+  // Using string type argument as a placeholder for enum type argument.
+  // Related functions include ARRAY_OFFSET(S), ARRAY_FIND, and ARRAY_FIND_ALL.
+  // This language feature guard is added temporarily to unblock related
+  // functions development from enum development. This feature will be removed.
+  FEATURE_V_1_4_STRING_AS_ENUM_ARGUMENT = 14006
+      [(language_feature_options).in_development = true];
+
+  // Enable SAFE mode for function calls with lambda arguments,
+  // e.g. SAFE.ARRAY_TRANSFORM(array_input, e -> 1 /e )
+  // (broken link).
+  FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS = 14007;
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
@@ -996,6 +1011,25 @@ enum ResolvedASTRewrite {
   // Rewrite ternary functions into subqueries.
   // The functions that use ternary rewriter have three inputs.
   REWRITE_TERNARY_FUNCTIONS = 15 [(rewrite_options).default_enabled = true];
+
+  // Rewrite binary functions into subqueries.
+  // The functions that use binary rewriter have two inputs.
+  REWRITE_BINARY_FUNCTIONS = 16 [(rewrite_options).default_enabled = true];
+
+  // Inline SQL Views.
+  // Experimental. Functionality may change before generally available.
+  // Views that are added to the Catalog that are subtypes of
+  // SQLView will be inlined if SQLView::enable_view_inline returns true.
+  // That removes the ResolvedTableScan and replaces it with an expression that
+  // evaluates the view body, much as if the view was written inline.
+  // TODO Enable native implementation in Reference Impl and
+  //     RQG testing before removing "in_development"
+  // TODO: Add an assertion that the catalog doesn't supply illegal
+  //     view forms, particularly recursive shapes.
+  REWRITE_INLINE_SQL_VIEWS = 17 [
+    (rewrite_options).default_enabled = true,
+    (rewrite_options).in_development = true
+  ];
 }
 
 // This can be used to select strict name resolution mode.

@@ -21,6 +21,8 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/functions/date_time_util.h"

@@ -21,11 +21,13 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stack>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
@@ -104,6 +106,7 @@ struct SelectColumnState;
 //   resolver_stmt.cc       Statements (except DML)
 class Resolver {
  public:
+  enum class HintOrOptionType { Hint, Option, AnonymizationOption };
   // <*analyzer_options> should outlive the constructed Resolver. It must have
   // all arenas initialized.
   Resolver(Catalog* catalog, TypeFactory* type_factory,
@@ -577,12 +580,6 @@ class Resolver {
   // undeclared parameters.
   std::map<ParseLocationPoint, absl::variant<std::string, int>>
       untyped_undeclared_parameters_;
-
-  // Status object returned when the stack overflows. Used to avoid
-  // RETURN_ERROR, which may end up calling GoogleOnceInit methods on
-  // GenericErrorSpace, which in turn would require more stack while the
-  // stack is already overflowed.
-  static absl::Status* stack_overflow_status_;
 
   // Maps ResolvedColumns produced by ResolvedTableScans to their source Columns
   // from the Catalog. This can be used to check properties like
@@ -1971,7 +1968,8 @@ class Resolver {
   // Validates that the type is supported for the language.
   absl::StatusOr<const Type*> FindProtoFieldType(
       const google::protobuf::FieldDescriptor* field_descriptor,
-      const ASTNode* ast_location);
+      const ASTNode* ast_location,
+      absl::Span<const std::string> catalog_name_path);
 
   // Returns the FieldDescriptor corresponding to <ast_path_expr>. First tries
   // to look up with respect to <descriptor>, and failing that extracts a type
@@ -1990,11 +1988,11 @@ class Resolver {
 
   // Returns a vector of FieldDesciptors that correspond to each of the fields
   // in the path <path_vector>. The first FieldDescriptor in the returned
-  // vector is looked up with respect to <root_descriptor>.
+  // vector is looked up with respect to <root_type>.
   // <path_vector> must only contain nested field extractions.
   absl::Status FindFieldDescriptors(
       absl::Span<const ASTIdentifier* const> path_vector,
-      const google::protobuf::Descriptor* root_descriptor,
+      const ProtoType* root_type,
       std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors);
 
   // Parses <generalized_path>, filling <struct_path> and/or <field_descriptors>
@@ -2836,6 +2834,9 @@ class Resolver {
       absl::string_view literal_string_value,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
+  absl::StatusOr<std::unique_ptr<const ResolvedLiteral>> ResolveRangeLiteral(
+      const ASTRangeLiteral* ast_range_literal);
+
   absl::Status ValidateColumnForAggregateOrAnalyticSupport(
       const ResolvedColumn& resolved_column, IdString first_name,
       const ASTPathExpression* path_expr,
@@ -3301,7 +3302,7 @@ class Resolver {
 
   absl::StatusOr<ResolvedBuildProtoArg> ResolveBracedConstructorField(
       const ASTBracedConstructorField* ast_braced_constructor_field,
-      const google::protobuf::Descriptor* parent_descriptor, int field_index,
+      const ProtoType* parent_type, int field_index,
       ExprResolutionInfo* expr_resolution_info);
 
   absl::Status ResolveBracedConstructor(
@@ -3416,10 +3417,9 @@ class Resolver {
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveIntervalArgument(
-      const ASTExpression* arg,
-      ExprResolutionInfo* expr_resolution_info,
+      const ASTExpression* arg, ExprResolutionInfo* expr_resolution_info,
       std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_arguments_out,
-      std::vector<const ASTExpression*>* ast_arguments_out);
+      std::vector<const ASTNode*>* ast_arguments_out);
 
   // Resolves interval expressions:
   // Literal:     INTERVAL '<literal>' <date_part> [ TO <date_part2>]
@@ -3619,7 +3619,7 @@ class Resolver {
       absl::Span<const ASTExpression* const> arguments,
       const std::map<int, SpecialArgumentType>& argument_option_map,
       std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_arguments_out,
-      std::vector<const ASTExpression*>* ast_arguments_out);
+      std::vector<const ASTNode*>* ast_arguments_out);
 
   // Common implementation for resolving all functions given resolved input
   // <arguments> and <expected_result_type> (if any, usually needed while
@@ -3764,7 +3764,7 @@ class Resolver {
   // <ast_qualifier> must be NULL if !is_hint.
   absl::Status ResolveHintOrOptionAndAppend(
       const ASTExpression* ast_value, const ASTIdentifier* ast_qualifier,
-      const ASTIdentifier* ast_name, bool is_hint,
+      const ASTIdentifier* ast_name, HintOrOptionType hint_or_option_type,
       const AllowedHintsAndOptions& allowed,
       std::vector<std::unique_ptr<const ResolvedOption>>* option_list);
 
@@ -3865,34 +3865,56 @@ class Resolver {
       std::unique_ptr<const ResolvedAddConstraintAction>*
           resolved_alter_action);
 
-  // Resolve the ASTType <type> as a Type <resolved_type>. If
-  // <resolved_type_params> is not a nullptr, resolve any type parameters in
-  // <type>.
+  // Struct to indicate whether each type modifier is allowed in resolving and
+  // the context where the modifiers are resolved.
+  struct ResolveTypeModifiersOptions {
+    bool allow_type_parameters = false;
+    bool allow_collation = false;
+    // Used in error message when a type modifier is not allowed but exists in
+    // the ASTType to be resolved. Must be specified when any type modifier is
+    // disallowed in resolving.
+    std::optional<absl::string_view> context = {};
+  };
+
+  // Resolve the ASTType <type> as a Type <resolved_type>. Each boolean field
+  // inside <resolve_type_modifier_options>, e.g. allow_type_parameters,
+  // indicates whether the corresponding type modifier, e.g. TypeParameters, is
+  // allowed in resolving.
   //
-  // If <resolved_type_params> is a nullptr it means that type parameters are
-  // disallowed by the caller of ResolveType() and should error out with
-  // <type_parameter_context> in the error message if type parameters exist.
-  // <type_parameter_context> must be specified if <resolved_type_params> is a
-  // nullptr.
+  // If a certain type modifier is allowed in resolving, we will resolve it and
+  // output in the corresponding field of <resolved_type_modifiers>. If a
+  // certain type modifier is not allowed but it exists inside <type>, we will
+  // error out with <resolve_type_modifier_options.context> in the error
+  // message.
+
+  // <resolved_type_modifiers> cannot be null when any type modifier is allowed
+  // in resolving. When all type modifers are disallowed and
+  // <resolved_type_modifiers> is not null, an empty TypeModifiers object
+  // would be returned.
   absl::Status ResolveType(
       const ASTType* type,
-      const std::optional<absl::string_view> type_parameter_context,
-      const Type** resolved_type, TypeParameters* resolved_type_params);
+      const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+      const Type** resolved_type, TypeModifiers* resolved_type_modifiers);
 
   absl::Status ResolveSimpleType(
       const ASTSimpleType* type,
-      const std::optional<absl::string_view> type_parameter_context,
-      const Type** resolved_type, TypeParameters* resolved_type_params);
+      const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+      const Type** resolved_type, TypeModifiers* resolved_type_modifiers);
 
   absl::Status ResolveArrayType(
       const ASTArrayType* array_type,
-      const std::optional<absl::string_view> type_parameter_context,
-      const ArrayType** resolved_type, TypeParameters* resolved_type_params);
+      const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+      const ArrayType** resolved_type, TypeModifiers* resolved_type_modifiers);
 
   absl::Status ResolveStructType(
       const ASTStructType* struct_type,
-      const std::optional<absl::string_view> type_parameter_context,
-      const StructType** resolved_type, TypeParameters* resolved_type_params);
+      const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+      const StructType** resolved_type, TypeModifiers* resolved_type_modifiers);
+
+  absl::Status ResolveRangeType(
+      const ASTRangeType* range_type,
+      const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+      const RangeType** resolved_type, TypeModifiers* resolved_type_modifiers);
 
   // Resolve type parameters to the resolved TypeParameters class, which stores
   // type parameters as a TypeParametersProto. If there are no type parameters,
@@ -3912,9 +3934,14 @@ class Resolver {
   absl::StatusOr<std::vector<TypeParameterValue>> ResolveParameterLiterals(
       const ASTTypeParameterList& type_parameters);
 
-  // Resolve type collation to the resolved Collation class. If there is no
-  // type collation for the input <type>, an empty Collation class is returned.
-  absl::StatusOr<Collation> ResolveTypeCollation(const ASTType& type);
+  // Resolve <collate> to the resolved Collation class based on <resolved_type>.
+  // <resolved_type> must correspond to the Type returned when the ASTType
+  // parent of <collate> is resolved. If the <resolved_type> is a STRUCT or
+  // ARRAY type, <child_collation_list> should hold the collations of the STRUCT
+  // fields or ARRAY elements.
+  absl::StatusOr<Collation> ResolveTypeCollation(
+      const ASTCollate* collate, const Type& resolved_type,
+      std::vector<Collation> child_collation_list);
 
   // Resolves operation collation for a function call from its argument list.
   // The collation will be stored in <function_call>.collation_list.

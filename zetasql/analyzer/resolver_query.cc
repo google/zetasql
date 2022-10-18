@@ -25,6 +25,7 @@
 #include <map>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <set>
 #include <stack>
 #include <string>
@@ -67,8 +68,10 @@
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/sql_tvf.h"
+#include "zetasql/public/sql_view.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
@@ -2667,7 +2670,8 @@ absl::Status Resolver::AddColumnFieldsToSelectList(
           src_column_has_analytic, std::move(get_struct_field));
     }
   } else {
-    const google::protobuf::Descriptor* proto_descriptor = type->AsProto()->descriptor();
+    const ProtoType* proto_type = type->AsProto();
+    const google::protobuf::Descriptor* proto_descriptor = proto_type->descriptor();
 
     std::map<int32_t, const google::protobuf::FieldDescriptor*>
         tag_number_ordered_field_map;
@@ -2700,7 +2704,8 @@ absl::Status Resolver::AddColumnFieldsToSelectList(
           ast_expression,
           GetProtoFieldTypeAndDefault(
               ProtoFieldDefaultOptions::FromFieldAndLanguage(field, language()),
-              field, type_factory_, &field_type, &default_value));
+              field, proto_type->CatalogNamePath(), type_factory_, &field_type,
+              &default_value));
       // TODO: This really should be check for
       // !field_type->IsSupportedType(language())
       // but that breaks existing tests :(
@@ -2709,7 +2714,7 @@ absl::Status Resolver::AddColumnFieldsToSelectList(
         return MakeSqlErrorAt(ast_expression)
                << "Dot-star expansion includes field " << field_name
                << " with unsupported type "
-               << field_type->TypeName(language().product_mode());
+               << field_type->ShortTypeName(language().product_mode());
       }
       std::unique_ptr<const ResolvedExpr> resolved_expr =
           MakeResolvedGetProtoField(
@@ -4037,10 +4042,10 @@ absl::Status Resolver::SetOperationResolver::ResolveRecursive(
       return MakeSqlErrorAt(set_operation_->inputs().back())
              << "Cannot coerce column " << (i + 1) << " of recursive term "
              << "("
-             << recursive_column_type_lists.at(i).at(0).type()->TypeName(
+             << recursive_column_type_lists.at(i).at(0).type()->ShortTypeName(
                     resolver_->analyzer_options_.language().product_mode())
              << ") to column type in non-recursive term ( "
-             << column_list.at(i).type()->TypeName(
+             << column_list.at(i).type()->ShortTypeName(
                     resolver_->analyzer_options_.language().product_mode())
              << ")";
     }
@@ -4667,7 +4672,8 @@ absl::Status Resolver::AppendPivotColumnNameViaStringCast(
   ZETASQL_ASSIGN_OR_RETURN(
       Value string_value,
       CastValue(pivot_value, analyzer_options_.default_time_zone(),
-                analyzer_options_.language(), type_factory_->get_string()));
+                analyzer_options_.language(), type_factory_->get_string(),
+                /*catalog=*/nullptr, /*canonicalize_zero=*/true));
 
   const std::string& raw_column_name = string_value.string_value();
 
@@ -4758,7 +4764,7 @@ absl::Status Resolver::AppendPivotColumnName(const Value& pivot_value,
     return absl::OkStatus();
   }
   return MakeSqlErrorAt(ast_location)
-         << "PIVOT values of type " << type->TypeName(product_mode())
+         << "PIVOT values of type " << type->ShortTypeName(product_mode())
          << " must specify an alias";
 }
 
@@ -6289,13 +6295,14 @@ absl::Status Resolver::ResolveJoin(
   const char* natural_str = "";  // For error messages.
   if (join->natural()) {
     if (!expect_join_condition) {
-      return MakeSqlErrorAtLocalNode(join)
+      return MakeSqlErrorAtLocalNode(join->join_location())
              << "NATURAL cannot be used with " << join_type_name;
     }
     expect_join_condition = false;
     natural_str = "NATURAL ";
 
-    return MakeSqlErrorAtLocalNode(join) << "Natural join not supported";
+    return MakeSqlErrorAtLocalNode(join->join_location())
+           << "Natural join not supported";
   }
 
   // This stores the extra casted (for LEFT, RIGHT, INNER JOIN) and
@@ -6354,7 +6361,7 @@ absl::Status Resolver::ResolveJoin(
     } else {
       // No ON or USING clause.
       if (expect_join_condition) {
-        return MakeSqlErrorAtLocalNode(join)
+        return MakeSqlErrorAtLocalNode(join->join_location())
                << natural_str << join_type_name
                << " must have an immediately following ON or USING clause";
       }
@@ -6480,6 +6487,55 @@ absl::Status Resolver::ResolveGroupRowsTVF(
   return absl::OkStatus();
 }
 
+namespace {
+// Vertifies that argument of TVF call inside <resolved_tvf_args> has no
+// collation, i.e. each argument is not a scalar argument of collated type or a
+// table argument with collated columns. An error will be thrown if the
+// verification fails. The input <ast_locations> is expected to match 1:1 to the
+// arguments in the <resolved_tvf_args>, and it is mainly used for error
+// message.
+absl::Status CheckTVFArgumentHasNoCollation(
+    std::vector<ResolvedTVFArg>& resolved_tvf_args,
+    const std::vector<const ASTNode*> ast_locations) {
+  ZETASQL_RET_CHECK_EQ(ast_locations.size(), resolved_tvf_args.size());
+  for (int i = 0; i < resolved_tvf_args.size(); ++i) {
+    if (resolved_tvf_args[i].IsExpr()) {
+      ZETASQL_ASSIGN_OR_RETURN(const ResolvedExpr* const expr,
+                       resolved_tvf_args[i].GetExpr());
+      if (CollationAnnotation::ExistsIn(expr->type_annotation_map())) {
+        ZETASQL_RET_CHECK(ast_locations[i] != nullptr);
+        return MakeSqlErrorAt(ast_locations[i])
+               << "Collation "
+               << expr->type_annotation_map()->DebugString(
+                      CollationAnnotation::GetId())
+               << " on argument of TVF call is not allowed";
+      }
+    } else if (resolved_tvf_args[i].IsScan()) {
+      ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
+                       resolved_tvf_args[i].GetNameList());
+      const std::vector<ResolvedColumn> column_list =
+          name_list->GetResolvedColumns();
+      for (const ResolvedColumn& col : column_list) {
+        if (CollationAnnotation::ExistsIn(col.type_annotation_map())) {
+          std::string column_str = name_list->is_value_table()
+                                       ? "value-table column"
+                                       : "column " + col.name();
+          ZETASQL_RET_CHECK(ast_locations[i] != nullptr);
+          return MakeSqlErrorAt(ast_locations[i])
+                 << "Collation "
+                 << col.type_annotation_map()->DebugString(
+                        CollationAnnotation::GetId())
+                 << " on " << column_str
+                 << " of argument of TVF call is not allowed";
+        }
+      }
+    }
+  }
+  return absl::OkStatus();
+}
+
+}  // namespace
+
 absl::Status Resolver::ResolveTVF(
     const ASTTVF* ast_tvf, const NameScope* external_scope,
     const NameScope* local_scope, std::unique_ptr<const ResolvedScan>* output,
@@ -6559,6 +6615,8 @@ absl::Status Resolver::ResolveTVF(
       ast_tvf, *function_signature, tvf_catalog_entry->FullName(),
       /*is_tvf=*/true));
 
+  ZETASQL_RETURN_IF_ERROR(
+      CheckTVFArgumentHasNoCollation(resolved_tvf_args, arg_locations));
   // Add casts or coerce literals for TVF arguments.
   ZETASQL_RET_CHECK(result_signature->IsConcrete()) << ast_tvf->DebugString();
   for (int arg_idx = 0; arg_idx < resolved_tvf_args.size(); ++arg_idx) {
@@ -6697,7 +6755,7 @@ absl::Status Resolver::ResolveTVF(
     const IdString column_name = MakeIdString(
         !column.name.empty() ? column.name : absl::StrCat("$col", i));
     column_list.push_back(ResolvedColumn(AllocateColumnId(), tvf_name_idstring,
-                                         column_name, column.type));
+                                         column_name, column.annotated_type()));
     if (column.is_pseudo_column) {
       ZETASQL_RETURN_IF_ERROR(
           name_list->AddPseudoColumn(column_name, column_list.back(), ast_tvf));
@@ -6816,7 +6874,8 @@ absl::Status Resolver::ResolveTVF(
   // Fill column_index_list with 0, 1, 2, ..., column_list.size()-1.
   std::iota(column_index_list.begin(), column_index_list.end(), 0);
 
-  if (tvf_catalog_entry->Is<SQLTableValuedFunction>()) {
+  if (tvf_catalog_entry->Is<SQLTableValuedFunction>() ||
+      tvf_catalog_entry->Is<TemplatedSQLTVF>()) {
     analyzer_output_properties_.MarkRelevant(
         ResolvedASTRewrite::REWRITE_INLINE_SQL_TVFS);
   }
@@ -8130,6 +8189,9 @@ absl::Status Resolver::ResolvePathExpressionAsTableScan(
                             has_explicit_alias ? alias.ToString() : "");
   table_scan->set_column_index_list(column_index_list);
   ZETASQL_RETURN_IF_ERROR(ResolveHintsForNode(hints, table_scan.get()));
+  if (table->Is<SQLView>()) {
+    analyzer_output_properties_.MarkRelevant(REWRITE_INLINE_SQL_VIEWS);
+  }
 
   // The number of columns should equal the number of regular columns plus
   // the number of pseudo-columns in name_list, but we don't maintain the

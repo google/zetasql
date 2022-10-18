@@ -708,7 +708,7 @@ the supertype must support ordering.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Types**
 
@@ -746,7 +746,7 @@ the supertype must support ordering.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Types**
 
@@ -970,62 +970,70 @@ ROUND(X [, N])
 
 **Description**
 
-If only X is present, `ROUND` rounds X to the nearest integer. If N is present,
-`ROUND` rounds X to N decimal places after the decimal point. If N is negative,
-`ROUND` will round off digits to the left of the decimal point. Rounds halfway
-cases away from zero. Generates an error if overflow occurs.
+If only X is present, rounds X to the nearest integer. If N is present,
+rounds X to N decimal places after the decimal point. If N is negative,
+rounds off digits to the left of the decimal point. Rounds halfway cases
+away from zero. Generates an error if overflow occurs.
 
 <table>
   <thead>
     <tr>
-      <th>X</th>
-      <th>ROUND(X)</th>
+      <th>Expression</th>
+      <th>Return Value</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>2.0</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>2.3</td>
+      <td><code>ROUND(2.0)</code></td>
       <td>2.0</td>
     </tr>
     <tr>
-      <td>2.8</td>
+      <td><code>ROUND(2.3)</code></td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(2.8)</code></td>
       <td>3.0</td>
     </tr>
     <tr>
-      <td>2.5</td>
+      <td><code>ROUND(2.5)</code></td>
       <td>3.0</td>
     </tr>
     <tr>
-      <td>-2.3</td>
+      <td><code>ROUND(-2.3)</code></td>
       <td>-2.0</td>
     </tr>
     <tr>
-      <td>-2.8</td>
+      <td><code>ROUND(-2.8)</code></td>
       <td>-3.0</td>
     </tr>
     <tr>
-      <td>-2.5</td>
+      <td><code>ROUND(-2.5)</code></td>
       <td>-3.0</td>
     </tr>
     <tr>
+      <td><code>ROUND(0)</code></td>
       <td>0</td>
-      <td>0</td>
     </tr>
     <tr>
+      <td><code>ROUND(+inf)</code></td>
       <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
     </tr>
     <tr>
-      <td><code>-inf</code></td>
+      <td><code>ROUND(-inf)</code></td>
       <td><code>-inf</code></td>
     </tr>
     <tr>
+      <td><code>ROUND(NaN)</code></td>
       <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>ROUND(123.7, -1)</code></td>
+      <td>120.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(1.235, 2)</code></td>
+      <td>1.24</td>
     </tr>
   </tbody>
 </table>

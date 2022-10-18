@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <ostream>
 #include <stack>
 
 #include "zetasql/parser/parse_tree.h"

@@ -109,6 +109,9 @@ public class AllowedHintsAndOptionsTest {
     AllowedHintsAndOptions allowed = new AllowedHintsAndOptions("Qual");
     allowed.addHint("test_qual", "hint1", factory.createProtoType(TypeProto.class), true);
     allowed.addOption("option1", null);
+    allowed.addAnonymizationOption("anon_option", null);
+    allowed.addAnonymizationOption(
+        "anon_option_with_type", TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE));
     FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
     AllowedHintsAndOptions allowed2 =
         AllowedHintsAndOptions.deserialize(
@@ -121,6 +124,10 @@ public class AllowedHintsAndOptionsTest {
         .isEqualTo(allowed.getHint("test_qual", "hint1").getType());
     assertThat(allowed2.getHint("", "hint1").getType())
         .isEqualTo(allowed.getHint("", "hint1").getType());
+    assertThat(allowed2.getAnonymizationOptionType("anon_option"))
+        .isEqualTo(allowed.getAnonymizationOptionType("anon_option"));
+    assertThat(allowed2.getAnonymizationOptionType("anon_option_with_type"))
+        .isEqualTo(allowed.getAnonymizationOptionType("anon_option_with_type"));
     assertThat(allowed2.getOptionNameList()).containsExactlyElementsIn(allowed.getOptionNameList());
 
     String typeProtoPath = "zetasql/public/type.proto";
@@ -146,6 +153,12 @@ public class AllowedHintsAndOptionsTest {
             + "}\n"
             + "option {\n"
             + "  name: \"option1\"\n"
+            + "}\n"
+            + "anonymization_option {\n"
+            + "  name: \"anonymization_option1\"\n"
+            + "  type {\n"
+            + "    type_kind: TYPE_INT64\n"
+            + "  }\n"
             + "}",
         protoBuilder);
     AllowedHintsAndOptionsProto proto =
@@ -155,6 +168,8 @@ public class AllowedHintsAndOptionsTest {
     assertThat(proto.getDisallowUnknownHintsWithQualifierList()).hasSize(2);
     assertThat(proto.getHint(0)).isEqualTo(protoBuilder.build().getHint(0));
     assertThat(proto.getOption(0)).isEqualTo(protoBuilder.build().getOption(0));
+    assertThat(proto.getAnonymizationOption(0))
+        .isEqualTo(protoBuilder.build().getAnonymizationOption(0));
     assertThat(proto.getDisallowUnknownOptions()).isTrue();
   }
 
@@ -167,6 +182,9 @@ public class AllowedHintsAndOptionsTest {
     allowed.addHint("test_qual", "HINT2", null, false);
     allowed.setDisallowUnknownOptions(false);
     allowed.disallowUnknownHintsWithQualifier("qual2");
+    allowed.addAnonymizationOption(
+        "anonymization_option1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
+    allowed.addAnonymizationOption("Anonymization_Option2", null);
 
     assertThat(allowed.getDisallowUnknownOptions()).isFalse();
 
@@ -186,6 +204,15 @@ public class AllowedHintsAndOptionsTest {
     assertThat(allowed.getOptionType("OPTION1").isBytes()).isTrue();
     assertThat(allowed.getOptionType("Option2")).isNull();
     assertThat(allowed.getOptionType("noOption")).isNull();
+
+    assertThat(allowed.getAnonymizationOptionNameList()).hasSize(6);
+    assertThat(allowed.getAnonymizationOptionType("anonymization_option1").isInt64()).isTrue();
+    assertThat(allowed.getAnonymizationOptionType("anonymization_option2")).isNull();
+    assertThat(allowed.getAnonymizationOptionType("epsilon").isDouble()).isTrue();
+    assertThat(allowed.getAnonymizationOptionType("delta").isDouble()).isTrue();
+    assertThat(allowed.getAnonymizationOptionType("kappa").isInt64()).isTrue();
+    assertThat(allowed.getAnonymizationOptionType("k_threshold").isInt64()).isTrue();
+    assertThat(allowed.getAnonymizationOptionType("noOption")).isNull();
   }
 
   @Test
@@ -194,11 +221,11 @@ public class AllowedHintsAndOptionsTest {
             "The number of fields of AllowedHintsAndOptionsProto has changed, please also update "
                 + "the serialization code accordingly.")
         .that(AllowedHintsAndOptionsProto.getDescriptor().getFields())
-        .hasSize(4);
+        .hasSize(5);
     assertWithMessage(
             "The number of fields in AllowedHintsAndOptions class has changed, please also update "
                 + "the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(AllowedHintsAndOptions.class))
-        .isEqualTo(4);
+        .isEqualTo(5);
   }
 }

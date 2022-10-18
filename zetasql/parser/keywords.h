@@ -18,6 +18,7 @@
 #ifndef ZETASQL_PARSER_KEYWORDS_H_
 #define ZETASQL_PARSER_KEYWORDS_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 

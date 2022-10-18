@@ -16,6 +16,8 @@
 
 #include "zetasql/reference_impl/type_parameter_constraints.h"
 
+#include <vector>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -34,7 +36,7 @@ namespace {
 // in Perso-Arabic script with 4 letters and 3 vowel diacritics (hence a UTF-8
 // length of 7). We use this string so that its UTF-8 length differs from its
 // byte length.
-constexpr absl::string_view TEST_STRING = u8"گُوگِلْ";
+constexpr absl::string_view TEST_STRING = "گُوگِلْ";
 
 TEST(TypeParametersTest, StringWithMaxLengthOk) {
   Value string_value = Value::String(TEST_STRING);

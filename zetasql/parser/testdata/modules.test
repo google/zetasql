@@ -3,35 +3,32 @@
 #   MODULE statement
 
 # Module with various length path names.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 import module foo
 --
-ImportStatement [0-17]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
+ImportStatement [0-17] [import module foo]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
 --
 IMPORT MODULE foo
 ==
 
 import module foo.bar
 --
-ImportStatement [0-21]
-  PathExpression [14-21]
-    Identifier(foo) [14-17]
-    Identifier(bar) [18-21]
+ImportStatement [0-21] [import module foo.bar]
+  PathExpression [14-21] [foo.bar]
+    Identifier(foo) [14-17] [foo]
+    Identifier(bar) [18-21] [bar]
 --
 IMPORT MODULE foo.bar
 ==
 
 import module foo.bar.baz
 --
-ImportStatement [0-25]
-  PathExpression [14-25]
-    Identifier(foo) [14-17]
-    Identifier(bar) [18-21]
-    Identifier(baz) [22-25]
+ImportStatement [0-25] [import module foo.bar.baz]
+  PathExpression [14-25] [foo.bar.baz]
+    Identifier(foo) [14-17] [foo]
+    Identifier(bar) [18-21] [bar]
+    Identifier(baz) [22-25] [baz]
 --
 IMPORT MODULE foo.bar.baz
 ==
@@ -39,24 +36,24 @@ IMPORT MODULE foo.bar.baz
 # Module with alias
 import module foo.bar as alias
 --
-ImportStatement [0-30]
-  PathExpression [14-21]
-    Identifier(foo) [14-17]
-    Identifier(bar) [18-21]
-  Alias [22-30]
-    Identifier(alias) [25-30]
+ImportStatement [0-30] [import module foo.bar as alias]
+  PathExpression [14-21] [foo.bar]
+    Identifier(foo) [14-17] [foo]
+    Identifier(bar) [18-21] [bar]
+  Alias [22-30] [as alias]
+    Identifier(alias) [25-30] [alias]
 --
 IMPORT MODULE foo.bar AS alias
 ==
 
 import module foo.bar as `bar.baz`
 --
-ImportStatement [0-34]
-  PathExpression [14-21]
-    Identifier(foo) [14-17]
-    Identifier(bar) [18-21]
-  Alias [22-34]
-    Identifier(`bar.baz`) [25-34]
+ImportStatement [0-34] [import module...`bar.baz`]
+  PathExpression [14-21] [foo.bar]
+    Identifier(foo) [14-17] [foo]
+    Identifier(bar) [18-21] [bar]
+  Alias [22-34] [as `bar.baz`]
+    Identifier(`bar.baz`) [25-34] [`bar.baz`]
 --
 IMPORT MODULE foo.bar AS `bar.baz`
 ==
@@ -80,13 +77,13 @@ import module foo as;
 # Module with options
 import module foo OPTIONS (a=1);
 --
-ImportStatement [0-31]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
-  OptionsList [26-31]
-    OptionsEntry [27-30]
-      Identifier(a) [27-28]
-      IntLiteral(1) [29-30]
+ImportStatement [0-31] [import module...OPTIONS (a=1)]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  OptionsList [26-31] [(a=1)]
+    OptionsEntry [27-30] [a=1]
+      Identifier(a) [27-28] [a]
+      IntLiteral(1) [29-30] [1]
 --
 IMPORT MODULE foo OPTIONS(a = 1)
 ==
@@ -97,93 +94,93 @@ import module {{|a.}}foo {{|as foo}} {{|OPTIONS (a=1)}};
 --
 ALTERNATION GROUP: <empty>
 --
-ImportStatement [0-17]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
+ImportStatement [0-17] [import module foo]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
 --
 IMPORT MODULE foo
 --
 ALTERNATION GROUP: OPTIONS (a=1)
 --
-ImportStatement [0-32]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
-  OptionsList [27-32]
-    OptionsEntry [28-31]
-      Identifier(a) [28-29]
-      IntLiteral(1) [30-31]
+ImportStatement [0-32] [import module...OPTIONS (a=1)]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  OptionsList [27-32] [(a=1)]
+    OptionsEntry [28-31] [a=1]
+      Identifier(a) [28-29] [a]
+      IntLiteral(1) [30-31] [1]
 --
 IMPORT MODULE foo OPTIONS(a = 1)
 --
 ALTERNATION GROUP: as foo,
 --
-ImportStatement [0-24]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
-  Alias [18-24]
-    Identifier(foo) [21-24]
+ImportStatement [0-24] [import module foo as foo]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  Alias [18-24] [as foo]
+    Identifier(foo) [21-24] [foo]
 --
 IMPORT MODULE foo AS foo
 --
 ALTERNATION GROUP: as foo,OPTIONS (a=1)
 --
-ImportStatement [0-38]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
-  Alias [18-24]
-    Identifier(foo) [21-24]
-  OptionsList [33-38]
-    OptionsEntry [34-37]
-      Identifier(a) [34-35]
-      IntLiteral(1) [36-37]
+ImportStatement [0-38] [import module...OPTIONS (a=1)]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  Alias [18-24] [as foo]
+    Identifier(foo) [21-24] [foo]
+  OptionsList [33-38] [(a=1)]
+    OptionsEntry [34-37] [a=1]
+      Identifier(a) [34-35] [a]
+      IntLiteral(1) [36-37] [1]
 --
 IMPORT MODULE foo AS foo OPTIONS(a = 1)
 --
 ALTERNATION GROUP: a.,,
 --
-ImportStatement [0-19]
-  PathExpression [14-19]
-    Identifier(a) [14-15]
-    Identifier(foo) [16-19]
+ImportStatement [0-19] [import module a.foo]
+  PathExpression [14-19] [a.foo]
+    Identifier(a) [14-15] [a]
+    Identifier(foo) [16-19] [foo]
 --
 IMPORT MODULE a.foo
 --
 ALTERNATION GROUP: a.,,OPTIONS (a=1)
 --
-ImportStatement [0-34]
-  PathExpression [14-19]
-    Identifier(a) [14-15]
-    Identifier(foo) [16-19]
-  OptionsList [29-34]
-    OptionsEntry [30-33]
-      Identifier(a) [30-31]
-      IntLiteral(1) [32-33]
+ImportStatement [0-34] [import module...OPTIONS (a=1)]
+  PathExpression [14-19] [a.foo]
+    Identifier(a) [14-15] [a]
+    Identifier(foo) [16-19] [foo]
+  OptionsList [29-34] [(a=1)]
+    OptionsEntry [30-33] [a=1]
+      Identifier(a) [30-31] [a]
+      IntLiteral(1) [32-33] [1]
 --
 IMPORT MODULE a.foo OPTIONS(a = 1)
 --
 ALTERNATION GROUP: a.,as foo,
 --
-ImportStatement [0-26]
-  PathExpression [14-19]
-    Identifier(a) [14-15]
-    Identifier(foo) [16-19]
-  Alias [20-26]
-    Identifier(foo) [23-26]
+ImportStatement [0-26] [import module a.foo as foo]
+  PathExpression [14-19] [a.foo]
+    Identifier(a) [14-15] [a]
+    Identifier(foo) [16-19] [foo]
+  Alias [20-26] [as foo]
+    Identifier(foo) [23-26] [foo]
 --
 IMPORT MODULE a.foo AS foo
 --
 ALTERNATION GROUP: a.,as foo,OPTIONS (a=1)
 --
-ImportStatement [0-40]
-  PathExpression [14-19]
-    Identifier(a) [14-15]
-    Identifier(foo) [16-19]
-  Alias [20-26]
-    Identifier(foo) [23-26]
-  OptionsList [35-40]
-    OptionsEntry [36-39]
-      Identifier(a) [36-37]
-      IntLiteral(1) [38-39]
+ImportStatement [0-40] [import module...OPTIONS (a=1)]
+  PathExpression [14-19] [a.foo]
+    Identifier(a) [14-15] [a]
+    Identifier(foo) [16-19] [foo]
+  Alias [20-26] [as foo]
+    Identifier(foo) [23-26] [foo]
+  OptionsList [35-40] [(a=1)]
+    OptionsEntry [36-39] [a=1]
+      Identifier(a) [36-37] [a]
+      IntLiteral(1) [38-39] [1]
 --
 IMPORT MODULE a.foo AS foo OPTIONS(a = 1)
 ==
@@ -207,9 +204,9 @@ import module select;
 # The module name is an unreserved keyword.
 import module module;
 --
-ImportStatement [0-20]
-  PathExpression [14-20]
-    Identifier(module) [14-20]
+ImportStatement [0-20] [import module module]
+  PathExpression [14-20] [module]
+    Identifier(module) [14-20] [module]
 --
 IMPORT MODULE module
 ==
@@ -225,10 +222,10 @@ import module all;
 
 import module module.all;
 --
-ImportStatement [0-24]
-  PathExpression [14-24]
-    Identifier(module) [14-20]
-    Identifier(`all`) [21-24]
+ImportStatement [0-24] [import module module.all]
+  PathExpression [14-24] [module.all]
+    Identifier(module) [14-20] [module]
+    Identifier(`all`) [21-24] [all]
 --
 IMPORT MODULE module.`all`
 ==
@@ -345,11 +342,11 @@ import module foo as ALL;
 # Unreserved keywords as aliases parse ok.
 import module foo as TABLE;
 --
-ImportStatement [0-26]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
-  Alias [18-26]
-    Identifier(TABLE) [21-26]
+ImportStatement [0-26] [import module foo as TABLE]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  Alias [18-26] [as TABLE]
+    Identifier(TABLE) [21-26] [TABLE]
 --
 IMPORT MODULE foo AS TABLE
 ==
@@ -357,22 +354,22 @@ IMPORT MODULE foo AS TABLE
 # Type names are just identifiers, so they parse ok.
 import module foo as string
 --
-ImportStatement [0-27]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
-  Alias [18-27]
-    Identifier(string) [21-27]
+ImportStatement [0-27] [import module foo as string]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  Alias [18-27] [as string]
+    Identifier(string) [21-27] [string]
 --
 IMPORT MODULE foo AS string
 ==
 
 import module foo as INT64
 --
-ImportStatement [0-26]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
-  Alias [18-26]
-    Identifier(INT64) [21-26]
+ImportStatement [0-26] [import module foo as INT64]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  Alias [18-26] [as INT64]
+    Identifier(INT64) [21-26] [INT64]
 --
 IMPORT MODULE foo AS INT64
 ==
@@ -423,54 +420,54 @@ import module foo as bar 123
 
 module foo;
 --
-ModuleStatement [0-10]
-  PathExpression [7-10]
-    Identifier(foo) [7-10]
+ModuleStatement [0-10] [module foo]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
 --
 MODULE foo
 ==
 
 module foo.bar.baz;
 --
-ModuleStatement [0-18]
-  PathExpression [7-18]
-    Identifier(foo) [7-10]
-    Identifier(bar) [11-14]
-    Identifier(baz) [15-18]
+ModuleStatement [0-18] [module foo.bar.baz]
+  PathExpression [7-18] [foo.bar.baz]
+    Identifier(foo) [7-10] [foo]
+    Identifier(bar) [11-14] [bar]
+    Identifier(baz) [15-18] [baz]
 --
 MODULE foo.bar.baz
 ==
 
 module foo.bar OPTIONS (a=1);
 --
-ModuleStatement [0-28]
-  PathExpression [7-14]
-    Identifier(foo) [7-10]
-    Identifier(bar) [11-14]
-  OptionsList [23-28]
-    OptionsEntry [24-27]
-      Identifier(a) [24-25]
-      IntLiteral(1) [26-27]
+ModuleStatement [0-28] [module foo.bar OPTIONS (a=1)]
+  PathExpression [7-14] [foo.bar]
+    Identifier(foo) [7-10] [foo]
+    Identifier(bar) [11-14] [bar]
+  OptionsList [23-28] [(a=1)]
+    OptionsEntry [24-27] [a=1]
+      Identifier(a) [24-25] [a]
+      IntLiteral(1) [26-27] [1]
 --
 MODULE foo.bar OPTIONS(a = 1)
 ==
 
 module foo.bar OPTIONS (a=1, b='b', c=3.0);
 --
-ModuleStatement [0-42]
-  PathExpression [7-14]
-    Identifier(foo) [7-10]
-    Identifier(bar) [11-14]
-  OptionsList [23-42]
-    OptionsEntry [24-27]
-      Identifier(a) [24-25]
-      IntLiteral(1) [26-27]
-    OptionsEntry [29-34]
-      Identifier(b) [29-30]
-      StringLiteral('b') [31-34]
-    OptionsEntry [36-41]
-      Identifier(c) [36-37]
-      FloatLiteral(3.0) [38-41]
+ModuleStatement [0-42] [module foo...b', c=3.0)]
+  PathExpression [7-14] [foo.bar]
+    Identifier(foo) [7-10] [foo]
+    Identifier(bar) [11-14] [bar]
+  OptionsList [23-42] [(a=1, b='b', c=3.0)]
+    OptionsEntry [24-27] [a=1]
+      Identifier(a) [24-25] [a]
+      IntLiteral(1) [26-27] [1]
+    OptionsEntry [29-34] [b='b']
+      Identifier(b) [29-30] [b]
+      StringLiteral('b') [31-34] ['b']
+    OptionsEntry [36-41] [c=3.0]
+      Identifier(c) [36-37] [c]
+      FloatLiteral(3.0) [38-41] [3.0]
 --
 MODULE foo.bar OPTIONS(a = 1, b = 'b', c = 3.0)
 ==
@@ -478,42 +475,42 @@ MODULE foo.bar OPTIONS(a = 1, b = 'b', c = 3.0)
 # Unreserved keywords as modules names is ok.
 module import
 --
-ModuleStatement [0-13]
-  PathExpression [7-13]
-    Identifier(import) [7-13]
+ModuleStatement [0-13] [module import]
+  PathExpression [7-13] [import]
+    Identifier(import) [7-13] [import]
 --
 MODULE import
 ==
 
 module module
 --
-ModuleStatement [0-13]
-  PathExpression [7-13]
-    Identifier(module) [7-13]
+ModuleStatement [0-13] [module module]
+  PathExpression [7-13] [module]
+    Identifier(module) [7-13] [module]
 --
 MODULE module
 ==
 
 module options
 --
-ModuleStatement [0-14]
-  PathExpression [7-14]
-    Identifier(options) [7-14]
+ModuleStatement [0-14] [module options]
+  PathExpression [7-14] [options]
+    Identifier(options) [7-14] [options]
 --
 MODULE options
 ==
 
 module import.module.options options(a=1);
 --
-ModuleStatement [0-41]
-  PathExpression [7-28]
-    Identifier(import) [7-13]
-    Identifier(module) [14-20]
-    Identifier(options) [21-28]
-  OptionsList [36-41]
-    OptionsEntry [37-40]
-      Identifier(a) [37-38]
-      IntLiteral(1) [39-40]
+ModuleStatement [0-41] [module import...options(a=1)]
+  PathExpression [7-28] [import.module.options]
+    Identifier(import) [7-13] [import]
+    Identifier(module) [14-20] [module]
+    Identifier(options) [21-28] [options]
+  OptionsList [36-41] [(a=1)]
+    OptionsEntry [37-40] [a=1]
+      Identifier(a) [37-38] [a]
+      IntLiteral(1) [39-40] [1]
 --
 MODULE import.module.options OPTIONS(a = 1)
 ==
@@ -529,29 +526,29 @@ module all;
 
 module module.all;
 --
-ModuleStatement [0-17]
-  PathExpression [7-17]
-    Identifier(module) [7-13]
-    Identifier(`all`) [14-17]
+ModuleStatement [0-17] [module module.all]
+  PathExpression [7-17] [module.all]
+    Identifier(module) [7-13] [module]
+    Identifier(`all`) [14-17] [all]
 --
 MODULE module.`all`
 ==
 
 module `all`;
 --
-ModuleStatement [0-12]
-  PathExpression [7-12]
-    Identifier(`all`) [7-12]
+ModuleStatement [0-12] [module `all`]
+  PathExpression [7-12] [`all`]
+    Identifier(`all`) [7-12] [`all`]
 --
 MODULE `all`
 ==
 
 module module.`all`;
 --
-ModuleStatement [0-19]
-  PathExpression [7-19]
-    Identifier(module) [7-13]
-    Identifier(`all`) [14-19]
+ModuleStatement [0-19] [module module.`all`]
+  PathExpression [7-19] [module.`all`]
+    Identifier(module) [7-13] [module]
+    Identifier(`all`) [14-19] [`all`]
 --
 MODULE module.`all`
 ==
@@ -617,8 +614,8 @@ create or replace module foo;
 # Invalid statement due to expecting path expression but successfully parsed
 import module "file.proto";
 --
-ImportStatement [0-26]
-  StringLiteral("file.proto") [14-26]
+ImportStatement [0-26] [import module "file.proto"]
+  StringLiteral("file.proto") [14-26] ["file.proto"]
 --
 IMPORT MODULE "file.proto"
 ==
@@ -627,21 +624,21 @@ IMPORT MODULE "file.proto"
 # in the analyzer.
 IMPORT MODULE name.path INTO a;
 --
-ImportStatement [0-30]
-  PathExpression [14-23]
-    Identifier(name) [14-18]
-    Identifier(path) [19-23]
-  IntoAlias [24-30]
-    Identifier(a) [29-30]
+ImportStatement [0-30] [IMPORT MODULE name.path INTO a]
+  PathExpression [14-23] [name.path]
+    Identifier(name) [14-18] [name]
+    Identifier(path) [19-23] [path]
+  IntoAlias [24-30] [INTO a]
+    Identifier(a) [29-30] [a]
 --
 IMPORT MODULE name.path INTO a
 ==
 
 IMPORT MODULE 'name/path' INTO a;
 --
-ImportStatement [0-32]
-  StringLiteral('name/path') [14-25]
-  IntoAlias [26-32]
-    Identifier(a) [31-32]
+ImportStatement [0-32] [IMPORT MODULE...path' INTO a]
+  StringLiteral('name/path') [14-25] ['name/path']
+  IntoAlias [26-32] [INTO a]
+    Identifier(a) [31-32] [a]
 --
 IMPORT MODULE 'name/path' INTO a

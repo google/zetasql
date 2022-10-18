@@ -18,7 +18,10 @@
 #define ZETASQL_SCRIPTING_CONTROL_FLOW_GRAPH_H_
 
 #include <memory>
+#include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/parser/parse_tree.h"
 #include "absl/container/flat_hash_map.h"

@@ -17,6 +17,7 @@
 #include "zetasql/testing/type_util.h"
 
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/timestamp.pb.h"
@@ -110,6 +111,7 @@ std::vector<std::string> ZetaSqlTestProtoNames() {
           "zetasql_test__.MessageWithMapField.StringInt32MapEntry",
           "zetasql_test__.CivilTimeTypesSinkPB",
           "zetasql_test__.RecursiveMessage",
+          "zetasql_test__.RecursivePB",
           "zetasql_test__.Proto3KitchenSink",
           "zetasql_test__.Proto3KitchenSink.Nested",
           "zetasql_test__.Proto3MessageWithNulls",

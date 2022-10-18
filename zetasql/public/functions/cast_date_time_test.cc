@@ -18,7 +18,10 @@
 
 #include <cstdint>
 #include <functional>
+#include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
@@ -35,6 +38,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
+#include "zetasql/base/map_util.h"
 
 namespace zetasql {
 namespace functions {
@@ -485,41 +489,42 @@ static void TestCastStringToTimestamp(const FunctionTestCall& test) {
       format_param.DebugString(), timestamp_string_param.DebugString(),
       timezone_param.DebugString(), current_timestamp_param.DebugString());
 
-  const QueryParamsWithResult::Result& micros_test_result = zetasql_base::FindOrDie(
-      test.params.results(), QueryParamsWithResult::kEmptyFeatureSet);
-  if (micros_test_result.status.ok()) {
-    ZETASQL_EXPECT_OK(status) << test_string;
-    if (status.ok()) {
-      EXPECT_EQ(TYPE_TIMESTAMP, micros_test_result.result.type_kind())
-          << test_string;
-      EXPECT_EQ(micros_test_result.result.ToTime(),
-                absl::FromUnixMicros(result_timestamp))
-          << test_string << "\nexpected: "
-          << absl::FormatTime(
-                 absl::FromUnixMicros(micros_test_result.result.ToUnixMicros()))
-          << "\nactual: "
-          << absl::FormatTime(absl::FromUnixMicros(result_timestamp));
+  // Test micros, unless the test case requires nanos precision.
+  if (!zetasql_base::ContainsKey(test.params.required_features(),
+                        FEATURE_TIMESTAMP_NANOS)) {
+    if (test.params.status().ok()) {
+      ZETASQL_EXPECT_OK(status) << test_string;
+      if (status.ok()) {
+        EXPECT_EQ(TYPE_TIMESTAMP, test.params.result().type_kind())
+            << test_string;
+        EXPECT_EQ(test.params.result().ToTime(),
+                  absl::FromUnixMicros(result_timestamp))
+            << test_string << "\nexpected: "
+            << absl::FormatTime(
+                   absl::FromUnixMicros(test.params.result().ToUnixMicros()))
+            << "\nactual: "
+            << absl::FormatTime(absl::FromUnixMicros(result_timestamp));
+      }
+    } else {
+      EXPECT_FALSE(status.ok())
+          << test_string << "\nstatus: " << test.params.status();
     }
-  } else {
-    EXPECT_FALSE(status.ok())
-        << test_string << "\nstatus: " << micros_test_result.status;
   }
-
-  const std::set<LanguageFeature> feature_set{FEATURE_TIMESTAMP_NANOS};
-  const QueryParamsWithResult::Result& nanos_test_result =
-      zetasql_base::FindOrDie(test.params.results(), feature_set);
-
-  if (nanos_test_result.status.ok()) {
-    ZETASQL_EXPECT_OK(base_time_status) << test_string;
-    EXPECT_EQ(TYPE_TIMESTAMP, nanos_test_result.result.type_kind())
-        << test_string;
-    EXPECT_EQ(nanos_test_result.result.ToTime(), base_time_result)
-        << test_string << ": "
-        << absl::FormatTime(nanos_test_result.result.ToTime()) << " vs "
-        << absl::FormatTime(base_time_result);
-  } else {
-    EXPECT_FALSE(base_time_status.ok())
-        << test_string << "\nstatus: " << nanos_test_result.status;
+  // Test nanos, unless the test case prohibits nanos precision.
+  if (!zetasql_base::ContainsKey(test.params.prohibited_features(),
+                        FEATURE_TIMESTAMP_NANOS)) {
+    if (test.params.status().ok()) {
+      ZETASQL_EXPECT_OK(base_time_status) << test_string;
+      EXPECT_EQ(TYPE_TIMESTAMP, test.params.result().type_kind())
+          << test_string;
+      EXPECT_EQ(test.params.result().ToTime(), base_time_result)
+          << test_string << ": "
+          << absl::FormatTime(test.params.result().ToTime()) << " vs "
+          << absl::FormatTime(base_time_result);
+    } else {
+      EXPECT_FALSE(base_time_status.ok())
+          << test_string << "\nstatus: " << test.params.status();
+    }
   }
 }
 
@@ -597,28 +602,25 @@ static void TestCivilTimeFunction(
   if (should_skip_test_case(testcase)) {
     return;
   }
-
-  // Validate micro result
-  const QueryParamsWithResult::FeatureSet civil_time_feature_set(
-      {FEATURE_V_1_2_CIVIL_TIME});
-  std::string actual_micro_string_value;
-  absl::Status actual_micro_status =
-      function_to_test_for_micro(testcase, &actual_micro_string_value);
-  const QueryParamsWithResult::Result* expected_micro_result =
-      zetasql_base::FindOrNull(testcase.params.results(), civil_time_feature_set);
-  ValidateResult(expected_micro_result, actual_micro_status,
-                 actual_micro_string_value, result_validator);
-
-  // Validate nano result
-  const QueryParamsWithResult::FeatureSet civil_time_and_nano_feature_set(
-      {FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS});
-  std::string actual_nano_string_value;
-  absl::Status actual_nano_status =
-      function_to_test_for_nano(testcase, &actual_nano_string_value);
-  const QueryParamsWithResult::Result* expected_nano_result = zetasql_base::FindOrNull(
-      testcase.params.results(), civil_time_and_nano_feature_set);
-  ValidateResult(expected_nano_result, actual_nano_status,
-                 actual_nano_string_value, result_validator);
+  for (auto& [features, result] : testcase.params.results()) {
+    // Validate micro result
+    if (!zetasql_base::ContainsKey(features, FEATURE_TIMESTAMP_NANOS)) {
+      std::string actual_micro_string_value;
+      absl::Status actual_micro_status =
+          function_to_test_for_micro(testcase, &actual_micro_string_value);
+      ValidateResult(&result, actual_micro_status, actual_micro_string_value,
+                     result_validator);
+    }
+    // Validate nano result
+    if (!zetasql_base::ContainsKey(testcase.params.prohibited_features(),
+                          FEATURE_TIMESTAMP_NANOS)) {
+      std::string actual_nano_string_value;
+      absl::Status actual_nano_status =
+          function_to_test_for_nano(testcase, &actual_nano_string_value);
+      ValidateResult(&result, actual_nano_status, actual_nano_string_value,
+                     result_validator);
+    }
+  }
 }
 
 static void TestCastStringToTime(const FunctionTestCall& test) {
@@ -730,9 +732,11 @@ static void TestCastFormatFunction(
   std::string result_string;
   const auto result_status = function_to_test(&result_string, &test_name);
   if (result_status.ok()) {
-    EXPECT_EQ(TYPE_STRING, testcase.params.result().type_kind()) << test_name;
-    EXPECT_EQ(result_string, testcase.params.result().string_value())
-        << test_name;
+    const QueryParamsWithResult::ResultMap& results = testcase.params.results();
+    ASSERT_EQ(results.size(), 1) << test_name;
+    Value result = results.begin()->second.result;
+    EXPECT_EQ(TYPE_STRING, result.type_kind()) << test_name;
+    EXPECT_EQ(result_string, result.string_value()) << test_name;
   } else {
     EXPECT_FALSE(result_status.ok()) << test_name;
   }

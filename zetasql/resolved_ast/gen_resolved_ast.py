@@ -191,6 +191,7 @@ TVF_SIGNATURE = ScalarType(
     java_type='TVFSignature')
 SCALAR_PROCEDURE = ScalarType('const Procedure*', 'ProcedureRefProto',
                               'Procedure')
+SCALAR_COLUMN = ScalarType('const Column*', 'ColumnRefProto', 'Column')
 
 
 def EnumScalarType(enum_name, node_name):
@@ -523,7 +524,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 206
+          Next tag_id: 207
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1062,6 +1063,18 @@ def main(unused_argv):
       <name> will always be in lowercase.
               """,
       fields=[Field('name', SCALAR_STRING, tag_id=2)])
+
+  gen.AddNode(
+      name='ResolvedCatalogColumnRef',
+      tag_id=206,
+      parent='ResolvedExpr',
+      comment="""
+      An expression referencing a Column from the Catalog. This is used to
+      represent a column reference in an expression inside a DDL statement.
+      The DDL statement will normally define the Table context, and the
+      referenced Column should be a Column of that Table.
+      """,
+      fields=[Field('column', SCALAR_COLUMN, tag_id=2)])
 
   gen.AddNode(
       name='ResolvedColumnRef',

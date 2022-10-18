@@ -1,22 +1,148 @@
 # NOTE: CREATE MODEL syntax and tests are derived from those for
 # CREATE VIEW tests, except for the keyword.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
+[default language_features=V_1_3_REMOTE_FUNCTION]
+create model t1
+--
+CreateModelStatement [0-15] [create model t1]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+--
+CREATE MODEL t1
+==
+
+create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
+--
+CreateModelStatement [0-61] [create model...(o1 BOOL)]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  InputOutputClause [16-61] [input (i1...(o1 BOOL)]
+    TableElementList [22-44] [(i1 INT64, i2 FLOAT64)]
+      ColumnDefinition [23-31] [i1 INT64]
+        Identifier(i1) [23-25] [i1]
+        SimpleColumnSchema [26-31] [INT64]
+          PathExpression [26-31] [INT64]
+            Identifier(INT64) [26-31] [INT64]
+      ColumnDefinition [33-43] [i2 FLOAT64]
+        Identifier(i2) [33-35] [i2]
+        SimpleColumnSchema [36-43] [FLOAT64]
+          PathExpression [36-43] [FLOAT64]
+            Identifier(FLOAT64) [36-43] [FLOAT64]
+    TableElementList [52-61] [(o1 BOOL)]
+      ColumnDefinition [53-60] [o1 BOOL]
+        Identifier(o1) [53-55] [o1]
+        SimpleColumnSchema [56-60] [BOOL]
+          PathExpression [56-60] [BOOL]
+            Identifier(BOOL) [56-60] [BOOL]
+--
+CREATE MODEL t1
+INPUT(
+  i1 INT64,
+  i2 FLOAT64
+)
+OUTPUT(
+  o1 BOOL
+)
+==
+
+create model t1 input (i1 INT64, i2 FLOAT64)
+--
+ERROR: Syntax error: Expected keyword OUTPUT but got end of statement [at 1:45]
+create model t1 input (i1 INT64, i2 FLOAT64)
+                                            ^
+==
+
+create model t1 output (o1 BOOL)
+--
+ERROR: Syntax error: Expected end of input but got keyword OUTPUT [at 1:17]
+create model t1 output (o1 BOOL)
+                ^
+==
+
+# Input does not support constraint clause
+create model t1
+input (i1 INT64, PRIMARY KEY(i1))
+output (o1 BOOL);
+--
+
+ERROR: Syntax error: Element list contains unexpected constraint [at 2:7]
+input (i1 INT64, PRIMARY KEY(i1))
+      ^
+==
+
+# Output does not support constraint clause
+create model t1
+input (i1 INT64)
+output (o1 BOOL, PRIMARY KEY(o1));
+--
+
+ERROR: Syntax error: Element list contains unexpected constraint [at 3:8]
+output (o1 BOOL, PRIMARY KEY(o1));
+       ^
+==
+
+create model t1 remote
+--
+CreateModelStatement [0-22] [create model t1 remote]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+--
+CREATE MODEL t1 REMOTE
+==
+
+create model t1 with connection conn_1
+--
+CreateModelStatement [0-38] [create model...nnection conn_1]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  WithConnectionClause [16-38] [with connection conn_1]
+    ConnectionClause [21-38] [connection conn_1]
+      PathExpression [32-38] [conn_1]
+        Identifier(conn_1) [32-38] [conn_1]
+--
+CREATE MODEL t1 WITH CONNECTION conn_1
+==
+
+create model t1 remote with connection conn_1
+--
+CreateModelStatement [0-45] [create model...nnection conn_1]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  WithConnectionClause [23-45] [with connection conn_1]
+    ConnectionClause [28-45] [connection conn_1]
+      PathExpression [39-45] [conn_1]
+        Identifier(conn_1) [39-45] [conn_1]
+--
+CREATE MODEL t1 REMOTE WITH CONNECTION conn_1
+==
+
+create model t1 options (abc = def)
+--
+CreateModelStatement [0-35] [create model...abc = def)]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  OptionsList [24-35] [(abc = def)]
+    OptionsEntry [25-34] [abc = def]
+      Identifier(abc) [25-28] [abc]
+      PathExpression [31-34] [def]
+        Identifier(def) [31-34] [def]
+--
+CREATE MODEL t1 OPTIONS(abc = def)
+==
+
 create model t1 as select * from t2;
 --
-CreateModelStatement [0-35]
-  PathExpression [13-15]
-    Identifier(t1) [13-15]
-  Query [19-35]
-    Select [19-35]
-      SelectList [26-27]
-        SelectColumn [26-27]
-          Star(*) [26-27]
-      FromClause [28-35]
-        TablePathExpression [33-35]
-          PathExpression [33-35]
-            Identifier(t2) [33-35]
+CreateModelStatement [0-35] [create model...* from t2]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  Query [19-35] [select * from t2]
+    Select [19-35] [select * from t2]
+      SelectList [26-27] [*]
+        SelectColumn [26-27] [*]
+          Star(*) [26-27] [*]
+      FromClause [28-35] [from t2]
+        TablePathExpression [33-35] [t2]
+          PathExpression [33-35] [t2]
+            Identifier(t2) [33-35] [t2]
 --
 CREATE MODEL t1 AS
 SELECT
@@ -27,22 +153,22 @@ FROM
 
 create model t1 transform(*) as select * from t2;
 --
-CreateModelStatement [0-48]
-  PathExpression [13-15]
-    Identifier(t1) [13-15]
-  TransformClause [16-28]
-    SelectList [26-27]
-      SelectColumn [26-27]
-        Star(*) [26-27]
-  Query [32-48]
-    Select [32-48]
-      SelectList [39-40]
-        SelectColumn [39-40]
-          Star(*) [39-40]
-      FromClause [41-48]
-        TablePathExpression [46-48]
-          PathExpression [46-48]
-            Identifier(t2) [46-48]
+CreateModelStatement [0-48] [create model...* from t2]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  TransformClause [16-28] [transform(*)]
+    SelectList [26-27] [*]
+      SelectColumn [26-27] [*]
+        Star(*) [26-27] [*]
+  Query [32-48] [select * from t2]
+    Select [32-48] [select * from t2]
+      SelectList [39-40] [*]
+        SelectColumn [39-40] [*]
+          Star(*) [39-40] [*]
+      FromClause [41-48] [from t2]
+        TablePathExpression [46-48] [t2]
+          PathExpression [46-48] [t2]
+            Identifier(t2) [46-48] [t2]
 --
 CREATE MODEL t1 TRANSFORM(
   *)
@@ -55,29 +181,29 @@ FROM
 
 create model t1 transform(* except(a, b), c) as select * from t2;
 --
-CreateModelStatement [0-64]
-  PathExpression [13-15]
-    Identifier(t1) [13-15]
-  TransformClause [16-44]
-    SelectList [26-43]
-      SelectColumn [26-40]
-        StarWithModifiers [26-40]
-          StarModifiers [28-40]
-            StarExceptList [28-40]
-              Identifier(a) [35-36]
-              Identifier(b) [38-39]
-      SelectColumn [42-43]
-        PathExpression [42-43]
-          Identifier(c) [42-43]
-  Query [48-64]
-    Select [48-64]
-      SelectList [55-56]
-        SelectColumn [55-56]
-          Star(*) [55-56]
-      FromClause [57-64]
-        TablePathExpression [62-64]
-          PathExpression [62-64]
-            Identifier(t2) [62-64]
+CreateModelStatement [0-64] [create model...* from t2]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  TransformClause [16-44] [transform(* except(a, b), c)]
+    SelectList [26-43] [* except(a, b), c]
+      SelectColumn [26-40] [* except(a, b)]
+        StarWithModifiers [26-40] [* except(a, b)]
+          StarModifiers [28-40] [except(a, b)]
+            StarExceptList [28-40] [except(a, b)]
+              Identifier(a) [35-36] [a]
+              Identifier(b) [38-39] [b]
+      SelectColumn [42-43] [c]
+        PathExpression [42-43] [c]
+          Identifier(c) [42-43] [c]
+  Query [48-64] [select * from t2]
+    Select [48-64] [select * from t2]
+      SelectList [55-56] [*]
+        SelectColumn [55-56] [*]
+          Star(*) [55-56] [*]
+      FromClause [57-64] [from t2]
+        TablePathExpression [62-64] [t2]
+          PathExpression [62-64] [t2]
+            Identifier(t2) [62-64] [t2]
 --
 CREATE MODEL t1 TRANSFORM(
   * EXCEPT (a, b),
@@ -91,27 +217,27 @@ FROM
 
 create model t1 transform(* replace(a as b)) as select * from t2;
 --
-CreateModelStatement [0-64]
-  PathExpression [13-15]
-    Identifier(t1) [13-15]
-  TransformClause [16-44]
-    SelectList [26-43]
-      SelectColumn [26-43]
-        StarWithModifiers [26-43]
-          StarModifiers [28-43]
-            StarReplaceItem [36-42]
-              PathExpression [36-37]
-                Identifier(a) [36-37]
-              Identifier(b) [41-42]
-  Query [48-64]
-    Select [48-64]
-      SelectList [55-56]
-        SelectColumn [55-56]
-          Star(*) [55-56]
-      FromClause [57-64]
-        TablePathExpression [62-64]
-          PathExpression [62-64]
-            Identifier(t2) [62-64]
+CreateModelStatement [0-64] [create model...* from t2]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  TransformClause [16-44] [transform(* replace(a as b))]
+    SelectList [26-43] [* replace(a as b)]
+      SelectColumn [26-43] [* replace(a as b)]
+        StarWithModifiers [26-43] [* replace(a as b)]
+          StarModifiers [28-43] [replace(a as b)]
+            StarReplaceItem [36-42] [a as b]
+              PathExpression [36-37] [a]
+                Identifier(a) [36-37] [a]
+              Identifier(b) [41-42] [b]
+  Query [48-64] [select * from t2]
+    Select [48-64] [select * from t2]
+      SelectList [55-56] [*]
+        SelectColumn [55-56] [*]
+          Star(*) [55-56] [*]
+      FromClause [57-64] [from t2]
+        TablePathExpression [62-64] [t2]
+          PathExpression [62-64] [t2]
+            Identifier(t2) [62-64] [t2]
 --
 CREATE MODEL t1 TRANSFORM(
   * REPLACE (a AS b))
@@ -124,25 +250,25 @@ FROM
 
 create model t1 transform(a label) as select * from t2;
 --
-CreateModelStatement [0-54]
-  PathExpression [13-15]
-    Identifier(t1) [13-15]
-  TransformClause [16-34]
-    SelectList [26-33]
-      SelectColumn [26-33]
-        PathExpression [26-27]
-          Identifier(a) [26-27]
-        Alias [28-33]
-          Identifier(label) [28-33]
-  Query [38-54]
-    Select [38-54]
-      SelectList [45-46]
-        SelectColumn [45-46]
-          Star(*) [45-46]
-      FromClause [47-54]
-        TablePathExpression [52-54]
-          PathExpression [52-54]
-            Identifier(t2) [52-54]
+CreateModelStatement [0-54] [create model...* from t2]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  TransformClause [16-34] [transform(a label)]
+    SelectList [26-33] [a label]
+      SelectColumn [26-33] [a label]
+        PathExpression [26-27] [a]
+          Identifier(a) [26-27] [a]
+        Alias [28-33] [label]
+          Identifier(label) [28-33] [label]
+  Query [38-54] [select * from t2]
+    Select [38-54] [select * from t2]
+      SelectList [45-46] [*]
+        SelectColumn [45-46] [*]
+          Star(*) [45-46] [*]
+      FromClause [47-54] [from t2]
+        TablePathExpression [52-54] [t2]
+          PathExpression [52-54] [t2]
+            Identifier(t2) [52-54] [t2]
 --
 CREATE MODEL t1 TRANSFORM(
   a AS label)
@@ -155,25 +281,25 @@ FROM
 
 create model t1 transform(a as label) as select * from t2;
 --
-CreateModelStatement [0-57]
-  PathExpression [13-15]
-    Identifier(t1) [13-15]
-  TransformClause [16-37]
-    SelectList [26-36]
-      SelectColumn [26-36]
-        PathExpression [26-27]
-          Identifier(a) [26-27]
-        Alias [28-36]
-          Identifier(label) [31-36]
-  Query [41-57]
-    Select [41-57]
-      SelectList [48-49]
-        SelectColumn [48-49]
-          Star(*) [48-49]
-      FromClause [50-57]
-        TablePathExpression [55-57]
-          PathExpression [55-57]
-            Identifier(t2) [55-57]
+CreateModelStatement [0-57] [create model...* from t2]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  TransformClause [16-37] [transform(a as label)]
+    SelectList [26-36] [a as label]
+      SelectColumn [26-36] [a as label]
+        PathExpression [26-27] [a]
+          Identifier(a) [26-27] [a]
+        Alias [28-36] [as label]
+          Identifier(label) [31-36] [label]
+  Query [41-57] [select * from t2]
+    Select [41-57] [select * from t2]
+      SelectList [48-49] [*]
+        SelectColumn [48-49] [*]
+          Star(*) [48-49] [*]
+      FromClause [50-57] [from t2]
+        TablePathExpression [55-57] [t2]
+          PathExpression [55-57] [t2]
+            Identifier(t2) [55-57] [t2]
 --
 CREATE MODEL t1 TRANSFORM(
   a AS label)
@@ -186,31 +312,31 @@ FROM
 
 create model t1 transform(ml.cross(a, b) as c) as select * from t2;
 --
-CreateModelStatement [0-66]
-  PathExpression [13-15]
-    Identifier(t1) [13-15]
-  TransformClause [16-46]
-    SelectList [26-45]
-      SelectColumn [26-45]
-        FunctionCall [26-40]
-          PathExpression [26-34]
-            Identifier(ml) [26-28]
-            Identifier(`cross`) [29-34]
-          PathExpression [35-36]
-            Identifier(a) [35-36]
-          PathExpression [38-39]
-            Identifier(b) [38-39]
-        Alias [41-45]
-          Identifier(c) [44-45]
-  Query [50-66]
-    Select [50-66]
-      SelectList [57-58]
-        SelectColumn [57-58]
-          Star(*) [57-58]
-      FromClause [59-66]
-        TablePathExpression [64-66]
-          PathExpression [64-66]
-            Identifier(t2) [64-66]
+CreateModelStatement [0-66] [create model...* from t2]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  TransformClause [16-46] [transform(ml.cross(a, b) as c)]
+    SelectList [26-45] [ml.cross(a, b) as c]
+      SelectColumn [26-45] [ml.cross(a, b) as c]
+        FunctionCall [26-40] [ml.cross(a, b)]
+          PathExpression [26-34] [ml.cross]
+            Identifier(ml) [26-28] [ml]
+            Identifier(`cross`) [29-34] [cross]
+          PathExpression [35-36] [a]
+            Identifier(a) [35-36] [a]
+          PathExpression [38-39] [b]
+            Identifier(b) [38-39] [b]
+        Alias [41-45] [as c]
+          Identifier(c) [44-45] [c]
+  Query [50-66] [select * from t2]
+    Select [50-66] [select * from t2]
+      SelectList [57-58] [*]
+        SelectColumn [57-58] [*]
+          Star(*) [57-58] [*]
+      FromClause [59-66] [from t2]
+        TablePathExpression [64-66] [t2]
+          PathExpression [64-66] [t2]
+            Identifier(t2) [64-66] [t2]
 --
 CREATE MODEL t1 TRANSFORM(
   ml.`cross`(a, b) AS c)
@@ -223,27 +349,27 @@ FROM
 
 create model t1 transform(a, 2 as b) as select * from t2;
 --
-CreateModelStatement [0-56]
-  PathExpression [13-15]
-    Identifier(t1) [13-15]
-  TransformClause [16-36]
-    SelectList [26-35]
-      SelectColumn [26-27]
-        PathExpression [26-27]
-          Identifier(a) [26-27]
-      SelectColumn [29-35]
-        IntLiteral(2) [29-30]
-        Alias [31-35]
-          Identifier(b) [34-35]
-  Query [40-56]
-    Select [40-56]
-      SelectList [47-48]
-        SelectColumn [47-48]
-          Star(*) [47-48]
-      FromClause [49-56]
-        TablePathExpression [54-56]
-          PathExpression [54-56]
-            Identifier(t2) [54-56]
+CreateModelStatement [0-56] [create model...* from t2]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  TransformClause [16-36] [transform(a, 2 as b)]
+    SelectList [26-35] [a, 2 as b]
+      SelectColumn [26-27] [a]
+        PathExpression [26-27] [a]
+          Identifier(a) [26-27] [a]
+      SelectColumn [29-35] [2 as b]
+        IntLiteral(2) [29-30] [2]
+        Alias [31-35] [as b]
+          Identifier(b) [34-35] [b]
+  Query [40-56] [select * from t2]
+    Select [40-56] [select * from t2]
+      SelectList [47-48] [*]
+        SelectColumn [47-48] [*]
+          Star(*) [47-48] [*]
+      FromClause [49-56] [from t2]
+        TablePathExpression [54-56] [t2]
+          PathExpression [54-56] [t2]
+            Identifier(t2) [54-56] [t2]
 --
 CREATE MODEL t1 TRANSFORM(
   a,
@@ -260,18 +386,18 @@ select 1 as a;
 --
 ALTERNATION GROUP: temp
 --
-CreateModelStatement(is_temp) [0-52]
-  PathExpression [18-35]
-    Identifier(pkg1) [18-22]
-    Identifier(pkg2) [23-29]
-    Identifier(`t 2`) [30-35]
-  Query [39-52]
-    Select [39-52]
-      SelectList [46-52]
-        SelectColumn [46-52]
-          IntLiteral(1) [46-47]
-          Alias [48-52]
-            Identifier(a) [51-52]
+CreateModelStatement(is_temp) [0-52] [create temp...select 1 as a]
+  PathExpression [18-35] [pkg1.`pkg2`.`t 2`]
+    Identifier(pkg1) [18-22] [pkg1]
+    Identifier(pkg2) [23-29] [`pkg2`]
+    Identifier(`t 2`) [30-35] [`t 2`]
+  Query [39-52] [select 1 as a]
+    Select [39-52] [select 1 as a]
+      SelectList [46-52] [1 as a]
+        SelectColumn [46-52] [1 as a]
+          IntLiteral(1) [46-47] [1]
+          Alias [48-52] [as a]
+            Identifier(a) [51-52] [a]
 --
 CREATE TEMP MODEL pkg1.pkg2.`t 2` AS
 SELECT
@@ -279,18 +405,18 @@ SELECT
 --
 ALTERNATION GROUP: public
 --
-CreateModelStatement(is_public) [0-54]
-  PathExpression [20-37]
-    Identifier(pkg1) [20-24]
-    Identifier(pkg2) [25-31]
-    Identifier(`t 2`) [32-37]
-  Query [41-54]
-    Select [41-54]
-      SelectList [48-54]
-        SelectColumn [48-54]
-          IntLiteral(1) [48-49]
-          Alias [50-54]
-            Identifier(a) [53-54]
+CreateModelStatement(is_public) [0-54] [create public...select 1 as a]
+  PathExpression [20-37] [pkg1.`pkg2`.`t 2`]
+    Identifier(pkg1) [20-24] [pkg1]
+    Identifier(pkg2) [25-31] [`pkg2`]
+    Identifier(`t 2`) [32-37] [`t 2`]
+  Query [41-54] [select 1 as a]
+    Select [41-54] [select 1 as a]
+      SelectList [48-54] [1 as a]
+        SelectColumn [48-54] [1 as a]
+          IntLiteral(1) [48-49] [1]
+          Alias [50-54] [as a]
+            Identifier(a) [53-54] [a]
 --
 CREATE PUBLIC MODEL pkg1.pkg2.`t 2` AS
 SELECT
@@ -298,18 +424,18 @@ SELECT
 --
 ALTERNATION GROUP: private
 --
-CreateModelStatement(is_private) [0-55]
-  PathExpression [21-38]
-    Identifier(pkg1) [21-25]
-    Identifier(pkg2) [26-32]
-    Identifier(`t 2`) [33-38]
-  Query [42-55]
-    Select [42-55]
-      SelectList [49-55]
-        SelectColumn [49-55]
-          IntLiteral(1) [49-50]
-          Alias [51-55]
-            Identifier(a) [54-55]
+CreateModelStatement(is_private) [0-55] [create private...select 1 as a]
+  PathExpression [21-38] [pkg1.`pkg2`.`t 2`]
+    Identifier(pkg1) [21-25] [pkg1]
+    Identifier(pkg2) [26-32] [`pkg2`]
+    Identifier(`t 2`) [33-38] [`t 2`]
+  Query [42-55] [select 1 as a]
+    Select [42-55] [select 1 as a]
+      SelectList [49-55] [1 as a]
+        SelectColumn [49-55] [1 as a]
+          IntLiteral(1) [49-50] [1]
+          Alias [51-55] [as a]
+            Identifier(a) [54-55] [a]
 --
 CREATE PRIVATE MODEL pkg1.pkg2.`t 2` AS
 SELECT
@@ -319,33 +445,34 @@ SELECT
 create temp model pkg1.`pkg2`.`t 2` as
 select 1 from t2 union all select 2 from t3 cross join t4
 --
-CreateModelStatement(is_temp) [0-96]
-  PathExpression [18-35]
-    Identifier(pkg1) [18-22]
-    Identifier(pkg2) [23-29]
-    Identifier(`t 2`) [30-35]
-  Query [39-96]
-    SetOperation(UNION ALL) [39-96]
-      Select [39-55]
-        SelectList [46-47]
-          SelectColumn [46-47]
-            IntLiteral(1) [46-47]
-        FromClause [48-55]
-          TablePathExpression [53-55]
-            PathExpression [53-55]
-              Identifier(t2) [53-55]
-      Select [66-96]
-        SelectList [73-74]
-          SelectColumn [73-74]
-            IntLiteral(2) [73-74]
-        FromClause [75-96]
-          Join(CROSS) [83-96]
-            TablePathExpression [80-82]
-              PathExpression [80-82]
-                Identifier(t3) [80-82]
-            TablePathExpression [94-96]
-              PathExpression [94-96]
-                Identifier(t4) [94-96]
+CreateModelStatement(is_temp) [0-96] [create temp...cross join t4]
+  PathExpression [18-35] [pkg1.`pkg2`.`t 2`]
+    Identifier(pkg1) [18-22] [pkg1]
+    Identifier(pkg2) [23-29] [`pkg2`]
+    Identifier(`t 2`) [30-35] [`t 2`]
+  Query [39-96] [select 1 from...cross join t4]
+    SetOperation(UNION ALL) [39-96] [select 1 from...cross join t4]
+      Select [39-55] [select 1 from t2]
+        SelectList [46-47] [1]
+          SelectColumn [46-47] [1]
+            IntLiteral(1) [46-47] [1]
+        FromClause [48-55] [from t2]
+          TablePathExpression [53-55] [t2]
+            PathExpression [53-55] [t2]
+              Identifier(t2) [53-55] [t2]
+      Select [66-96] [select 2 from t3 cross join t4]
+        SelectList [73-74] [2]
+          SelectColumn [73-74] [2]
+            IntLiteral(2) [73-74] [2]
+        FromClause [75-96] [from t3 cross join t4]
+          Join(CROSS) [80-96] [t3 cross join t4]
+            TablePathExpression [80-82] [t3]
+              PathExpression [80-82] [t3]
+                Identifier(t3) [80-82] [t3]
+            Location [83-93] [cross join]
+            TablePathExpression [94-96] [t4]
+              PathExpression [94-96] [t4]
+                Identifier(t4) [94-96] [t4]
 --
 CREATE TEMP MODEL pkg1.pkg2.`t 2` AS
 SELECT
@@ -392,30 +519,30 @@ create model t3 as
 with tt as (select * from KeyValue)
 select * from tt
 --
-CreateModelStatement [0-71]
-  PathExpression [13-15]
-    Identifier(t3) [13-15]
-  Query [19-71]
-    WithClause [19-54]
-      WithClauseEntry [24-54]
-        Identifier(tt) [24-26]
-        Query [31-53]
-          Select [31-53]
-            SelectList [38-39]
-              SelectColumn [38-39]
-                Star(*) [38-39]
-            FromClause [40-53]
-              TablePathExpression [45-53]
-                PathExpression [45-53]
-                  Identifier(KeyValue) [45-53]
-    Select [55-71]
-      SelectList [62-63]
-        SelectColumn [62-63]
-          Star(*) [62-63]
-      FromClause [64-71]
-        TablePathExpression [69-71]
-          PathExpression [69-71]
-            Identifier(tt) [69-71]
+CreateModelStatement [0-71] [create model...* from tt]
+  PathExpression [13-15] [t3]
+    Identifier(t3) [13-15] [t3]
+  Query [19-71] [with tt as...* from tt]
+    WithClause [19-54] [with tt as...KeyValue)]
+      WithClauseEntry [24-54] [tt as (select * from KeyValue)]
+        Identifier(tt) [24-26] [tt]
+        Query [31-53] [select * from KeyValue]
+          Select [31-53] [select * from KeyValue]
+            SelectList [38-39] [*]
+              SelectColumn [38-39] [*]
+                Star(*) [38-39] [*]
+            FromClause [40-53] [from KeyValue]
+              TablePathExpression [45-53] [KeyValue]
+                PathExpression [45-53] [KeyValue]
+                  Identifier(KeyValue) [45-53] [KeyValue]
+    Select [55-71] [select * from tt]
+      SelectList [62-63] [*]
+        SelectColumn [62-63] [*]
+          Star(*) [62-63] [*]
+      FromClause [64-71] [from tt]
+        TablePathExpression [69-71] [tt]
+          PathExpression [69-71] [tt]
+            Identifier(tt) [69-71] [tt]
 --
 CREATE MODEL t3 AS
 WITH
@@ -435,34 +562,34 @@ create model t4 options(x=y) as
 with t1 as (select 1), t2 as (select 2)
 select 3
 --
-CreateModelStatement [0-80]
-  PathExpression [13-15]
-    Identifier(t4) [13-15]
-  OptionsList [23-28]
-    OptionsEntry [24-27]
-      Identifier(x) [24-25]
-      PathExpression [26-27]
-        Identifier(y) [26-27]
-  Query [32-80]
-    WithClause [32-71]
-      WithClauseEntry [37-53]
-        Identifier(t1) [37-39]
-        Query [44-52]
-          Select [44-52]
-            SelectList [51-52]
-              SelectColumn [51-52]
-                IntLiteral(1) [51-52]
-      WithClauseEntry [55-71]
-        Identifier(t2) [55-57]
-        Query [62-70]
-          Select [62-70]
-            SelectList [69-70]
-              SelectColumn [69-70]
-                IntLiteral(2) [69-70]
-    Select [72-80]
-      SelectList [79-80]
-        SelectColumn [79-80]
-          IntLiteral(3) [79-80]
+CreateModelStatement [0-80] [create model...) select 3]
+  PathExpression [13-15] [t4]
+    Identifier(t4) [13-15] [t4]
+  OptionsList [23-28] [(x=y)]
+    OptionsEntry [24-27] [x=y]
+      Identifier(x) [24-25] [x]
+      PathExpression [26-27] [y]
+        Identifier(y) [26-27] [y]
+  Query [32-80] [with t1 as...) select 3]
+    WithClause [32-71] [with t1 as...(select 2)]
+      WithClauseEntry [37-53] [t1 as (select 1)]
+        Identifier(t1) [37-39] [t1]
+        Query [44-52] [select 1]
+          Select [44-52] [select 1]
+            SelectList [51-52] [1]
+              SelectColumn [51-52] [1]
+                IntLiteral(1) [51-52] [1]
+      WithClauseEntry [55-71] [t2 as (select 2)]
+        Identifier(t2) [55-57] [t2]
+        Query [62-70] [select 2]
+          Select [62-70] [select 2]
+            SelectList [69-70] [2]
+              SelectColumn [69-70] [2]
+                IntLiteral(2) [69-70] [2]
+    Select [72-80] [select 3]
+      SelectList [79-80] [3]
+        SelectColumn [79-80] [3]
+          IntLiteral(3) [79-80] [3]
 --
 CREATE MODEL t4 OPTIONS(x = y) AS
 WITH
@@ -490,14 +617,14 @@ with t1 as (select 1)
 # Create model without AS.
 create model t4 options(x=y)
 --
-CreateModelStatement [0-28]
-  PathExpression [13-15]
-    Identifier(t4) [13-15]
-  OptionsList [23-28]
-    OptionsEntry [24-27]
-      Identifier(x) [24-25]
-      PathExpression [26-27]
-        Identifier(y) [26-27]
+CreateModelStatement [0-28] [create model t4 options(x=y)]
+  PathExpression [13-15] [t4]
+    Identifier(t4) [13-15] [t4]
+  OptionsList [23-28] [(x=y)]
+    OptionsEntry [24-27] [x=y]
+      Identifier(x) [24-25] [x]
+      PathExpression [26-27] [y]
+        Identifier(y) [26-27] [y]
 --
 CREATE MODEL t4 OPTIONS(x = y)
 ==
@@ -506,18 +633,18 @@ create model tt
 options (x = 1)
 as select 1;
 --
-CreateModelStatement [0-43]
-  PathExpression [13-15]
-    Identifier(tt) [13-15]
-  OptionsList [24-31]
-    OptionsEntry [25-30]
-      Identifier(x) [25-26]
-      IntLiteral(1) [29-30]
-  Query [35-43]
-    Select [35-43]
-      SelectList [42-43]
-        SelectColumn [42-43]
-          IntLiteral(1) [42-43]
+CreateModelStatement [0-43] [create model...as select 1]
+  PathExpression [13-15] [tt]
+    Identifier(tt) [13-15] [tt]
+  OptionsList [24-31] [(x = 1)]
+    OptionsEntry [25-30] [x = 1]
+      Identifier(x) [25-26] [x]
+      IntLiteral(1) [29-30] [1]
+  Query [35-43] [select 1]
+    Select [35-43] [select 1]
+      SelectList [42-43] [1]
+        SelectColumn [42-43] [1]
+          IntLiteral(1) [42-43] [1]
 --
 CREATE MODEL tt OPTIONS(x = 1) AS
 SELECT
@@ -528,25 +655,25 @@ create model tt
 transform (a as b) options (x = 1)
 as select 1;
 --
-CreateModelStatement [0-62]
-  PathExpression [13-15]
-    Identifier(tt) [13-15]
-  TransformClause [16-34]
-    SelectList [27-33]
-      SelectColumn [27-33]
-        PathExpression [27-28]
-          Identifier(a) [27-28]
-        Alias [29-33]
-          Identifier(b) [32-33]
-  OptionsList [43-50]
-    OptionsEntry [44-49]
-      Identifier(x) [44-45]
-      IntLiteral(1) [48-49]
-  Query [54-62]
-    Select [54-62]
-      SelectList [61-62]
-        SelectColumn [61-62]
-          IntLiteral(1) [61-62]
+CreateModelStatement [0-62] [create model...as select 1]
+  PathExpression [13-15] [tt]
+    Identifier(tt) [13-15] [tt]
+  TransformClause [16-34] [transform (a as b)]
+    SelectList [27-33] [a as b]
+      SelectColumn [27-33] [a as b]
+        PathExpression [27-28] [a]
+          Identifier(a) [27-28] [a]
+        Alias [29-33] [as b]
+          Identifier(b) [32-33] [b]
+  OptionsList [43-50] [(x = 1)]
+    OptionsEntry [44-49] [x = 1]
+      Identifier(x) [44-45] [x]
+      IntLiteral(1) [48-49] [1]
+  Query [54-62] [select 1]
+    Select [54-62] [select 1]
+      SelectList [61-62] [1]
+        SelectColumn [61-62] [1]
+          IntLiteral(1) [61-62] [1]
 --
 CREATE MODEL tt TRANSFORM(
   a AS b)
@@ -569,34 +696,34 @@ create temporary model tt
 options (x = 5, y = 'abc', z = @param, zz = ident, zzz = @@sysvar)
 as select 2;
 --
-CreateModelStatement(is_temp) [0-104]
-  PathExpression [23-25]
-    Identifier(tt) [23-25]
-  OptionsList [34-92]
-    OptionsEntry [35-40]
-      Identifier(x) [35-36]
-      IntLiteral(5) [39-40]
-    OptionsEntry [42-51]
-      Identifier(y) [42-43]
-      StringLiteral('abc') [46-51]
-    OptionsEntry [53-63]
-      Identifier(z) [53-54]
-      ParameterExpr [57-63]
-        Identifier(param) [58-63]
-    OptionsEntry [65-75]
-      Identifier(zz) [65-67]
-      PathExpression [70-75]
-        Identifier(ident) [70-75]
-    OptionsEntry [77-91]
-      Identifier(zzz) [77-80]
-      SystemVariableExpr [83-91]
-        PathExpression [85-91]
-          Identifier(sysvar) [85-91]
-  Query [96-104]
-    Select [96-104]
-      SelectList [103-104]
-        SelectColumn [103-104]
-          IntLiteral(2) [103-104]
+CreateModelStatement(is_temp) [0-104] [create temporary...as select 2]
+  PathExpression [23-25] [tt]
+    Identifier(tt) [23-25] [tt]
+  OptionsList [34-92] [(x = 5, y...@@sysvar)]
+    OptionsEntry [35-40] [x = 5]
+      Identifier(x) [35-36] [x]
+      IntLiteral(5) [39-40] [5]
+    OptionsEntry [42-51] [y = 'abc']
+      Identifier(y) [42-43] [y]
+      StringLiteral('abc') [46-51] ['abc']
+    OptionsEntry [53-63] [z = @param]
+      Identifier(z) [53-54] [z]
+      ParameterExpr [57-63] [@param]
+        Identifier(param) [58-63] [param]
+    OptionsEntry [65-75] [zz = ident]
+      Identifier(zz) [65-67] [zz]
+      PathExpression [70-75] [ident]
+        Identifier(ident) [70-75] [ident]
+    OptionsEntry [77-91] [zzz = @@sysvar]
+      Identifier(zzz) [77-80] [zzz]
+      SystemVariableExpr [83-91] [@@sysvar]
+        PathExpression [85-91] [sysvar]
+          Identifier(sysvar) [85-91] [sysvar]
+  Query [96-104] [select 2]
+    Select [96-104] [select 2]
+      SelectList [103-104] [2]
+        SelectColumn [103-104] [2]
+          IntLiteral(2) [103-104] [2]
 --
 CREATE TEMP MODEL tt OPTIONS(x = 5, y = 'abc', z = @param, zz = ident, zzz = @@sysvar) AS
 SELECT
@@ -607,15 +734,15 @@ create model tt
 options ()
 as select 2
 --
-CreateModelStatement [0-38]
-  PathExpression [13-15]
-    Identifier(tt) [13-15]
-  OptionsList [24-26]
-  Query [30-38]
-    Select [30-38]
-      SelectList [37-38]
-        SelectColumn [37-38]
-          IntLiteral(2) [37-38]
+CreateModelStatement [0-38] [create model...as select 2]
+  PathExpression [13-15] [tt]
+    Identifier(tt) [13-15] [tt]
+  OptionsList [24-26] [()]
+  Query [30-38] [select 2]
+    Select [30-38] [select 2]
+      SelectList [37-38] [2]
+        SelectColumn [37-38] [2]
+          IntLiteral(2) [37-38] [2]
 --
 CREATE MODEL tt OPTIONS() AS
 SELECT
@@ -644,27 +771,27 @@ create model tt
 options (x=5.5, y=a, z=b.c)
 as select 2
 --
-CreateModelStatement [0-55]
-  PathExpression [13-15]
-    Identifier(tt) [13-15]
-  OptionsList [24-43]
-    OptionsEntry [25-30]
-      Identifier(x) [25-26]
-      FloatLiteral(5.5) [27-30]
-    OptionsEntry [32-35]
-      Identifier(y) [32-33]
-      PathExpression [34-35]
-        Identifier(a) [34-35]
-    OptionsEntry [37-42]
-      Identifier(z) [37-38]
-      PathExpression [39-42]
-        Identifier(b) [39-40]
-        Identifier(c) [41-42]
-  Query [47-55]
-    Select [47-55]
-      SelectList [54-55]
-        SelectColumn [54-55]
-          IntLiteral(2) [54-55]
+CreateModelStatement [0-55] [create model...as select 2]
+  PathExpression [13-15] [tt]
+    Identifier(tt) [13-15] [tt]
+  OptionsList [24-43] [(x=5.5, y=a, z=b.c)]
+    OptionsEntry [25-30] [x=5.5]
+      Identifier(x) [25-26] [x]
+      FloatLiteral(5.5) [27-30] [5.5]
+    OptionsEntry [32-35] [y=a]
+      Identifier(y) [32-33] [y]
+      PathExpression [34-35] [a]
+        Identifier(a) [34-35] [a]
+    OptionsEntry [37-42] [z=b.c]
+      Identifier(z) [37-38] [z]
+      PathExpression [39-42] [b.c]
+        Identifier(b) [39-40] [b]
+        Identifier(c) [41-42] [c]
+  Query [47-55] [select 2]
+    Select [47-55] [select 2]
+      SelectList [54-55] [2]
+        SelectColumn [54-55] [2]
+          IntLiteral(2) [54-55] [2]
 --
 CREATE MODEL tt OPTIONS(x = 5.5, y = a, z = b.c) AS
 SELECT
@@ -675,22 +802,22 @@ create model tt
 options (y='b.c', z=`b.c`)
 as select 2
 --
-CreateModelStatement [0-54]
-  PathExpression [13-15]
-    Identifier(tt) [13-15]
-  OptionsList [24-42]
-    OptionsEntry [25-32]
-      Identifier(y) [25-26]
-      StringLiteral('b.c') [27-32]
-    OptionsEntry [34-41]
-      Identifier(z) [34-35]
-      PathExpression [36-41]
-        Identifier(`b.c`) [36-41]
-  Query [46-54]
-    Select [46-54]
-      SelectList [53-54]
-        SelectColumn [53-54]
-          IntLiteral(2) [53-54]
+CreateModelStatement [0-54] [create model...as select 2]
+  PathExpression [13-15] [tt]
+    Identifier(tt) [13-15] [tt]
+  OptionsList [24-42] [(y='b.c', z=`b.c`)]
+    OptionsEntry [25-32] [y='b.c']
+      Identifier(y) [25-26] [y]
+      StringLiteral('b.c') [27-32] ['b.c']
+    OptionsEntry [34-41] [z=`b.c`]
+      Identifier(z) [34-35] [z]
+      PathExpression [36-41] [`b.c`]
+        Identifier(`b.c`) [36-41] [`b.c`]
+  Query [46-54] [select 2]
+    Select [46-54] [select 2]
+      SelectList [53-54] [2]
+        SelectColumn [53-54] [2]
+          IntLiteral(2) [53-54] [2]
 --
 CREATE MODEL tt OPTIONS(y = 'b.c', z = `b.c`) AS
 SELECT
@@ -716,16 +843,16 @@ create external model as select 1;
 # Options is a non-reserved keyword so can be used as an identifier.
 create model options as select 1 x;
 --
-CreateModelStatement [0-34]
-  PathExpression [13-20]
-    Identifier(options) [13-20]
-  Query [24-34]
-    Select [24-34]
-      SelectList [31-34]
-        SelectColumn [31-34]
-          IntLiteral(1) [31-32]
-          Alias [33-34]
-            Identifier(x) [33-34]
+CreateModelStatement [0-34] [create model...select 1 x]
+  PathExpression [13-20] [options]
+    Identifier(options) [13-20] [options]
+  Query [24-34] [select 1 x]
+    Select [24-34] [select 1 x]
+      SelectList [31-34] [1 x]
+        SelectColumn [31-34] [1 x]
+          IntLiteral(1) [31-32] [1]
+          Alias [33-34] [x]
+            Identifier(x) [33-34] [x]
 --
 CREATE MODEL options AS
 SELECT
@@ -734,21 +861,21 @@ SELECT
 
 create model options OPTIONS (x=y) AS select 1 x;
 --
-CreateModelStatement [0-48]
-  PathExpression [13-20]
-    Identifier(options) [13-20]
-  OptionsList [29-34]
-    OptionsEntry [30-33]
-      Identifier(x) [30-31]
-      PathExpression [32-33]
-        Identifier(y) [32-33]
-  Query [38-48]
-    Select [38-48]
-      SelectList [45-48]
-        SelectColumn [45-48]
-          IntLiteral(1) [45-46]
-          Alias [47-48]
-            Identifier(x) [47-48]
+CreateModelStatement [0-48] [create model...select 1 x]
+  PathExpression [13-20] [options]
+    Identifier(options) [13-20] [options]
+  OptionsList [29-34] [(x=y)]
+    OptionsEntry [30-33] [x=y]
+      Identifier(x) [30-31] [x]
+      PathExpression [32-33] [y]
+        Identifier(y) [32-33] [y]
+  Query [38-48] [select 1 x]
+    Select [38-48] [select 1 x]
+      SelectList [45-48] [1 x]
+        SelectColumn [45-48] [1 x]
+          IntLiteral(1) [45-46] [1]
+          Alias [47-48] [x]
+            Identifier(x) [47-48] [x]
 --
 CREATE MODEL options OPTIONS(x = y) AS
 SELECT
@@ -758,21 +885,21 @@ SELECT
 # This is parsed as a model named options with an options clause.
 create model options options(x=y) as select 1 x;
 --
-CreateModelStatement [0-47]
-  PathExpression [13-20]
-    Identifier(options) [13-20]
-  OptionsList [28-33]
-    OptionsEntry [29-32]
-      Identifier(x) [29-30]
-      PathExpression [31-32]
-        Identifier(y) [31-32]
-  Query [37-47]
-    Select [37-47]
-      SelectList [44-47]
-        SelectColumn [44-47]
-          IntLiteral(1) [44-45]
-          Alias [46-47]
-            Identifier(x) [46-47]
+CreateModelStatement [0-47] [create model...select 1 x]
+  PathExpression [13-20] [options]
+    Identifier(options) [13-20] [options]
+  OptionsList [28-33] [(x=y)]
+    OptionsEntry [29-32] [x=y]
+      Identifier(x) [29-30] [x]
+      PathExpression [31-32] [y]
+        Identifier(y) [31-32] [y]
+  Query [37-47] [select 1 x]
+    Select [37-47] [select 1 x]
+      SelectList [44-47] [1 x]
+        SelectColumn [44-47] [1 x]
+          IntLiteral(1) [44-45] [1]
+          Alias [46-47] [x]
+            Identifier(x) [46-47] [x]
 --
 CREATE MODEL options OPTIONS(x = y) AS
 SELECT
@@ -782,21 +909,21 @@ SELECT
 # This is parsed as a model named options with an options clause.
 create model options options(x=y) as select 1 x;
 --
-CreateModelStatement [0-47]
-  PathExpression [13-20]
-    Identifier(options) [13-20]
-  OptionsList [28-33]
-    OptionsEntry [29-32]
-      Identifier(x) [29-30]
-      PathExpression [31-32]
-        Identifier(y) [31-32]
-  Query [37-47]
-    Select [37-47]
-      SelectList [44-47]
-        SelectColumn [44-47]
-          IntLiteral(1) [44-45]
-          Alias [46-47]
-            Identifier(x) [46-47]
+CreateModelStatement [0-47] [create model...select 1 x]
+  PathExpression [13-20] [options]
+    Identifier(options) [13-20] [options]
+  OptionsList [28-33] [(x=y)]
+    OptionsEntry [29-32] [x=y]
+      Identifier(x) [29-30] [x]
+      PathExpression [31-32] [y]
+        Identifier(y) [31-32] [y]
+  Query [37-47] [select 1 x]
+    Select [37-47] [select 1 x]
+      SelectList [44-47] [1 x]
+        SelectColumn [44-47] [1 x]
+          IntLiteral(1) [44-45] [1]
+          Alias [46-47] [x]
+            Identifier(x) [46-47] [x]
 --
 CREATE MODEL options OPTIONS(x = y) AS
 SELECT
@@ -813,15 +940,15 @@ create model options(x=y) as select 1 x;
 
 create or replace model xyz as (select 1)
 --
-CreateModelStatement(is_or_replace) [0-41]
-  PathExpression [24-27]
-    Identifier(xyz) [24-27]
-  Query [31-41]
-    Query [32-40]
-      Select [32-40]
-        SelectList [39-40]
-          SelectColumn [39-40]
-            IntLiteral(1) [39-40]
+CreateModelStatement(is_or_replace) [0-41] [create or...(select 1)]
+  PathExpression [24-27] [xyz]
+    Identifier(xyz) [24-27] [xyz]
+  Query [31-41] [(select 1)]
+    Query [32-40] [select 1]
+      Select [32-40] [select 1]
+        SelectList [39-40] [1]
+          SelectColumn [39-40] [1]
+            IntLiteral(1) [39-40] [1]
 --
 CREATE OR REPLACE MODEL xyz AS
 (
@@ -832,15 +959,15 @@ SELECT
 
 create model if not exists xyz as (select 1)
 --
-CreateModelStatement(is_if_not_exists) [0-44]
-  PathExpression [27-30]
-    Identifier(xyz) [27-30]
-  Query [34-44]
-    Query [35-43]
-      Select [35-43]
-        SelectList [42-43]
-          SelectColumn [42-43]
-            IntLiteral(1) [42-43]
+CreateModelStatement(is_if_not_exists) [0-44] [create model...(select 1)]
+  PathExpression [27-30] [xyz]
+    Identifier(xyz) [27-30] [xyz]
+  Query [34-44] [(select 1)]
+    Query [35-43] [select 1]
+      Select [35-43] [select 1]
+        SelectList [42-43] [1]
+          SelectColumn [42-43] [1]
+            IntLiteral(1) [42-43] [1]
 --
 CREATE MODEL IF NOT EXISTS xyz AS
 (
@@ -859,21 +986,21 @@ create model xyz if not exists as (select 1)
 # One with everything.  This is not legal, but parses successfully.
 create or replace temporary model if not exists a.b.c options(d=e) as select 1
 --
-CreateModelStatement(is_temp, is_or_replace, is_if_not_exists) [0-78]
-  PathExpression [48-53]
-    Identifier(a) [48-49]
-    Identifier(b) [50-51]
-    Identifier(c) [52-53]
-  OptionsList [61-66]
-    OptionsEntry [62-65]
-      Identifier(d) [62-63]
-      PathExpression [64-65]
-        Identifier(e) [64-65]
-  Query [70-78]
-    Select [70-78]
-      SelectList [77-78]
-        SelectColumn [77-78]
-          IntLiteral(1) [77-78]
+CreateModelStatement(is_temp, is_or_replace, is_if_not_exists) [0-78] [create or...as select 1]
+  PathExpression [48-53] [a.b.c]
+    Identifier(a) [48-49] [a]
+    Identifier(b) [50-51] [b]
+    Identifier(c) [52-53] [c]
+  OptionsList [61-66] [(d=e)]
+    OptionsEntry [62-65] [d=e]
+      Identifier(d) [62-63] [d]
+      PathExpression [64-65] [e]
+        Identifier(e) [64-65] [e]
+  Query [70-78] [select 1]
+    Select [70-78] [select 1]
+      SelectList [77-78] [1]
+        SelectColumn [77-78] [1]
+          IntLiteral(1) [77-78] [1]
 --
 CREATE OR REPLACE TEMP MODEL IF NOT EXISTS a.b.c OPTIONS(d = e) AS
 SELECT
@@ -884,37 +1011,37 @@ create model t as
 with q as (select 1), q2 as (select * from q)
 select * from q2
 --
-CreateModelStatement [0-80]
-  PathExpression [13-14]
-    Identifier(t) [13-14]
-  Query [18-80]
-    WithClause [18-63]
-      WithClauseEntry [23-38]
-        Identifier(q) [23-24]
-        Query [29-37]
-          Select [29-37]
-            SelectList [36-37]
-              SelectColumn [36-37]
-                IntLiteral(1) [36-37]
-      WithClauseEntry [40-63]
-        Identifier(q2) [40-42]
-        Query [47-62]
-          Select [47-62]
-            SelectList [54-55]
-              SelectColumn [54-55]
-                Star(*) [54-55]
-            FromClause [56-62]
-              TablePathExpression [61-62]
-                PathExpression [61-62]
-                  Identifier(q) [61-62]
-    Select [64-80]
-      SelectList [71-72]
-        SelectColumn [71-72]
-          Star(*) [71-72]
-      FromClause [73-80]
-        TablePathExpression [78-80]
-          PathExpression [78-80]
-            Identifier(q2) [78-80]
+CreateModelStatement [0-80] [create model...* from q2]
+  PathExpression [13-14] [t]
+    Identifier(t) [13-14] [t]
+  Query [18-80] [with q as...* from q2]
+    WithClause [18-63] [with q as...* from q)]
+      WithClauseEntry [23-38] [q as (select 1)]
+        Identifier(q) [23-24] [q]
+        Query [29-37] [select 1]
+          Select [29-37] [select 1]
+            SelectList [36-37] [1]
+              SelectColumn [36-37] [1]
+                IntLiteral(1) [36-37] [1]
+      WithClauseEntry [40-63] [q2 as (select * from q)]
+        Identifier(q2) [40-42] [q2]
+        Query [47-62] [select * from q]
+          Select [47-62] [select * from q]
+            SelectList [54-55] [*]
+              SelectColumn [54-55] [*]
+                Star(*) [54-55] [*]
+            FromClause [56-62] [from q]
+              TablePathExpression [61-62] [q]
+                PathExpression [61-62] [q]
+                  Identifier(q) [61-62] [q]
+    Select [64-80] [select * from q2]
+      SelectList [71-72] [*]
+        SelectColumn [71-72] [*]
+          Star(*) [71-72] [*]
+      FromClause [73-80] [from q2]
+        TablePathExpression [78-80] [q2]
+          PathExpression [78-80] [q2]
+            Identifier(q2) [78-80] [q2]
 --
 CREATE MODEL t AS
 WITH
@@ -932,3 +1059,126 @@ SELECT
   *
 FROM
   q2
+==
+
+# All remote model clauses
+create model t1
+input (i1 INT64, i2 FLOAT64)
+output (o1 BOOL)
+remote with connection conn_1
+options (abc = def)
+--
+CreateModelStatement [0-111] [create model...abc = def)]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  InputOutputClause [16-61] [input (i1...(o1 BOOL)]
+    TableElementList [22-44] [(i1 INT64, i2 FLOAT64)]
+      ColumnDefinition [23-31] [i1 INT64]
+        Identifier(i1) [23-25] [i1]
+        SimpleColumnSchema [26-31] [INT64]
+          PathExpression [26-31] [INT64]
+            Identifier(INT64) [26-31] [INT64]
+      ColumnDefinition [33-43] [i2 FLOAT64]
+        Identifier(i2) [33-35] [i2]
+        SimpleColumnSchema [36-43] [FLOAT64]
+          PathExpression [36-43] [FLOAT64]
+            Identifier(FLOAT64) [36-43] [FLOAT64]
+    TableElementList [52-61] [(o1 BOOL)]
+      ColumnDefinition [53-60] [o1 BOOL]
+        Identifier(o1) [53-55] [o1]
+        SimpleColumnSchema [56-60] [BOOL]
+          PathExpression [56-60] [BOOL]
+            Identifier(BOOL) [56-60] [BOOL]
+  WithConnectionClause [69-91] [with connection conn_1]
+    ConnectionClause [74-91] [connection conn_1]
+      PathExpression [85-91] [conn_1]
+        Identifier(conn_1) [85-91] [conn_1]
+  OptionsList [100-111] [(abc = def)]
+    OptionsEntry [101-110] [abc = def]
+      Identifier(abc) [101-104] [abc]
+      PathExpression [107-110] [def]
+        Identifier(def) [107-110] [def]
+--
+CREATE MODEL t1
+INPUT(
+  i1 INT64,
+  i2 FLOAT64
+)
+OUTPUT(
+  o1 BOOL
+) REMOTE WITH CONNECTION conn_1 OPTIONS(abc = def)
+==
+
+# All clauses
+create model t1
+input (i1 INT64, i2 FLOAT64)
+output (o1 BOOL)
+transform(a, 2 as b)
+remote with connection conn_1
+options (abc = def)
+as select * from t2;
+--
+CreateModelStatement [0-152] [create model...* from t2]
+  PathExpression [13-15] [t1]
+    Identifier(t1) [13-15] [t1]
+  InputOutputClause [16-61] [input (i1...(o1 BOOL)]
+    TableElementList [22-44] [(i1 INT64, i2 FLOAT64)]
+      ColumnDefinition [23-31] [i1 INT64]
+        Identifier(i1) [23-25] [i1]
+        SimpleColumnSchema [26-31] [INT64]
+          PathExpression [26-31] [INT64]
+            Identifier(INT64) [26-31] [INT64]
+      ColumnDefinition [33-43] [i2 FLOAT64]
+        Identifier(i2) [33-35] [i2]
+        SimpleColumnSchema [36-43] [FLOAT64]
+          PathExpression [36-43] [FLOAT64]
+            Identifier(FLOAT64) [36-43] [FLOAT64]
+    TableElementList [52-61] [(o1 BOOL)]
+      ColumnDefinition [53-60] [o1 BOOL]
+        Identifier(o1) [53-55] [o1]
+        SimpleColumnSchema [56-60] [BOOL]
+          PathExpression [56-60] [BOOL]
+            Identifier(BOOL) [56-60] [BOOL]
+  TransformClause [62-82] [transform(a, 2 as b)]
+    SelectList [72-81] [a, 2 as b]
+      SelectColumn [72-73] [a]
+        PathExpression [72-73] [a]
+          Identifier(a) [72-73] [a]
+      SelectColumn [75-81] [2 as b]
+        IntLiteral(2) [75-76] [2]
+        Alias [77-81] [as b]
+          Identifier(b) [80-81] [b]
+  WithConnectionClause [90-112] [with connection conn_1]
+    ConnectionClause [95-112] [connection conn_1]
+      PathExpression [106-112] [conn_1]
+        Identifier(conn_1) [106-112] [conn_1]
+  OptionsList [121-132] [(abc = def)]
+    OptionsEntry [122-131] [abc = def]
+      Identifier(abc) [122-125] [abc]
+      PathExpression [128-131] [def]
+        Identifier(def) [128-131] [def]
+  Query [136-152] [select * from t2]
+    Select [136-152] [select * from t2]
+      SelectList [143-144] [*]
+        SelectColumn [143-144] [*]
+          Star(*) [143-144] [*]
+      FromClause [145-152] [from t2]
+        TablePathExpression [150-152] [t2]
+          PathExpression [150-152] [t2]
+            Identifier(t2) [150-152] [t2]
+--
+CREATE MODEL t1
+INPUT(
+  i1 INT64,
+  i2 FLOAT64
+)
+OUTPUT(
+  o1 BOOL
+) TRANSFORM(
+  a,
+  2 AS b)
+REMOTE WITH CONNECTION conn_1 OPTIONS(abc = def) AS
+SELECT
+  *
+FROM
+  t2

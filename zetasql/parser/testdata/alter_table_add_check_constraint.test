@@ -345,16 +345,16 @@ ALTER TABLE constraint ADD CONSTRAINT IF NOT EXISTS int64 CHECK(a > 0) ENFORCED
 ==
 
 [no_test_get_parse_tokens]
-[{{no_|}}allow_dashed_table_names]
+[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 alter table foo-123.bar ADD constraint a_is_positive check(a>0);
 --
-ALTERNATION GROUP: no_
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-123.bar` [at 1:13]
 alter table foo-123.bar ADD constraint a_is_positive check(a>0);
             ^
 --
-ALTERNATION GROUP: <empty>
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-63]
   PathExpression [12-23]

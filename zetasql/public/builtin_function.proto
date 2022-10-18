@@ -50,11 +50,11 @@ enum FunctionSignatureId {
   // 1700-1799 Net functions                  (NextId: 1716)
   // 1800-1899 More time functions            (NextId: 1862)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
-  // 2000-2199 Geography functions            (NextId: 2087)
-  // 2200-2299 Anonymization functions        (NextId: 2230)
+  // 2000-2199 Geography functions            (NextId: 2088)
+  // 2200-2231 Anonymization functions        (NextId: 2232)
   // 2300-2499 Numeric & more math functions  (NextId: 2325)
-  // 2500-2599 Array and proto map functions  (NextId: 2518)
-  // 2600-2699 More misc functions.           (NextId: 2605)
+  // 2500-2599 Array and proto map functions  (NextId: 2542)
+  // 2600-2699 More misc functions.           (NextId: 2606)
   // 2700-2799 Aggregate functions II         (NextId: 2701)
 
   // enum value                       // Related function name
@@ -1000,6 +1000,7 @@ enum FunctionSignatureId {
   FN_ST_START_POINT = 2076;
   FN_ST_END_POINT = 2077;
   FN_ST_IS_CLOSED = 2086;
+  FN_ST_IS_RING = 2087;
 
   // Measures
   FN_ST_LENGTH = 2040;
@@ -1082,6 +1083,8 @@ enum FunctionSignatureId {
   FN_ANON_QUANTILES_DOUBLE_ARRAY_WITH_REPORT_JSON = 2228;
   // This is an internal function signature, and is not in the language.
   FN_ANON_QUANTILES_DOUBLE_ARRAY_WITH_REPORT_PROTO = 2229;
+  FN_ANON_AVG_DOUBLE_WITH_REPORT_JSON = 2230;
+  FN_ANON_AVG_DOUBLE_WITH_REPORT_PROTO = 2231;
 
   // Array and proto map functions.
   FN_FLATTEN = 2500;  // flatten(array path) -> array
@@ -1117,6 +1120,30 @@ enum FunctionSignatureId {
   FN_ARRAY_LAST = 2516;             // ARRAY_LAST(array<T>) -> T
   FN_ARRAY_SLICE = 2517;            // ARRAY_SLICE(array<T>, INT64, INT64)
                                     // -> array<T>
+  FN_ARRAY_SUM_INT32 = 2518;        // ARRAY_SUM(array<INT32>) -> INT64
+  FN_ARRAY_SUM_INT64 = 2519;        // ARRAY_SUM(array<INT64>) -> INT64
+  FN_ARRAY_SUM_UINT32 = 2520;       // ARRAY_SUM(array<UINT32>) -> UINT64
+  FN_ARRAY_SUM_UINT64 = 2521;       // ARRAY_SUM(array<UINT64>) -> UINT64
+  FN_ARRAY_SUM_FLOAT = 2522;        // ARRAY_SUM(array<FLOAT>) -> DOUBLE
+  FN_ARRAY_SUM_DOUBLE = 2523;       // ARRAY_SUM(array<DOUBLE>) -> DOUBLE
+  FN_ARRAY_SUM_NUMERIC = 2524;      // ARRAY_SUM(array<NUMERIC>) -> NUMERIC
+  FN_ARRAY_SUM_BIGNUMERIC = 2525;  // ARRAY_SUM(array<BIGNUMERIC>) -> BIGNUMERIC
+  FN_ARRAY_SUM_INTERVAL = 2526;    // ARRAY_SUM(array<INTERVAL>) -> INTERVAL
+  FN_ARRAY_AVG_INT32 = 2527;       // ARRAY_AVG(array<INT32>) -> DOUBLE
+  FN_ARRAY_AVG_INT64 = 2528;       // ARRAY_AVG(array<INT64>) -> DOUBLE
+  FN_ARRAY_AVG_UINT32 = 2529;      // ARRAY_AVG(array<UINT32>) -> DOUBLE
+  FN_ARRAY_AVG_UINT64 = 2530;      // ARRAY_AVG(array<UINT64>) -> DOUBLE
+  FN_ARRAY_AVG_FLOAT = 2531;       // ARRAY_AVG(array<FLOAT>) -> DOUBLE
+  FN_ARRAY_AVG_DOUBLE = 2532;      // ARRAY_AVG(array<DOUBLE>) -> DOUBLE
+  FN_ARRAY_AVG_NUMERIC = 2533;     // ARRAY_AVG(array<NUMERIC>) -> NUMERIC
+  FN_ARRAY_AVG_BIGNUMERIC = 2534;  // ARRAY_AVG(array<BIGNUMERIC>) -> BIGNUMERIC
+  FN_ARRAY_AVG_INTERVAL = 2535;    // ARRAY_AVG(array<INTERVAL>) -> INTERVAL
+  FN_ARRAY_OFFSET = 2536;    // ARRAY_OFFSET(array<T>, T [, ENUM]) -> INT64
+  FN_ARRAY_OFFSETS = 2537;   // ARRAY_OFFSETS(array<T>, T) -> ARRAY<INT64>
+  FN_ARRAY_FIND = 2538;      // ARRAY_FIND(array<T>, T [, ENUM]) -> T
+  FN_ARRAY_FIND_ALL = 2539;  // ARRAY_FIND_ALL(array<T>, T) -> ARRAY<T>
+  FN_ARRAY_MIN = 2540;       // ARRAY_MIN(array<T>) -> T
+  FN_ARRAY_MAX = 2541;       // ARRAY_MAX(array<T>) -> T
 
   // More misc functions
   FN_JSON_TO_INT64 = 2600;   // int64(json) -> int64
@@ -1124,4 +1151,7 @@ enum FunctionSignatureId {
   FN_JSON_TO_STRING = 2602;  // string(json) -> string
   FN_JSON_TYPE = 2603;       // json_type(json) -> type
   FN_JSON_TO_DOUBLE = 2604;  // double(json[, string]) -> double
+
+  // Range functions
+  FN_RANGE = 2605;  // RANGE(T start, T end) -> range
 }

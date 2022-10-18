@@ -106,7 +106,7 @@
 //   ZETASQL_CHECK_OK(expr.Prepare(options, &catalog));
 //   Value result = expr.Execute().value();  // returns 4
 //
-// For more examples, see zetasql/common/evaluator_test.cc
+// For more examples, see zetasql/public/evaluator_test.cc
 //
 // Parameters are passed as a map of strings to zetasql::Value. Multiple
 // invocations of Execute() must use identical parameter names and types.
@@ -388,6 +388,10 @@ class PreparedExpressionBase {
     // Optional deadline for the expression evaluation. Deadline is checked
     // every time a ValueExpr is evaluated (e.g: IF, ARRAY, LIKE).
     absl::Time deadline = absl::InfiniteFuture();
+
+    // Optional session user for the expression evaluation. Session user is used
+    // to evaluate the current user (e.g. in the SESSION_USER function).
+    std::optional<std::string> session_user;
   };
 
   // Execute the expression.

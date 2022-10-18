@@ -18,13 +18,17 @@
 #define ZETASQL_SCRIPTING_PARSED_SCRIPT_H_
 
 #include <cstdint>
+#include <map>
+#include <memory>
+#include <optional>
+#include <set>
+#include <utility>
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
-#include "zetasql/scripting/break_continue_context.h"
 #include "zetasql/scripting/control_flow_graph.h"
 #include "zetasql/scripting/type_aliases.h"
 #include "zetasql/base/case.h"
@@ -123,8 +127,6 @@ class ParsedScript {
     return routine_arguments_;
   }
 
-  const NodeIndexMap& node_index_map() const { return node_index_map_; }
-
   const ControlFlowGraph& control_flow_graph() const {
     return *control_flow_graph_;
   }
@@ -220,17 +222,6 @@ class ParsedScript {
 
   // How to report error messages in GatherInformationAndRunChecks().
   ErrorMessageMode error_message_mode_;
-
-  // Map associating each scripting node in the AST with the index of the node
-  // relative to its parent.  We maintain the invariant that:
-  //   node->parent()->child(node_index_map_[node]) == node.
-  // for all nodes in the map.
-  //
-  // A map entry is generated for all nodes in the parse tree, except for child
-  // nodes inside of a SQL statement or expression.
-  //
-  // <parser_output_> owns the lifetime of all ASTStatement objects in the map.
-  NodeIndexMap node_index_map_;
 
   // Routine arguments existing from the beginning the script.
   ArgumentTypeMap routine_arguments_;

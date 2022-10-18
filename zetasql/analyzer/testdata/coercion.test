@@ -556,7 +556,7 @@ QueryStmt
 # Comparing enum against out of range int64 literal (which can fit in an int32).
 select 1 FROM TestTable WHERE KitchenSink.test_enum = 12345;
 --
-ERROR: Could not cast literal 12345 to type ENUM<zetasql_test__.TestEnum> [at 1:55]
+ERROR: Could not cast literal 12345 to type zetasql_test__.TestEnum [at 1:55]
 select 1 FROM TestTable WHERE KitchenSink.test_enum = 12345;
                                                       ^
 ==
@@ -566,14 +566,14 @@ select 1 FROM TestTable WHERE KitchenSink.test_enum = 12345;
 # the enum conversion.
 select 1 FROM TestTable WHERE KitchenSink.test_enum = 123456890123;
 --
-ERROR: Could not cast literal 123456890123 to type ENUM<zetasql_test__.TestEnum> [at 1:55]
+ERROR: Could not cast literal 123456890123 to type zetasql_test__.TestEnum [at 1:55]
 select 1 FROM TestTable WHERE KitchenSink.test_enum = 123456890123;
                                                       ^
 ==
 
 select 1 FROM TestTable WHERE KitchenSink.test_enum = "a";
 --
-ERROR: Could not cast literal "a" to type ENUM<zetasql_test__.TestEnum> [at 1:55]
+ERROR: Could not cast literal "a" to type zetasql_test__.TestEnum [at 1:55]
 select 1 FROM TestTable WHERE KitchenSink.test_enum = "a";
                                                       ^
 ==
@@ -727,7 +727,7 @@ select 1
   WHERE KitchenSink.test_enum
         IN ('TESTENUM0', 12345, 'INVALID_VALUE');
 --
-ERROR: Could not cast literal 12345 to type ENUM<zetasql_test__.TestEnum> [at 4:26]
+ERROR: Could not cast literal 12345 to type zetasql_test__.TestEnum [at 4:26]
         IN ('TESTENUM0', 12345, 'INVALID_VALUE');
                          ^
 ==
@@ -784,7 +784,7 @@ select if(false,
           """int64_key_1: int64_key_2: 2""")
 from TestTable
 --
-ERROR: Could not cast literal "int64_key_1: int64_key_2: 2" to type PROTO<zetasql_test__.KitchenSinkPB> (Error parsing proto: Expected integer, got: int64_key_2 [1:14]) [at 3:11]
+ERROR: Could not cast literal "int64_key_1: int64_key_2: 2" to type zetasql_test__.KitchenSinkPB (Error parsing proto: Expected integer, got: int64_key_2 [1:14]) [at 3:11]
           """int64_key_1: int64_key_2: 2""")
           ^
 ==
@@ -2676,4 +2676,73 @@ ALTERNATION GROUPS:
 --
 ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_INT32_ARRAY_RETURNS_INT32 for argument types: ARRAY<INT64>. Supported signature: FN_ON_INT32_ARRAY_RETURNS_INT32(ARRAY<INT32>) [at 1:8]
 select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
+       ^
+
+==
+
+[no_java]
+# TODO: Fix java
+select 1 = CAST(1 as ROUNDING_MODE),
+       'ROUND_HALF_EVEN' = CAST(1 as ROUNDING_MODE)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
+| +-$query.$col2#2 AS `$col2` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(ZetaSQL:$equal(ENUM<ROUNDING_MODE>, ENUM<ROUNDING_MODE>) -> BOOL)
+    | |   +-Literal(type=ENUM<ROUNDING_MODE>, value=ROUND_HALF_AWAY_FROM_ZERO)
+    | |   +-Cast(INT64 -> ENUM<ROUNDING_MODE>)
+    | |     +-Literal(type=INT64, value=1)
+    | +-$col2#2 :=
+    |   +-FunctionCall(ZetaSQL:$equal(ENUM<ROUNDING_MODE>, ENUM<ROUNDING_MODE>) -> BOOL)
+    |     +-Literal(type=ENUM<ROUNDING_MODE>, value=ROUND_HALF_EVEN)
+    |     +-Cast(INT64 -> ENUM<ROUNDING_MODE>)
+    |       +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[no_java]
+# TODO: Fix java
+# Types are not coercible with each other
+select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
+--
+ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 3:8]
+select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
+       ^
+==
+
+[no_java]
+# TODO: Fix java
+select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
+--
+# error
+ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 2:8]
+select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
+       ^
+==
+
+[no_java]
+# TODO: Fix java
+# ROUNDING_MODE_UNSPECIFIED is marked invalid in ROUNDING_MODE (but not
+# 'zetasql.functions.RoundingMode')
+select 'ROUNDING_MODE_UNSPECIFIED' = CAST(1 as ROUNDING_MODE)
+--
+ERROR: Could not cast literal "ROUNDING_MODE_UNSPECIFIED" to type ROUNDING_MODE [at 4:8]
+select 'ROUNDING_MODE_UNSPECIFIED' = CAST(1 as ROUNDING_MODE)
+       ^
+==
+
+[no_java]
+# TODO: Fix java
+# 0 (ROUNDING_MODE_UNSPECIFIED) is marked invalid in ROUNDING_MODE.
+select 0 = CAST(1 as ROUNDING_MODE)
+--
+ERROR: Could not cast literal 0 to type ROUNDING_MODE [at 3:8]
+select 0 = CAST(1 as ROUNDING_MODE)
        ^

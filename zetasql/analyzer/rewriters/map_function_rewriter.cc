@@ -134,8 +134,6 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
   }
 
   absl::Status GenerateModifyMapSql(const ResolvedFunctionCall* node) {
-    ZETASQL_RET_CHECK(IsProtoMap(node->type())) << node->type()->DebugString();
-
     constexpr absl::string_view kTemplate = R"sql(
     (SELECT CASE
         -- Error case: multiple keys are not allowed in the rewrite args.
@@ -160,7 +158,7 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
           -- Select all the entries from orig that haven't been replaced.
           -- We retain the offset in the subquery to allow us to keep everything
           -- in the same order we originally saw it.
-          SELECT AS STRUCT key, value FROM (
+          SELECT AS `$1` key, value FROM (
             (SELECT orig.key, orig.value value, offset
              FROM UNNEST(original_map) orig WITH OFFSET offset
              LEFT JOIN UNNEST(modifications) mod
@@ -182,6 +180,15 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
         << "MODIFY_MAP should have at least three arguments";
     ZETASQL_RET_CHECK(node->argument_list_size() % 2 == 1)
         << "MODIFY_MAP should have an odd number of arguments.";
+
+    ZETASQL_RET_CHECK(IsProtoMap(node->type())) << node->type()->DebugString();
+    const absl::string_view output_type_name = node->type()
+                                                   ->AsArray()
+                                                   ->element_type()
+                                                   ->AsProto()
+                                                   ->descriptor()
+                                                   ->full_name();
+
     ZETASQL_ASSIGN_OR_RETURN(auto processed_arguments,
                      ProcessNodeList(node->argument_list()));
     const int num_modified_kvs = (node->argument_list_size() - 1) / 2;
@@ -205,7 +212,8 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
     ZETASQL_ASSIGN_OR_RETURN(
         auto rewritten_tree,
         AnalyzeSubstitute(analyzer_options_, catalog_, type_factory_,
-                          absl::Substitute(kTemplate, kv_sql), variables));
+                          absl::Substitute(kTemplate, kv_sql, output_type_name),
+                          variables));
     // The result will be coming out as an array of structs that are coercible
     // to the target map entry type, so we have to add a coercion to make it
     // into the required proto type.

@@ -16,7 +16,9 @@
 
 #include "zetasql/public/multi_catalog.h"
 
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "absl/status/status.h"

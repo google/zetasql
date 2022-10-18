@@ -20,11 +20,15 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/wrappers.pb.h"
@@ -33,6 +37,7 @@
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/wire_format_lite.h"
+#include "zetasql/public/civil_time.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
@@ -54,6 +59,7 @@
 #include "zetasql/testing/using_test_value.cc"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/hash/hash_testing.h"
@@ -260,7 +266,7 @@ class ValueTest : public ::testing::Test {
   ValueTest() : type_factory_(TypeFactoryOptions().IgnoreValueLifeCycle()) {}
   ValueTest(const ValueTest&) = delete;
   ValueTest& operator=(const ValueTest&) = delete;
-  ~ValueTest() override {}
+  ~ValueTest() override = default;
 
   const EnumType* GetTestEnumType() {
     const EnumType* enum_type;
@@ -307,6 +313,24 @@ class ValueTest : public ::testing::Test {
   TypeFactory type_factory_;
 };
 
+TEST_F(ValueTest, BoolFormatting) {
+  EXPECT_EQ(Value::Bool(true).DebugString(/*verbose=*/true), "Bool(true)");
+  EXPECT_EQ(Value::Bool(true).DebugString(), "true");
+  EXPECT_EQ(Value::Bool(true).Format(), "Bool(true)");
+  EXPECT_EQ(Value::Bool(true).Format(/*print_top_level_type=*/false), "true");
+  EXPECT_EQ(Value::Bool(true).GetSQLLiteral(), "true");
+  EXPECT_EQ(Value::Bool(true).GetSQL(), "true");
+}
+
+TEST_F(ValueTest, Int32Formatting) {
+  EXPECT_EQ(Value::Int32(123).DebugString(/*verbose=*/true), "Int32(123)");
+  EXPECT_EQ(Value::Int32(123).DebugString(), "123");
+  EXPECT_EQ(Value::Int32(123).Format(), "Int32(123)");
+  EXPECT_EQ(Value::Int32(123).Format(/*print_top_level_type=*/false), "123");
+  EXPECT_EQ(Value::Int32(123).GetSQLLiteral(), "123");
+  EXPECT_EQ(Value::Int32(123).GetSQL(), "CAST(123 AS INT32)");
+}
+
 TEST_F(ValueTest, Int64Null) {
   Value value = TestGetSQL(Value::NullInt64());
   EXPECT_EQ("INT64", value.type()->DebugString());
@@ -326,6 +350,15 @@ TEST_F(ValueTest, Int64NonNull) {
   EXPECT_EQ("INT64", value_copy.type()->DebugString());
   EXPECT_TRUE(!value_copy.is_null());
   EXPECT_EQ(3, value_copy.int64_value());
+}
+
+TEST_F(ValueTest, Int64Formatting) {
+  EXPECT_EQ(Value::Int64(456).DebugString(/*verbose=*/true), "Int64(456)");
+  EXPECT_EQ(Value::Int64(456).DebugString(), "456");
+  EXPECT_EQ(Value::Int64(456).Format(), "Int64(456)");
+  EXPECT_EQ(Value::Int64(456).Format(/*print_top_level_type=*/false), "456");
+  EXPECT_EQ(Value::Int64(456).GetSQLLiteral(), "456");
+  EXPECT_EQ(Value::Int64(456).GetSQL(), "456");
 }
 
 TEST_F(ValueTest, DoubleNull) {
@@ -376,6 +409,17 @@ TEST_F(ValueTest, DoubleFloatToString) {
     // Neither float or double GetSQL() should return a valid integer string.
     EXPECT_FALSE(absl::SimpleAtoi(str, &i)) << str;
   }
+}
+
+TEST_F(ValueTest, DoubleFormatting) {
+  EXPECT_EQ(Value::Double(123.456).DebugString(/*verbose=*/true),
+            "Double(123.456)");
+  EXPECT_EQ(Value::Double(123.456).DebugString(), "123.456");
+  EXPECT_EQ(Value::Double(123.456).Format(), "Double(123.456)");
+  EXPECT_EQ(Value::Double(123.456).Format(/*print_top_level_type=*/false),
+            "123.456");
+  EXPECT_EQ(Value::Double(123.456).GetSQLLiteral(), "123.456");
+  EXPECT_EQ(Value::Double(123.456).GetSQL(), "123.456");
 }
 
 TEST_F(ValueTest, StringNull) {
@@ -449,6 +493,17 @@ TEST_F(ValueTest, StringDebugString) {
                 .DebugString());  // NOLINT
 }
 
+TEST_F(ValueTest, StringFormatting) {
+  EXPECT_EQ(Value::String("hello").DebugString(/*verbose=*/true),
+            "String(\"hello\")");
+  EXPECT_EQ(Value::String("hello").DebugString(), "\"hello\"");
+  EXPECT_EQ(Value::String("hello").Format(), "String(\"hello\")");
+  EXPECT_EQ(Value::String("hello").Format(/*print_top_level_type=*/false),
+            "\"hello\"");
+  EXPECT_EQ(Value::String("hello").GetSQLLiteral(), "\"hello\"");
+  EXPECT_EQ(Value::String("hello").GetSQL(), "\"hello\"");
+}
+
 TEST_F(ValueTest, SimpleRoundTrip) {
   EXPECT_EQ(-42, Value::Int32(-42).int32_value());
   EXPECT_EQ(-1 * (int64_t{42} << 42),
@@ -469,7 +524,32 @@ TEST_F(ValueTest, SimpleRoundTrip) {
   EXPECT_EQ(min_micros, TimestampFromUnixMicros(min_micros).ToUnixMicros());
 }
 
-TEST_F(ValueTest, BaseTime) {
+TEST_F(ValueTest, DateFormatting) {
+  const Value date = Value::Date(19251);
+  EXPECT_EQ(date.DebugString(/*verbose=*/true), "Date(2022-09-16)");
+  EXPECT_EQ(date.DebugString(), "2022-09-16");
+  EXPECT_EQ(date.Format(), "Date(2022-09-16)");
+  EXPECT_EQ(date.Format(/*print_top_level_type=*/false), "2022-09-16");
+  EXPECT_EQ(date.GetSQLLiteral(), R"sql(DATE "2022-09-16")sql");
+  EXPECT_EQ(date.GetSQL(), R"sql(DATE "2022-09-16")sql");
+}
+
+TEST_F(ValueTest, DatetimeFormatting) {
+  const Value datetime = Value::Datetime(
+      DatetimeValue::FromYMDHMSAndNanos(2022, 9, 16, 13, 14, 11, 1));
+  EXPECT_EQ(datetime.DebugString(/*verbose=*/true),
+            "Datetime(2022-09-16 13:14:11.000000001)");
+  EXPECT_EQ(datetime.DebugString(), "2022-09-16 13:14:11.000000001");
+  EXPECT_EQ(datetime.Format(), "Datetime(2022-09-16 13:14:11.000000001)");
+  EXPECT_EQ(datetime.Format(/*print_top_level_type=*/false),
+            "2022-09-16 13:14:11.000000001");
+  EXPECT_EQ(datetime.GetSQLLiteral(),
+            R"sql(DATETIME "2022-09-16 13:14:11.000000001")sql");
+  EXPECT_EQ(datetime.GetSQL(),
+            R"sql(DATETIME "2022-09-16 13:14:11.000000001")sql");
+}
+
+TEST_F(ValueTest, Timestamp) {
   const absl::TimeZone utc = absl::UTCTimeZone();
 
   // Minimal and maximal representable timestamp value.
@@ -534,6 +614,21 @@ TEST_F(ValueTest, BaseTime) {
           absl::StatusCode::kOutOfRange,
           HasSubstr("Timestamp value in Unix epoch nanoseconds exceeds 64 bit: "
                     "2262-04-11 23:47:16.854775808+00")));
+}
+
+TEST_F(ValueTest, TimestampFormatting) {
+  absl::TimeZone pst;
+  ASSERT_TRUE(absl::LoadTimeZone("America/Los_Angeles", &pst));
+  const Value ts = Value::Timestamp(
+      absl::FromCivil(absl::CivilSecond(2022, 9, 16, 12, 43, 00), pst));
+  EXPECT_EQ(ts.DebugString(/*verbose=*/true),
+            "Timestamp(2022-09-16 19:43:00+00)");
+  EXPECT_EQ(ts.DebugString(), "2022-09-16 19:43:00+00");
+  EXPECT_EQ(ts.Format(), "Timestamp(2022-09-16 19:43:00+00)");
+  EXPECT_EQ(ts.Format(/*print_top_level_type=*/false),
+            "2022-09-16 19:43:00+00");
+  EXPECT_EQ(ts.GetSQLLiteral(), R"sql(TIMESTAMP "2022-09-16 19:43:00+00")sql");
+  EXPECT_EQ(ts.GetSQL(), R"sql(TIMESTAMP "2022-09-16 19:43:00+00")sql");
 }
 
 TEST_F(ValueTest, Interval) {
@@ -604,6 +699,18 @@ TEST_F(ValueTest, Interval) {
   }
 }
 
+TEST_F(ValueTest, IntervalFormatting) {
+  const Value interval = Value::Interval(Days(45));
+  EXPECT_EQ(interval.DebugString(/*verbose=*/true), "Interval(0-0 45 0:0:0)");
+  EXPECT_EQ(interval.DebugString(), "0-0 45 0:0:0");
+  EXPECT_EQ(interval.Format(), "Interval(0-0 45 0:0:0)");
+  EXPECT_EQ(interval.Format(/*print_top_level_type=*/false), "0-0 45 0:0:0");
+  EXPECT_EQ(interval.GetSQLLiteral(),
+            R"sql(INTERVAL "0-0 45 0:0:0" YEAR TO SECOND)sql");
+  EXPECT_EQ(interval.GetSQL(),
+            R"sql(INTERVAL "0-0 45 0:0:0" YEAR TO SECOND)sql");
+}
+
 TEST_F(ValueTest, Geography) {
   EXPECT_TRUE(Value::NullGeography().is_null());
   EXPECT_TRUE(Value::NullGeography().type()->IsGeography());
@@ -646,6 +753,16 @@ TEST_F(ValueTest, Numeric) {
   }
 }
 
+TEST_F(ValueTest, NumericFormatting) {
+  const Value numeric = Value::Numeric(NumericValue(int64_t{650}));
+  EXPECT_EQ(numeric.DebugString(/*verbose=*/true), "Numeric(650)");
+  EXPECT_EQ(numeric.DebugString(), "650");
+  EXPECT_EQ(numeric.Format(), "Numeric(650)");
+  EXPECT_EQ(numeric.Format(/*print_top_level_type=*/false), "650");
+  EXPECT_EQ(numeric.GetSQLLiteral(), R"sql(NUMERIC "650")sql");
+  EXPECT_EQ(numeric.GetSQL(), R"sql(NUMERIC "650")sql");
+}
+
 TEST_F(ValueTest, BigNumeric) {
   EXPECT_TRUE(Value::NullBigNumeric().is_null());
   EXPECT_EQ(TYPE_BIGNUMERIC, Value::NullBigNumeric().type_kind());
@@ -683,6 +800,17 @@ TEST_F(ValueTest, BigNumeric) {
     EXPECT_FALSE(value.is_null());
     EXPECT_EQ(BigNumericValue(int64_t{123}), value.bignumeric_value());
   }
+}
+
+TEST_F(ValueTest, BigNumericFormatting) {
+  const Value numeric =
+      Value::BigNumeric(BigNumericValue(int64_t{5973600000000}));
+  EXPECT_EQ(numeric.DebugString(/*verbose=*/true), "BigNumeric(5973600000000)");
+  EXPECT_EQ(numeric.DebugString(), "5973600000000");
+  EXPECT_EQ(numeric.Format(), "BigNumeric(5973600000000)");
+  EXPECT_EQ(numeric.Format(/*print_top_level_type=*/false), "5973600000000");
+  EXPECT_EQ(numeric.GetSQLLiteral(), R"sql(BIGNUMERIC "5973600000000")sql");
+  EXPECT_EQ(numeric.GetSQL(), R"sql(BIGNUMERIC "5973600000000")sql");
 }
 
 TEST_F(ValueTest, JSON) {
@@ -770,6 +898,27 @@ TEST_F(ValueTest, JSON) {
   }
 }
 
+TEST_F(ValueTest, JSONFormatting) {
+  const Value json = Value::Json(
+      JSONValue::ParseJSONString(
+          R"json({"foo":[1, null, "bar"], "foo2": "hello", "foo3": true})json")
+          .value());
+  EXPECT_EQ(json.DebugString(/*verbose=*/true),
+            R"(Json({"foo":[1,null,"bar"],"foo2":"hello","foo3":true}))");
+  EXPECT_EQ(json.DebugString(),
+            R"({"foo":[1,null,"bar"],"foo2":"hello","foo3":true})");
+  EXPECT_EQ(json.Format(),
+            R"(Json({"foo":[1,null,"bar"],"foo2":"hello","foo3":true}))");
+  EXPECT_EQ(json.Format(/*print_top_level_type=*/false),
+            R"({"foo":[1,null,"bar"],"foo2":"hello","foo3":true})");
+  EXPECT_EQ(
+      json.GetSQLLiteral(),
+      R"sql(JSON '{"foo":[1,null,"bar"],"foo2":"hello","foo3":true}')sql");
+  EXPECT_EQ(
+      json.GetSQL(),
+      R"sql(JSON '{"foo":[1,null,"bar"],"foo2":"hello","foo3":true}')sql");
+}
+
 TEST_F(ValueTest, GenericAccessors) {
   // Return types.
   static Value v;
@@ -848,27 +997,61 @@ TEST_F(ValueTest, HashCode) {
       // Invalid value.
       Value(),
       // Typed nulls.
-      Value::NullInt32(), Value::NullInt64(), Value::NullUint32(),
-      Value::NullUint64(), Value::NullBool(), Value::NullFloat(),
-      Value::NullDouble(), Value::NullBytes(), Value::NullString(),
-      Value::NullDate(), Value::NullTimestamp(), Value::NullTime(),
-      Value::NullDatetime(), Value::NullGeography(), Value::NullNumeric(),
-      Value::NullBigNumeric(), Value::NullJson(), Value::Null(enum_type),
-      Value::Null(other_enum_type), Value::Null(proto_type),
-      Value::Null(other_proto_type), Value::Null(types::Int32ArrayType()),
-      Value::Null(types::Int64ArrayType()), Value::Null(array_enum_type),
-      Value::Null(array_other_enum_type), Value::Null(array_proto_type),
+      Value::NullInt32(),
+      Value::NullInt64(),
+      Value::NullUint32(),
+      Value::NullUint64(),
+      Value::NullBool(),
+      Value::NullFloat(),
+      Value::NullDouble(),
+      Value::NullBytes(),
+      Value::NullString(),
+      Value::NullDate(),
+      Value::NullTimestamp(),
+      Value::NullTime(),
+      Value::NullDatetime(),
+      Value::NullGeography(),
+      Value::NullNumeric(),
+      Value::NullBigNumeric(),
+      Value::NullJson(),
+      Value::Null(enum_type),
+      Value::Null(other_enum_type),
+      Value::Null(proto_type),
+      Value::Null(other_proto_type),
+      Value::Null(types::Int32ArrayType()),
+      Value::Null(types::Int64ArrayType()),
+      Value::Null(array_enum_type),
+      Value::Null(array_other_enum_type),
+      Value::Null(array_proto_type),
       Value::Null(array_other_proto_type),
+      Value::Null(MakeRangeType(DateType())),
+      Value::Null(MakeRangeType(DatetimeType())),
+      Value::Null(MakeRangeType(TimestampType())),
       // Simple scalar types.
-      Value::Int32(1001), Value::Int32(1002), Value::Int64(1001),
-      Value::Int64(1002), Value::Uint32(1001), Value::Uint32(1002),
-      Value::Uint64(1001), Value::Uint64(1002), Value::Bool(false),
-      Value::Bool(true), Value::Float(1.3f), Value::Float(1.4f),
-      Value::Double(1.3f), Value::Double(1.4f), Value::String("a"),
-      Value::String("b"), Value::StringValue(std::string("a")),
-      Value::StringValue(std::string("b")), Value::Bytes("a"),
-      Value::Bytes("b"), Value::Bytes(std::string("a")),
-      Value::Bytes(std::string("b")), Value::Date(1001), Value::Date(1002),
+      Value::Int32(1001),
+      Value::Int32(1002),
+      Value::Int64(1001),
+      Value::Int64(1002),
+      Value::Uint32(1001),
+      Value::Uint32(1002),
+      Value::Uint64(1001),
+      Value::Uint64(1002),
+      Value::Bool(false),
+      Value::Bool(true),
+      Value::Float(1.3f),
+      Value::Float(1.4f),
+      Value::Double(1.3f),
+      Value::Double(1.4f),
+      Value::String("a"),
+      Value::String("b"),
+      Value::StringValue(std::string("a")),
+      Value::StringValue(std::string("b")),
+      Value::Bytes("a"),
+      Value::Bytes("b"),
+      Value::Bytes(std::string("a")),
+      Value::Bytes(std::string("b")),
+      Value::Date(1001),
+      Value::Date(1002),
       Value::Timestamp(
           absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
           absl::Nanoseconds(1)),
@@ -885,17 +1068,25 @@ TEST_F(ValueTest, HashCode) {
       Value::Numeric(NumericValue(int64_t{1002})),
       Value::BigNumeric(BigNumericValue(int64_t{1001})),
       Value::BigNumeric(BigNumericValue(int64_t{1002})),
-      Value::Json(JSONValue(int64_t{1})), Value::UnvalidatedJsonString("value"),
+      Value::Json(JSONValue(int64_t{1})),
+      Value::UnvalidatedJsonString("value"),
       // Enums of two different types.
-      values::Enum(enum_type, 0), values::Enum(enum_type, 1),
-      values::Enum(other_enum_type, 0), values::Enum(other_enum_type, 1),
+      values::Enum(enum_type, 0),
+      values::Enum(enum_type, 1),
+      values::Enum(other_enum_type, 0),
+      values::Enum(other_enum_type, 1),
       // Protos of two different types.
-      Value::Proto(proto_type, {}), Value::Proto(other_proto_type, {}),
+      Value::Proto(proto_type, {}),
+      Value::Proto(other_proto_type, {}),
       // Arrays of various types.
-      values::Int32Array({}), values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, 21}),
-      values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, -1}), values::Int64Array({}),
+      values::Int32Array({}),
+      values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, 21}),
+      values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, -1}),
+      values::Int64Array({}),
       values::Int64Array({0, 1, 1, 2, 3, 5, 8, 13, 21}),
       values::Int64Array({0, 1, 1, 2, 3, 5, 8, 13, -1}),
+      values::DoubleArray({0.0, 1.0, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0}),
+      values::DoubleArray({0.0, 1.0, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, -1.0}),
 
       values::JsonArray({}),
       values::JsonArray({JSONValue(int64_t{1}),
@@ -923,6 +1114,47 @@ TEST_F(ValueTest, HashCode) {
       values::Array(array_other_proto_type,
                     {Value::Proto(other_proto_type, {}),
                      Value::Proto(other_proto_type, {})}),
+      // Ranges of dates
+      Range(Value::Date(1), Value::Date(2)),
+      Range(Value::Date(2), Value::Date(3)),
+      Range(Value::UnboundedStartDate(), Value::Date(4)),
+      Range(Value::Date(5), Value::UnboundedEndDate()),
+      Range(Value::UnboundedStartDate(), Value::UnboundedEndDate()),
+      // Ranges of datetimes
+      Range(Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2020, 2, 3, 4, 5, 6, 7)),
+            Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2021, 2, 3, 4, 5, 6, 7))),
+      Range(Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2020, 3, 3, 4, 5, 6, 7)),
+            Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2021, 4, 3, 4, 5, 6, 7))),
+      Range(Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2020, 2, 3, 4, 5, 6, 7)),
+            Value::UnboundedEndDatetime()),
+      Range(Value::UnboundedStartDatetime(),
+            Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2021, 2, 3, 4, 5, 6, 7))),
+      Range(Value::UnboundedStartDatetime(), Value::UnboundedEndDatetime()),
+      // Ranges of timestamps
+      Range(
+          Value::Timestamp(absl::FromCivil(
+              absl::CivilSecond(2019, 01, 01, 0, 0, 0), absl::UTCTimeZone())),
+          Value::Timestamp(absl::FromCivil(
+              absl::CivilSecond(2020, 01, 01, 0, 0, 0), absl::UTCTimeZone()))),
+      Range(
+          Value::Timestamp(absl::FromCivil(
+              absl::CivilSecond(2020, 01, 01, 0, 0, 0), absl::UTCTimeZone())),
+          Value::Timestamp(absl::FromCivil(
+              absl::CivilSecond(2021, 01, 01, 0, 0, 0), absl::UTCTimeZone()))),
+      Range(Value::Timestamp(absl::FromCivil(
+                absl::CivilSecond(2019, 01, 01, 0, 0, 0), absl::UTCTimeZone())),
+            Value::UnboundedEndTimestamp()),
+      Range(
+          Value::UnboundedStartTimestamp(),
+          Value::Timestamp(absl::FromCivil(
+              absl::CivilSecond(2020, 01, 01, 0, 0, 0), absl::UTCTimeZone()))),
+      Range(Value::UnboundedStartTimestamp(), Value::UnboundedEndTimestamp()),
   }));
 }
 
@@ -1167,6 +1399,13 @@ TEST_F(ValueTest, AlmostEquals) {
   EXPECT_THAT(
       Array({y, y_near}),
       AlmostEqualsValue(Array({y_near, y}, InternalValue::kIgnoresOrder)));
+  // array<string>
+  EXPECT_THAT(
+      Array({"x", "y"}, InternalValue::kIgnoresOrder),
+      AlmostEqualsValue(Array({"y", "x"}, InternalValue::kIgnoresOrder)));
+  EXPECT_THAT(
+      Array({"x", "y"}, InternalValue::kIgnoresOrder),
+      Not(AlmostEqualsValue(Array({"x", "y_"}, InternalValue::kIgnoresOrder))));
 
   // x and x_far differ by 5 ULP bits.
   int bits = 0;
@@ -1258,6 +1497,23 @@ TEST_F(ValueTest, AlmostEqualsStructArray) {
       AlmostEqualsValue(Array({s2, s1, s4, s3}, InternalValue::kIgnoresOrder)));
 }
 
+TEST_F(ValueTest, AlmostEqualsArrayOfProto) {
+  TypeFactory factory;
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(factory.MakeProtoType(google::protobuf::DoubleValue::descriptor(),
+                                  &proto_type));
+  auto x = Value::Proto(proto_type, BuildDoubleValueProto(3.0));
+  auto x_near =
+      Value::Proto(proto_type, BuildDoubleValueProto(NextAlmostEqual(3.0)));
+  auto x_far = Value::Proto(proto_type, BuildDoubleValueProto(7.0));
+
+  EXPECT_THAT(Array({x}),
+              AlmostEqualsValue(Array({x_near}, InternalValue::kIgnoresOrder)));
+  EXPECT_THAT(
+      Array({x}),
+      Not(AlmostEqualsValue(Array({x_far}, InternalValue::kIgnoresOrder))));
+}
+
 TEST_F(ValueTest, StructNotNull) {
   Value value = Struct({{"a", Value::Int64(1)}, {"b", Value::Int64(2)}});
   TestGetSQL(value);
@@ -1281,6 +1537,18 @@ TEST_F(ValueTest, StructNotNull) {
   EXPECT_EQ(value.DebugString(true), same_value.DebugString(true));
 }
 
+TEST_F(ValueTest, StructWithNull) {
+  Value value = Struct({"a", "b"}, {Value::Int64(1), Value::Null(Int32Type())});
+  Value same_value =
+      Struct({"a", "b"}, {Value::Int64(1), Value::Null(Int32Type())});
+  EXPECT_TRUE(value.Equals(same_value));
+  EXPECT_TRUE(same_value.Equals(value));
+  Value different_value =
+      Struct({"a", "b"}, {Value::Int64(1), Value::Int32(2)});
+  EXPECT_FALSE(value.Equals(different_value));
+  EXPECT_FALSE(different_value.Equals(value));
+}
+
 TEST_F(ValueTest, StructNull) {
   Value value = TestGetSQL(Value::Null(MakeStructType({{"a", Int64Type()}})));
   EXPECT_TRUE(value.is_null());
@@ -1289,7 +1557,7 @@ TEST_F(ValueTest, StructNull) {
   EXPECT_DEATH(value.FindFieldByName("junk"), "Null value");
 }
 
-TEST_F(ValueTest, InvalidStructConstruction) {
+TEST_F(ValueTest, StructInvalidConstruction) {
   const StructType* struct_type = MakeStructType({{"a", Int64Type()}});
   // No values
   std::vector<Value> as_vec;
@@ -1368,6 +1636,78 @@ TEST_F(ValueTest, StructWithTwoAnonymousFields) {
   EXPECT_FALSE(value.FindFieldByName("").is_valid());
 }
 
+TEST_F(ValueTest, StructOfStringsFormatting) {
+  const auto* string_struct_type =
+      MakeStructType({{"a", StringType()}, {"b", StringType()}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value struct_of_strings,
+                       Value::MakeStruct(string_struct_type,
+                                         {Value::String("12345678901234567890"),
+                                          Value::String("abc")}));
+  EXPECT_EQ(struct_of_strings.DebugString(/*verbose=*/true),
+            R"(Struct{a:String("12345678901234567890"), b:String("abc")})");
+  EXPECT_EQ(struct_of_strings.DebugString(),
+            R"({a:"12345678901234567890", b:"abc"})");
+  EXPECT_EQ(struct_of_strings.Format(), R"(STRUCT<a STRING, b STRING>{
+  "12345678901234567890",
+  "abc"
+})");
+  EXPECT_EQ(struct_of_strings.Format(/*print_top_level_type=*/false), R"({
+  "12345678901234567890",
+  "abc"
+})");
+  EXPECT_EQ(struct_of_strings.GetSQLLiteral(),
+            R"(("12345678901234567890", "abc"))");
+  EXPECT_EQ(struct_of_strings.GetSQL(),
+            R"(STRUCT<a STRING, b STRING>("12345678901234567890", "abc"))");
+}
+
+TEST_F(ValueTest, StructOfArraysOfStringsFormatting) {
+  const auto* string_array_type = MakeArrayType(StringType());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value array_of_strings,
+      Value::MakeArray(string_array_type,
+                       {Value::String("789010992827372"),
+                        Value::String("quiteLongVeryBerryString")}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value struct_of_arrays_of_strings,
+      Value::MakeStruct(
+          MakeStructType({{"a", string_array_type}, {"b", string_array_type}}),
+          {array_of_strings, array_of_strings}));
+  EXPECT_EQ(
+      struct_of_arrays_of_strings.DebugString(/*verbose=*/true),
+      R"(Struct{a:Array[String("789010992827372"), String("quiteLongVeryBerryString")], )"
+      R"(b:Array[String("789010992827372"), String("quiteLongVeryBerryString")]})");
+  EXPECT_EQ(
+      struct_of_arrays_of_strings.DebugString(),
+      R"({a:["789010992827372", "quiteLongVeryBerryString"], b:["789010992827372", "quiteLongVeryBerryString"]})");
+  EXPECT_EQ(struct_of_arrays_of_strings.Format(),
+            R"(STRUCT<a ARRAY<>, b ARRAY<>>{
+  ARRAY<STRING>[
+    "789010992827372",
+    "quiteLongVeryBerryString"
+  ],
+  ARRAY<STRING>[
+    "789010992827372",
+    "quiteLongVeryBerryString"
+  ]
+})");
+  EXPECT_EQ(struct_of_arrays_of_strings.Format(/*print_top_level_type=*/false),
+            R"({ARRAY<STRING>[
+   "789010992827372",
+   "quiteLongVeryBerryString"
+ ],
+ ARRAY<STRING>[
+   "789010992827372",
+   "quiteLongVeryBerryString"
+ ]})");
+  EXPECT_EQ(
+      struct_of_arrays_of_strings.GetSQLLiteral(),
+      R"((["789010992827372", "quiteLongVeryBerryString"], ["789010992827372", "quiteLongVeryBerryString"]))");
+  EXPECT_EQ(
+      struct_of_arrays_of_strings.GetSQL(),
+      R"(STRUCT<a ARRAY<STRING>, b ARRAY<STRING>>(ARRAY<STRING>["789010992827372", "quiteLongVeryBerryString"], ARRAY<STRING>["789010992827372", "quiteLongVeryBerryString"]))");
+}
+
 TEST_F(ValueTest, StructWithNoFields) {
   Value value = TestGetSQL(Struct({}, {}));
   EXPECT_EQ(0, value.num_fields());
@@ -1409,7 +1749,7 @@ TEST_F(ValueTest, ArrayNull) {
   EXPECT_FALSE(value.Equals(value2));
 }
 
-TEST_F(ValueTest, MakeArrayConstruction) {
+TEST_F(ValueTest, ArrayConstruction) {
   const ArrayType* array_type = MakeArrayType(Int64Type());
   // No values
   std::vector<Value> as_vec;
@@ -1682,6 +2022,97 @@ TEST_F(ValueTest, AsymetricNestedArrayBag) {
       << why;
 }
 
+TEST_F(ValueTest, ArrayOfInt64Formatting) {
+  const auto* int_array_type = MakeArrayType(Int64Type());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value array_of_ints,
+      Value::MakeArray(int_array_type, {Value::Int64(1), Value::NullInt64()}));
+  EXPECT_EQ(array_of_ints.DebugString(/*verbose=*/true),
+            "Array[Int64(1), Int64(NULL)]");
+  EXPECT_EQ(array_of_ints.DebugString(), "[1, NULL]");
+  EXPECT_EQ(array_of_ints.Format(), "ARRAY<INT64>[1, NULL]");
+  EXPECT_EQ(array_of_ints.Format(/*print_top_level_type=*/false),
+            "ARRAY<INT64>[1, NULL]");
+  EXPECT_EQ(array_of_ints.GetSQLLiteral(), "[1, NULL]");
+  EXPECT_EQ(array_of_ints.GetSQL(), "ARRAY<INT64>[1, CAST(NULL AS INT64)]");
+}
+
+TEST_F(ValueTest, ArrayOfStringFormatting) {
+  const auto* string_array_type = MakeArrayType(StringType());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value array_of_strings,
+                       Value::MakeArray(string_array_type,
+                                        {Value::String("12345678901234567890"),
+                                         Value::String("abc")}));
+  EXPECT_EQ(array_of_strings.DebugString(/*verbose=*/true),
+            R"(Array[String("12345678901234567890"), String("abc")])");
+  EXPECT_EQ(array_of_strings.DebugString(),
+            R"(["12345678901234567890", "abc"])");
+  EXPECT_EQ(array_of_strings.Format(), R"(ARRAY<STRING>[
+  "12345678901234567890",
+  "abc"
+])");
+  EXPECT_EQ(array_of_strings.Format(/*print_top_level_type=*/false),
+            R"(ARRAY<STRING>[
+  "12345678901234567890",
+  "abc"
+])");
+  EXPECT_EQ(array_of_strings.GetSQLLiteral(),
+            R"(["12345678901234567890", "abc"])");
+  EXPECT_EQ(array_of_strings.GetSQL(),
+            R"(ARRAY<STRING>["12345678901234567890", "abc"])");
+}
+
+TEST_F(ValueTest, ArrayOfStructsOfStringsFormatting) {
+  const auto* string_struct_type =
+      MakeStructType({{"a", StringType()}, {"b", StringType()}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value struct_of_strings,
+      Value::MakeStruct(
+          string_struct_type,
+          {Value::String("5938"), Value::String("longFunctionInvocation, 2")}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value array_of_structs_of_strings,
+                       Value::MakeArray(MakeArrayType(string_struct_type),
+                                        {struct_of_strings, struct_of_strings,
+                                         Value::Null(string_struct_type)}));
+  EXPECT_EQ(
+      array_of_structs_of_strings.DebugString(/*verbose=*/true),
+      R"(Array[Struct{a:String("5938"), b:String("longFunctionInvocation, 2")}, )"
+      R"(Struct{a:String("5938"), b:String("longFunctionInvocation, 2")}, Struct(NULL)])");
+  EXPECT_EQ(
+      array_of_structs_of_strings.DebugString(),
+      R"([{a:"5938", b:"longFunctionInvocation, 2"}, {a:"5938", b:"longFunctionInvocation, 2"}, NULL])");
+  EXPECT_EQ(array_of_structs_of_strings.Format(),
+            R"(ARRAY<STRUCT<a STRING, b STRING>>[
+  {
+    "5938",
+    "longFunctionInvocation, 2"
+  },
+  {
+    "5938",
+    "longFunctionInvocation, 2"
+  },
+  NULL
+])");
+  EXPECT_EQ(array_of_structs_of_strings.Format(/*print_top_level_type=*/false),
+            R"(ARRAY<STRUCT<a STRING, b STRING>>[
+  {
+    "5938",
+    "longFunctionInvocation, 2"
+  },
+  {
+    "5938",
+    "longFunctionInvocation, 2"
+  },
+  NULL
+])");
+  EXPECT_EQ(
+      array_of_structs_of_strings.GetSQLLiteral(),
+      R"([("5938", "longFunctionInvocation, 2"), ("5938", "longFunctionInvocation, 2"), NULL])");
+  EXPECT_EQ(
+      array_of_structs_of_strings.GetSQL(),
+      R"(ARRAY<STRUCT<a STRING, b STRING>>[STRUCT<a STRING, b STRING>("5938", "longFunctionInvocation, 2"), STRUCT<a STRING, b STRING>("5938", "longFunctionInvocation, 2"), CAST(NULL AS STRUCT<a STRING, b STRING>)])");
+}
+
 // A sanity test to make sure EqualsInternal does not blow up in the case
 // where structs have different numbers of fields.
 TEST_F(ValueTest, InternalEqualsOnDifferentSizedStructs) {
@@ -1765,6 +2196,19 @@ TEST_F(ValueTest, Enum) {
   EXPECT_TRUE(enum_null_1.Equals(enum_null_1));
   EXPECT_TRUE(enum_null_2.Equals(enum_null_2));
   EXPECT_FALSE(enum_null_1.Equals(enum_null_2));
+}
+
+TEST_F(ValueTest, EnumFormatting) {
+  const EnumType* enum_type = GetTestEnumType();
+  const Value enum_value = Value::Enum(enum_type, 0);
+  EXPECT_EQ(enum_value.DebugString(/*verbose=*/true),
+            "Enum<zetasql_test__.TestEnum>(TESTENUM0:0)");
+  EXPECT_EQ(enum_value.DebugString(), "TESTENUM0");
+  EXPECT_EQ(enum_value.Format(), "Enum<zetasql_test__.TestEnum>(TESTENUM0:0)");
+  EXPECT_EQ(enum_value.Format(/*print_top_level_type=*/false), "TESTENUM0");
+  EXPECT_EQ(enum_value.GetSQLLiteral(), R"sql("TESTENUM0")sql");
+  EXPECT_EQ(enum_value.GetSQL(),
+            R"sql(CAST("TESTENUM0" AS `zetasql_test__.TestEnum`))sql");
 }
 
 TEST_F(ValueTest, StructWithNanAndInf) {
@@ -2166,6 +2610,37 @@ TEST_F(ValueTest, Proto) {
   TestHashEqual(set_value, unset_value);
 }
 
+TEST_F(ValueTest, ProtoFormatting) {
+  const ProtoType* proto_type = GetTestProtoType();
+  zetasql_test__::KitchenSinkPB k;
+  k.set_int64_key_1(1);
+  k.set_int64_key_2(2);
+  k.set_double_val(12.00);
+  const Value proto_value = Proto(proto_type, k);
+  EXPECT_EQ(proto_value.DebugString(/*verbose=*/true),
+            R"(Proto<zetasql_test__.KitchenSinkPB>{int64_key_1: 1
+int64_key_2: 2
+double_val: 12
+})");
+  EXPECT_EQ(proto_value.DebugString(),
+            "{int64_key_1: 1 int64_key_2: 2 double_val: 12}");
+  EXPECT_EQ(proto_value.Format(), R"(PROTO<zetasql_test__.KitchenSinkPB>{
+  int64_key_1: 1
+  int64_key_2: 2
+  double_val: 12
+})");
+  EXPECT_EQ(proto_value.Format(/*print_top_level_type=*/false), R"({
+  int64_key_1: 1
+  int64_key_2: 2
+  double_val: 12
+})");
+  EXPECT_EQ(proto_value.GetSQLLiteral(),
+            R"sql("int64_key_1: 1 int64_key_2: 2 double_val: 12")sql");
+  EXPECT_EQ(
+      proto_value.GetSQL(),
+      R"sql(CAST(b"\x08\x01\x10\x02I\x00\x00\x00\x00\x00\x00(@" AS `zetasql_test__.KitchenSinkPB`))sql");
+}
+
 TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(Value))
       << "The size of Value class has changed, please also update the proto "
@@ -2332,8 +2807,7 @@ TEST_F(ValueTest, RangeCopyAssign) {
   }
 }
 
-TEST_F(ValueTest, NullRange) {
-  // TODO: Test null value to and from string using TestGetSQL.
+TEST_F(ValueTest, RangeNull) {
   {
     Value value = Value::Null(MakeRangeType(DateType()));
     EXPECT_EQ("RANGE<DATE>", value.type()->DebugString());
@@ -2341,6 +2815,7 @@ TEST_F(ValueTest, NullRange) {
     EXPECT_DEATH(value.start(), "Null value");
     EXPECT_DEATH(value.end(), "Null value");
     Value value_copy = value;
+    EXPECT_TRUE(value.Equals(value_copy));
     EXPECT_EQ("RANGE<DATE>", value_copy.type()->DebugString());
     EXPECT_TRUE(value_copy.is_null());
   }
@@ -2352,6 +2827,7 @@ TEST_F(ValueTest, NullRange) {
     EXPECT_DEATH(value.start(), "Null value");
     EXPECT_DEATH(value.end(), "Null value");
     Value value_copy = value;
+    EXPECT_TRUE(value.Equals(value_copy));
     EXPECT_EQ("RANGE<DATETIME>", value_copy.type()->DebugString());
     EXPECT_TRUE(value_copy.is_null());
   }
@@ -2363,28 +2839,27 @@ TEST_F(ValueTest, NullRange) {
     EXPECT_DEATH(value.start(), "Null value");
     EXPECT_DEATH(value.end(), "Null value");
     Value value_copy = value;
+    EXPECT_TRUE(value.Equals(value_copy));
     EXPECT_EQ("RANGE<TIMESTAMP>", value_copy.type()->DebugString());
     EXPECT_TRUE(value_copy.is_null());
   }
 }
 
 TEST_F(ValueTest, RangeNonNull) {
-  // TODO: Test value to and from string using TestGetSQL.
   Value value = Range(Date(1), Date(2));
   EXPECT_EQ("RANGE<DATE>", value.type()->DebugString());
   EXPECT_TRUE(!value.is_null());
   EXPECT_EQ(Date(1), value.start());
   EXPECT_EQ(Date(2), value.end());
   Value value_copy = value;
+  EXPECT_TRUE(value.Equals(value_copy));
   EXPECT_EQ("RANGE<DATE>", value_copy.type()->DebugString());
   EXPECT_FALSE(value_copy.is_null());
   EXPECT_EQ(Date(1), value_copy.start());
   EXPECT_EQ(Date(2), value_copy.end());
 }
 
-TEST_F(ValueTest, UnboundedRanges) {
-  // TODO: Test value to and from string using TestGetSQL.
-
+TEST_F(ValueTest, RangeUnbounded) {
   // Unbounded-start ranges.
   {
     Value value = Range(Value::UnboundedStartDate(), Date(2));
@@ -2393,6 +2868,7 @@ TEST_F(ValueTest, UnboundedRanges) {
     EXPECT_EQ(Value::UnboundedStartDate(), value.start());
     EXPECT_EQ(Date(2), value.end());
     Value value_copy = value;
+    EXPECT_TRUE(value.Equals(value_copy));
     EXPECT_EQ("RANGE<DATE>", value_copy.type()->DebugString());
     EXPECT_FALSE(value_copy.is_null());
     EXPECT_EQ(Value::UnboundedStartDate(), value_copy.start());
@@ -2410,6 +2886,7 @@ TEST_F(ValueTest, UnboundedRanges) {
               value.start());
     EXPECT_EQ(Value::UnboundedEndDatetime(), value.end());
     Value value_copy = value;
+    EXPECT_TRUE(value.Equals(value_copy));
     EXPECT_EQ("RANGE<DATETIME>", value_copy.type()->DebugString());
     EXPECT_FALSE(value_copy.is_null());
     EXPECT_EQ(Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)),
@@ -2426,11 +2903,487 @@ TEST_F(ValueTest, UnboundedRanges) {
     EXPECT_EQ(Value::UnboundedStartTimestamp(), value.start());
     EXPECT_EQ(Value::UnboundedEndTimestamp(), value.end());
     Value value_copy = value;
+    EXPECT_TRUE(value.Equals(value_copy));
     EXPECT_EQ("RANGE<TIMESTAMP>", value_copy.type()->DebugString());
     EXPECT_FALSE(value_copy.is_null());
     EXPECT_EQ(Value::UnboundedStartTimestamp(), value.start());
     EXPECT_EQ(Value::UnboundedEndTimestamp(), value.end());
   }
+}
+
+TEST_F(ValueTest, RangeBounded_EqualityWorks) {
+  Value date_1_to_3 = Range(Date(1), Date(3));
+  EXPECT_TRUE(date_1_to_3.Equals(Range(Date(1), Date(3))));
+  EXPECT_FALSE(date_1_to_3.Equals(Range(Date(1), Date(2))));
+  EXPECT_FALSE(date_1_to_3.Equals(Range(Date(2), Date(3))));
+
+  Value datetime_1_to_3 = Range(
+      Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 1, 1, 1, 1, 1, 1)),
+      Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(3, 3, 3, 3, 3, 3, 3)));
+  EXPECT_TRUE(datetime_1_to_3.Equals(Range(
+      Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 1, 1, 1, 1, 1, 1)),
+      Value::Datetime(
+          DatetimeValue::FromYMDHMSAndNanos(3, 3, 3, 3, 3, 3, 3)))));
+  EXPECT_FALSE(datetime_1_to_3.Equals(Range(
+      Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 1, 1, 1, 1, 1, 1)),
+      Value::Datetime(
+          DatetimeValue::FromYMDHMSAndNanos(2, 2, 2, 2, 2, 2, 2)))));
+  EXPECT_FALSE(datetime_1_to_3.Equals(Range(
+      Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(2, 2, 2, 2, 2, 2, 2)),
+      Value::Datetime(
+          DatetimeValue::FromYMDHMSAndNanos(3, 3, 3, 3, 3, 3, 3)))));
+
+  const absl::TimeZone utc = absl::UTCTimeZone();
+  Value timestamp_1_to_3 =
+      Range(Value::Timestamp(absl::FromCivil(
+                absl::CivilSecond(1111, 01, 01, 01, 01, 01), utc)),
+            Value::Timestamp(absl::FromCivil(
+                absl::CivilSecond(3333, 03, 03, 03, 03, 03), utc)));
+  EXPECT_TRUE(timestamp_1_to_3.Equals(Range(
+      Value::Timestamp(
+          absl::FromCivil(absl::CivilSecond(1111, 01, 01, 01, 01, 01), utc)),
+      Value::Timestamp(
+          absl::FromCivil(absl::CivilSecond(3333, 03, 03, 03, 03, 03), utc)))));
+  EXPECT_FALSE(timestamp_1_to_3.Equals(Range(
+      Value::Timestamp(
+          absl::FromCivil(absl::CivilSecond(1111, 01, 01, 01, 01, 01), utc)),
+      Value::Timestamp(
+          absl::FromCivil(absl::CivilSecond(2222, 02, 02, 02, 02, 02), utc)))));
+  EXPECT_FALSE(timestamp_1_to_3.Equals(Range(
+      Value::Timestamp(
+          absl::FromCivil(absl::CivilSecond(2222, 02, 02, 02, 02, 02), utc)),
+      Value::Timestamp(
+          absl::FromCivil(absl::CivilSecond(3333, 03, 03, 03, 03, 03), utc)))));
+}
+
+TEST_F(ValueTest, RangeNull_EqualityWorks) {
+  Value date_range_1 = Value::Null(MakeRangeType(DateType()));
+  Value date_range_2 = Value::Null(MakeRangeType(DateType()));
+  EXPECT_TRUE(date_range_1.Equals(date_range_2));
+
+  Value datetime_value_1 = Value::Null(MakeRangeType(DatetimeType()));
+  Value datetime_value_2 = Value::Null(MakeRangeType(DatetimeType()));
+  EXPECT_TRUE(datetime_value_1.Equals(datetime_value_2));
+
+  Value timestamp_range_1 = Value::Null(MakeRangeType(TimestampType()));
+  Value timestamp_range_2 = Value::Null(MakeRangeType(TimestampType()));
+  EXPECT_TRUE(timestamp_range_1.Equals(timestamp_range_2));
+
+  EXPECT_FALSE(date_range_1.Equals(datetime_value_1));
+  EXPECT_FALSE(datetime_value_1.Equals(timestamp_range_1));
+  EXPECT_FALSE(timestamp_range_1.Equals(date_range_1));
+}
+
+TEST_F(ValueTest, RangeUnboundedStart_EqualityWorks) {
+  Value date_range_1 = Range(Value::UnboundedStartDate(), Date(1));
+  Value date_range_2 = Range(Value::UnboundedStartDate(), Date(1));
+  EXPECT_TRUE(date_range_1.Equals(date_range_2));
+
+  Value datetime_value_1 = Range(
+      Value::UnboundedStartDatetime(),
+      Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)));
+  Value datetime_value_2 = Range(
+      Value::UnboundedStartDatetime(),
+      Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)));
+  EXPECT_TRUE(datetime_value_1.Equals(datetime_value_2));
+
+  const absl::TimeZone utc = absl::UTCTimeZone();
+  Value timestamp_range_1 =
+      Range(Value::UnboundedStartTimestamp(),
+            Value::Timestamp(absl::FromCivil(
+                absl::CivilSecond(2020, 01, 02, 10, 00, 00), utc)));
+  Value timestamp_range_2 =
+      Range(Value::UnboundedStartTimestamp(),
+            Value::Timestamp(absl::FromCivil(
+                absl::CivilSecond(2020, 01, 02, 10, 00, 00), utc)));
+  EXPECT_TRUE(timestamp_range_1.Equals(timestamp_range_2));
+
+  EXPECT_FALSE(date_range_1.Equals(datetime_value_1));
+  EXPECT_FALSE(datetime_value_1.Equals(timestamp_range_1));
+  EXPECT_FALSE(timestamp_range_1.Equals(date_range_1));
+}
+
+TEST_F(ValueTest, RangeUnboundedEnd_EqualityWorks) {
+  Value date_range_1 = Range(Date(1), Value::UnboundedEndDate());
+  Value date_range_2 = Range(Date(1), Value::UnboundedEndDate());
+  EXPECT_TRUE(date_range_1.Equals(date_range_2));
+
+  Value datetime_value_1 = Range(
+      Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)),
+      Value::UnboundedEndDatetime());
+  Value datetime_value_2 = Range(
+      Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)),
+      Value::UnboundedEndDatetime());
+  EXPECT_TRUE(datetime_value_1.Equals(datetime_value_2));
+
+  const absl::TimeZone utc = absl::UTCTimeZone();
+  Value timestamp_range_1 =
+      Range(Value::Timestamp(absl::FromCivil(
+                absl::CivilSecond(2020, 01, 02, 10, 00, 00), utc)),
+            Value::UnboundedEndTimestamp());
+  Value timestamp_range_2 =
+      Range(Value::Timestamp(absl::FromCivil(
+                absl::CivilSecond(2020, 01, 02, 10, 00, 00), utc)),
+            Value::UnboundedEndTimestamp());
+  EXPECT_TRUE(timestamp_range_1.Equals(timestamp_range_2));
+
+  EXPECT_FALSE(date_range_1.Equals(datetime_value_1));
+  EXPECT_FALSE(datetime_value_1.Equals(timestamp_range_1));
+  EXPECT_FALSE(timestamp_range_1.Equals(date_range_1));
+}
+
+TEST_F(ValueTest, RangeUnboundedStartAndEnd_EqualityWorks) {
+  Value date_range_1 =
+      Range(Value::UnboundedStartDate(), Value::UnboundedEndDate());
+  Value date_range_2 =
+      Range(Value::UnboundedStartDate(), Value::UnboundedEndDate());
+  EXPECT_TRUE(date_range_1.Equals(date_range_2));
+
+  Value datetime_value_1 =
+      Range(Value::UnboundedStartDatetime(), Value::UnboundedEndDatetime());
+  Value datetime_value_2 =
+      Range(Value::UnboundedStartDatetime(), Value::UnboundedEndDatetime());
+  EXPECT_TRUE(datetime_value_1.Equals(datetime_value_2));
+
+  Value timestamp_range_1 =
+      Range(Value::UnboundedStartTimestamp(), Value::UnboundedEndTimestamp());
+  Value timestamp_range_2 =
+      Range(Value::UnboundedStartTimestamp(), Value::UnboundedEndTimestamp());
+  EXPECT_TRUE(timestamp_range_1.Equals(timestamp_range_2));
+
+  EXPECT_FALSE(date_range_1.Equals(datetime_value_1));
+  EXPECT_FALSE(datetime_value_1.Equals(timestamp_range_1));
+  EXPECT_FALSE(timestamp_range_1.Equals(date_range_1));
+}
+
+TEST_F(ValueTest, RangeOfDatesFormatting) {
+  const Value range_d_regular = Range(Value::Date(300), Value::Date(301));
+  // Regular range
+  EXPECT_EQ(range_d_regular.DebugString(/*verbose=*/true),
+            R"([Date(1970-10-28), Date(1970-10-29)))");
+  EXPECT_EQ(range_d_regular.DebugString(), R"([1970-10-28, 1970-10-29))");
+  EXPECT_EQ(range_d_regular.Format(), R"(RANGE<DATE>[1970-10-28, 1970-10-29))");
+  EXPECT_EQ(range_d_regular.Format(/*print_top_level_type=*/false),
+            R"([1970-10-28, 1970-10-29))");
+  EXPECT_EQ(range_d_regular.GetSQLLiteral(),
+            R"sql(RANGE<DATE> "[1970-10-28, 1970-10-29)")sql");
+  EXPECT_EQ(range_d_regular.GetSQL(),
+            R"sql(RANGE<DATE> "[1970-10-28, 1970-10-29)")sql");
+
+  // Range with unbounded start
+  const Value range_d_unbounded_start =
+      Range(Value::UnboundedStartDate(), Value::Date(301));
+  EXPECT_EQ(range_d_unbounded_start.DebugString(/*verbose=*/true),
+            R"([Date(NULL), Date(1970-10-29)))");
+  EXPECT_EQ(range_d_unbounded_start.DebugString(), R"([NULL, 1970-10-29))");
+  EXPECT_EQ(range_d_unbounded_start.Format(),
+            R"(RANGE<DATE>[NULL, 1970-10-29))");
+  EXPECT_EQ(range_d_unbounded_start.Format(/*print_top_level_type=*/false),
+            R"([NULL, 1970-10-29))");
+  EXPECT_EQ(range_d_unbounded_start.GetSQLLiteral(),
+            R"sql(RANGE<DATE> "[UNBOUNDED, 1970-10-29)")sql");
+  EXPECT_EQ(range_d_unbounded_start.GetSQL(),
+            R"sql(RANGE<DATE> "[UNBOUNDED, 1970-10-29)")sql");
+
+  // Range with unbounded end
+  const Value range_d_unbounded_end =
+      Range(Value::Date(300), Value::UnboundedEndDate());
+  EXPECT_EQ(range_d_unbounded_end.DebugString(/*verbose=*/true),
+            R"([Date(1970-10-28), Date(NULL)))");
+  EXPECT_EQ(range_d_unbounded_end.DebugString(), R"([1970-10-28, NULL))");
+  EXPECT_EQ(range_d_unbounded_end.Format(), R"(RANGE<DATE>[1970-10-28, NULL))");
+  EXPECT_EQ(range_d_unbounded_end.Format(/*print_top_level_type=*/false),
+            R"([1970-10-28, NULL))");
+  EXPECT_EQ(range_d_unbounded_end.GetSQLLiteral(),
+            R"sql(RANGE<DATE> "[1970-10-28, UNBOUNDED)")sql");
+  EXPECT_EQ(range_d_unbounded_end.GetSQL(),
+            R"sql(RANGE<DATE> "[1970-10-28, UNBOUNDED)")sql");
+
+  // Range with unbounded start and end
+  const Value range_d_unbounded_all =
+      Range(Value::UnboundedStartDate(), Value::UnboundedEndDate());
+  EXPECT_EQ(range_d_unbounded_all.DebugString(/*verbose=*/true),
+            R"([Date(NULL), Date(NULL)))");
+  EXPECT_EQ(range_d_unbounded_all.DebugString(), R"([NULL, NULL))");
+  EXPECT_EQ(range_d_unbounded_all.Format(), R"(RANGE<DATE>[NULL, NULL))");
+  EXPECT_EQ(range_d_unbounded_all.Format(/*print_top_level_type=*/false),
+            R"([NULL, NULL))");
+  EXPECT_EQ(range_d_unbounded_all.GetSQLLiteral(),
+            R"sql(RANGE<DATE> "[UNBOUNDED, UNBOUNDED)")sql");
+  EXPECT_EQ(range_d_unbounded_all.GetSQL(),
+            R"sql(RANGE<DATE> "[UNBOUNDED, UNBOUNDED)")sql");
+}
+
+TEST_F(ValueTest, RangeOfDatetimesFormatting) {
+  const Value range_dt_regular =
+      Range(Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2022, 9, 13, 16, 36, 11, 1)),
+            Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2022, 9, 13, 16, 37, 11, 1)));
+
+  // Regular range
+  EXPECT_EQ(
+      range_dt_regular.DebugString(/*verbose=*/true),
+      R"([Datetime(2022-09-13 16:36:11.000000001), Datetime(2022-09-13 16:37:11.000000001)))");
+  EXPECT_EQ(
+      range_dt_regular.DebugString(),
+      R"([2022-09-13 16:36:11.000000001, 2022-09-13 16:37:11.000000001))");
+  EXPECT_EQ(range_dt_regular.Format(),
+            R"(RANGE<DATETIME>[
+  2022-09-13 16:36:11.000000001,
+  2022-09-13 16:37:11.000000001
+))");
+  EXPECT_EQ(range_dt_regular.Format(/*print_top_level_type=*/false),
+            R"([
+  2022-09-13 16:36:11.000000001,
+  2022-09-13 16:37:11.000000001
+))");
+  EXPECT_EQ(
+      range_dt_regular.GetSQLLiteral(),
+      R"sql(RANGE<DATETIME> "[2022-09-13 16:36:11.000000001, 2022-09-13 16:37:11.000000001)")sql");
+  EXPECT_EQ(
+      range_dt_regular.GetSQL(),
+      R"sql(RANGE<DATETIME> "[2022-09-13 16:36:11.000000001, 2022-09-13 16:37:11.000000001)")sql");
+
+  // Range with unbounded start
+  const Value range_dt_unbounded_start =
+      Range(Value::UnboundedStartDatetime(),
+            Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2022, 9, 13, 16, 37, 11, 1)));
+  EXPECT_EQ(range_dt_unbounded_start.DebugString(/*verbose=*/true),
+            R"([Datetime(NULL), Datetime(2022-09-13 16:37:11.000000001)))");
+  EXPECT_EQ(range_dt_unbounded_start.DebugString(),
+            R"([NULL, 2022-09-13 16:37:11.000000001))");
+  EXPECT_EQ(range_dt_unbounded_start.Format(),
+            R"(RANGE<DATETIME>[
+  NULL,
+  2022-09-13 16:37:11.000000001
+))");
+  EXPECT_EQ(range_dt_unbounded_start.Format(/*print_top_level_type=*/false),
+            R"([
+  NULL,
+  2022-09-13 16:37:11.000000001
+))");
+  EXPECT_EQ(
+      range_dt_unbounded_start.GetSQLLiteral(),
+      R"sql(RANGE<DATETIME> "[UNBOUNDED, 2022-09-13 16:37:11.000000001)")sql");
+  EXPECT_EQ(
+      range_dt_unbounded_start.GetSQL(),
+      R"sql(RANGE<DATETIME> "[UNBOUNDED, 2022-09-13 16:37:11.000000001)")sql");
+
+  // Range with unbounded end
+  const Value range_dt_unbounded_end =
+      Range(Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2022, 9, 13, 16, 36, 11, 1)),
+            Value::UnboundedEndDatetime());
+  EXPECT_EQ(range_dt_unbounded_end.DebugString(/*verbose=*/true),
+            R"([Datetime(2022-09-13 16:36:11.000000001), Datetime(NULL)))");
+  EXPECT_EQ(range_dt_unbounded_end.DebugString(),
+            R"([2022-09-13 16:36:11.000000001, NULL))");
+  EXPECT_EQ(range_dt_unbounded_end.Format(),
+            R"(RANGE<DATETIME>[
+  2022-09-13 16:36:11.000000001,
+  NULL
+))");
+  EXPECT_EQ(range_dt_unbounded_end.Format(/*print_top_level_type=*/false),
+            R"([
+  2022-09-13 16:36:11.000000001,
+  NULL
+))");
+  EXPECT_EQ(
+      range_dt_unbounded_end.GetSQLLiteral(),
+      R"sql(RANGE<DATETIME> "[2022-09-13 16:36:11.000000001, UNBOUNDED)")sql");
+  EXPECT_EQ(
+      range_dt_unbounded_end.GetSQL(),
+      R"sql(RANGE<DATETIME> "[2022-09-13 16:36:11.000000001, UNBOUNDED)")sql");
+
+  // Range with unbounded start and end
+  const Value range_dt_unbounded_all =
+      Range(Value::UnboundedStartDatetime(), Value::UnboundedEndDatetime());
+  EXPECT_EQ(range_dt_unbounded_all.DebugString(/*verbose=*/true),
+            R"([Datetime(NULL), Datetime(NULL)))");
+  EXPECT_EQ(range_dt_unbounded_all.DebugString(), R"([NULL, NULL))");
+  EXPECT_EQ(range_dt_unbounded_all.Format(), R"(RANGE<DATETIME>[NULL, NULL))");
+  EXPECT_EQ(range_dt_unbounded_all.Format(/*print_top_level_type=*/false),
+            R"([NULL, NULL))");
+  EXPECT_EQ(range_dt_unbounded_all.GetSQLLiteral(),
+            R"sql(RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)")sql");
+  EXPECT_EQ(range_dt_unbounded_all.GetSQL(),
+            R"sql(RANGE<DATETIME> "[UNBOUNDED, UNBOUNDED)")sql");
+}
+
+TEST_F(ValueTest, FormatRangeOfTimestamps) {
+  const absl::TimeZone utc = absl::UTCTimeZone();
+  absl::Time tmin =
+      absl::FromCivil(absl::CivilSecond(00001, 01, 01, 00, 00, 00), utc);
+  absl::Time tmax =
+      absl::FromCivil(absl::CivilSecond(10000, 01, 01, 00, 00, 00), utc) -
+      absl::Nanoseconds(1);
+
+  // Regular range
+  const Value range_ts_regular =
+      Range(Value::Timestamp(tmin), Value::Timestamp(tmax));
+  EXPECT_EQ(
+      range_ts_regular.DebugString(/*verbose=*/true),
+      R"([Timestamp(0001-01-01 00:00:00+00), Timestamp(9999-12-31 23:59:59.999999999+00)))");
+  EXPECT_EQ(range_ts_regular.DebugString(),
+            R"([0001-01-01 00:00:00+00, 9999-12-31 23:59:59.999999999+00))");
+  EXPECT_EQ(range_ts_regular.Format(),
+            R"(RANGE<TIMESTAMP>[
+  0001-01-01 00:00:00+00,
+  9999-12-31 23:59:59.999999999+00
+))");
+  EXPECT_EQ(range_ts_regular.Format(/*print_top_level_type=*/false),
+            R"([
+  0001-01-01 00:00:00+00,
+  9999-12-31 23:59:59.999999999+00
+))");
+  EXPECT_EQ(
+      range_ts_regular.GetSQLLiteral(),
+      R"sql(RANGE<TIMESTAMP> "[0001-01-01 00:00:00+00, 9999-12-31 23:59:59.999999999+00)")sql");
+  EXPECT_EQ(
+      range_ts_regular.GetSQL(),
+      R"sql(RANGE<TIMESTAMP> "[0001-01-01 00:00:00+00, 9999-12-31 23:59:59.999999999+00)")sql");
+
+  // Range with unbounded start
+  const Value range_ts_unbounded_start =
+      Range(Value::UnboundedStartTimestamp(), Value::Timestamp(tmax));
+  EXPECT_EQ(
+      range_ts_unbounded_start.DebugString(/*verbose=*/true),
+      R"([Timestamp(NULL), Timestamp(9999-12-31 23:59:59.999999999+00)))");
+  EXPECT_EQ(range_ts_unbounded_start.DebugString(),
+            R"([NULL, 9999-12-31 23:59:59.999999999+00))");
+  EXPECT_EQ(range_ts_unbounded_start.Format(),
+            R"(RANGE<TIMESTAMP>[
+  NULL,
+  9999-12-31 23:59:59.999999999+00
+))");
+  EXPECT_EQ(range_ts_unbounded_start.Format(/*print_top_level_type=*/false),
+            R"([
+  NULL,
+  9999-12-31 23:59:59.999999999+00
+))");
+  EXPECT_EQ(
+      range_ts_unbounded_start.GetSQLLiteral(),
+      R"sql(RANGE<TIMESTAMP> "[UNBOUNDED, 9999-12-31 23:59:59.999999999+00)")sql");
+  EXPECT_EQ(
+      range_ts_unbounded_start.GetSQL(),
+      R"sql(RANGE<TIMESTAMP> "[UNBOUNDED, 9999-12-31 23:59:59.999999999+00)")sql");
+
+  // Range with unbounded end
+  const Value range_ts_unbounded_end =
+      Range(Value::Timestamp(tmin), Value::UnboundedEndTimestamp());
+  EXPECT_EQ(range_ts_unbounded_end.DebugString(/*verbose=*/true),
+            R"([Timestamp(0001-01-01 00:00:00+00), Timestamp(NULL)))");
+  EXPECT_EQ(range_ts_unbounded_end.DebugString(),
+            R"([0001-01-01 00:00:00+00, NULL))");
+  EXPECT_EQ(range_ts_unbounded_end.Format(),
+            R"(RANGE<TIMESTAMP>[
+  0001-01-01 00:00:00+00,
+  NULL
+))");
+  EXPECT_EQ(range_ts_unbounded_end.Format(/*print_top_level_type=*/false),
+            R"([
+  0001-01-01 00:00:00+00,
+  NULL
+))");
+  EXPECT_EQ(range_ts_unbounded_end.GetSQLLiteral(),
+            R"sql(RANGE<TIMESTAMP> "[0001-01-01 00:00:00+00, UNBOUNDED)")sql");
+  EXPECT_EQ(range_ts_unbounded_end.GetSQL(),
+            R"sql(RANGE<TIMESTAMP> "[0001-01-01 00:00:00+00, UNBOUNDED)")sql");
+
+  // Range with unbounded start and end
+  const Value range_ts_unbounded_all =
+      Range(Value::UnboundedStartTimestamp(), Value::UnboundedEndTimestamp());
+  EXPECT_EQ(range_ts_unbounded_all.DebugString(/*verbose=*/true),
+            R"([Timestamp(NULL), Timestamp(NULL)))");
+  EXPECT_EQ(range_ts_unbounded_all.DebugString(), R"([NULL, NULL))");
+  EXPECT_EQ(range_ts_unbounded_all.Format(), R"(RANGE<TIMESTAMP>[NULL, NULL))");
+  EXPECT_EQ(range_ts_unbounded_all.Format(/*print_top_level_type=*/false),
+            R"([NULL, NULL))");
+  EXPECT_EQ(range_ts_unbounded_all.GetSQLLiteral(),
+            R"sql(RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)")sql");
+  EXPECT_EQ(range_ts_unbounded_all.GetSQL(),
+            R"sql(RANGE<TIMESTAMP> "[UNBOUNDED, UNBOUNDED)")sql");
+}
+
+TEST_F(ValueTest, FormatArrayOfRanges) {
+  const Value regular_range = Range(Value::Date(300), Value::Date(301));
+  const Value range_unbounded_start =
+      Range(Value::UnboundedStartDate(), Value::Date(22));
+  const Value range_null = Value::Null(types::DateRangeType());
+  const auto* range_array_type = MakeArrayType(types::DateRangeType());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value array_of_ranges,
+      Value::MakeArray(range_array_type,
+                       {regular_range, range_unbounded_start, range_null}));
+  EXPECT_EQ(
+      array_of_ranges.DebugString(/*verbose=*/true),
+      R"(Array[Range<DATE>([Date(1970-10-28), Date(1970-10-29))), Range<DATE>([Date(NULL), Date(1970-01-23))), Range<DATE>(NULL)])");
+  EXPECT_EQ(array_of_ranges.DebugString(),
+            R"([[1970-10-28, 1970-10-29), [NULL, 1970-01-23), NULL])");
+  EXPECT_EQ(array_of_ranges.Format(), R"(ARRAY<RANGE<DATE>>[
+  [1970-10-28, 1970-10-29),
+  [NULL, 1970-01-23),
+  NULL
+])");
+  EXPECT_EQ(array_of_ranges.Format(/*print_top_level_type=*/false),
+            R"(ARRAY<RANGE<DATE>>[
+  [1970-10-28, 1970-10-29),
+  [NULL, 1970-01-23),
+  NULL
+])");
+  EXPECT_EQ(
+      array_of_ranges.GetSQLLiteral(),
+      R"sql([RANGE<DATE> "[1970-10-28, 1970-10-29)", RANGE<DATE> "[UNBOUNDED, 1970-01-23)", NULL])sql");
+  EXPECT_EQ(
+      array_of_ranges.GetSQL(),
+      R"sql(ARRAY<RANGE<DATE>>[RANGE<DATE> "[1970-10-28, 1970-10-29)", RANGE<DATE> "[UNBOUNDED, 1970-01-23)", CAST(NULL AS RANGE<DATE>)])sql");
+}
+
+TEST_F(ValueTest, FormatStructOfRanges) {
+  const Value range_of_dates = Range(Value::Date(300), Value::Date(301));
+  const Value range_of_datetimes =
+      Range(Value::UnboundedStartDatetime(),
+            Value::Datetime(
+                DatetimeValue::FromYMDHMSAndNanos(2022, 9, 13, 16, 37, 11, 1)));
+  const Value range_of_timestamps = Value::Null(types::TimestampRangeType());
+  const auto* range_struct_type =
+      MakeStructType({{"d", types::DateRangeType()},
+                      {"dt", types::DatetimeRangeType()},
+                      {"t", types::TimestampRangeType()}});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value struct_of_ranges,
+      Value::MakeStruct(range_struct_type, {range_of_dates, range_of_datetimes,
+                                            range_of_timestamps}));
+  EXPECT_EQ(
+      struct_of_ranges.DebugString(/*verbose=*/true),
+      R"(Struct{d:Range<DATE>([Date(1970-10-28), Date(1970-10-29))), dt:Range<DATETIME>([Datetime(NULL), Datetime(2022-09-13 16:37:11.000000001))), t:Range<TIMESTAMP>(NULL)})");
+  EXPECT_EQ(
+      struct_of_ranges.DebugString(),
+      R"({d:[1970-10-28, 1970-10-29), dt:[NULL, 2022-09-13 16:37:11.000000001), t:NULL})");
+  EXPECT_EQ(struct_of_ranges.Format(),
+            R"(STRUCT<d RANGE<DATE>, dt RANGE<DATETIME>, t RANGE<TIMESTAMP>>{
+  [1970-10-28, 1970-10-29),
+  [
+    NULL,
+    2022-09-13 16:37:11.000000001
+  ),
+  NULL
+})");
+  EXPECT_EQ(struct_of_ranges.Format(/*print_top_level_type=*/false),
+            R"({[1970-10-28, 1970-10-29),
+ [
+   NULL,
+   2022-09-13 16:37:11.000000001
+ ),
+ NULL})");
+  EXPECT_EQ(
+      struct_of_ranges.GetSQLLiteral(),
+      R"sql((RANGE<DATE> "[1970-10-28, 1970-10-29)", RANGE<DATETIME> "[UNBOUNDED, 2022-09-13 16:37:11.000000001)", NULL))sql");
+  EXPECT_EQ(
+      struct_of_ranges.GetSQL(),
+      R"sql(STRUCT<d RANGE<DATE>, dt RANGE<DATETIME>, t RANGE<TIMESTAMP>>(RANGE<DATE> "[1970-10-28, 1970-10-29)", RANGE<DATETIME> "[UNBOUNDED, 2022-09-13 16:37:11.000000001)", CAST(NULL AS RANGE<TIMESTAMP>)))sql");
 }
 
 TEST_F(ValueTest, ValueConstructor) {
@@ -2931,7 +3884,9 @@ TEST_F(ValueTest, PhysicalByteSize) {
 
   // Variable sized types.
   uint64_t empty_array_size = values::Int64Array({}).physical_byte_size();
-  EXPECT_EQ(sizeof(Value) + sizeof(Value::TypedList), empty_array_size);
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentContainerRef) +
+                sizeof(Value::TypedList),
+            empty_array_size);
   EXPECT_EQ(empty_array_size + Value::Int64(1).physical_byte_size(),
             values::Int64Array({1}).physical_byte_size());
   EXPECT_EQ(empty_array_size + 3 * Value::Int64(1).physical_byte_size(),
@@ -2948,18 +3903,18 @@ TEST_F(ValueTest, PhysicalByteSize) {
             Value::String("abc").physical_byte_size());
 
   // Structs should be consistent with their contents.
-  EXPECT_EQ(sizeof(Value) + sizeof(Value::TypedList),
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentContainerRef) +
+                sizeof(Value::TypedList),
             Struct({}, {}).physical_byte_size());
-  EXPECT_EQ(sizeof(Value) + sizeof(Value::TypedList) +
-                bool_value.physical_byte_size() +
+  EXPECT_EQ(sizeof(Value) + sizeof(internal::ValueContentContainerRef) +
+                sizeof(Value::TypedList) + bool_value.physical_byte_size() +
                 date_value.physical_byte_size(),
             Struct({"b", "d"}, {bool_value, date_value}).physical_byte_size());
 
   // Ranges should be consistent with their contents.
-  // A range value's size is the size of the range value, the TypedList
-  // container, and its 2 underlying start/end values.
-  uint64_t expected_range_size =
-      sizeof(Value) + sizeof(Value::TypedList) + 2 * sizeof(Value);
+  uint64_t expected_range_size = sizeof(Value) +
+                                 sizeof(internal::ValueContentContainerRef) +
+                                 sizeof(Value::TypedList) + 2 * sizeof(Value);
   const absl::TimeZone utc = absl::UTCTimeZone();
 
   // Bounded ranges.
@@ -3300,6 +4255,76 @@ TEST_F(ValueTest, Serialize) {
                      {"t", TimestampFromUnixMicros(1430855635016138)}})}}));
 }
 
+TEST_F(ValueTest, Serialize_NullRangesSucceed) {
+  SerializeDeserialize(Null(types::DateRangeType()));
+  SerializeDeserialize(Null(types::DatetimeRangeType()));
+  SerializeDeserialize(Null(types::TimestampRangeType()));
+}
+
+TEST_F(ValueTest, Serialize_BoundedRangesSucceed) {
+  SerializeDeserialize(Range(Date(1), Date(2)));
+  SerializeDeserialize(
+      Range(Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)),
+            Datetime(DatetimeValue::FromYMDHMSAndNanos(7, 6, 5, 4, 3, 2, 1))));
+  SerializeDeserialize(
+      Range(TimestampFromUnixMicros(1), TimestampFromUnixMicros(2)));
+}
+
+TEST_F(ValueTest, Serialize_UnboundedStartRangesSucceed) {
+  SerializeDeserialize(Range(Value::UnboundedStartDate(), Date(2)));
+  SerializeDeserialize(
+      Range(Value::UnboundedStartDatetime(),
+            Datetime(DatetimeValue::FromYMDHMSAndNanos(7, 6, 5, 4, 3, 2, 1))));
+  SerializeDeserialize(
+      Range(Value::UnboundedStartTimestamp(), TimestampFromUnixMicros(2)));
+}
+
+TEST_F(ValueTest, Serialize_UnboundedEndRangesSucceed) {
+  SerializeDeserialize(Range(Date(1), Value::UnboundedEndDate()));
+  SerializeDeserialize(
+      Range(Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)),
+            Value::UnboundedEndDatetime()));
+  SerializeDeserialize(
+      Range(TimestampFromUnixMicros(1), Value::UnboundedEndTimestamp()));
+}
+
+TEST_F(ValueTest, Serialize_UnboundedStartAndEndRangesSucceed) {
+  SerializeDeserialize(
+      Range(Value::UnboundedStartDate(), Value::UnboundedEndDate()));
+  SerializeDeserialize(
+      Range(Value::UnboundedStartDatetime(), Value::UnboundedEndDatetime()));
+  SerializeDeserialize(
+      Range(Value::UnboundedStartTimestamp(), Value::UnboundedEndTimestamp()));
+}
+
+TEST_F(ValueTest, Serialize_ArraysOfRangesSucceed) {
+  const ArrayType* array_date_range_type =
+      MakeArrayType(types::DateRangeType());
+  SerializeDeserialize(EmptyArray(array_date_range_type));
+  SerializeDeserialize(Array({Range(Date(1), Date(2))}));
+  SerializeDeserialize(
+      Array({Null(types::DateRangeType()), Range(Date(1), Date(2)),
+             Range(Date(3), Date(4))}));
+}
+
+TEST_F(ValueTest, Serialize_StructsOfRangesSucceed) {
+  const StructType* struct_type =
+      MakeStructType({{"a", types::DateRangeType()},
+                      {"b", types::DatetimeRangeType()},
+                      {"c", types::TimestampRangeType()}});
+  SerializeDeserialize(Null(struct_type));
+  SerializeDeserialize(Struct({{"a", Null(types::DateRangeType())},
+                               {"b", Null(types::DatetimeRangeType())},
+                               {"c", Null(types::TimestampRangeType())}}));
+  SerializeDeserialize(Struct({
+      {"a", Range(Date(1), Date(2))},
+      {"b",
+       Range(Value::UnboundedStartDatetime(),
+             Datetime(DatetimeValue::FromYMDHMSAndNanos(1, 2, 3, 4, 5, 6, 7)))},
+      {"c", Range(TimestampFromUnixMicros(1), Value::UnboundedEndTimestamp())},
+  }));
+}
+
 TEST_F(ValueTest, Deserialize) {
   // Scalars.
   DeserializeSerialize("", Int32Type());
@@ -3482,6 +4507,380 @@ TEST_F(ValueTest, Deserialize) {
   EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kInternal));
 }
 
+TEST_F(ValueTest, Deserialize_NullRangesSucceed) {
+  DeserializeSerialize("", types::DateRangeType());
+  DeserializeSerialize("", types::DatetimeRangeType());
+  DeserializeSerialize("", types::TimestampRangeType());
+}
+
+TEST_F(ValueTest, Deserialize_BoundedRangesSucceed) {
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <date_value: 1>,
+      end: <date_value: 2>
+    >)",
+                       types::DateRangeType());
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <datetime_value: <bit_field_datetime_seconds: 111111111111
+                               nanos: 0>>,
+      end: <datetime_value: <bit_field_datetime_seconds: 222222222222
+                             nanos: 0>>
+    >)",
+                       types::DatetimeRangeType());
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <timestamp_value: <seconds: 1>>,
+      end: <timestamp_value: <seconds: 2>>
+    >)",
+                       types::TimestampRangeType());
+}
+
+TEST_F(ValueTest, Deserialize_UnboundedStartRangesSucceed) {
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <>
+      end: <date_value: 2>
+    >)",
+                       types::DateRangeType());
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <>,
+      end: <datetime_value: <bit_field_datetime_seconds: 222222222222
+                             nanos: 0>>
+    >)",
+                       types::DatetimeRangeType());
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <>,
+      end: <timestamp_value: <seconds: 2>>
+    >)",
+                       types::TimestampRangeType());
+}
+
+TEST_F(ValueTest, Deserialize_UnboundedEndRangesSucceed) {
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <date_value: 1>
+      end: <>
+    >)",
+                       types::DateRangeType());
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <datetime_value: <bit_field_datetime_seconds: 111111111111
+                               nanos: 0>>,
+      end: <>
+    >)",
+                       types::DatetimeRangeType());
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <timestamp_value: <seconds: 1>>,
+      end: <>
+    >)",
+                       types::TimestampRangeType());
+}
+
+TEST_F(ValueTest, Deserialize_UnboundedStartAndEndRangesSucceed) {
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <>
+      end: <>
+    >)",
+                       types::DateRangeType());
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <>,
+      end: <>
+    >)",
+                       types::DatetimeRangeType());
+  DeserializeSerialize(R"(
+    range_value: <
+      start: <>,
+      end: <>
+    >)",
+                       types::TimestampRangeType());
+}
+
+TEST_F(ValueTest, Deserialize_ArraysOfRangesSucceed) {
+  const ArrayType* array_date_range_type =
+      MakeArrayType(types::DateRangeType());
+  DeserializeSerialize(R"(
+    array_value: <
+      element: <>
+      element: <range_value: <start: <>              end: <> >>
+      element: <range_value: <start: <date_value: 1> end: <date_value: 2>>>
+      element: <range_value: <start: <>              end: <date_value: 2>>>
+      element: <range_value: <start: <date_value: 1> end: <>>>
+    >)",
+                       array_date_range_type);
+  const ArrayType* array_datetime_range_type =
+      MakeArrayType(types::DatetimeRangeType());
+  DeserializeSerialize(R"(
+    array_value: <
+      element: <>
+      element: <range_value: <start: <> end: <> >>
+      element: <range_value: <
+        start: <datetime_value: <bit_field_datetime_seconds: 111111111111
+                                 nanos: 0>>
+        end: <datetime_value: <bit_field_datetime_seconds: 222222222222
+                               nanos: 0>>
+      >>
+      element: <range_value: <
+        start: <>
+        end: <datetime_value: <bit_field_datetime_seconds: 222222222222
+                               nanos: 0>>
+      >>
+      element: <range_value: <
+        start: <datetime_value: <bit_field_datetime_seconds: 111111111111
+                                 nanos: 0>>
+        end: <>
+      >>
+    >)",
+                       array_datetime_range_type);
+  const ArrayType* array_timestamp_range_type =
+      MakeArrayType(types::TimestampRangeType());
+  DeserializeSerialize(R"(
+    array_value: <
+      element: <>
+      element: <range_value: <start: <> end: <> >>
+      element: <range_value: <
+        start: <timestamp_value: <seconds: 1>>
+        end: <timestamp_value: <seconds: 2>>
+      >>
+      element: <range_value: <
+        start: <>
+        end: <timestamp_value: <seconds: 2>>
+      >>
+      element: <range_value: <
+        start: <timestamp_value: <seconds: 1>>
+        end: <>
+      >>
+    >)",
+                       array_timestamp_range_type);
+}
+
+TEST_F(ValueTest, Deserialize_StructsOfRangesSucceed) {
+  const StructType* struct_range_type =
+      MakeStructType({{"a", types::DateRangeType()},
+                      {"b", types::DatetimeRangeType()},
+                      {"c", types::TimestampRangeType()}});
+  DeserializeSerialize(R"(
+    struct_value: <
+      field: <>  # a
+      field: <>  # b
+      field: <>  # c
+    >)",
+                       struct_range_type);
+  DeserializeSerialize(R"(
+    struct_value: <
+      field: <range_value: <start: <> end: <> >>  # a
+      field: <range_value: <start: <> end: <> >>  # b
+      field: <range_value: <start: <> end: <> >>  # c
+    >)",
+                       struct_range_type);
+  DeserializeSerialize(R"(
+    struct_value: <
+      field: <range_value: <start: <date_value: 1> end: <> >>  # a
+      field: <range_value: <  # b
+        start: <>
+        end: <datetime_value: <bit_field_datetime_seconds: 222222222222
+                               nanos: 0>> >>
+      field: <range_value: <  # c
+        start: <timestamp_value: <seconds: 1>>
+        end: <timestamp_value: <seconds: 2>>
+      >>
+    >)",
+                       struct_range_type);
+}
+
+class DateRangesWithInvalidValues : public ::testing::TestWithParam<int64_t> {};
+
+INSTANTIATE_TEST_SUITE_P(Deserialize, DateRangesWithInvalidValues,
+                         ::testing::Values(zetasql::types::kDateMin - 1,
+                                           zetasql::types::kDateMax + 1));
+
+TEST_P(DateRangesWithInvalidValues, DateRangesWithOutOfRangeValuesFail) {
+  ValueProto value_proto;
+  absl::StatusOr<Value> status_or_value;
+
+  // Invalid (out of range) DATE elements.
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(absl::StrFormat(R"(
+        range_value: <
+          start: <date_value: %d>
+          end: <>
+        >)",
+                                                             GetParam()),
+                                             &value_proto));
+  status_or_value = Value::Deserialize(value_proto, types::DateRangeType());
+  EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
+
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(absl::StrFormat(R"(
+        range_value: <
+          start: <>
+          end: <date_value: %d>
+        >)",
+                                                             GetParam()),
+                                             &value_proto));
+  status_or_value = Value::Deserialize(value_proto, types::DateRangeType());
+  EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+class DatetimeRangesWithInvalidValues
+    : public ::testing::TestWithParam<int64_t> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Deserialize, DatetimeRangesWithInvalidValues,
+    ::testing::Values(
+        // 0001-01-00 00:00:00.000000
+        DatetimeValue::FromYMDHMSAndNanos(0001, 01, 00, 00, 00, 00, 0)
+            .Packed64DatetimeSeconds(),
+        // 9999-12-31 23:59:60.000000
+        DatetimeValue::FromYMDHMSAndNanos(9999, 12, 31, 23, 59, 60, 0)
+            .Packed64DatetimeSeconds()));
+
+TEST_P(DatetimeRangesWithInvalidValues,
+       DatetimeRangesWithOutOfRangeValuesFail) {
+  ValueProto value_proto;
+  absl::StatusOr<Value> status_or_value;
+
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(absl::StrFormat(R"(
+        range_value: <
+          start: <datetime_value: <bit_field_datetime_seconds: %d
+                                   nanos: 0>>
+          end: <>
+        >)",
+                                                             GetParam()),
+                                             &value_proto));
+  status_or_value = Value::Deserialize(value_proto, types::DatetimeRangeType());
+  EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
+
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(absl::StrFormat(R"(
+        range_value: <
+          start: <>
+          end: <datetime_value: <bit_field_datetime_seconds: %d
+                                 nanos: 0>>
+        >)",
+                                                             GetParam()),
+                                             &value_proto));
+  status_or_value = Value::Deserialize(value_proto, types::DatetimeRangeType());
+  EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+class TimestampRangesWithInvalidValues
+    : public ::testing::TestWithParam<int64_t> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Deserialize, TimestampRangesWithInvalidValues,
+    ::testing::Values(zetasql::types::kTimestampMin / 1000000 - 1,
+                      zetasql::types::kTimestampMax / 1000000 + 1));
+
+TEST_P(TimestampRangesWithInvalidValues,
+       TimestampRangesWithOutOfRangeValuesFail) {
+  ValueProto value_proto;
+  absl::StatusOr<Value> status_or_value;
+
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(absl::StrFormat(R"(
+        range_value: <
+          start: <timestamp_value: <seconds: %d
+                                    nanos: 999999999>>
+          end: <>
+        >)",
+                                                             GetParam()),
+                                             &value_proto));
+  status_or_value =
+      Value::Deserialize(value_proto, types::TimestampRangeType());
+  EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
+
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(absl::StrFormat(R"(
+        range_value: <
+          start: <>
+          end: <timestamp_value: <seconds: %d
+                                  nanos: 999999999>>
+        >)",
+                                                             GetParam()),
+                                             &value_proto));
+  status_or_value =
+      Value::Deserialize(value_proto, types::TimestampRangeType());
+  EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+// Test case for deserializing invalid ranges.
+struct InvalidRangeTestCase {
+  // Textproto of ValueProto to deserialize.
+  absl::string_view value_text_proto;
+  // Type of range to supply to Deserialize function.
+  const Type* range_type;
+  // Expected error message substring.
+  absl::string_view expected_error_message;
+};
+
+class DeserializeInvalidRangesTest
+    : public ::testing::TestWithParam<InvalidRangeTestCase> {};
+
+std::vector<InvalidRangeTestCase> GetInvalidRangeTestCases() {
+  return {
+      {
+          // Wrong top-level type.
+          "range_value: <start: <> end: <date_value: 2>>",
+          /*range_type=*/types::DateArrayType(),
+          /*expected_error_message=*/"Type mismatch",
+      },
+      {
+          // Wrong range element type.
+          "range_value: <start: <> end: <date_value: 2>>",
+          /*range_type=*/types::TimestampRangeType(),
+          /*expected_error_message=*/"Type mismatch",
+      },
+      {
+          // Omitted start values are invalid.
+          "range_value: <start: <date_value: 1>>",
+          /*range_type=*/types::DateRangeType(),
+          /*expected_error_message=*/"Type mismatch",
+      },
+      {
+          // Omitted end values are invalid.
+          "range_value: <end: <date_value: 2>>",
+          /*range_type=*/types::DateRangeType(),
+          /*expected_error_message=*/"Type mismatch",
+      },
+      {
+          // Omitted start and end values fails.
+          "range_value: <>",
+          /*range_type=*/types::DateRangeType(),
+          /*expected_error_message=*/"Type mismatch",
+      },
+      {
+          // start == end fails.
+          "range_value: <start: <date_value: 1> end: <date_value: 1>>",
+          /*range_type=*/types::DateRangeType(),
+          /*expected_error_message=*/"Range start element must be smaller",
+      },
+      {
+          // start > end fails.
+          "range_value: <start: <date_value: 2> end: <date_value: 1>>",
+          /*range_type=*/types::DateRangeType(),
+          /*expected_error_message=*/"Range start element must be smaller",
+      },
+  };
+}
+
+INSTANTIATE_TEST_SUITE_P(Deserialize, DeserializeInvalidRangesTest,
+                         ::testing::ValuesIn(GetInvalidRangeTestCases()));
+
+TEST_P(DeserializeInvalidRangesTest, InvalidRangeValuesFail) {
+  ValueProto value_proto;
+  absl::StatusOr<Value> status_or_value;
+  const InvalidRangeTestCase& param = GetParam();
+  // Convert to std::string. ZetaSQL doesn't like if we pass absl::string_view
+  // into ParseFromString directly.
+  const std::string value_text_proto(param.value_text_proto);
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(value_text_proto, &value_proto));
+  status_or_value = Value::Deserialize(value_proto, param.range_type);
+  EXPECT_THAT(status_or_value,
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr(param.expected_error_message)));
+}
+
 namespace {
 
 template <typename T>
@@ -3497,6 +4896,24 @@ bool IsNaN<NumericValue>(const Value& value) {
 
 template <>
 bool IsNaN<BigNumericValue>(const Value& value) {
+  return false;
+}
+
+// Date ranges.
+template <>
+bool IsNaN<std::pair<int32_t, int32_t>>(const Value& value) {
+  return false;
+}
+
+// Datetime ranges.
+template <>
+bool IsNaN<std::pair<DatetimeValue, DatetimeValue>>(const Value& value) {
+  return false;
+}
+
+// Timestamp ranges.
+template <>
+bool IsNaN<std::pair<absl::Time, absl::Time>>(const Value& value) {
   return false;
 }
 
@@ -3584,14 +5001,144 @@ void MakeSortedVector<BigNumericValue>(std::vector<zetasql::Value>* values) {
   // Highest finite positive number
   values->push_back(Value::BigNumeric(BigNumericValue::MaxValue()));
 }
+
+// Date ranges.
+template <>
+void MakeSortedVector<std::pair<int32_t, int32_t>>(
+    std::vector<zetasql::Value>* values) {
+  // NULL
+  values->push_back(Value::Null(MakeRangeType(DateType())));
+
+  // Unbounded-start range with min date end.
+  values->push_back(Range(Value::UnboundedStartDate(), Date(types::kDateMin)));
+
+  // Unbounded-start range with arbitrary date end.
+  values->push_back(Range(Value::UnboundedStartDate(), Date(100)));
+
+  // Unbounded-start range with max date.
+  values->push_back(Range(Value::UnboundedStartDate(), Date(types::kDateMax)));
+
+  // Unbounded-start range with unbounded end.
+  values->push_back(
+      Range(Value::UnboundedStartDate(), Value::UnboundedEndDate()));
+
+  // Min date start, arbitrary end date.
+  values->push_back(Range(Date(types::kDateMin), Date(100)));
+
+  // Arbitrarily larger start date, same end date.
+  values->push_back(Range(Date(50), Date(100)));
+
+  // Unbounded-end date.
+  values->push_back(Range(Date(50), Value::UnboundedEndDate()));
+
+  // Max date start, unbounded-end date.
+  values->push_back(Range(Date(types::kDateMax), Value::UnboundedEndDate()));
+}
+
+// Datetime ranges.
+template <>
+void MakeSortedVector<std::pair<DatetimeValue, DatetimeValue>>(
+    std::vector<zetasql::Value>* values) {
+  // NULL
+  values->push_back(Value::Null(MakeRangeType(DatetimeType())));
+
+  Value datetime_min =
+      Datetime(DatetimeValue::FromYMDHMSAndNanos(0001, 01, 01, 00, 00, 00, 0));
+  Value datetime_max = Datetime(
+      DatetimeValue::FromYMDHMSAndNanos(9999, 12, 31, 23, 59, 59, 999999999));
+
+  // Unbounded-start range with min datetime end.
+  values->push_back(Range(Value::UnboundedStartDatetime(), datetime_min));
+
+  // Unbounded-start range with arbitrary datetime end.
+  values->push_back(Range(Value::UnboundedStartDatetime(),
+                          Datetime(DatetimeValue::FromYMDHMSAndNanos(
+                              2020, 01, 01, 00, 00, 00, 0))));
+
+  // Unbounded-start range with max datetime.
+  values->push_back(Range(Value::UnboundedStartDatetime(), datetime_max));
+
+  // Unbounded-start range with unbounded end.
+  values->push_back(
+      Range(Value::UnboundedStartDatetime(), Value::UnboundedEndDatetime()));
+
+  // Min datetime start, arbitrary end datetime.
+  values->push_back(
+      Range(datetime_min, Datetime(DatetimeValue::FromYMDHMSAndNanos(
+                              2020, 01, 01, 00, 00, 00, 0))));
+
+  // Arbitrarily larger start datetime, same end datetime.
+  values->push_back(Range(
+      Datetime(DatetimeValue::FromYMDHMSAndNanos(1000, 01, 01, 00, 00, 00, 0)),
+      Datetime(
+          DatetimeValue::FromYMDHMSAndNanos(2020, 01, 01, 00, 00, 00, 0))));
+
+  // Unbounded-end date.
+  values->push_back(Range(
+      Datetime(DatetimeValue::FromYMDHMSAndNanos(1000, 01, 01, 00, 00, 00, 0)),
+      Value::UnboundedEndDatetime()));
+
+  // Max datetime start, unbounded-end date.
+  values->push_back(Range(datetime_max, Value::UnboundedEndDatetime()));
+}
+
+// Timestamp ranges.
+template <>
+void MakeSortedVector<std::pair<absl::Time, absl::Time>>(
+    std::vector<zetasql::Value>* values) {
+  // NULL
+  values->push_back(Value::Null(MakeRangeType(TimestampType())));
+
+  const absl::TimeZone utc = absl::UTCTimeZone();
+  Value timestamp_min = Value::Timestamp(
+      absl::FromCivil(absl::CivilSecond(00001, 01, 01, 00, 00, 00), utc));
+  Value timestamp_max = Value::Timestamp(
+      absl::FromCivil(absl::CivilSecond(10000, 01, 01, 00, 00, 00), utc) -
+      absl::Nanoseconds(1));
+
+  // Unbounded-start range with min timestamp end.
+  values->push_back(Range(Value::UnboundedStartTimestamp(), timestamp_min));
+
+  // Unbounded-start range with arbitrary timestamp end.
+  values->push_back(Range(Value::UnboundedStartTimestamp(),
+                          Value::Timestamp(absl::FromCivil(
+                              absl::CivilSecond(2020, 01, 01, 0, 0, 0), utc))));
+
+  // Unbounded-start range with max timestamp.
+  values->push_back(Range(Value::UnboundedStartTimestamp(), timestamp_max));
+
+  // Unbounded-start range with unbounded end.
+  values->push_back(
+      Range(Value::UnboundedStartTimestamp(), Value::UnboundedEndTimestamp()));
+
+  // Min timestamp start, arbitrary end timestamp.
+  values->push_back(Range(timestamp_min,
+                          Value::Timestamp(absl::FromCivil(
+                              absl::CivilSecond(2020, 01, 01, 0, 0, 0), utc))));
+
+  // Arbitrarily larger start timestamp, same end timestamp.
+  values->push_back(Range(Value::Timestamp(absl::FromCivil(
+                              absl::CivilSecond(1000, 01, 01, 0, 0, 0), utc)),
+                          Value::Timestamp(absl::FromCivil(
+                              absl::CivilSecond(2020, 01, 01, 0, 0, 0), utc))));
+
+  // Unbounded-end date.
+  values->push_back(Range(Value::Timestamp(absl::FromCivil(
+                              absl::CivilSecond(1000, 01, 01, 0, 0, 0), utc)),
+                          Value::UnboundedEndTimestamp()));
+
+  // Max timestamp start, unbounded-end date.
+  values->push_back(Range(timestamp_max, Value::UnboundedEndTimestamp()));
+}
+
 }  // namespace
 
 class ValueCompareTest : public ::testing::Test {
  public:
-  ValueCompareTest() {}
+  ValueCompareTest() = default;
   ValueCompareTest(const ValueCompareTest&) = delete;
   ValueCompareTest& operator=(const ValueCompareTest&) = delete;
-  ~ValueCompareTest() override {}
+  ~ValueCompareTest() override = default;
 
   template <typename T>
   void TestSortOrder() {
@@ -3636,157 +5183,12 @@ TEST_F(ValueCompareTest, SortOrder) {
   TestSortOrder<double>();
   TestSortOrder<NumericValue>();
   TestSortOrder<BigNumericValue>();
-}
-
-TEST(ValueStringFormatTest, Test) {
-  const auto* simple_array_type = MakeArrayType(StringType());
-  const auto* simple_struct_type =
-      MakeStructType({{"a", StringType()}, {"b", StringType()}});
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value array1,
-                       Value::MakeArray(simple_array_type,
-                                        {Value::String("12345678901234567890"),
-                                         Value::String("abc")}));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value struct1,
-                       Value::MakeStruct(simple_struct_type,
-                                         {Value::String("12345678901234567890"),
-                                          Value::String("abc")}));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const Value array2,
-      Value::MakeArray(MakeArrayType(simple_struct_type), {struct1, struct1}));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const Value struct2,
-      Value::MakeStruct(
-          MakeStructType({{"a", simple_array_type}, {"b", simple_array_type}}),
-          {array1, array1}));
-
-  {
-    EXPECT_EQ(Value::Bool(true).DebugString(/*verbose=*/true), "Bool(true)");
-    EXPECT_EQ(Value::Int32(123).DebugString(/*verbose=*/true), "Int32(123)");
-    EXPECT_EQ(Value::Int64(456).DebugString(/*verbose=*/true), "Int64(456)");
-    EXPECT_EQ(Value::Double(123.456).DebugString(/*verbose=*/true),
-              "Double(123.456)");
-    EXPECT_EQ(Value::String("hello").DebugString(/*verbose=*/true),
-              "String(\"hello\")");
-    EXPECT_EQ(array1.DebugString(/*verbose=*/true),
-              R"(Array[String("12345678901234567890"), String("abc")])");
-    EXPECT_EQ(struct1.DebugString(/*verbose=*/true),
-              R"(Struct{a:String("12345678901234567890"), b:String("abc")})");
-    EXPECT_EQ(
-        array2.DebugString(/*verbose=*/true),
-        R"(Array[Struct{a:String("12345678901234567890"), b:String("abc")}, )"
-        R"(Struct{a:String("12345678901234567890"), b:String("abc")}])");
-    EXPECT_EQ(
-        struct2.DebugString(/*verbose=*/true),
-        R"(Struct{a:Array[String("12345678901234567890"), String("abc")], )"
-        R"(b:Array[String("12345678901234567890"), String("abc")]})");
-  }
-
-  // By default 'verbose' is set to false.
-  {
-    EXPECT_EQ(Value::Bool(true).DebugString(), "true");
-    EXPECT_EQ(Value::Int32(123).DebugString(), "123");
-    EXPECT_EQ(Value::Int64(456).DebugString(), "456");
-    EXPECT_EQ(Value::Double(123.456).DebugString(), "123.456");
-    EXPECT_EQ(Value::String("hello").DebugString(), "\"hello\"");
-    EXPECT_EQ(array1.DebugString(), R"(["12345678901234567890", "abc"])");
-    EXPECT_EQ(struct1.DebugString(), R"({a:"12345678901234567890", b:"abc"})");
-    EXPECT_EQ(
-        array2.DebugString(),
-        R"([{a:"12345678901234567890", b:"abc"}, {a:"12345678901234567890", b:"abc"}])");
-    EXPECT_EQ(
-        struct2.DebugString(),
-        R"({a:["12345678901234567890", "abc"], b:["12345678901234567890", "abc"]})");
-  }
-
-  // By default 'print_top_level_type' is set to true.
-  {
-    EXPECT_EQ(Value::Bool(true).Format(), "Bool(true)");
-    EXPECT_EQ(Value::Int32(123).Format(), "Int32(123)");
-    EXPECT_EQ(Value::Int64(456).Format(), "Int64(456)");
-    EXPECT_EQ(Value::Double(123.456).Format(), "Double(123.456)");
-    EXPECT_EQ(Value::String("hello").Format(), "String(\"hello\")");
-    EXPECT_EQ(array1.Format(), R"(ARRAY<STRING>[
-  "12345678901234567890",
-  "abc"
-])");
-    EXPECT_EQ(struct1.Format(), R"(STRUCT<a STRING, b STRING>{
-  "12345678901234567890",
-  "abc"
-})");
-    EXPECT_EQ(array2.Format(), R"(ARRAY<STRUCT<a STRING, b STRING>>[
-  {
-    "12345678901234567890",
-    "abc"
-  },
-  {
-    "12345678901234567890",
-    "abc"
-  }
-])");
-    EXPECT_EQ(struct2.Format(), R"(STRUCT<a ARRAY<>, b ARRAY<>>{
-  ARRAY<STRING>[
-    "12345678901234567890",
-    "abc"
-  ],
-  ARRAY<STRING>[
-    "12345678901234567890",
-    "abc"
-  ]
-})");
-  }
-
-  {
-    EXPECT_EQ(Value::Bool(true).Format(/*print_top_level_type=*/false), "true");
-    EXPECT_EQ(Value::Int32(123).Format(/*print_top_level_type=*/false), "123");
-    EXPECT_EQ(Value::Int64(456).Format(/*print_top_level_type=*/false), "456");
-    EXPECT_EQ(Value::Double(123.456).Format(/*print_top_level_type=*/false),
-              "123.456");
-    EXPECT_EQ(Value::String("hello").Format(/*print_top_level_type=*/false),
-              "\"hello\"");
-    EXPECT_EQ(array1.Format(/*print_top_level_type=*/false), R"(ARRAY<STRING>[
-  "12345678901234567890",
-  "abc"
-])");
-    EXPECT_EQ(struct1.Format(/*print_top_level_type=*/false), R"({
-  "12345678901234567890",
-  "abc"
-})");
-    EXPECT_EQ(array2.Format(/*print_top_level_type=*/false),
-              R"(ARRAY<STRUCT<a STRING, b STRING>>[
-  {
-    "12345678901234567890",
-    "abc"
-  },
-  {
-    "12345678901234567890",
-    "abc"
-  }
-])");
-    EXPECT_EQ(struct2.Format(/*print_top_level_type=*/false), R"({ARRAY<STRING>[
-   "12345678901234567890",
-   "abc"
- ],
- ARRAY<STRING>[
-   "12345678901234567890",
-   "abc"
- ]})");
-  }
-
-  {
-    EXPECT_EQ(Value::Bool(true).GetSQLLiteral(), "true");
-    EXPECT_EQ(Value::Int32(123).GetSQLLiteral(), "123");
-    EXPECT_EQ(Value::Int64(456).GetSQLLiteral(), "456");
-    EXPECT_EQ(Value::Double(123.456).GetSQLLiteral(), "123.456");
-    EXPECT_EQ(Value::String("hello").GetSQLLiteral(), "\"hello\"");
-    EXPECT_EQ(array1.GetSQLLiteral(), R"(["12345678901234567890", "abc"])");
-    EXPECT_EQ(struct1.GetSQLLiteral(), R"(("12345678901234567890", "abc"))");
-    EXPECT_EQ(
-        array2.GetSQLLiteral(),
-        R"([("12345678901234567890", "abc"), ("12345678901234567890", "abc")])");
-    EXPECT_EQ(
-        struct2.GetSQLLiteral(),
-        R"((["12345678901234567890", "abc"], ["12345678901234567890", "abc"]))");
-  }
+  // Date ranges.
+  TestSortOrder<std::pair<int32_t, int32_t>>();
+  // Datetime ranges.
+  TestSortOrder<std::pair<DatetimeValue, DatetimeValue>>();
+  // Timestamp ranges.
+  TestSortOrder<std::pair<absl::Time, absl::Time>>();
 }
 
 }  // namespace zetasql

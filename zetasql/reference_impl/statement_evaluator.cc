@@ -21,6 +21,8 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/common/status_payload_utils.h"

@@ -26,13 +26,13 @@
 namespace zetasql {
 namespace functions {
 
-
 // GENERATE_UUID() -> STRING
 //
 // Generates a V4-compliant UUID using the given random number generator.
 //
 // If the generator is initialized using a seed, the seed must contain at least
 // 128 bits of data to ensure proper UUID uniqueness.
+//
 std::string GenerateUuid(absl::BitGenRef gen);
 
 }  // namespace functions

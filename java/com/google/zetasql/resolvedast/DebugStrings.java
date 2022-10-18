@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.ProtocolMessageEnum;
+import com.google.zetasql.Column;
 import com.google.zetasql.Connection;
 import com.google.zetasql.DebugPrintableNode.DebugStringField;
 import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
@@ -194,6 +195,10 @@ class DebugStrings {
 
   static String toStringImpl(Procedure procedure) {
     return procedure.toString();
+  }
+
+  static String toStringImpl(Column column) {
+    return column.getName();
   }
 
   // To deal with type erasure, every toString function for repeated fields

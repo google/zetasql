@@ -214,9 +214,13 @@ cc_test(
     srcs = ["test_driver_test.cc"],
     deps = [
         ":test_driver",
+        "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:value",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -279,6 +283,55 @@ cc_library(
 )
 
 cc_library(
+    name = "depth_limit_detector_test_cases",
+    testonly = 1,
+    srcs = ["depth_limit_detector_test_cases.cc"],
+    hdrs = [
+        "depth_limit_detector_internal.h",
+        "depth_limit_detector_test_cases.h",
+    ],
+    deps = [
+        "//zetasql/base:check",
+        "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "depth_limit_detector_test_cases_test",
+    size = "large",
+    srcs = ["depth_limit_detector_test_cases_test.cc"],
+    data = [
+        "//zetasql/testdata:test_proto3_proto",
+        "//zetasql/testdata:test_schema_proto",
+        "@com_google_googleapis//google/type:date_proto",
+        "@com_google_googleapis//google/type:latlng_proto",
+        "@com_google_googleapis//google/type:timeofday_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
+    ],
+    shard_count = 30,
+    deps = [
+        ":depth_limit_detector_test_cases",
+        ":test_driver",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/parser",
+        "//zetasql/public:language_options",
+        "//zetasql/public:parse_helpers",
+        "//zetasql/reference_impl:reference_driver",
+        "//zetasql/testing:type_util",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "compliance_test_cases",
     testonly = 1,
     srcs = ["compliance_test_cases.cc"],
@@ -289,6 +342,7 @@ cc_library(
         ":compliance_test_base",
         ":functions_testlib",
         ":sql_test_base",
+        ":depth_limit_detector_test_cases",
         ":test_driver",
         "//zetasql/base",
         "//zetasql/base:path",
@@ -318,8 +372,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
-        "//zetasql/base:file_util",
-        "//zetasql/base:map_util",
+        "@com_google_absl//absl/strings:str_format",
         "//zetasql/base:status",
     ],
 )
@@ -450,6 +503,7 @@ cc_library(
         "//zetasql/testdata:test_schema_cc_proto",
         "//zetasql/testing:test_function",
         "//zetasql/testing:test_value",
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/status",
@@ -476,7 +530,9 @@ proto_library(
 proto_library(
     name = "compliance_label_proto",
     srcs = ["compliance_label.proto"],
-    deps = [":known_error_proto"],
+    deps = [
+        ":known_error_proto",
+    ],
 )
 
 cc_proto_library(

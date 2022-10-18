@@ -263,13 +263,14 @@ struct ExprResolutionInfo {
   FlattenState flatten_state;
 };
 
-// Cast vector<const AST_TYPE*> to vector<const ASTNode*>.
-template <class AST_TYPE>
-std::vector<const ASTNode*> ToLocations(
-    absl::Span<const AST_TYPE* const> nodes) {
+// Create a vector<const ASTNode*> from another container.
+// It would be preferable to express this as a cast without a copy but that
+// is not possible with the std::vector interface.
+template <class NodeContainer>
+std::vector<const ASTNode*> ToASTNodes(const NodeContainer& nodes) {
   std::vector<const ASTNode*> ast_locations;
   ast_locations.reserve(nodes.size());
-  for (const AST_TYPE* node : nodes) {
+  for (const ASTNode* node : nodes) {
     ast_locations.push_back(node);
   }
   return ast_locations;

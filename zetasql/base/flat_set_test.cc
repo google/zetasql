@@ -89,7 +89,7 @@ struct NonTransparent {
 std::vector<std::unique_ptr<int>> UniquePtrs(const std::vector<int>& v) {
   std::vector<std::unique_ptr<int>> res;
   for (int i : v) {
-    res.push_back(absl::make_unique<int>(i));
+    res.push_back(std::make_unique<int>(i));
   }
   return res;
 }
@@ -559,8 +559,8 @@ TEST(FlatSetTest, NoncopyableFromRange) {
 
 TEST(FlatSetTest, NonCopyableMovesAndAssignments) {
   flat_set<std::unique_ptr<int>, TransparentCmp> s1;
-  s1.insert(absl::make_unique<int>(1));
-  s1.insert(absl::make_unique<int>(0));
+  s1.insert(std::make_unique<int>(1));
+  s1.insert(std::make_unique<int>(0));
 
   flat_set<std::unique_ptr<int>, TransparentCmp> s2 = std::move(s1);
   ExpectElements(s1, {});  // NOLINT misc-use-after-move
@@ -580,9 +580,9 @@ TEST(FlatSetTest, NonCopyableMovesAndAssignments) {
 
 TEST(FlatSetTest, NoncopyableInsertAndEmplace) {
   flat_set<std::unique_ptr<int>, TransparentCmp> s;
-  s.insert(absl::make_unique<int>(0));
-  s.insert(absl::make_unique<int>(5));
-  s.insert(absl::make_unique<int>(5));
+  s.insert(std::make_unique<int>(0));
+  s.insert(std::make_unique<int>(5));
+  s.insert(std::make_unique<int>(5));
   s.emplace(new int(7));
   s.emplace(new int(3));
   // We do not leak memory, even if emplace fails (note that this is not
@@ -591,14 +591,14 @@ TEST(FlatSetTest, NoncopyableInsertAndEmplace) {
   ExpectElements(s, {0, 3, 5, 7});
 
   // Insert with hint:
-  s.insert(s.begin() + 1, absl::make_unique<int>(2));
-  s.insert(s.begin() + 2, absl::make_unique<int>(2));  // already exists
-  s.insert(s.begin(), absl::make_unique<int>(8));      // incorrect hint
+  s.insert(s.begin() + 1, std::make_unique<int>(2));
+  s.insert(s.begin() + 2, std::make_unique<int>(2));  // already exists
+  s.insert(s.begin(), std::make_unique<int>(8));      // incorrect hint
   ExpectElements(s, {0, 2, 3, 5, 7, 8});
   // emplace_hint
-  s.emplace_hint(s.begin() + 1, absl::make_unique<int>(1));
-  s.emplace_hint(s.begin() + 2, absl::make_unique<int>(1));  // already exists
-  s.emplace_hint(s.begin(), absl::make_unique<int>(9));      // incorrect hint
+  s.emplace_hint(s.begin() + 1, std::make_unique<int>(1));
+  s.emplace_hint(s.begin() + 2, std::make_unique<int>(1));  // already exists
+  s.emplace_hint(s.begin(), std::make_unique<int>(9));      // incorrect hint
   ExpectElements(s, {0, 1, 2, 3, 5, 7, 8, 9});
 }
 

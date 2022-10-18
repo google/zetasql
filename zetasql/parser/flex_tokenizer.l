@@ -519,6 +519,7 @@ insert { return BisonParserImpl::token::KW_INSERT; }
 intersect { return BisonParserImpl::token::KW_INTERSECT; }
 interval { return BisonParserImpl::token::KW_INTERVAL; }
 iterate { return BisonParserImpl::token::KW_ITERATE; }
+input { return BisonParserImpl::token::KW_INPUT; }
 into { return BisonParserImpl::token::KW_INTO; }
 invoker { return BisonParserImpl::token::KW_INVOKER; }
 is { return BisonParserImpl::token::KW_IS; }
@@ -577,6 +578,7 @@ or { return BisonParserImpl::token::KW_OR; }
 order { return BisonParserImpl::token::KW_ORDER; }
 out { return BisonParserImpl::token::KW_OUT; }
 outer { return BisonParserImpl::token::KW_OUTER; }
+output { return BisonParserImpl::token::KW_OUTPUT; }
 over { return BisonParserImpl::token::KW_OVER; }
 overwrite { return BisonParserImpl::token::KW_OVERWRITE; }
 partition { return BisonParserImpl::token::KW_PARTITION; }

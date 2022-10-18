@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"

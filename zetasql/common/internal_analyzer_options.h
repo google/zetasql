@@ -47,6 +47,10 @@ class InternalAnalyzerOptions {
     return options.lookup_expression_callback_;
   }
 
+  static void ClearExpressionColumns(AnalyzerOptions& options) {
+    options.expression_columns_.clear();
+  }
+
   // AnalyzerOptions::validate_resolved_ast_ is used by internal components
   // calling public API to be distinguished. Internal calls might not have a
   // complete tree and thus could lookup AnalyzerOptions instead of the global

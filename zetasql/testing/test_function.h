@@ -19,7 +19,10 @@
 
 #include <stddef.h>
 
+#include <array>
+#include <functional>
 #include <map>
+#include <ostream>
 #include <set>
 #include <string>
 #include <utility>
@@ -62,6 +65,9 @@ class QueryParamsWithResult {
 
     Result(const ValueConstructor& result_in, FloatMargin float_margin_in);
 
+    Result(const ValueConstructor& result_in, const absl::Status& status,
+           FloatMargin float_margin_in);
+
     Result(const ValueConstructor& result_in, absl::StatusCode code);
 
     Result(const ValueConstructor& result_in, const absl::Status& status_in);
@@ -74,7 +80,8 @@ class QueryParamsWithResult {
 
   QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
                         const ValueConstructor& result,
-                        FloatMargin float_margin_arg);
+                        FloatMargin float_margin_arg,
+                        absl::Status status = absl::OkStatus());
 
   QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
                         const ValueConstructor& result, absl::StatusCode code);
@@ -83,30 +90,41 @@ class QueryParamsWithResult {
                         const ValueConstructor& result,
                         const std::string& error_substring);
 
+  QueryParamsWithResult(const std::vector<ValueConstructor>& params,
+                        absl::StatusOr<Value>, const Type* output_type);
+
   // If the instance contains multiple results, results are keyed on
   // FeatureSets.
   typedef std::set<LanguageFeature> FeatureSet;
-  static const FeatureSet kEmptyFeatureSet;  // To avoid ugly use of {}.
   typedef std::map<FeatureSet, Result> ResultMap;
 
-  // Constructs an instance that contains multiple results.
-  QueryParamsWithResult(const std::vector<ValueConstructor>& params,
-                        const ResultMap& results);
-
   // Returns a copy of this test case with the result value inverted.  The
-  // result type must be bool and there must be exactly one feature set:
-  // kEmptyFeatureSet.  Nulls stays as nulls.
+  // result type must be bool and the required features must be empty.
   QueryParamsWithResult CopyWithInvertedResult() const;
 
-  // Returns a copy of this test case with the result associated with the
-  // specified language feature. The original result must have exactly one
-  // feature set: kEmptyFeatureSet.
+  // Returns a copy of this test case with 'feature' made a required feature.
+  ABSL_DEPRECATED("AddRequiredFeature is more efficient and more idiomatic.")
   QueryParamsWithResult WrapWithFeature(LanguageFeature feature) const;
 
-  // Returns a copy of this test case with the result associated with the
-  // specified feature set. The original result must have exactly one feature
-  // set: kEmptyFeatureSet.
+  // Returns a copy of this test case with 'feature_set' added to required
+  // features.
+  ABSL_DEPRECATED("AddRequiredFeatures is more efficient and more idiomatic.")
   QueryParamsWithResult WrapWithFeatureSet(FeatureSet feature_set) const;
+
+  // Adds a required feature to this test in-place and returns a reference
+  // to the object so that calls to this function can be chained. Required
+  // features are applied  to all existing results in the test. Tests that have
+  // required features applied will not run when test drivers do not enable the
+  // LanguageFeature.
+  QueryParamsWithResult& AddRequiredFeature(LanguageFeature feature);
+  QueryParamsWithResult& AddRequiredFeatures(const FeatureSet& feature);
+
+  // Adds a prohibited feautre to this test in-place and returns a reference
+  // to the object so that calls to this function can be chained. Prohibited
+  // features are applied to all existing results in the test. Tests that have
+  // prohibited features will not run when thest drivers enable the
+  // LanguageFeature.
+  QueryParamsWithResult& AddProhibitedFeature(LanguageFeature feature);
 
   // Returns the list of parameters.
   const std::vector<Value>& params() const { return params_; }
@@ -120,48 +138,42 @@ class QueryParamsWithResult {
 
   // Accessors for the common case where there is only one feature set and it is
   // empty. Otherwise, it is a fatal error to call these accessors.
-  const Value& result() const;
-  const absl::Status& status() const;
-  const FloatMargin& float_margin() const;
+  const Value& result() const { return result_.result; }
+  const absl::Status& status() const { return result_.status; }
+  const FloatMargin& float_margin() const { return result_.float_margin; }
+
+  // Applies a mutation to all result values.
+  void MutateResultValue(std::function<void(Value&)> result_mutator) {
+    result_mutator(result_.result);
+  }
+  void MutateResult(std::function<void(Result&)> result_mutator) {
+    result_mutator(result_);
+  }
 
   // Accessor/setter for the ResultMap. We do not allow mutating the ResultMap
   // directly because we need to ensure that it can never be empty.
-  const ResultMap& results() const { return results_; }
-  void set_results(const ResultMap& results) {
-    ZETASQL_CHECK(!results.empty());
-    results_ = results;
-  }
+  ABSL_DEPRECATED("Access result directly.")
+  ResultMap results() const { return {{required_features(), result_}}; }
+
+  // Returns the set of features that must be enabled for the test statement to
+  // return correct results.
+  const FeatureSet& required_features() const { return required_features_; }
+
+  // Returns the set of features that, if enabled, we expect the test to not
+  // return correct results.
+  const FeatureSet& prohibited_features() const { return prohibited_features_; }
 
   // Returns true if there is only one feature set and it is empty.
+  ABSL_DEPRECATED("Inline me!")
   bool HasEmptyFeatureSetAndNothingElse() const {
-    return results_.size() == 1 && results_.count(kEmptyFeatureSet) == 1;
-  }
-
-  // Returns a guess of the result type corresponding to this object.
-  //
-  // Note that it isn't possible to define a result type for a
-  // QueryParamsWithResult in the general case, because it's possible that it
-  // can be different (or not even defined) depending on the set of features
-  // enabled. This method just picks one.
-  //
-  // TODO: Find a way to rewrite the code-based compliance tests so
-  // that they do not need a concept of result type for a
-  // QueryParamsWithResult. It should be sufficient to iterate over the
-  // individual entries in the ResultMap and use a potentially different result
-  // type for each entry.
-  const Type* GetResultType() const {
-    return results_.begin()->second.result.type();
+    return required_features_.empty();
   }
 
  private:
-  // Accessors to the fields mapped to a 'feature_set'.
-  const Value& result(const FeatureSet& feature_set) const;
-  const absl::Status& status(const FeatureSet& feature_set) const;
-  const FloatMargin& float_margin(const FeatureSet& feature_set) const;
-
   std::vector<Value> params_;
-  ResultMap results_;
-
+  Result result_;
+  FeatureSet required_features_;
+  FeatureSet prohibited_features_;
   // Copyable.
 };
 
@@ -187,9 +199,6 @@ struct FunctionTestCall {
                    const std::vector<ValueConstructor>& arguments,
                    const ValueConstructor& result, absl::Status status);
 
-  FunctionTestCall(absl::string_view function_name_in,
-                   const std::vector<ValueConstructor>& arguments_in,
-                   const QueryParamsWithResult::ResultMap& results_in);
   FunctionTestCall(absl::string_view function_name_in,
                    const QueryParamsWithResult& params_in);
 };

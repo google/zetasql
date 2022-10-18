@@ -16,8 +16,12 @@
 
 #include "zetasql/compliance/test_database_catalog.h"
 
+#include <map>
+#include <memory>
+#include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/test_driver.h"

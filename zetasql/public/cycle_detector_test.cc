@@ -17,6 +17,7 @@
 #include "zetasql/public/cycle_detector.h"
 
 #include <cstdint>
+#include <deque>
 #include <string>
 
 #include "gtest/gtest.h"

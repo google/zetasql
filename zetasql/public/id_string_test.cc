@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <set>
 #include <unordered_set>
+#include <vector>
 
 #include "zetasql/base/case.h"
 #include "gtest/gtest.h"

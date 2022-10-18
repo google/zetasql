@@ -175,7 +175,6 @@ class ZetaSQLTypesTest : public ::testing::Test {
 
   // Gets all simple types.
   static void GetSimpleTypes(std::vector<const Type*>* simple_types);
-  static std::vector<const Type*> GetSimpleTypes();
 
   TypeFactory type_factory_;
 

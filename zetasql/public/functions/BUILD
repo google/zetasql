@@ -148,6 +148,7 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -361,7 +362,6 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
     ],
 )
@@ -455,7 +455,6 @@ cc_test(
     deps = [
         ":date_time_util_internal",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
     ],
 )
@@ -472,15 +471,15 @@ cc_library(
         "//zetasql/base:mathutil",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/base:strings",
         "//zetasql/base:time_proto_util",
         "//zetasql/common:errors",
-        "//zetasql/common:utf_util",
         "//zetasql/public:civil_time",
         "//zetasql/public:interval_value",
+        "//zetasql/public:time_zone_util",
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/public/types:timestamp_util",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -509,6 +508,7 @@ cc_library(
     hdrs = ["parse_date_time.h"],
     deps = [
         ":date_time_util",
+        ":date_time_util_internal",
         ":datetime_cc_proto",
         ":parse_date_time_utils",
         "//zetasql/base",
@@ -687,16 +687,17 @@ cc_library(
     srcs = ["string_with_collation.cc"],
     hdrs = ["string_with_collation.h"],
     deps = [
+        ":like",
         ":string",
         ":util",
         "//zetasql/base:status",
         "//zetasql/common:utf_util",
         "//zetasql/public:collator_lite",
-        "//zetasql/public/functions:arithmetics",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -757,6 +758,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:collator",  # buildcleaner: keep
+        "//zetasql/public:type_cc_proto",
         "//zetasql/testing:test_function",
         "@com_google_absl//absl/strings",
     ],
@@ -834,6 +836,9 @@ java_proto_library(
 proto_library(
     name = "rounding_mode_proto",
     srcs = ["rounding_mode.proto"],
+    deps = [
+        "//zetasql/public:type_proto",
+    ],
 )
 
 cc_proto_library(
@@ -938,7 +943,6 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -1085,6 +1089,7 @@ cc_test(
     deps = [
         ":to_json",
         "//zetasql/base:map_util",
+        "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:float_margin",
         "//zetasql/common:internal_value",

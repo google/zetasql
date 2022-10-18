@@ -868,7 +868,7 @@ public class Value implements Serializable {
       return getSQLLiteral();
     }
     if (type.isGeography()) {
-      String wktString = ZetaSQLStrings.convertSimpleValueToString(this, false /* verbose */);
+      String wktString = ZetaSQLStrings.convertSimpleValueToString(this, /* verbose= */ false);
       return String.format("ST_GeogFromText(%s)", ZetaSQLStrings.toStringLiteral(wktString));
     }
     if (type.isJson()) {
@@ -945,7 +945,7 @@ public class Value implements Serializable {
       return String.format("%s %s", type.typeName(), ZetaSQLStrings.toStringLiteral(s));
     }
     if (type.isGeography()) {
-      String wktString = ZetaSQLStrings.convertSimpleValueToString(this, false /* verbose */);
+      String wktString = ZetaSQLStrings.convertSimpleValueToString(this, /* verbose= */ false);
       return String.format("ST_GeogFromText(%s)", ZetaSQLStrings.toStringLiteral(wktString));
     }
     if (type.isNumeric()) {

@@ -17,6 +17,8 @@
 #ifndef ZETASQL_TESTDATA_SAMPLE_ANNOTATION_H_
 #define ZETASQL_TESTDATA_SAMPLE_ANNOTATION_H_
 
+#include <vector>
+
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "absl/status/status.h"

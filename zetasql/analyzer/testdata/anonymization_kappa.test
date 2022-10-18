@@ -341,7 +341,7 @@ select with anonymization options(kappa = 2147483648) anon_count(*)
 select with anonymization options(kappa = 2.0) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
 --
-ERROR: Option kappa value has type DOUBLE which cannot be coerced to expected type INT64 [at 1:43]
+ERROR: Anonymization option kappa value has type DOUBLE which cannot be coerced to expected type INT64 [at 1:43]
 select with anonymization options(kappa = 2.0) anon_count(*)
                                           ^
 ==

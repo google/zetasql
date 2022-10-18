@@ -18,6 +18,8 @@
 
 #include <cctype>
 #include <cmath>
+#include <limits>
+#include <ostream>
 #include <string>
 #include <type_traits>
 

@@ -18,9 +18,11 @@
 
 #include <cctype>
 #include <cstdint>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/common/utf_util.h"

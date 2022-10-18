@@ -16,6 +16,8 @@
 
 #include "zetasql/resolved_ast/resolved_collation.h"
 
+#include <memory>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/simple_value.h"

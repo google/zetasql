@@ -889,11 +889,20 @@ absl::Status ExtractStructFieldLocations(
   // Skip through gratuitous casts in the AST so that we can get the field
   // argument locations.
   const ASTNode* cast_free_ast_location = ast_location;
-  while (cast_free_ast_location->node_kind() == AST_CAST_EXPRESSION) {
-    const ASTCastExpression* ast_cast =
-        cast_free_ast_location->GetAs<ASTCastExpression>();
-    cast_free_ast_location = ast_cast->expr();
+  while (cast_free_ast_location != nullptr) {
+    if (cast_free_ast_location->node_kind() == AST_CAST_EXPRESSION) {
+      const ASTCastExpression* ast_cast =
+          cast_free_ast_location->GetAs<ASTCastExpression>();
+      cast_free_ast_location = ast_cast->expr();
+    } else if (cast_free_ast_location->node_kind() == AST_NAMED_ARGUMENT) {
+      const ASTNamedArgument* ast_arg =
+          cast_free_ast_location->GetAs<ASTNamedArgument>();
+      cast_free_ast_location = ast_arg->expr();
+    } else {
+      break;
+    }
   }
+  ZETASQL_RET_CHECK_NE(nullptr, cast_free_ast_location) << ast_location->DebugString();
 
   switch (cast_free_ast_location->node_kind()) {
     case AST_STRUCT_CONSTRUCTOR_WITH_PARENS: {
@@ -901,7 +910,7 @@ absl::Status ExtractStructFieldLocations(
           cast_free_ast_location->GetAs<ASTStructConstructorWithParens>();
       ZETASQL_DCHECK_EQ(ast_struct->field_expressions().size(),
                 to_struct_type->num_fields());
-      *field_arg_locations = ToLocations(ast_struct->field_expressions());
+      *field_arg_locations = ToASTNodes(ast_struct->field_expressions());
       break;
     }
     case AST_STRUCT_CONSTRUCTOR_WITH_KEYWORD: {
@@ -1236,9 +1245,9 @@ absl::Status FunctionResolver::ConvertLiteralToType(
   } else {
     // <coerced_literal_value> gets populated only when we can successfully
     // cast <argument_value> to <target_type>.
-    coerced_literal_value =
-        CastValue(*argument_value, resolver_->default_time_zone(),
-                  resolver_->language(), target_type, catalog_);
+    coerced_literal_value = CastValue(
+        *argument_value, resolver_->default_time_zone(), resolver_->language(),
+        target_type, catalog_, /*canonicalize_zero=*/true);
   }
 
   if (!coerced_literal_value.status().ok()) {
@@ -1254,7 +1263,7 @@ absl::Status FunctionResolver::ConvertLiteralToType(
           << "Could not cast "
           << (argument_literal->has_explicit_type() ? "" : "literal ")
           << argument_value->DebugString() << " to type "
-          << target_type->DebugString();
+          << target_type->ShortTypeName(resolver_->language().product_mode());
       // Give a more detailed error message for string/bytes -> proto
       // conversions, which can have subtle issues.
       absl::string_view error_message =
@@ -1540,6 +1549,62 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
              << " does not";
     }
 
+    // Constraint which requires argument type to be array type and its element
+    // type to support comparison (ordering, grouping, or equality).
+    if (concrete_argument.options().array_element_must_support_equality()) {
+      ZETASQL_RET_CHECK(concrete_argument.type()->IsArray())
+          << BadArgErrorPrefix(idx)
+          << " must be array type with element type that supports "
+             "equality. Type "
+          << concrete_argument.type()->ShortTypeName(product_mode)
+          << " is not an array type";
+      const ArrayType* array_type = concrete_argument.type()->AsArray();
+      ZETASQL_RET_CHECK_NE(array_type, nullptr);
+      if (!array_type->element_type()->SupportsEquality(
+              resolver_->language())) {
+        return MakeSqlErrorAt(ast_location)
+               << function->SQLName() << " cannot be used on argument of type "
+               << array_type->ShortTypeName(product_mode)
+               << " because the array's element type does not support equality";
+      }
+    }
+    if (concrete_argument.options().array_element_must_support_ordering()) {
+      ZETASQL_RET_CHECK(concrete_argument.type()->IsArray())
+          << BadArgErrorPrefix(idx)
+          << " must be array type with element type that supports "
+             "ordering. Type "
+          << concrete_argument.type()->ShortTypeName(product_mode)
+          << " is not an array type";
+
+      const ArrayType* array_type = concrete_argument.type()->AsArray();
+      ZETASQL_RET_CHECK_NE(array_type, nullptr);
+      if (!array_type->element_type()->SupportsOrdering(
+              resolver_->language(), /*type_description=*/nullptr)) {
+        return MakeSqlErrorAt(ast_location)
+               << function->SQLName() << " cannot be used on argument of type "
+               << array_type->ShortTypeName(product_mode)
+               << " because the array's element type does not support ordering";
+      }
+    }
+    if (concrete_argument.options().array_element_must_support_grouping()) {
+      ZETASQL_RET_CHECK(concrete_argument.type()->IsArray())
+          << BadArgErrorPrefix(idx)
+          << " must be array type with element type that supports "
+             "grouping. Type "
+          << concrete_argument.type()->ShortTypeName(product_mode)
+          << " is not an array type";
+
+      const ArrayType* array_type = concrete_argument.type()->AsArray();
+      ZETASQL_RET_CHECK_NE(array_type, nullptr);
+      if (!array_type->element_type()->SupportsGrouping(
+              resolver_->language())) {
+        return MakeSqlErrorAt(ast_location)
+               << function->SQLName() << " cannot be used on argument of type "
+               << array_type->ShortTypeName(product_mode)
+               << " because the array's element type does not support grouping";
+      }
+    }
+
     // If we have a cast of a parameter, we want to check the expression inside
     // the cast.  Even if the query just has a parameter, when we unparse, we
     // may get a cast of a parameter, and that should be legal too.
@@ -1802,10 +1867,9 @@ absl::Status FunctionResolver::ForwardNestedResolutionAnalysisError(
   } else if (HasErrorLocation(status)) {
     new_status = MakeFunctionExprAnalysisError(function, "");
     zetasql::internal::AttachPayload(
-        &new_status,
-        SetErrorSourcesFromStatus(
-            zetasql::internal::GetPayload<ErrorLocation>(status), status,
-            mode, std::string(parse_resume_location.input())));
+        &new_status, SetErrorSourcesFromStatus(
+                         zetasql::internal::GetPayload<ErrorLocation>(status),
+                         status, mode, parse_resume_location.input()));
   } else {
     new_status = StatusWithInternalErrorLocation(
         MakeFunctionExprAnalysisError(function, ""),
@@ -1816,7 +1880,7 @@ absl::Status FunctionResolver::ForwardNestedResolutionAnalysisError(
         &new_status,
         SetErrorSourcesFromStatus(
             zetasql::internal::GetPayload<InternalErrorLocation>(new_status),
-            status, mode, std::string(parse_resume_location.input())));
+            status, mode, parse_resume_location.input()));
   }
 
   // Update the <new_status> based on <mode>.

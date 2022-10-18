@@ -64,10 +64,11 @@ message AllowedHintsAndOptionsProto {
   repeated string disallow_unknown_hints_with_qualifier = 2;
   repeated HintProto hint = 3;
   repeated OptionProto option = 4;
+  repeated OptionProto anonymization_option = 5;
 }
 
 // Serialized form of AnalyzerOptions.
-// next id: 27
+// next id: 28
 message AnalyzerOptionsProto {
   message QueryParameterProto {
     optional string name = 1;

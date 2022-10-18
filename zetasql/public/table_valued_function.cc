@@ -21,7 +21,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/function.h"
@@ -196,15 +198,24 @@ static std::vector<TableValuedFunction::TVFDeserializer>* TvfDeserializers() {
 // static
 absl::Status TableValuedFunction::Deserialize(
     const TableValuedFunctionProto& proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result) {
+    const TypeDeserializer& type_deserializer,
+    std::unique_ptr<TableValuedFunction>* result) {
   auto tvf_name = [proto]() { return absl::StrJoin(proto.name_path(), "."); };
   ZETASQL_RET_CHECK(proto.has_type()) << tvf_name();
   ZETASQL_RET_CHECK_NE(FunctionEnums::INVALID, proto.type()) << tvf_name();
   TableValuedFunction::TVFDeserializer deserializer =
       (*TvfDeserializers())[proto.type()];
   ZETASQL_RET_CHECK(deserializer != nullptr) << tvf_name();
-  return deserializer(proto, pools, factory, result);
+  return deserializer(proto, type_deserializer, result);
+}
+
+// static
+absl::Status TableValuedFunction::Deserialize(
+    const TableValuedFunctionProto& proto,
+    const std::vector<const google::protobuf::DescriptorPool*>& pools,
+    TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result) {
+  return TableValuedFunction::Deserialize(
+      proto, TypeDeserializer(factory, pools), result);
 }
 
 // static
@@ -215,6 +226,25 @@ void TableValuedFunction::RegisterDeserializer(
   // ZETASQL_CHECK validated -- This is used at initialization time only.
   ZETASQL_CHECK(!(*TvfDeserializers())[type]) << type;
   (*TvfDeserializers())[type] = std::move(deserializer);
+}
+
+// static
+// Backwards compatible support for deserializers that do not support
+// TypeDeserializer for extended types.
+void TableValuedFunction::RegisterDeserializer(
+    FunctionEnums::TableValuedFunctionType type,
+    TVFDeserializerWithoutTypeDeserializer deserializer) {
+  TableValuedFunction::RegisterDeserializer(
+      type, [deserializer = std::move(deserializer)](
+                const TableValuedFunctionProto& proto,
+                const TypeDeserializer& type_deserializer,
+                std::unique_ptr<TableValuedFunction>* result) {
+        return deserializer(proto,
+                            std::vector<const google::protobuf::DescriptorPool*>(
+                                type_deserializer.descriptor_pools().begin(),
+                                type_deserializer.descriptor_pools().end()),
+                            type_deserializer.type_factory(), result);
+      });
 }
 
 absl::Status TableValuedFunction::SetUserIdColumnNamePath(
@@ -232,7 +262,9 @@ absl::StatusOr<TVFRelationColumnProto> TVFSchemaColumn::ToProto(
   proto.set_is_pseudo_column(is_pseudo_column);
   ZETASQL_RETURN_IF_ERROR(type->SerializeToProtoAndDistinctFileDescriptors(
       proto.mutable_type(), file_descriptor_set_map));
-
+  if (annotation_map != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(annotation_map->Serialize(proto.mutable_annotation_map()));
+  }
   if (name_parse_location_range.has_value()) {
     ZETASQL_ASSIGN_OR_RETURN(*proto.mutable_name_parse_location_range(),
                      name_parse_location_range.value().ToProto());
@@ -247,12 +279,16 @@ absl::StatusOr<TVFRelationColumnProto> TVFSchemaColumn::ToProto(
 // static
 absl::StatusOr<TVFSchemaColumn> TVFSchemaColumn::FromProto(
     const TVFRelationColumnProto& proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory) {
-  const Type* type = nullptr;
-  ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
-      proto.type(), pools, &type));
-  TVFRelation::Column column(proto.name(), type, proto.is_pseudo_column());
+    const TypeDeserializer& type_deserializer) {
+  ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                   type_deserializer.Deserialize(proto.type()));
+  const AnnotationMap* annotation_map = nullptr;
+  if (proto.has_annotation_map()) {
+    ZETASQL_RETURN_IF_ERROR(type_deserializer.type_factory()->DeserializeAnnotationMap(
+        proto.annotation_map(), &annotation_map));
+  }
+  TVFRelation::Column column(proto.name(), {type, annotation_map},
+                             proto.is_pseudo_column());
   ParseLocationRange location_range;
   if (proto.has_name_parse_location_range()) {
     ZETASQL_ASSIGN_OR_RETURN(
@@ -265,6 +301,14 @@ absl::StatusOr<TVFSchemaColumn> TVFSchemaColumn::FromProto(
         ParseLocationRange::Create(proto.type_parse_location_range()));
   }
   return column;
+}
+
+// static
+absl::StatusOr<TVFSchemaColumn> TVFSchemaColumn::FromProto(
+    const TVFRelationColumnProto& proto,
+    const std::vector<const google::protobuf::DescriptorPool*>& pools,
+    TypeFactory* factory) {
+  return TVFSchemaColumn::FromProto(proto, TypeDeserializer(factory, pools));
 }
 
 std::string TVFRelation::GetSQLDeclaration(ProductMode product_mode) const {
@@ -304,29 +348,35 @@ absl::Status TVFRelation::Serialize(
 
 // static
 absl::StatusOr<TVFRelation> TVFRelation::Deserialize(
-    const TVFRelationProto& proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory) {
+    const TVFRelationProto& proto, const TypeDeserializer& type_deserializer) {
   std::vector<Column> cols;
   cols.reserve(proto.column_size());
   for (const TVFRelationColumnProto& col_proto : proto.column()) {
     ZETASQL_ASSIGN_OR_RETURN(Column column,
-                     TVFSchemaColumn::FromProto(col_proto, pools, factory));
+                     TVFSchemaColumn::FromProto(col_proto, type_deserializer));
     cols.push_back(column);
   }
   if (proto.is_value_table()) {
-    const Type* type = cols[0].type;
+    AnnotatedType annotated_type = cols[0].annotated_type();
     cols.erase(cols.begin());
-    return TVFRelation::ValueTable(type, cols);
+    return TVFRelation::ValueTable(annotated_type, cols);
   } else {
     return TVFRelation(cols);
   }
 }
 
+absl::StatusOr<TVFRelation> TVFRelation::Deserialize(
+    const TVFRelationProto& proto,
+    const std::vector<const google::protobuf::DescriptorPool*>& pools,
+    TypeFactory* factory) {
+  return TVFRelation::Deserialize(proto, TypeDeserializer(factory, pools));
+}
+
 bool operator==(const TVFSchemaColumn& a, const TVFSchemaColumn& b) {
   return a.name == b.name && a.is_pseudo_column == b.is_pseudo_column &&
          (a.type == b.type ||
-          (a.type != nullptr && b.type != nullptr && a.type->Equals(b.type)));
+          (a.type != nullptr && b.type != nullptr && a.type->Equals(b.type))) &&
+         AnnotationMap::Equals(a.annotation_map, b.annotation_map);
 }
 
 bool operator == (const TVFRelation& a, const TVFRelation& b) {
@@ -355,15 +405,15 @@ absl::Status FixedOutputSchemaTVF::Serialize(
 // static
 absl::Status FixedOutputSchemaTVF::Deserialize(
     const TableValuedFunctionProto& proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result) {
+    const TypeDeserializer& type_deserializer,
+    std::unique_ptr<TableValuedFunction>* result) {
   std::vector<std::string> path;
   for (const std::string& name : proto.name_path()) {
     path.push_back(name);
   }
-  std::unique_ptr<FunctionSignature> signature;
-  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(proto.signature(), pools,
-                                                 factory, &signature));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<FunctionSignature> signature,
+      FunctionSignature::Deserialize(proto.signature(), type_deserializer));
   const TVFRelation result_schema =
       signature->result_type().options().relation_input_schema();
 

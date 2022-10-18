@@ -61,17 +61,31 @@ a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitep
 
 **Example**
 
+The following query creates HLL++ sketches that count the number of distinct
+users with at least one invoice per country.
+
 ```sql
 SELECT
-  HLL_COUNT.INIT(respondent) AS respondents_hll,
-  flavor,
-  country
-FROM UNNEST([
-  STRUCT(1 AS respondent, "Vanilla" AS flavor, "CH" AS country),
-  (1, "Chocolate", "CH"),
-  (2, "Chocolate", "US"),
-  (2, "Strawberry", "US")])
-GROUP BY flavor, country;
+  country,
+  HLL_COUNT.INIT(customer_id, 10)
+    AS hll_sketch
+FROM
+  UNNEST(
+    ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+      ('UA', 'customer_id_1', 'invoice_id_11'),
+      ('CZ', 'customer_id_2', 'invoice_id_22'),
+      ('CZ', 'customer_id_2', 'invoice_id_23'),
+      ('BR', 'customer_id_3', 'invoice_id_31'),
+      ('UA', 'customer_id_2', 'invoice_id_24')])
+GROUP BY country;
+
++---------+------------------------------------------------------------------------------------+
+| country | hll_sketch                                                                         |
++---------+------------------------------------------------------------------------------------+
+| UA      | "\010p\020\002\030\002 \013\202\007\r\020\002\030\n \0172\005\371\344\001\315\010" |
+| CZ      | "\010p\020\002\030\002 \013\202\007\013\020\001\030\n \0172\003\371\344\001"       |
+| BR      | "\010p\020\001\030\002 \013\202\007\013\020\001\030\n \0172\003\202\341\001"       |
++---------+------------------------------------------------------------------------------------+
 ```
 
 ### HLL_COUNT.MERGE
@@ -104,20 +118,33 @@ over zero rows or only over `NULL` values, the function returns `0`.
 
 **Example**
 
+ The following query counts the number of distinct users across all countries
+ who have at least one invoice.
+
 ```sql
-SELECT HLL_COUNT.MERGE(respondents_hll) AS num_respondents, flavor
-FROM (
-  SELECT
-    HLL_COUNT.INIT(respondent) AS respondents_hll,
-    flavor,
-    country
-  FROM UNNEST([
-    STRUCT(1 AS respondent, "Vanilla" AS flavor, "CH" AS country),
-    (1, "Chocolate", "CH"),
-    (2, "Chocolate", "US"),
-    (2, "Strawberry", "US")])
-  GROUP BY flavor, country)
-GROUP BY flavor;
+SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING, invoice_status STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  );
+
++--------------------------------------+
+| distinct_customers_with_open_invoice |
++--------------------------------------+
+|                                    3 |
++--------------------------------------+
 ```
 
 ### HLL_COUNT.MERGE_PARTIAL
@@ -152,20 +179,33 @@ This function returns `NULL` if there is no input or all inputs are `NULL`.
 
 **Example**
 
+The following query returns an HLL++ sketch that counts the number of distinct
+users who have at least one invoice across all countries.
+
 ```sql
-SELECT HLL_COUNT.MERGE_PARTIAL(respondents_hll) AS num_respondents, flavor
-FROM (
-  SELECT
-    HLL_COUNT.INIT(respondent) AS respondents_hll,
-    flavor,
-    country
-  FROM UNNEST([
-    STRUCT(1 AS respondent, "Vanilla" AS flavor, "CH" AS country),
-    (1, "Chocolate", "CH"),
-    (2, "Chocolate", "US"),
-    (2, "Strawberry", "US")])
-  GROUP BY flavor, country)
-GROUP BY flavor;
+SELECT HLL_COUNT.MERGE_PARTIAL(HLL_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING, invoice_status STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  );
+
++----------------------------------------------------------------------------------------------+
+| distinct_customers_with_open_invoice                                                         |
++----------------------------------------------------------------------------------------------+
+| "\010p\020\006\030\002 \013\202\007\020\020\003\030\017 \0242\010\320\2408\352}\244\223\002" |
++----------------------------------------------------------------------------------------------+
 ```
 
 ### HLL_COUNT.EXTRACT
@@ -190,31 +230,37 @@ If `sketch` is `NULL`, this function returns a cardinality estimate of `0`.
 
 **Example**
 
+The following query returns the number of distinct users for each country who
+have at least one invoice.
+
 ```sql
 SELECT
-  flavor,
   country,
-  HLL_COUNT.EXTRACT(respondents_hll) AS num_respondents
-FROM (
-  SELECT
-    HLL_COUNT.INIT(respondent) AS respondents_hll,
-    flavor,
-    country
-  FROM UNNEST([
-    STRUCT(1 AS respondent, "Vanilla" AS flavor, "CH" AS country),
-    (1, "Chocolate", "CH"),
-    (2, "Chocolate", "US"),
-    (2, "Strawberry", "US")])
-  GROUP BY flavor, country);
+  HLL_COUNT.EXTRACT(HLL_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  );
 
-+------------+---------+-----------------+
-| flavor     | country | num_respondents |
-+------------+---------+-----------------+
-| Vanilla    | CH      | 1               |
-| Chocolate  | CH      | 1               |
-| Chocolate  | US      | 1               |
-| Strawberry | US      | 1               |
-+------------+---------+-----------------+
++---------+--------------------------------------+
+| country | distinct_customers_with_open_invoice |
++---------+--------------------------------------+
+| UA      |                                    2 |
+| BR      |                                    1 |
+| CZ      |                                    1 |
++---------+--------------------------------------+
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->

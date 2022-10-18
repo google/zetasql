@@ -1,5 +1,49 @@
 # NOTE: CREATE MODEL tests are derived from those for CREATE TABLE AS SELECT and
 # CREATE VIEW tests.
+[default language_features=V_1_3_REMOTE_FUNCTION]
+
+# Bare statement
+create model t1
+--
+ERROR: The AS SELECT clause is required for CREATE MODEL [at 2:1]
+create model t1
+^
+==
+
+create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
+--
+ERROR: INPUT and OUTPUT clause is not supported [at 1:17]
+create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
+                ^
+==
+
+create model t1 remote
+--
+ERROR: REMOTE is not supported [at 1:1]
+create model t1 remote
+^
+==
+
+create model t1 with connection conn_1
+--
+ERROR: WITH CONNECTION is not supported [at 1:17]
+create model t1 with connection conn_1
+                ^
+==
+
+create model t1 remote with connection conn_1
+--
+ERROR: REMOTE is not supported [at 1:1]
+create model t1 remote with connection conn_1
+^
+==
+
+create model t1 options (abc = def)
+--
+ERROR: The AS SELECT clause is required for CREATE MODEL [at 1:1]
+create model t1 options (abc = def)
+^
+==
 
 create model tt
 as select 1 a
@@ -723,3 +767,73 @@ create temp model T
 ERROR: The AS SELECT clause is required for CREATE MODEL [at 1:1]
 create temp model T
 ^
+==
+
+# All remote model clauses
+create model t1
+input (i1 INT64, i2 FLOAT64)
+output (o1 BOOL)
+remote with connection conn_1
+options (abc = def)
+--
+ERROR: INPUT and OUTPUT clause is not supported [at 2:1]
+input (i1 INT64, i2 FLOAT64)
+^
+==
+
+# All clauses
+create model t1
+input (i1 INT64, i2 FLOAT64)
+output (o1 BOOL)
+transform(a, 2 as b)
+remote with connection conn_1
+options (abc = def)
+as select * from t2;
+--
+ERROR: INPUT and OUTPUT clause is not supported [at 2:1]
+input (i1 INT64, i2 FLOAT64)
+^
+==
+
+# Create model with transform and collation in the output column. Annotations should be accessed.
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[no_java]
+CREATE MODEL m
+TRANSFORM(CAST(e AS INT64) k)
+OPTIONS(model_type='logistic_reg')
+AS SELECT COLLATE('5', 'und:ci') e;
+--
+CreateModelStmt
++-name_path=m
++-option_list=
+| +-model_type := Literal(type=STRING, value="logistic_reg")
++-output_column_list=
+| +-$create_as.e#1{Collation:"und:ci"} AS e [STRING]
++-query=
+| +-ProjectScan
+|   +-column_list=[$create_as.e#1{Collation:"und:ci"}]
+|   +-expr_list=
+|   | +-e#1 :=
+|   |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+|   |     +-type_annotation_map={Collation:"und:ci"}
+|   |     +-Literal(type=STRING, value="5")
+|   |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+|   +-input_scan=
+|     +-SingleRowScan
++-transform_input_column_list=
+| +-ColumnDefinition
+|   +-name="e"
+|   +-type=STRING
+|   +-annotations=
+|   | +-ColumnAnnotations
+|   |   +-collation_name=
+|   |     +-Literal(type=STRING, value="und:ci")
+|   +-column=m.e#2{Collation:"und:ci"}
++-transform_list=
+| +-k#3 :=
+|   +-Cast(STRING -> INT64)
+|     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=m.e#2{Collation:"und:ci"})
++-transform_output_column_list=
+  +-$dummy_table.k#3 AS k [INT64]
+
+==

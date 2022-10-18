@@ -25,6 +25,7 @@
 
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/container_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/base/case.h"
 #include "absl/base/thread_annotations.h"
@@ -61,7 +62,7 @@ struct StructField {
 // Field names do not have to be unique.
 // Empty field names are used to indicate anonymous fields - such fields are
 // unnamed and cannot be looked up by name.
-class StructType : public Type {
+class StructType : public ContainerType {
  public:
 #ifndef SWIG
   StructType(const StructType&) = delete;
@@ -133,6 +134,19 @@ class StructType : public Type {
   int64_t GetEstimatedOwnedMemoryBytesSize() const override
       ABSL_NO_THREAD_SAFETY_ANALYSIS;
 
+  std::string GetFormatPrefix(
+      const ValueContent& value_content,
+      const Type::FormatValueContentOptions& options) const override;
+
+  char GetFormatClosingCharacter(
+      const Type::FormatValueContentOptions& options) const override;
+
+  const Type* GetElementType(int index) const override;
+
+  std::string GetFormatElementPrefix(
+      const int index, const bool is_null,
+      const FormatValueContentOptions& options) const override;
+
  private:
   // Caller must enforce that <nesting_depth> is accurate. No verification is
   // done.
@@ -175,9 +189,6 @@ class StructType : public Type {
       const ValueEqualityCheckOptions& options) const override;
   bool ValueContentLess(const ValueContent& x, const ValueContent& y,
                         const Type* other_type) const override;
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
   absl::Status SerializeValueContent(const ValueContent& value,
                                      ValueProto* value_proto) const override;
   absl::Status DeserializeValueContent(const ValueProto& value_proto,
@@ -199,6 +210,10 @@ class StructType : public Type {
       field_name_to_index_map_ ABSL_GUARDED_BY(mutex_);
 
   friend class TypeFactory;
+  FRIEND_TEST(TypeTest, FormatValueContentStructSQLLiteralMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructSQLExpressionMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructDebugMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructWithAnonymousFieldsDebugMode);
 };
 
 }  // namespace zetasql

@@ -441,6 +441,17 @@ absl::Status Resolver::ResolveInsertStatement(
                << resolved_table_scan->table()->FullName();
       }
     }
+
+    // We will be writing to column with default values, either with user input
+    // or with their default expressions, so record the access here.
+    for (auto const& [resolved_column, catalog_column] :
+         resolved_columns_from_table_scans_) {
+      if (catalog_column->IsWritableColumn() &&
+          catalog_column->HasDefaultValue()) {
+        RecordColumnAccess(resolved_column, ResolvedStatement::WRITE);
+      }
+    }
+
   } else {
     if (resolved_table_scan->table()->IsValueTable()) {
       const Table* table = resolved_table_scan->table();

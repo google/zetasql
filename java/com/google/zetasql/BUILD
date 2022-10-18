@@ -283,36 +283,43 @@ javadoc_library(
     deps = [":jni_channel"],
 )
 
-CLIENT_SRCS = [
-    "AllowedHintsAndOptions.java",
-    "AnalyzerOptions.java",
-    "Catalog.java",
+COMMON_SRCS = [
+    "LanguageOptions.java",
     "Client.java",
+]
+
+java_library(
+    name = "common",
+    srcs = COMMON_SRCS,
+    deps = [
+        ":channel_provider",
+        "//zetasql/local_service:local_service_java_grpc",
+        "//zetasql/local_service:local_service_java_proto",
+        "//zetasql/proto:options_java_proto",
+        "//zetasql/public:options_java_proto",
+        "//zetasql/resolved_ast:resolved_node_kind_java_proto",
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_guava_guava",
+    ],
+)
+
+CATALOG_SRCS = [
+    "AllowedHintsAndOptions.java",
     "Column.java",
     "Connection.java",
     "Constant.java",
     "DescriptorPoolSerializer.java",
-    "EvaluatorTableModifyResponse.java",
     "Function.java",
     "FunctionArgumentType.java",
     "FunctionSignature.java",
     "ZetaSQLBuiltinFunctionOptions.java",
-    "LanguageOptions.java",
     "Model.java",
     "NotFoundException.java",
     "Parameter.java",
     "ParseLocationRange.java",
     "ParseResumeLocation.java",
-    "PreparedExpression.java",
-    "PreparedModify.java",
-    "PreparedQuery.java",
     "Procedure.java",
     "ResolvedFunctionCallInfo.java",
-    "SimpleCatalog.java",
-    "SimpleColumn.java",
-    "SimpleConnection.java",
-    "SimpleModel.java",
-    "SimpleTable.java",
     "SqlException.java",
     "SqlFormatter.java",
     "TableContent.java",
@@ -321,9 +328,23 @@ CLIENT_SRCS = [
     "TableValuedFunction.java",
 ]
 
+SIMPLE_CATALOG_SRCS = [
+    "AnalyzerOptions.java",
+    "EvaluatorTableModifyResponse.java",
+    "PreparedExpression.java",
+    "PreparedModify.java",
+    "PreparedQuery.java",
+    "Catalog.java",
+    "SimpleCatalog.java",
+    "SimpleColumn.java",
+    "SimpleConnection.java",
+    "SimpleModel.java",
+    "SimpleTable.java",
+]
+
 java_library(
     name = "client",
-    srcs = CLIENT_SRCS,
+    srcs = COMMON_SRCS + SIMPLE_CATALOG_SRCS + CATALOG_SRCS,
     deps = [
         ":channel_provider",
         ":types",
@@ -343,21 +364,75 @@ java_library(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/public:type_proto_java_proto",
-        "//zetasql/public/functions:datetime_java_proto",  # buildcleaner: keep
-        "//zetasql/public/functions:normalize_mode_java_proto",  # buildcleaner: keep
-        "//zetasql/public/functions:rounding_mode_java_proto",  # buildcleaner: keep
+        "//zetasql/public/functions:datetime_java_proto",  # unuseddeps: keep # buildcleaner: keep
+        "//zetasql/public/functions:normalize_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
+        "//zetasql/public/functions:rounding_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",  # buildcleaner: keep
         "//zetasql/resolved_ast:serialization_java_proto",
         "@com_google_auto_value",
-        "@com_google_protobuf//:protobuf_java",  # buildcleaner: keep
-        "@maven//:com_google_api_grpc_proto_google_common_protos",  # buildcleaner: keep
+        "@com_google_protobuf//:protobuf_java",  # unuseddeps: keep # buildcleaner: keep
+        "@maven//:com_google_api_grpc_proto_google_common_protos",  # unuseddeps: keep # buildcleaner: keep
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_stub",
-        "@maven//:javax_annotation_javax_annotation_api",  # buildcleaner: keep
+        "@maven//:javax_annotation_javax_annotation_api",  # unuseddeps: keep # buildcleaner: keep
+    ],
+)
+
+java_library(
+    name = "catalog",
+    srcs = CATALOG_SRCS,
+    deps = [
+        ":common",
+        ":types",
+        "//zetasql/local_service:local_service_java_proto",
+        "//zetasql/proto:function_java_proto",
+        "//zetasql/proto:options_java_proto",
+        "//zetasql/public:builtin_function_java_proto",
+        "//zetasql/public:deprecation_warning_java_proto",
+        "//zetasql/public:error_location_java_proto",
+        "//zetasql/public:formatter_options_java_proto",
+        "//zetasql/public:function_java_proto",
+        "//zetasql/public:options_java_proto",
+        "//zetasql/public:parse_location_range_java_proto",
+        "//zetasql/public:parse_resume_location_java_proto",
+        "//zetasql/public:simple_constant_java_proto",
+        "//zetasql/public:type_proto_java_proto",
+        "//zetasql/resolved_ast:serialization_java_proto",
+        "@com_google_auto_value",
+        "@com_google_protobuf//:protobuf_java",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_guava_guava",
+        "@maven//:io_grpc_grpc_core",
+    ],
+)
+
+java_library(
+    name = "simple_catalog",
+    srcs = SIMPLE_CATALOG_SRCS,
+    deps = [
+        ":catalog",
+        ":channel_provider",
+        ":common",
+        ":types",
+        "//zetasql/local_service:local_service_java_grpc",
+        "//zetasql/local_service:local_service_java_proto",
+        "//zetasql/proto:function_java_proto",
+        "//zetasql/proto:options_java_proto",
+        "//zetasql/proto:simple_catalog_java_proto",
+        "//zetasql/public:options_java_proto",
+        "//zetasql/public:simple_constant_java_proto",
+        "//zetasql/public:simple_table_java_proto",
+        "//zetasql/public:type_proto_java_proto",
+        "@com_google_auto_value",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_guava_guava",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_stub",
     ],
 )
 
@@ -500,7 +575,8 @@ pom_file(
 
 javadoc_library(
     name = "client_javadoc",
-    srcs = ANALYZER_SRCS + CHANNEL_PROVIDER_SRCS + CLIENT_SRCS + ["DebugPrintableNode.java"],
+    srcs = ANALYZER_SRCS + CHANNEL_PROVIDER_SRCS + CATALOG_SRCS +
+           SIMPLE_CATALOG_SRCS + COMMON_SRCS + ["DebugPrintableNode.java"],
     root_packages = ["com.google.zetasql"],
     deps = [
         ":analyzer",

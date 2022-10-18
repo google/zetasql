@@ -245,6 +245,10 @@ public class FunctionArgumentTypeTest {
             .setIsNotAggregate(true)
             .setMustSupportEquality(true)
             .setMustSupportOrdering(true)
+            .setMustSupportGrouping(true)
+            .setArrayElementMustSupportEquality(true)
+            .setArrayElementMustSupportOrdering(true)
+            .setArrayElementMustSupportGrouping(true)
             .setMinValue(Long.MIN_VALUE)
             .setMaxValue(Long.MAX_VALUE)
             .setExtraRelationInputColumnsAllowed(true)
@@ -464,5 +468,53 @@ public class FunctionArgumentTypeTest {
                         /*numOccurrences=*/ 1)))
         .hasMessageThat()
         .contains("LAMBDA argument cannot have a default value");
+  }
+
+  @Test
+  public void testFunctionArgumentOptionsTypeConstraint() {
+    FunctionArgumentTypeOptions supportsOrderingOption =
+        FunctionArgumentTypeOptions.builder().setMustSupportOrdering(true).build();
+    FunctionArgumentTypeOptions supportsEqualityOption =
+        FunctionArgumentTypeOptions.builder().setMustSupportEquality(true).build();
+    FunctionArgumentTypeOptions supportsGroupingOption =
+        FunctionArgumentTypeOptions.builder().setMustSupportGrouping(true).build();
+    FunctionArgumentTypeOptions supportsElementOrderingOption =
+        FunctionArgumentTypeOptions.builder().setArrayElementMustSupportOrdering(true).build();
+    FunctionArgumentTypeOptions supportsElementEqualityOption =
+        FunctionArgumentTypeOptions.builder().setArrayElementMustSupportEquality(true).build();
+    FunctionArgumentTypeOptions supportsElementGroupingOption =
+        FunctionArgumentTypeOptions.builder().setArrayElementMustSupportGrouping(true).build();
+
+    FunctionArgumentType supportOrderingType =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_1, supportsOrderingOption, /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(supportOrderingType);
+    FunctionArgumentType supportEqualityType =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_1, supportsEqualityOption, /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(supportEqualityType);
+    FunctionArgumentType supportGroupingType =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_1, supportsGroupingOption, /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(supportGroupingType);
+
+    FunctionArgumentType supportElementOrderingType =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_1,
+            supportsElementOrderingOption,
+            /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(supportElementOrderingType);
+    FunctionArgumentType supportElementEqualityType =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_1,
+            supportsElementEqualityOption,
+            /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(supportElementEqualityType);
+    FunctionArgumentType supportElementGroupingType =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_1,
+            supportsElementGroupingOption,
+            /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(supportElementGroupingType);
   }
 }

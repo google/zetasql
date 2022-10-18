@@ -1,6 +1,3 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 show ;
 --
 ERROR: Syntax error: Unexpected ";" [at 1:6]
@@ -24,8 +21,8 @@ show catalog.tables
 
 show TABLES;
 --
-ShowStatement [0-11]
-  Identifier(TABLES) [5-11]
+ShowStatement [0-11] [show TABLES]
+  Identifier(TABLES) [5-11] [TABLES]
 --
 SHOW TABLES
 ==
@@ -39,21 +36,21 @@ show TABLES from;
 
 show TABLES from adwords;
 --
-ShowStatement [0-24]
-  Identifier(TABLES) [5-11]
-  PathExpression [17-24]
-    Identifier(adwords) [17-24]
+ShowStatement [0-24] [show TABLES from adwords]
+  Identifier(TABLES) [5-11] [TABLES]
+  PathExpression [17-24] [adwords]
+    Identifier(adwords) [17-24] [adwords]
 --
 SHOW TABLES FROM adwords
 ==
 
 show TABLES from catalog.adwords;
 --
-ShowStatement [0-32]
-  Identifier(TABLES) [5-11]
-  PathExpression [17-32]
-    Identifier(catalog) [17-24]
-    Identifier(adwords) [25-32]
+ShowStatement [0-32] [show TABLES...catalog.adwords]
+  Identifier(TABLES) [5-11] [TABLES]
+  PathExpression [17-32] [catalog.adwords]
+    Identifier(catalog) [17-24] [catalog]
+    Identifier(adwords) [25-32] [adwords]
 --
 SHOW TABLES FROM catalog.adwords
 ==
@@ -67,47 +64,47 @@ show TABLES from adwords like;
 
 show TABLES like 'KitchenSync%';
 --
-ShowStatement [0-31]
-  Identifier(TABLES) [5-11]
-  StringLiteral('KitchenSync%') [17-31]
+ShowStatement [0-31] [show TABLES...KitchenSync%']
+  Identifier(TABLES) [5-11] [TABLES]
+  StringLiteral('KitchenSync%') [17-31] ['KitchenSync%']
 --
 SHOW TABLES LIKE 'KitchenSync%'
 ==
 
 show COLUMNS from KitchenSync;
 --
-ShowStatement [0-29]
-  Identifier(COLUMNS) [5-12]
-  PathExpression [18-29]
-    Identifier(KitchenSync) [18-29]
+ShowStatement [0-29] [show COLUMNS from KitchenSync]
+  Identifier(COLUMNS) [5-12] [COLUMNS]
+  PathExpression [18-29] [KitchenSync]
+    Identifier(KitchenSync) [18-29] [KitchenSync]
 --
 SHOW COLUMNS FROM KitchenSync
 ==
 
 show INDEXES from myschema.MyTable;
 --
-ShowStatement [0-34]
-  Identifier(INDEXES) [5-12]
-  PathExpression [18-34]
-    Identifier(myschema) [18-26]
-    Identifier(MyTable) [27-34]
+ShowStatement [0-34] [show INDEXES...yschema.MyTable]
+  Identifier(INDEXES) [5-12] [INDEXES]
+  PathExpression [18-34] [myschema.MyTable]
+    Identifier(myschema) [18-26] [myschema]
+    Identifier(MyTable) [27-34] [MyTable]
 --
 SHOW INDEXES FROM myschema.MyTable
 ==
 
 show STATUS;
 --
-ShowStatement [0-11]
-  Identifier(STATUS) [5-11]
+ShowStatement [0-11] [show STATUS]
+  Identifier(STATUS) [5-11] [STATUS]
 --
 SHOW STATUS
 ==
 
 show VARIABLES like 'server_name';
 --
-ShowStatement [0-33]
-  Identifier(VARIABLES) [5-14]
-  StringLiteral('server_name') [20-33]
+ShowStatement [0-33] [show VARIABLES...server_name']
+  Identifier(VARIABLES) [5-14] [VARIABLES]
+  StringLiteral('server_name') [20-33] ['server_name']
 --
 SHOW VARIABLES LIKE 'server_name'
 ==
@@ -128,58 +125,58 @@ show TABLES from adwords like 5;
 
 show TABLES from catalog.adwords like 'KitchenSync%';
 --
-ShowStatement [0-52]
-  Identifier(TABLES) [5-11]
-  PathExpression [17-32]
-    Identifier(catalog) [17-24]
-    Identifier(adwords) [25-32]
-  StringLiteral('KitchenSync%') [38-52]
+ShowStatement [0-52] [show TABLES...KitchenSync%']
+  Identifier(TABLES) [5-11] [TABLES]
+  PathExpression [17-32] [catalog.adwords]
+    Identifier(catalog) [17-24] [catalog]
+    Identifier(adwords) [25-32] [adwords]
+  StringLiteral('KitchenSync%') [38-52] ['KitchenSync%']
 --
 SHOW TABLES FROM catalog.adwords LIKE 'KitchenSync%'
 ==
 
 SHOW MATERIALIZED VIEWS;
 --
-ShowStatement [0-23]
-  Identifier(`MATERIALIZED VIEWS`) [5-23]
+ShowStatement [0-23] [SHOW MATERIALIZED VIEWS]
+  Identifier(`MATERIALIZED VIEWS`) [5-23] [MATERIALIZED VIEWS]
 --
 SHOW `MATERIALIZED VIEWS`
 ==
 
 SHOW `MATERIALIZED VIEWS`;
 --
-ShowStatement [0-25]
-  Identifier(`MATERIALIZED VIEWS`) [5-25]
+ShowStatement [0-25] [SHOW `MATERIALIZED VIEWS`]
+  Identifier(`MATERIALIZED VIEWS`) [5-25] [`MATERIALIZED VIEWS`]
 --
 SHOW `MATERIALIZED VIEWS`
 ==
 
 SHOW MATERIALIZED VIEWS like 'KitchenSync%';
 --
-ShowStatement [0-43]
-  Identifier(`MATERIALIZED VIEWS`) [5-23]
-  StringLiteral('KitchenSync%') [29-43]
+ShowStatement [0-43] [SHOW MATERIALIZED...chenSync%']
+  Identifier(`MATERIALIZED VIEWS`) [5-23] [MATERIALIZED VIEWS]
+  StringLiteral('KitchenSync%') [29-43] ['KitchenSync%']
 --
 SHOW `MATERIALIZED VIEWS` LIKE 'KitchenSync%'
 ==
 
 SHOW MATERIALIZED VIEWS from KitchenSync;
 --
-ShowStatement [0-40]
-  Identifier(`MATERIALIZED VIEWS`) [5-23]
-  PathExpression [29-40]
-    Identifier(KitchenSync) [29-40]
+ShowStatement [0-40] [SHOW MATERIALIZED...itchenSync]
+  Identifier(`MATERIALIZED VIEWS`) [5-23] [MATERIALIZED VIEWS]
+  PathExpression [29-40] [KitchenSync]
+    Identifier(KitchenSync) [29-40] [KitchenSync]
 --
 SHOW `MATERIALIZED VIEWS` FROM KitchenSync
 ==
 
 SHOW MATERIALIZED VIEWS from KitchenSync like '%foo%';
 --
-ShowStatement [0-53]
-  Identifier(`MATERIALIZED VIEWS`) [5-23]
-  PathExpression [29-40]
-    Identifier(KitchenSync) [29-40]
-  StringLiteral('%foo%') [46-53]
+ShowStatement [0-53] [SHOW MATERIALIZED...ke '%foo%']
+  Identifier(`MATERIALIZED VIEWS`) [5-23] [MATERIALIZED VIEWS]
+  PathExpression [29-40] [KitchenSync]
+    Identifier(KitchenSync) [29-40] [KitchenSync]
+  StringLiteral('%foo%') [46-53] ['%foo%']
 --
 SHOW `MATERIALIZED VIEWS` FROM KitchenSync LIKE '%foo%'
 ==
@@ -199,42 +196,42 @@ SHOW MATERIALIZED TABLES from KitchenSync
 ==
 
 [no_test_get_parse_tokens]
-[{{no_|}}allow_dashed_table_names]
+[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 SHOW TABLES FROM my-project.dataset.table;
 --
-ALTERNATION GROUP: no_
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `my-project.dataset.table` [at 1:18]
 SHOW TABLES FROM my-project.dataset.table;
                  ^
 --
-ALTERNATION GROUP: <empty>
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
 --
-ShowStatement [0-41]
-  Identifier(TABLES) [5-11]
-  PathExpression [17-41]
-    Identifier(`my-project`) [17-27]
-    Identifier(dataset) [28-35]
-    Identifier(table) [36-41]
+ShowStatement [0-41] [SHOW TABLES...dataset.table]
+  Identifier(TABLES) [5-11] [TABLES]
+  PathExpression [17-41] [my-project.dataset.table]
+    Identifier(`my-project`) [17-27] [my-project]
+    Identifier(dataset) [28-35] [dataset]
+    Identifier(table) [36-41] [table]
 --
 SHOW TABLES FROM `my-project`.dataset.table
 ==
 
 [no_test_get_parse_tokens]
-[{{no_|}}allow_slashed_table_names]
+[language_features=V_1_3_ALLOW_DASHES_IN_TABLE_NAME{{|,V_1_3_ALLOW_SLASH_PATHS}}]
 SHOW TABLES FROM /span/db/my-mdb-grp:my_db
 --
-ALTERNATION GROUP: no_
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Table name contains '/' character. It needs to be quoted: `/span/db/my-mdb-grp:my_db` [at 1:18]
 SHOW TABLES FROM /span/db/my-mdb-grp:my_db
                  ^
 --
-ALTERNATION GROUP: <empty>
+ALTERNATION GROUP: ,V_1_3_ALLOW_SLASH_PATHS
 --
-ShowStatement [0-42]
-  Identifier(TABLES) [5-11]
-  PathExpression [17-42]
-    Identifier(`/span/db/my-mdb-grp:my_db`) [17-42]
+ShowStatement [0-42] [SHOW TABLES...-grp:my_db]
+  Identifier(TABLES) [5-11] [TABLES]
+  PathExpression [17-42] [/span/db/my-mdb-grp:my_db]
+    Identifier(`/span/db/my-mdb-grp:my_db`) [17-42] [/span/db/my-mdb-grp:my_db]
 --
 SHOW TABLES FROM `/span/db/my-mdb-grp:my_db`

@@ -112,6 +112,7 @@ cc_library(
     deps = [
         ":test_value",
         "//zetasql/base",
+        "//zetasql/base:check",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
         "//zetasql/common:float_margin",

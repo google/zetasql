@@ -1,21 +1,18 @@
 # Valid statement with connection and options.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 export model model.name with connection connection_id options(uri="destination");
 --
-ExportModelStatement [0-80]
-  PathExpression [13-23]
-    Identifier(model) [13-18]
-    Identifier(name) [19-23]
-  WithConnectionClause [24-53]
-    ConnectionClause [29-53]
-      PathExpression [40-53]
-        Identifier(connection_id) [40-53]
-  OptionsList [61-80]
-    OptionsEntry [62-79]
-      Identifier(uri) [62-65]
-      StringLiteral("destination") [66-79]
+ExportModelStatement [0-80] [export model...destination")]
+  PathExpression [13-23] [model.name]
+    Identifier(model) [13-18] [model]
+    Identifier(name) [19-23] [name]
+  WithConnectionClause [24-53] [with connection connection_id]
+    ConnectionClause [29-53] [connection connection_id]
+      PathExpression [40-53] [connection_id]
+        Identifier(connection_id) [40-53] [connection_id]
+  OptionsList [61-80] [(uri="destination")]
+    OptionsEntry [62-79] [uri="destination"]
+      Identifier(uri) [62-65] [uri]
+      StringLiteral("destination") [66-79] ["destination"]
 --
 EXPORT MODEL model.name WITH CONNECTION connection_id OPTIONS(uri = "destination")
 ==
@@ -23,14 +20,14 @@ EXPORT MODEL model.name WITH CONNECTION connection_id OPTIONS(uri = "destination
 # Valid statement only with options.
 export model model.name options(uri = "destination");
 --
-ExportModelStatement [0-52]
-  PathExpression [13-23]
-    Identifier(model) [13-18]
-    Identifier(name) [19-23]
-  OptionsList [31-52]
-    OptionsEntry [32-51]
-      Identifier(uri) [32-35]
-      StringLiteral("destination") [38-51]
+ExportModelStatement [0-52] [export model...destination")]
+  PathExpression [13-23] [model.name]
+    Identifier(model) [13-18] [model]
+    Identifier(name) [19-23] [name]
+  OptionsList [31-52] [(uri = "destination")]
+    OptionsEntry [32-51] [uri = "destination"]
+      Identifier(uri) [32-35] [uri]
+      StringLiteral("destination") [38-51] ["destination"]
 --
 EXPORT MODEL model.name OPTIONS(uri = "destination")
 ==
@@ -38,14 +35,14 @@ EXPORT MODEL model.name OPTIONS(uri = "destination")
 # Valid statement only with connection.
 export model model.name with connection connection_id;
 --
-ExportModelStatement [0-53]
-  PathExpression [13-23]
-    Identifier(model) [13-18]
-    Identifier(name) [19-23]
-  WithConnectionClause [24-53]
-    ConnectionClause [29-53]
-      PathExpression [40-53]
-        Identifier(connection_id) [40-53]
+ExportModelStatement [0-53] [export model...connection_id]
+  PathExpression [13-23] [model.name]
+    Identifier(model) [13-18] [model]
+    Identifier(name) [19-23] [name]
+  WithConnectionClause [24-53] [with connection connection_id]
+    ConnectionClause [29-53] [connection connection_id]
+      PathExpression [40-53] [connection_id]
+        Identifier(connection_id) [40-53] [connection_id]
 --
 EXPORT MODEL model.name WITH CONNECTION connection_id
 ==
@@ -72,4 +69,3 @@ export model model.name with options();
 ERROR: Syntax error: Expected keyword CONNECTION but got keyword OPTIONS [at 1:30]
 export model model.name with options();
                              ^
-==

@@ -17,6 +17,9 @@
 #include "zetasql/common/errors.h"
 
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/status_payload_utils.h"
@@ -43,7 +46,7 @@ absl::Status StatusWithInternalErrorLocation(
   return result;
 }
 
-ErrorSource MakeErrorSource(const absl::Status& status, const std::string& text,
+ErrorSource MakeErrorSource(const absl::Status& status, std::string_view text,
                             ErrorMessageMode mode) {
   ZETASQL_DCHECK(!status.ok());
   // Sanity check that status does not have an InternalErrorLocation.

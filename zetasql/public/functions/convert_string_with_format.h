@@ -20,7 +20,9 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_CONVERT_STRING_WITH_FORMAT_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_CONVERT_STRING_WITH_FORMAT_H_
 
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
@@ -211,8 +213,9 @@ std::string FormatElementToString(FormatElement element);
 // See (broken link) for documented behavior.
 class NumericalToStringFormatter {
  public:
-  explicit NumericalToStringFormatter(ProductMode product_mode)
-      : product_mode_(product_mode) {}
+  explicit NumericalToStringFormatter(ProductMode product_mode,
+                                      bool canonicalize_zero = false)
+      : product_mode_(product_mode), canonicalize_zero_(canonicalize_zero) {}
 
   NumericalToStringFormatter(const NumericalToStringFormatter&) = delete;
   NumericalToStringFormatter& operator=(const NumericalToStringFormatter&) =
@@ -230,6 +233,11 @@ class NumericalToStringFormatter {
 
  private:
   ProductMode product_mode_;
+  // If true, the sign on a signed zero is removed when converting numeric type
+  // to string.
+  // TODO: remove this flag when all engines have
+  // rolled out this new behavior.
+  const bool canonicalize_zero_ = false;
   std::optional<internal::ParsedFormatElementInfo> parsed_info_;
 };
 
@@ -238,7 +246,8 @@ absl::Status ValidateNumericalToStringFormat(absl::string_view format);
 
 // Shorthand for doing the format in one call.
 absl::StatusOr<std::string> NumericalToStringWithFormat(
-    const Value& v, absl::string_view format, ProductMode product_mode);
+    const Value& v, absl::string_view format, ProductMode product_mode,
+    bool canonicalize_zero = false);
 
 }  // namespace functions
 }  // namespace zetasql

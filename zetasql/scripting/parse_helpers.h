@@ -17,6 +17,8 @@
 #ifndef ZETASQL_SCRIPTING_PARSE_HELPERS_H_
 #define ZETASQL_SCRIPTING_PARSE_HELPERS_H_
 
+#include <memory>
+
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/scripting/parsed_script.h"

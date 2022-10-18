@@ -20,6 +20,7 @@
 #include <iostream>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"

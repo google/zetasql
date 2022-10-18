@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/type.h"

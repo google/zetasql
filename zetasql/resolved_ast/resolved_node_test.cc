@@ -16,7 +16,9 @@
 
 #include "zetasql/resolved_ast/resolved_node.h"
 
+#include <memory>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/types/type.h"

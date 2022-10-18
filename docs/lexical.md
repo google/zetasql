@@ -244,8 +244,10 @@ double (`"`) quotation marks, or *triple-quoted* with groups of three single
 </tbody>
 </table>
 
-Prefix characters (`r`, `R`, `b`, `B)` are optional for quoted or triple-quoted strings, and indicate that the string is a raw/regex string or a byte sequence, respectively. For
-example, `b'abc'` and `b'''abc'''` are both interpreted as type bytes. Prefix characters are case insensitive.
+Prefix characters (`r`, `R`, `b`, `B)` are optional for quoted or triple-quoted
+strings, and indicate that the string is a raw/regex string or a byte sequence,
+respectively. For example, `b'abc'` and `b'''abc'''` are both interpreted as
+type bytes. Prefix characters are case-insensitive.
 
 **Quoted literals with prefixes:**
 
@@ -271,8 +273,9 @@ example, `b'abc'` and `b'''abc'''` are both interpreted as type bytes. Prefix ch
 </tbody>
 </table>
 
-The table below lists all valid escape sequences for representing non-alphanumeric characters in string and byte literals.
-Any sequence not in this table produces an error.
+The table below lists all valid escape sequences for representing
+non-alphanumeric characters in string and byte literals. Any sequence not in
+this table produces an error.
 
 <table>
 <thead>
@@ -349,6 +352,10 @@ Any sequence not in this table produces an error.
 </tbody>
 </table>
 
+A string literal represents a constant value of the
+[string data type][string-data-type]. A bytes literal represents a
+constant value of the [bytes data type][bytes-data-type].
+
 ### Integer literals 
 <a id="integer_literals"></a>
 
@@ -371,9 +378,12 @@ if casting does not result in truncation. For example, if the integer 55 of type
 literal value 77 is coerced into type `INT32` because
 `77` can be represented by the `INT32` type.
 
+A integer literal represents a constant value of the
+[integer data type][integer-data-type].
+
 ### NUMERIC literals
 
-You can construct NUMERIC literals using the
+You can construct `NUMERIC` literals using the
 `NUMERIC` keyword followed by a floating point value in quotes.
 
 Examples:
@@ -386,6 +396,9 @@ SELECT NUMERIC '-0.54321';
 SELECT NUMERIC '1.23456e05';
 SELECT NUMERIC '-9.876e-3';
 ```
+
+A `NUMERIC` literal represents a constant value of the
+[`NUMERIC` data type][decimal-data-type].
 
 ### BIGNUMERIC literals
 
@@ -403,6 +416,9 @@ SELECT BIGNUMERIC '1.23456e05';
 SELECT BIGNUMERIC '-9.876e-3';
 ```
 
+A `BIGNUMERIC` literal represents a constant value of the
+[`BIGNUMERIC` data type][decimal-data-type].
+
 ### Floating point literals 
 <a id="floating_point_literals"></a>
 
@@ -410,11 +426,12 @@ Syntax options:
 
 ```sql
 [+-]DIGITS.[DIGITS][e[+-]DIGITS]
-[DIGITS].DIGITS[e[+-]DIGITS]
+[+-][DIGITS].DIGITS[e[+-]DIGITS]
 DIGITSe[+-]DIGITS
 ```
 
-`DIGITS` represents one or more decimal numbers (0 through 9) and `e` represents the exponent marker (e or E).
+`DIGITS` represents one or more decimal numbers (0 through 9) and `e` represents
+the exponent marker (e or E).
 
 Examples:
 
@@ -439,6 +456,9 @@ can be explicitly cast to float:
  + "inf" or "+inf"
  + "-inf"
 
+A floating-point literal represents a constant value of the
+[floating-point data type][floating-point-data-type].
+
 ### Array literals 
 <a id="array_literals"></a>
 
@@ -461,6 +481,9 @@ ARRAY<string>['x', 'y', 'xy']
 ARRAY<int64>[]
 []
 ```
+
+An array literal represents a constant value of the
+[array data type][array-data-type].
 
 ### Struct literals
 
@@ -508,6 +531,9 @@ single field, use typeless struct syntax or typed struct syntax.
 </tbody>
 </table>
 
+A struct literal represents a constant value of the
+[struct data type][struct-data-type].
+
 ### Date literals
 
 Syntax:
@@ -534,6 +560,9 @@ SELECT * FROM foo WHERE date_col = "2014-09-27"
 
 the string literal `"2014-09-27"` will be coerced to a date literal.
 
+A date literal represents a constant value of the
+[date data type][date-data-type].
+
  
 
 ### Time literals
@@ -551,6 +580,9 @@ For example, the following time represents 12:30 p.m.:
 ```sql
 TIME '12:30:00.45'
 ```
+
+A time literal represents a constant value of the
+[time data type][time-data-type].
 
 ### Datetime literals
 Syntax:
@@ -595,12 +627,19 @@ DATETIME '2014-09-27T12:30:00.45'
 DATETIME '2014-09-27t12:30:00.45'
 ```
 
+A datetime literal represents a constant value of the
+[datatime data type][datetime-data-type].
+
 ### Timestamp literals
 
 Syntax:
 
 ```sql
-TIMESTAMP 'YYYY-[M]M-[D]D [[H]H:[M]M:[S]S[.DDDDDD] [timezone]]'
+TIMESTAMP 'YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]] [time_zone]'
+```
+
+```sql
+TIMESTAMP 'YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]][time_zone_offset]'
 ```
 
 Timestamp literals contain the `TIMESTAMP` keyword and a string literal that
@@ -653,6 +692,9 @@ TIMESTAMP '2017-01-18t12:34:56.123456'
 TIMESTAMP '2017-01-18 12:34:56.123456z'
 TIMESTAMP '2017-01-18 12:34:56.123456Z'
 ```
+
+A timestamp literal represents a constant value of the
+[timestamp data type][timestamp-data-type].
 
 #### Time zone 
 <a id="timezone"></a>
@@ -731,12 +773,18 @@ INTERVAL '1 15' MONTH TO DAY
 INTERVAL '1 5:30' DAY TO MINUTE
 ```
 
+An interval literal represents a constant value of the
+[interval data type][interval-data-type].
+
 ### Enum literals 
 <a id="enum_literals"></a>
 
 There is no syntax for enum literals, but integer or string literals will coerce
 to enum type when necessary, or can be explicitly CAST to a specific
 enum type name. For more information, see [Literal coercion][coercion].
+
+An enum literal represents a constant value of the
+[enum data type][enum-data-type].
 
 ### JSON literals 
 <a id="json_literals"></a>
@@ -776,82 +824,94 @@ JSON '
 '
 ```
 
+A JSON literal represents a constant value of the
+[JSON data type][json-data-type].
+
 ## Case sensitivity 
 <a id="case_sensitivity"></a>
 
 ZetaSQL follows these rules for case sensitivity:
 
 <table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Case Sensitive?</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Keywords</td>
-<td>No</td>
-<td>&nbsp;</td>
-</tr>
-
-<tr>
-<td>Function names</td>
-<td>No</td>
-<td>&nbsp;</td>
-</tr>
-
-<tr>
-<td>Table names</td>
-
-<td>See Notes</td>
-<td>Table names are usually case insensitive, but may be case sensitive when querying a database that uses case-sensitive table names.</td>
-
-</tr>
-<tr>
-<td>Column names</td>
-<td>No</td>
-<td>&nbsp;</td>
-</tr>
-
-<tr>
-<td>All type names except for protocol buffer type names</td>
-<td>No</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>Protocol buffer type names</td>
-<td>Yes</td>
-<td>&nbsp;</td>
-</tr>
-
-<tr>
-<td>String values</td>
-<td>Yes</td>
-<td>Includes enum value strings</td>
-</tr>
-<tr>
-<td>String comparisons</td>
-<td>Yes</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>Aliases within a query</td>
-<td>No</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>Regular expression matching</td>
-<td>See Notes</td>
-<td>Regular expression matching is case sensitive by default, unless the expression itself specifies that it should be case insensitive.</td>
-</tr>
-<tr>
-<td><code>LIKE</code> matching</td>
-<td>Yes</td>
-<td>&nbsp;</td>
-</tr>
-</tbody>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Case-sensitive?</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Keywords</td>
+      <td>No</td>
+      <td>&nbsp;</td>
+    </tr>
+    
+    <tr>
+      <td>Function names</td>
+      <td>No</td>
+      <td>&nbsp;</td>
+    </tr>
+    
+    <tr>
+      <td>Table names</td>
+      <td>See Notes</td>
+      <td>
+        
+        Table names are usually case-insensitive, but they might be
+        case-sensitive when querying a database that uses case-sensitive
+        table names.
+        
+      </td>
+    </tr>
+    <tr>
+      <td>Column names</td>
+      <td>No</td>
+      <td>&nbsp;</td>
+    </tr>
+    
+    <tr>
+      <td>All type names except for protocol buffer type names</td>
+      <td>No</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>Protocol buffer type names</td>
+      <td>Yes</td>
+      <td>&nbsp;</td>
+    </tr>
+    
+    <tr>
+      <td>String values</td>
+      <td>Yes</td>
+      <td>
+        Includes enum value strings
+      </td>
+    </tr>
+    <tr>
+      <td>String comparisons</td>
+      <td>Yes</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>Aliases within a query</td>
+      <td>No</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>Regular expression matching</td>
+      <td>See Notes</td>
+      <td>
+        Regular expression matching is case-sensitive by default, unless the
+        expression itself specifies that it should be case-insensitive.
+      </td>
+    </tr>
+    <tr>
+      <td><code>LIKE</code> matching</td>
+      <td>Yes</td>
+      <td>&nbsp;</td>
+    </tr>
+  </tbody>
 </table>
 
 ## Reserved keywords 
@@ -861,7 +921,7 @@ Keywords are a group of tokens that have special meaning in the ZetaSQL
 language, and  have the following characteristics:
 
  + Keywords cannot be used as identifiers unless enclosed by backtick (`) characters.
- + Keywords are case insensitive.
+ + Keywords are case-insensitive.
 
 ZetaSQL has the following reserved keywords.
 
@@ -1215,6 +1275,34 @@ WHERE book = "Ulysses";
 [constructing-a-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#constructing_a_struct
 
 [coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
+
+[string-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#string_type
+
+[bytes-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#bytes_type
+
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
+
+[struct-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
+
+[integer-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#integer_types
+
+[floating-point-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
+
+[decimal-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#decimal_types
+
+[date-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
+
+[time-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_type
+
+[datetime-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#datetime_type
+
+[timestamp-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
+
+[interval-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#interval_type
+
+[enum-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#enum_type
+
+[json-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type
 
 <!-- mdlint on -->
 

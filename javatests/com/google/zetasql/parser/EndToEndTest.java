@@ -317,6 +317,8 @@ public class EndToEndTest {
             + "    |   |       |     +-Alias\n"
             + "    |   |       |       +-identifier=\n"
             + "    |   |       |         +-Identifier(parenthesized=false, id_string=t1)\n"
+            + "    |   |       +-join_location=\n"
+            + "    |   |       | +-Location\n"
             + "    |   |       +-rhs=\n"
             + "    |   |       | +-TablePathExpression\n"
             + "    |   |       |   +-path_expr=\n"

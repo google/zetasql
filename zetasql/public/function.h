@@ -33,6 +33,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "absl/base/attributes.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -510,6 +511,11 @@ class Function {
   static constexpr Mode AGGREGATE = FunctionEnums::AGGREGATE;
   static constexpr Mode ANALYTIC = FunctionEnums::ANALYTIC;
 
+  // The SQL SECURITY specified when the function was created.
+  ResolvedCreateStatementEnums::SqlSecurity sql_security() const {
+    return sql_security_;
+  }
+
   // Functions in the root catalog can use one of the first two constructors.
   // Functions in a nested catalog should use the constructor with the
   // <function_name_path>, identifying the full path name of the function
@@ -760,6 +766,10 @@ class Function {
 
   const std::string& alias_name() const { return function_options_.alias_name; }
 
+  void set_sql_security(ResolvedCreateStatementEnums::SqlSecurity security) {
+    sql_security_ = security;
+  }
+
  private:
   bool is_operator() const;
 
@@ -768,6 +778,8 @@ class Function {
   Mode mode_;
   std::vector<FunctionSignature> function_signatures_;
   const FunctionOptions function_options_;
+  ResolvedCreateStatementEnums::SqlSecurity sql_security_ =
+      ResolvedCreateStatementEnums::SQL_SECURITY_UNSPECIFIED;
 };
 
 // This class contains custom information about a particular function call.

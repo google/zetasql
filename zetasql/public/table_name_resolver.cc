@@ -904,6 +904,12 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
     case AST_AUX_LOAD_DATA_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_AUX_LOAD_DATA_STMT)) {
+        const ASTAuxLoadDataStatement* stmt =
+            statement->GetAs<ASTAuxLoadDataStatement>();
+        const ASTTableElementList* table_elements = stmt->table_element_list();
+        if (table_elements != nullptr) {
+          ZETASQL_RETURN_IF_ERROR(FindInTableElements(table_elements));
+        }
         return absl::OkStatus();
       }
       break;

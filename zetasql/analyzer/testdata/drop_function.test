@@ -265,3 +265,11 @@ drop function foo(string(10)) ;
 ERROR: Parameterized types are not supported in function arguments [at 1:25]
 drop function foo(string(10)) ;
                         ^
+==
+
+# Type with collation name is not supported in drop function
+drop function foo(string collate 'und:ci') ;
+--
+ERROR: Type with collation name is not supported in function arguments [at 1:26]
+drop function foo(string collate 'und:ci') ;
+                         ^

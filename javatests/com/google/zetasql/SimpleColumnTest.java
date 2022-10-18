@@ -176,11 +176,12 @@ public class SimpleColumnTest {
 
   @Test
   public void testClassAndProtoSize() {
+    // TODO: add serialization code for default values.
     assertWithMessage(
             "The number of fields of SimpleColumnProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(SimpleColumnProto.getDescriptor().getFields())
-        .hasSize(6);
+        .hasSize(8);
     assertWithMessage(
             "The number of fields in SimpleColumn class has changed, "
                 + "please also update the proto and serialization code accordingly.")

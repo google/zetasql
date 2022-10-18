@@ -17,6 +17,8 @@
 #include "zetasql/public/id_string.h"
 
 #include <cstdint>
+#include <memory>
+#include <unordered_set>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/case.h"

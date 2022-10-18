@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+#include <vector>
+
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/testing/test_function.h"

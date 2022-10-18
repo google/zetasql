@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/variable_generator.h"
 
 #include <map>
+#include <memory>
 #include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"

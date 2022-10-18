@@ -40,6 +40,7 @@
 namespace zetasql {
 
 class ResolvedOption;
+class AnalyzerOutput;
 
 // Performs a case-insensitive less-than vector<string> comparison, element
 // by element, using the C/POSIX locale for element comparisons. This function
@@ -98,6 +99,10 @@ struct AllowedHintsAndOptions {
   // Add an option.  <type> may be NULL to indicate that all Types are allowed.
   void AddOption(const std::string& name, const Type* type);
 
+  // Add an anonymization option.  <type> may be NULL to indicate that all Types
+  // are allowed.
+  void AddAnonymizationOption(const std::string& name, const Type* type);
+
   // Add a hint.
   // <qualifier> may be empty to add this hint only unqualified, but hints
   //    for some engine should normally allow the engine name as a qualifier.
@@ -145,12 +150,19 @@ struct AllowedHintsAndOptions {
   absl::flat_hash_map<std::pair<std::string, std::string>, const Type*>
       hints_lower;
   absl::flat_hash_map<std::string, const Type*> options_lower;
+  absl::flat_hash_map<std::string, const Type*> anonymization_options_lower = {
+      {"delta", types::DoubleType()},
+      {"epsilon", types::DoubleType()},
+      {"k_threshold", types::Int64Type()},
+      {"kappa", types::Int64Type()}};
 
  private:
   absl::Status AddHintImpl(const std::string& qualifier,
                            const std::string& name, const Type* type,
                            bool allow_unqualified = true);
-  absl::Status AddOptionImpl(const std::string& name, const Type* type);
+  absl::Status AddOptionImpl(
+      absl::flat_hash_map<std::string, const Type*>& options_map,
+      const std::string& name, const Type* type);
 };
 
 // AnalyzerOptions contains options that affect analyzer behavior. The language
@@ -167,6 +179,13 @@ class AnalyzerOptions {
   typedef std::function<absl::Status(const std::string&,
                                      std::unique_ptr<const ResolvedExpr>&)>
       LookupExpressionCallback;
+
+  // Callback function runs after the initial resolve, before any rewriters run.
+  // AnalyzerOutput from analyzer is passed in to this callback and
+  // then to rewriters if any.
+  // Note that if the callback returns an error, the analyzer
+  // will return that same error.
+  using PreRewriteCallback = std::function<absl::Status(const AnalyzerOutput&)>;
 
   // Callback to retrieve pseudo-columns for the target of a DDL statement.
   // <options> is the contents of the OPTIONS clause attached to the statement,
@@ -336,6 +355,14 @@ class AnalyzerOptions {
   ABSL_DEPRECATED("This function is going away. Please don't add new uses.")
   LookupExpressionColumnCallback lookup_expression_column_callback() const {
     return lookup_expression_column_callback_;
+  }
+
+  void SetPreRewriteCallback(const PreRewriteCallback& pre_rewrite_callback) {
+    pre_rewrite_callback_ = std::move(pre_rewrite_callback);
+  }
+
+  PreRewriteCallback pre_rewrite_callback() const {
+    return pre_rewrite_callback_;
   }
 
   // Get the named expression columns added.
@@ -591,6 +618,15 @@ class AnalyzerOptions {
 
   // Callback function to resolve columns in standalone expressions.
   LookupExpressionCallback lookup_expression_callback_ = nullptr;
+
+  // Callback function runs after the initial resolve, before any rewriters run.
+  // This can be used for query validations before rewriters making changes
+  // (e.g. rewriter can introduce nodes that are unsupported for public queries
+  // and we want throw an error if the node was also included in the original
+  // query)
+  // Note that if the callback returns an error, the analyzer
+  // will return that same error.
+  PreRewriteCallback pre_rewrite_callback_ = nullptr;
 
   // Defined positional parameters. Only used in positional parameter mode.
   // Index 0 corresponds with the query parameter at position 1 and so on.

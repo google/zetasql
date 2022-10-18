@@ -16,7 +16,9 @@
 
 #include "zetasql/public/procedure.h"
 
+#include <memory>
 #include <utility>
+#include <vector>
 
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"

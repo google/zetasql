@@ -18,11 +18,16 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <numeric>
+#include <optional>
+#include <set>
 #include <stack>
 #include <string>
 #include <tuple>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/status_payload_utils.h"
@@ -41,6 +46,7 @@
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/time_zone_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/scripting/error_helpers.h"
@@ -521,8 +527,8 @@ absl::Status ScriptExecutorImpl::SetTimezone(const Value& timezone_value,
   absl::TimeZone new_timezone;
   if (timezone_value.is_null()) {
     return MakeScriptExceptionAt(location) << "Invalid timezone: NULL";
-  } else if (!absl::LoadTimeZone(timezone_value.string_value(),
-                                 &new_timezone)) {
+  } else if (!FindTimeZoneByName(timezone_value.string_value(), &new_timezone)
+                  .ok()) {
     return MakeScriptExceptionAt(location)
            << "Invalid timezone: " << timezone_value.string_value();
   }
@@ -1563,9 +1569,10 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicIntoStatement(
       if (coercer.AssignableTo(InputArgumentType(iterator->GetValue(i).type()),
                                value->type(),
                                /*is_explicit=*/false, &unused)) {
-        ZETASQL_ASSIGN_OR_RETURN(*value,
-                         CastValue(iterator->GetValue(i), time_zone_,
-                                   options_.language_options(), value->type()));
+        ZETASQL_ASSIGN_OR_RETURN(
+            *value, CastValue(iterator->GetValue(i), time_zone_,
+                              options_.language_options(), value->type(),
+                              /*catalog=*/nullptr, /*canonicalize_zero=*/true));
       } else {
         // Because we're currently in the dynamic SQL stack frame, we cannot
         // reference the AST Node of the original variable ID, so just indicate
@@ -1851,7 +1858,7 @@ absl::Status ScriptExecutorImpl::SetState(
 
   system_variables_[{kTimeZoneSystemVarName}] = Value::String(state.timezone());
   absl::TimeZone timezone;
-  if (absl::LoadTimeZone(state.timezone(), &timezone)) {
+  if (FindTimeZoneByName(state.timezone(), &timezone).ok()) {
     time_zone_ = timezone;
   } else {
     // Unable to load timezone from state proto - fall back to default time
@@ -2339,8 +2346,8 @@ bool ScriptExecutorImpl::CoercesTo(const Type* from_type,
 
 absl::StatusOr<Value> ScriptExecutorImpl::CastValueToType(
     const Value& from_value, const Type* to_type) const {
-  return CastValue(from_value, time_zone_, options_.language_options(),
-                   to_type);
+  return CastValue(from_value, time_zone_, options_.language_options(), to_type,
+                   /*catalog=*/nullptr, /*canonicalize_zero=*/true);
 }
 
 ScriptSegment ScriptExecutorImpl::SegmentForScalarExpression(

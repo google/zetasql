@@ -16,7 +16,9 @@
 
 #include "zetasql/public/anonymization_utils.h"
 
+#include <cmath>
 #include <cstdint>
+#include <limits>
 
 #include "zetasql/public/type.h"
 #include "zetasql/base/case.h"

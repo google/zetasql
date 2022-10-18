@@ -56,6 +56,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "google/protobuf/repeated_field.h"
@@ -86,7 +87,7 @@ namespace zetasql {
 // TODO: This function currently only supports Status with
 // ErrorLocation, not Status with InternalErrorLocation.  Extend this to
 // support a Status with InternalErrorLocation if/when we need it.
-ErrorSource MakeErrorSource(const absl::Status& status, const std::string& text,
+ErrorSource MakeErrorSource(const absl::Status& status, std::string_view text,
                             ErrorMessageMode mode);
 
 // Creates a StatusBuilder for ZetaSQL errors using the INVALID_ARGUMENT
@@ -151,7 +152,7 @@ const std::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorS
 template <typename ErrorLocationType>
 ErrorLocationType SetErrorSourcesFromStatus(
     const ErrorLocationType& error_location_in, const absl::Status& status,
-    ErrorMessageMode mode, const std::string& input_text_for_status = "") {
+    ErrorMessageMode mode, std::string_view input_text_for_status = "") {
   if (status.ok()) {
     // An OK status should not have any payload, so just return the
     // InternalErrorLocation.

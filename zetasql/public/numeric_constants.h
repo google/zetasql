@@ -26,7 +26,11 @@
 namespace zetasql {
 namespace internal {
 constexpr uint32_t k1e9 = 1000 * 1000 * 1000;
-constexpr uint64_t k1e19 = static_cast<uint64_t>(k1e9) * k1e9 * 10;
+constexpr uint64_t k1e10 = static_cast<uint64_t>(k1e9) * 10;
+constexpr uint64_t k1e16 = 10000000000000000ULL;
+constexpr uint64_t k1e17 = k1e16 * 10;
+constexpr uint64_t k1e18 = k1e17 * 10;
+constexpr uint64_t k1e19 = k1e18 * 10;
 constexpr __int128 k1e38 = static_cast<__int128>(k1e19) * k1e19;
 }  // namespace internal
 }  // namespace zetasql

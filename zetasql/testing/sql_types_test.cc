@@ -16,6 +16,9 @@
 
 #include "zetasql/testing/sql_types_test.h"
 
+#include <memory>
+#include <vector>
+
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/language_options.h"
@@ -366,12 +369,6 @@ void ZetaSQLTypesTest::GetSimpleTypes(
 
     simple_types->push_back(type);
   }
-}
-
-std::vector<const Type*> ZetaSQLTypesTest::GetSimpleTypes() {
-  std::vector<const Type*> result;
-  GetSimpleTypes(&result);
-  return result;
 }
 
 }  // namespace zetasql

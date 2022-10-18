@@ -25,9 +25,14 @@
 #include <functional>
 #include <initializer_list>
 #include <limits>
+#include <memory>
 #include <new>
+#include <optional>
+#include <ostream>
+#include <sstream>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/common/multiprecision_int.h"
@@ -729,6 +734,14 @@ void TestMultiplicationDivisionRoundTrip(absl::BitGen* random) {
                                                 big_mantissa_y, exp_y);
   }
 }
+
+template <class T>
+struct FromScaledLittleEndianValueOp {
+  absl::StatusOr<T> operator()(absl::string_view input, int scale,
+                               bool allow_rounding) const {
+    return T::FromScaledLittleEndianValue(input, scale, allow_rounding);
+  }
+};
 
 template <typename Input = NumericValueWrapper,
           typename Output = NumericValueWrapper>

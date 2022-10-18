@@ -707,13 +707,16 @@ TEST(Convert, TextMininmal) {
 
 void ValidateOutput(const Value& value, absl::string_view format_string,
                     const std::string& expected) {
-  EXPECT_THAT(NumericalToStringWithFormat(value, format_string,
-                                          ProductMode::PRODUCT_INTERNAL)
-                  .value(),
-              expected)
-      << "Input: " << value.DebugString(/*verbose=*/true)
-      << ", Format String: [" << format_string << "]"
-      << ", Expected: [" << expected << "]";
+  for (bool canonicalize_zero : {true, false}) {
+    EXPECT_THAT(NumericalToStringWithFormat(value, format_string,
+                                            ProductMode::PRODUCT_INTERNAL,
+                                            canonicalize_zero)
+                    .value(),
+                expected)
+        << "Input: " << value.DebugString(/*verbose=*/true)
+        << ", Format String: [" << format_string << "]"
+        << ", Expected: [" << expected << "]";
+  }
 }
 
 void ValidateOutputInAllLetterCases(const Value& value,

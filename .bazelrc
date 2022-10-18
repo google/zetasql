@@ -16,10 +16,8 @@
 
 # ZetaSQL requires c++17 support to match internal Google development
 # environments.
-# c++1z was used prior to c++17 being standardized, and is therefore more
-# widely accepted by compilers. This may lead to strange behavior or compiler
-# errors in earlier compilers.
-build --cxxopt="-std=c++1z"
+build --cxxopt=-std=c++17
+
 # By default, we don't suppress any warnings, to get clang-specific warning
 # suppression you can invoke with --config=clang
 build:clang --cxxopt=-Wno-deprecated-declarations

@@ -24,12 +24,14 @@
 
 #include "zetasql/common/float_margin.h"
 #include "zetasql/common/internal_value.h"
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -41,8 +43,7 @@ namespace functions {
 namespace {
 
 TEST(ToJsonTest, Compliance) {
-  const std::vector<FunctionTestCall> tests =
-      GetFunctionTestsToJson(/*include_nano_timestamp=*/true);
+  const std::vector<FunctionTestCall> tests = GetFunctionTestsToJson();
   const QueryParamsWithResult::FeatureSet default_feature_set = {
       FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
 
@@ -66,7 +67,8 @@ TEST(ToJsonTest, Compliance) {
           FEATURE_JSON_STRICT_NUMBER_PARSING);
     }
     absl::StatusOr<JSONValue> output =
-        ToJson(input_value, stringify_wide_numbers, language_options);
+        ToJson(input_value, stringify_wide_numbers, language_options,
+               /*canonicalize_zero=*/true);
 
     // If the test is conditioned on civil time with nanos, use that result.
     // Otherwise just use the default result.
@@ -96,6 +98,27 @@ TEST(ToJsonTest, Compliance) {
       EXPECT_EQ(output.status().code(), expected_status.code());
     }
   }
+}
+
+TEST(ToJsonTest, LegacyCanonicalizeZeroDouble) {
+  zetasql::LanguageOptions language_options;
+
+  absl::StatusOr<JSONValue> output =
+      ToJson(Value::Double(-0.0), /*stringify_wide_numbers=*/false,
+             language_options, /*canonicalize_zero=*/false);
+  ZETASQL_ASSERT_OK(output);
+  EXPECT_EQ(values::Json(std::move(output.value())),
+            values::Json(JSONValue(-0.0)));
+}
+
+TEST(ToJsonTest, LegacyCanonicalizeZeroFloat) {
+  zetasql::LanguageOptions language_options;
+  absl::StatusOr<JSONValue> output =
+      ToJson(Value::Float(-0.0f), /*stringify_wide_numbers=*/false,
+             language_options, /*canonicalize_zero=*/false);
+  ZETASQL_ASSERT_OK(output);
+  EXPECT_EQ(values::Json(std::move(output.value())),
+            values::Json(JSONValue(-0.0)));
 }
 
 }  // namespace

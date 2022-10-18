@@ -1,16 +1,13 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 START TRANSACTION
 --
-BeginStatement [0-17]
+BeginStatement [0-17] [START TRANSACTION]
 --
 BEGIN TRANSACTION
 ==
 
 Begin Transaction
 --
-BeginStatement [0-17]
+BeginStatement [0-17] [Begin Transaction]
 --
 BEGIN TRANSACTION
 ==
@@ -18,7 +15,7 @@ BEGIN TRANSACTION
 begin
 --
 
-BeginStatement [0-5]
+BeginStatement [0-5] [begin]
 --
 BEGIN TRANSACTION
 ==
@@ -26,20 +23,20 @@ BEGIN TRANSACTION
 begin transaction read only
 --
 
-BeginStatement [0-27]
-  TransactionModeList [18-27]
-    TransactionReadWriteMode [18-27]
+BeginStatement [0-27] [begin transaction read only]
+  TransactionModeList [18-27] [read only]
+    TransactionReadWriteMode [18-27] [read only]
 --
 BEGIN TRANSACTION READ ONLY
 ==
 
 BEGIN TRANSACTION ISOLATION LEVEL read uncommited
 --
-BeginStatement [0-49]
-  TransactionModeList [18-49]
-    TransactionIsolationLevel [18-49]
-      Identifier(read) [34-38]
-      Identifier(uncommited) [39-49]
+BeginStatement [0-49] [BEGIN TRANSACTION...uncommited]
+  TransactionModeList [18-49] [ISOLATION...uncommited]
+    TransactionIsolationLevel [18-49] [ISOLATION...uncommited]
+      Identifier(read) [34-38] [read]
+      Identifier(uncommited) [39-49] [uncommited]
 --
 BEGIN TRANSACTION ISOLATION LEVEL read uncommited
 ==
@@ -47,33 +44,33 @@ BEGIN TRANSACTION ISOLATION LEVEL read uncommited
 
 start transaction READ WRITE, ISOLATION LEVEL READ COMMITED
 --
-BeginStatement [0-59]
-  TransactionModeList [18-59]
-    TransactionReadWriteMode [18-28]
-    TransactionIsolationLevel [30-59]
-      Identifier(READ) [46-50]
-      Identifier(COMMITED) [51-59]
+BeginStatement [0-59] [start transaction...D COMMITED]
+  TransactionModeList [18-59] [READ WRITE...READ COMMITED]
+    TransactionReadWriteMode [18-28] [READ WRITE]
+    TransactionIsolationLevel [30-59] [ISOLATION LEVEL READ COMMITED]
+      Identifier(READ) [46-50] [READ]
+      Identifier(COMMITED) [51-59] [COMMITED]
 --
 BEGIN TRANSACTION READ WRITE, ISOLATION LEVEL READ COMMITED
 ==
 
 BEGIN isolation level READ repeatable
 --
-BeginStatement [0-37]
-  TransactionModeList [6-37]
-    TransactionIsolationLevel [6-37]
-      Identifier(READ) [22-26]
-      Identifier(repeatable) [27-37]
+BeginStatement [0-37] [BEGIN isolation...repeatable]
+  TransactionModeList [6-37] [isolation...repeatable]
+    TransactionIsolationLevel [6-37] [isolation...repeatable]
+      Identifier(READ) [22-26] [READ]
+      Identifier(repeatable) [27-37] [repeatable]
 --
 BEGIN TRANSACTION ISOLATION LEVEL READ repeatable
 ==
 
 BEGIN transaction Isolation Level Serializable
 --
-BeginStatement [0-46]
-  TransactionModeList [18-46]
-    TransactionIsolationLevel [18-46]
-      Identifier(Serializable) [34-46]
+BeginStatement [0-46] [BEGIN transaction...rializable]
+  TransactionModeList [18-46] [Isolation Level Serializable]
+    TransactionIsolationLevel [18-46] [Isolation Level Serializable]
+      Identifier(Serializable) [34-46] [Serializable]
 --
 BEGIN TRANSACTION ISOLATION LEVEL Serializable
 ==
@@ -81,11 +78,11 @@ BEGIN TRANSACTION ISOLATION LEVEL Serializable
 # Arbitrary isolation levels are allowed.
 BEGIN TRANSACTION ISOLATION LEVEL FOO bar
 --
-BeginStatement [0-41]
-  TransactionModeList [18-41]
-    TransactionIsolationLevel [18-41]
-      Identifier(FOO) [34-37]
-      Identifier(bar) [38-41]
+BeginStatement [0-41] [BEGIN TRANSACTION...EL FOO bar]
+  TransactionModeList [18-41] [ISOLATION LEVEL FOO bar]
+    TransactionIsolationLevel [18-41] [ISOLATION LEVEL FOO bar]
+      Identifier(FOO) [34-37] [FOO]
+      Identifier(bar) [38-41] [bar]
 --
 BEGIN TRANSACTION ISOLATION LEVEL FOO bar
 ==
@@ -107,20 +104,20 @@ BEGIN ISOLATION
 
 SET TRANSACTION READ ONLY
 --
-SetTransaction [0-25]
-  TransactionModeList [16-25]
-    TransactionReadWriteMode [16-25]
+SetTransaction [0-25] [SET TRANSACTION READ ONLY]
+  TransactionModeList [16-25] [READ ONLY]
+    TransactionReadWriteMode [16-25] [READ ONLY]
 --
 SET TRANSACTION READ ONLY
 ==
 
 SET TRANSACTION READ WRITE, ISOLATION LEVEL foo
 --
-SetTransaction [0-47]
-  TransactionModeList [16-47]
-    TransactionReadWriteMode [16-26]
-    TransactionIsolationLevel [28-47]
-      Identifier(foo) [44-47]
+SetTransaction [0-47] [SET TRANSACTION...LEVEL foo]
+  TransactionModeList [16-47] [READ WRITE...LEVEL foo]
+    TransactionReadWriteMode [16-26] [READ WRITE]
+    TransactionIsolationLevel [28-47] [ISOLATION LEVEL foo]
+      Identifier(foo) [44-47] [foo]
 --
 SET TRANSACTION READ WRITE, ISOLATION LEVEL foo
 ==
@@ -141,14 +138,14 @@ SET TRANSACTION IdentifierHere
 
 COMMIT
 --
-CommitStatement [0-6]
+CommitStatement [0-6] [COMMIT]
 --
 COMMIT
 ==
 
 commit transaction
 --
-CommitStatement [0-18]
+CommitStatement [0-18] [commit transaction]
 --
 COMMIT
 ==
@@ -162,14 +159,14 @@ COMMIT WORK
 
 ROLLBACK
 --
-RollbackStatement [0-8]
+RollbackStatement [0-8] [ROLLBACK]
 --
 ROLLBACK
 ==
 
 Rollback Transaction
 --
-RollbackStatement [0-20]
+RollbackStatement [0-20] [Rollback Transaction]
 --
 ROLLBACK
 ==

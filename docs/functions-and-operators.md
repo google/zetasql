@@ -1338,7 +1338,7 @@ The following rules apply when comparing these data types:
   Returns TRUE if X is less than Y.
   
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
 
 </td>
 </tr>
@@ -1349,7 +1349,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
   Returns TRUE if X is less than or equal to Y.
   
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
 
 </td>
 </tr>
@@ -1360,7 +1360,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
   Returns TRUE if X is greater than Y.
   
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
 
 </td>
 </tr>
@@ -1371,7 +1371,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
   Returns TRUE if X is greater than or equal to Y.
   
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
 
 </td>
 </tr>
@@ -1382,7 +1382,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
   Returns TRUE if X is equal to Y.
   
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
 
 </td>
 </tr>
@@ -1393,7 +1393,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
   Returns TRUE if X is not equal to Y.
   
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
 
 </td>
 </tr>
@@ -1407,7 +1407,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
     evaluated only once in the former.
     
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
 
   </p>
 </td>
@@ -1439,7 +1439,7 @@ required. For example, <code>r"\%"</code>.</li>
   evaluated only once.
   
 
-This operator generally supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+This operator generally supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
 
 </td>
 </tr>
@@ -1916,336 +1916,6 @@ SELECT 1 IS NOT DISTINCT FROM 2
 SELECT 1 IS NOT DISTINCT FROM NULL
 ```
 
-### IFERROR operator 
-<a id="iferror_operator"></a>
-
-```sql
-IFERROR(try_expression, catch_expression)
-```
-
-**Description**
-
-Evaluates `try_expression`.
-
-When `try_expression` is evaluated:
-
-+ If the evaluation of `try_expression` does not produce an error, then
-  `IFERROR` returns the result of `try_expression` without evaluating
-  `catch_expression`.
-+ If the evaluation of `try_expression` produces a system error, then `IFERROR`
-  produces that system error.
-+ If the evaluation of `try_expression` produces an evaluation error, then
-  `IFERROR` suppresses that evaluation error and evaluates `catch_expression`.
-
-If `catch_expression` is evaluated:
-
-+ If the evaluation of `catch_expression` does not produce an error, then
-  `IFERROR` returns the result of `catch_expression`.
-+ If the evaluation of `catch_expression` produces any error, then `IFERROR`
-  produces that error.
-
-**Arguments**
-
-+ `try_expression`: An expression that returns a scalar value.
-+ `catch_expression`: An expression that returns a scalar value.
-
-The results of `try_expression` and `catch_expression` must share a
-[supertype][supertype].
-
-**Return Data Type**
-
-The [supertype][supertype] for `try_expression` and
-`catch_expression`.
-
-**Example**
-
-In the following examples, the query successfully evaluates `try_expression`.
-
-```sql
-SELECT IFERROR('a', 'b') AS result
-
-+--------+
-| result |
-+--------+
-| a      |
-+--------+
-```
-
-```sql
-SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
-
-+--------+
-| result |
-+--------+
-| 1      |
-+--------+
-```
-
-In the following examples, `IFERROR` catches an evaluation error in the
-`try_expression` and successfully evaluates `catch_expression`.
-
-```sql
-SELECT IFERROR(ERROR('a'), 'b') AS result
-
-+--------+
-| result |
-+--------+
-| b      |
-+--------+
-```
-
-```sql
-SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
-
-+--------+
-| result |
-+--------+
-| -1     |
-+--------+
-```
-
-In the following query, the error is handled by the innermost `IFERROR`
-operation, `IFERROR(ERROR('a'), 'b')`.
-
-```sql
-SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
-
-+--------+
-| result |
-+--------+
-| b      |
-+--------+
-```
-
-In the following query, the error is handled by the outermost `IFERROR`
-operation, `IFERROR(..., 'c')`.
-
-```sql
-SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
-
-+--------+
-| result |
-+--------+
-| c      |
-+--------+
-```
-
-In the following example, an evaluation error is produced because the subquery
-passed in as the `try_expression` evaluates to a table, not a scalar value.
-
-```sql
-SELECT IFERROR((SELECT e FROM UNNEST([1, 2]) AS e), 3) AS result
-
-+--------+
-| result |
-+--------+
-| 3      |
-+--------+
-```
-
-In the following example, `IFERROR` catches an evaluation error in `ERROR('a')`
-and then evaluates `ERROR('b')`. Because there is also an evaluation error in
-`ERROR('b')`, `IFERROR` produces an evaluation error for `ERROR('b')`.
-
-```sql
-SELECT IFERROR(ERROR('a'), ERROR('b')) AS result
-
---ERROR: OUT_OF_RANGE 'b'
-```
-
-### ISERROR operator 
-<a id="iserror_operator"></a>
-
-```sql
-ISERROR(try_expression)
-```
-
-**Description**
-
-Evaluates `try_expression`.
-
-+ If the evaluation of `try_expression` does not produce an error, then
-  `ISERROR` returns `FALSE`.
-+ If the evaluation of `try_expression` produces a system error, then `ISERROR`
-  produces that system error.
-+ If the evaluation of `try_expression` produces an evaluation error, then
-  `ISERROR` returns `TRUE`.
-
-**Arguments**
-
-+ `try_expression`: An expression that returns a scalar value.
-
-**Return Data Type**
-
-`BOOL`
-
-**Example**
-
-In the following examples, `ISERROR` successfully evaluates `try_expression`.
-
-```sql
-SELECT ISERROR('a') AS is_error
-
-+----------+
-| is_error |
-+----------+
-| false    |
-+----------+
-```
-
-```sql
-SELECT ISERROR(2/1) AS is_error
-
-+----------+
-| is_error |
-+----------+
-| false    |
-+----------+
-```
-
-```sql
-SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
-
-+----------+
-| is_error |
-+----------+
-| false    |
-+----------+
-```
-
-In the following examples, `ISERROR` catches an evaluation error in
-`try_expression`.
-
-```sql
-SELECT ISERROR(ERROR('a')) AS is_error
-
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
-```
-
-```sql
-SELECT ISERROR(2/0) AS is_error
-
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
-```
-
-```sql
-SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
-
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
-```
-
-In the following example, an evaluation error is produced because the subquery
-passed in as `try_expression` evaluates to a table, not a scalar value.
-
-```sql
-SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
-
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
-```
-
-### NULLIFERROR operator 
-<a id="nulliferror_operator"></a>
-
-```sql
-NULLIFERROR(try_expression)
-```
-**Description**
-
-Evaluates `try_expression`.
-
-+ If the evaluation of `try_expression` does not produce an error, then
-  `NULLIFERROR` returns the result of `try_expression`.
-+ If the evaluation of `try_expression` produces a system error, then
- `NULLIFERROR` produces that system error.
-
-+ If the evaluation of `try_expression` produces an evaluation error, then
-  `NULLIFERROR` returns `NULL`.
-
-**Arguments**
-
-+ `try_expression`: An expression that returns a scalar value.
-
-**Return Data Type**
-
-The data type for `try_expression` or `NULL`
-
-**Example**
-
-In the following examples, `NULLIFERROR` successfully evaluates
-`try_expression`.
-
-```sql
-SELECT NULLIFERROR('a') AS result
-
-+--------+
-| result |
-+--------+
-| a      |
-+--------+
-```
-
-```sql
-SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
-
-+--------+
-| result |
-+--------+
-| 1      |
-+--------+
-```
-
-In the following examples, `NULLIFERROR` catches an evaluation error in
-`try_expression`.
-
-```sql
-SELECT NULLIFERROR(ERROR('a')) AS result
-
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
-```
-
-```sql
-SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
-
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
-```
-
-In the following example, an evaluation error is produced because the subquery
-passed in as `try_expression` evaluates to a table, not a scalar value.
-
-```sql
-SELECT NULLIFERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS result
-
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
-```
-
 ### Concatenation operator
 
 The concatenation operator combines multiple values into one.
@@ -2393,12 +2063,6 @@ FROM UNNEST([
 
 [operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
 
-[coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
-
-[supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
-
-[safe-prefix]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#safe_prefix
-
 [operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
 
 [operators-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
@@ -2453,7 +2117,7 @@ done on coerced values. There may be multiple `result` types. `result` and
 
 This expression supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Type**
 
@@ -2512,7 +2176,7 @@ common [supertype][cond-exp-supertype].
 
 This expression supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Type**
 
@@ -2685,7 +2349,7 @@ common [supertype][cond-exp-supertype], and must be comparable.
 
 This expression supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Type**
 
@@ -2994,10 +2658,12 @@ ARRAY_CONCAT_AGG(
 
 **Description**
 
-Concatenates elements from `expression` of type
-ARRAY, returning a single
-ARRAY as a result. This function ignores NULL input
-arrays, but respects the NULL elements in non-NULL input arrays.
+Concatenates elements from `expression` of type `ARRAY`, returning a single
+array as a result.
+
+This function ignores `NULL` input arrays, but respects the `NULL` elements in
+non-`NULL` input arrays. Returns `NULL` if there are zero input rows or
+`expression` evaluates to `NULL` for all rows.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -3010,14 +2676,11 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Supported Argument Types**
 
-ARRAY
+`ARRAY`
 
 **Returned Data Types**
 
-ARRAY
-
-Returns `NULL` if there are zero input
-rows or `expression` evaluates to NULL for all rows.
+`ARRAY`
 
 **Examples**
 
@@ -3399,7 +3062,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 This function with DISTINCT supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Supported Argument Types**
 
@@ -3517,6 +3180,8 @@ FROM Events;
 | 2                            |
 +------------------------------+
 ```
+
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
 ### COUNTIF
 
@@ -3664,21 +3329,24 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Supported Argument Types**
 
-BOOL
+`BOOL`
 
 **Return Data Types**
 
-BOOL
+`BOOL`
 
 **Examples**
 
+`LOGICAL_AND` returns `FALSE` because not all of the values in the array are
+less than 3.
+
 ```sql
-SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
+SELECT LOGICAL_AND(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
 +-------------+
 | logical_and |
 +-------------+
-| false       |
+| FALSE       |
 +-------------+
 ```
 
@@ -3727,21 +3395,24 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Supported Argument Types**
 
-BOOL
+`BOOL`
 
 **Return Data Types**
 
-BOOL
+`BOOL`
 
 **Examples**
 
+`LOGICAL_OR` returns `TRUE` because at least one of the values in the array is
+less than 3.
+
 ```sql
-SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
+SELECT LOGICAL_OR(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
 +------------+
 | logical_or |
 +------------+
-| true       |
+| TRUE       |
 +------------+
 ```
 
@@ -3791,7 +3462,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Supported Argument Types**
 
@@ -3829,6 +3500,8 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 55   | 55   |
 +------+------+
 ```
+
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
 ### MIN
 
@@ -3876,7 +3549,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Supported Argument Types**
 
@@ -3914,6 +3587,8 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 55   | 37   |
 +------+------+
 ```
+
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
 ### STRING_AGG
 
@@ -4214,13 +3889,7 @@ FROM UNNEST([]) AS x;
 +------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
-
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-<!-- mdlint on -->
 
 ## Statistical aggregate functions
 
@@ -4288,6 +3957,8 @@ To learn more about the `OVER` clause and how to use it, see
 
 `DOUBLE`
 
+[stat-agg-link-to-pearson-coefficient]: https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient
+
 ### COVAR_POP
 
 ```sql
@@ -4347,6 +4018,8 @@ To learn more about the `OVER` clause and how to use it, see
 
 `DOUBLE`
 
+[stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
+
 ### COVAR_SAMP
 
 ```sql
@@ -4405,6 +4078,8 @@ To learn more about the `OVER` clause and how to use it, see
 **Return Data Type**
 
 `DOUBLE`
+
+[stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
 ### STDDEV_POP
 
@@ -4597,6 +4272,8 @@ To learn more about the `OVER` clause and how to use it, see
 
 `DOUBLE`
 
+[stat-agg-link-to-stddev-samp]: #stddev_samp
+
 ### VAR_SAMP
 
 ```sql
@@ -4679,19 +4356,9 @@ window_specification:
 
 An alias of [VAR_SAMP][stat-agg-link-to-var-samp].
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[stat-agg-link-to-pearson-coefficient]: https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient
-
-[stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
-
-[stat-agg-link-to-stddev-samp]: #stddev_samp
-
 [stat-agg-link-to-var-samp]: #var_samp
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-<!-- mdlint on -->
 
 ## Anonymization aggregate functions 
 <a id="aggregate_anonymization_functions"></a>
@@ -4782,6 +4449,12 @@ GROUP BY item;
 
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
+
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
 
 ### ANON_COUNT
 
@@ -4923,6 +4596,14 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
 
+[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
+
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+
 ### ANON_PERCENTILE_CONT
 
 ```sql
@@ -4984,6 +4665,10 @@ GROUP BY item;
 +----------+----------------------+
 ```
 
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+
 ### ANON_QUANTILES
 
 ```sql
@@ -5037,6 +4722,10 @@ GROUP BY item;
 | pencil   | [6.849259,44.010416666666664,62.64204,65.83806818181819,98.59375]    |
 +----------+----------------------------------------------------------------------+
 ```
+
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
 
 ### ANON_STDDEV_POP
 
@@ -5098,6 +4787,10 @@ GROUP BY item;
 | pen      | 2                      |
 +----------+------------------------+
 ```
+
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
 
 ### ANON_SUM
 
@@ -5173,6 +4866,12 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
 
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+
 ### ANON_VAR_POP
 
 ```sql
@@ -5234,21 +4933,13 @@ GROUP BY item;
 +----------+-----------------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
-
-[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 
 [anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
 
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
-
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-<!-- mdlint on -->
 
 ## Approximate aggregate functions
 
@@ -5283,7 +4974,7 @@ APPROX_COUNT_DISTINCT(
 **Description**
 
 Returns the approximate result for `COUNT(DISTINCT expression)`. The value
-returned is a statistical estimate&mdash;not necessarily the actual value.
+returned is a statistical estimate, not necessarily the actual value.
 
 This function is less accurate than `COUNT(DISTINCT expression)`, but performs
 better on huge input.
@@ -5291,13 +4982,14 @@ better on huge input.
 **Supported Argument Types**
 
 Any data type **except**:
-`ARRAY`
-`STRUCT`
-`PROTO`
+
++ `ARRAY`
++ `STRUCT`
++ `PROTO`
 
 **Returned Data Types**
 
-INT64
+`INT64`
 
 **Examples**
 
@@ -5330,6 +5022,9 @@ Returns the approximate boundaries for a group of `expression` values, where
 an array of `number` + 1 elements, where the first element is the approximate
 minimum and the last element is the approximate maximum.
 
+Returns `NULL` if there are zero input rows or `expression` evaluates to
+`NULL` for all rows.
+
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
 
@@ -5341,20 +5036,16 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Supported Argument Types**
 
-`expression` can be any supported data type **except**:
-`ARRAY`
-`STRUCT`
-`PROTO`
++ `expression`: Any supported data type **except**:
 
-`number` must be INT64.
+  + `ARRAY`
+  + `STRUCT`
+  + `PROTO`
++ `number`: `INT64` literal or query parameter.
 
 **Returned Data Types**
 
-An ARRAY of the type specified by the `expression`
-parameter.
-
-Returns `NULL` if there are zero input
-rows or `expression` evaluates to NULL for all rows.
+`ARRAY<T>` where `T` is the type specified by `expression`.
 
 **Examples**
 
@@ -5424,8 +5115,14 @@ APPROX_TOP_COUNT(
 
 **Description**
 
-Returns the approximate top elements of `expression`. The `number` parameter
-specifies the number of elements returned.
+Returns the approximate top elements of `expression` as an array of `STRUCT`s.
+The `number` parameter specifies the number of elements returned.
+
+Each `STRUCT` contains two fields. The first field (named `value`) contains an
+input value. The second field (named `count`) contains an `INT64` specifying the
+number of times the value was returned.
+
+Returns `NULL` if there are zero input rows.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -5438,19 +5135,12 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Supported Argument Types**
 
-`expression` can be of any data type that the `GROUP BY` clause supports.
-
-`number` must be INT64.
++ `expression`: Any data type that the `GROUP BY` clause supports.
++ `number`: `INT64` literal or query parameter.
 
 **Returned Data Types**
 
-An ARRAY of type STRUCT.
-The STRUCT contains two fields. The first field
-(named `value`) contains an input value. The second field (named `count`)
-contains an INT64 specifying the number of times the
-value was returned.
-
-Returns `NULL` if there are zero input rows.
+`ARRAY<STRUCT>`
 
 **Examples**
 
@@ -5467,7 +5157,7 @@ FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x;
 
 **NULL handling**
 
-APPROX_TOP_COUNT does not ignore NULLs in the input. For example:
+`APPROX_TOP_COUNT` does not ignore `NULL`s in the input. For example:
 
 ```sql
 SELECT APPROX_TOP_COUNT(x, 2) as approx_top_count
@@ -5497,6 +5187,14 @@ returned.
 
 If the `weight` input is negative or `NaN`, this function returns an error.
 
+The elements are returned as an array of `STRUCT`s.
+Each `STRUCT` contains two fields: `value` and `sum`.
+The `value` field contains the value of the input expression. The `sum` field is
+the same type as `weight`, and is the approximate sum of the input weight
+associated with the `value` field.
+
+Returns `NULL` if there are zero input rows.
+
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
 
@@ -5508,27 +5206,19 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Supported Argument Types**
 
-`expression` can be of any data type that the `GROUP BY` clause supports.
++ `expression`: Any data type that the `GROUP BY` clause supports.
++ `weight`: One of the following:
 
-`weight` must be one of the following:
-
-+ `INT64`
-+ `UINT64`
-+ `NUMERIC`
-+ `BIGNUMERIC`
-+ `DOUBLE`
-
-`number` must be INT64.
+  + `INT64`
+  + `UINT64`
+  + `NUMERIC`
+  + `BIGNUMERIC`
+  + `DOUBLE`
++ `number`: `INT64` literal or query parameter.
 
 **Returned Data Types**
 
-An ARRAY of type STRUCT.
-The STRUCT contains two fields: `value` and `sum`.
-The `value` field contains the value of the input expression. The `sum` field is
-the same type as `weight`, and is the approximate sum of the input weight
-associated with the `value` field.
-
-Returns `NULL` if there are zero input rows.
+`ARRAY<STRUCT>`
 
 **Examples**
 
@@ -5551,7 +5241,7 @@ UNNEST([
 
 **NULL handling**
 
-APPROX_TOP_SUM does not ignore NULL values for the `expression` and `weight`
+`APPROX_TOP_SUM` does not ignore `NULL` values for the `expression` and `weight`
 parameters.
 
 ```sql
@@ -5587,8 +5277,6 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 +----------------------------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
 [hll-functions]: #hyperloglog_functions
 
 [kll-functions]: #kll_quantile_functions
@@ -5596,8 +5284,6 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 [aggregate-functions-reference]: #aggregate_functions
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-<!-- mdlint on -->
 
 ## HyperLogLog++ functions
 
@@ -5660,17 +5346,31 @@ a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitep
 
 **Example**
 
+The following query creates HLL++ sketches that count the number of distinct
+users with at least one invoice per country.
+
 ```sql
 SELECT
-  HLL_COUNT.INIT(respondent) AS respondents_hll,
-  flavor,
-  country
-FROM UNNEST([
-  STRUCT(1 AS respondent, "Vanilla" AS flavor, "CH" AS country),
-  (1, "Chocolate", "CH"),
-  (2, "Chocolate", "US"),
-  (2, "Strawberry", "US")])
-GROUP BY flavor, country;
+  country,
+  HLL_COUNT.INIT(customer_id, 10)
+    AS hll_sketch
+FROM
+  UNNEST(
+    ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+      ('UA', 'customer_id_1', 'invoice_id_11'),
+      ('CZ', 'customer_id_2', 'invoice_id_22'),
+      ('CZ', 'customer_id_2', 'invoice_id_23'),
+      ('BR', 'customer_id_3', 'invoice_id_31'),
+      ('UA', 'customer_id_2', 'invoice_id_24')])
+GROUP BY country;
+
++---------+------------------------------------------------------------------------------------+
+| country | hll_sketch                                                                         |
++---------+------------------------------------------------------------------------------------+
+| UA      | "\010p\020\002\030\002 \013\202\007\r\020\002\030\n \0172\005\371\344\001\315\010" |
+| CZ      | "\010p\020\002\030\002 \013\202\007\013\020\001\030\n \0172\003\371\344\001"       |
+| BR      | "\010p\020\001\030\002 \013\202\007\013\020\001\030\n \0172\003\202\341\001"       |
++---------+------------------------------------------------------------------------------------+
 ```
 
 ### HLL_COUNT.MERGE
@@ -5703,20 +5403,33 @@ over zero rows or only over `NULL` values, the function returns `0`.
 
 **Example**
 
+ The following query counts the number of distinct users across all countries
+ who have at least one invoice.
+
 ```sql
-SELECT HLL_COUNT.MERGE(respondents_hll) AS num_respondents, flavor
-FROM (
-  SELECT
-    HLL_COUNT.INIT(respondent) AS respondents_hll,
-    flavor,
-    country
-  FROM UNNEST([
-    STRUCT(1 AS respondent, "Vanilla" AS flavor, "CH" AS country),
-    (1, "Chocolate", "CH"),
-    (2, "Chocolate", "US"),
-    (2, "Strawberry", "US")])
-  GROUP BY flavor, country)
-GROUP BY flavor;
+SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING, invoice_status STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  );
+
++--------------------------------------+
+| distinct_customers_with_open_invoice |
++--------------------------------------+
+|                                    3 |
++--------------------------------------+
 ```
 
 ### HLL_COUNT.MERGE_PARTIAL
@@ -5751,20 +5464,33 @@ This function returns `NULL` if there is no input or all inputs are `NULL`.
 
 **Example**
 
+The following query returns an HLL++ sketch that counts the number of distinct
+users who have at least one invoice across all countries.
+
 ```sql
-SELECT HLL_COUNT.MERGE_PARTIAL(respondents_hll) AS num_respondents, flavor
-FROM (
-  SELECT
-    HLL_COUNT.INIT(respondent) AS respondents_hll,
-    flavor,
-    country
-  FROM UNNEST([
-    STRUCT(1 AS respondent, "Vanilla" AS flavor, "CH" AS country),
-    (1, "Chocolate", "CH"),
-    (2, "Chocolate", "US"),
-    (2, "Strawberry", "US")])
-  GROUP BY flavor, country)
-GROUP BY flavor;
+SELECT HLL_COUNT.MERGE_PARTIAL(HLL_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING, invoice_status STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  );
+
++----------------------------------------------------------------------------------------------+
+| distinct_customers_with_open_invoice                                                         |
++----------------------------------------------------------------------------------------------+
+| "\010p\020\006\030\002 \013\202\007\020\020\003\030\017 \0242\010\320\2408\352}\244\223\002" |
++----------------------------------------------------------------------------------------------+
 ```
 
 ### HLL_COUNT.EXTRACT
@@ -5789,31 +5515,37 @@ If `sketch` is `NULL`, this function returns a cardinality estimate of `0`.
 
 **Example**
 
+The following query returns the number of distinct users for each country who
+have at least one invoice.
+
 ```sql
 SELECT
-  flavor,
   country,
-  HLL_COUNT.EXTRACT(respondents_hll) AS num_respondents
-FROM (
-  SELECT
-    HLL_COUNT.INIT(respondent) AS respondents_hll,
-    flavor,
-    country
-  FROM UNNEST([
-    STRUCT(1 AS respondent, "Vanilla" AS flavor, "CH" AS country),
-    (1, "Chocolate", "CH"),
-    (2, "Chocolate", "US"),
-    (2, "Strawberry", "US")])
-  GROUP BY flavor, country);
+  HLL_COUNT.EXTRACT(HLL_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  );
 
-+------------+---------+-----------------+
-| flavor     | country | num_respondents |
-+------------+---------+-----------------+
-| Vanilla    | CH      | 1               |
-| Chocolate  | CH      | 1               |
-| Chocolate  | US      | 1               |
-| Strawberry | US      | 1               |
-+------------+---------+-----------------+
++---------+--------------------------------------+
+| country | distinct_customers_with_open_invoice |
++---------+--------------------------------------+
+| UA      |                                    2 |
+| BR      |                                    1 |
+| CZ      |                                    1 |
++---------+--------------------------------------+
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
@@ -11072,7 +10804,7 @@ representation.
 
 If X is 2, 8, or 16, Arabic numerals 0–9 and the Latin letters
 a–z are used in the encoded string. So for example, BASE16/Hexadecimal encoding
-results contain 0~9 and a~f).
+results contain 0~9 and a~f.
 
 If X is 32 or 64, the default character tables are defined in
 [rfc 4648][rfc-4648]. When you decode a BASE string where X is 2, 8, or 16,
@@ -11940,7 +11672,7 @@ the supertype must support ordering.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Types**
 
@@ -11978,7 +11710,7 @@ the supertype must support ordering.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Types**
 
@@ -12202,62 +11934,70 @@ ROUND(X [, N])
 
 **Description**
 
-If only X is present, `ROUND` rounds X to the nearest integer. If N is present,
-`ROUND` rounds X to N decimal places after the decimal point. If N is negative,
-`ROUND` will round off digits to the left of the decimal point. Rounds halfway
-cases away from zero. Generates an error if overflow occurs.
+If only X is present, rounds X to the nearest integer. If N is present,
+rounds X to N decimal places after the decimal point. If N is negative,
+rounds off digits to the left of the decimal point. Rounds halfway cases
+away from zero. Generates an error if overflow occurs.
 
 <table>
   <thead>
     <tr>
-      <th>X</th>
-      <th>ROUND(X)</th>
+      <th>Expression</th>
+      <th>Return Value</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>2.0</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>2.3</td>
+      <td><code>ROUND(2.0)</code></td>
       <td>2.0</td>
     </tr>
     <tr>
-      <td>2.8</td>
+      <td><code>ROUND(2.3)</code></td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(2.8)</code></td>
       <td>3.0</td>
     </tr>
     <tr>
-      <td>2.5</td>
+      <td><code>ROUND(2.5)</code></td>
       <td>3.0</td>
     </tr>
     <tr>
-      <td>-2.3</td>
+      <td><code>ROUND(-2.3)</code></td>
       <td>-2.0</td>
     </tr>
     <tr>
-      <td>-2.8</td>
+      <td><code>ROUND(-2.8)</code></td>
       <td>-3.0</td>
     </tr>
     <tr>
-      <td>-2.5</td>
+      <td><code>ROUND(-2.5)</code></td>
       <td>-3.0</td>
     </tr>
     <tr>
+      <td><code>ROUND(0)</code></td>
       <td>0</td>
-      <td>0</td>
     </tr>
     <tr>
+      <td><code>ROUND(+inf)</code></td>
       <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
     </tr>
     <tr>
-      <td><code>-inf</code></td>
+      <td><code>ROUND(-inf)</code></td>
       <td><code>-inf</code></td>
     </tr>
     <tr>
+      <td><code>ROUND(NaN)</code></td>
       <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>ROUND(123.7, -1)</code></td>
+      <td>120.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(1.235, 2)</code></td>
+      <td>1.24</td>
     </tr>
   </tbody>
 </table>
@@ -14951,7 +14691,7 @@ value is a suffix of the first.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -15956,7 +15696,7 @@ occurrences beginning with the second character in the previous occurrence.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -16907,7 +16647,7 @@ If `from_value` is empty, no replacement is made.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -17344,7 +17084,7 @@ Splitting an empty `STRING` returns an
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -17386,7 +17126,7 @@ prefix of the first.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -17428,7 +17168,7 @@ occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -20852,6 +20592,246 @@ ORDER BY size DESC;
 +--------------------+------+
 ```
 
+### ARRAY_SLICE
+
+```sql
+ARRAY_SLICE(array_to_slice, start_offset, end_offset)
+```
+
+**Description**
+
+Returns an array containing zero or more consecutive elements from the
+input array.
+
++ `array_to_slice`: The array that contains the elements you want to slice.
++ `start_offset`: The inclusive starting offset.
++ `end_offset`: The inclusive ending offset.
+
+An offset can be positive or negative. A positive offset starts from the
+beginning of the input array and is 0-based. A negative offset starts from
+the end of the input array. Out-of-bounds offsets are supported. Here are some
+examples:
+
+  <table>
+  <thead>
+    <tr>
+      <th width="150px">Input offset</th>
+      <th width="200px">Final offset in array</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>[<b>'a'</b>, 'b', 'c', 'd']</td>
+      <td>The final offset is <code>0</code>.</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>['a', 'b', 'c', <b>'d'</b>]</td>
+      <td>The final offset is <code>3</code>.</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>['a', 'b', 'c', <b>'d'</b>]</td>
+      <td>
+        Because the input offset is out of bounds,
+        the final offset is <code>3</code> (<code>array length - 1</code>).
+      </td>
+    </tr>
+    <tr>
+      <td>-1</td>
+      <td>['a', 'b', 'c', <b>'d'</b>]</td>
+      <td>
+        Because a negative offset is used, the offset starts at the end of the
+        array. The final offset is <code>3</code>
+        (<code>array length - 1</code>).
+      </td>
+    </tr>
+    <tr>
+      <td>-2</td>
+      <td>['a', 'b', <b>'c'</b>, 'd']</td>
+      <td>
+        Because a negative offset is used, the offset starts at the end of the
+        array. The final offset is <code>2</code>
+        (<code>array length - 2</code>).
+      </td>
+    </tr>
+    <tr>
+      <td>-4</td>
+      <td>[<b>'a'</b>, 'b', 'c', 'd']</td>
+      <td>
+        Because a negative offset is used, the offset starts at the end of the
+        array. The final offset is <code>0</code>
+        (<code>array length - 4</code>).
+      </td>
+    </tr>
+    <tr>
+      <td>-5</td>
+      <td>[<b>'a'</b>, 'b', 'c', 'd']</td>
+      <td>
+        Because the offset is negative and out of bounds, the final offset is
+        <code>0</code> (<code>array length - array length</code>).
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+Additional details:
+
++ The input array can contain `NULL` elements. `NULL` elements are included
+  in the resulting array.
++ Returns `NULL` if `array_to_slice`,  `start_offset`, or `end_offset` is `NULL`.
++ Returns an empty array if `array_to_slice` is empty.
++ Returns an empty array if the position of the `start_offset` in the array is
+  after the position of the `end_offset`.
+
+**Return type**
+
+`ARRAY`
+
+**Examples**
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 3) AS result
+
++-----------+
+| result    |
++-----------+
+| [b, c, d] |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, 3) AS result
+
++-----------+
+| result    |
++-----------+
+| []        |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -3) AS result
+
++--------+
+| result |
++--------+
+| [b, c] |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, -3) AS result
+
++-----------+
+| result    |
++-----------+
+| []        |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -1) AS result
+
++-----------+
+| result    |
++-----------+
+| [c, d, e] |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 3, 3) AS result
+
++--------+
+| result |
++--------+
+| [d]    |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -3) AS result
+
++--------+
+| result |
++--------+
+| [c]    |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 30) AS result
+
++--------------+
+| result       |
++--------------+
+| [b, c, d, e] |
++--------------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -30) AS result
+
++-----------+
+| result    |
++-----------+
+| []        |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, 30) AS result
+
++-----------------+
+| result          |
++-----------------+
+| [a, b, c, d, e] |
++-----------------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, -5) AS result
+
++--------+
+| result |
++--------+
+| [a]    |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 5, 30) AS result
+
++--------+
+| result |
++--------+
+| []     |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, NULL) AS result
+
++-----------+
+| result    |
++-----------+
+| NULL      |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', NULL, 'd', 'e'], 1, 3) AS result
+
++--------------+
+| result       |
++--------------+
+| [b, NULL, d] |
++--------------+
+```
+
 ### ARRAY_TO_STRING
 
 ```sql
@@ -21534,9 +21514,17 @@ FROM example;
 +-----------------+-------------+
 ```
 
+### OFFSET and ORDINAL
+
+For information about using `OFFSET` and `ORDINAL` with arrays, see
+[Array subscript operator][array-subscript-operator] and [Accessing array
+elements][accessing-array-elements].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [array-subscript-operator]: #array_subscript_operator
+
+[accessing-array-elements]: https://github.com/google/zetasql/blob/master/docs/arrays.md#accessing_array_elements
 
 [subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
 
@@ -25555,6 +25543,96 @@ FROM AlbumList;
 +-------------+
 ```
 
+### REPLACE_FIELDS
+
+```sql
+REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
+```
+
+**Description**
+
+Returns a copy of a protocol buffer, replacing the values in one or more fields.
+`field_path` is a delimited path to the protocol buffer field to be replaced.
+
++ If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
+  component of `field_path` is a required field.
++ Replacing subfields will succeed only if the message containing the field is
+  set.
++ Replacing subfields of repeated field is not allowed.
++ A repeated field can be replaced with an `ARRAY` value.
+
+**Return type**
+
+Type of `proto_expression`
+
+**Examples**
+
+To illustrate the usage of this function, we use protocol buffer messages
+`Book` and `BookDetails`.
+
+```
+message Book {
+  required string title = 1;
+  repeated string reviews = 2;
+  optional BookDetails details = 3;
+};
+
+message BookDetails {
+  optional string author = 1;
+  optional int32 chapters = 2;
+};
+```
+
+This statement replaces value of field `title` and subfield `chapters`
+of proto type `Book`. Note that field `details` must be set for the statement
+to succeed.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book(
+    "The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  "The Hummingbird II" AS title,
+  11 AS details.chapters)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird II" details: {chapters: 11 }}                       |
++-----------------------------------------------------------------------------+
+```
+
+The function can replace value of repeated fields.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book("The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  ["A good read!", "Highly recommended."] AS reviews)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
+| details: {chapters: 10 }}                                                   |
++-----------------------------------------------------------------------------+
+```
+
+It can set a field to `NULL`.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book("The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  NULL AS details)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird" }                                                  |
++-----------------------------------------------------------------------------+
+```
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
@@ -26266,7 +26344,8 @@ FROM (
 ZetaSQL supports the following debugging functions.
 
 ### ERROR
-```
+
+```sql
 ERROR(error_message)
 ```
 
@@ -26298,7 +26377,7 @@ FROM (
   SELECT 'bar' AS value UNION ALL
   SELECT 'baz' AS value);
 
-Found unexpected value: baz
+-- Found unexpected value: baz
 ```
 
 In the following example, ZetaSQL may evaluate the `ERROR` function
@@ -26321,12 +26400,337 @@ SELECT *
 FROM (SELECT -1 AS x)
 WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));
 
-Error: x must be positive but is -1
+-- Error: x must be positive but is -1
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+### IFERROR
 
-<!-- mdlint on -->
+```sql
+IFERROR(try_expression, catch_expression)
+```
+
+**Description**
+
+Evaluates `try_expression`.
+
+When `try_expression` is evaluated:
+
++ If the evaluation of `try_expression` does not produce an error, then
+  `IFERROR` returns the result of `try_expression` without evaluating
+  `catch_expression`.
++ If the evaluation of `try_expression` produces a system error, then `IFERROR`
+  produces that system error.
++ If the evaluation of `try_expression` produces an evaluation error, then
+  `IFERROR` suppresses that evaluation error and evaluates `catch_expression`.
+
+If `catch_expression` is evaluated:
+
++ If the evaluation of `catch_expression` does not produce an error, then
+  `IFERROR` returns the result of `catch_expression`.
++ If the evaluation of `catch_expression` produces any error, then `IFERROR`
+  produces that error.
+
+**Arguments**
+
++ `try_expression`: An expression that returns a scalar value.
++ `catch_expression`: An expression that returns a scalar value.
+
+The results of `try_expression` and `catch_expression` must share a
+[supertype][supertype].
+
+**Return Data Type**
+
+The [supertype][supertype] for `try_expression` and
+`catch_expression`.
+
+**Example**
+
+In the following examples, the query successfully evaluates `try_expression`.
+
+```sql
+SELECT IFERROR('a', 'b') AS result
+
++--------+
+| result |
++--------+
+| a      |
++--------+
+```
+
+```sql
+SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
+
++--------+
+| result |
++--------+
+| 1      |
++--------+
+```
+
+In the following examples, `IFERROR` catches an evaluation error in the
+`try_expression` and successfully evaluates `catch_expression`.
+
+```sql
+SELECT IFERROR(ERROR('a'), 'b') AS result
+
++--------+
+| result |
++--------+
+| b      |
++--------+
+```
+
+```sql
+SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
+
++--------+
+| result |
++--------+
+| -1     |
++--------+
+```
+
+In the following query, the error is handled by the innermost `IFERROR`
+operation, `IFERROR(ERROR('a'), 'b')`.
+
+```sql
+SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
+
++--------+
+| result |
++--------+
+| b      |
++--------+
+```
+
+In the following query, the error is handled by the outermost `IFERROR`
+operation, `IFERROR(..., 'c')`.
+
+```sql
+SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
+
++--------+
+| result |
++--------+
+| c      |
++--------+
+```
+
+In the following example, an evaluation error is produced because the subquery
+passed in as the `try_expression` evaluates to a table, not a scalar value.
+
+```sql
+SELECT IFERROR((SELECT e FROM UNNEST([1, 2]) AS e), 3) AS result
+
++--------+
+| result |
++--------+
+| 3      |
++--------+
+```
+
+In the following example, `IFERROR` catches an evaluation error in `ERROR('a')`
+and then evaluates `ERROR('b')`. Because there is also an evaluation error in
+`ERROR('b')`, `IFERROR` produces an evaluation error for `ERROR('b')`.
+
+```sql
+SELECT IFERROR(ERROR('a'), ERROR('b')) AS result
+
+--ERROR: OUT_OF_RANGE 'b'
+```
+
+[supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+### ISERROR
+
+```sql
+ISERROR(try_expression)
+```
+
+**Description**
+
+Evaluates `try_expression`.
+
++ If the evaluation of `try_expression` does not produce an error, then
+  `ISERROR` returns `FALSE`.
++ If the evaluation of `try_expression` produces a system error, then `ISERROR`
+  produces that system error.
++ If the evaluation of `try_expression` produces an evaluation error, then
+  `ISERROR` returns `TRUE`.
+
+**Arguments**
+
++ `try_expression`: An expression that returns a scalar value.
+
+**Return Data Type**
+
+`BOOL`
+
+**Example**
+
+In the following examples, `ISERROR` successfully evaluates `try_expression`.
+
+```sql
+SELECT ISERROR('a') AS is_error
+
++----------+
+| is_error |
++----------+
+| false    |
++----------+
+```
+
+```sql
+SELECT ISERROR(2/1) AS is_error
+
++----------+
+| is_error |
++----------+
+| false    |
++----------+
+```
+
+```sql
+SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
+
++----------+
+| is_error |
++----------+
+| false    |
++----------+
+```
+
+In the following examples, `ISERROR` catches an evaluation error in
+`try_expression`.
+
+```sql
+SELECT ISERROR(ERROR('a')) AS is_error
+
++----------+
+| is_error |
++----------+
+| true     |
++----------+
+```
+
+```sql
+SELECT ISERROR(2/0) AS is_error
+
++----------+
+| is_error |
++----------+
+| true     |
++----------+
+```
+
+```sql
+SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
+
++----------+
+| is_error |
++----------+
+| true     |
++----------+
+```
+
+In the following example, an evaluation error is produced because the subquery
+passed in as `try_expression` evaluates to a table, not a scalar value.
+
+```sql
+SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
+
++----------+
+| is_error |
++----------+
+| true     |
++----------+
+```
+
+### NULLIFERROR
+
+```sql
+NULLIFERROR(try_expression)
+```
+**Description**
+
+Evaluates `try_expression`.
+
++ If the evaluation of `try_expression` does not produce an error, then
+  `NULLIFERROR` returns the result of `try_expression`.
++ If the evaluation of `try_expression` produces a system error, then
+ `NULLIFERROR` produces that system error.
+
++ If the evaluation of `try_expression` produces an evaluation error, then
+  `NULLIFERROR` returns `NULL`.
+
+**Arguments**
+
++ `try_expression`: An expression that returns a scalar value.
+
+**Return Data Type**
+
+The data type for `try_expression` or `NULL`
+
+**Example**
+
+In the following examples, `NULLIFERROR` successfully evaluates
+`try_expression`.
+
+```sql
+SELECT NULLIFERROR('a') AS result
+
++--------+
+| result |
++--------+
+| a      |
++--------+
+```
+
+```sql
+SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
+
++--------+
+| result |
++--------+
+| 1      |
++--------+
+```
+
+In the following examples, `NULLIFERROR` catches an evaluation error in
+`try_expression`.
+
+```sql
+SELECT NULLIFERROR(ERROR('a')) AS result
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+```
+
+```sql
+SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+```
+
+In the following example, an evaluation error is produced because the subquery
+passed in as `try_expression` evaluates to a table, not a scalar value.
+
+```sql
+SELECT NULLIFERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS result
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 

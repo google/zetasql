@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "zetasql/base/arena.h"
+#include "zetasql/common/timer_util.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/language_options.h"
@@ -45,6 +46,7 @@ class ParseResumeLocation;
 // ParserOptions contains options that affect parser behavior.
 class ParserOptions {
  public:
+  ABSL_DEPRECATED("Use the overload that accepts LanguageOptions.")
   ParserOptions();
   explicit ParserOptions(LanguageOptions language_options);
 
@@ -119,6 +121,21 @@ class ParserOptions {
   LanguageOptions language_options_;
 };
 
+class ParserRuntimeInfo {
+ public:
+  absl::Duration parser_elapsed_duration() const {
+    return parser_timed_value_.elapsed_duration();
+  }
+  internal::TimedValue& parser_timed_value() { return parser_timed_value_; }
+
+  void AccumulateAll(const ParserRuntimeInfo& rhs) {
+    parser_timed_value_.Accumulate(rhs.parser_timed_value_);
+  }
+
+ private:
+  internal::TimedValue parser_timed_value_;
+};
+
 // Output of a parse operation. The output parse tree can be accessed via
 // statement(), expression(), or type(), depending on the parse function that
 // was called.
@@ -130,7 +147,8 @@ class ParserOutput {
       std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes,
       absl::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
                     std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
-          node);
+          node,
+      ParserRuntimeInfo info = {});
   ParserOutput(const ParserOutput&) = delete;
   ParserOutput& operator=(const ParserOutput&) = delete;
   ~ParserOutput();
@@ -168,6 +186,8 @@ class ParserOutput {
   // ParserOptions.
   const std::shared_ptr<zetasql_base::UnsafeArena>& arena() const { return arena_; }
 
+  const ParserRuntimeInfo& runtime_info() const { return runtime_info_; }
+
  private:
   template<class T>
       T* GetNodeAs() const {
@@ -186,6 +206,7 @@ class ParserOutput {
   absl::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
                 std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
       node_;
+  ParserRuntimeInfo runtime_info_;
 };
 
 // Parses <statement_string> and returns the parser output in <output> upon

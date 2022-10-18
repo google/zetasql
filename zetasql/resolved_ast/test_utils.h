@@ -17,6 +17,8 @@
 #ifndef ZETASQL_RESOLVED_AST_TEST_UTILS_H_
 #define ZETASQL_RESOLVED_AST_TEST_UTILS_H_
 
+#include <memory>
+
 #include "zetasql/resolved_ast/resolved_ast.h"
 
 namespace zetasql {

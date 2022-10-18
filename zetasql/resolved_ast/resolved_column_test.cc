@@ -19,6 +19,7 @@
 #include <memory>
 #include <set>
 #include <utility>
+#include <vector>
 
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/annotation/collation.h"

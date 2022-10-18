@@ -47,9 +47,12 @@
 def zetasql_compliance_test(
         name,
         deps = [],
+        args = [],
         include_gtest_main = True,
         driver_exec_properties = None,
         **extra_args):
+    """Invoke the ZetaSQL compliance test suite against a SQL engine."""
+
     orig_deps = deps
     if include_gtest_main:
         deps = deps + ["//zetasql/base/testing:zetasql_gtest_main"]
@@ -58,6 +61,9 @@ def zetasql_compliance_test(
         name = name,
         deps = deps + [
             "//zetasql/compliance:compliance_test_cases",
+        ],
+        args = args + [
+            "--zetasql_reference_impl_validate_timestamp_precision",
         ],
         **extra_args
     )
@@ -95,6 +101,7 @@ def sql_e2e_test(
     """
 
     known_error_fullpaths = ["$(rootpath %s)" % file for file in known_error_files]
+
     data = data + known_error_files
     args = args + ["--known_error_files=%s" % ",".join(known_error_fullpaths)]
 

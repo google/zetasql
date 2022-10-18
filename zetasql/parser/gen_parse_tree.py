@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 355
+NEXT_NODE_TAG_ID = 359
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -1479,6 +1479,12 @@ def main(argv):
               'ASTHint',
               tag_id=3),
           Field(
+              'join_location',
+              'ASTLocation',
+              gen_setters_and_getters=True,
+              tag_id=14,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
               'rhs',
               'ASTTableExpression',
               tag_id=4,
@@ -1564,11 +1570,14 @@ def main(argv):
   // The join type and hint strings
   std::string GetSQLForJoinType() const;
   std::string GetSQLForJoinHint() const;
+
+  void set_join_location(ASTLocation* join_location) {
+    join_location_ = join_location;
+  }
        """,
       extra_private_defs="""
   std::unique_ptr<ParseError> parse_error_ = nullptr;
-       """
-      )
+       """)
 
   gen.AddNode(
       name='ASTWithClause',
@@ -4581,18 +4590,12 @@ def main(argv):
               'ASTPathExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'transform_clause',
-              'ASTTransformClause',
-              tag_id=3),
-          Field(
-              'options_list',
-              'ASTOptionsList',
-              tag_id=4),
-          Field(
-              'query',
-              'ASTQuery',
-              tag_id=5),
+          Field('input_output_clause', 'ASTInputOutputClause', tag_id=6),
+          Field('transform_clause', 'ASTTransformClause', tag_id=3),
+          Field('is_remote', SCALAR_BOOL, tag_id=7),
+          Field('with_connection_clause', 'ASTWithConnectionClause', tag_id=8),
+          Field('options_list', 'ASTOptionsList', tag_id=4),
+          Field('query', 'ASTQuery', tag_id=5),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
@@ -5186,7 +5189,10 @@ def main(argv):
               'ASTTableElement',
               tag_id=2,
               field_loader=FieldLoaderMethod.REST_AS_REPEATED),
-      ])
+      ],
+      extra_public_defs="""
+  bool HasConstraints() const;
+      """)
 
   gen.AddNode(
       name='ASTColumnList',
@@ -8340,6 +8346,15 @@ def main(argv):
       """,
   )
 
+  gen.AddNode(
+      name='ASTInputOutputClause',
+      tag_id=355,
+      parent='ASTNode',
+      fields=[
+          Field('input', 'ASTTableElementList', tag_id=2),
+          Field('output', 'ASTTableElementList', tag_id=3),
+      ])
+
   # Spanner-specific node types, not part of the ZetaSQL language.
   gen.AddNode(
       name='ASTSpannerTableOptions',
@@ -8427,7 +8442,7 @@ def main(argv):
       fields=[
           Field(
               'type',
-              'ASTType',
+              'ASTRangeType',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
           Field(
@@ -8440,6 +8455,30 @@ def main(argv):
               "[range start, range end)" where "range start" and "range end"
               are literals of the type specified RANGE<type>
               """),
+      ])
+
+  gen.AddNode(
+      name='ASTRangeType',
+      tag_id=358,
+      parent='ASTType',
+      fields=[
+          Field(
+              'element_type',
+              'ASTType',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'type_parameters',
+              'ASTTypeParameterList',
+              tag_id=3,
+              getter_is_override=True,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'collate',
+              'ASTCollate',
+              tag_id=4,
+              getter_is_override=True,
+              field_loader=FieldLoaderMethod.OPTIONAL),
       ])
 
   gen.Generate(output_path, template_path=template_path)

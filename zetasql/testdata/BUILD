@@ -212,6 +212,7 @@ cc_library(
         "//zetasql/public:simple_catalog_util",
         "//zetasql/public:sql_function",
         "//zetasql/public:sql_tvf",
+        "//zetasql/public:sql_view",
         "//zetasql/public:strings",
         "//zetasql/public:templated_sql_function",
         "//zetasql/public:templated_sql_tvf",
@@ -221,6 +222,7 @@ cc_library(
         "//zetasql/public/annotation:collation",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/memory",
@@ -228,6 +230,18 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "sample_catalog_test",
+    srcs = ["sample_catalog_test.cc"],
+    deps = [
+        ":sample_catalog",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
+        "@com_google_absl//absl/strings",
     ],
 )
 

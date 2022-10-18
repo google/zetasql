@@ -19,6 +19,7 @@
 
 #include <iosfwd>
 #include <memory>
+#include <ostream>
 
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/resolved_ast/resolved_node.h"

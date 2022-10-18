@@ -1,0 +1,229 @@
+# The langugage feature V_1_4_ARRAY_AGGREGATION_FUNCTIONS and
+# V_1_4_STRING_AS_ENUM_ARGUMENT are added temporarily.
+# * V_1_4_ARRAY_AGGREGATION_FUNCTIONS will be removed once UDF naming conflicts
+#   are cleaned up.
+# * V_1_4_STRING_AS_ENUM_ARGUMENT will be removed once rollout of ENUM type is
+# mature.
+[default language_features=V_1_4_STRING_AS_ENUM_ARGUMENT,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+
+SELECT ARRAY_OFFSET([1, 2, 3], CAST(3 AS INT32))
+--
+ERROR: No matching signature for function ARRAY_OFFSET for argument types: ARRAY<INT64>, INT32. Supported signature: ARRAY_OFFSET(ARRAY, ANY, [STRING]) [at 1:8]
+SELECT ARRAY_OFFSET([1, 2, 3], CAST(3 AS INT32))
+       ^
+==
+
+SELECT ARRAY_OFFSET([new zetasql_test__.EmptyMessage()], new zetasql_test__.EmptyMessage())
+--
+ERROR: ARRAY_OFFSET cannot be used on argument of type ARRAY<zetasql_test__.EmptyMessage> because the array's element type does not support equality [at 1:8]
+SELECT ARRAY_OFFSET([new zetasql_test__.EmptyMessage()], new zetasql_test__.E...
+       ^
+==
+
+[language_features={{|V_1_4_STRING_AS_ENUM_ARGUMENT}}]
+SELECT ARRAY_OFFSET([CAST(1 AS INT32), CAST(2 AS INT32), CAST(3 AS INT32)], 3)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: ARRAY_OFFSET; Did you mean array_first? [at 1:8]
+SELECT ARRAY_OFFSET([CAST(1 AS INT32), CAST(2 AS INT32), CAST(3 AS INT32)], 3)
+       ^
+--
+ALTERNATION GROUP: V_1_4_STRING_AS_ENUM_ARGUMENT
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<INT32>, INT32, optional(1) STRING) -> INT64)
+    |     +-Literal(type=ARRAY<INT32>, value=[1, 2, 3], has_explicit_type=TRUE)
+    |     +-Literal(type=INT32, value=3)
+    |     +-Literal(type=STRING, value="FIRST")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT ARRAY_OFFSET([STRUCT(1 AS a), STRUCT(2), STRUCT(3)], STRUCT(3 AS a), "LAST")
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRUCT<a INT64>>, STRUCT<a INT64>, optional(1) STRING) -> INT64)
+    |     +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}, {a:3}])
+    |     +-Literal(type=STRUCT<a INT64>, value={a:3})
+    |     +-Literal(type=STRING, value="LAST")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT ARRAY_OFFSETS([new zetasql_test__.EmptyMessage()], new zetasql_test__.EmptyMessage())
+--
+ERROR: ARRAY_OFFSETS cannot be used on argument of type ARRAY<zetasql_test__.EmptyMessage> because the array's element type does not support equality [at 1:8]
+SELECT ARRAY_OFFSETS([new zetasql_test__.EmptyMessage()], new zetasql_test__....
+       ^
+==
+
+[language_features={{|V_1_4_STRING_AS_ENUM_ARGUMENT}}]
+SELECT ARRAY_OFFSETS([""], "")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: ARRAY_OFFSETS [at 1:8]
+SELECT ARRAY_OFFSETS([""], "")
+       ^
+--
+ALTERNATION GROUP: V_1_4_STRING_AS_ENUM_ARGUMENT
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_offsets(ARRAY<STRING>, STRING) -> ARRAY<INT64>)
+    |     +-Literal(type=ARRAY<STRING>, value=[""])
+    |     +-Literal(type=STRING, value="")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT ARRAY_FIND([4, 5.0], CAST(5 AS FLOAT))
+--
+ERROR: No matching signature for function ARRAY_FIND for argument types: ARRAY<DOUBLE>, FLOAT. Supported signature: ARRAY_FIND(ARRAY, ANY, [STRING]) [at 1:8]
+SELECT ARRAY_FIND([4, 5.0], CAST(5 AS FLOAT))
+       ^
+==
+
+[language_features={{|V_1_4_STRING_AS_ENUM_ARGUMENT}}]
+SELECT ARRAY_FIND([4, 5.0], 5, "LAST")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: ARRAY_FIND; Did you mean array_min? [at 1:8]
+SELECT ARRAY_FIND([4, 5.0], 5, "LAST")
+       ^
+--
+ALTERNATION GROUP: V_1_4_STRING_AS_ENUM_ARGUMENT
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_find(ARRAY<DOUBLE>, DOUBLE, optional(1) STRING) -> DOUBLE)
+    |     +-Literal(type=ARRAY<DOUBLE>, value=[4, 5])
+    |     +-Literal(type=DOUBLE, value=5)
+    |     +-Literal(type=STRING, value="LAST")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=GEOGRAPHY,V_1_4_STRING_AS_ENUM_ARGUMENT]
+SELECT ARRAY_FIND(ARRAY<GEOGRAPHY>[], st_geogpoint(1.2, 9e100))
+--
+ERROR: ARRAY_FIND cannot be used on argument of type ARRAY<GEOGRAPHY> because the array's element type does not support equality [at 1:8]
+SELECT ARRAY_FIND(ARRAY<GEOGRAPHY>[], st_geogpoint(1.2, 9e100))
+       ^
+==
+
+[language_features={{|V_1_4_STRING_AS_ENUM_ARGUMENT}}]
+SELECT ARRAY_FIND_ALL([4, 5.0], 5)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: ARRAY_FIND_ALL [at 1:8]
+SELECT ARRAY_FIND_ALL([4, 5.0], 5)
+       ^
+--
+ALTERNATION GROUP: V_1_4_STRING_AS_ENUM_ARGUMENT
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_find_all(ARRAY<DOUBLE>, DOUBLE) -> ARRAY<DOUBLE>)
+    |     +-Literal(type=ARRAY<DOUBLE>, value=[4, 5])
+    |     +-Literal(type=DOUBLE, value=5)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=JSON_TYPE,V_1_4_STRING_AS_ENUM_ARGUMENT]
+SELECT ARRAY_FIND_ALL(ARRAY<JSON>[], JSON '1')
+--
+ERROR: ARRAY_FIND_ALL cannot be used on argument of type ARRAY<JSON> because the array's element type does not support equality [at 1:8]
+SELECT ARRAY_FIND_ALL(ARRAY<JSON>[], JSON '1')
+       ^
+==
+
+SELECT ARRAY_MIN([STRUCT(2.4 AS a, 3 AS b), STRUCT(1.0, 2)])
+--
+ERROR: ARRAY_MIN cannot be used on argument of type ARRAY<STRUCT<a DOUBLE, b INT64>> because the array's element type does not support ordering [at 1:8]
+SELECT ARRAY_MIN([STRUCT(2.4 AS a, 3 AS b), STRUCT(1.0, 2)])
+       ^
+==
+
+SELECT ARRAY_MIN([new zetasql_test__.EmptyMessage()])
+--
+ERROR: ARRAY_MIN cannot be used on argument of type ARRAY<zetasql_test__.EmptyMessage> because the array's element type does not support ordering [at 1:8]
+SELECT ARRAY_MIN([new zetasql_test__.EmptyMessage()])
+       ^
+==
+
+[language_features=JSON_TYPE,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+SELECT ARRAY_MIN([JSON '1'])
+--
+ERROR: ARRAY_MIN cannot be used on argument of type ARRAY<JSON> because the array's element type does not support ordering [at 1:8]
+SELECT ARRAY_MIN([JSON '1'])
+       ^
+==
+
+[language_features=GEOGRAPHY,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+SELECT ARRAY_MIN([st_geogpoint(1.2, 9e100)])
+--
+ERROR: ARRAY_MIN cannot be used on argument of type ARRAY<GEOGRAPHY> because the array's element type does not support ordering [at 1:8]
+SELECT ARRAY_MIN([st_geogpoint(1.2, 9e100)])
+       ^
+==
+
+[language_features=V_1_2_SAFE_FUNCTION_CALL{{|,DISABLE_ARRAY_MIN_AND_MAX}}]
+SELECT ARRAY_MIN([3.5, 7])
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_min(ARRAY<DOUBLE>) -> DOUBLE)
+    |     +-Literal(type=ARRAY<DOUBLE>, value=[3.5, 7])
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: ,DISABLE_ARRAY_MIN_AND_MAX
+--
+ERROR: Function not found: ARRAY_MIN; Did you mean array_agg? [at 1:8]
+SELECT ARRAY_MIN([3.5, 7])
+       ^

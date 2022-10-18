@@ -285,7 +285,7 @@ TEST(LengthUtf8Test, AsciiChars) {
 }
 
 TEST(LengthUtf8Test, NonAsciiChars) {
-  EXPECT_THAT(LengthUtf8(u8"a퟿фX"), IsOkAndHolds(4));
+  EXPECT_THAT(LengthUtf8("a퟿фX"), IsOkAndHolds(4));
 }
 
 TEST(LengthUtf8Test, Invalid) {
@@ -307,8 +307,8 @@ TEST(GetSummaryStringTest, NoEllipsesNeeded) {
 
   // Just barely fits and non-ascii characters are present, so byte length of
   // string would exceed 15.
-  EXPECT_THAT(GetSummaryString(u8"1234567890aba퟿ф", 15),
-              IsOkAndHolds(u8"1234567890aba퟿ф"));
+  EXPECT_THAT(GetSummaryString("1234567890aba퟿ф", 15),
+              IsOkAndHolds("1234567890aba퟿ф"));
 }
 
 TEST(GetStringWithEllipsesTest, EllipsesNeeded) {
@@ -320,14 +320,14 @@ TEST(GetStringWithEllipsesTest, EllipsesNeeded) {
 
   // Similar to the above, except this time, the input contains non-ascii
   // characters.
-  EXPECT_THAT(GetSummaryString(u8"퟿ф34567890abcdefghi퟿ф", 20),
-              IsOkAndHolds(u8"퟿ф34567890a...fghi퟿ф"));
+  EXPECT_THAT(GetSummaryString("퟿ф34567890abcdefghi퟿ф", 20),
+              IsOkAndHolds("퟿ф34567890a...fghi퟿ф"));
 
   // Similar to the above, except the input far exceeds the size limit.
   EXPECT_THAT(
       GetSummaryString(
-          u8"퟿ф34567890abcdefghi퟿ф퟿ф34567890abcdefghi퟿ф&&ф", 20),
-      IsOkAndHolds(u8"퟿ф34567890a...i퟿ф&&ф"));
+          "퟿ф34567890abcdefghi퟿ф퟿ф34567890abcdefghi퟿ф&&ф", 20),
+      IsOkAndHolds("퟿ф34567890a...i퟿ф&&ф"));
 
   // String with word breaks. The first part stops at the first word break
   // after minimum prefix size has been reached.

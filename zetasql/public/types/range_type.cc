@@ -23,13 +23,17 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/collation.h"
+#include "zetasql/public/types/container_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/types/value_equality_check_options.h"
+#include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
@@ -79,8 +83,10 @@ bool RangeType::IsSupportedType(const LanguageOptions& language_options) const {
          element_type_->IsSupportedType(language_options);
 }
 
+const Type* RangeType::GetElementType(int i) const { return element_type(); }
+
 RangeType::RangeType(const TypeFactory* factory, const Type* element_type)
-    : Type(factory, TYPE_RANGE), element_type_(element_type) {
+    : ContainerType(factory, TYPE_RANGE), element_type_(element_type) {
   // Also blocked in TypeFactory::MakeRangeType.
   ZETASQL_DCHECK(IsValidElementType(element_type_));
 }
@@ -144,45 +150,166 @@ absl::HashState RangeType::HashTypeParameter(absl::HashState state) const {
 
 absl::HashState RangeType::HashValueContent(const ValueContent& value,
                                             absl::HashState state) const {
-  // TODO: Implement this after implementing range in
-  // zetasql::Value.
-  ZETASQL_LOG(FATAL) << "Not yet implemented";  // Crash OK
+  absl::HashState result = absl::HashState::Create(&state);
+  const internal::ValueContentContainer* container =
+      value.GetAs<internal::ValueContentContainerRef*>()->value();
+  ZETASQL_DCHECK_EQ(container->num_elements(), 2);
+  ValueContentContainerElementHasher hasher(element_type());
+  const internal::ValueContentContainerElement& start = container->element(0);
+  result = absl::HashState::combine(std::move(result), hasher(start));
+  const internal::ValueContentContainerElement& end = container->element(1);
+  result = absl::HashState::combine(std::move(result), hasher(end));
+  return result;
+}
+
+std::string RangeType::FormatValueContentContainerElement(
+    const internal::ValueContentContainerElement& element,
+    const Type::FormatValueContentOptions& options) const {
+  std::string result;
+  if (element.is_null()) {
+    if (options.mode == Type::FormatValueContentOptions::Mode::kSQLLiteral ||
+        options.mode == Type::FormatValueContentOptions::Mode::kSQLExpression) {
+      return "UNBOUNDED";
+    }
+    result = "NULL";
+  } else {
+    Type::FormatValueContentOptions element_format_options = options;
+    // Set mode to Debug to get elements formatted without added type prefix
+    element_format_options.mode = Type::FormatValueContentOptions::Mode::kDebug;
+    result = element_type()->FormatValueContent(element.value_content(),
+                                                element_format_options);
+  }
+
+  if (options.mode == Type::FormatValueContentOptions::Mode::kDebug &&
+      options.verbose) {
+    return absl::StrCat(element_type()->CapitalizedName(), "(", result, ")");
+  }
+  return result;
+}
+
+std::string RangeType::FormatValueContent(
+    const ValueContent& value,
+    const Type::FormatValueContentOptions& options) const {
+  const internal::ValueContentContainer* container =
+      value.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentContainerElement& start = container->element(0);
+  const internal::ValueContentContainerElement& end = container->element(1);
+
+  std::string boundaries =
+      absl::StrCat("[", FormatValueContentContainerElement(start, options),
+                   ", ", FormatValueContentContainerElement(end, options), ")");
+  if (options.mode == Type::FormatValueContentOptions::Mode::kDebug) {
+    return boundaries;
+  }
+  return absl::StrCat(TypeName(options.product_mode), " ",
+                      ToStringLiteral(boundaries));
 }
 
 bool RangeType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  // TODO: Implement this after implementing range in
-  // zetasql::Value.
-  ZETASQL_LOG(FATAL) << "Not yet implemented";  // Crash OK
+  const internal::ValueContentContainer* x_container =
+      x.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentContainer* y_container =
+      y.GetAs<internal::ValueContentContainerRef*>()->value();
+
+  const internal::ValueContentContainerElement& x_start =
+      x_container->element(0);
+  const internal::ValueContentContainerElement& x_end = x_container->element(1);
+  const internal::ValueContentContainerElement& y_start =
+      y_container->element(0);
+  const internal::ValueContentContainerElement& y_end = y_container->element(1);
+
+  ValueContentContainerElementEq eq(options, element_type());
+
+  return eq(x_start, y_start) && eq(x_end, y_end);
 }
 
 bool RangeType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                  const Type* other_type) const {
-  // TODO: Implement this after implementing range in
-  // zetasql::Value.
-  ZETASQL_LOG(FATAL) << "Not yet implemented";  // Crash OK
-}
+  const internal::ValueContentContainer* x_container =
+      x.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentContainer* y_container =
+      y.GetAs<internal::ValueContentContainerRef*>()->value();
 
-std::string RangeType::FormatValueContent(
-    const ValueContent& value, const FormatValueContentOptions& options) const {
-  // TODO: Implement this after implementing range in
-  // zetasql::Value.
-  ZETASQL_LOG(FATAL) << "Not yet implemented";  // Crash OK
+  const internal::ValueContentContainerElement& x_start =
+      x_container->element(0);
+  const internal::ValueContentContainerElement& x_end = x_container->element(1);
+  const internal::ValueContentContainerElement& y_start =
+      y_container->element(0);
+  const internal::ValueContentContainerElement& y_end = y_container->element(1);
+
+  const Type* x_element_type = element_type();
+  const Type* y_element_type = other_type->AsRange()->element_type();
+
+  ValueEqualityCheckOptions options;
+  ValueContentContainerElementEq eq(options, element_type());
+
+  if (!eq(x_start, y_start)) {
+    // [x_start, x_end) > [UNBOUNDED, y_end)
+    // Unbounded start orders smallest, so if y has an unbounded start, then x
+    // is always bigger than y.
+    if (y_start.is_null()) {
+      return false;
+    }
+    // [UNBOUNDED, x_end) < [y_start, y_end)
+    // Unbounded start orders smallest, so if x has an unbounded start, then x
+    // is always smaller than y.
+    return x_start.is_null() ||
+           ValueContentContainerElementLess(x_start, y_start, x_element_type,
+                                            y_element_type)
+               .value_or(false);  // Otherwise, compare the start values.
+  } else {
+    // Starts are equal, so compare the ends.
+    if (x_end.is_null() && y_end.is_null()) {
+      // [S, UNBOUNDED) == [S, UNBOUNDED)
+      return false;
+    } else if (x_end.is_null()) {
+      // [S, UNBOUNDED) > [S, y_end)
+      // Unbounded end orders largest, so if x has an unbounded end, then for
+      // equal start, x is always larger than y.
+      return false;
+    } else if (y_end.is_null()) {
+      // [S, x_end) < [S, UNBOUNDED)
+      // Unbounded end orders largest, so if y has an unbounded end, then for
+      // equal start, y is always larger than x.
+      return true;
+    }
+    return ValueContentContainerElementLess(x_end, y_end, x_element_type,
+                                            y_element_type)
+        .value_or(false);
+  }
 }
 
 absl::Status RangeType::SerializeValueContent(const ValueContent& value,
                                               ValueProto* value_proto) const {
-  // TODO: Implement this after implementing range in
-  // zetasql::Value.
-  return absl::UnimplementedError("Range type is not fully implemented");
+  auto* range_proto = value_proto->mutable_range_value();
+  const internal::ValueContentContainer* range_container =
+      value.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentContainerElement& start =
+      range_container->element(0);
+  if (start.is_null()) {
+    range_proto->mutable_start()->Clear();
+  } else {
+    ZETASQL_RETURN_IF_ERROR(element_type()->SerializeValueContent(
+        start.value_content(), range_proto->mutable_start()));
+  }
+  const internal::ValueContentContainerElement& end =
+      range_container->element(1);
+  if (end.is_null()) {
+    range_proto->mutable_end()->Clear();
+  } else {
+    ZETASQL_RETURN_IF_ERROR(element_type()->SerializeValueContent(
+        end.value_content(), range_proto->mutable_end()));
+  }
+  return absl::OkStatus();
 }
 
 absl::Status RangeType::DeserializeValueContent(const ValueProto& value_proto,
                                                 ValueContent* value) const {
-  // TODO: Implement this after implementing range in
-  // zetasql::Value.
-  return absl::UnimplementedError("Range type is not fully implemented");
+  return absl::FailedPreconditionError(
+      "DeserializeValueContent should never be called for RangeType, since its "
+      "value content deserialization is maintained in the Value class");
 }
 
 }  // namespace zetasql

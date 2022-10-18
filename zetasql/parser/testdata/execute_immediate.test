@@ -1,6 +1,3 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 EXECUTE IMMEDIATE {{;|}}
 --
 ALTERNATION GROUP: ;
@@ -20,44 +17,44 @@ EXECUTE IMMEDIATE {{"select 1"|CONCAT("a", "b")|x|@x|@@x}};
 --
 ALTERNATION GROUP: "select 1"
 --
-ExecuteImmediateStatement [0-28]
-  StringLiteral("select 1") [18-28]
+ExecuteImmediateStatement [0-28] [EXECUTE IMMEDIATE "select 1"]
+  StringLiteral("select 1") [18-28] ["select 1"]
 --
 EXECUTE IMMEDIATE "select 1"
 --
 ALTERNATION GROUP: CONCAT("a", "b")
 --
-ExecuteImmediateStatement [0-34]
-  FunctionCall [18-34]
-    PathExpression [18-24]
-      Identifier(CONCAT) [18-24]
-    StringLiteral("a") [25-28]
-    StringLiteral("b") [30-33]
+ExecuteImmediateStatement [0-34] [EXECUTE IMMEDIATE...("a", "b")]
+  FunctionCall [18-34] [CONCAT("a", "b")]
+    PathExpression [18-24] [CONCAT]
+      Identifier(CONCAT) [18-24] [CONCAT]
+    StringLiteral("a") [25-28] ["a"]
+    StringLiteral("b") [30-33] ["b"]
 --
 EXECUTE IMMEDIATE CONCAT("a", "b")
 --
 ALTERNATION GROUP: x
 --
-ExecuteImmediateStatement [0-19]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
+ExecuteImmediateStatement [0-19] [EXECUTE IMMEDIATE x]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
 --
 EXECUTE IMMEDIATE x
 --
 ALTERNATION GROUP: @x
 --
-ExecuteImmediateStatement [0-20]
-  ParameterExpr [18-20]
-    Identifier(x) [19-20]
+ExecuteImmediateStatement [0-20] [EXECUTE IMMEDIATE @x]
+  ParameterExpr [18-20] [@x]
+    Identifier(x) [19-20] [x]
 --
 EXECUTE IMMEDIATE @x
 --
 ALTERNATION GROUP: @@x
 --
-ExecuteImmediateStatement [0-21]
-  SystemVariableExpr [18-21]
-    PathExpression [20-21]
-      Identifier(x) [20-21]
+ExecuteImmediateStatement [0-21] [EXECUTE IMMEDIATE @@x]
+  SystemVariableExpr [18-21] [@@x]
+    PathExpression [20-21] [x]
+      Identifier(x) [20-21] [x]
 --
 EXECUTE IMMEDIATE @@x
 ==
@@ -66,24 +63,24 @@ EXECUTE IMMEDIATE x INTO {{a|a, b|@c|@@d}};
 --
 ALTERNATION GROUP: a
 --
-ExecuteImmediateStatement [0-26]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteIntoClause [20-26]
-    IdentifierList [25-26]
-      Identifier(a) [25-26]
+ExecuteImmediateStatement [0-26] [EXECUTE IMMEDIATE x INTO a]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteIntoClause [20-26] [INTO a]
+    IdentifierList [25-26] [a]
+      Identifier(a) [25-26] [a]
 --
 EXECUTE IMMEDIATE x INTO a
 --
 ALTERNATION GROUP: a, b
 --
-ExecuteImmediateStatement [0-29]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteIntoClause [20-29]
-    IdentifierList [25-29]
-      Identifier(a) [25-26]
-      Identifier(b) [28-29]
+ExecuteImmediateStatement [0-29] [EXECUTE IMMEDIATE x INTO a, b]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteIntoClause [20-29] [INTO a, b]
+    IdentifierList [25-29] [a, b]
+      Identifier(a) [25-26] [a]
+      Identifier(b) [28-29] [b]
 --
 EXECUTE IMMEDIATE x INTO a, b
 --
@@ -105,23 +102,23 @@ EXECUTE IMMEDIATE {{"?" USING 0|"? ?" USING 0, 1}};
 ALTERNATION GROUP: "?" USING 0
 --
 
-ExecuteImmediateStatement [0-29]
-  StringLiteral("?") [18-21]
-  ExecuteUsingClause [28-29]
-    ExecuteUsingArgument [28-29]
-      IntLiteral(0) [28-29]
+ExecuteImmediateStatement [0-29] [EXECUTE IMMEDIATE "?" USING 0]
+  StringLiteral("?") [18-21] ["?"]
+  ExecuteUsingClause [28-29] [0]
+    ExecuteUsingArgument [28-29] [0]
+      IntLiteral(0) [28-29] [0]
 --
 EXECUTE IMMEDIATE "?" USING 0
 --
 ALTERNATION GROUP: "? ?" USING 0, 1
 --
-ExecuteImmediateStatement [0-34]
-  StringLiteral("? ?") [18-23]
-  ExecuteUsingClause [30-34]
-    ExecuteUsingArgument [30-31]
-      IntLiteral(0) [30-31]
-    ExecuteUsingArgument [33-34]
-      IntLiteral(1) [33-34]
+ExecuteImmediateStatement [0-34] [EXECUTE IMMEDIATE...USING 0, 1]
+  StringLiteral("? ?") [18-23] ["? ?"]
+  ExecuteUsingClause [30-34] [0, 1]
+    ExecuteUsingArgument [30-31] [0]
+      IntLiteral(0) [30-31] [0]
+    ExecuteUsingArgument [33-34] [1]
+      IntLiteral(1) [33-34] [1]
 --
 EXECUTE IMMEDIATE "? ?" USING 0, 1
 ==
@@ -130,60 +127,60 @@ EXECUTE IMMEDIATE x USING {{4 AS y|4 AS y, 5 AS z|@t AS y|@@t AS y}};
 --
 ALTERNATION GROUP: 4 AS y
 --
-ExecuteImmediateStatement [0-32]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteUsingClause [26-32]
-    ExecuteUsingArgument [26-32]
-      IntLiteral(4) [26-27]
-      Alias [31-32]
-        Identifier(y) [31-32]
+ExecuteImmediateStatement [0-32] [EXECUTE IMMEDIATE...ING 4 AS y]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteUsingClause [26-32] [4 AS y]
+    ExecuteUsingArgument [26-32] [4 AS y]
+      IntLiteral(4) [26-27] [4]
+      Alias [31-32] [y]
+        Identifier(y) [31-32] [y]
 --
 EXECUTE IMMEDIATE x USING 4 AS y
 --
 ALTERNATION GROUP: 4 AS y, 5 AS z
 --
-ExecuteImmediateStatement [0-40]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteUsingClause [26-40]
-    ExecuteUsingArgument [26-32]
-      IntLiteral(4) [26-27]
-      Alias [31-32]
-        Identifier(y) [31-32]
-    ExecuteUsingArgument [34-40]
-      IntLiteral(5) [34-35]
-      Alias [39-40]
-        Identifier(z) [39-40]
+ExecuteImmediateStatement [0-40] [EXECUTE IMMEDIATE...y, 5 AS z]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteUsingClause [26-40] [4 AS y, 5 AS z]
+    ExecuteUsingArgument [26-32] [4 AS y]
+      IntLiteral(4) [26-27] [4]
+      Alias [31-32] [y]
+        Identifier(y) [31-32] [y]
+    ExecuteUsingArgument [34-40] [5 AS z]
+      IntLiteral(5) [34-35] [5]
+      Alias [39-40] [z]
+        Identifier(z) [39-40] [z]
 --
 EXECUTE IMMEDIATE x USING 4 AS y, 5 AS z
 --
 ALTERNATION GROUP: @t AS y
 --
-ExecuteImmediateStatement [0-33]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteUsingClause [26-33]
-    ExecuteUsingArgument [26-33]
-      ParameterExpr [26-28]
-        Identifier(t) [27-28]
-      Alias [32-33]
-        Identifier(y) [32-33]
+ExecuteImmediateStatement [0-33] [EXECUTE IMMEDIATE...NG @t AS y]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteUsingClause [26-33] [@t AS y]
+    ExecuteUsingArgument [26-33] [@t AS y]
+      ParameterExpr [26-28] [@t]
+        Identifier(t) [27-28] [t]
+      Alias [32-33] [y]
+        Identifier(y) [32-33] [y]
 --
 EXECUTE IMMEDIATE x USING @t AS y
 --
 ALTERNATION GROUP: @@t AS y
 --
-ExecuteImmediateStatement [0-34]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteUsingClause [26-34]
-    ExecuteUsingArgument [26-34]
-      SystemVariableExpr [26-29]
-        PathExpression [28-29]
-          Identifier(t) [28-29]
-      Alias [33-34]
-        Identifier(y) [33-34]
+ExecuteImmediateStatement [0-34] [EXECUTE IMMEDIATE...G @@t AS y]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteUsingClause [26-34] [@@t AS y]
+    ExecuteUsingArgument [26-34] [@@t AS y]
+      SystemVariableExpr [26-29] [@@t]
+        PathExpression [28-29] [t]
+          Identifier(t) [28-29] [t]
+      Alias [33-34] [y]
+        Identifier(y) [33-34] [y]
 --
 EXECUTE IMMEDIATE x USING @@t AS y
 ==
@@ -193,92 +190,92 @@ EXECUTE IMMEDIATE x INTO {{a|a, b}} USING {{4 AS y|4 AS y, 5 AS z}};
 
 ALTERNATION GROUP: a,4 AS y
 --
-ExecuteImmediateStatement [0-39]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteIntoClause [20-26]
-    IdentifierList [25-26]
-      Identifier(a) [25-26]
-  ExecuteUsingClause [33-39]
-    ExecuteUsingArgument [33-39]
-      IntLiteral(4) [33-34]
-      Alias [38-39]
-        Identifier(y) [38-39]
+ExecuteImmediateStatement [0-39] [EXECUTE IMMEDIATE...ING 4 AS y]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteIntoClause [20-26] [INTO a]
+    IdentifierList [25-26] [a]
+      Identifier(a) [25-26] [a]
+  ExecuteUsingClause [33-39] [4 AS y]
+    ExecuteUsingArgument [33-39] [4 AS y]
+      IntLiteral(4) [33-34] [4]
+      Alias [38-39] [y]
+        Identifier(y) [38-39] [y]
 --
 EXECUTE IMMEDIATE x INTO a USING 4 AS y
 --
 ALTERNATION GROUP: a,4 AS y, 5 AS z
 --
-ExecuteImmediateStatement [0-47]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteIntoClause [20-26]
-    IdentifierList [25-26]
-      Identifier(a) [25-26]
-  ExecuteUsingClause [33-47]
-    ExecuteUsingArgument [33-39]
-      IntLiteral(4) [33-34]
-      Alias [38-39]
-        Identifier(y) [38-39]
-    ExecuteUsingArgument [41-47]
-      IntLiteral(5) [41-42]
-      Alias [46-47]
-        Identifier(z) [46-47]
+ExecuteImmediateStatement [0-47] [EXECUTE IMMEDIATE...y, 5 AS z]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteIntoClause [20-26] [INTO a]
+    IdentifierList [25-26] [a]
+      Identifier(a) [25-26] [a]
+  ExecuteUsingClause [33-47] [4 AS y, 5 AS z]
+    ExecuteUsingArgument [33-39] [4 AS y]
+      IntLiteral(4) [33-34] [4]
+      Alias [38-39] [y]
+        Identifier(y) [38-39] [y]
+    ExecuteUsingArgument [41-47] [5 AS z]
+      IntLiteral(5) [41-42] [5]
+      Alias [46-47] [z]
+        Identifier(z) [46-47] [z]
 --
 EXECUTE IMMEDIATE x INTO a USING 4 AS y, 5 AS z
 --
 ALTERNATION GROUP: a, b,4 AS y
 --
-ExecuteImmediateStatement [0-42]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteIntoClause [20-29]
-    IdentifierList [25-29]
-      Identifier(a) [25-26]
-      Identifier(b) [28-29]
-  ExecuteUsingClause [36-42]
-    ExecuteUsingArgument [36-42]
-      IntLiteral(4) [36-37]
-      Alias [41-42]
-        Identifier(y) [41-42]
+ExecuteImmediateStatement [0-42] [EXECUTE IMMEDIATE...ING 4 AS y]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteIntoClause [20-29] [INTO a, b]
+    IdentifierList [25-29] [a, b]
+      Identifier(a) [25-26] [a]
+      Identifier(b) [28-29] [b]
+  ExecuteUsingClause [36-42] [4 AS y]
+    ExecuteUsingArgument [36-42] [4 AS y]
+      IntLiteral(4) [36-37] [4]
+      Alias [41-42] [y]
+        Identifier(y) [41-42] [y]
 --
 EXECUTE IMMEDIATE x INTO a, b USING 4 AS y
 --
 ALTERNATION GROUP: a, b,4 AS y, 5 AS z
 --
-ExecuteImmediateStatement [0-50]
-  PathExpression [18-19]
-    Identifier(x) [18-19]
-  ExecuteIntoClause [20-29]
-    IdentifierList [25-29]
-      Identifier(a) [25-26]
-      Identifier(b) [28-29]
-  ExecuteUsingClause [36-50]
-    ExecuteUsingArgument [36-42]
-      IntLiteral(4) [36-37]
-      Alias [41-42]
-        Identifier(y) [41-42]
-    ExecuteUsingArgument [44-50]
-      IntLiteral(5) [44-45]
-      Alias [49-50]
-        Identifier(z) [49-50]
+ExecuteImmediateStatement [0-50] [EXECUTE IMMEDIATE...y, 5 AS z]
+  PathExpression [18-19] [x]
+    Identifier(x) [18-19] [x]
+  ExecuteIntoClause [20-29] [INTO a, b]
+    IdentifierList [25-29] [a, b]
+      Identifier(a) [25-26] [a]
+      Identifier(b) [28-29] [b]
+  ExecuteUsingClause [36-50] [4 AS y, 5 AS z]
+    ExecuteUsingArgument [36-42] [4 AS y]
+      IntLiteral(4) [36-37] [4]
+      Alias [41-42] [y]
+        Identifier(y) [41-42] [y]
+    ExecuteUsingArgument [44-50] [5 AS z]
+      IntLiteral(5) [44-45] [5]
+      Alias [49-50] [z]
+        Identifier(z) [49-50] [z]
 --
 EXECUTE IMMEDIATE x INTO a, b USING 4 AS y, 5 AS z
 ==
 
 SELECT EXECUTE FROM IMMEDIATE;
 --
-QueryStatement [0-29]
-  Query [0-29]
-    Select [0-29]
-      SelectList [7-14]
-        SelectColumn [7-14]
-          PathExpression [7-14]
-            Identifier(EXECUTE) [7-14]
-      FromClause [15-29]
-        TablePathExpression [20-29]
-          PathExpression [20-29]
-            Identifier(IMMEDIATE) [20-29]
+QueryStatement [0-29] [SELECT EXECUTE FROM IMMEDIATE]
+  Query [0-29] [SELECT EXECUTE FROM IMMEDIATE]
+    Select [0-29] [SELECT EXECUTE FROM IMMEDIATE]
+      SelectList [7-14] [EXECUTE]
+        SelectColumn [7-14] [EXECUTE]
+          PathExpression [7-14] [EXECUTE]
+            Identifier(EXECUTE) [7-14] [EXECUTE]
+      FromClause [15-29] [FROM IMMEDIATE]
+        TablePathExpression [20-29] [IMMEDIATE]
+          PathExpression [20-29] [IMMEDIATE]
+            Identifier(IMMEDIATE) [20-29] [IMMEDIATE]
 --
 SELECT
   EXECUTE
@@ -288,15 +285,15 @@ FROM
 
 EXECUTE IMMEDIATE "select ?, @x" USING 0, 5 AS x;
 --
-ExecuteImmediateStatement [0-48]
-  StringLiteral("select ?, @x") [18-32]
-  ExecuteUsingClause [39-48]
-    ExecuteUsingArgument [39-40]
-      IntLiteral(0) [39-40]
-    ExecuteUsingArgument [42-48]
-      IntLiteral(5) [42-43]
-      Alias [47-48]
-        Identifier(x) [47-48]
+ExecuteImmediateStatement [0-48] [EXECUTE IMMEDIATE...0, 5 AS x]
+  StringLiteral("select ?, @x") [18-32] ["select ?, @x"]
+  ExecuteUsingClause [39-48] [0, 5 AS x]
+    ExecuteUsingArgument [39-40] [0]
+      IntLiteral(0) [39-40] [0]
+    ExecuteUsingArgument [42-48] [5 AS x]
+      IntLiteral(5) [42-43] [5]
+      Alias [47-48] [x]
+        Identifier(x) [47-48] [x]
 --
 EXECUTE IMMEDIATE "select ?, @x" USING 0, 5 AS x
 ==

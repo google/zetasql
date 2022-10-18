@@ -1712,3 +1712,57 @@ QueryStmt
               +-ColumnRef(type=STRING, column=$array.col#1)
               +-Literal(type=INT64, value=1)
               +-Literal(type=BOOL, value=false)
+==
+
+# Regression test against b/244550962: Make sure the AST location of fields in
+# MakeStruct are correctly extracted when the MakeStruct is in an
+# ASTNamedArgument.
+# Note the function call here specifies a different struct field name ('field2_'
+# instead of 'field2') and thus a Cast would be added by the resolver and thus
+# trigger the issue in b/244550962.
+SELECT fn_named_struct_args(
+    struct_arg1 => STRUCT<field1 ARRAY<STRING>, field2 ARRAY<STRING>>(
+                       [""], ["A","B"]),
+    struct_arg2 =>
+      STRUCT<field1 ARRAY<STRING>,
+             field2_ ARRAY<STRING>,
+             field3 ARRAY<STRING>>(
+          [""], ARRAY(SELECT v FROM UNNEST([""]) v WHERE v <> ""), [""])
+);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(sample_functions:fn_named_struct_args(STRUCT<field1 ARRAY<STRING>, field2 ARRAY<STRING>> struct_arg1, STRUCT<field1 ARRAY<STRING>, field2 ARRAY<STRING>, field3 ARRAY<STRING>> struct_arg2) -> ARRAY<STRING>)
+    |     +-Literal(type=STRUCT<field1 ARRAY<STRING>, field2 ARRAY<STRING>>, value={field1:[""], field2:["A", "B"]}, has_explicit_type=TRUE)
+    |     +-MakeStruct
+    |       +-type=STRUCT<field1 ARRAY<STRING>, field2 ARRAY<STRING>, field3 ARRAY<STRING>>
+    |       +-field_list=
+    |         +-Literal(type=ARRAY<STRING>, value=[""], has_explicit_type=TRUE)
+    |         +-SubqueryExpr
+    |         | +-type=ARRAY<STRING>
+    |         | +-subquery_type=ARRAY
+    |         | +-subquery=
+    |         |   +-ProjectScan
+    |         |     +-column_list=[$array.v#1]
+    |         |     +-input_scan=
+    |         |       +-FilterScan
+    |         |         +-column_list=[$array.v#1]
+    |         |         +-input_scan=
+    |         |         | +-ArrayScan
+    |         |         |   +-column_list=[$array.v#1]
+    |         |         |   +-array_expr=
+    |         |         |   | +-Literal(type=ARRAY<STRING>, value=[""])
+    |         |         |   +-element_column=$array.v#1
+    |         |         +-filter_expr=
+    |         |           +-FunctionCall(ZetaSQL:$not_equal(STRING, STRING) -> BOOL)
+    |         |             +-ColumnRef(type=STRING, column=$array.v#1)
+    |         |             +-Literal(type=STRING, value="")
+    |         +-Literal(type=ARRAY<STRING>, value=[""], has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan

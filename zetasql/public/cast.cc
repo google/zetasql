@@ -16,9 +16,12 @@
 
 #include "zetasql/public/cast.h"
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -47,6 +50,7 @@
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/value.h"
 #include <cstdint>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -340,12 +344,14 @@ absl::Status CheckLegacyRanges(int64_t timestamp,
 //
 // Crashes if the Value type does not correspond with <T>.
 template <typename T>
-absl::StatusOr<Value> NumericToString(const Value& v) {
+absl::StatusOr<Value> NumericToString(const Value& v,
+                                      bool canonicalize_zero = false) {
   if (v.is_null()) return Value::NullString();
   T value = v.Get<T>();
   std::string str;
   absl::Status error;
-  if (zetasql::functions::NumericToString<T>(value, &str, &error)) {
+  if (zetasql::functions::NumericToString<T>(value, &str, &error,
+                                               canonicalize_zero)) {
     return Value::String(str);
   } else {
     return error;
@@ -385,7 +391,8 @@ bool IsMapEntryCast(const Type* from, const Type* to) {
 absl::StatusOr<Value> DoMapEntryCast(const Value& from_value,
                                      absl::TimeZone default_timezone,
                                      const LanguageOptions& language_options,
-                                     const Type* to_type) {
+                                     const Type* to_type,
+                                     bool canonicalize_zero) {
   ZETASQL_RET_CHECK(IsMapEntryCast(from_value.type(), to_type));
 
   const ProtoType* to_proto_type = to_type->AsProto();
@@ -398,10 +405,14 @@ absl::StatusOr<Value> DoMapEntryCast(const Value& from_value,
   ZETASQL_RETURN_IF_ERROR(to_proto_type->GetFieldTypeByTagNumber(
       to_proto_type->map_value()->number(), &type_factory, &value_type));
 
-  ZETASQL_ASSIGN_OR_RETURN(Value key, CastValue(from_value.field(0), default_timezone,
-                                        language_options, key_type));
-  ZETASQL_ASSIGN_OR_RETURN(Value value, CastValue(from_value.field(1), default_timezone,
-                                          language_options, value_type));
+  ZETASQL_ASSIGN_OR_RETURN(
+      Value key,
+      CastValue(from_value.field(0), default_timezone, language_options,
+                key_type, /*catalog=*/nullptr, canonicalize_zero));
+  ZETASQL_ASSIGN_OR_RETURN(
+      Value value,
+      CastValue(from_value.field(1), default_timezone, language_options,
+                value_type, /*catalog=*/nullptr, canonicalize_zero));
 
   google::protobuf::Arena arena;
   google::protobuf::DynamicMessageFactory factory;
@@ -464,15 +475,19 @@ class CastContext {
       "Use CastContext(default_timezone, current_timestamp, language_options) "
       "instead")
   CastContext(absl::TimeZone default_timezone,
-              const LanguageOptions& language_options)
-      : default_timezone_(default_timezone),
+              const LanguageOptions& language_options,
+              bool canonicalize_zero = false)
+      : canonicalize_zero_(canonicalize_zero),
+        default_timezone_(default_timezone),
         language_options_(language_options),
         current_timestamp_(std::nullopt) {}
 
   CastContext(absl::TimeZone default_timezone,
               std::optional<absl::Time> current_timestamp,
-              const LanguageOptions& language_options)
-      : default_timezone_(default_timezone),
+              const LanguageOptions& language_options,
+              bool canonicalize_zero = false)
+      : canonicalize_zero_(canonicalize_zero),
+        default_timezone_(default_timezone),
         language_options_(language_options),
         current_timestamp_(current_timestamp) {
     if (current_timestamp_.has_value()) {
@@ -502,6 +517,12 @@ class CastContext {
     return current_timestamp_;
   }
   const std::optional<int32_t> current_date() const { return current_date_; }
+
+  // If true, the sign on a signed zero is removed when converting numeric type
+  // to string.
+  // TODO : remove this flag when all engines have
+  // rolled out this new behavior.
+  const bool canonicalize_zero_ = false;
 
  private:
   // Executes a cast which involves extended types: source and/or destination
@@ -558,14 +579,15 @@ static absl::Status ValidateFormatStringFromTimestamp(
 
 absl::StatusOr<Value> NumericToStringWithFormat(const Value& v,
                                                 absl::string_view format,
-                                                ProductMode product_mode) {
+                                                ProductMode product_mode,
+                                                bool canonicalize_zero) {
   if (v.is_null()) {
     return Value::NullString();
   }
 
   ZETASQL_ASSIGN_OR_RETURN(const std::string str,
                    zetasql::functions::NumericalToStringWithFormat(
-                       v, format, product_mode));
+                       v, format, product_mode, canonicalize_zero));
   return Value::String(str);
 }
 
@@ -592,14 +614,17 @@ absl::StatusOr<Value> CastContext::CastValue(
           LanguageFeature::FEATURE_V_1_3_PROTO_MAPS) &&
       IsMapEntryCast(from_value.type(), to_type)) {
     return DoMapEntryCast(from_value, default_timezone(), language_options(),
-                          to_type);
+                          to_type, canonicalize_zero_);
   }
 
   // Check to see if the type kinds are castable.
   if (!internal::GetZetaSQLCasts().contains(
           TypeKindPair(v.type_kind(), to_type->kind()))) {
-    return MakeSqlError() << "Unsupported cast from " << v.type()->DebugString()
-                          << " to " << to_type->DebugString();
+    return MakeSqlError()
+           << "Unsupported cast from "
+           << v.type()->ShortTypeName(language_options().product_mode())
+           << " to "
+           << to_type->ShortTypeName(language_options().product_mode());
   }
 
   //  NULL handling for Values occurs here.
@@ -637,9 +662,10 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_INT32, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
-                                         language_options().product_mode());
+                                         language_options().product_mode(),
+                                         canonicalize_zero_);
       } else {
-        return NumericToString<int32_t>(v);
+        return NumericToString<int32_t>(v, canonicalize_zero_);
       }
     case FCT(TYPE_INT32, TYPE_NUMERIC):
       return NumericCast<int32_t, NumericValue>(v);
@@ -661,9 +687,10 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_UINT32, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
-                                         language_options().product_mode());
+                                         language_options().product_mode(),
+                                         canonicalize_zero_);
       } else {
-        return NumericToString<uint32_t>(v);
+        return NumericToString<uint32_t>(v, canonicalize_zero_);
       }
     case FCT(TYPE_UINT32, TYPE_NUMERIC):
       return NumericCast<uint32_t, NumericValue>(v);
@@ -685,9 +712,10 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_INT64, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
-                                         language_options().product_mode());
+                                         language_options().product_mode(),
+                                         canonicalize_zero_);
       } else {
-        return NumericToString<int64_t>(v);
+        return NumericToString<int64_t>(v, canonicalize_zero_);
       }
     case FCT(TYPE_INT64, TYPE_NUMERIC):
       return NumericCast<int64_t, NumericValue>(v);
@@ -709,9 +737,10 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_UINT64, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
-                                         language_options().product_mode());
+                                         language_options().product_mode(),
+                                         canonicalize_zero_);
       } else {
-        return NumericToString<uint64_t>(v);
+        return NumericToString<uint64_t>(v, canonicalize_zero_);
       }
     case FCT(TYPE_UINT64, TYPE_NUMERIC):
       return NumericCast<uint64_t, NumericValue>(v);
@@ -726,7 +755,8 @@ absl::StatusOr<Value> CastContext::CastValue(
       return NumericCast<bool, uint32_t>(v);
     case FCT(TYPE_BOOL, TYPE_UINT64):
       return NumericCast<bool, uint64_t>(v);
-    case FCT(TYPE_BOOL, TYPE_STRING): return NumericToString<bool>(v);
+    case FCT(TYPE_BOOL, TYPE_STRING):
+      return NumericToString<bool>(v, canonicalize_zero_);
 
     case FCT(TYPE_FLOAT, TYPE_INT32):
       return NumericCast<float, int32_t>(v);
@@ -740,9 +770,10 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_FLOAT, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
-                                         language_options().product_mode());
+                                         language_options().product_mode(),
+                                         canonicalize_zero_);
       } else {
-        return NumericToString<float>(v);
+        return NumericToString<float>(v, canonicalize_zero_);
       }
     case FCT(TYPE_FLOAT, TYPE_NUMERIC):
       return NumericCast<float, NumericValue>(v);
@@ -761,9 +792,10 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_DOUBLE, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
-                                         language_options().product_mode());
+                                         language_options().product_mode(),
+                                         canonicalize_zero_);
       } else {
-        return NumericToString<double>(v);
+        return NumericToString<double>(v, canonicalize_zero_);
       }
     case FCT(TYPE_DOUBLE, TYPE_NUMERIC):
       return NumericCast<double, NumericValue>(v);
@@ -775,8 +807,10 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_UINT32, TYPE_ENUM): {
       const Value to_value = Value::Enum(to_type->AsEnum(), v.ToInt64());
       if (!to_value.is_valid()) {
-        return MakeEvalError() << "Out of range cast of integer " << v.ToInt64()
-                               << " to enum type " << to_type->DebugString();
+        return MakeEvalError()
+               << "Out of range cast of integer " << v.ToInt64()
+               << " to enum type "
+               << to_type->ShortTypeName(language_options().product_mode());
       }
       return to_value;
     }
@@ -786,9 +820,10 @@ absl::StatusOr<Value> CastContext::CastValue(
       const Value to_value = Value::Enum(
           to_type->AsEnum(), static_cast<int64_t>(v.uint64_value()));
       if (!to_value.is_valid()) {
-        return MakeEvalError() << "Out of range cast of integer "
-                               << v.uint64_value() << " to enum type "
-                               << to_type->DebugString();
+        return MakeEvalError()
+               << "Out of range cast of integer " << v.uint64_value()
+               << " to enum type "
+               << to_type->ShortTypeName(language_options().product_mode());
       }
       return to_value;
     }
@@ -812,9 +847,10 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_STRING, TYPE_ENUM): {
       const Value to_value = Value::Enum(to_type->AsEnum(), v.string_value());
       if (!to_value.is_valid()) {
-        return MakeEvalError() << "Out of range cast of string '"
-                               << v.string_value() << "' to enum type "
-                               << to_type->DebugString();
+        return MakeEvalError()
+               << "Out of range cast of string '" << v.string_value()
+               << "' to enum type "
+               << to_type->ShortTypeName(language_options().product_mode());
       }
       return to_value;
     }
@@ -931,7 +967,7 @@ absl::StatusOr<Value> CastContext::CastValue(
         // that is an opaque proto).
         return MakeEvalError()
                << "Invalid cast from string to opaque proto type "
-               << to_type->DebugString();
+               << to_type->ShortTypeName(language_options().product_mode());
       }
       google::protobuf::DynamicMessageFactory msg_factory;
       std::unique_ptr<google::protobuf::Message> message(
@@ -952,9 +988,10 @@ absl::StatusOr<Value> CastContext::CastValue(
         std::string output_string(ToStringLiteral(v.string_value()));
         output_string =
             PrettyTruncateUTF8(output_string, MAX_LITERAL_DISPLAY_LENGTH);
-        return MakeEvalError() << "Invalid cast to type "
-                               << to_type->DebugString()
-                               << " from string: " << output_string;
+        return MakeEvalError()
+               << "Invalid cast to type "
+               << to_type->ShortTypeName(language_options().product_mode())
+               << " from string: " << output_string;
       }
       return Value::Proto(to_type->AsProto(), std::move(cord_value));
     }
@@ -1004,16 +1041,19 @@ absl::StatusOr<Value> CastContext::CastValue(
 
     case FCT(TYPE_ENUM, TYPE_ENUM): {
       if (!v.type()->Equivalent(to_type)) {
-        return MakeSqlError() << "Invalid enum cast from "
-                              << v.type()->DebugString() << " to "
-                              << to_type->DebugString();
+        return MakeSqlError()
+               << "Invalid enum cast from "
+               << v.type()->ShortTypeName(language_options().product_mode())
+               << " to "
+               << to_type->ShortTypeName(language_options().product_mode());
       }
       const Value to_value = Value::Enum(to_type->AsEnum(), v.enum_value());
       if (!to_value.is_valid()) {
-        return MakeEvalError() << "Out of range enum value " << v.ToInt64()
-                               << " when converting enum type "
-                               << to_type->DebugString()
-                               << " to a different definition of the same enum";
+        return MakeEvalError()
+               << "Out of range enum value " << v.ToInt64()
+               << " when converting enum type "
+               << to_type->ShortTypeName(language_options().product_mode())
+               << " to a different definition of the same enum";
       }
       return to_value;
     }
@@ -1122,9 +1162,11 @@ absl::StatusOr<Value> CastContext::CastValue(
       const StructType* v_type = v.type()->AsStruct();
       std::vector<Value> casted_field_values(v_type->num_fields());
       if (v_type->num_fields() != to_type->AsStruct()->num_fields()) {
-        return MakeSqlError() << "Unsupported cast from "
-                              << v.type()->DebugString() << " to "
-                              << to_type->DebugString();
+        return MakeSqlError()
+               << "Unsupported cast from "
+               << v.type()->ShortTypeName(language_options().product_mode())
+               << " to "
+               << to_type->ShortTypeName(language_options().product_mode());
       }
       for (int i = 0; i < v_type->num_fields(); ++i) {
         ZETASQL_ASSIGN_OR_RETURN(
@@ -1139,8 +1181,10 @@ absl::StatusOr<Value> CastContext::CastValue(
       if (v.type()->AsProto()->descriptor() == nullptr) {
         // TODO: Cannot currently get here.  The implementation of
         // opaque protos may affect this.
-        return MakeEvalError() << "Invalid cast from opaque proto type "
-                               << to_type->DebugString() << " to string";
+        return MakeEvalError()
+               << "Invalid cast from opaque proto type "
+               << to_type->ShortTypeName(language_options().product_mode())
+               << " to string";
       }
       google::protobuf::DynamicMessageFactory msg_factory;
       std::unique_ptr<google::protobuf::Message> message(
@@ -1150,9 +1194,10 @@ absl::StatusOr<Value> CastContext::CastValue(
         std::string display_bytes =
             PrettyTruncateUTF8(ToBytesLiteral(std::string(v.ToCord())),
                                MAX_LITERAL_DISPLAY_LENGTH);
-        return MakeEvalError() << "Invalid cast to string from type "
-                               << v.type()->DebugString() << ": "
-                               << display_bytes;
+        return MakeEvalError()
+               << "Invalid cast to string from type "
+               << v.type()->ShortTypeName(language_options().product_mode())
+               << ": " << display_bytes;
       }
       absl::Status error;
       absl::Cord printed_msg;
@@ -1168,9 +1213,11 @@ absl::StatusOr<Value> CastContext::CastValue(
 
     case FCT(TYPE_PROTO, TYPE_PROTO):
       if (!v.type()->Equivalent(to_type)) {
-        return MakeSqlError() << "Invalid proto cast from "
-                              << v.type()->DebugString() << " to "
-                              << to_type->DebugString();
+        return MakeSqlError()
+               << "Invalid proto cast from "
+               << v.type()->ShortTypeName(language_options().product_mode())
+               << " to "
+               << to_type->ShortTypeName(language_options().product_mode());
       }
       // We don't currently do any validity checking on the serialized bytes.
       return Value::Proto(to_type->AsProto(), v.ToCord());
@@ -1210,9 +1257,10 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_NUMERIC, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
-                                         language_options().product_mode());
+                                         language_options().product_mode(),
+                                         canonicalize_zero_);
       } else {
-        return NumericToString<NumericValue>(v);
+        return NumericToString<NumericValue>(v, canonicalize_zero_);
       }
     case FCT(TYPE_BIGNUMERIC, TYPE_INT32):
       return NumericCast<BigNumericValue, int32_t>(v);
@@ -1231,15 +1279,18 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_BIGNUMERIC, TYPE_STRING):
       if (format.has_value()) {
         return NumericToStringWithFormat(v, format.value(),
-                                         language_options().product_mode());
+                                         language_options().product_mode(),
+                                         canonicalize_zero_);
       } else {
-        return NumericToString<BigNumericValue>(v);
+        return NumericToString<BigNumericValue>(v, canonicalize_zero_);
       }
 
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
-             << "Unimplemented cast from " << v.type()->DebugString() << " to "
-             << to_type->DebugString();
+             << "Unimplemented cast from "
+             << v.type()->ShortTypeName(language_options().product_mode())
+             << " to "
+             << to_type->ShortTypeName(language_options().product_mode());
   }
 }
 
@@ -1249,8 +1300,9 @@ class CastContextWithValidation : public CastContext {
   CastContextWithValidation(absl::TimeZone default_timezone,
                             std::optional<absl::Time> current_timestamp,
                             const LanguageOptions& language_options,
-                            Catalog* catalog)
-      : CastContext(default_timezone, current_timestamp, language_options),
+                            Catalog* catalog, bool canonicalize_zero)
+      : CastContext(default_timezone, current_timestamp, language_options,
+                    canonicalize_zero),
         catalog_(catalog) {}
 
  private:
@@ -1279,8 +1331,11 @@ class CastContextWithValidation : public CastContext {
     if (!coercer.CoercesTo(InputArgumentType(from_value), to_type,
                            /*is_explicit=*/true, &result)) {
       return MakeSqlError()
-             << "Unsupported cast from " << from_value.type()->DebugString()
-             << " to " << to_type->DebugString();
+             << "Unsupported cast from "
+             << from_value.type()->ShortTypeName(
+                    language_options().product_mode())
+             << " to "
+             << to_type->ShortTypeName(language_options().product_mode());
     }
 
     return absl::OkStatus();
@@ -1297,8 +1352,10 @@ class CastContextWithoutValidation : public CastContext {
       absl::TimeZone default_timezone,
       std::optional<absl::Time> current_timestamp,
       const LanguageOptions& language_options,
-      const ExtendedCompositeCastEvaluator* extended_cast_evaluator)
-      : CastContext(default_timezone, current_timestamp, language_options),
+      const ExtendedCompositeCastEvaluator* extended_cast_evaluator,
+      bool canonicalize_zero)
+      : CastContext(default_timezone, current_timestamp, language_options,
+                    canonicalize_zero),
         extended_cast_evaluator_(extended_cast_evaluator) {}
 
   absl::StatusOr<Value> CastWithExtendedType(
@@ -1326,9 +1383,10 @@ class CastContextWithoutValidation : public CastContext {
 absl::StatusOr<Value> CastValue(const Value& from_value,
                                 absl::TimeZone default_timezone,
                                 const LanguageOptions& language_options,
-                                const Type* to_type, Catalog* catalog) {
+                                const Type* to_type, Catalog* catalog,
+                                bool canonicalize_zero) {
   return CastValue(from_value, default_timezone, language_options, to_type,
-                   /*format=*/std::nullopt, catalog);
+                   /*format=*/std::nullopt, catalog, canonicalize_zero);
 }
 
 absl::StatusOr<Value> CastValue(const Value& from_value,
@@ -1336,10 +1394,10 @@ absl::StatusOr<Value> CastValue(const Value& from_value,
                                 const LanguageOptions& language_options,
                                 const Type* to_type,
                                 const std::optional<std::string>& format,
-                                Catalog* catalog) {
+                                Catalog* catalog, bool canonicalize_zero) {
   return CastContextWithValidation(default_timezone,
                                    /*current_timestamp=*/std::nullopt,
-                                   language_options, catalog)
+                                   language_options, catalog, canonicalize_zero)
       .CastValue(from_value, to_type, format);
 }
 
@@ -1350,17 +1408,16 @@ absl::StatusOr<Value> CastValueWithoutTypeValidation(
     std::optional<absl::Time> current_timestamp,
     const LanguageOptions& language_options, const Type* to_type,
     const std::optional<std::string>& format,
-    const std::optional<std::string>& explicit_time_zone,
-    const ExtendedCompositeCastEvaluator* extended_cast_evaluator) {
+    const std::optional<std::string>& time_zone,
+    const ExtendedCompositeCastEvaluator* extended_conversion_evaluator,
+    bool canonicalize_zero) {
   absl::TimeZone timezone = default_timezone;
-  if (explicit_time_zone.has_value()) {
-    ZETASQL_RETURN_IF_ERROR(
-        functions::MakeTimeZone(explicit_time_zone.value(), &timezone));
+  if (time_zone.has_value()) {
+    ZETASQL_RETURN_IF_ERROR(functions::MakeTimeZone(time_zone.value(), &timezone));
   }
-  return CastContextWithoutValidation(timezone,
-                                      current_timestamp,
-                                      language_options,
-                                      extended_cast_evaluator)
+  return CastContextWithoutValidation(
+             timezone, current_timestamp, language_options,
+             extended_conversion_evaluator, canonicalize_zero)
       .CastValue(from_value, to_type, format);
 }
 

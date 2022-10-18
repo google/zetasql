@@ -19,6 +19,8 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
@@ -73,8 +75,10 @@ class SampleCatalog {
   void LoadTypes();
   void LoadTables();
   void LoadProtoTables();
+  void LoadViews(const LanguageOptions& language_options);
   void LoadNestedCatalogs();
   void AddFunctionWithArgumentType(std::string type_name, const Type* arg_type);
+  void LoadFunctionsWithStructArgs();
   void LoadFunctions();
   void LoadExtendedSubscriptFunctions();
   void LoadFunctionsWithDefaultArguments();
@@ -86,7 +90,6 @@ class SampleCatalog {
   // split it up in order to avoid lint warnings.
   void LoadTableValuedFunctions1();
   void LoadTableValuedFunctions2();
-  void LoadTableValuedFunctionsWithStructArgs();
   void LoadTVFWithExtraColumns();
   void LoadConnectionTableValuedFunctions();
   void LoadDescriptorTableValuedFunctions();
@@ -199,8 +202,13 @@ class SampleCatalog {
   std::unordered_map<std::string, std::unique_ptr<SimpleConnection>>
       owned_connections_;
 
-  // Manages the lifetime of SQLFunction body expressions.
-  std::vector<std::unique_ptr<const AnalyzerOutput>> sql_function_artifacts_;
+  // Manages the lifetime of ResolvedAST objects for SQL defined statements like
+  // views, SQL functions, column expressions, or SQL TVFs.
+  std::vector<std::unique_ptr<const AnalyzerOutput>> sql_object_artifacts_;
+
+  // Manages the lifetime of ResolvedAST objects that reference a catalog Column
+  std::vector<std::unique_ptr<const ResolvedCatalogColumnRef>>
+      catalog_col_refs_;
 };
 
 }  // namespace zetasql

@@ -64,15 +64,12 @@ AlterEntityStmt
 +-entity_type="RESERVATION"
 ==
 
-[language_features=JSON_NO_VALIDATION]
 ALTER RESERVATION myProject.myReservation
   SET AS JSON '{key: "value"}';
 --
-AlterEntityStmt
-+-name_path=myProject.myReservation
-+-alter_action_list=
-| +-SetAsAction(entity_body_json='{key: "value"}')
-+-entity_type="RESERVATION"
+ERROR: Invalid JSON literal: syntax error while parsing object key - invalid literal; last read: '{k'; expected string literal [at 2:10]
+  SET AS JSON '{key: "value"}';
+         ^
 ==
 
 ALTER RESERVATION myProject.myReservation SET AS JSON '{"key": "value"}';
@@ -84,7 +81,7 @@ AlterEntityStmt
 +-entity_type="RESERVATION"
 ==
 
-[language_features=JSON_NO_VALIDATION]
+[language_features=]
 CREATE RESERVATION IF NOT EXISTS myProject.myReservation
 AS JSON
 """
@@ -93,7 +90,9 @@ AS JSON
 }
 """
 --
-CreateEntityStmt(name_path=myProject.myReservation, create_mode=CREATE_IF_NOT_EXISTS, entity_type="RESERVATION", entity_body_json='\n{\n  key: "value"\n}\n')
+ERROR: Invalid JSON literal: syntax error while parsing object key - invalid literal; last read: '<U+000A>{<U+000A>  k'; expected string literal [at 2:4]
+AS JSON
+   ^
 ==
 
 CREATE RESERVATION IF NOT EXISTS myProject.myReservation

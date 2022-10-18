@@ -46,10 +46,7 @@ namespace {
 using ::zetasql_base::testing::StatusIs;
 
 TEST(JsonFormatTest, Compliance) {
-  const std::vector<FunctionTestCall> tests =
-      GetFunctionTestsToJsonString(/*include_nano_timestamp=*/true);
-  const QueryParamsWithResult::FeatureSet default_feature_set = {
-      FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
+  const std::vector<FunctionTestCall> tests = GetFunctionTestsToJsonString();
 
   for (const FunctionTestCall& test : tests) {
     if (std::any_of(test.params.params().begin(), test.params.params().end(),
@@ -64,21 +61,10 @@ TEST(JsonFormatTest, Compliance) {
                                   input_value.ShortDebugString(),
                                   pretty_print));
 
-    // If the test is conditioned on civil time with nanos, use that result.
-    // Otherwise just use the default result.
-    const QueryParamsWithResult::Result* result =
-        zetasql_base::FindOrNull(test.params.results(), default_feature_set);
-    const Value expected_result_value =
-        result == nullptr ? test.params.results().begin()->second.result
-                          : result->result;
-    const absl::Status expected_status =
-        result == nullptr ? test.params.results().begin()->second.status
-                          : result->status;
-
     JsonPrettyPrinter pretty_printer(pretty_print, PRODUCT_INTERNAL);
-    JSONParsingOptions json_parsing_options = JSONParsingOptions();
-    if (test.params.results().size() == 1 &&
-        zetasql_base::ContainsKey(test.params.results().begin()->first,
+    JSONParsingOptions json_parsing_options =
+        JSONParsingOptions{.canonicalize_zero = true};
+    if (zetasql_base::ContainsKey(test.params.required_features(),
                          FEATURE_JSON_STRICT_NUMBER_PARSING)) {
       json_parsing_options.strict_number_parsing = true;
     }
@@ -86,17 +72,17 @@ TEST(JsonFormatTest, Compliance) {
     auto actual_status = JsonFromValue(input_value, &pretty_printer,
                                        &actual_output, json_parsing_options);
 
-    if (expected_status.ok()) {
+    if (test.params.status().ok()) {
       ZETASQL_ASSERT_OK(actual_status);
-      EXPECT_EQ(expected_result_value.string_value(), actual_output);
+      EXPECT_EQ(test.params.result().string_value(), actual_output);
 
       actual_output = "dummy.prefix";
       ZETASQL_ASSERT_OK(JsonFromValue(input_value, &pretty_printer, &actual_output,
                               json_parsing_options));
-      EXPECT_EQ("dummy.prefix" + expected_result_value.string_value(),
+      EXPECT_EQ("dummy.prefix" + test.params.result().string_value(),
                 actual_output);
     } else {
-      EXPECT_EQ(expected_status.code(), actual_status.code());
+      EXPECT_EQ(test.params.status().code(), actual_status.code());
     }
   }
 }
@@ -149,6 +135,38 @@ TEST(JsonFormatTest, LargeOutput) {
     tmp = "....";
     ZETASQL_EXPECT_OK(JsonFromValue(values::String("foobar"), &pretty_printer, &tmp));
   }
+}
+
+void CanonicalizeZeroLegacyTest(Value input_value,
+                                const std::string& expected_result_value) {
+  JsonPrettyPrinter pretty_printer(/*pretty_print=*/false, PRODUCT_INTERNAL);
+  JSONParsingOptions json_parsing_options =
+      JSONParsingOptions{.canonicalize_zero = false};
+  std::string actual_output;
+  auto actual_status = JsonFromValue(input_value, &pretty_printer,
+                                     &actual_output, json_parsing_options);
+
+  ZETASQL_ASSERT_OK(actual_status);
+  actual_output = "dummy.prefix";
+  ZETASQL_ASSERT_OK(JsonFromValue(input_value, &pretty_printer, &actual_output,
+                          json_parsing_options));
+  EXPECT_EQ("dummy.prefix" + expected_result_value, actual_output);
+}
+
+TEST(JsonFormatTest, CanonicalizeZeroLegacyFloat0Test) {
+  CanonicalizeZeroLegacyTest(values::Float(-0.0), "-0");
+}
+
+TEST(JsonFormatTest, CanonicalizeZeroLegacyFloatNonZeroTest) {
+  CanonicalizeZeroLegacyTest(values::Float(5), "5");
+}
+
+TEST(JsonFormatTest, CanonicalizeZeroLegacyDouble0Test) {
+  CanonicalizeZeroLegacyTest(values::Double(-0.0), "-0");
+}
+
+TEST(JsonFormatTest, CanonicalizeZeroLegacyDoubleNonZeroTest) {
+  CanonicalizeZeroLegacyTest(values::Double(5), "5");
 }
 
 }  // namespace

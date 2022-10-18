@@ -21,6 +21,7 @@ cc_library(
     srcs = ["collation.cc"],
     hdrs = ["collation.h"],
     deps = [
+        ":default_annotation",
         "//zetasql/base:ret_check",
         "//zetasql/common:errors",
         "//zetasql/parser:parse_tree",
@@ -32,5 +33,16 @@ cc_library(
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "default_annotation",
+    srcs = ["default_annotation_spec.cc"],
+    hdrs = ["default_annotation_spec.h"],
+    deps = [
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status",
     ],
 )

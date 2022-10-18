@@ -19,6 +19,7 @@
 #include <ctype.h>
 
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -27,22 +28,15 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
-#include "zetasql/common/errors.h"
-#include "zetasql/public/catalog.h"
-#include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
-#include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
@@ -111,7 +105,10 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
   GetLogicFunctions(type_factory, options, functions);
   GetStringFunctions(type_factory, options, functions);
   GetRegexFunctions(type_factory, options, functions);
+  GetErrorHandlingFunctions(type_factory, options, functions);
+  GetConditionalFunctions(type_factory, options, functions);
   GetMiscellaneousFunctions(type_factory, options, functions);
+  GetArrayAggregationFunctions(type_factory, options, functions);
   GetSubscriptFunctions(type_factory, options, functions);
   GetJSONFunctions(type_factory, options, functions);
   GetMathFunctions(type_factory, options, functions);
@@ -136,6 +133,9 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
   }
   GetTypeOfFunction(type_factory, options, functions);
   GetFilterFieldsFunction(type_factory, options, functions);
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_RANGE_TYPE)) {
+    GetRangeFunctions(type_factory, options, functions);
+  }
 }
 
 bool FunctionMayHaveUnintendedArgumentCoercion(const Function* function) {

@@ -1,0 +1,369 @@
+[default enabled_ast_rewrites=ALL]
+[default language_features=TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION]
+[default no_java]
+
+SELECT *
+FROM UnaryAbTableArgWithScalarArgsTempl(
+         1,
+         (SELECT 1 a, "2" b, DATE '2020-08-22' AS c),
+         "b")
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgWithScalarArgsTempl.a#4 AS a [INT64]
+| +-UnaryAbTableArgWithScalarArgsTempl.b#5 AS b [STRING]
+| +-UnaryAbTableArgWithScalarArgsTempl.c#6 AS c [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
+        +-tvf=UnaryAbTableArgWithScalarArgsTempl((ANY TYPE a, ANY TABLE arg0, ANY TYPE b) -> ANY TABLE)
+        +-signature=(literal INT64, TABLE<a INT64, b STRING, c DATE>, literal STRING) -> TABLE<a INT64, b STRING, c DATE>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-expr=
+        | |   +-Literal(type=INT64, value=1)
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=$subquery1.[a#1, b#2, c#3]
+        | | |   +-expr_list=
+        | | |   | +-a#1 := Literal(type=INT64, value=1)
+        | | |   | +-b#2 := Literal(type=STRING, value="2")
+        | | |   | +-c#3 := Literal(type=DATE, value=2020-08-22, has_explicit_type=TRUE)
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=$subquery1.[a#1, b#2, c#3]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="b")
+        +-column_index_list=[0, 1, 2]
+
+With Templated SQL TVF signature:
+  UnaryAbTableArgWithScalarArgsTempl(literal INT64, TABLE<a INT64, b STRING, c DATE>, literal STRING) -> TABLE<a INT64, b STRING, c DATE>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-arg0.a#1 AS a [INT64]
+| +-arg0.b#2 AS b [STRING]
+| +-arg0.c#3 AS c [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=arg0.[a#1, b#2, c#3]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=arg0.[a#1, b#2, c#3]
+        +-input_scan=
+        | +-RelationArgumentScan(column_list=arg0.[a#1, b#2, c#3], name="arg0")
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            | +-ColumnRef(type=INT64, column=arg0.a#1)
+            | +-ColumnRef(type=INT64, column=arg0.a#1)
+            +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+              +-ColumnRef(type=STRING, column=arg0.b#2)
+              +-ColumnRef(type=STRING, column=arg0.b#2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgWithScalarArgsTempl.a#4 AS a [INT64]
+| +-UnaryAbTableArgWithScalarArgsTempl.b#5 AS b [STRING]
+| +-UnaryAbTableArgWithScalarArgsTempl.c#6 AS c [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg0"
+        | | +-with_subquery=
+        | |   +-ProjectScan
+        | |     +-column_list=$subquery1.[a#1, b#2, c#3]
+        | |     +-expr_list=
+        | |     | +-a#1 := Literal(type=INT64, value=1)
+        | |     | +-b#2 := Literal(type=STRING, value="2")
+        | |     | +-c#3 := Literal(type=DATE, value=2020-08-22, has_explicit_type=TRUE)
+        | |     +-input_scan=
+        | |       +-SingleRowScan
+        | +-WithEntry
+        |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgsTempl_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[a#7, b#8]
+        |       +-expr_list=
+        |       | +-a#7 := Literal(type=INT64, value=1)
+        |       | +-b#8 := Literal(type=STRING, value="b")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
+            +-input_scan=
+              +-FilterScan
+                +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
+                +-input_scan=
+                | +-WithRefScan(column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6], with_query_name="arg0")
+                +-filter_expr=
+                  +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                    +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                    | +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgsTempl.a#4)
+                    | +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgsTempl.a#4)
+                    +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+                      +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgsTempl.b#5)
+                      +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgsTempl.b#5)
+==
+
+SELECT * FROM CallsUnaryAbTableArgWithScalarArgsTempl(DATE '2020-08-22');
+--
+QueryStmt
++-output_column_list=
+| +-CallsUnaryAbTableArgWithScalarArgsTempl.a#1 AS a [INT64]
+| +-CallsUnaryAbTableArgWithScalarArgsTempl.b#2 AS b [STRING]
+| +-CallsUnaryAbTableArgWithScalarArgsTempl.c#3 AS c [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=CallsUnaryAbTableArgWithScalarArgsTempl.[a#1, b#2, c#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=CallsUnaryAbTableArgWithScalarArgsTempl.[a#1, b#2, c#3]
+        +-tvf=CallsUnaryAbTableArgWithScalarArgsTempl((ANY TYPE ignored_param) -> ANY TABLE)
+        +-signature=(literal DATE) -> TABLE<a INT64, b STRING, c DATE>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=DATE, value=2020-08-22, has_explicit_type=TRUE)
+        +-column_index_list=[0, 1, 2]
+
+With Templated SQL TVF signature:
+  CallsUnaryAbTableArgWithScalarArgsTempl(literal DATE) -> TABLE<a INT64, b STRING, c DATE>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgWithScalarArgsTempl.a#4 AS a [INT64]
+| +-UnaryAbTableArgWithScalarArgsTempl.b#5 AS b [STRING]
+| +-UnaryAbTableArgWithScalarArgsTempl.c#6 AS c [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArgWithScalarArgsTempl.[a#4, b#5, c#6]
+        +-tvf=UnaryAbTableArgWithScalarArgsTempl((ANY TYPE a, ANY TABLE arg0, ANY TYPE b) -> ANY TABLE)
+        +-signature=(literal INT64, TABLE<a INT64, b STRING, c DATE>, literal STRING) -> TABLE<a INT64, b STRING, c DATE>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-expr=
+        | |   +-Literal(type=INT64, value=1)
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=$subquery1.[a#1, b#2, c#3]
+        | | |   +-expr_list=
+        | | |   | +-a#1 := Literal(type=INT64, value=1)
+        | | |   | +-b#2 := Literal(type=STRING, value="2")
+        | | |   | +-c#3 := Literal(type=DATE, value=2020-08-22, has_explicit_type=TRUE)
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=$subquery1.[a#1, b#2, c#3]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="b")
+        +-column_index_list=[0, 1, 2]
+
+With Templated SQL TVF signature:
+  UnaryAbTableArgWithScalarArgsTempl(literal INT64, TABLE<a INT64, b STRING, c DATE>, literal STRING) -> TABLE<a INT64, b STRING, c DATE>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-arg0.a#1 AS a [INT64]
+| +-arg0.b#2 AS b [STRING]
+| +-arg0.c#3 AS c [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=arg0.[a#1, b#2, c#3]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=arg0.[a#1, b#2, c#3]
+        +-input_scan=
+        | +-RelationArgumentScan(column_list=arg0.[a#1, b#2, c#3], name="arg0")
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            | +-ColumnRef(type=INT64, column=arg0.a#1)
+            | +-ColumnRef(type=INT64, column=arg0.a#1)
+            +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+              +-ColumnRef(type=STRING, column=arg0.b#2)
+              +-ColumnRef(type=STRING, column=arg0.b#2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-CallsUnaryAbTableArgWithScalarArgsTempl.a#1 AS a [INT64]
+| +-CallsUnaryAbTableArgWithScalarArgsTempl.b#2 AS b [STRING]
+| +-CallsUnaryAbTableArgWithScalarArgsTempl.c#3 AS c [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=CallsUnaryAbTableArgWithScalarArgsTempl.[a#1, b#2, c#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=CallsUnaryAbTableArgWithScalarArgsTempl.[a#1, b#2, c#3]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="$inlined_CallsUnaryAbTableArgWithScalarArgsTempl_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_CallsUnaryAbTableArgWithScalarArgsTempl.ignored_param#7]
+        |       +-expr_list=
+        |       | +-ignored_param#7 := Literal(type=DATE, value=2020-08-22, has_explicit_type=TRUE)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=CallsUnaryAbTableArgWithScalarArgsTempl.[a#1, b#2, c#3]
+            +-input_scan=
+              +-WithScan
+                +-column_list=CallsUnaryAbTableArgWithScalarArgsTempl.[a#1, b#2, c#3]
+                +-with_entry_list=
+                | +-WithEntry
+                | | +-with_query_name="arg0"
+                | | +-with_subquery=
+                | |   +-ProjectScan
+                | |     +-column_list=$subquery1.[a#4, b#5, c#6]
+                | |     +-expr_list=
+                | |     | +-a#4 := Literal(type=INT64, value=1)
+                | |     | +-b#5 := Literal(type=STRING, value="2")
+                | |     | +-c#6 := Literal(type=DATE, value=2020-08-22, has_explicit_type=TRUE)
+                | |     +-input_scan=
+                | |       +-SingleRowScan
+                | +-WithEntry
+                |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgsTempl_scalar_args"
+                |   +-with_subquery=
+                |     +-ProjectScan
+                |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgsTempl.[a#8, b#9]
+                |       +-expr_list=
+                |       | +-a#8 := Literal(type=INT64, value=1)
+                |       | +-b#9 := Literal(type=STRING, value="b")
+                |       +-input_scan=
+                |         +-SingleRowScan
+                +-query=
+                  +-ProjectScan
+                    +-column_list=CallsUnaryAbTableArgWithScalarArgsTempl.[a#1, b#2, c#3]
+                    +-input_scan=
+                      +-FilterScan
+                        +-column_list=CallsUnaryAbTableArgWithScalarArgsTempl.[a#1, b#2, c#3]
+                        +-input_scan=
+                        | +-WithRefScan(column_list=CallsUnaryAbTableArgWithScalarArgsTempl.[a#1, b#2, c#3], with_query_name="arg0")
+                        +-filter_expr=
+                          +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                            | +-ColumnRef(type=INT64, column=CallsUnaryAbTableArgWithScalarArgsTempl.a#1)
+                            | +-ColumnRef(type=INT64, column=CallsUnaryAbTableArgWithScalarArgsTempl.a#1)
+                            +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+                              +-ColumnRef(type=STRING, column=CallsUnaryAbTableArgWithScalarArgsTempl.b#2)
+                              +-ColumnRef(type=STRING, column=CallsUnaryAbTableArgWithScalarArgsTempl.b#2)
+==
+
+SELECT * FROM definer_rights_templated_tvf((SELECT 1 AS a))
+--
+QueryStmt
++-output_column_list=
+| +-definer_rights_templated_tvf.Key#2 AS Key [INT64]
+| +-definer_rights_templated_tvf.Value#3 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=definer_rights_templated_tvf.[Key#2, Value#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=definer_rights_templated_tvf.[Key#2, Value#3]
+        +-tvf=definer_rights_templated_tvf((ANY TYPE) -> ANY TABLE)
+        +-signature=(INT64) -> TABLE<Key INT64, Value STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-SubqueryExpr
+        |       +-type=INT64
+        |       +-subquery_type=SCALAR
+        |       +-subquery=
+        |         +-ProjectScan
+        |           +-column_list=[$expr_subquery.a#1]
+        |           +-expr_list=
+        |           | +-a#1 := Literal(type=INT64, value=1)
+        |           +-input_scan=
+        |             +-SingleRowScan
+        +-column_index_list=[0, 1]
+
+With Templated SQL TVF signature:
+  definer_rights_templated_tvf(INT64) -> TABLE<Key INT64, Value STRING>
+containing resolved templated query:
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=KeyValue.[Key#1, Value#2]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-ArgumentRef(type=INT64, name="x")
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-definer_rights_templated_tvf.Key#2 AS Key [INT64]
+| +-definer_rights_templated_tvf.Value#3 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=definer_rights_templated_tvf.[Key#2, Value#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=definer_rights_templated_tvf.[Key#2, Value#3]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="$inlined_definer_rights_templated_tvf_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_definer_rights_templated_tvf.x#4]
+        |       +-expr_list=
+        |       | +-x#4 :=
+        |       |   +-SubqueryExpr
+        |       |     +-type=INT64
+        |       |     +-subquery_type=SCALAR
+        |       |     +-subquery=
+        |       |       +-ProjectScan
+        |       |         +-column_list=[$expr_subquery.a#1]
+        |       |         +-expr_list=
+        |       |         | +-a#1 := Literal(type=INT64, value=1)
+        |       |         +-input_scan=
+        |       |           +-SingleRowScan
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=definer_rights_templated_tvf.[Key#2, Value#3]
+            +-input_scan=
+              +-FilterScan
+                +-column_list=definer_rights_templated_tvf.[Key#2, Value#3]
+                +-input_scan=
+                | +-TableScan(column_list=definer_rights_templated_tvf.[Key#2, Value#3], table=KeyValue, column_index_list=[0, 1])
+                +-filter_expr=
+                  +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                    +-ColumnRef(type=INT64, column=definer_rights_templated_tvf.Key#2)
+                    +-SubqueryExpr
+                      +-type=INT64
+                      +-subquery_type=SCALAR
+                      +-subquery=
+                        +-ProjectScan
+                          +-column_list=[$inlined_definer_rights_templated_tvf.x#5]
+                          +-input_scan=
+                            +-WithRefScan(column_list=[$inlined_definer_rights_templated_tvf.x#5], with_query_name="$inlined_definer_rights_templated_tvf_scalar_args")

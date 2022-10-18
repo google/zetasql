@@ -20,8 +20,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
+#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/utf_util.h"

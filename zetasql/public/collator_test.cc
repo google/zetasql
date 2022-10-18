@@ -17,7 +17,9 @@
 #include "zetasql/public/collator.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"

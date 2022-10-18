@@ -17,12 +17,18 @@
 #include "zetasql/public/analyzer_options.h"
 
 #include <algorithm>
+#include <limits>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/time_zone_util.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
 #include "absl/flags/flag.h"
+#include "absl/status/status.h"
 
 ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
           "Run validator on resolved AST before returning it.");
@@ -47,15 +53,21 @@ bool StringVectorCaseLess::operator()(
 
 void AllowedHintsAndOptions::AddOption(const std::string& name,
                                        const Type* type) {
-  ZETASQL_CHECK_OK(AddOptionImpl(name, type));
+  ZETASQL_CHECK_OK(AddOptionImpl(options_lower, name, type));
 }
 
-absl::Status AllowedHintsAndOptions::AddOptionImpl(const std::string& name,
-                                                   const Type* type) {
+void AllowedHintsAndOptions::AddAnonymizationOption(const std::string& name,
+                                                    const Type* type) {
+  ZETASQL_CHECK_OK(AddOptionImpl(anonymization_options_lower, name, type));
+}
+
+absl::Status AllowedHintsAndOptions::AddOptionImpl(
+    absl::flat_hash_map<std::string, const Type*>& options_map,
+    const std::string& name, const Type* type) {
   if (name.empty()) {
     return MakeSqlError() << "Option name should not be empty.";
   }
-  if (!zetasql_base::InsertIfNotPresent(&options_lower, absl::AsciiStrToLower(name),
+  if (!zetasql_base::InsertIfNotPresent(&options_map, absl::AsciiStrToLower(name),
                                type)) {
     return MakeSqlError() << "Duplicate option: " << name;
   }
@@ -102,6 +114,9 @@ absl::Status AllowedHintsAndOptions::Deserialize(
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory, AllowedHintsAndOptions* result) {
   *result = AllowedHintsAndOptions();
+  // We need to clear anonymization_options_lower since they are filled in
+  // constructor.
+  result->anonymization_options_lower.clear();
   for (const auto& qualifier : proto.disallow_unknown_hints_with_qualifier()) {
     if (!zetasql_base::InsertIfNotPresent(
             &(result->disallow_unknown_hints_with_qualifiers), qualifier)) {
@@ -122,16 +137,29 @@ absl::Status AllowedHintsAndOptions::Deserialize(
                                           nullptr, hint.allow_unqualified()));
     }
   }
-  for (const auto& option : proto.option()) {
-    if (option.has_type()) {
-      const Type* type;
-      ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
-          option.type(), pools, &type));
-      ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(option.name(), type));
-    } else {
-      ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(option.name(), nullptr));
+  auto deserialize_options =
+      [&pools, &result, &factory](
+          const google::protobuf::RepeatedPtrField<
+              ::zetasql::AllowedHintsAndOptionsProto_OptionProto>&
+              options_proto,
+          absl::flat_hash_map<std::string, const Type*>& options)
+      -> absl::Status {
+    for (const auto& option : options_proto) {
+      if (option.has_type()) {
+        const Type* type;
+        ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
+            option.type(), pools, &type));
+        ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(options, option.name(), type));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(options, option.name(), nullptr));
+      }
     }
-  }
+
+    return absl::OkStatus();
+  };
+  ZETASQL_RETURN_IF_ERROR(deserialize_options(proto.option(), result->options_lower));
+  ZETASQL_RETURN_IF_ERROR(deserialize_options(proto.anonymization_option(),
+                                      result->anonymization_options_lower));
   return absl::OkStatus();
 }
 
@@ -208,25 +236,36 @@ absl::Status AllowedHintsAndOptions::Serialize(
       }
     }
   }
-
-  for (const auto& option : options_lower) {
-    auto* option_proto = proto->add_option();
-    option_proto->set_name(option.first);
-    if (option.second != nullptr) {
-      ZETASQL_RETURN_IF_ERROR(option.second->SerializeToProtoAndDistinctFileDescriptors(
-          option_proto->mutable_type(), file_descriptor_set_map));
+  auto serialize_options =
+      [file_descriptor_set_map](
+          const absl::flat_hash_map<std::string, const Type*>& options,
+          google::protobuf::RepeatedPtrField<
+              ::zetasql::AllowedHintsAndOptionsProto_OptionProto>&
+              options_proto) -> absl::Status {
+    for (const auto& option : options) {
+      auto* option_proto = options_proto.Add();
+      option_proto->set_name(option.first);
+      if (option.second != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(
+            option.second->SerializeToProtoAndDistinctFileDescriptors(
+                option_proto->mutable_type(), file_descriptor_set_map));
+      }
     }
-  }
+    return absl::OkStatus();
+  };
+  ZETASQL_RETURN_IF_ERROR(serialize_options(options_lower, *proto->mutable_option()));
+  ZETASQL_RETURN_IF_ERROR(serialize_options(anonymization_options_lower,
+                                    *proto->mutable_anonymization_option()));
   return absl::OkStatus();
 }
 
-AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {
-  validate_resolved_ast_ = absl::GetFlag(FLAGS_zetasql_validate_resolved_ast);
-}
+AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {}
 
 AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
-    : language_options_(language_options) {
-  ZETASQL_CHECK(absl::LoadTimeZone("America/Los_Angeles", &default_timezone_));
+    : language_options_(language_options),
+      validate_resolved_ast_(
+          absl::GetFlag(FLAGS_zetasql_validate_resolved_ast)) {
+  ZETASQL_CHECK_OK(FindTimeZoneByName("America/Los_Angeles", &default_timezone_));
 }
 
 AnalyzerOptions::~AnalyzerOptions() {}
@@ -298,11 +337,9 @@ absl::Status AnalyzerOptions::Deserialize(
   }
   result->SetDdlPseudoColumns(ddl_pseudo_columns);
 
-  if (proto.has_default_timezone() &&
-      !absl::LoadTimeZone(proto.default_timezone(),
-                          &result->default_timezone_)) {
-    return MakeSqlError() << "Timezone string not parseable: "
-                          << proto.default_timezone();
+  if (proto.has_default_timezone()) {
+    ZETASQL_RETURN_IF_ERROR(FindTimeZoneByName(proto.default_timezone(),
+                                       &result->default_timezone_));
   }
 
   if (proto.has_default_anon_function_report_format()) {
@@ -349,7 +386,6 @@ absl::Status AnalyzerOptions::Deserialize(
   if (proto.has_parse_location_record_type()) {
     result->parse_location_record_type_ = proto.parse_location_record_type();
   }
-
   return absl::OkStatus();
 }
 
@@ -431,7 +467,6 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   for (ResolvedASTRewrite rewrite : enabled_rewrites_) {
     proto->add_enabled_rewrites(rewrite);
   }
-
   return absl::OkStatus();
 }
 
@@ -681,6 +716,14 @@ absl::Status ValidateAnalyzerOptions(const AnalyzerOptions& options) {
                 options.positional_query_parameters().empty())
           << "Parameters are disabled and cannot be provided";
       break;
+  }
+  if (options.language().LanguageFeatureEnabled(
+          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+    ZETASQL_RET_CHECK(options.language().LanguageFeatureEnabled(
+        FEATURE_V_1_3_ANNOTATION_FRAMEWORK))
+        << "Invalid analyzer configuration. The COLLATION_SUPPORT language "
+           "feature requires the ANNOTATION_FRAMEWORK language feature is also "
+           "enabled.";
   }
 
   return absl::OkStatus();

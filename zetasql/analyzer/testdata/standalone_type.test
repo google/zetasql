@@ -726,75 +726,107 @@ ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE
 STRUCT<STRUCT<ARRAY<NUMERIC(4, 1)>, ARRAY<STRING(10)>, INT32, BIGNUMERIC(MAX, 2), INT64>>
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 string collate 'und:ci'
 --
 STRING COLLATE 'und:ci'
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT]
-string collate 'und:ci'
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+double collate 'und:ci'
 --
-ERROR: Type with collation name is not supported [at 1:8]
-string collate 'und:ci'
+ERROR: Type DOUBLE does not support collation name [at 1:8]
+double collate 'und:ci'
        ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
-double collate 'und:ci'
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+range<date> collate 'und:ci'
 --
-ERROR: DOUBLE does not support collation name
+ERROR: Range type does not support collation name [at 1:13]
+range<date> collate 'und:ci'
+            ^
 ==
 
-[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+range<string collate 'und:ci'>
+--
+ERROR: Unsupported type: RANGE<STRING> is not supported [at 1:7]
+range<string collate 'und:ci'>
+      ^
+==
+
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+range<array<string collate 'und:ci'>>
+--
+ERROR: Unsupported type: RANGE<ARRAY<STRING>> is not supported [at 1:7]
+range<array<string collate 'und:ci'>>
+      ^
+==
+
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+range<struct<x string collate 'und:ci', y int64>>
+--
+ERROR: Unsupported type: RANGE<STRUCT<x STRING, y INT64>> is not supported [at 1:7]
+range<struct<x string collate 'und:ci', y int64>>
+      ^
+==
+
+[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 string(100) collate 'ABC'
 --
 STRING(100) COLLATE 'ABC'
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 struct<string collate 'und:ci'>
 --
 STRUCT<STRING COLLATE 'und:ci'>
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 struct<string> collate 'und:ci'
 --
-ERROR: Struct type cannot have collation by itself, it can only have collation on its struct fields
+ERROR: STRUCT<STRING> type cannot have collation by itself, it can only have collation on its field type [at 1:16]
+struct<string> collate 'und:ci'
+               ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 struct<double collate 'und:ci'>
 --
-ERROR: DOUBLE does not support collation name
+ERROR: Type DOUBLE does not support collation name [at 1:15]
+struct<double collate 'und:ci'>
+              ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 array<string collate 'und:ci'>
 --
 ARRAY<STRING COLLATE 'und:ci'>
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 array<string> collate 'und:ci'
 --
-ERROR: Array type cannot have collation by itself, it can only have collation on its element type
+ERROR: ARRAY<STRING> type cannot have collation by itself, it can only have collation on its element type [at 1:15]
+array<string> collate 'und:ci'
+              ^
 ==
 
-[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 array<string(100) collate 'ABC'>
 --
 ARRAY<STRING(100) COLLATE 'ABC'>
 ==
 
-[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 array<struct<a string(100), b string collate 'ABC', c double, d string>>
 --
 ARRAY<STRUCT<a STRING(100), b STRING COLLATE 'ABC', c DOUBLE, d STRING>>
 ==
 
-[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 struct<a array<string(100) collate 'ABC'>, b string, c struct<string(50) collate 'CDE'>>
 --
 STRUCT<a ARRAY<STRING(100) COLLATE 'ABC'>, b STRING, c STRUCT<STRING(50) COLLATE 'CDE'>>

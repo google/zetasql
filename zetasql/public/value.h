@@ -177,15 +177,7 @@ class Value {
   const BigNumericValue& bignumeric_value() const;
 
   // Checks whether the value belongs to the JSON type, non-NULL and is in
-  // validated representation. JSON values can be in one of the two
-  // representations:
-  //  1) Validated: JSON is parsed, validated and transformed into an efficient
-  //    (for field read/updates) in-memory representation (field tree) that can
-  //    be accessed through json_value() method. ZetaSQL Analyzer uses this
-  //    representation by default to represent JSON values (e.g. literals).
-  //  2) Unparsed: string that was not validated and thus potentially can be
-  //    an invalid JSON. ZetaSQL Analyzer uses this representation when
-  //    LanguageFeature FEATURE_JSON_NO_VALIDATION is enabled.
+  // validated representation.
   bool is_validated_json() const;
   // Returns true if the value belongs to the JSON type, non-null and is in
   // unparsed representation. See comments to is_validated_json() for more
@@ -686,6 +678,14 @@ class Value {
  private:
   // For access to StringRef and TypedList.
   FRIEND_TEST(ValueTest, PhysicalByteSize);
+  // For access to GetContent() and MakeArrayInternal
+  FRIEND_TEST(TypeTest, FormatValueContentArraySQLLiteralMode);
+  FRIEND_TEST(TypeTest, FormatValueContentArraySQLExpressionMode);
+  FRIEND_TEST(TypeTest, FormatValueContentArrayDebugMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructSQLLiteralMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructSQLExpressionMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructDebugMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructWithAnonymousFieldsDebugMode);
 
   template <bool as_literal, bool maybe_add_simple_type_prefix>
   std::string GetSQLInternal(ProductMode mode) const;
@@ -780,31 +780,10 @@ class Value {
   // by test code; public arrays are always ordered.
   bool order_kind() const;
 
-  // When comparing two deeply nested Values with the same type, we want to
-  // treat descendant ArrayValues that have the same relationship to the root
-  // with the same ordering requirements. This struct is used to build a map
-  // of Array types that ignore order within the full type structure. The
-  // recursive shape of a DeepOrderKindSpec will follow that of the Value type
-  // used to initialize it.
-  struct DeepOrderKindSpec {
-    // For a simple type (e.g. int, string, enum) 'children' will be empty. For
-    // an array type, it will have one element representing the order spec for
-    // the array element type. For a struct type, 'children' will contain one
-    // element per field of the struct.
-    std::vector<DeepOrderKindSpec> children;
-    // If the spec node represents an array type, ignores_order will be true if
-    // any array value corresponding to this node was marked kIgnoresOrder.
-    bool ignores_order = false;
-    // Iterate recursively over the Value 'v' to construct a DeepOrderKindSpec
-    // and/or set the ignores_order values on the nodes.
-    void FillSpec(const Value& v);
-  };
+  static void FillDeepOrderKindSpec(const Value& v, DeepOrderKindSpec* spec);
 
-  // Uses multiset equality for arrays if allow_bags=true and
-  // 'deep_order_spec.order_kind'=kIgnoresOrder. In the case that
-  // 'deep_order_spec' is null, it will be computed for 'this' and 'x'.
-  static bool EqualsInternal(const Value& x, const Value& y, bool allow_bags,
-                             DeepOrderKindSpec* deep_order_spec,
+  static bool EqualsInternal(const Value& x, const Value& y,
+                             const bool allow_bags,
                              const ValueEqualityCheckOptions& options);
 
   // Creates an array of the given 'array_type' initialized by moving from
@@ -825,7 +804,6 @@ class Value {
   // Compares arrays as multisets ignoring the order of the elements.
   // Called from EqualsInternal().
   static bool EqualElementMultiSet(const Value& x, const Value& y,
-                                   DeepOrderKindSpec* deep_order_spec,
                                    const ValueEqualityCheckOptions& options);
 
   // Returns a pretty-printed (e.g. wrapped) string for the value
@@ -834,18 +812,12 @@ class Value {
   // default, only Array values print their types.
   std::string FormatInternal(int indent, bool force_type) const;
 
-  // Returns the hash code of a value. For kApproximate comparison, returns
-  // an approximate hash code.
-  size_t HashCodeInternal(FloatMargin float_margin) const;
-
-  static std::string ComplexValueToDebugString(const Value* root, bool verbose);
-
   // Type cannot create a list of Values because it cannot depend on
-  // "value" package. Thus for Array/Struct types that need list of values,
-  // we will create them from Value directly.
+  // "value" package. Thus for Array/Struct/Range types that need list of
+  // values, we will create them from Value directly.
   // TODO: This can be avoided when we create virtual value list
   // interface which can be defined outside of "value", but Value provides its
-  // implementation which it feeds to Array/Struct.
+  // implementation which it feeds to above types.
   bool DoesTypeUseValueList() const {
     return metadata_.type_kind() == TYPE_ARRAY ||
            metadata_.type_kind() == TYPE_STRUCT ||
@@ -986,7 +958,8 @@ class Value {
     int32_t enum_value_;          // Used for TYPE_ENUM.
     internal::StringRef*
         string_ptr_;       // Reffed. Used for TYPE_STRING and TYPE_BYTES.
-    TypedList* list_ptr_;  // Reffed. Used for arrays, structs, and RANGE.
+    internal::ValueContentContainerRef*
+        container_ptr_;  // Reffed. Used for arrays, structs, and RANGE.
     internal::ProtoRep* proto_ptr_;          // Reffed. Used for protos.
     internal::GeographyRef* geography_ptr_;  // Owned. Used for geographies.
     internal::NumericRef*

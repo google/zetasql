@@ -17,7 +17,9 @@
 #include "zetasql/public/parse_location.h"
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/proto/internal_error_location.pb.h"

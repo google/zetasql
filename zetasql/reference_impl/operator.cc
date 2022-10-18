@@ -42,7 +42,7 @@ AlgebraArg::AlgebraArg(const VariableId& variable,
                        std::unique_ptr<AlgebraNode> node)
     : variable_(variable), node_(std::move(node)) {}
 
-AlgebraArg::~AlgebraArg() {}
+AlgebraArg::~AlgebraArg() = default;
 
 const ValueExpr* AlgebraArg::value_expr() const {
   return node() ? node()->AsValueExpr() : nullptr;

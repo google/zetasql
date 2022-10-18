@@ -64,6 +64,7 @@ proto_library(
     name = "function_proto",
     srcs = ["function.proto"],
     deps = [
+        "//zetasql/public:annotation_proto",
         "//zetasql/public:deprecation_warning_proto",
         "//zetasql/public:function_proto",
         "//zetasql/public:options_proto",
@@ -72,6 +73,7 @@ proto_library(
         "//zetasql/public:simple_table_proto",
         "//zetasql/public:type_proto",
         "//zetasql/public:value_proto",
+        "//zetasql/resolved_ast:resolved_ast_enums_proto",
         "//zetasql/resolved_ast:serialization_proto",
     ],
 )

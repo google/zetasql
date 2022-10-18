@@ -39,8 +39,9 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/value.h"
-#include <cstdint>
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -115,6 +116,11 @@ struct TableValuedFunctionOptions {
 // (6) returns a new ResolvedTVFScan with the resolved arguments as children
 class TableValuedFunction {
  public:
+  // The SQL SECURITY specified when the function was created.
+  ResolvedCreateStatementEnums::SqlSecurity sql_security() const {
+    return sql_security_;
+  }
+
   // Constructs a new TVF object with the given name and argument signature.
   //
   // Each TVF may accept value or relation arguments. The signature specifies
@@ -217,6 +223,10 @@ class TableValuedFunction {
   // The specific steps taken to perform the deserialization depend on the
   // 'type' field of 'proto'. An associated deserializer for this 'type' must
   // already exist by this time from a previous call to RegisterDeserializer.
+  static absl::Status Deserialize(const TableValuedFunctionProto& proto,
+                                  const TypeDeserializer& type_deserializer,
+                                  std::unique_ptr<TableValuedFunction>* result);
+  ABSL_DEPRECATED("Use Deserialize(TableValuedFunctionProto, TypeDeserializer)")
   static absl::Status Deserialize(
       const TableValuedFunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
@@ -228,12 +238,21 @@ class TableValuedFunction {
   // than one deserializer for the same 'type' is registered, or if any other
   // error occurs. For an example, please see the REGISTER_MODULE_INITIALIZER in
   // table_valued_function.cc.
-  using TVFDeserializer = std::function<absl::Status(
+  using TVFDeserializer =
+      std::function<absl::Status(const TableValuedFunctionProto& proto,
+                                 const TypeDeserializer& type_deserializer,
+                                 std::unique_ptr<TableValuedFunction>* result)>;
+  static void RegisterDeserializer(FunctionEnums::TableValuedFunctionType type,
+                                   TVFDeserializer deserializer);
+  // Backward-compatible version of above that does not support extended types
+  // in the TVF signature.
+  using TVFDeserializerWithoutTypeDeserializer = std::function<absl::Status(
       const TableValuedFunctionProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result)>;
-  static void RegisterDeserializer(FunctionEnums::TableValuedFunctionType type,
-                                   TVFDeserializer deserializer);
+  static void RegisterDeserializer(
+      FunctionEnums::TableValuedFunctionType type,
+      TVFDeserializerWithoutTypeDeserializer deserializer);
 
   // Determines if this object is of the <TableFunctionSubclass>.
   template <class TableValuedFunctionSubclass>
@@ -312,6 +331,10 @@ class TableValuedFunction {
     return tvf_options_;
   }
 
+  void set_sql_security(ResolvedCreateStatementEnums::SqlSecurity security) {
+    sql_security_ = security;
+  }
+
  protected:
   // Returns user facing text (to be used in error messages) for the
   // specified table function <signature>. For example:
@@ -335,6 +358,10 @@ class TableValuedFunction {
   std::unique_ptr<AnonymizationInfo> anonymization_info_;
 
   TableValuedFunctionOptions tvf_options_ = {};
+
+ private:
+  ResolvedCreateStatementEnums::SqlSecurity sql_security_ =
+      ResolvedCreateStatementEnums::SQL_SECURITY_UNSPECIFIED;
 };
 
 // Represents a column for some TVF input argument types (e.g. TVFRelation and
@@ -343,6 +370,13 @@ struct TVFSchemaColumn {
   TVFSchemaColumn(absl::string_view name_in, const Type* type_in,
                   bool is_pseudo_column_in = false)
       : name(name_in), type(type_in), is_pseudo_column(is_pseudo_column_in) {}
+
+  TVFSchemaColumn(absl::string_view name_in, AnnotatedType annotated_type_in,
+                  const bool is_pseudo_column_in = false)
+      : name(name_in),
+        type(annotated_type_in.type),
+        annotation_map(annotated_type_in.annotation_map),
+        is_pseudo_column(is_pseudo_column_in) {}
 
   // Serializes this TVFRelation column to a protocol buffer.
   absl::StatusOr<TVFRelationColumnProto> ToProto(
@@ -356,19 +390,52 @@ struct TVFSchemaColumn {
   // ParseLocationPoint.
   static absl::StatusOr<TVFSchemaColumn> FromProto(
       const TVFRelationColumnProto& proto,
+      const TypeDeserializer& type_deserializer);
+  static absl::StatusOr<TVFSchemaColumn> FromProto(
+      const TVFRelationColumnProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory);
 
   std::string DebugString(bool is_for_value_table) const {
+    std::string type_name;
+    if (annotation_map == nullptr) {
+      type_name = type->DebugString();
+    } else {
+      absl::StatusOr<Collation> status_or_collation =
+          Collation::MakeCollation(*annotation_map);
+      if (!status_or_collation.ok()) {
+        type_name =
+            absl::StrCat(type->DebugString(),
+                         " [Error in making Collation from annotation_map ",
+                         annotation_map->DebugString(), ": ",
+                         status_or_collation.status().message(), "]");
+      }
+      absl::StatusOr<std::string> status_or_type_name =
+          type->TypeNameWithModifiers(
+              TypeModifiers::MakeTypeModifiers(
+                  TypeParameters(), std::move(status_or_collation).value()),
+              PRODUCT_INTERNAL);
+      if (!status_or_type_name.ok()) {
+        type_name =
+            absl::StrCat(type->DebugString(),
+                         " [Error in getting type name with modifiers: ",
+                         status_or_type_name.status().message(), "]");
+      }
+      type_name = status_or_type_name.value();
+    }
     // Prevent concatenating value column name.
     if (!is_for_value_table || is_pseudo_column) {
-      return absl::StrCat(name, " ", type->DebugString());
+      return absl::StrCat(name, " ", type_name);
     }
-    return type->DebugString();
+    return type_name;
   }
 
+  AnnotatedType annotated_type() const { return {type, annotation_map}; }
+
   std::string name;
+  // The type and annotations. Doesn't own either pointer.
   const Type* type = nullptr;
+  const AnnotationMap* annotation_map = nullptr;
   bool is_pseudo_column;
   // Parse location ranges for the TVFSchema column name and type. As of now
   // they are populated if and only if this TVF definition comes from a
@@ -410,6 +477,14 @@ class TVFRelation {
     return result;
   }
 
+  // Similar to the function above but accepts an <annotated_type> argument to
+  // indicate both type and its annotation_map of the column in the value table.
+  static TVFRelation ValueTable(AnnotatedType annotated_type) {
+    TVFRelation result = TVFRelation({Column("", annotated_type)});
+    result.is_value_table_ = true;
+    return result;
+  }
+
   // Creates a new value-table TVFRelation with at least one column, and the
   // first column (column 0) is treated as the value of the row. Additional
   // columns may be present and must be pseudo-columns.
@@ -418,6 +493,22 @@ class TVFRelation {
     ColumnList columns;
     columns.reserve(pseudo_columns.size() + 1);
     columns.emplace_back("", type);
+    for (const Column& column : pseudo_columns) {
+      ZETASQL_RET_CHECK(column.is_pseudo_column);
+      columns.push_back(column);
+    }
+    TVFRelation result = TVFRelation(std::move(columns));
+    result.is_value_table_ = true;
+    return result;
+  }
+
+  // Similar to the above function but accepts an <annotated_type> argument to
+  // indicate both type and its annotation_map of the value-table column.
+  static absl::StatusOr<TVFRelation> ValueTable(
+      AnnotatedType annotated_type, const ColumnList& pseudo_columns) {
+    ColumnList columns;
+    columns.reserve(pseudo_columns.size() + 1);
+    columns.emplace_back("", annotated_type);
     for (const Column& column : pseudo_columns) {
       ZETASQL_RET_CHECK(column.is_pseudo_column);
       columns.push_back(column);
@@ -446,6 +537,8 @@ class TVFRelation {
   // useful when serializing the ZetaSQL catalog.
   absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          TVFRelationProto* proto) const;
+  static absl::StatusOr<TVFRelation> Deserialize(
+      const TVFRelationProto& proto, const TypeDeserializer& type_deserializer);
   static absl::StatusOr<TVFRelation> Deserialize(
       const TVFRelationProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
@@ -787,10 +880,9 @@ class FixedOutputSchemaTVF : public TableValuedFunction {
   absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          TableValuedFunctionProto* proto) const override;
 
-  static absl::Status Deserialize(
-      const TableValuedFunctionProto& proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      TypeFactory* factory, std::unique_ptr<TableValuedFunction>* result);
+  static absl::Status Deserialize(const TableValuedFunctionProto& proto,
+                                  const TypeDeserializer& type_deserializer,
+                                  std::unique_ptr<TableValuedFunction>* result);
 
   // Returns the fixed output schema set in the constructor.
   absl::Status Resolve(

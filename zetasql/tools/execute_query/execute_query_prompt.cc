@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/tools/execute_query/execute_query.pb.h"

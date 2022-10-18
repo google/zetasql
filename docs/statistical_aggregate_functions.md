@@ -66,6 +66,8 @@ To learn more about the `OVER` clause and how to use it, see
 
 `DOUBLE`
 
+[stat-agg-link-to-pearson-coefficient]: https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient
+
 ### COVAR_POP
 
 ```sql
@@ -125,6 +127,8 @@ To learn more about the `OVER` clause and how to use it, see
 
 `DOUBLE`
 
+[stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
+
 ### COVAR_SAMP
 
 ```sql
@@ -183,6 +187,8 @@ To learn more about the `OVER` clause and how to use it, see
 **Return Data Type**
 
 `DOUBLE`
+
+[stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
 ### STDDEV_POP
 
@@ -375,6 +381,8 @@ To learn more about the `OVER` clause and how to use it, see
 
 `DOUBLE`
 
+[stat-agg-link-to-stddev-samp]: #stddev_samp
+
 ### VAR_SAMP
 
 ```sql
@@ -457,17 +465,7 @@ window_specification:
 
 An alias of [VAR_SAMP][stat-agg-link-to-var-samp].
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[stat-agg-link-to-pearson-coefficient]: https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient
-
-[stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
-
-[stat-agg-link-to-stddev-samp]: #stddev_samp
-
 [stat-agg-link-to-var-samp]: #var_samp
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-<!-- mdlint on -->
 

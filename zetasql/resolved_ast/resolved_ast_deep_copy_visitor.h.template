@@ -312,7 +312,6 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
 
 # endfor
 
- private:
   // Copies the hint list from the original node to the copied node. This is
   // required, as hint_list is not a constructor arg, and the only way to
   // transfer ownership is to explicitly set it after constructing the copy.
@@ -327,6 +326,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
     return absl::OkStatus();
   }
 
+ private:
   // Copies the WITH GROUP_ROWS parameter list from the original node to the
   // copied node. This is required, as with_group_rows_parameter_list is not a
   // constructor arg, and the only way to transfer ownership is to explicitly

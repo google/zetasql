@@ -16,7 +16,9 @@
 
 #include "zetasql/public/numeric_parser.h"
 
+#include <array>
 #include <cstdint>
+#include <limits>
 
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/numeric_constants.h"

@@ -17,8 +17,10 @@
 #ifndef ZETASQL_PUBLIC_CAST_H_
 #define ZETASQL_PUBLIC_CAST_H_
 
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function_signature.h"
@@ -123,11 +125,15 @@ using CastFormatMap = absl::flat_hash_map<TypeKindPair, FormatValidationFunc>;
 //      the <default_timezone> is used.
 //   3) Date to Timestamp
 //      The date is interpreted as of midnight in the <default_timezone>.
+// If canonicalize_zero is true, the sign on a signed zero is removed when
+// converting numeric type to string.
+// TODO : remove canonicalize_zero parameter when all
+// engines have rolled out this new behavior.
 absl::StatusOr<Value> CastValue(const Value& from_value,
                                 absl::TimeZone default_timezone,
                                 const LanguageOptions& language_options,
-                                const Type* to_type,
-                                Catalog* catalog = nullptr);
+                                const Type* to_type, Catalog* catalog = nullptr,
+                                bool canonicalize_zero = false);
 
 // Same as the previous method, but includes <format>, which is the format
 // string used in the cast.
@@ -136,13 +142,16 @@ absl::StatusOr<Value> CastValue(const Value& from_value,
                                 const LanguageOptions& language_options,
                                 const Type* to_type,
                                 const std::optional<std::string>& format,
-                                Catalog* catalog = nullptr);
+                                Catalog* catalog = nullptr,
+                                bool canonicalize_zero = false);
 
 // DEPRECATED name for CastValue()
 inline absl::StatusOr<Value> CastStatusOrValue(
     const Value& from_value, absl::TimeZone default_timezone,
-    const LanguageOptions& language_options, const Type* to_type) {
-  return CastValue(from_value, default_timezone, language_options, to_type);
+    const LanguageOptions& language_options, const Type* to_type,
+    bool canonicalize_zero = false) {
+  return CastValue(from_value, default_timezone, language_options, to_type,
+                   nullptr, canonicalize_zero);
 }
 
 class ExtendedCompositeCastEvaluator;
@@ -161,7 +170,8 @@ absl::StatusOr<Value> CastValueWithoutTypeValidation(
     const LanguageOptions& language_options, const Type* to_type,
     const std::optional<std::string>& format,
     const std::optional<std::string>& time_zone,
-    const ExtendedCompositeCastEvaluator* extended_conversion_evaluator);
+    const ExtendedCompositeCastEvaluator* extended_conversion_evaluator,
+    bool canonicalize_zero);
 
 // Returns a hash map with TypeKindPair as key, and CastFunctionProperty as
 // value.  This identifies whether the (from, to) cast pairs in the key are

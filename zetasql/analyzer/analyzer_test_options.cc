@@ -17,15 +17,16 @@
 #include "zetasql/analyzer/analyzer_test_options.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/options_utils.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/testing/test_case_options_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/testdata/test_schema.pb.h"
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/types/span.h"
 #include "file_based_test_driver/test_case_options.h"
@@ -57,7 +58,6 @@ const char* const kUnparserPositionalParameterMode =
 const char* const kShowUnparsed = "show_unparsed";
 const char* const kShowUnparsedResolvedASTDiff =
     "show_unparsed_resolved_ast_diff";
-const char* const kLanguageFeatures = "language_features";
 const char* const kInScopeExpressionColumnName =
     "in_scope_expression_column_name";
 const char* const kInScopeExpressionColumnType =
@@ -84,6 +84,8 @@ const char* const kPrivilegeRestrictionTableNotScanned =
     "privilege_restriction_table_not_scanned";
 const char* const kPreserveUnnecessaryCast = "preserve_unnecessary_cast";
 const char* const kEnableSampleAnnotation = "enable_sample_annotation";
+const char* const kAdditionalAllowedAnonymizationOptions =
+    "additional_allowed_anonymization_options";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -133,6 +135,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kCreateTableLikeNotScanned, false);
   test_case_options->RegisterBool(kPrivilegeRestrictionTableNotScanned, false);
   test_case_options->RegisterBool(kPreserveUnnecessaryCast, false);
+  test_case_options->RegisterString(kAdditionalAllowedAnonymizationOptions, "");
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(
@@ -203,24 +206,6 @@ std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(
       {"_p3_StrinG", type_factory->get_string()},
       {"_P4_string", type_factory->get_string()},
   };
-}
-
-absl::StatusOr<LanguageOptions::LanguageFeatureSet> GetRequiredLanguageFeatures(
-    const file_based_test_driver::TestCaseOptions& test_case_options) {
-  LanguageOptions::LanguageFeatureSet enabled_set;
-  if (!test_case_options.GetString(kLanguageFeatures).empty()) {
-    const std::vector<std::string> feature_list =
-        absl::StrSplit(test_case_options.GetString(kLanguageFeatures), ',');
-    for (const std::string& feature_name : feature_list) {
-      const std::string full_feature_name =
-          absl::StrCat("FEATURE_", feature_name);
-      LanguageFeature feature;
-      ZETASQL_RET_CHECK(LanguageFeature_Parse(full_feature_name, &feature))
-          << full_feature_name;
-      enabled_set.insert(feature);
-    }
-  }
-  return enabled_set;
 }
 
 static AnalyzerOptions::ASTRewriteSet GetAllRewrites() {

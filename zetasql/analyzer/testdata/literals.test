@@ -1755,7 +1755,7 @@ ERROR: JSON literals are not supported [at 2:3]
   ^
 ==
 
-[language_features=JSON_TYPE,JSON_NO_VALIDATION]
+[language_features=JSON_TYPE]
 SELECT
   JSON "true",
   JSON '\'value\'',
@@ -1776,52 +1776,9 @@ SELECT
   JSON '-123',
   JSON ""
 --
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#1 AS `$col1` [JSON]
-| +-$query.$col2#2 AS `$col2` [JSON]
-| +-$query.$col3#3 AS `$col3` [JSON]
-| +-$query.$col4#4 AS `$col4` [JSON]
-| +-$query.$col5#5 AS `$col5` [JSON]
-| +-$query.$col6#6 AS `$col6` [JSON]
-| +-$query.$col7#7 AS `$col7` [JSON]
-| +-$query.$col8#8 AS `$col8` [JSON]
-| +-$query.$col9#9 AS `$col9` [JSON]
-| +-$query.$col10#10 AS `$col10` [JSON]
-| +-$query.$col11#11 AS `$col11` [JSON]
-| +-$query.$col12#12 AS `$col12` [JSON]
-| +-$query.$col13#13 AS `$col13` [JSON]
-| +-$query.$col14#14 AS `$col14` [JSON]
-| +-$query.$col15#15 AS `$col15` [JSON]
-| +-$query.$col16#16 AS `$col16` [JSON]
-| +-$query.$col17#17 AS `$col17` [JSON]
-| +-$query.$col18#18 AS `$col18` [JSON]
-+-query=
-  +-ProjectScan
-    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7, $col8#8, $col9#9, $col10#10, $col11#11, $col12#12, $col13#13, $col14#14, $col15#15, $col16#16, $col17#17, $col18#18]
-    +-expr_list=
-    | +-$col1#1 := Literal(type=JSON, value=true, has_explicit_type=TRUE)
-    | +-$col2#2 := Literal(type=JSON, value='value', has_explicit_type=TRUE)
-    | +-$col3#3 := Literal(type=JSON, value=t, has_explicit_type=TRUE)
-    | +-$col4#4 := Literal(type=JSON, value=true, has_explicit_type=TRUE)
-    | +-$col5#5 := Literal(type=JSON, value="v", has_explicit_type=TRUE)
-    | +-$col6#6 := Literal(type=JSON, value=null, has_explicit_type=TRUE)
-    | +-$col7#7 := Literal(type=JSON, value=[1, 2, 3], has_explicit_type=TRUE)
-    | +-$col8#8 := Literal(type=JSON, value={ "k1": "v1", "k2": [true, false]}, has_explicit_type=TRUE)
-    | +-$col9#9 := Literal(type=JSON, value={
-"k" : "v"
-}, has_explicit_type=TRUE)
-    | +-$col10#10 := Literal(type=JSON, value={"k\n1" : "v"}, has_explicit_type=TRUE)
-    | +-$col11#11 := Literal(type=JSON, value=, has_explicit_type=TRUE)
-    | +-$col12#12 := Literal(type=JSON, value=0.123, has_explicit_type=TRUE)
-    | +-$col13#13 := Literal(type=JSON, value=456.0, has_explicit_type=TRUE)
-    | +-$col14#14 := Literal(type=JSON, value=123, has_explicit_type=TRUE)
-    | +-$col15#15 := Literal(type=JSON, value=123, has_explicit_type=TRUE)
-    | +-$col16#16 := Literal(type=JSON, value=-1.1, has_explicit_type=TRUE)
-    | +-$col17#17 := Literal(type=JSON, value=-123, has_explicit_type=TRUE)
-    | +-$col18#18 := Literal(type=JSON, value=, has_explicit_type=TRUE)
-    +-input_scan=
-      +-SingleRowScan
+ERROR: Invalid JSON literal: syntax error while parsing value - invalid literal; last read: ''' [at 3:3]
+  JSON '\'value\'',
+  ^
 ==
 
 [language_features=JSON_TYPE]
@@ -1922,66 +1879,6 @@ QueryStmt
     | +-$col14#14 := Literal(type=JSON, value=-123, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
-
-==
-
-[language_features=JSON_TYPE,JSON_LEGACY_PARSE]
-SELECT
-  JSON "true",
-  JSON '\'value\'',
-  JSON 'true',
-  JSON '"v"',
-  JSON 'null',
-  JSON '[1, 2, 3]',
-  JSON '{ "k1": "v1", "k2": [true, false]}',
-  JSON '{\n"k" : "v"\n}',
-  JSON r'{"k\n1" : "v"}',
-  JSON '0.123',
-  JSON '456.0',
-  JSON '123',
-  JSON "123",
-  JSON '-1.1',
-  JSON '-123'
---
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#1 AS `$col1` [JSON]
-| +-$query.$col2#2 AS `$col2` [JSON]
-| +-$query.$col3#3 AS `$col3` [JSON]
-| +-$query.$col4#4 AS `$col4` [JSON]
-| +-$query.$col5#5 AS `$col5` [JSON]
-| +-$query.$col6#6 AS `$col6` [JSON]
-| +-$query.$col7#7 AS `$col7` [JSON]
-| +-$query.$col8#8 AS `$col8` [JSON]
-| +-$query.$col9#9 AS `$col9` [JSON]
-| +-$query.$col10#10 AS `$col10` [JSON]
-| +-$query.$col11#11 AS `$col11` [JSON]
-| +-$query.$col12#12 AS `$col12` [JSON]
-| +-$query.$col13#13 AS `$col13` [JSON]
-| +-$query.$col14#14 AS `$col14` [JSON]
-| +-$query.$col15#15 AS `$col15` [JSON]
-+-query=
-  +-ProjectScan
-    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7, $col8#8, $col9#9, $col10#10, $col11#11, $col12#12, $col13#13, $col14#14, $col15#15]
-    +-expr_list=
-    | +-$col1#1 := Literal(type=JSON, value=true, has_explicit_type=TRUE)
-    | +-$col2#2 := Literal(type=JSON, value="value", has_explicit_type=TRUE)
-    | +-$col3#3 := Literal(type=JSON, value=true, has_explicit_type=TRUE)
-    | +-$col4#4 := Literal(type=JSON, value="v", has_explicit_type=TRUE)
-    | +-$col5#5 := Literal(type=JSON, value=null, has_explicit_type=TRUE)
-    | +-$col6#6 := Literal(type=JSON, value=[1,2,3], has_explicit_type=TRUE)
-    | +-$col7#7 := Literal(type=JSON, value={"k1":"v1","k2":[true,false]}, has_explicit_type=TRUE)
-    | +-$col8#8 := Literal(type=JSON, value={"k":"v"}, has_explicit_type=TRUE)
-    | +-$col9#9 := Literal(type=JSON, value={"k\n1":"v"}, has_explicit_type=TRUE)
-    | +-$col10#10 := Literal(type=JSON, value=0.123, has_explicit_type=TRUE)
-    | +-$col11#11 := Literal(type=JSON, value=456.0, has_explicit_type=TRUE)
-    | +-$col12#12 := Literal(type=JSON, value=123, has_explicit_type=TRUE)
-    | +-$col13#13 := Literal(type=JSON, value=123, has_explicit_type=TRUE)
-    | +-$col14#14 := Literal(type=JSON, value=-1.1, has_explicit_type=TRUE)
-    | +-$col15#15 := Literal(type=JSON, value=-123, has_explicit_type=TRUE)
-    +-input_scan=
-      +-SingleRowScan
-==
 
 ==
 

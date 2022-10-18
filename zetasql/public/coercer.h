@@ -150,13 +150,6 @@ class Coercer {
       const InputArgumentTypeSet& argument_set,
       bool treat_parameters_as_literals) const;
 
-  // Returns whether <from_type> can be coerced to <to_type>, for
-  // either explicit or implicit coercion.  Does not consider if <from_type>
-  // is a literal.  The <result> is updated appropriately to reflect
-  // success or failure as described for CoercesTo().
-  bool TypeCoercesTo(const Type* from_type, const Type* to_type,
-                     bool is_explicit, SignatureMatchResult* result) const;
-
   // Returns whether <struct_argument> can be coerced to <to_type>. We
   // consider <struct_argument> types individually to see whether they can be
   // coerced to <to_type> field types implicitly/explicitly. Field names are
@@ -170,17 +163,6 @@ class Coercer {
   bool StructCoercesTo(const InputArgumentType& struct_argument,
                        const Type* to_type, bool is_explicit,
                        SignatureMatchResult* result) const;
-
-  // Returns whether <array_argument> can be coerced to <to_type> for either
-  // explicit or implicit coercion. <from_argument> must be an array type. For
-  // explicit coercion or implicit conversion of a literal/parameter, the two
-  // can be coerced if their element types can be coerced. For implicit
-  // conversion of a non-literal/parameter, the two array types must be
-  // equivalent. The <result> is updated appropriately to reflect success or
-  // failure as described for CoercesTo().
-  bool ArrayCoercesTo(const InputArgumentType& array_argument,
-                      const Type* to_type, bool is_explicit,
-                      SignatureMatchResult* result) const;
 
   // Returns whether a parameter of <from_type> can be coerced to <to_type>,
   // for either explicit or implicit coercion.  The <result> is updated

@@ -20,6 +20,7 @@
 
 #include <map>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "zetasql/reference_impl/variable_id.h"

@@ -207,6 +207,65 @@ SELECT interval '1' month * 20, interval '2' hour / 4
 --
 ARRAY<STRUCT<INTERVAL, INTERVAL>>[{1-8 0 0:0:0, 0-0 0 0:30:0}]
 ==
+[required_features=INTERVAL_TYPE,TIMESTAMP_NANOS]
+[name=divide_fractional_micros_with_nanos_feature]
+SELECT (interval '0.000008' SECOND) / 3,  -- 2.666666666...
+       (interval '0.000008' SECOND) / 4,  -- 2.0
+       (interval '0.000008' SECOND) / 6,  -- 1.333333333...
+       (interval '0.000008' SECOND) / -3,  -- 2.666666666...
+       (interval '0.000008' SECOND) / -4,  -- 2.0
+       (interval '0.000008' SECOND) / -6;  -- 1.333333333...
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL, INTERVAL, INTERVAL, INTERVAL>>[
+  {
+    0-0 0 0:0:0.000002666,
+    0-0 0 0:0:0.000002,
+    0-0 0 0:0:0.000001333,
+    0-0 0 -0:0:0.000002666,
+    0-0 0 -0:0:0.000002,
+    0-0 0 -0:0:0.000001333
+  }
+]
+==
+[required_features=INTERVAL_TYPE]
+[forbidden_features=TIMESTAMP_NANOS]
+[name=divide_fractional_micros_without_nanos_feature]
+SELECT (interval '0.000008' SECOND) / 3,  -- 2.666666666...
+       (interval '0.000008' SECOND) / 4,  -- 2.0
+       (interval '0.000008' SECOND) / 6,  -- 1.333333333...
+       (interval '0.000008' SECOND) / -3,  -- 2.666666666...
+       (interval '0.000008' SECOND) / -4,  -- 2.0
+       (interval '0.000008' SECOND) / -6;  -- 1.333333333...
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL, INTERVAL, INTERVAL, INTERVAL>>[
+  {0-0 0 0:0:0.000002,
+   0-0 0 0:0:0.000002,
+   0-0 0 0:0:0.000001,
+   0-0 0 -0:0:0.000002,
+   0-0 0 -0:0:0.000002,
+   0-0 0 -0:0:0.000001}
+]
+==
+[required_features=INTERVAL_TYPE,TIMESTAMP_NANOS]
+[name=divide_fractional_nanos]
+SELECT (interval '0.000000008' SECOND) / 3,
+       (interval '0.000000008' SECOND) / 4,
+       (interval '0.000000008' SECOND) / 6,
+       (interval '0.000000008' SECOND) / -3,
+       (interval '0.000000008' SECOND) / -4,
+       (interval '0.000000008' SECOND) / -6;
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL, INTERVAL, INTERVAL, INTERVAL>>[
+  {
+    0-0 0 0:0:0.000000002,
+    0-0 0 0:0:0.000000002,
+    0-0 0 0:0:0.000000001,
+    0-0 0 -0:0:0.000000002,
+    0-0 0 -0:0:0.000000002,
+    0-0 0 -0:0:0.000000001
+  }
+]
+==
 [required_features=INTERVAL_TYPE]
 [name=count_distinct]
 SELECT COUNT(*) num_rows, COUNT(value) num_values, COUNT(DISTINCT value) num_uniques FROM Intervals

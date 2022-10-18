@@ -575,3 +575,70 @@ QueryStmt
     |                       +-ColumnRef(type=INT64, column=$array.e#4)
     +-input_scan=
       +-SingleRowScan
+==
+
+select templated_scalar_definer_rights(6)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Templated_SQL_Function:templated_scalar_definer_rights(INT64) -> INT64)
+    |     +-Literal(type=INT64, value=6)
+    +-input_scan=
+      +-SingleRowScan
+
+With Templated SQL function call:
+  Templated_SQL_Function:templated_scalar_definer_rights(INT64) -> INT64
+containing resolved templated expression:
+FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-ArgumentRef(type=INT64, name="x")
++-SubqueryExpr
+  +-type=INT64
+  +-subquery_type=SCALAR
+  +-subquery=
+    +-ProjectScan
+      +-column_list=[$aggregate.$agg1#3]
+      +-input_scan=
+        +-AggregateScan
+          +-column_list=[$aggregate.$agg1#3]
+          +-input_scan=
+          | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+          +-aggregate_list=
+            +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-WithExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-x#5 := Literal(type=INT64, value=6)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$inlined_templated_scalar_definer_rights.x#5)
+    |         +-SubqueryExpr
+    |           +-type=INT64
+    |           +-subquery_type=SCALAR
+    |           +-subquery=
+    |             +-ProjectScan
+    |               +-column_list=[$aggregate.$agg1#2]
+    |               +-input_scan=
+    |                 +-AggregateScan
+    |                   +-column_list=[$aggregate.$agg1#2]
+    |                   +-input_scan=
+    |                   | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
+    |                   +-aggregate_list=
+    |                     +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-input_scan=
+      +-SingleRowScan

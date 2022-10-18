@@ -16,7 +16,7 @@
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
-licenses(["notice"])  # Apache v2.0
+licenses(["notice"])
 
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],

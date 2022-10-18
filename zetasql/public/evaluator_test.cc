@@ -32,6 +32,7 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/evaluator_base.h"
 #include "zetasql/public/function.h"
@@ -3354,6 +3355,125 @@ TEST_F(PreparedDmlReturningTest, ExecuteWithoutReturningIterator) {
     EXPECT_FALSE(iter->NextRow());
     ZETASQL_EXPECT_OK(iter->Status());
   }
+}
+
+class PreparedModifyWithDefaultColumnTest : public ::testing::Test {
+ public:
+  void SetUp() override {
+    catalog_.AddZetaSQLFunctions();
+    AddTableWithDefaultColumn();
+
+    analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
+  }
+
+  Catalog* catalog() { return &catalog_; }
+  const AnalyzerOptions& analyzer_options() { return analyzer_options_; }
+
+ protected:
+  void AddTableWithDefaultColumn() {
+    auto test_table = std::make_unique<SimpleTable>(
+        kTestTable,
+        std::vector<SimpleTable::NameAndType>{{"id", types::Int64Type()}});
+
+    const std::string default_expr = "10";
+    ZETASQL_CHECK_OK(AnalyzeExpression(default_expr, analyzer_options_, &catalog_,
+                               catalog_.type_factory(), &output_));
+
+    SimpleColumn::ExpressionAttributes expr_attributes{
+        .expression_string = default_expr,
+        .resolved_expr = output_->resolved_expr()};
+
+    ZETASQL_ASSERT_OK(test_table->AddColumn(
+        new SimpleColumn(
+            test_table->Name(), "d", types::Int64Type(),
+            {.has_default_value = true, .column_expression = expr_attributes}),
+        /*is_owned=*/true));
+
+    test_table->SetContents({{Int64(1), Int64(1)}, {Int64(2), Int64(2)}});
+    ZETASQL_ASSERT_OK(test_table->SetPrimaryKey({0}));
+    catalog_.AddOwnedTable(std::move(test_table));
+  }
+
+  SimpleCatalog catalog_{"test_catalog"};
+  AnalyzerOptions analyzer_options_;
+  std::unique_ptr<const AnalyzerOutput> output_;
+
+  // Table names
+  static constexpr char kTestTable[] = "T";
+};
+
+TEST_F(PreparedModifyWithDefaultColumnTest, InsertWithExplicitDefault) {
+  PreparedModify insert_stmt("INSERT T (id, d) VALUES (3, DEFAULT)",
+                             EvaluatorOptions());
+
+  ZETASQL_ASSERT_OK(insert_stmt.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(insert_stmt.resolved_statement()->node_kind(),
+            RESOLVED_INSERT_STMT);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                       insert_stmt.Execute());
+  const Table* table;
+  ZETASQL_ASSERT_OK(catalog()->FindTable({"T"}, &table));
+
+  EXPECT_EQ(iter->table(), table);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(3));
+  EXPECT_EQ(iter->GetColumnValue(1), Int64(10));
+  EXPECT_FALSE(iter->GetOriginalKeyValue(0).is_valid());
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kInsert);
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedModifyWithDefaultColumnTest, InsertWithImplicitDefault) {
+  PreparedModify insert_stmt("INSERT T (id) VALUES (4)", EvaluatorOptions());
+
+  ZETASQL_ASSERT_OK(insert_stmt.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(insert_stmt.resolved_statement()->node_kind(),
+            RESOLVED_INSERT_STMT);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                       insert_stmt.Execute());
+  const Table* table;
+  ZETASQL_ASSERT_OK(catalog()->FindTable({"T"}, &table));
+
+  EXPECT_EQ(iter->table(), table);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(4));
+  EXPECT_EQ(iter->GetColumnValue(1), Int64(10));
+  EXPECT_FALSE(iter->GetOriginalKeyValue(0).is_valid());
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kInsert);
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedModifyWithDefaultColumnTest, UpdateToDefault) {
+  PreparedModify insert_stmt("UPDATE T SET d=DEFAULT WHERE id=2",
+                             EvaluatorOptions());
+
+  ZETASQL_ASSERT_OK(insert_stmt.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(insert_stmt.resolved_statement()->node_kind(),
+            RESOLVED_UPDATE_STMT);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                       insert_stmt.Execute());
+  const Table* table;
+  ZETASQL_ASSERT_OK(catalog()->FindTable({"T"}, &table));
+
+  EXPECT_EQ(iter->table(), table);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(2));
+  EXPECT_EQ(iter->GetColumnValue(1), Int64(10));
+  EXPECT_TRUE(iter->GetOriginalKeyValue(0).is_valid());
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kUpdate);
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
 }
 
 TEST(PreparedQuery, FromTableOnlySecondColumn) {

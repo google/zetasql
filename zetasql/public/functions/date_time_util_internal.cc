@@ -68,6 +68,12 @@ int GetIsoWeek(absl::CivilDay day) {
   return static_cast<int>(iso_week);
 }
 
+// See https://en.wikipedia.org/wiki/Leap_year#Algorithm for the definition of
+// leap year.
+bool IsLeapYear(int64_t year) {
+  return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+}
+
 }  // namespace date_time_util_internal
 }  // namespace functions
 }  // namespace zetasql

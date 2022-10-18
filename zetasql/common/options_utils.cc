@@ -16,14 +16,22 @@
 
 #include "zetasql/common/options_utils.h"
 
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "google/protobuf/descriptor.h"
+#include "zetasql/public/evaluator.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/parse_tokens.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql::internal {
 
@@ -167,4 +175,153 @@ std::string AbslUnparseFlag(EnabledLanguageFeatures p) {
       "FEATURE_", p.enabled_language_features);
 }
 
+namespace {
+struct ParameterDefinition {
+  std::string name;        // Parameter name, lowercase
+  std::string value_expr;  // Expression that evaluates to parameter value
+};
+
+absl::string_view GetInputTextFromParseTokenRange(
+    absl::string_view entire_text, absl::Span<const ParseToken> parse_tokens) {
+  if (parse_tokens.empty()) {
+    return "";
+  }
+  ParseLocationPoint start = parse_tokens.at(0).GetLocationRange().start();
+  ParseLocationPoint end =
+      parse_tokens.at(parse_tokens.size() - 1).GetLocationRange().end();
+
+  return entire_text.substr(start.GetByteOffset(),
+                            end.GetByteOffset() - start.GetByteOffset());
+}
+
+absl::Status QueryParameterDefinitionSyntaxError(
+    const ParseToken& parse_token) {
+  return absl::InvalidArgumentError(absl::StrCat(
+      "Syntax error; expected name=value; got ", parse_token.GetImage()));
+}
+
+absl::Status QueryParameterDefinitionSyntaxError(
+    absl::string_view text, absl::Span<const ParseToken> parse_tokens) {
+  return absl::InvalidArgumentError(
+      absl::StrCat("Syntax error; expected name=value; got ",
+                   GetInputTextFromParseTokenRange(text, parse_tokens)));
+}
+
+// Consumes a ParseToken representing the "name" of the "name=value" syntax.
+// Returns the name contained, in lowercase.
+//
+// Accepts quoted or unquoted identifiers, so long as it is not a reserved
+// keyword.
+absl::StatusOr<std::string> GetParameterNameFromParseToken(
+    const ParseToken& token, const LanguageOptions& language_options) {
+  if (token.IsIdentifier()) {
+    return absl::AsciiStrToLower(token.GetIdentifier());
+  } else if (token.IsKeyword()) {
+    if (!language_options.IsReservedKeyword(token.GetKeyword())) {
+      return absl::AsciiStrToLower(token.GetKeyword());
+    }
+  }
+  return QueryParameterDefinitionSyntaxError(token);
+}
+
+// Parses 'text' into a list of ParameterDefinition's using the ZetaSQL
+// tokenizer.
+absl::StatusOr<std::vector<ParameterDefinition>> GetParameterDefinitions(
+    absl::string_view text, const LanguageOptions& language_options) {
+  std::vector<ParseToken> parse_tokens_vector;
+  auto resume_location = ParseResumeLocation::FromStringView(text);
+
+  std::vector<ParameterDefinition> definitions;
+  absl::flat_hash_set<std::string> parameter_names;
+  bool end_of_input = false;
+  while (!end_of_input) {
+    ZETASQL_RETURN_IF_ERROR(
+        GetParseTokens(ParseTokenOptions{.stop_at_end_of_statement = true},
+                       &resume_location, &parse_tokens_vector));
+
+    ZETASQL_RET_CHECK(!parse_tokens_vector.empty());
+    const ParseToken& last_token = parse_tokens_vector.back();
+    ZETASQL_RET_CHECK(last_token.IsEndOfInput() || last_token.GetKeyword() == ";");
+    if (last_token.IsEndOfInput()) {
+      end_of_input = true;
+    }
+    absl::Span<const ParseToken> parse_tokens =
+        absl::MakeConstSpan(parse_tokens_vector)
+            .subspan(0, parse_tokens_vector.size() - 1);
+
+    if (parse_tokens.empty() && end_of_input) {
+      // Ignore trailing semi-colon at the end.
+      break;
+    }
+
+    if (parse_tokens.size() <= 2 || parse_tokens.at(1).GetKeyword() != "=") {
+      return QueryParameterDefinitionSyntaxError(text, parse_tokens);
+    }
+
+    ParameterDefinition& definition = definitions.emplace_back();
+    ZETASQL_ASSIGN_OR_RETURN(
+        definition.name,
+        GetParameterNameFromParseToken(parse_tokens.at(0), language_options));
+    if (!parameter_names.insert(definition.name).second) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Duplicate query parameter '", definition.name, "'"));
+    }
+    definition.value_expr =
+        GetInputTextFromParseTokenRange(text, parse_tokens.subspan(2));
+  }
+  return definitions;
+}
+
+// Parses a string specifying query parameter names and values according to the
+// syntax: name1=value1;name2=value2...
+//  - Only named parameters allowed, and names cannot be empty.
+//  - Parameter names are converted to lowercase, and duplicate parameter names
+//    are not allowed.
+//  - Parameter values are specified as expressions, and evaluated using the
+//    provided AnalyzerOptions and Catalog.
+//  - Parameter expressions may reference previously-defined parameters.
+//
+absl::StatusOr<ParameterValueMap> ParseQueryParameterFlagHelper(
+    absl::string_view text, const AnalyzerOptions& analyzer_options,
+    Catalog* catalog) {
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<ParameterDefinition> param_defs,
+                   GetParameterDefinitions(text, analyzer_options.language()));
+  AnalyzerOptions analyzer_options_with_params(analyzer_options);
+  ParameterValueMap parameter_map;
+  for (const ParameterDefinition& param_def : param_defs) {
+    EvaluatorOptions evaluator_options;
+    PreparedExpression prepared_expr(param_def.value_expr, evaluator_options);
+    ZETASQL_RETURN_IF_ERROR(
+        prepared_expr.Prepare(analyzer_options_with_params, catalog));
+    ZETASQL_ASSIGN_OR_RETURN(Value parameter_value, prepared_expr.ExecuteAfterPrepare(
+                                                /*columns=*/{},
+                                                /*parameters=*/parameter_map));
+    ZETASQL_RETURN_IF_ERROR(analyzer_options_with_params.AddQueryParameter(
+        param_def.name, parameter_value.type()));
+    parameter_map[param_def.name] = std::move(parameter_value);
+  }
+  return parameter_map;
+}
+}  // namespace
+
+bool ParseQueryParameterFlag(absl::string_view text,
+                             const AnalyzerOptions& analyzer_options,
+                             Catalog* catalog, ParameterValueMap* map,
+                             std::string* err) {
+  absl::StatusOr<ParameterValueMap> status_or =
+      ParseQueryParameterFlagHelper(text, analyzer_options, catalog);
+  if (!status_or.ok()) {
+    *err = status_or.status().message();
+    return false;
+  }
+  *map = std::move(status_or.value());
+  return true;
+}
+
+std::string UnparseQueryParameterFlag(const ParameterValueMap& map) {
+  return absl::StrJoin(map, ";", [](std::string* out, const auto& param) {
+    absl::StrAppend(out, ToIdentifierLiteral(param.first), "=",
+                    param.second.GetSQL());
+  });
+}
 }  // namespace zetasql::internal

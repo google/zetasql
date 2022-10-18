@@ -18,9 +18,12 @@
 
 #include <ctype.h>
 
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"

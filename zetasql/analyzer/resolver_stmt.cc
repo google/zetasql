@@ -1646,18 +1646,21 @@ absl::Status Resolver::ResolveForeignKeyReference(
           << "Duplicate referenced column name";
     }
 
-    const int* referencing_column_offset = zetasql_base::FindOrNull(
-        column_indexes, ast_referencing_column_identifier->GetAsIdString());
-    // The offset may be null if the referecing column is a pseudocolumn.
-    if (referencing_column_offset == nullptr) {
+    const auto referencing_column =
+        column_indexes.find(ast_referencing_column_identifier->GetAsIdString());
+
+    // The offset may not be found if the referencing column is a pseudocolumn.
+    if (referencing_column == column_indexes.end()) {
       return MakeSqlErrorAt(ast_referencing_column_identifier)
              << "Unsupported foreign key column "
              << ast_referencing_column_identifier->GetAsIdString()
              << " either does not exist or is a pseudocolumn";
     }
-    ZETASQL_RET_CHECK(*referencing_column_offset < column_types.size());
-    foreign_key->add_referencing_column_offset_list(
-        *referencing_column_offset);
+    const int referencing_column_offset = referencing_column->second;
+    ZETASQL_RET_CHECK(referencing_column_offset < column_types.size());
+    foreign_key->add_referencing_column_offset_list(referencing_column_offset);
+    foreign_key->add_referencing_column_list(
+        referencing_column->first.ToString());
 
     int referenced_column_offset = -1;
     bool duplicate_referenced_column_name = true;
@@ -1676,7 +1679,7 @@ absl::Status Resolver::ResolveForeignKeyReference(
     }
     foreign_key->add_referenced_column_offset_list(referenced_column_offset);
 
-    const Type* referencing_type = column_types[*referencing_column_offset];
+    const Type* referencing_type = column_types[referencing_column_offset];
     const Type* referenced_type =
         referenced_table->GetColumn(referenced_column_offset)->GetType();
     ZETASQL_ASSIGN_OR_RETURN(const bool supports_equality,
@@ -1703,10 +1706,6 @@ absl::Status Resolver::ResolveForeignKeyReference(
   foreign_key->set_delete_action(GetForeignKeyActionOperation(
       ast_foreign_key_reference->actions()->delete_action()));
   foreign_key->set_enforced(ast_foreign_key_reference->enforced());
-
-  for (const auto* column : ast_referencing_column_identifiers) {
-    foreign_key->add_referencing_column_list(column->GetAsString());
-  }
 
   return absl::OkStatus();
 }
@@ -2166,6 +2165,26 @@ absl::Status Resolver::ResolveCreateModelStatement(
   ResolvedCreateStatement::CreateMode create_mode;
   ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, "CREATE MODEL",
                                                 &create_scope, &create_mode));
+
+  // Resolve input and output statements.
+  const ASTInputOutputClause* input_output_clause =
+      ast_statement->input_output_clause();
+  if (input_output_clause != nullptr) {
+    return MakeSqlErrorAt(input_output_clause)
+           << "INPUT and OUTPUT clause is not supported";
+  }
+
+  if (ast_statement->is_remote()) {
+    return MakeSqlErrorAt(ast_statement) << "REMOTE is not supported";
+  }
+
+  // Resolve connection.
+  const ASTWithConnectionClause* with_connection_clause =
+      ast_statement->with_connection_clause();
+  if (with_connection_clause != nullptr) {
+    return MakeSqlErrorAt(with_connection_clause)
+           << "WITH CONNECTION is not supported";
+  }
 
   // Resolve the query.
   const ASTQuery* query = ast_statement->query();
@@ -3384,8 +3403,9 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
   bool has_return_type = false;
   if (has_explicit_return_type) {
     ZETASQL_RETURN_IF_ERROR(ResolveType(ast_statement->return_type(),
-                                "function signatures", &return_type,
-                                /*resolved_type_params=*/nullptr));
+                                {.context = "function signatures"},
+                                &return_type,
+                                /*resolved_type_modifiers=*/nullptr));
     has_return_type = true;
   }
 
@@ -3788,7 +3808,7 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
       if (tvf_body_name_list->is_value_table()) {
         ZETASQL_RET_CHECK_EQ(1, tvf_body_name_list->num_columns());
         return_tvf_relation = TVFRelation::ValueTable(
-            tvf_body_name_list->column(0).column.type());
+            tvf_body_name_list->column(0).column.annotated_type());
       } else {
         std::vector<TVFRelation::Column> return_tvf_relation_columns;
         return_tvf_relation_columns.reserve(tvf_body_name_list->num_columns());
@@ -3801,7 +3821,7 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
           }
           return_tvf_relation_columns.emplace_back(
               tvf_body_name_list_column.name.ToString(),
-              tvf_body_name_list_column.column.type());
+              tvf_body_name_list_column.column.annotated_type());
         }
         return_tvf_relation = TVFRelation(return_tvf_relation_columns);
       }
@@ -3879,8 +3899,9 @@ absl::Status Resolver::ResolveTVFSchema(
     ZETASQL_RET_CHECK(ast_tvf_schema->columns()[0]->type() != nullptr);
     const Type* resolved_type = nullptr;
     ZETASQL_RETURN_IF_ERROR(ResolveType(ast_tvf_schema->columns()[0]->type(),
-                                "table function signatures", &resolved_type,
-                                /*resolved_type_params=*/nullptr));
+                                {.context = "table function signatures"},
+                                &resolved_type,
+                                /*resolved_type_modifiers=*/nullptr));
     TVFRelation::Column column("", resolved_type);
     RecordTVFRelationColumnParseLocationsIfPresent(
         *ast_tvf_schema->columns()[0], &column);
@@ -3892,8 +3913,9 @@ absl::Status Resolver::ResolveTVFSchema(
        ast_tvf_schema->columns()) {
     const Type* resolved_type = nullptr;
     ZETASQL_RETURN_IF_ERROR(ResolveType(ast_tvf_schema_column->type(),
-                                "table function signatures", &resolved_type,
-                                /*resolved_type_params=*/nullptr));
+                                {.context = "table function signatures"},
+                                &resolved_type,
+                                /*resolved_type_modifiers=*/nullptr));
     std::string name;
     if (ast_tvf_schema_column->name() != nullptr) {
       name = ast_tvf_schema_column->name()->GetAsString();
@@ -3994,8 +4016,35 @@ absl::Status Resolver::CheckSQLBodyReturnTypesAndCoerceIfNeeded(
         }
       }
     }
-    const Type* provided_col_type =
-        tvf_body_name_list->column(provided_col_idx).column.type();
+    const ResolvedColumn& provided_column =
+        tvf_body_name_list->column(provided_col_idx).column;
+    // Throws an error when the output column of TVF query has collation and the
+    // explicit result schema exists. The main reason is that specifying type
+    // with collation in the explicit result schema is not supported yet, and we
+    // are not sure whether to propagate or drop the collation of TVF query
+    // output when the explicit result schema has no collation.
+    // TODO: Revisit and properly define the behavior for this
+    // case.
+    if (CollationAnnotation::ExistsIn(provided_column.type_annotation_map())) {
+      std::string output_column_str =
+          return_tvf_relation.is_value_table()
+              ? "value-table column"
+              : "output column " + required_col_name;
+      const std::string error = absl::StrCat(
+          "Collation ",
+          // TODO: Use a dedicated function to print user-friendly
+          // information about annotation_map.
+          provided_column.type_annotation_map()->DebugString(
+              CollationAnnotation::GetId()),
+          " on ", output_column_str,
+          " is not allowed when an explicit result schema is present");
+      if (statement_location != nullptr) {
+        return MakeSqlErrorAt(statement_location) << error;
+      } else {
+        return MakeSqlError() << error;
+      }
+    }
+    const Type* provided_col_type = provided_column.type();
     SignatureMatchResult signature_match_result;
     if (!coercer_.CoercesTo(InputArgumentType(provided_col_type),
                             required_col_type, /*is_explicit=*/false,
@@ -4435,9 +4484,10 @@ absl::Status Resolver::ResolveFunctionParameters(
 
       ZETASQL_RET_CHECK(function_param->type() != nullptr);
       const Type* resolved_type = nullptr;
-      ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(), "function arguments",
+      ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(),
+                                  {.context = "function arguments"},
                                   &resolved_type,
-                                  /*resolved_type_params=*/nullptr));
+                                  /*resolved_type_modifiers=*/nullptr));
       ZETASQL_RET_CHECK(resolved_type != nullptr) << function_param->DebugString();
       if (default_value.has_value()) {
         if (!resolved_type->Equals(default_value->type())) {
@@ -4456,7 +4506,9 @@ absl::Status Resolver::ResolveFunctionParameters(
             InputArgumentType arg(*default_value,
                                   /*is_default_argument_value=*/true);
             SignatureMatchResult match_result;
-            if (!coercer_.AssignableTo(arg, resolved_type, /*is_explicit=*/true,
+            const bool is_explicit = !language().LanguageFeatureEnabled(
+                FEATURE_STRICT_FUNCTION_DEFAULT_ARG_TYPE_COERCION);
+            if (!coercer_.AssignableTo(arg, resolved_type, is_explicit,
                                        &match_result)) {
               return MakeSqlErrorAt(function_param->default_value())
                      << "Default argument value does not match the argument "
@@ -4470,7 +4522,8 @@ absl::Status Resolver::ResolveFunctionParameters(
             ZETASQL_ASSIGN_OR_RETURN(
                 default_value,
                 CastValue(*default_value, analyzer_options_.default_time_zone(),
-                          analyzer_options_.language(), resolved_type),
+                          analyzer_options_.language(), resolved_type,
+                          /*catalog=*/nullptr, /*canonicalize_zero=*/true),
                 _.Attach(GetErrorLocationPoint(function_param->default_value(),
                                                /*include_leftmost_child=*/true)
                              .ToInternalErrorLocation()));
@@ -5196,8 +5249,7 @@ absl::Status Resolver::ResolveCallStatement(
   std::unique_ptr<FunctionSignature> result_signature;
   SignatureMatchResult signature_match_result;
 
-  std::vector<const ASTNode*> arg_locations =
-      ToLocations(ast_call->arguments());
+  std::vector<const ASTNode*> arg_locations = ToASTNodes(ast_call->arguments());
   ZETASQL_ASSIGN_OR_RETURN(
       const bool is_match,
       function_resolver.SignatureMatches(
@@ -5474,8 +5526,9 @@ absl::Status Resolver::ResolveDropFunctionStatement(
       } else {
         const Type* resolved_type;
         ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(),
-                                    "function arguments", &resolved_type,
-                                    /*resolved_type_params=*/nullptr));
+                                    {.context = "function arguments"},
+                                    &resolved_type,
+                                    /*resolved_type_modifiers=*/nullptr));
         // Argument names are ignored for DROP FUNCTION statements, and are
         // always provided as an empty string.  Argument kinds are also ignored.
         auto argument_def = MakeResolvedArgumentDef(

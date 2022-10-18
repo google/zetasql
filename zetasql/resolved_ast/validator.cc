@@ -20,8 +20,12 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
+#include <optional>
+#include <set>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/varsetter.h"
@@ -52,6 +56,7 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/stl_util.h"
@@ -433,6 +438,10 @@ absl::Status Validator::ValidateResolvedExpr(
       // No validation required.
       expr->MarkFieldsAccessed();
       break;
+    case RESOLVED_CATALOG_COLUMN_REF:
+      // TODO add correct validation when working on DDL
+      return absl::UnimplementedError(
+          "ResolvedCatalogColumnRef validator not implemented");
     case RESOLVED_PARAMETER:
       return ValidateResolvedParameter(expr->GetAs<ResolvedParameter>());
     case RESOLVED_COLUMN_REF: {
@@ -1415,22 +1424,24 @@ absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
 
   for (const auto& option : scan->anonymization_option_list()) {
     VALIDATOR_RET_CHECK(option->qualifier().empty())
+
         << "Anonymization options must not have a qualifier, but found "
         << option->qualifier();
-    const Type* expected_option_type;
-    if (absl::AsciiStrToLower(option->name()) == "delta" ||
-        absl::AsciiStrToLower(option->name()) == "epsilon") {
-      expected_option_type = types::DoubleType();
-    } else if (absl::AsciiStrToLower(option->name()) == "kappa" ||
-               absl::AsciiStrToLower(option->name()) == "k_threshold") {
-      expected_option_type = types::Int64Type();
-    } else {
+    auto iter =
+        options_.allowed_hints_and_options.anonymization_options_lower.find(
+            absl::AsciiStrToLower(option->name()));
+    if (iter ==
+        options_.allowed_hints_and_options.anonymization_options_lower.end()) {
       VALIDATOR_RET_CHECK_FAIL()
           << "Invalid anonymization option name: " << option->name();
     }
-    VALIDATOR_RET_CHECK(option->value()->type()->Equals(expected_option_type));
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
-        visible_columns, visible_parameters, option->value()));
+    const Type* expected_option_type = iter->second;
+    if (expected_option_type != nullptr) {
+      VALIDATOR_RET_CHECK(
+          option->value()->type()->Equals(expected_option_type));
+    }
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
+                                         option->value()));
   }
 
   return absl::OkStatus();

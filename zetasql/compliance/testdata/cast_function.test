@@ -614,7 +614,7 @@ ARRAY<STRUCT<BYTES>>[{b"\x08\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01"}]
 [name=enums_are_case_sensitive]
 SELECT CAST(CAST('TestEnum1' as `zetasql_test__.TestEnum`) as STRING)
 --
-ERROR: generic::out_of_range: Out of range cast of string 'TestEnum1' to enum type ENUM<zetasql_test__.TestEnum>
+ERROR: generic::out_of_range: Out of range cast of string 'TestEnum1' to enum type zetasql_test__.TestEnum
 ==
 # This test is more of a recommendation than a requirement, since proto allows
 # ignoring the packed annotation. We should eventually add framework support
@@ -1393,7 +1393,7 @@ ERROR: generic::out_of_range: Bad bool value: A
 [name=cast_invalid_int_to_enum]
 select cast(1000 AS `zetasql_test__.TestEnum`);
 --
-ERROR: generic::out_of_range: Out of range cast of integer 1000 to enum type ENUM<zetasql_test__.TestEnum>
+ERROR: generic::out_of_range: Out of range cast of integer 1000 to enum type zetasql_test__.TestEnum
 ==
 
 [name=safe_cast_invalid_int_to_enum]
@@ -1405,13 +1405,13 @@ ARRAY<STRUCT<ENUM<zetasql_test__.TestEnum>>>[{NULL}]
 [name=cast_string_to_enum_with_different_case]
 select cast('TestEnum0' AS `zetasql_test__.TestEnum`)
 --
-ERROR: generic::out_of_range: Out of range cast of string 'TestEnum0' to enum type ENUM<zetasql_test__.TestEnum>
+ERROR: generic::out_of_range: Out of range cast of string 'TestEnum0' to enum type zetasql_test__.TestEnum
 ==
 
 [name=cast_invalid_string_literal_to_enum]
 select cast('TESTENUM1000' AS `zetasql_test__.TestEnum`)
 --
-ERROR: generic::out_of_range: Out of range cast of string 'TESTENUM1000' to enum type ENUM<zetasql_test__.TestEnum>
+ERROR: generic::out_of_range: Out of range cast of string 'TESTENUM1000' to enum type zetasql_test__.TestEnum
 ==
 
 [name=safe_cast_invalid_string_literal_to_enum]
@@ -1571,3 +1571,73 @@ select SAFE_CAST(CAST(- 1769384439 AS INT32) AS UINT32)
 --
 ARRAY<STRUCT<UINT32>>[{NULL}]
 ==
+
+# Test case for CAST-ing and FORMAT-ing to canonicalized integer-type 0.
+[name=roundtrip_cast_negative_integer_zero_to_string]
+SELECT
+  CAST(-0 AS STRING),
+  CAST(-0 AS INT32),
+  CAST(-0 AS INT64),
+  CAST(CAST('-0' AS INT32) AS STRING),
+  CAST(-CAST('0' AS INT32) AS STRING),
+  CAST(CAST('-0' AS INT64) AS STRING),
+  CAST(-CAST('0' AS INT64) AS STRING);
+--
+ARRAY<STRUCT<STRING, INT32, INT64, STRING, STRING, STRING, STRING>>[
+  {"0", 0, 0, "0", "0", "0", "0"}
+]
+==
+
+[required_features=NUMERIC_TYPE,BIGNUMERIC_TYPE]
+[name=roundtrip_cast_negative_numeric_zero_to_string]
+SELECT
+  CAST(-0 AS NUMERIC),
+  CAST(-0 AS BIGNUMERIC),
+  CAST(CAST(-0 AS NUMERIC) AS STRING),
+  CAST(-CAST(0 AS NUMERIC) AS STRING),
+  CAST(CAST(-0 AS BIGNUMERIC) AS STRING),
+  CAST(-CAST(0 AS BIGNUMERIC) AS STRING);
+--
+ARRAY<STRUCT<NUMERIC, BIGNUMERIC, STRING, STRING, STRING, STRING>>[
+  {0, 0, "0", "0", "0", "0"}
+]
+==
+
+[name=cast_negative_numeric_zero_to_uint32]
+SELECT CAST(-0 AS UINT32);
+--
+ARRAY<STRUCT<UINT32>>[{0}]
+==
+
+[name=cast_negative_numeric_zero_to_uint64]
+SELECT CAST(-0 AS UINT64);
+--
+ARRAY<STRUCT<UINT64>>[{0}]
+==
+
+[name=roundtrip_cast_negative_numeric_zero_to_uint32_1]
+SELECT CAST(CAST(-0 AS UINT32) AS STRING);
+--
+ARRAY<STRUCT<STRING>>[{"0"}]
+==
+
+[name=roundtrip_cast_negative_numeric_zero_to_uint32_2]
+SELECT CAST(-CAST(0 AS UINT32) AS STRING);
+--
+ERROR: generic::invalid_argument: No matching signature for operator - for argument types: UINT32. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:13]
+SELECT CAST(-CAST(0 AS UINT32) AS STRING);
+            ^
+==
+
+[name=roundtrip_cast_negative_numeric_zero_to_uint64_1]
+SELECT CAST(CAST(-0 AS UINT64) AS STRING);
+--
+ARRAY<STRUCT<STRING>>[{"0"}]
+==
+
+[name=roundtrip_cast_negative_numeric_zero_to_uint64_2]
+SELECT CAST(-CAST(0 AS UINT64) AS STRING);
+--
+ERROR: generic::invalid_argument: No matching signature for operator - for argument types: UINT64. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:13]
+SELECT CAST(-CAST(0 AS UINT64) AS STRING);
+            ^

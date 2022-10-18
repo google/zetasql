@@ -68,7 +68,6 @@ using cast_date_time_internal::DateTimeFormatElement;
 using cast_date_time_internal::FormatElementCategory;
 using cast_date_time_internal::FormatElementType;
 using cast_date_time_internal::GetDateTimeFormatElements;
-using internal_functions::GetSignHourAndMinuteTimeZoneOffset;
 using parse_date_time_utils::ConvertTimeToTimestamp;
 using parse_date_time_utils::ParseInt;
 using parse_date_time_utils::ParseSubSeconds;

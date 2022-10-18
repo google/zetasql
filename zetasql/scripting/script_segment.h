@@ -17,6 +17,8 @@
 #ifndef ZETASQL_SCRIPTING_SCRIPT_SEGMENT_H_
 #define ZETASQL_SCRIPTING_SCRIPT_SEGMENT_H_
 
+#include <ostream>
+
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"

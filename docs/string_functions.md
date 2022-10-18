@@ -475,7 +475,7 @@ value is a suffix of the first.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -1480,7 +1480,7 @@ occurrences beginning with the second character in the previous occurrence.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -2431,7 +2431,7 @@ If `from_value` is empty, no replacement is made.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -2868,7 +2868,7 @@ Splitting an empty `STRING` returns an
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -2910,7 +2910,7 @@ prefix of the first.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 
@@ -2952,7 +2952,7 @@ occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return type**
 

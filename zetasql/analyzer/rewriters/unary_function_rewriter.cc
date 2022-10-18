@@ -21,13 +21,12 @@
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
-#include "zetasql/public/builtin_function.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
@@ -100,10 +99,73 @@ class RewriteUnaryFunctionVisitor : public ResolvedASTDeepCopyVisitor {
       ELSE input[ORDINAL(ARRAY_LENGTH(input))]
     END
     )";
+    constexpr absl::string_view kArraySumTemplate = R"(
+    IF (input IS NULL, NULL, (
+      SELECT SUM(e)
+      FROM UNNEST(input) AS e))
+    )";
+    constexpr absl::string_view kArrayAvgTemplate = R"(
+    IF (input IS NULL, NULL, (
+      SELECT AVG(e)
+      FROM UNNEST(input) AS e))
+    )";
+    constexpr absl::string_view kArrayMinTemplate = R"(
+    IF (input IS NULL, NULL, (
+      SELECT e
+      FROM UNNEST(input) AS e WITH OFFSET AS idx
+      WHERE e IS NOT NULL
+      ORDER BY e ASC, idx ASC
+      LIMIT 1))
+    )";
+    constexpr absl::string_view kArrayMaxFPTemplate = R"(
+    IF (input IS NULL, NULL, (
+      SELECT e
+      FROM UNNEST(input) AS e WITH OFFSET AS idx
+      WHERE e IS NOT NULL
+      ORDER BY IS_NAN(e) DESC, e DESC, idx ASC
+      LIMIT 1))
+    )";
+    constexpr absl::string_view kArrayMaxNonFPTemplate = R"(
+    IF (input IS NULL, NULL, (
+      SELECT e
+      FROM UNNEST(input) AS e WITH OFFSET AS idx
+      WHERE e IS NOT NULL
+      ORDER BY e DESC, idx ASC
+      LIMIT 1))
+    )";
     if (IsBuiltInFunctionIdEq(node, FN_ARRAY_FIRST)) {
       return Rewrite(node, kArrayFirstTemplate);
     } else if (IsBuiltInFunctionIdEq(node, FN_ARRAY_LAST)) {
       return Rewrite(node, kArrayLastTemplate);
+    } else if (IsBuiltInFunctionIdEq(node, FN_ARRAY_SUM_INT32) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_SUM_INT64) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_SUM_UINT32) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_SUM_UINT64) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_SUM_FLOAT) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_SUM_DOUBLE) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_SUM_NUMERIC) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_SUM_BIGNUMERIC) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_SUM_INTERVAL)) {
+      return Rewrite(node, kArraySumTemplate);
+    } else if (IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_INT32) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_INT64) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_UINT32) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_UINT64) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_FLOAT) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_DOUBLE) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_NUMERIC) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_BIGNUMERIC)) {
+      return Rewrite(node, kArrayAvgTemplate);
+    } else if (IsBuiltInFunctionIdEq(node, FN_ARRAY_MIN)) {
+      return Rewrite(node, kArrayMinTemplate);
+    } else if (IsBuiltInFunctionIdEq(node, FN_ARRAY_MAX)) {
+      const ResolvedExpr* arg = node->argument_list(0);
+      const ArrayType* array_type = arg->type()->AsArray();
+      ZETASQL_RET_CHECK_NE(array_type, nullptr);
+      if (array_type->element_type()->IsFloatingPoint()) {
+        return Rewrite(node, kArrayMaxFPTemplate);
+      }
+      return Rewrite(node, kArrayMaxNonFPTemplate);
     }
     return CopyVisitResolvedFunctionCall(node);
   }

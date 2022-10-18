@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/evaluator.h"

@@ -16,12 +16,12 @@
 
 #include "zetasql/reference_impl/expected_errors.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/compliance/matchers.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 
 namespace zetasql {
@@ -30,7 +30,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
     std::string matcher_name) {
   std::vector<std::unique_ptr<MatcherBase<absl::Status>>> error_matchers;
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
+      absl::StatusCode::kUnimplemented,
       "Unsupported built-in function: (st_accum|st_askml|st_buffer|"
       "st_bufferwithtolerance|st_geogfromkml|st_simplify|st_unaryunion)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -43,14 +43,14 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   // The reference implementation does not support KMS and AEAD envelope
   // encryption functions since they depend on an external service.
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
+      absl::StatusCode::kUnimplemented,
       "Unsupported built-in function: kms.*"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
+      absl::StatusCode::kUnimplemented,
       "Unsupported built-in function: aead\\.envelope.*"));
   // The reference implementation does not support KEYS.KEYSET_CHAIN function.
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
+      absl::StatusCode::kUnimplemented,
       "Unsupported built-in function: keys\\.keyset_chain"));
   // b/111212209
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -62,7 +62,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange,
       "Cannot store a NULL element in repeated proto field"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
+      absl::StatusCode::kUnimplemented,
       "Unsupported built-in function: \\$(?:safe_)?proto_map_at_key"));
   // b/160778032
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(

@@ -35,6 +35,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "zetasql/public/types/value_equality_check_options.h"
+#include "zetasql/public/types/value_representations.h"
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -442,6 +443,11 @@ class Type {
   // If <details> is true, then the description includes full proto descriptors.
   std::string DebugString(bool details = false) const;
 
+  // Adds capitalized type name to a given string.
+  // TODO Remove this method and use DebugString instead.
+  std::string AddCapitalizedTypePrefix(const std::string& input,
+                                       bool is_null) const;
+
   // Check if this type contains a field with the given name.
   enum HasFieldResult {
     HAS_NO_FIELD,        // No field with that name.
@@ -452,8 +458,9 @@ class Type {
   };
 
   // If this method returns HAS_FIELD or HAS_PSEUDO_FIELD and <field_id> is
-  // non-NULL, then <field_id> is set to the field index for STRUCTs and the
-  // field tag number for PROTOs.
+  // non-NULL, then <field_id> is set to
+  // - the field index for STRUCTs;
+  // - the field tag number for PROTOs;
   // <include_pseudo_fields> specifies whether virtual fields should be
   // returned or used for ambiguity check.
   HasFieldResult HasField(const std::string& name, int* field_id = nullptr,
@@ -643,6 +650,10 @@ class Type {
   // doesn't belong to the current type.
   absl::Status TypeMismatchError(const ValueProto& value_proto) const;
 
+  // Returns type printed as capitalized string.
+  // TODO Remove this method and use DebugString instead.
+  std::string CapitalizedName() const;
+
  private:
   // Recursive implementation of SupportsGrouping, which returns in
   // "no_grouping_type" the contained type that made grouping unsupported.
@@ -683,8 +694,19 @@ class Type {
   // zetasql::Value class, which enforces necessary invariants on their
   // parameters before accessing them.
   //
-  // Make Value a friend, so it can access *ValueContent* functions.
+  // Make Value and ContainerType friends, so it can access *ValueContent*
+  // functions.
   friend class Value;
+  friend class ContainerType;
+  friend struct HashableValueContentContainerElementIgnoringFloat;
+
+  FRIEND_TEST(TypeTest, FormatValueContentArraySQLLiteralMode);
+  FRIEND_TEST(TypeTest, FormatValueContentArraySQLExpressionMode);
+  FRIEND_TEST(TypeTest, FormatValueContentArrayDebugMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructSQLLiteralMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructSQLExpressionMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructDebugMode);
+  FRIEND_TEST(TypeTest, FormatValueContentStructWithAnonymousFieldsDebugMode);
 
   // Copies value's content to another value. Is called when one value is
   // assigned to another. It's expected that content of destination is empty

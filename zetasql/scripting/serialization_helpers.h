@@ -16,6 +16,10 @@
 
 #ifndef ZETASQL_SCRIPTING_SERIALIZATION_HELPERS_H_
 #define ZETASQL_SCRIPTING_SERIALIZATION_HELPERS_H_
+#include <memory>
+#include <optional>
+#include <vector>
+
 #include "zetasql/scripting/script_executor.h"
 #include "zetasql/scripting/variable.pb.h"
 #include "absl/status/statusor.h"

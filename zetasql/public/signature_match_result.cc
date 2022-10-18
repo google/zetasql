@@ -17,6 +17,7 @@
 #include "zetasql/public/signature_match_result.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/type.h"

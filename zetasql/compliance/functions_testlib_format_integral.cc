@@ -19,6 +19,7 @@
 // original single file timed out at 900 seconds.
 
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 

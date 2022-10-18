@@ -52,6 +52,7 @@
 // See also zetasql/common/errors.h for non parser-dependent error helpers.
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "zetasql/common/errors.h"
@@ -146,9 +147,9 @@ absl::Status StatusWithInternalErrorLocation(
 
 // Makes a new Status from <code> and <message> with an external ErrorLocation.
 absl::Status MakeStatusWithErrorLocation(absl::StatusCode code,
-                                         absl::string_view message,
-                                         const std::string& filename,
-                                         const std::string& query,
+                                         std::string_view message,
+                                         std::string_view filename,
+                                         std::string_view query,
                                          const ASTNode* ast_node,
                                          bool include_leftmost_child = true);
 

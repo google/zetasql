@@ -20,6 +20,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -31,6 +32,7 @@
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/simple_constant.pb.h"
 #include "zetasql/public/simple_table.pb.h"
+#include "zetasql/public/sql_view.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/types/annotation.h"
@@ -45,6 +47,7 @@
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -297,7 +300,9 @@ std::string SimpleCatalog::SuggestConstant(
 
 void SimpleCatalog::AddTable(absl::string_view name, const Table* table) {
   absl::MutexLock l(&mutex_);
-  zetasql_base::InsertOrDie(&tables_, absl::AsciiStrToLower(name), table);
+  const std::string canonical_name = absl::AsciiStrToLower(name);
+  zetasql_base::InsertOrDie(&global_names_, canonical_name);
+  zetasql_base::InsertOrDie(&tables_, canonical_name, table);
 }
 
 void SimpleCatalog::AddModel(const std::string& name, const Model* model) {
@@ -381,8 +386,9 @@ void SimpleCatalog::AddOwnedTable(absl::string_view name,
 bool SimpleCatalog::AddOwnedTableIfNotPresent(
     absl::string_view name, std::unique_ptr<const Table> table) {
   absl::MutexLock l(&mutex_);
-  if (!zetasql_base::InsertIfNotPresent(&tables_, absl::AsciiStrToLower(name),
-                               table.get())) {
+  const std::string canonical_name = absl::AsciiStrToLower(name);
+  if (!zetasql_base::InsertIfNotPresent(&global_names_, canonical_name) ||
+      !zetasql_base::InsertIfNotPresent(&tables_, canonical_name, table.get())) {
     return false;
   }
   owned_tables_.emplace_back(std::move(table));
@@ -941,15 +947,10 @@ absl::Status SimpleCatalog::DeserializeImpl(
   }
 
   for (const TableValuedFunctionProto& tvf_proto : proto.custom_tvf()) {
-    // TODO: propagate TypeDeserializer through
     // TableValuedFunction::Deserialize.
     std::unique_ptr<TableValuedFunction> tvf;
-    ZETASQL_RETURN_IF_ERROR(TableValuedFunction::Deserialize(
-        tvf_proto,
-        std::vector<const google::protobuf::DescriptorPool*>(
-            type_deserializer.descriptor_pools().begin(),
-            type_deserializer.descriptor_pools().end()),
-        type_deserializer.type_factory(), &tvf));
+    ZETASQL_RETURN_IF_ERROR(
+        TableValuedFunction::Deserialize(tvf_proto, type_deserializer, &tvf));
     const std::string name = tvf->Name();
     if (!AddOwnedTableValuedFunctionIfNotPresent(&tvf)) {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
@@ -1041,6 +1042,10 @@ absl::Status SimpleCatalog::SerializeImpl(
   for (const auto& entry : tables) {
     const std::string& table_name = entry.first;
     const Table* const table = entry.second;
+    if (table->Is<SimpleSQLView>()) {
+      // TODO: Serialize these too.
+      continue;
+    }
     if (!table->Is<SimpleTable>()) {
       return ::zetasql_base::UnknownErrorBuilder()
              << "Cannot serialize non-SimpleTable " << table_name;
@@ -1545,6 +1550,13 @@ absl::Status SimpleColumn::Serialize(
   if (CanUpdateUnwritableToDefault()) {
     proto->set_can_update_unwritable_to_default(true);
   }
+
+  proto->set_has_default_value(HasDefaultValue());
+  if (HasDefaultValue()) {
+    // The ResolvedExpr form of the expression is not serialized.
+    proto->mutable_column_expression()->set_expression_string(
+        ExpressionString().value());
+  }
   return absl::OkStatus();
 }
 
@@ -1558,12 +1570,36 @@ absl::StatusOr<std::unique_ptr<SimpleColumn>> SimpleColumn::Deserialize(
     ZETASQL_RETURN_IF_ERROR(type_deserializer.type_factory()->DeserializeAnnotationMap(
         proto.annotation_map(), &annotation_map));
   }
-  return std::make_unique<SimpleColumn>(
-      table_name, proto.name(), AnnotatedType(type, annotation_map),
-      SimpleColumn::Attributes{.is_pseudo_column = proto.is_pseudo_column(),
-                               .is_writable_column = proto.is_writable_column(),
-                               .can_update_unwritable_to_default =
-                                   proto.can_update_unwritable_to_default()});
+  SimpleColumn::ExpressionAttributes expression_attributes;
+  if (proto.has_default_value()) {
+    expression_attributes.expression_string =
+        proto.column_expression().expression_string();
+  }
+
+  SimpleColumn::Attributes attributes{
+      .is_pseudo_column = proto.is_pseudo_column(),
+      .is_writable_column = proto.is_writable_column(),
+      .can_update_unwritable_to_default =
+          proto.can_update_unwritable_to_default(),
+      .has_default_value = proto.has_default_value(),
+      .column_expression = expression_attributes};
+
+  return std::make_unique<SimpleColumn>(table_name, proto.name(),
+                                        AnnotatedType(type, annotation_map),
+                                        attributes);
+}
+
+// static
+absl::StatusOr<std::unique_ptr<SimpleSQLView>> SimpleSQLView::Create(
+    absl::string_view name, std::vector<NameAndType> columns,
+    SqlSecurity security, bool is_value_table, const ResolvedScan* query) {
+  auto view = absl::WrapUnique(
+      new SimpleSQLView(name, security, is_value_table, query));
+  for (int i = 0; i < columns.size(); ++i) {
+    view->AddColumn(std::make_unique<SimpleColumn>(
+        std::string(name), columns[i].name, columns[i].type));
+  }
+  return view;
 }
 
 // static

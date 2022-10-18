@@ -22,11 +22,14 @@
 #include <cctype>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/functions/date_time_util_internal.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/parse_date_time_utils.h"
 #include "zetasql/public/strings.h"
@@ -599,20 +602,14 @@ static absl::StatusOr<int64_t> FirstWeekNumberOfYear(int64_t year,
   ZETASQL_RET_CHECK_FAIL() << "Unexpected format element: " << element;
 }
 
-static bool IsLeapYear(int64_t year) {
-  if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) {
-    return true;
-  }
-  return false;
-}
-
 // Returns the week number of December 31st of the year.  This week number
 // depends on which format element is considered (%U or %W).
 static absl::StatusOr<int64_t> LastWeekNumberOfYear(int64_t year,
                                                   const char element) {
   const absl::CivilDay january_first(year, 1, 1);
   const absl::Weekday january_first_weekday = absl::GetWeekday(january_first);
-  const int32_t days_in_year = (IsLeapYear(year) ? 366 : 365);
+  const int32_t days_in_year =
+      (date_time_util_internal::IsLeapYear(year) ? 366 : 365);
   int32_t number_of_week_zero_days;
 
   // Compute the number of days in the year while excluding days in week 0.
@@ -753,7 +750,7 @@ static absl::Status ComputeDateFromYearAndDayOfYear(
   ZETASQL_RETURN_IF_ERROR(ParseDayOfYear(dayofyear_element.value(),
                                  /*max_days_in_year=*/366, &dayofyear));
   if (dayofyear == 366) {
-    if (!IsLeapYear(year)) {
+    if (!date_time_util_internal::IsLeapYear(year)) {
       return MakeEvalError()
              << "Year " << year
              << " has 365 days, but the specified day of year was "

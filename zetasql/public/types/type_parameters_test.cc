@@ -17,6 +17,7 @@
 #include "zetasql/public/types/type_parameters.h"
 
 #include <string>
+#include <vector>
 
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/functions/rounding_mode.pb.h"

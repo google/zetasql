@@ -18,9 +18,11 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -588,7 +590,7 @@ absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
       case RESOLVED_DELETE_STMT:
       case RESOLVED_UPDATE_STMT: {
         ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeStatement(
-            options.language(), algebrizer_options,
+            options.language(), algebrizer_options, catalog,
             evaluator_options_.type_factory, statement_, &compiled_value_expr_,
             &algebrizer_parameters_, &algebrizer_column_map_,
             &algebrizer_system_variables_));
@@ -980,6 +982,10 @@ absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
 
   std::unique_ptr<EvaluationContext> context = CreateEvaluationContext();
   context->SetStatementEvaluationDeadline(options.deadline);
+
+  if (options.session_user.has_value()) {
+    context->SetSessionUser(options.session_user.value());
+  }
 
   ParameterValueList params;
   params.reserve(columns.size() + parameters.size() + system_variables.size());

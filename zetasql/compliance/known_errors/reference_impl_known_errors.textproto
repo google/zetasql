@@ -20,13 +20,8 @@
 known_errors {
   # Entries for known errors due to reference driver bugs. See
   # regression.test for details.
-  mode: ALLOW_ERROR_OR_WRONG_ANSWER
-  label: "bug_in_reference_impl"
-  # TODO: Implement in reference impl
-  label: "orderby_collate_queries_test:orderby_collate_disallow_legacy_unicode_collation"
-}
-
-known_errors {
+  # Probably we actually need a version of this label for each mode. For now,
+  # all such queries return errors.
   mode: ALLOW_ERROR
-  label: "hll_count_test:safe_hll_count_extract_invalid_sketch"
+  label: "bug_in_reference_impl"
 }

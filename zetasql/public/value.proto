@@ -54,6 +54,9 @@ message ValueProto {
   // (exclusive). A range has an element type, and values must be of this
   // element type. A range is contiguous, ie it contains all values of the given
   // element type starting at 'start' and ending before 'end'.
+  //
+  // A "null" value on start or end represents an unbounded start or end value
+  // respectively. Start and end values must always be present.
   message Range {
     // Represents the start of the range.
     optional ValueProto start = 1;

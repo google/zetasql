@@ -17,6 +17,7 @@
 #include "zetasql/compliance/test_util.h"
 
 #include <cstdint>
+#include <set>
 #include <string>
 #include <utility>
 

@@ -17,6 +17,7 @@
 #ifndef ZETASQL_ANALYZER_COLUMN_CYCLE_DETECTOR_H_
 #define ZETASQL_ANALYZER_COLUMN_CYCLE_DETECTOR_H_
 
+#include <optional>
 #include <vector>
 
 #include "zetasql/public/id_string.h"

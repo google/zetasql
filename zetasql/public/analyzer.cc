@@ -19,6 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <thread>
+#include <ostream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -34,6 +35,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/common/timer_util.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parser.h"
@@ -85,20 +87,32 @@ void EnsureResolutionTimeInfoForEveryTable(
 static absl::Status FinishAnalyzeStatementImpl(
     absl::string_view sql, const ASTStatement& ast_statement,
     Resolver* resolver, const AnalyzerOptions& options, Catalog* catalog,
-    TypeFactory* type_factory,
+    TypeFactory* type_factory, AnalyzerRuntimeInfo* analyzer_runtime_info,
     std::unique_ptr<const ResolvedStatement>* resolved_statement) {
   ZETASQL_VLOG(5) << "Parsed AST:\n" << ast_statement.DebugString();
-
-  ZETASQL_RETURN_IF_ERROR(
-      resolver->ResolveStatement(sql, &ast_statement, resolved_statement));
-
+  {
+    internal::ScopedTimer scoped_resolver_timer =
+        internal::MakeScopedTimerStarted(
+            &analyzer_runtime_info->resolver_timed_value());
+    ZETASQL_RETURN_IF_ERROR(
+        resolver->ResolveStatement(sql, &ast_statement, resolved_statement));
+  }
   ZETASQL_VLOG(3) << "Resolved AST:\n" << (*resolved_statement)->DebugString();
 
   if (InternalAnalyzerOptions::GetValidateResolvedAST(options)) {
-    Validator validator(options.language());
+    internal::ScopedTimer scoped_validator_timer =
+        internal::MakeScopedTimerStarted(
+            &analyzer_runtime_info->validator_timed_value());
+    ValidatorOptions validator_options{.allowed_hints_and_options =
+                                           options.allowed_hints_and_options()};
+    Validator validator(options.language(), validator_options);
     ZETASQL_RETURN_IF_ERROR(
         validator.ValidateResolvedStatement(resolved_statement->get()));
   }
+
+  internal::ScopedTimer scoped_resolver_timer =
+      internal::MakeScopedTimerStarted(
+          &analyzer_runtime_info->resolver_timed_value());
 
   if (absl::GetFlag(FLAGS_zetasql_print_resolved_ast)) {
     std::cout << "Resolved AST from thread "
@@ -215,7 +229,8 @@ absl::Status AnalyzeNextStatement(
 
 static absl::Status AnalyzeStatementHelper(
     const ASTStatement& ast_statement, const AnalyzerOptions& options,
-    absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
+    absl::string_view sql, AnalyzerRuntimeInfo analyzer_runtime_info,
+    Catalog* catalog, TypeFactory* type_factory,
     std::unique_ptr<ParserOutput>* statement_parser_output,
     bool take_parser_output_ownership_on_success,
     std::unique_ptr<const AnalyzerOutput>* output) {
@@ -223,9 +238,9 @@ static absl::Status AnalyzeStatementHelper(
   ZETASQL_RET_CHECK(options.AllArenasAreInitialized());
   std::unique_ptr<const ResolvedStatement> resolved_statement;
   Resolver resolver(catalog, type_factory, &options);
-  absl::Status status =
-      FinishAnalyzeStatementImpl(sql, ast_statement, &resolver, options,
-                                 catalog, type_factory, &resolved_statement);
+  absl::Status status = FinishAnalyzeStatementImpl(
+      sql, ast_statement, &resolver, options, catalog, type_factory,
+      &analyzer_runtime_info, &resolved_statement);
 
   const absl::StatusOr<QueryParametersMap>& type_assignments =
       resolver.AssignTypesToUndeclaredParameters();
@@ -247,9 +262,10 @@ static absl::Status AnalyzeStatementHelper(
       ConvertInternalErrorLocationsAndAdjustErrorStrings(
           options.error_message_mode(), sql, resolver.deprecation_warnings()),
       *type_assignments, resolver.undeclared_positional_parameters(),
-      resolver.max_column_id());
+      resolver.max_column_id(), std::move(analyzer_runtime_info));
   ZETASQL_RETURN_IF_ERROR(RewriteResolvedAst(options, sql, catalog, type_factory,
                                      *original_output));
+
   *output = std::move(original_output);
   return absl::OkStatus();
 }
@@ -259,6 +275,9 @@ static absl::Status AnalyzeStatementFromParserOutputImpl(
     bool take_ownership_on_success, const AnalyzerOptions& options,
     absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
     std::unique_ptr<const AnalyzerOutput>* output) {
+  AnalyzerRuntimeInfo analyzer_runtime_info;
+  analyzer_runtime_info.parser_runtime_info() =
+      (*statement_parser_output)->runtime_info();
   AnalyzerOptions local_options = options;
 
   // If the arena and IdStringPool are not set in <options>, use the
@@ -274,9 +293,10 @@ static absl::Status AnalyzeStatementFromParserOutputImpl(
   }
 
   const ASTStatement* ast_statement = (*statement_parser_output)->statement();
-  return AnalyzeStatementHelper(
-      *ast_statement, local_options, sql, catalog, type_factory,
-      statement_parser_output, take_ownership_on_success, output);
+  return AnalyzeStatementHelper(*ast_statement, local_options, sql,
+                                std::move(analyzer_runtime_info), catalog,
+                                type_factory, statement_parser_output,
+                                take_ownership_on_success, output);
 }
 
 absl::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
@@ -284,8 +304,8 @@ absl::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(
     const AnalyzerOptions& options, absl::string_view sql, Catalog* catalog,
     TypeFactory* type_factory, std::unique_ptr<const AnalyzerOutput>* output) {
   return AnalyzeStatementFromParserOutputImpl(
-      statement_parser_output, /*take_ownership_on_success=*/true, options,
-      sql, catalog, type_factory, output);
+      statement_parser_output, /*take_ownership_on_success=*/true, options, sql,
+      catalog, type_factory, output);
 }
 
 absl::Status AnalyzeStatementFromParserOutputUnowned(
@@ -305,7 +325,7 @@ absl::Status AnalyzeStatementFromParserAST(
   const AnalyzerOptions& options_with_arenas =
       GetOptionsWithArenas(&options, &copy);
   return AnalyzeStatementHelper(
-      statement, options_with_arenas, sql, catalog, type_factory,
+      statement, options_with_arenas, sql, {}, catalog, type_factory,
       /*statement_parser_output=*/nullptr,
       /*take_parser_output_ownership_on_success=*/false, output);
 }
@@ -581,14 +601,30 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
   ColumnFactory column_factory(analyzer_output.max_column_id(),
                                analyzer_output.id_string_pool().get(),
                                analyzer_options.column_id_sequence_number());
+  AnalyzerRuntimeInfo runtime_info = analyzer_output.runtime_info();
+
+  internal::ElapsedTimer rewriter_timer = internal::MakeTimerStarted();
   ZETASQL_ASSIGN_OR_RETURN(
       RewriteForAnonymizationOutput anonymized_output,
       RewriteForAnonymization(*analyzer_output.resolved_statement(), catalog,
                               type_factory, analyzer_options, column_factory));
-  Validator validator(analyzer_options.language());
-  ZETASQL_RET_CHECK(anonymized_output.node->Is<ResolvedStatement>());
-  ZETASQL_RETURN_IF_ERROR(validator.ValidateResolvedStatement(
-      anonymized_output.node->GetAs<ResolvedStatement>()));
+  AnalyzerRuntimeInfo::RewriterDetails& rewriter_details =
+      runtime_info.rewriters_details(REWRITE_ANONYMIZATION);
+  rewriter_details.count++;
+  rewriter_details.timed_value.Accumulate(rewriter_timer);
+  // Also add this to the overall rewriter time.
+  runtime_info.rewriters_timed_value().Accumulate(rewriter_timer);
+  {
+    internal::ScopedTimer scoped_validator_timer =
+        internal::MakeScopedTimerStarted(&runtime_info.validator_timed_value());
+    ValidatorOptions validator_options{
+        .allowed_hints_and_options =
+            analyzer_options.allowed_hints_and_options()};
+    Validator validator(analyzer_options.language(), validator_options);
+    ZETASQL_RET_CHECK(anonymized_output.node->Is<ResolvedStatement>());
+    ZETASQL_RETURN_IF_ERROR(validator.ValidateResolvedStatement(
+        anonymized_output.node->GetAs<ResolvedStatement>()));
+  }
   AnalyzerOutputProperties analyzer_output_properties_with_map(
       analyzer_output.analyzer_output_properties());
   analyzer_output_properties_with_map
@@ -607,7 +643,7 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
       /*parser_output=*/nullptr, analyzer_output.deprecation_warnings(),
       analyzer_output.undeclared_parameters(),
       analyzer_output.undeclared_positional_parameters(),
-      column_factory.max_column_id());
+      column_factory.max_column_id(), std::move(runtime_info));
 }
 
 absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,

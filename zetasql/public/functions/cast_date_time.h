@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/type.pb.h"

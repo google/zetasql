@@ -16,8 +16,9 @@
 
 #include "zetasql/public/functions/date_time_util_internal.h"
 
+#include <ostream>
+
 #include "gtest/gtest.h"
-#include "absl/strings/str_cat.h"
 #include "absl/time/civil_time.h"
 
 namespace zetasql {
@@ -108,6 +109,85 @@ TEST_P(IsoWeekTest, ISOWeekNumberTest) {
 
 INSTANTIATE_TEST_SUITE_P(IsoWeekTests, IsoWeekTest,
                          ::testing::ValuesIn(kIsoWeekTestCases));
+
+namespace {
+struct IsLeapYearTestCase {
+  int64_t year;
+  bool leap;
+};
+
+const IsLeapYearTestCase kIsLeapYearTestCases[] = {
+    // clang-format off
+    {.year = 0, .leap = true},
+    {.year = 4, .leap = true},
+    {.year = 8, .leap = true},
+    {.year = 12, .leap = true},
+    {.year = 16, .leap = true},
+    {.year = 20, .leap = true},
+    {.year = 24, .leap = true},
+    {.year = 1996, .leap = true},
+    {.year = 2004, .leap = true},
+    {.year = 2020, .leap = true},
+    {.year = 2020, .leap = true},
+    {.year = 400, .leap = true},
+    {.year = 800, .leap = true},
+    {.year = 1200, .leap = true},
+    {.year = 1600, .leap = true},
+    {.year = 1972, .leap = true},
+    {.year = 2004, .leap = true},
+    {.year = 2040, .leap = true},
+    {.year = 2052, .leap = true},
+    {.year = 2400, .leap = true},
+    {.year = 8400, .leap = true},
+    {.year = 10000, .leap = true},
+    {.year = 1, .leap = false},
+    {.year = 2, .leap = false},
+    {.year = 3, .leap = false},
+    {.year = 5, .leap = false},
+    {.year = 6, .leap = false},
+    {.year = 7, .leap = false},
+    {.year = 9, .leap = false},
+    {.year = 10, .leap = false},
+    {.year = 11, .leap = false},
+    {.year = 13, .leap = false},
+    {.year = 14, .leap = false},
+    {.year = 15, .leap = false},
+    {.year = 18, .leap = false},
+    {.year = 100, .leap = false},
+    {.year = 200, .leap = false},
+    {.year = 300, .leap = false},
+    {.year = 500, .leap = false},
+    {.year = 600, .leap = false},
+    {.year = 700, .leap = false},
+    {.year = 900, .leap = false},
+    {.year = 1000, .leap = false},
+    {.year = 1100, .leap = false},
+    {.year = 1300, .leap = false},
+    {.year = 1900, .leap = false},
+    {.year = 1970, .leap = false},
+    {.year = 2001, .leap = false},
+    {.year = 2010, .leap = false},
+    {.year = 2011, .leap = false},
+    {.year = 2050, .leap = false},
+    {.year = 2100, .leap = false},
+    {.year = 2200, .leap = false},
+    {.year = 2300, .leap = false},
+    {.year = 8100, .leap = false},
+    {.year = 10002, .leap = false},
+    // clang-format on
+};
+}  // namespace
+
+class IsLeapYearTest : public ::testing::TestWithParam<IsLeapYearTestCase> {};
+
+TEST_P(IsLeapYearTest, IsLeapYearTest) {
+  IsLeapYearTestCase test = GetParam();
+  EXPECT_EQ(IsLeapYear(test.year), test.leap)
+      << "IsLeapYear(" << test.year << ")";
+}
+
+INSTANTIATE_TEST_SUITE_P(IsLeapYearTests, IsLeapYearTest,
+                         ::testing::ValuesIn(kIsLeapYearTestCases));
 
 }  // namespace date_time_util_internal
 }  // namespace functions

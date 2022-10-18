@@ -364,6 +364,7 @@ class Unparser : public ParseTreeVisitor {
   void visitASTDateOrTimeLiteral(const ASTDateOrTimeLiteral* node,
                                  void* data) override;
   void visitASTRangeLiteral(const ASTRangeLiteral* node, void* data) override;
+  void visitASTRangeType(const ASTRangeType* node, void* data) override;
   void visitASTStar(const ASTStar* node, void* data) override;
   void visitASTStarExceptList(const ASTStarExceptList* node,
                               void* data) override;
@@ -706,6 +707,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTReplaceTtlAction(const ASTReplaceTtlAction* node,
                                 void* data) override;
   void visitASTDropTtlAction(const ASTDropTtlAction* node, void* data) override;
+  void visitASTInputOutputClause(const ASTInputOutputClause* node,
+                                 void* data) override;
   // By default, just do nothing.
   void visitASTLocation(const ASTLocation* node, void* data) override {}
 

@@ -17,9 +17,13 @@
 #include "zetasql/scripting/parsed_script.h"
 
 #include <cstdint>
+#include <memory>
+#include <set>
 #include <stack>
 #include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/ast_node_kind.h"
@@ -293,29 +297,6 @@ class ValidateVariableDeclarationsVisitor
   const ParsedScript* parsed_script_;
 };
 
-// Visitor which records a mapping of each node's index as a child of its
-// parent.  This is used by the script executor implementation to locate the
-// "next" statement or elseif clause after each node finishes running.
-class PopulateIndexMapsVisitor : public NonRecursiveParseTreeVisitor {
- public:
-  // Caller retains ownership of map_statement_index.
-  explicit PopulateIndexMapsVisitor(ParsedScript::NodeIndexMap* map_node_index)
-      : map_node_index_(map_node_index) {}
-
-  absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
-    for (int i = 0; i < node->num_children(); i++) {
-      (*map_node_index_)[node->child(i)] = i;
-    }
-    if (node->IsExpression() || node->IsSqlStatement()) {
-      return VisitResult::Empty();
-    }
-    return VisitResult::VisitChildren(node);
-  }
-
- private:
-  ParsedScript::NodeIndexMap* map_node_index_;
-};
-
 // Visitor to find the node within a script that matches a given position.
 class FindNodeFromPositionVisitor : public NonRecursiveParseTreeVisitor {
  public:
@@ -447,13 +428,6 @@ absl::Status ParsedScript::GatherInformationAndRunChecksInternal() {
 
   ValidateRaiseStatementsVisitor raise_visitor;
   ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&raise_visitor));
-
-  // Walk the parse tree, constructing a StatementIndexMap, associating each
-  // statement in the script with its index in the child list of the statement's
-  // parent.  This is used to transfer control when advancing through the
-  // script.
-  PopulateIndexMapsVisitor populate_index_visitor(&node_index_map_);
-  ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&populate_index_visitor));
 
   // Callers interested in validating query parameters should call
   // CheckQueryParameters.

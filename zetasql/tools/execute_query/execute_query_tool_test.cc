@@ -16,7 +16,11 @@
 
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 
+#include <memory>
+#include <ostream>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/path.h"
 #include "google/protobuf/descriptor.h"

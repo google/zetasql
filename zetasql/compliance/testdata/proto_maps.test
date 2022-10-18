@@ -268,3 +268,37 @@ ARRAY<STRUCT<
         has_null BOOL,
         null_has_foo BOOL
       >>[{true, true, true, false, false, NULL}]
+==
+
+[name=modify_map_and_braced_constructors]
+[required_features=V_1_3_PROTO_MAPS,V_1_3_BRACED_PROTO_CONSTRUCTORS]
+SELECT AS VALUE NEW zetasql_test__.MessageWithMapField {
+  string_int32_map: MODIFY_MAP(input.string_int32_map, "to_be_replaced", 5)
+}
+FROM (
+  SELECT AS VALUE NEW zetasql_test__.MessageWithMapField {
+    string_int32_map: [
+      NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry{
+        key: "key"
+        value: 123
+      },
+      NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry{
+        key: "to_be_replaced"
+        value: 4
+      }
+    ]
+  }
+) AS input;
+--
+ARRAY<PROTO<zetasql_test__.MessageWithMapField>>[
+  {
+    string_int32_map {
+      key: "key"
+      value: 123
+    }
+    string_int32_map {
+      key: "to_be_replaced"
+      value: 5
+    }
+  }
+]

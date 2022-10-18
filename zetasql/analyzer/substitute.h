@@ -44,7 +44,8 @@ namespace zetasql {
 // 'options' must contain a zetasql_base::SequenceNumber that is higher than the highest
 // column id currently present in the parent AST or any of the 'variable'
 // expressions. 'options' must also use the same arenas as the parent AST did
-// during its analysis.
+// during its analysis. 'options' may not have any expression columns whose
+// names conflict with entries in 'variables'.
 //
 // 'expression' must not directly reference any positional query parameters (?)
 // and it must only reference named parameters that are keys in 'lambdas'.

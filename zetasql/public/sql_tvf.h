@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_SQL_TVF_H_
 #define ZETASQL_PUBLIC_SQL_TVF_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 

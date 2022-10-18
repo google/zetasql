@@ -20,6 +20,7 @@
 
 #include <iterator>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"

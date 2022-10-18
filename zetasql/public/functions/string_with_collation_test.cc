@@ -19,19 +19,175 @@
 #include <sys/types.h>
 
 #include <string>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/testing/test_function.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace functions {
 
 namespace {
+
+struct LikeMatchTestParams {
+  const char* pattern;
+  const char* input;
+  TypeKind type;
+  bool expected_outcome;
+};
+
+std::vector<LikeMatchTestParams> LikeMatchTestCases() {
+  return {
+      // '_' matches single character...
+      {"_", "", TYPE_STRING, false},
+      {"_", "a", TYPE_STRING, true},
+      {"_", "ab", TYPE_STRING, false},
+      // ... any Unicode character actually.
+      {"_", "ф", TYPE_STRING, true},
+
+      // Escaped '_' matches itself
+      {"\\_", "_", TYPE_STRING, true},
+      {"\\_", "a", TYPE_STRING, false},
+
+      // '_' matches CR and LF
+      {"_", "\n", TYPE_STRING, true},
+      {"_", "\r", TYPE_STRING, true},
+
+      // Now the string itself is not valid UTF-8.
+      {"_", "\xC2", TYPE_STRING, false},
+
+      // '%' should match any string
+      {"%", "", TYPE_STRING, true},
+      {"%", "abc", TYPE_STRING, true},
+      {"%", "фюы", TYPE_STRING, true},
+
+      // A few more more complex expressions
+      {"a(%)b", "a()b", TYPE_STRING, true},
+      {"a(%)b", "a(z)b", TYPE_STRING, true},
+      {"a(_%)b", "a()b", TYPE_STRING, false},
+      {"a(_%)b", "a(z)b", TYPE_STRING, true},
+      {"a(_\\%)b", "a(z)b", TYPE_STRING, false},
+      {"\\a\\(_%\\)\\b", "a(z)b", TYPE_STRING, true},
+      {"a%b%c", "abc", TYPE_STRING, true},
+      {"a%b%c", "axyzbxyzc", TYPE_STRING, true},
+      {"a%xyz%c", "abxybyzbc", TYPE_STRING, false},
+      {"a%xyz%c", "abxybyzbxyzbc", TYPE_STRING, true},
+
+      {"foo", "foo", TYPE_STRING, true},
+      {"foo", "bar", TYPE_STRING, false},
+      {"%bar", "foobar", TYPE_STRING, true},
+      {"foo%", "foobar", TYPE_STRING, true},
+      {"foo", "foob", TYPE_STRING, false},
+      {"%bar%", "foobarfoo", TYPE_STRING, true},
+      {"foo%bar", "foobar", TYPE_STRING, true},
+      {"foo%foo", "foobarfoobarfoo", TYPE_STRING, true},
+      {"foo%bar", "foobarfoobarfoo", TYPE_STRING, false},
+      {"%foo%foo%", "foobarbarbaz", TYPE_STRING, false},
+      {"aba%aba", "ababa", TYPE_STRING, false},
+      {"abababa", "ababa", TYPE_STRING, false},
+      {"ababa", "abababa", TYPE_STRING, false},
+      {"\\%barfoo%", "%barfoobar", TYPE_STRING, true},
+      {"\\%foo%", "barfoobar", TYPE_STRING, false},
+      {"bar\\%foobar", "barfoobar", TYPE_STRING, false},
+      {"\\_barfoo%", "_barfoobar", TYPE_STRING, true},
+      {"\\_foo%", "barfoobar", TYPE_STRING, false},
+      {"bar\\_foobar", "barfoobar", TYPE_STRING, false},
+      {"%%%%%", "", TYPE_STRING, true},
+      {"%%%%%", "barfoobar", TYPE_STRING, true},
+      {"", "barfoobar", TYPE_STRING, false},
+  };
+}
+
+std::vector<LikeMatchTestParams> LikeWithCollationMatchTestCases() {
+  return {
+      // Ignorable characters.
+      {"\u0001", "", TYPE_STRING, true},
+      {"\u0001%%", "", TYPE_STRING, true},
+      {"%\u0001%", "", TYPE_STRING, true},
+      {"%%\u0001", "", TYPE_STRING, true},
+      {"foo\u0001", "foo", TYPE_STRING, true},
+      {"\u0001foo", "foo", TYPE_STRING, true},
+      {"foo%\u0001%bar", "foobar", TYPE_STRING, true},
+      {"foo%\u0001%foo", "foobar", TYPE_STRING, false},
+      {"foo%\u0001%foo%bar", "foobar", TYPE_STRING, false},
+      {"foo\u0001bar", "foobar", TYPE_STRING, true},
+      {"foo%\u0001bar", "foobar", TYPE_STRING, true},
+      {"foo%\u0001bar%baz", "foobar", TYPE_STRING, false},
+      {"foo%\u0001bar%baz", "foobarbaz", TYPE_STRING, true},
+      {"foo%bar\u0001", "foobar", TYPE_STRING, true},
+      {"aba%\u0001%aba", "ababa", TYPE_STRING, false},
+      {"aba\u0001ba", "ababa", TYPE_STRING, true},
+      {"", "\u0001", TYPE_STRING, true},
+      {"foobar", "\u0001foobar", TYPE_STRING, true},
+      {"foobar", "foo\u0001bar", TYPE_STRING, true},
+      {"foobar", "foobar\u0001", TYPE_STRING, true},
+      {"foobar%", "foobar\u0001", TYPE_STRING, true},
+      {"%foobar", "\u0001foobar", TYPE_STRING, true},
+      {"foo%bar", "foo\u0001bar", TYPE_STRING, true},
+      {"aba%aba", "ab\u0001aba", TYPE_STRING, false},
+
+      // Below cases could have different results for different collations.
+      // Using und:ci as an example.
+      {"FOO", "foo", TYPE_STRING, true},
+      {"CamelCase", "camelcase", TYPE_STRING, true},
+      {"CamelCase", "CAMELCASE", TYPE_STRING, true},
+      {"camelcase", "CamelCase", TYPE_STRING, true},
+      {"CAMELCASE", "CamelCase", TYPE_STRING, true},
+      {"FOOBAR", "foo\u0001bar", TYPE_STRING, true},
+      {"%FOO%BAR%", "foobar\u0001", TYPE_STRING, true},
+      {"%%%%%FOOBAR", "foobar", TYPE_STRING, true},
+      {"FOO%%%%%BAR", "foobar", TYPE_STRING, true},
+      {"FOOBAR%%%%%", "foobar", TYPE_STRING, true},
+      {"\\%BarFoo%", "%barfoobar", TYPE_STRING, true},
+      {"\\%Foo%", "barfoobar", TYPE_STRING, false},
+      {"Bar\\%FooBar", "barfoobar", TYPE_STRING, false},
+      {"\\_BarFoo%", "_barfoobar", TYPE_STRING, true},
+      {"\\_Foo%", "barfoobar", TYPE_STRING, false},
+      {"bar\\_Foobar", "barfoobar", TYPE_STRING, false},
+      {"foo\\%", "foo\\%", TYPE_STRING, false},
+      {"foo\\%", "foo%", TYPE_STRING, true},
+      {"Foo%Foo", "foobarfoobarfoo", TYPE_STRING, true},
+      {"Foo%Bar", "foobarfoobarfoo", TYPE_STRING, false},
+      {"%Foo%Foo%", "foobarbarbaz", TYPE_STRING, false},
+      {"aBa%AbA", "ababa", TYPE_STRING, false},
+      {"AbAbAbA", "ababa", TYPE_STRING, false},
+      {"aBaBa", "abababa", TYPE_STRING, false},
+      // 'ß' and 'ẞ'
+      {"\u00DF", "\u1E9E", TYPE_STRING, true},
+      // 'Å' and 'A''◌̊'
+      {"\u00C5", "\u0041\u030A", TYPE_STRING, true},
+      // 'ự' and 'u''◌̣''◌̛'
+      {"\u1EF1", "\u0075\u031B\u0323", TYPE_STRING, true},
+      {"\u0075%\u0323", "\u1EF1", TYPE_STRING, false},
+      {"u%", "\u1EF1", TYPE_STRING, false},
+      {"あ", "ア", TYPE_STRING, true},
+      // "MW" and '㎿'
+      {"MW", "\u33BF", TYPE_STRING, true},
+      {"MM%", "M\u33BF", TYPE_STRING, false},
+      {"A", "Å", TYPE_STRING, false},
+      // 'ß' and "SS"
+      {"\u00DF", "SS", TYPE_STRING, false},
+      // 's' and 'ſ'
+      {"s", "\u017F", TYPE_STRING, false},
+      // "1/2" and '½'
+      {"1/2", "\u00BD", TYPE_STRING, false},
+      // Strings are not normalized.
+      {"\u0078\u031B\u0323", "\u0078\u0323\u031B", TYPE_STRING, false},
+      // 'Å' and 'a''◌̊'
+      {"\u00C5", "\u0061\u030A", TYPE_STRING, true},
+      // 'ự' and 'U''◌̣''◌̛'
+      {"\u1EF1", "\u0055\u031B\u0323", TYPE_STRING, true},
+      // "mw" and '㎿'
+      {"mw", "\u33BF", TYPE_STRING, true},
+  };
+}
 
 template <typename OutType, typename FunctionType, class... Args>
 void TestStringFunctionWithCollation(FunctionType function,
@@ -196,6 +352,105 @@ TEST(ReplaceWithCollator, HandleExplodingStringLength) {
   std::string generation3;
   EXPECT_FALSE(ReplaceUtf8WithCollation(*collator, generation2, "2",
                                         generation2, &generation3, &error));
+}
+
+TEST(LikeWithCollationMatchTest, MatchTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
+                       MakeSqlCollator("und:ci"));
+  for (const LikeMatchTestParams& params : LikeMatchTestCases()) {
+    if (params.type == TYPE_STRING &&
+        !absl::StrContains(absl::string_view(params.pattern), '_')) {
+      SCOPED_TRACE(
+          absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
+                           params.pattern, params.input));
+      ZETASQL_ASSERT_OK_AND_ASSIGN(
+          bool result,
+          LikeWithUtf8WithCollation(params.input, params.pattern, *collator));
+      EXPECT_EQ(params.expected_outcome, result)
+          << params.input << " LIKE " << params.pattern;
+      if (!absl::StrContains(absl::string_view(params.pattern), '%')) {
+        absl::Status error;
+        EXPECT_EQ(
+            params.expected_outcome,
+            collator->CompareUtf8(params.input, params.pattern, &error) == 0)
+            << params.input << "==" << params.pattern;
+      }
+    }
+  }
+  for (const LikeMatchTestParams& params : LikeWithCollationMatchTestCases()) {
+    SCOPED_TRACE(absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
+                                  params.pattern, params.input));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        bool result,
+        LikeWithUtf8WithCollation(params.input, params.pattern, *collator));
+    EXPECT_EQ(params.expected_outcome, result)
+        << params.input << " LIKE " << params.pattern;
+    if (!absl::StrContains(absl::string_view(params.pattern), '%')) {
+      absl::Status error;
+      EXPECT_EQ(
+          params.expected_outcome,
+          collator->CompareUtf8(params.input, params.pattern, &error) == 0)
+          << params.input << "==" << params.pattern;
+    }
+  }
+}
+
+TEST(LikeWithCollationMatchTest, BinaryMatchTest) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
+                       MakeSqlCollator("binary"));
+  std::vector<QueryParamsWithResult> params_list = GetFunctionTestsLike();
+  for (const QueryParamsWithResult params : params_list) {
+    Value text = params.param(0);
+    Value pattern = params.param(1);
+    if (text.type_kind() == TYPE_STRING && pattern.type_kind() == TYPE_STRING &&
+        !text.is_null() && !pattern.is_null()) {
+      SCOPED_TRACE(
+          absl::Substitute("Matching pattern \"$0\" with string \"$1\"",
+                           pattern.string_value(), text.string_value()));
+      if (!params.status().ok()) {
+        EXPECT_THAT(LikeWithUtf8WithCollation(
+                        text.string_value(), pattern.string_value(), *collator),
+                    zetasql_base::testing::StatusIs(params.status().code()));
+      } else {
+        ZETASQL_ASSERT_OK_AND_ASSIGN(
+            bool result,
+            LikeWithUtf8WithCollation(text.string_value(),
+                                      pattern.string_value(), *collator));
+        EXPECT_EQ(params.result().bool_value(), result)
+            << text.string_value() << " LIKE " << pattern.string_value();
+      }
+    }
+  }
+}
+
+TEST(LikeWithCollationMatchTest, BadPatternUTF8) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
+                       MakeSqlCollator("und:ci"));
+  EXPECT_THAT(LikeWithUtf8WithCollation("", "\xC2", *collator),
+              zetasql_base::testing::StatusIs(
+                  absl::StatusCode::kOutOfRange,
+                  testing::HasSubstr("The second operand of LIKE operator is "
+                                     "not a valid UTF-8 string")));
+}
+
+TEST(LikeWithCollationMatchTest, BadPatternEscape) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
+                       MakeSqlCollator("und:ci"));
+  EXPECT_THAT(LikeWithUtf8WithCollation("", "\\", *collator),
+              zetasql_base::testing::StatusIs(
+                  absl::StatusCode::kOutOfRange,
+                  testing::HasSubstr("LIKE pattern ends with a backslash")));
+}
+
+TEST(LikeWithCollationMatchTest, BadPatternSpecifier) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
+                       MakeSqlCollator("und:ci"));
+  EXPECT_THAT(
+      LikeWithUtf8WithCollation(" ", "_", *collator),
+      zetasql_base::testing::StatusIs(
+          absl::StatusCode::kOutOfRange,
+          testing::HasSubstr("LIKE pattern has '_' which is not "
+                             "allowed when its operands have collation")));
 }
 
 }  // anonymous namespace

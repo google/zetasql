@@ -17,8 +17,10 @@
 #include "zetasql/local_service/local_service.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
@@ -444,21 +446,24 @@ TEST_F(ZetaSqlLocalServiceImplTest, NonZetaSQLTableFromProto) {
   *request.mutable_proto() = proto.proto_type();
   ASSERT_TRUE(GetTableFromProto(request, &response).ok());
   SimpleTableProto expected;
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(R"pb(
-    name: "KitchenSinkPB"
-    is_value_table: true
-    column {
-      name: "value"
-      type {
-        type_kind: TYPE_PROTO
-        proto_type {
-          proto_name: "zetasql_test__.KitchenSinkPB"
-          proto_file_name: "zetasql/testdata/test_schema.proto"
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        name: "KitchenSinkPB"
+        is_value_table: true
+        column {
+          name: "value"
+          type {
+            type_kind: TYPE_PROTO
+            proto_type {
+              proto_name: "zetasql_test__.KitchenSinkPB"
+              proto_file_name: "zetasql/testdata/test_schema.proto"
+            }
+          }
+          is_pseudo_column: false
+          has_default_value: false
         }
-      }
-      is_pseudo_column: false
-    }
-  )pb", &expected));
+      )pb",
+      &expected));
   EXPECT_EQ(expected.DebugString(), response.DebugString());
 }
 

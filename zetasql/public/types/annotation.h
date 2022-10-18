@@ -433,5 +433,8 @@ enum class AnnotationKind {
   kMaxBuiltinAnnotationKind = 10000,
 };
 
+// Returns the kind's name.
+std::string GetAnnotationKindName(AnnotationKind kind);
+
 }  // namespace zetasql
 #endif  // ZETASQL_PUBLIC_TYPES_ANNOTATION_H_

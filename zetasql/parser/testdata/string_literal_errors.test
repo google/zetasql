@@ -1,7 +1,4 @@
 # Test unclosed string.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 select {{'a|"a|`a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}
 --
 ALTERNATION GROUP: 'a
@@ -1736,13 +1733,13 @@ SELECT '
 SELECT '''
 '''
 --
-QueryStatement [0-14]
-  Query [0-14]
-    Select [0-14]
-      SelectList [7-14]
-        SelectColumn [7-14]
+QueryStatement [0-14] [SELECT ''' ''']
+  Query [0-14] [SELECT ''' ''']
+    Select [0-14] [SELECT ''' ''']
+      SelectList [7-14] [''' ''']
+        SelectColumn [7-14] [''' ''']
           StringLiteral('''
-''') [7-14]
+''') [7-14] [''' ''']
 --
 SELECT
   '''
@@ -1771,13 +1768,13 @@ SELECT rb'
 SELECT b'''
 '''
 --
-QueryStatement [0-15]
-  Query [0-15]
-    Select [0-15]
-      SelectList [7-15]
-        SelectColumn [7-15]
+QueryStatement [0-15] [SELECT b''' ''']
+  Query [0-15] [SELECT b''' ''']
+    Select [0-15] [SELECT b''' ''']
+      SelectList [7-15] [b''' ''']
+        SelectColumn [7-15] [b''' ''']
           BytesLiteral(b'''
-''') [7-15]
+''') [7-15] [b''' ''']
 --
 SELECT
   b'''
@@ -1806,13 +1803,13 @@ SELECT "
 SELECT """
 """
 --
-QueryStatement [0-14]
-  Query [0-14]
-    Select [0-14]
-      SelectList [7-14]
-        SelectColumn [7-14]
+QueryStatement [0-14] [SELECT """ """]
+  Query [0-14] [SELECT """ """]
+    Select [0-14] [SELECT """ """]
+      SelectList [7-14] [""" """]
+        SelectColumn [7-14] [""" """]
           StringLiteral("""
-""") [7-14]
+""") [7-14] [""" """]
 --
 SELECT
   """
@@ -1841,13 +1838,13 @@ SELECT rb"
 SELECT b"""
 """
 --
-QueryStatement [0-15]
-  Query [0-15]
-    Select [0-15]
-      SelectList [7-15]
-        SelectColumn [7-15]
+QueryStatement [0-15] [SELECT b""" """]
+  Query [0-15] [SELECT b""" """]
+    Select [0-15] [SELECT b""" """]
+      SelectList [7-15] [b""" """]
+        SelectColumn [7-15] [b""" """]
           BytesLiteral(b"""
-""") [7-15]
+""") [7-15] [b""" """]
 --
 SELECT
   b"""
@@ -1894,13 +1891,13 @@ SELECT b'abc\
 SELECT rb'abc\
 '
 --
-QueryStatement [0-16]
-  Query [0-16]
-    Select [0-16]
-      SelectList [7-16]
-        SelectColumn [7-16]
+QueryStatement [0-16] [SELECT rb'abc\ ']
+  Query [0-16] [SELECT rb'abc\ ']
+    Select [0-16] [SELECT rb'abc\ ']
+      SelectList [7-16] [rb'abc\ ']
+        SelectColumn [7-16] [rb'abc\ ']
           BytesLiteral(rb'abc\
-') [7-16]
+') [7-16] [rb'abc\ ']
 --
 SELECT
   rb'abc\
@@ -1956,13 +1953,13 @@ SELECT b"abc\
 SELECT rb"abc\
 "
 --
-QueryStatement [0-16]
-  Query [0-16]
-    Select [0-16]
-      SelectList [7-16]
-        SelectColumn [7-16]
+QueryStatement [0-16] [SELECT rb"abc\ "]
+  Query [0-16] [SELECT rb"abc\ "]
+    Select [0-16] [SELECT rb"abc\ "]
+      SelectList [7-16] [rb"abc\ "]
+        SelectColumn [7-16] [rb"abc\ "]
           BytesLiteral(rb"abc\
-") [7-16]
+") [7-16] [rb"abc\ "]
 --
 SELECT
   rb"abc\

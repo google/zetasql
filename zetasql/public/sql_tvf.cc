@@ -16,6 +16,9 @@
 
 #include "zetasql/public/sql_tvf.h"
 
+#include <memory>
+#include <vector>
+
 #include "zetasql/common/errors.h"
 #include "zetasql/base/ret_check.h"
 
@@ -45,6 +48,7 @@ absl::Status SQLTableValuedFunction::Create(
 
   simple_sql_tvf->reset(
       new SQLTableValuedFunction(create_tvf_statement, tvf_options));
+  (*simple_sql_tvf)->set_sql_security(create_tvf_statement->sql_security());
   return absl::OkStatus();
 }
 
@@ -70,7 +74,7 @@ TVFRelation SQLTableValuedFunction::GetQueryOutputSchema(
     const ResolvedCreateTableFunctionStmt& create_tvf_statement) {
   if (create_tvf_statement.is_value_table()) {
     return TVFRelation::ValueTable(
-        create_tvf_statement.query()->column_list(0).type());
+        create_tvf_statement.query()->column_list(0).annotated_type());
   }
   return create_tvf_statement.signature().result_type().options()
       .relation_input_schema();

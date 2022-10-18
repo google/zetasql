@@ -288,9 +288,20 @@ select {{cast|safe_cast}}(`string` as bytes format 'abc') from SimpleTypes;
 --
 ALTERNATION GROUP: cast
 --
-ERROR: Invalid format 'abc' [at 1:38]
-select cast(`string` as bytes format 'abc') from SimpleTypes;
-                                     ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-Cast(STRING -> BYTES)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-format=
+    |       +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 --
 ALTERNATION GROUP: safe_cast
 --
@@ -301,7 +312,12 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#19]
     +-expr_list=
-    | +-$col1#19 := Literal(type=BYTES, value=NULL, has_explicit_type=TRUE)
+    | +-$col1#19 :=
+    |   +-Cast(STRING -> BYTES)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-return_null_on_error=TRUE
+    |     +-format=
+    |       +-Literal(type=STRING, value="abc")
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
@@ -329,7 +345,7 @@ QueryStmt
 ==
 
 # Test format with type parameters
-[language_features=V_1_3_FORMAT_IN_CAST,V_1_3_COLLATION_SUPPORT,PARAMETERIZED_TYPES,NUMERIC_TYPE]
+[language_features=V_1_3_FORMAT_IN_CAST,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,PARAMETERIZED_TYPES,NUMERIC_TYPE]
 select cast(`string` as BYTES(10) format 'hex') from SimpleTypes;
 --
 QueryStmt
@@ -349,18 +365,18 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
 
-# Test format with type parameters
+# Test with type with collation name
 select {{safe_cast|cast}}('a' as STRING collate 'und:ci');
 --
 ALTERNATION GROUP: safe_cast
 --
-ERROR: Type with collation name is not supported [at 1:32]
+ERROR: Type with collation name is not supported in cast [at 1:32]
 select safe_cast('a' as STRING collate 'und:ci');
                                ^
 --
 ALTERNATION GROUP: cast
 --
-ERROR: Type with collation name is not supported [at 1:27]
+ERROR: Type with collation name is not supported in cast [at 1:27]
 select cast('a' as STRING collate 'und:ci');
                           ^
 ==
@@ -414,15 +430,39 @@ select cast(`string` as timestamp format 'abc' {{at time zone 'UTC'|}}) from Sim
 
 ALTERNATION GROUP: at time zone 'UTC'
 --
-ERROR: Cannot find matched format element at 0 [at 1:42]
-select cast(`string` as timestamp format 'abc' at time zone 'UTC') from Simpl...
-                                         ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-Cast(STRING -> TIMESTAMP)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-format=
+    |     | +-Literal(type=STRING, value="abc")
+    |     +-time_zone=
+    |       +-Literal(type=STRING, value="UTC")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Cannot find matched format element at 0 [at 1:42]
-select cast(`string` as timestamp format 'abc' ) from SimpleTypes;
-                                         ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-Cast(STRING -> TIMESTAMP)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-format=
+    |       +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
 
 # Test that format literal is validated in cast from Date to String:
@@ -430,9 +470,20 @@ select cast(`string` as timestamp format 'abc' ) from SimpleTypes;
 [language_features=V_1_3_FORMAT_IN_CAST]
 select cast(date'1234-05-06' as string format 'HH');
 --
-ERROR: DATE does not support 'HH' [at 1:47]
-select cast(date'1234-05-06' as string format 'HH');
-                                              ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(DATE -> STRING)
+    |     +-Literal(type=DATE, value=1234-05-06, has_explicit_type=TRUE)
+    |     +-format=
+    |       +-Literal(type=STRING, value="HH")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test that format literal is validated in cast from DateTime to String:
@@ -440,9 +491,20 @@ select cast(date'1234-05-06' as string format 'HH');
 [language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
 select cast(datetime '1234-05-06 07:08:09' as string format 'TZH');
 --
-ERROR: DATETIME does not support 'TZH' [at 1:61]
-select cast(datetime '1234-05-06 07:08:09' as string format 'TZH');
-                                                            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(DATETIME -> STRING)
+    |     +-Literal(type=DATETIME, value=1234-05-06 07:08:09, has_explicit_type=TRUE)
+    |     +-format=
+    |       +-Literal(type=STRING, value="TZH")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test that format literal is validated in cast from Time to String:
@@ -450,9 +512,20 @@ select cast(datetime '1234-05-06 07:08:09' as string format 'TZH');
 [language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
 select cast(time '07:08:09' as string format 'MM');
 --
-ERROR: TIME does not support 'MM' [at 1:46]
-select cast(time '07:08:09' as string format 'MM');
-                                             ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(TIME -> STRING)
+    |     +-Literal(type=TIME, value=07:08:09, has_explicit_type=TRUE)
+    |     +-format=
+    |       +-Literal(type=STRING, value="MM")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test that format literal is validated in cast from Timestamp to String:
@@ -460,9 +533,20 @@ select cast(time '07:08:09' as string format 'MM');
 [language_features=V_1_3_FORMAT_IN_CAST]
 select cast(timestamp '1234-05-06 07:08:09-10' as string format 'a');
 --
-ERROR: Cannot find matched format element at 0 [at 1:65]
-select cast(timestamp '1234-05-06 07:08:09-10' as string format 'a');
-                                                                ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(TIMESTAMP -> STRING)
+    |     +-Literal(type=TIMESTAMP, value=1234-05-06 17:08:09+00, has_explicit_type=TRUE)
+    |     +-format=
+    |       +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test the success case of cast date and time to string with format.
@@ -564,9 +648,22 @@ ERROR: AT TIME ZONE expression should return type STRING, but returns INT64 [at 
 [language_features=V_1_3_FORMAT_IN_CAST]
 select cast(`string` as timestamp format 'yyyy' at time zone 'xyz') from SimpleTypes;
 --
-ERROR: Invalid time zone: xyz [at 1:62]
-...string` as timestamp format 'yyyy' at time zone 'xyz') from SimpleTypes;
-                                                   ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-Cast(STRING -> TIMESTAMP)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-format=
+    |     | +-Literal(type=STRING, value="yyyy")
+    |     +-time_zone=
+    |       +-Literal(type=STRING, value="xyz")
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
 
 # Test that the safe_cast expression is resolved to NULL if the time zone literal is not valid.
@@ -580,7 +677,14 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#19]
     +-expr_list=
-    | +-$col1#19 := Literal(type=TIMESTAMP, value=NULL, has_explicit_type=TRUE)
+    | +-$col1#19 :=
+    |   +-Cast(STRING -> TIMESTAMP)
+    |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    |     +-return_null_on_error=TRUE
+    |     +-format=
+    |     | +-Literal(type=STRING, value="yyyy")
+    |     +-time_zone=
+    |       +-Literal(type=STRING, value="xyz")
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
@@ -590,9 +694,20 @@ QueryStmt
 [language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
 select cast('1234' as date format 'hh24');
 --
-ERROR: Format element in category HOUR ('HH24') is not allowed for output type DATE [at 1:35]
-select cast('1234' as date format 'hh24');
-                                  ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> DATE)
+    |     +-Literal(type=STRING, value="1234")
+    |     +-format=
+    |       +-Literal(type=STRING, value="hh24")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test that constant format string is validated at analysis time in
@@ -600,9 +715,20 @@ select cast('1234' as date format 'hh24');
 [language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
 select cast('1234' as datetime format 'tzh');
 --
-ERROR: Format element in category TIME_ZONE ('TZH') is not allowed for output type DATETIME [at 1:39]
-select cast('1234' as datetime format 'tzh');
-                                      ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> DATETIME)
+    |     +-Literal(type=STRING, value="1234")
+    |     +-format=
+    |       +-Literal(type=STRING, value="tzh")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test that constant format string is validated at analysis time in
@@ -610,9 +736,20 @@ select cast('1234' as datetime format 'tzh');
 [language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
 select cast('1234' as time format 'yyyy');
 --
-ERROR: Format element in category YEAR ('YYYY') is not allowed for output type TIME [at 1:35]
-select cast('1234' as time format 'yyyy');
-                                  ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> TIME)
+    |     +-Literal(type=STRING, value="1234")
+    |     +-format=
+    |       +-Literal(type=STRING, value="yyyy")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test that constant format string is validated at analysis time in
@@ -620,9 +757,20 @@ select cast('1234' as time format 'yyyy');
 [language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
 select cast('1234' as timestamp format 'a');
 --
-ERROR: Cannot find matched format element at 0 [at 1:40]
-select cast('1234' as timestamp format 'a');
-                                       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> TIMESTAMP)
+    |     +-Literal(type=STRING, value="1234")
+    |     +-format=
+    |       +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test that constant time zone string is validated at analysis time in
@@ -630,9 +778,22 @@ select cast('1234' as timestamp format 'a');
 [language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
 select cast('1234' as timestamp format 'yyyy' at time zone 'abc');
 --
-ERROR: Invalid time zone: abc [at 1:60]
-select cast('1234' as timestamp format 'yyyy' at time zone 'abc');
-                                                           ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> TIMESTAMP)
+    |     +-Literal(type=STRING, value="1234")
+    |     +-format=
+    |     | +-Literal(type=STRING, value="yyyy")
+    |     +-time_zone=
+    |       +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Test constant format string to date/datetime/time/timestamp.
@@ -822,9 +983,20 @@ QueryStmt
 [language_features=V_1_3_FORMAT_IN_CAST]
 select cast(cast(1.23 as int32) as STRING format ',99');
 --
-ERROR: Error in format string: Unexpected ',' [at 1:50]
-select cast(cast(1.23 as int32) as STRING format ',99');
-                                                 ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(INT32 -> STRING)
+    |     +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+    |     +-format=
+    |       +-Literal(type=STRING, value=",99")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select {{cast|safe_cast}}(date '2014-01-01' as int64);
@@ -4822,7 +4994,7 @@ QueryStmt
 
 ==
 
-[language_features=JSON_TYPE,JSON_NO_VALIDATION]
+[language_features=JSON_TYPE]
 select cast(json_col as JSON)
 from JSONTable
 --
@@ -5348,4 +5520,21 @@ QueryStmt
     | +-$col2#2 := Literal(type=STRING, value="b", has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
+==
+
+[no_java]
+select CAST(CAST(1 as ROUNDING_MODE) as `zetasql.functions.RoundingMode`);
+--
+ERROR: Invalid cast from ROUNDING_MODE to zetasql.functions.RoundingMode [at 1:13]
+select CAST(CAST(1 as ROUNDING_MODE) as `zetasql.functions.RoundingMode`);
+            ^
+==
+
+[no_java]
+select CAST(CAST(1 as `zetasql.functions.RoundingMode`) as ROUNDING_MODE);
+--
+ERROR: Invalid cast from zetasql.functions.RoundingMode to ROUNDING_MODE [at 1:13]
+select CAST(CAST(1 as `zetasql.functions.RoundingMode`) as ROUNDING_MODE);
+            ^
+
 ==

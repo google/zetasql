@@ -49,6 +49,10 @@ absl::string_view::size_type SpanWellFormedUTF8(absl::string_view s) {
       SpanWellFormedUTF8(s.data(), static_cast<int>(s.length())));
 }
 
+bool IsWellFormedUTF8(absl::string_view s) {
+  return SpanWellFormedUTF8(s) == s.length();
+}
+
 std::string CoerceToWellFormedUTF8(absl::string_view input) {
   const char* s = input.data();
   size_t length = input.length();

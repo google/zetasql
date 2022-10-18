@@ -22,6 +22,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "gtest/gtest_prod.h"
 #include "absl/status/statusor.h"

@@ -32,7 +32,6 @@
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
@@ -68,19 +67,17 @@ void TestBinaryFunction(const QueryParamsWithResult& param,
     // cases where the expression requires coercion.
     return;
   }
-  const Value& expected = param.results().begin()->second.result;
-  const absl::Status& expected_status =
-      param.results().begin()->second.status;
   if (input1.is_null() || input2.is_null()) {
     // The function libraries do not support null values, those cases
     // are handled in the compliance tests.
     return;
   }
 
+  const Value& expected = param.result();
   ResultType out = ResultType();
   absl::Status status;  // actual status
   function(input1.Get<ArgType>(), input2.Get<ArgType>(), &out, &status);
-  if (expected_status.ok()) {
+  if (param.status().ok()) {
     EXPECT_EQ(absl::OkStatus(), status) << "op1: " << input1.DebugString()
                                         << ", op2: " << input2.DebugString();
     ASSERT_EQ(expected.type_kind(), Value::MakeNull<ResultType>().type_kind())
@@ -261,9 +258,6 @@ template <typename InType, typename OutType>
 void TestUnaryMinus(const QueryParamsWithResult& param) {
   ZETASQL_CHECK_EQ(1, param.num_params());
   const Value& input1 = param.param(0);
-  const Value& expected = param.results().begin()->second.result;
-  const absl::Status& expected_status =
-      param.results().begin()->second.status;
   if (input1.is_null()) {
     return;
   }
@@ -271,9 +265,9 @@ void TestUnaryMinus(const QueryParamsWithResult& param) {
   OutType out = OutType();
   absl::Status status;  // actual status
   UnaryMinus<InType, OutType>(input1.Get<InType>(), &out, &status);
-  if (expected_status.ok()) {
+  if (param.status().ok()) {
     EXPECT_EQ(absl::OkStatus(), status);
-    EXPECT_EQ(expected, Value::Make(out));
+    EXPECT_EQ(param.result(), Value::Make(out));
   } else {
     EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
                                  ::testing::HasSubstr(" overflow: ")))

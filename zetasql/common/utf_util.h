@@ -34,9 +34,7 @@ namespace zetasql {
 // `s.length()` if it is completely well formed UTF8.
 absl::string_view::size_type SpanWellFormedUTF8(absl::string_view s);
 
-inline bool IsWellFormedUTF8(absl::string_view s) {
-  return SpanWellFormedUTF8(s) == s.length();
-}
+bool IsWellFormedUTF8(absl::string_view s);
 
 // Returns a well-formed Unicode string. Replaces any ill-formed
 // subsequences with the Unicode REPLACEMENT CHARACTER (U+FFFD).

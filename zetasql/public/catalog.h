@@ -26,7 +26,6 @@
 #include <vector>
 
 #include "zetasql/public/evaluator_table_iterator.h"
-#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include <cstdint>
 #include "absl/container/flat_hash_set.h"
@@ -51,6 +50,7 @@ class CycleDetector;
 class Function;
 class Model;
 class Procedure;
+class ResolvedExpr;
 class Table;
 class TableValuedFunction;
 
@@ -492,7 +492,7 @@ class Catalog {
             std::is_same<ObjectType, Procedure>::value ||
             std::is_same<ObjectType, Constant>::value,
         "ObjectNotFoundError only supports Function, TableValuedFunction, "
-        "Table, Model, Connection, Type, Procedure, and Constant");
+        "Table, Model, Connection, Type, Procedure and Constant");
     if (std::is_same<ObjectType, Function>::value) {
       return FunctionNotFoundError(path);
     } else if (std::is_same<ObjectType, TableValuedFunction>::value) {
@@ -530,7 +530,7 @@ class Catalog {
             std::is_same<ObjectType, Type>::value ||
             std::is_same<ObjectType, Procedure>::value,
         "EmptyNamePathInternalError only supports Constant, Function, "
-        "TableValuedFunction, Table, Model, Connection, Type, and Procedure");
+        "TableValuedFunction, Table, Model, Connection, Type and Procedure");
     if (std::is_same<ObjectType, Constant>::value) {
       return EmptyNamePathInternalError("Constant");
     } else if (std::is_same<ObjectType, Function>::value) {
@@ -877,6 +877,20 @@ class Column {
   // be re-evaluated.
   // See: (broken link).
   virtual bool CanUpdateUnwritableToDefault() const { return false; }
+
+  // Returns true if the column has a default value, false otherwise.
+  virtual bool HasDefaultValue() const { return false; }
+
+  // Returns a string representation of the default expression if the column has
+  // a default value.
+  virtual std::optional<std::string> ExpressionString() const {
+    return std::nullopt;
+  }
+
+  // Returns the analyzed default expression if the column has a default value.
+  // The pointer is not owned by the column, ownership is not transferred
+  // through this function.
+  virtual const ResolvedExpr* Expression() const { return nullptr; }
 
   // Returns whether or not this Column is a specific column interface or
   // implementation.

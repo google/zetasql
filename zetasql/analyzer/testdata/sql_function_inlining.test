@@ -1884,3 +1884,42 @@ QueryStmt
       +-SingleRowScan
 
 Rewrite ERROR: generic::resource_exhausted: Query exceeded configured maximum number of rewriter iterations (25) without converging.
+==
+
+SELECT scalar_function_definer_rights()
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(Lazy_resolution_function:scalar_function_definer_rights() -> INT64)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$aggregate.$agg1#2]
+    |         +-input_scan=
+    |           +-AggregateScan
+    |             +-column_list=[$aggregate.$agg1#2]
+    |             +-input_scan=
+    |             | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
+    |             +-aggregate_list=
+    |               +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+    +-input_scan=
+      +-SingleRowScan

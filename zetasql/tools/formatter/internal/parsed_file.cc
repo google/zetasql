@@ -16,6 +16,8 @@
 
 #include "zetasql/tools/formatter/internal/parsed_file.h"
 
+#include <stdint.h>
+
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -33,9 +35,14 @@
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/tools/formatter/internal/chunk.h"
 #include "zetasql/tools/formatter/internal/chunk_grouping_strategy.h"
-#include "zetasql/tools/formatter/internal/parsing_utils.h"
+#include "zetasql/tools/formatter/internal/range_utils.h"
 #include "zetasql/tools/formatter/internal/token.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "unicode/unistr.h"
 #include "zetasql/base/status_macros.h"
 
@@ -232,6 +239,15 @@ absl::Status ParsedFile::ParseByteRanges(
     if (range.start > last_end) {
       file_parts_.emplace_back(
           std::make_unique<UnparsedRegion>(Sql(), last_end, range.start));
+    } else if (range.start < last_end) {
+      // There are overlapping ranges: this should never happen.
+      return absl::InternalError(absl::StrFormat(
+          "found overlapping byte ranges (after range expansion?): {%s}",
+          absl::StrJoin(byte_ranges, ", ",
+                        [](std::string* out, const FormatterRange& range) {
+                          absl::StrAppend(out, "(", range.start, ", ",
+                                          range.end, ")");
+                        })));
     }
     ParseResumeLocation parse_location =
         ParseResumeLocation::FromStringView(Sql().substr(0, range.end));
@@ -326,71 +342,6 @@ absl::StatusOr<std::vector<FormatterRange>> ValidateAndSortByteRanges(
     prev = range;
   }
   return sorted_ranges;
-}
-
-absl::StatusOr<std::vector<FormatterRange>> ConvertLineRangesToSortedByteRanges(
-    const std::vector<FormatterRange>& line_ranges, absl::string_view sql,
-    const ParseLocationTranslator& location_translator) {
-  if (line_ranges.empty()) {
-    return line_ranges;
-  }
-  std::vector<FormatterRange> sorted_ranges(line_ranges);
-  std::sort(sorted_ranges.begin(), sorted_ranges.end(),
-            [](const FormatterRange& a, const FormatterRange& b) {
-              return a.start < b.start;
-            });
-  // Validate line ranges.
-  const FormatterRange* prev = nullptr;
-  for (auto it = sorted_ranges.cbegin(); it != sorted_ranges.cend(); ++it) {
-    if (it->start > it->end) {
-      return absl::InvalidArgumentError(absl::StrFormat(
-          "invalid line range: start line should be <= end line; got: [%d, %d]",
-          it->start, it->end));
-    }
-    if (prev != nullptr && prev->end >= it->start) {
-      return absl::InvalidArgumentError(
-          absl::StrFormat("overlapping line ranges are not allowed; found: "
-                          "[%d, %d] and [%d, %d]",
-                          prev->start, prev->end, it->start, it->end));
-    }
-    prev = &(*it);
-  }
-  // Convert to byte ranges.
-  std::vector<FormatterRange> byte_ranges;
-  byte_ranges.reserve(sorted_ranges.size());
-  for (const auto& range : sorted_ranges) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        const int start,
-        location_translator.GetByteOffsetFromLineAndColumn(range.start, 1),
-        _ << absl::StrFormat("invalid line range: [%d, %d]", range.start,
-                             range.end));
-
-    ZETASQL_ASSIGN_OR_RETURN(
-        int end,
-        location_translator.GetByteOffsetFromLineAndColumn(range.end, 1),
-        _ << absl::StrFormat("invalid line range: [%d, %d]", range.start,
-                             range.end));
-    ZETASQL_ASSIGN_OR_RETURN(const absl::string_view end_line_view,
-                     location_translator.GetLineText(range.end),
-                     _ << absl::StrFormat("invalid line range: [%d, %d]",
-                                          range.start, range.end));
-    end += static_cast<int>(end_line_view.size());
-    // Include the line break into the range (any of: '\r', '\n' or '\r\n').
-    if (end < sql.size() && sql[end] == '\r') {
-      ++end;
-    }
-    if (end < sql.size() && sql[end] == '\n') {
-      ++end;
-    }
-
-    if (!byte_ranges.empty() && byte_ranges.back().end == start) {
-      // Merge adjacent ranges.
-      byte_ranges.back().end = end;
-    } else {
-      byte_ranges.push_back({start, end});
-    }
-  }
-  return byte_ranges;
 }
 
 }  // namespace zetasql::formatter::internal

@@ -354,6 +354,7 @@ public abstract class TypeFactory implements Serializable {
       return createStructType(fields.build());
     }
 
+    @SuppressWarnings("LenientFormatStringValidation")
     private ProtoType deserializeProtoType(TypeProto proto, List<? extends DescriptorPool> pools) {
       ProtoTypeProto protoType = proto.getProtoType();
 
@@ -372,6 +373,7 @@ public abstract class TypeFactory implements Serializable {
       DescriptorPool pool = pools.get(index);
 
       ZetaSQLDescriptor descriptor = pool.findMessageTypeByName(name);
+      // Expected 0 args, but got 1.
       checkNotNull(descriptor, "Proto descriptor not found: ", protoType);
 
       String filename = descriptor.getDescriptor().getFile().getName();

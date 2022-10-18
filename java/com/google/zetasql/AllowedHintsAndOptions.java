@@ -24,6 +24,7 @@ import com.google.common.collect.Table;
 import com.google.zetasql.ZetaSQLOptionsProto.AllowedHintsAndOptionsProto;
 import com.google.zetasql.ZetaSQLOptionsProto.AllowedHintsAndOptionsProto.HintProto;
 import com.google.zetasql.ZetaSQLOptionsProto.AllowedHintsAndOptionsProto.OptionProto;
+import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import java.io.Serializable;
 import java.util.HashMap;
@@ -57,31 +58,34 @@ public class AllowedHintsAndOptions implements Serializable {
   private final Table<String, String, Hint> hints = HashBasedTable.create();
   // Map containing declared options. Map keys are in lower-case.
   private final Map<String, Type> options = new HashMap<>();
+  // Map containing declared anonymization options. Map keys are in lower-case.
+  private final Map<String, Type> anonymizationOptions = new HashMap<>();
 
-  public AllowedHintsAndOptions() {}
+  public AllowedHintsAndOptions() {
+    addDefaultAnonymizationOptions();
+  }
 
   /**
    * This is recommended constructor to use for normal settings.
    *
-   * <p>All supported hints and options should be added with the Add methods.
-   * <br>Unknown options will be errors.
-   * <br>Unknown hints without qualifiers, or with {@code qualifier}, will be
-   * errors.
-   * <br>Unkonwn hints with other qualifiers will be allowed (because these are
-   * typically interpreted as hints intended for other engines).
+   * <p>All supported hints and options should be added with the Add methods. <br>
+   * Unknown options will be errors. <br>
+   * Unknown hints without qualifiers, or with {@code qualifier}, will be errors. <br>
+   * Unkonwn hints with other qualifiers will be allowed (because these are typically interpreted as
+   * hints intended for other engines).
    */
   public AllowedHintsAndOptions(String qualifier) {
+    addDefaultAnonymizationOptions();
     disallowUnknownOptions = true;
     disallowUnknownHintsWithQualifier(qualifier);
     disallowUnknownHintsWithQualifier("");
   }
 
   /**
-   * Serialize this AllowedHintsAndOptions into protobuf, with
-   * FileDescriptors emitted to the builder as needed.
+   * Serialize this AllowedHintsAndOptions into protobuf, with FileDescriptors emitted to the
+   * builder as needed.
    */
-  AllowedHintsAndOptionsProto serialize(
-      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+  AllowedHintsAndOptionsProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     AllowedHintsAndOptionsProto.Builder builder = AllowedHintsAndOptionsProto.newBuilder();
     builder.setDisallowUnknownOptions(disallowUnknownOptions);
     builder.addAllDisallowUnknownHintsWithQualifier(disallowUnknownHintsWithQualifiers.values());
@@ -92,12 +96,17 @@ public class AllowedHintsAndOptions implements Serializable {
       if (hint.getType() != null) {
         TypeProto.Builder typeBuilder = TypeProto.newBuilder();
         hint.getType().serialize(typeBuilder, fileDescriptorSetsBuilder);
-        builder.addHintBuilder()
-            .setQualifier(hint.getQualifier()).setName(hint.getName())
-            .setType(typeBuilder).setAllowUnqualified(hint.getAllowUnqualified());
+        builder
+            .addHintBuilder()
+            .setQualifier(hint.getQualifier())
+            .setName(hint.getName())
+            .setType(typeBuilder)
+            .setAllowUnqualified(hint.getAllowUnqualified());
       } else {
-        builder.addHintBuilder()
-            .setQualifier(hint.getQualifier()).setName(hint.getName())
+        builder
+            .addHintBuilder()
+            .setQualifier(hint.getQualifier())
+            .setName(hint.getName())
             .setAllowUnqualified(hint.getAllowUnqualified());
       }
     }
@@ -108,6 +117,18 @@ public class AllowedHintsAndOptions implements Serializable {
         builder.addOptionBuilder().setName(option.getKey()).setType(typeBuilder);
       } else {
         builder.addOptionBuilder().setName(option.getKey());
+      }
+    }
+    for (Entry<String, Type> anonymizationOption : anonymizationOptions.entrySet()) {
+      if (anonymizationOption.getValue() != null) {
+        TypeProto.Builder typeBuilder = TypeProto.newBuilder();
+        anonymizationOption.getValue().serialize(typeBuilder, fileDescriptorSetsBuilder);
+        builder
+            .addAnonymizationOptionBuilder()
+            .setName(anonymizationOption.getKey())
+            .setType(typeBuilder);
+      } else {
+        builder.addAnonymizationOptionBuilder().setName(anonymizationOption.getKey());
       }
     }
     return builder.build();
@@ -122,6 +143,7 @@ public class AllowedHintsAndOptions implements Serializable {
       List<? extends DescriptorPool> pools,
       TypeFactory factory) {
     AllowedHintsAndOptions allowed = new AllowedHintsAndOptions();
+    allowed.anonymizationOptions.clear();
     for (String qualifier : proto.getDisallowUnknownHintsWithQualifierList()) {
       Preconditions.checkArgument(
           !allowed.disallowUnknownHintsWithQualifiers.containsKey(qualifier.toLowerCase()));
@@ -130,8 +152,11 @@ public class AllowedHintsAndOptions implements Serializable {
     allowed.setDisallowUnknownOptions(proto.getDisallowUnknownOptions());
     for (HintProto hint : proto.getHintList()) {
       if (hint.hasType()) {
-        allowed.addHint(hint.getQualifier(), hint.getName(),
-            factory.deserialize(hint.getType(), pools), hint.getAllowUnqualified());
+        allowed.addHint(
+            hint.getQualifier(),
+            hint.getName(),
+            factory.deserialize(hint.getType(), pools),
+            hint.getAllowUnqualified());
       } else {
         allowed.addHint(hint.getQualifier(), hint.getName(), null, hint.getAllowUnqualified());
       }
@@ -143,12 +168,29 @@ public class AllowedHintsAndOptions implements Serializable {
         allowed.addOption(option.getName(), null);
       }
     }
+
+    // We want to include default options when we are deserializing value here if factory is not
+    // present, since we will not be able to parse them e.g. this function is used in
+    // AnalyzerOptions constructor with factory == null.
+    if (factory == null) {
+      allowed.addDefaultAnonymizationOptions();
+    } else {
+      for (OptionProto anonymizationOption : proto.getAnonymizationOptionList()) {
+        if (anonymizationOption.hasType()) {
+          allowed.addAnonymizationOption(
+              anonymizationOption.getName(),
+              factory.deserialize(anonymizationOption.getType(), pools));
+        } else {
+          allowed.addAnonymizationOption(anonymizationOption.getName(), null);
+        }
+      }
+    }
     return allowed;
   }
 
   /**
    * Add an option.
-   * @param name
+   *
    * @param type may be NULL to indicate that all Types are allowed.
    */
   public void addOption(String name, @Nullable Type type) {
@@ -156,6 +198,18 @@ public class AllowedHintsAndOptions implements Serializable {
     Preconditions.checkArgument(!name.isEmpty());
     Preconditions.checkArgument(!options.containsKey(name.toLowerCase()));
     options.put(name.toLowerCase(), type);
+  }
+
+  /**
+   * Add an anonymization option.
+   *
+   * @param type may be NULL to indicate that all Types are allowed.
+   */
+  public void addAnonymizationOption(String name, @Nullable Type type) {
+    Preconditions.checkNotNull(name);
+    Preconditions.checkArgument(!name.isEmpty());
+    Preconditions.checkArgument(!anonymizationOptions.containsKey(name.toLowerCase()));
+    anonymizationOptions.put(name.toLowerCase(), type);
   }
 
   /**
@@ -205,8 +259,16 @@ public class AllowedHintsAndOptions implements Serializable {
     return options.get(name.toLowerCase());
   }
 
+  public Type getAnonymizationOptionType(String name) {
+    return anonymizationOptions.get(name.toLowerCase());
+  }
+
   public ImmutableList<String> getOptionNameList() {
     return ImmutableList.copyOf(options.keySet());
+  }
+
+  public ImmutableList<String> getAnonymizationOptionNameList() {
+    return ImmutableList.copyOf(anonymizationOptions.keySet());
   }
 
   public void disallowUnknownHintsWithQualifier(String qualifier) {
@@ -255,5 +317,12 @@ public class AllowedHintsAndOptions implements Serializable {
     private boolean getAllowUnqualified() {
       return allowUnqualified;
     }
+  }
+
+  private void addDefaultAnonymizationOptions() {
+    anonymizationOptions.put("epsilon", TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE));
+    anonymizationOptions.put("delta", TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE));
+    anonymizationOptions.put("k_threshold", TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
+    anonymizationOptions.put("kappa", TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
   }
 }

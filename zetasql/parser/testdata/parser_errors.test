@@ -1,6 +1,4 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
+[default language_features=V_1_3_ALLOW_CONSECUTIVE_ON]
 select ;
 --
 ERROR: Syntax error: Unexpected ";" [at 1:8]

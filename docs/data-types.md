@@ -185,6 +185,12 @@ ARRAYs of ARRAYs are not allowed. Queries that would produce an ARRAY of
 ARRAYs will return an error. Instead, a STRUCT must be inserted between the
 ARRAYs using the `SELECT AS STRUCT` construct.
 
+To learn more about the literal representation of an array type,
+see [Array literals][array-literals].
+
+### NULLs and the ARRAY type 
+<a id="array_nulls"></a>
+
 An empty ARRAY and a `NULL` ARRAY are two distinct values. ARRAYs can contain
 `NULL` elements.
 
@@ -266,7 +272,7 @@ how, see [Working with arrays][working-with-arrays].
 <tr>
 <td><code>BOOL</code></td>
 <td>Boolean values are represented by the keywords <code>TRUE</code> and
-<code>FALSE</code> (case insensitive).</td>
+<code>FALSE</code> (case-insensitive).</td>
 </tr>
 </tbody>
 </table>
@@ -298,6 +304,9 @@ STRING and BYTES are separate types that cannot be used interchangeably. Most
 functions on STRING are also defined on BYTES. The BYTES version operates on raw
 bytes rather than Unicode characters. Casts between STRING and BYTES enforce
 that the bytes are encoded using UTF-8.
+
+To learn more about the literal representation of a bytes type,
+see [Bytes literals][bytes-literals].
 
 ## Date type
 
@@ -333,6 +342,9 @@ use a [timestamp][timestamp-type].
 + `YYYY`: Four-digit year
 + `[M]M`: One or two digit month
 + `[D]D`: One or two digit day
+
+To learn more about the literal representation of a date type,
+see [Date literals][date-literals].
 
 ## Datetime type
 
@@ -381,6 +393,9 @@ YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]]
 + <code>[.F]</code>: Up to nine fractional
   digits (nanosecond precision)
 
+To learn more about the literal representation of a datetime type,
+see [Datetime literals][datetime-literals].
+
 ## Enum type
 
 <table>
@@ -413,6 +428,9 @@ You reference an ENUM type, such as when using CAST, by using its fully
 qualified name.
 
 You cannot create new ENUM types using ZetaSQL.
+
+To learn more about the literal representation of an enum type,
+see [Enum literals][enum-literals].
 
 ## Interval type
 
@@ -457,6 +475,9 @@ Interval is composed of three independent parts:
 + <code>[.F]</code>: Up to nine fractional
   digits (nanosecond precision)
 
+To learn more about the literal representation of an interval type,
+see [Interval literals][interval-literals].
+
 ## JSON type
 
 <table>
@@ -489,6 +510,9 @@ Expect these canonicalization behaviors when creating a value of `JSON` type:
 +  The format of the original string representation of a JSON number may not be
    preserved.
 
+To learn more about the literal representation of a JSON type,
+see [JSON literals][json-literals].
+
 ## Numeric types
 
 Numeric types include the following types:
@@ -502,7 +526,8 @@ Numeric types include the following types:
 * `FLOAT`
 * `DOUBLE`
 
-### Integer types
+### Integer types 
+<a id="integer_types"></a>
 
 Integers are numeric values that do not have fractional components.
 
@@ -538,6 +563,9 @@ Integers are numeric values that do not have fractional components.
 
 </tbody>
 </table>
+
+To learn more about the literal representation of an integer type,
+see [Integer literals][integer-literals].
 
 ### Decimal types 
 <a id="decimal_types"></a>
@@ -586,6 +614,12 @@ calculations.
 `DECIMAL` is an alias for `NUMERIC`.
 `BIGDECIMAL` is an alias for `BIGNUMERIC`.
 
+To learn more about the literal representation of a `DECIMAL` type,
+see [`NUMERIC` literals][numeric-literals].
+
+To learn more about the literal representation of a `BIGDECIMAL` type,
+see [`BIGNUMERIC` literals][bignumeric-literals].
+
 ### Floating point types 
 <a id="floating_point_types"></a>
 
@@ -611,6 +645,9 @@ Floating point values are approximate numeric values with fractional components.
 </tr>
 </tbody>
 </table>
+
+To learn more about the literal representation of a floating point type,
+see [Floating point literals][floating-point-literals].
 
 #### Floating point semantics
 
@@ -814,9 +851,8 @@ workarounds:
 + The most accurate way to compare PROTOs is to do a pair-wise comparison
   between the fields of the PROTOs. This can also be used to `GROUP BY` or
   `ORDER BY` PROTO fields.
-+ To get a simple approximation for inequality comparisons, you can cast PROTO
-  to STRING. Note that this will do lexicographical ordering for numeric
-  fields.
++ To get a simple approximation comparison, cast PROTO to
+  STRING. This applies lexicographical ordering for numeric fields.
 
 ## String type
 
@@ -855,6 +891,9 @@ direction. Explicit casting between STRING and BYTES does UTF-8 encoding and
 decoding. Casting BYTES to STRING returns an error if the bytes are not
 valid UTF-8.
 
+To learn more about the literal representation of a string type,
+see [String literals][string-literals].
+
 ## Struct type
 
 <table>
@@ -872,6 +911,9 @@ valid UTF-8.
 </tr>
 </tbody>
 </table>
+
+To learn more about the literal representation of a struct type,
+see [Struct literals][struct-literals].
 
 ### Declaring a STRUCT type
 
@@ -1116,6 +1158,9 @@ an absolute point in time, use a [timestamp][timestamp-type].
 + <code>[.F]</code>: Up to nine fractional
   digits (nanosecond precision)
 
+To learn more about the literal representation of a time type,
+see [Time literals][time-literals].
+
 ## Timestamp type
 
 <table>
@@ -1171,24 +1216,38 @@ same TIMESTAMP value.
 The canonical format for a TIMESTAMP literal has the following parts:
 
 ```
-civil_date_time [time_zone]
+{
+  civil_date_time [time_zone] |
+  civil_date_time[time_zone_offset] |
+  civil_date_time[utc_time_zone]
+}
 
 civil_date_time:
     YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]]
 ```
 
-+ <code>YYYY</code>: Four-digit year
-+ <code>[M]M</code>: One or two digit month
-+ <code>[D]D</code>: One or two digit day
-+ <code>( |T)</code>: A space or a `T` separator
-+ <code>[H]H</code>: One or two digit hour (valid values from 00 to 23)
-+ <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)
-+ <code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)
-+ <code>[.F]</code>: Up to nine fractional
-  digits (nanosecond precision)
-+ <code>[time_zone]</code>: String representing the time zone. When a time zone
-  is not explicitly specified, the default time zone, which is implementation defined, is
-  used. See the <a href="#time_zones">time zones</a> section for details.
++   <code>YYYY</code>: Four-digit year
++   <code>[M]M</code>: One or two digit month
++   <code>[D]D</code>: One or two digit day
++   <code>( |T)</code>: A space or a `T` separator
++   <code>[H]H</code>: One or two digit hour (valid values from 00 to 23)
++   <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)
++   <code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)
++   <code>[.F]</code>: Up to nine fractional
+    digits (nanosecond precision)
++   <code>[time_zone]</code>: String representing the time zone. When a time
+    zone is not explicitly specified, the default time zone,
+    which is implementation defined, is used. For details, see <a href="#time_zones">time
+    zones</a>.
++   <code>[time_zone_offset]</code>: String representing the offset from the
+    Coordinated Universal Time (UTC) time zone. For details, see
+    <a href="#time_zones">time zones</a>.
++   <code>[utc_time_zone]</code>: String representing the Coordinated Universal
+    Time (UTC), usually the letter `Z`. For details, see
+    <a href="#time_zones">time zones</a>.
+
+To learn more about the literal representation of a timestamp type,
+see [Timestamp literals][timestamp-literals].
 
 ### Time zones 
 <a id="time_zones"></a>
@@ -1339,6 +1398,36 @@ when there is a leap second.
 [mathematical-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
 
 [st-equals]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_equals
+
+[string-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+
+[bytes-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+
+[array-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#array_literals
+
+[struct-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#struct_literals
+
+[integer-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#integer_literals
+
+[floating-point-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#floating_point_literals
+
+[numeric-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#numeric_literals
+
+[bignumeric-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#bignumeric_literals
+
+[date-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#date_literals
+
+[time-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#time_literals
+
+[datetime-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#datetime_literals
+
+[timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
+
+[interval-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#interval_literals
+
+[enum-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#enum_literals
+
+[json-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#json_literals
 
 <!-- mdlint on -->
 

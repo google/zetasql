@@ -18,6 +18,7 @@
 
 #include <iosfwd>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <utility>
 

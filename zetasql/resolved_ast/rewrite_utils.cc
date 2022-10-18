@@ -31,6 +31,7 @@
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -667,4 +668,14 @@ bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* const function_call,
          function_call->signature().context_id() == function_signature_id &&
          function_call->function()->IsZetaSQLBuiltin();
 }
+
+zetasql_base::StatusBuilder MakeUnimplementedErrorAtNode(const ResolvedNode* node) {
+  zetasql_base::StatusBuilder builder = zetasql_base::UnimplementedErrorBuilder();
+  if (node != nullptr && node->GetParseLocationOrNULL() != nullptr) {
+    builder.Attach(
+        node->GetParseLocationOrNULL()->start().ToInternalErrorLocation());
+  }
+  return builder;
+}
+
 }  // namespace zetasql

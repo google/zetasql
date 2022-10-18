@@ -98,9 +98,7 @@
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
 
-ABSL_DECLARE_FLAG(
-    bool,
-    zetasql_compliance_fail_reference_if_unneeded_required_feature_declared);
+ABSL_DECLARE_FLAG(bool, zetasql_detect_falsly_required_features);
 ABSL_DECLARE_FLAG(bool, zetasql_compliance_write_labels_to_file);
 
 namespace zetasql {
@@ -262,6 +260,15 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
       absl::string_view sql, const SQLTestCase::ParamsMap& params = {},
       bool permit_compile_failure = true);
 
+  // Run and validate a "codebased" compliance test with parameters and
+  // feature requiments.
+  void RunSQLOnFeaturesAndValidateResult(
+      absl::string_view sql, const std::map<std::string, Value>& params,
+      const std::set<LanguageFeature>& required_features,
+      const std::set<LanguageFeature>& forbidden_features,
+      const Value& expected_value, const absl::Status& expected_status,
+      const FloatMargin& float_margin);
+
   // Returns a Catalog that includes the tables specified in the active
   // TestDatabase. Owned by the reference driver internal to this class.
   SimpleCatalog* catalog() const;
@@ -332,7 +339,25 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   virtual void InitFileState();
 
   // Internal state that controls the statement-level workflow.
-  enum StatementWorkflow { NORMAL, CANCELLED, KNOWN_ERROR, SKIPPED };
+  enum StatementWorkflow {
+    // NORMAL means proceed to running the test against the engine.
+    NORMAL,
+    // CANCELLED means something went wrong in the test driver, like when
+    // interperting the test options.
+    CANCELLED,
+    // KNOWN_CRASH means the test should not be run on the engine driver because
+    // its skiplisted with "CRASHES_DO_NOT_RUN"
+    KNOWN_CRASH,
+    // SKIPPED means this isn't part of the subset of tests that we are
+    // interested in running.
+    SKIPPED,
+    // FEATURE_MISMATCH means the test driver either does not set a required
+    // LanguageFeature or does set a prohibited language feature.
+    FEATURE_MISMATCH,
+    // NOT_A_TEST means the file section being processed is database setup or
+    // otherwise doesn't contain a test statement.
+    NOT_A_TEST,
+  };
   StatementWorkflow statement_workflow() { return statement_workflow_; }
   const std::string& sql() const { return sql_; }
 
@@ -491,6 +516,17 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Returns NULL if we are testing the reference implementation.
   ReferenceDriver* reference_driver() const { return reference_driver_; }
 
+  // Returns the reference driver. When not testing the reference impl this
+  // is the same as reference_driver().  When testing the reference impl this
+  // is driver().
+  ReferenceDriver* GetReferenceDriver() const {
+    if (IsTestingReferenceImpl()) {
+      return static_cast<ReferenceDriver*>(driver());
+    } else {
+      return reference_driver();
+    }
+  }
+
   // Generates failure report. A subclass can override to add more information.
   virtual std::string GenerateFailureReport(const std::string& expected,
                                             const std::string& actual,
@@ -584,19 +620,35 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // it applies to all TestCases even when the test makes multiple instances of
   // SQLTestBase.
   using TestCaseInspectorFn =
-      std::function<void(const SQLTestCase& sql_test_case)>;
+      std::function<absl::Status(const SQLTestCase& sql_test_case)>;
   static void RegisterTestCaseInspector(TestCaseInspectorFn* inspector) {
     test_case_inspector_ = inspector;
   }
 
   // Apply a registered inspector to the test case.
-  void InspectTestCase() {
+  absl::Status InspectTestCase() {
     if (test_case_inspector_ != nullptr) {
-      (*test_case_inspector_)(SQLTestCase(full_name(), sql(), parameters()));
+      return (*test_case_inspector_)(
+          SQLTestCase(full_name(), sql(), parameters()));
     }
+    return absl::OkStatus();
   }
 
   ReferenceDriver* test_setup_driver() { return test_setup_driver_.get(); }
+
+  // Check 'feature' to ensure that it is required for evaluating the test case.
+  // This is useful for codebased tests that have an expected result instead of
+  // an expected golden file output. When 'require_inclusive' is false we are
+  // checking if the feature is falsly prohibited. When checking for falsely
+  // prohibited features we make sure adding that feature causes the test to
+  // fail.
+  bool IsFeatureFalselyRequired(
+      LanguageFeature feature, bool require_inclusive, absl::string_view sql,
+      const std::map<std::string, Value>& param_map,
+      const std::set<LanguageFeature>& required_features,
+      const absl::Status& initial_run_status,
+      const absl::StatusOr<ComplianceTestCaseResult>& expected_result,
+      const FloatMargin& expected_float_margin);
 
  private:
   // Accesses ValidateFirstColumnPrimaryKey
@@ -689,11 +741,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // properly initialized in StepCreateDatabase function.
   bool is_catalog_initialized_ = false;
 
-  // When true, we fail the test if a test statement fails in the resolver. This
-  // helps preserve the property that compliance tests test engine code, and
-  // analyzer tests test resolver code.
-  bool require_resolver_success_ = false;
-
   // Known Errors
   //
   // Contains known errors labels and statements. Statements are referred by
@@ -713,7 +760,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   std::map<std::string, LabelInfo> label_info_map_;
 
   // Known Error mode for the current statement.
-  KnownErrorMode known_error_mode_;
+  KnownErrorMode known_error_mode_ = KnownErrorMode::NONE;
 
   // Set of labels in known_error files that affect current statement.
   absl::btree_set<std::string> by_set_;

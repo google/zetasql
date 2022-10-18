@@ -207,7 +207,7 @@ bool CanFollowTypeDeclaration(absl::string_view keyword) {
 // Returns true if the given keyword can start a type declaration.
 bool CanBeTypeDeclarationStart(absl::string_view keyword) {
   static const auto* allowed = new zetasql_base::flat_set<absl::string_view>(
-      {"ARRAY", "PROTO", "STRUCT", "TABLE"});
+      {"ARRAY", "ENUM", "PROTO", "STRUCT", "TABLE"});
   return allowed->contains(keyword);
 }
 
@@ -288,6 +288,10 @@ bool Chunk::SpaceBetweenTokens(const Token& token_before,
     return false;
   }
   if (token_after.IsEndOfLineComment()) {
+    return true;
+  }
+  if (token_before.Is(Token::Type::CLOSE_BRACKET) &&
+      token_after.GetKeyword() == "DEFAULT") {
     return true;
   }
   if (token_before.IsOneOf({Token::Type::UNARY_OPERATOR,
@@ -774,7 +778,8 @@ void Chunk::UpdateUnaryOperatorTypeIfNeeded(const Chunk* const previous_chunk,
                                                            : *previous_chunk;
   if (!chunk_with_previous_token.CanBePartOfExpression() ||
       IsChainableOperator(*previous_token) ||
-      IsOpenParenOrBracket(previous_keyword) || previous_keyword == "~") {
+      IsOpenParenOrBracket(previous_keyword) || previous_keyword == "~" ||
+      previous_keyword == "=>" || previous_keyword == "->") {
     current_token.SetType(Token::Type::UNARY_OPERATOR);
   }
 }
@@ -1426,6 +1431,12 @@ int FindNextParamList(const std::vector<Token*>& tokens, int index) {
         return index;
       }
     }
+
+    // CASE: '[sqltest_option = a]' and '[DEFAULT sqltest_option = a]'.
+    if (index + 1 < tokens.size() && tokens[index - 1]->GetKeyword() == "[") {
+      if (tokens[index + 1]->GetKeyword() == "=") return --index;
+      if (tokens[index]->GetKeyword() == "DEFAULT") return index;
+    }
   }
 
   return index;
@@ -1940,14 +1951,31 @@ void MarkUnquotedPaths(const TokensView& tokens_view) {
         break;
       }
     }
+    // [sql_test_option = some/path]
+  } else if (tokens[statement_start]->GetKeyword() == "[") {
+    int t = statement_start + 1;
+    if (tokens[t]->GetKeyword() == "DEFAULT") {
+      ++t;
+    }
+    if (tokens[t + 1]->GetKeyword() == "=") {
+      path_start = t + 2;
+    }
   }
 
   if (path_start >= tokens.size()) {
     return;
   }
   tokens[path_start]->SetType(Token::Type::INVALID_TOKEN);
+  static const auto* statement_terminators =
+      new zetasql_base::flat_set<absl::string_view>({";", "]"});
   for (int i = path_start + 1; i < tokens.size(); ++i) {
-    if (tokens[i]->GetKeyword() == ";" ||
+    if (i + 1 < tokens.size() && tokens[i]->GetKeyword() == "," &&
+        tokens[i + 1]->MayBeStartOfIdentifier()) {
+      tokens[i + 1]->SetType(Token::Type::INVALID_TOKEN);
+      ++i;
+      continue;
+    }
+    if (statement_terminators->contains(tokens[i]->GetKeyword()) ||
         SpaceBetweenTokensInInput(*tokens[i - 1], *tokens[i])) {
       break;
     }

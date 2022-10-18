@@ -56,6 +56,34 @@ absl::StatusOr<std::unique_ptr<ParserOutput>> ParseTreeSerializer::Deserialize(
       std::move(allocated_ast_nodes), std::move(statement_ptr));
 }
 
+absl::StatusOr<std::unique_ptr<ParserOutput>> ParseTreeSerializer::Deserialize(
+    const AnyASTExpressionProto& proto, const ParserOptions& parser_options_in) {
+  ParserOptions parser_options = parser_options_in;
+  parser_options.CreateDefaultArenasIfNotSet();
+  std::unique_ptr<ASTNode> ast_node;
+  std::vector<std::unique_ptr<ASTNode>> allocated_ast_nodes;
+  ZETASQL_ASSIGN_OR_RETURN(zetasql::ASTExpression* expression,
+                   ParseTreeSerializer::Deserialize(
+                       proto, parser_options.id_string_pool().get(),
+                       parser_options.arena().get(), &allocated_ast_nodes));
+
+  ZETASQL_RET_CHECK(expression != nullptr);
+  for (int i = allocated_ast_nodes.size() - 1; i >= 0; --i) {
+    ZETASQL_RETURN_IF_ERROR((allocated_ast_nodes)[i]->InitFields());
+    // Locate the target expression among the allocated_ast_nodes, move
+    // its unique_ptr into *output.
+    if ((allocated_ast_nodes)[i].get() == expression) {
+      ast_node = std::move((allocated_ast_nodes)[i]);
+    }
+  }
+  std::unique_ptr<ASTExpression> expression_ptr(
+      ast_node.release()->GetAsOrDie<ASTExpression>());
+
+  return std::make_unique<ParserOutput>(
+      parser_options.id_string_pool(), parser_options.arena(),
+      std::move(allocated_ast_nodes), std::move(expression_ptr));
+}
+
 absl::Status ParseTreeSerializer::DeserializeAbstract(
     ASTNode* node, const ASTNodeProto& proto, IdStringPool* id_string_pool,
     zetasql_base::UnsafeArena* arena,

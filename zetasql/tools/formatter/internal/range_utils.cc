@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/tools/formatter/internal/parsing_utils.h"
+#include "zetasql/tools/formatter/internal/range_utils.h"
 
 #include <algorithm>
 #include <set>
@@ -23,7 +23,12 @@
 #include <vector>
 
 #include "zetasql/public/formatter_options.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/tools/formatter/internal/token.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql::formatter::internal {
@@ -109,7 +114,7 @@ absl::Status ExpandByteRangesToFullStatements(
     }
     ++range;
     // Merge ranges that touch the same statement.
-    while (range != sorted_ranges->end() && range->end < component_iter->end &&
+    while (range != sorted_ranges->end() && range->end <= component_iter->end &&
            statement.end > range->start) {
       if (range->end <= statement.end) {
         range = sorted_ranges->erase(range);
@@ -135,6 +140,68 @@ absl::Status ExpandByteRangesToFullStatements(
     }
   }
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::vector<FormatterRange>> ConvertLineRangesToSortedByteRanges(
+    const std::vector<FormatterRange>& line_ranges, absl::string_view sql,
+    const ParseLocationTranslator& location_translator) {
+  if (line_ranges.empty()) {
+    return line_ranges;
+  }
+  std::vector<FormatterRange> sorted_ranges(line_ranges);
+  std::sort(sorted_ranges.begin(), sorted_ranges.end(),
+            [](const FormatterRange& a, const FormatterRange& b) {
+              return a.start < b.start;
+            });
+  // Validate line ranges.
+  const FormatterRange* prev = nullptr;
+  for (auto it = sorted_ranges.cbegin(); it != sorted_ranges.cend(); ++it) {
+    if (it->start > it->end) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "invalid line range: start line should be <= end line; got: [%d, %d]",
+          it->start, it->end));
+    }
+    if (prev != nullptr && prev->end >= it->start) {
+      return absl::InvalidArgumentError(
+          absl::StrFormat("overlapping line ranges are not allowed; found: "
+                          "[%d, %d] and [%d, %d]",
+                          prev->start, prev->end, it->start, it->end));
+    }
+    prev = &(*it);
+  }
+  // Convert to byte ranges.
+  std::vector<FormatterRange> byte_ranges;
+  byte_ranges.reserve(sorted_ranges.size());
+  for (const auto& range : sorted_ranges) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        const int start,
+        location_translator.GetByteOffsetFromLineAndColumn(range.start, 1),
+        _ << absl::StrFormat("invalid line range: [%d, %d]", range.start,
+                             range.end));
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        int end,
+        location_translator.GetByteOffsetFromLineAndColumn(range.end, 1),
+        _ << absl::StrFormat("invalid line range: [%d, %d]", range.start,
+                             range.end));
+    ZETASQL_ASSIGN_OR_RETURN(const absl::string_view end_line_view,
+                     location_translator.GetLineText(range.end),
+                     _ << absl::StrFormat("invalid line range: [%d, %d]",
+                                          range.start, range.end));
+    end += static_cast<int>(end_line_view.size());
+    // Include the line break into the range (any of: '\r', '\n' or '\r\n').
+    if (end < sql.size() && (sql[end] == '\r' || sql[end] == '\n')) {
+      ++end;
+    }
+
+    if (!byte_ranges.empty() && byte_ranges.back().end == start) {
+      // Merge adjacent ranges.
+      byte_ranges.back().end = end;
+    } else {
+      byte_ranges.push_back({start, end});
+    }
+  }
+  return byte_ranges;
 }
 
 }  // namespace zetasql::formatter::internal

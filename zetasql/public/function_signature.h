@@ -101,6 +101,16 @@ class FunctionArgumentTypeOptions {
   bool must_support_ordering() const { return must_support_ordering_; }
   bool must_support_grouping() const { return must_support_grouping_; }
 
+  bool array_element_must_support_equality() const {
+    return array_element_must_support_equality_;
+  }
+  bool array_element_must_support_ordering() const {
+    return array_element_must_support_ordering_;
+  }
+  bool array_element_must_support_grouping() const {
+    return array_element_must_support_grouping_;
+  }
+
   bool has_min_value() const { return has_min_value_; }
   bool has_max_value() const { return has_max_value_; }
   const int64_t min_value() const { return min_value_; }
@@ -160,6 +170,21 @@ class FunctionArgumentTypeOptions {
   }
   FunctionArgumentTypeOptions& set_must_support_grouping(bool v = true) {
     must_support_grouping_ = v;
+    return *this;
+  }
+  FunctionArgumentTypeOptions& set_array_element_must_support_equality(
+      bool v = true) {
+    array_element_must_support_equality_ = v;
+    return *this;
+  }
+  FunctionArgumentTypeOptions& set_array_element_must_support_ordering(
+      bool v = true) {
+    array_element_must_support_ordering_ = v;
+    return *this;
+  }
+  FunctionArgumentTypeOptions& set_array_element_must_support_grouping(
+      bool v = true) {
+    array_element_must_support_grouping_ = v;
     return *this;
   }
   FunctionArgumentTypeOptions& set_min_value(int64_t value) {
@@ -412,6 +437,20 @@ class FunctionArgumentTypeOptions {
 
   // If true, this argument must have a type with SupportsGrouping().
   bool must_support_grouping_ = false;
+
+  // If true, this argument must be an array type and have an element type with
+  // SupportsEquality().
+  // This is checked after choosing a concrete signature.
+  bool array_element_must_support_equality_ = false;
+
+  // If true, this argument must be an array type and have an element type with
+  // SupportsOrdering().
+  // This is checked after choosing a concrete signature.
+  bool array_element_must_support_ordering_ = false;
+
+  // If true, this argument must be an array type and have an element type with
+  // SupportsGrouping().
+  bool array_element_must_support_grouping_ = false;
 
   bool has_min_value_ = false;
   bool has_max_value_ = false;

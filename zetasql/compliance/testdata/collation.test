@@ -1260,6 +1260,38 @@ SELECT 'ZetaSQL' = ARRAY_LAST([collate("hello", "und:ci"), collate("zetasql", "u
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[forbidden_features=DISABLE_ARRAY_MIN_AND_MAX]
+[name=array_min_collation_ci_string_1]
+SELECT ARRAY_MIN([collate("c", "und:ci"), collate("a", "und:ci"), collate("A", "und:ci")])
+--
+ARRAY<STRUCT<STRING>>[{"a"}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[forbidden_features=DISABLE_ARRAY_MIN_AND_MAX]
+[name=array_min_collation_ci_string_2]
+SELECT ARRAY_MIN([collate("c", "und:ci"), collate("A", "und:ci"), collate("a", "und:ci")])
+--
+ARRAY<STRUCT<STRING>>[{"A"}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[forbidden_features=DISABLE_ARRAY_MIN_AND_MAX]
+[name=array_max_collation_ci_string_1]
+SELECT ARRAY_MAX([collate("C", "und:ci"), collate("c", "und:ci"), collate("a", "und:ci")])
+--
+ARRAY<STRUCT<STRING>>[{"C"}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[forbidden_features=DISABLE_ARRAY_MIN_AND_MAX]
+[name=array_max_collation_ci_string_2]
+SELECT ARRAY_MAX([collate("c", "und:ci"), collate("C", "und:ci"), collate("a", "und:ci")])
+--
+ARRAY<STRUCT<STRING>>[{"c"}]
+==
+
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_count_distinct_with_collation_ci]
 with TestTable as (
@@ -1314,4 +1346,27 @@ select
 from TestTable
 --
 ARRAY<STRUCT<STRING, STRING>>[{"A", "b"}, {"A", "b"}, {"A", "b"}]
+==
+
+[name=like_with_collation_ci]
+select
+  collate(NULL, 'und:ci') like 'abc',
+  collate('defabcdef', 'und:ci') like 'def%',
+  collate('defAbCdef', 'und:ci') like '%aBc%',
+  # \u070F is an ignorable character
+  collate('defA\u070FbCdef', 'und:ci') like '%abc%',
+  'defA\u070FbCdef' like COLLATE('%abc%', 'und:ci'),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, true, true, true, true}]
+==
+
+[name=like_with_collation_binary]
+select
+  collate(NULL, 'binary') like 'abc',
+  collate('defabcdef', 'binary') like 'def%',
+  collate('defAbCdef', 'binary') like '%aBc%',
+  collate('defA\u070FbCdef', 'binary') like '%abc%',
+  'defA\u070FbCdef' like COLLATE('%abc%', 'binary'),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, true, false, false, false}]
 ==

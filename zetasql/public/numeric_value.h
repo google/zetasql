@@ -49,8 +49,8 @@ namespace zetasql {
 // Internally NUMERIC values are stored as scaled 128 bit integers.
 class NumericValue final {
  public:
-  // Must use integral_constant to utilize the compiler optimization for integer
-  // divisions with constant 32-bit divisors.
+  // Must use integral_constant to utilize the optimizations for integer
+  // divisions with constant 64-bit divisors.
   static constexpr std::integral_constant<uint32_t, internal::k1e9>
       kScalingFactor{};
   static constexpr int kMaxIntegerDigits = 29;
@@ -126,8 +126,6 @@ class NumericValue final {
   // Constructs a NumericValue from a double. This method might return an error
   // if the given value cannot be converted to a NUMERIC (e.g. NaN).
   static absl::StatusOr<NumericValue> FromDouble(double value);
-
-  static constexpr NumericValue Pi();
 
   // Arithmetic operators. These operators can return OUT_OF_RANGE error on
   // overflow. Additionally the division returns OUT_OF_RANGE if the divisor is
@@ -623,8 +621,6 @@ class BigNumericValue final {
   // error if the given value cannot be converted to a BIGNUMERIC (e.g. NaN).
   static absl::StatusOr<BigNumericValue> FromDouble(double value);
 
-  static constexpr BigNumericValue Pi();
-
   // Arithmetic operators. These operators can return OUT_OF_RANGE error on
   // overflow. Additionally the division returns OUT_OF_RANGE if the divisor is
   // zero.
@@ -995,11 +991,7 @@ class VarNumericValue {
   void AppendToString(std::string* output) const;
 
  private:
-  // NOTE: uint32_t is not the best for operations other than division in terms
-  // of performance. When more methods are supported, this should change to
-  // std::vector<uint64_t>. For this reason, FromPackedLittleEndianArray is not
-  // defined yet.
-  std::vector<uint32_t> value_;
+  std::vector<uint64_t> value_;
   uint scale_ = 0;
 };
 
@@ -1008,9 +1000,6 @@ std::ostream& operator<<(std::ostream& out, NumericValue value);
 
 // Allow BIGNUMERIC values to be logged.
 std::ostream& operator<<(std::ostream& out, const BigNumericValue& value);
-
-// Allow VarNumericValue values to be logged.
-std::ostream& operator<<(std::ostream& out, const VarNumericValue& value);
 
 // ---------------- Below are implementation details. -------------------
 
@@ -1024,6 +1013,9 @@ constexpr uint32_t k5to11 = k5to10 * 5;
 constexpr uint32_t k5to12 = k5to11 * 5;
 constexpr uint32_t k5to13 = k5to12 * 5;
 constexpr uint64_t k5to19 = static_cast<uint64_t>(k5to10) * k5to9;
+constexpr uint64_t k1e11 = k1e10 * 10;
+constexpr uint64_t k1e12 = k1e11 * 10;
+constexpr uint64_t k1e13 = k1e12 * 10;
 constexpr std::integral_constant<int32_t, internal::k1e9>
     kSignedScalingFactor{};
 
@@ -1063,10 +1055,6 @@ inline constexpr NumericValue NumericValue::MaxValue() {
 
 inline constexpr NumericValue NumericValue::MinValue() {
   return NumericValue(internal::kNumericMin);
-}
-
-inline constexpr NumericValue NumericValue::Pi() {
-  return NumericValue(static_cast<__int128>(3141592654ULL));
 }
 
 inline absl::StatusOr<NumericValue> NumericValue::FromPackedInt(
@@ -1307,12 +1295,6 @@ inline constexpr BigNumericValue BigNumericValue::MinValue() {
   return BigNumericValue(FixedInt<64, 4>::min());
 }
 
-inline constexpr BigNumericValue BigNumericValue::Pi() {
-  constexpr uint64_t hi = 0xEC58DFA74641AF52ULL;
-  constexpr uint64_t lo = 0xAD0D16E77D576623ULL;
-  return BigNumericValue({lo, hi, 0ULL, 0ULL});
-}
-
 inline constexpr BigNumericValue BigNumericValue::FromPackedLittleEndianArray(
     const std::array<uint64_t, 4>& uint_array) {
   return BigNumericValue(uint_array);
@@ -1406,24 +1388,20 @@ inline std::string BigNumericValue::ToString() const {
 template <bool round, int N>
     inline FixedUint<64, N - 1>
     BigNumericValue::RemoveScalingFactor(FixedUint<64, N> value) {
-  // Suppose the theoretical value of value / 5^38 in binary format is (x).(y),
-  // where x is the integer part, and y is the fractional part that can have
-  // infinite number of bits. Then value / 10^38 =
-  // (x >> 38).(lower 38 bits of x)(y), and thus
-  // ROUND(value / 10^38) = (x >> 38) + (38th bit of x).
-  // To compute x = FLOOR(value / 5^38), we use 3 divisions by 32-bit constants
+  // To compute x = FLOOR(value / 10^38), we use 2 divisions by 64-bit constants
   // for optimal performance.
-  value /= std::integral_constant<uint32_t, internal::k5to13>();
-  value /= std::integral_constant<uint32_t, internal::k5to13>();
-  value /= std::integral_constant<uint32_t, internal::k5to12>();
-  // 5^38 > 2^64, so the highest uint64_t must be 0, even after adding 2^38.
+  // The least significant 19 digits do not affect rounding and thus we don't
+  // need the remainder in the first division.
+  value /= std::integral_constant<uint64_t, internal::k1e19>();
+  uint64_t remainder;
+  value.DivMod(std::integral_constant<uint64_t, internal::k1e19>(), &value,
+               &remainder);
+  // 10^38 > 2^64, so the highest uint64_t must be 0, even after adding 2^38.
   ZETASQL_DCHECK_EQ(value.number()[N - 1], 0);
   FixedUint<64, N - 1> value_trunc(value);
-  if (round &&
-      (value_trunc.number()[0] & (1ULL << (kMaxFractionalDigits - 1)))) {
-    value_trunc += (uint64_t{1} << kMaxFractionalDigits);
+  if (round && remainder >= (internal::k1e19 >> 1)) {
+    value_trunc += uint64_t{1};
   }
-  value_trunc >>= kMaxFractionalDigits;
   return value_trunc;
 }
 
@@ -1455,16 +1433,15 @@ inline absl::StatusOr<NumericValue> BigNumericValue::ToNumericValue() const {
   bool is_negative = value_.is_negative();
   FixedUint<64, 4> abs_value = value_.abs();
   // Divide by 10^29 (the difference in scaling factors),
-  // using 5^29 = 5^10 * 5^10 * 5^9, then a shift by 29
-  abs_value /= std::integral_constant<uint32_t, internal::k5to10>();
-  abs_value /= std::integral_constant<uint32_t, internal::k5to10>();
-  abs_value /= std::integral_constant<uint32_t, internal::k5to9>();
+  abs_value /= std::integral_constant<uint64_t, internal::k1e19>();
+  uint64_t remainder;
+  abs_value.DivMod(std::integral_constant<uint64_t, internal::k1e10>(),
+                   &abs_value, &remainder);
   ZETASQL_DCHECK_EQ(abs_value.number()[3], 0);
   FixedUint<64, 3> abs_value_trunc(abs_value);
-  if (abs_value_trunc.number()[0] & (1ULL << 28)) {
-    abs_value_trunc += (uint64_t{1} << 29);
+  if (remainder >= (internal::k1e10 >> 1)) {
+    abs_value_trunc += uint64_t{1};
   }
-  abs_value_trunc >>= 29;
   if (abs_value_trunc.number()[2] == 0) {
     absl::StatusOr<NumericValue> result =
         NumericValue::FromFixedUint(abs_value_trunc, is_negative);

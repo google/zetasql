@@ -1026,6 +1026,33 @@ absl::Status TimestampBucket(absl::Time input,
                              absl::Time origin, absl::TimeZone timezone,
                              TimestampScale scale, absl::Time* output);
 
+// Assigns <input> datetime to a specific bucket using the specified
+// <bucket_width> INTERVAL and returns the bucket start datetime.
+//
+// <origin> controls the alignment of the buckets. It can be less than, equal to
+// or greater than <input>.
+//
+// For example: DATETIME_BUCKET(
+//                  DATETIME "2022-01-19 13:38:30",
+//                  INTERVAL 3 HOUR,
+//                  DATETIME "1950-01-01 00:00:00")
+//                  --> "2022-01-19 12:00:00"
+//
+// In the above example:
+// - <bucket_width> INTERVAL 3 HOUR indicates that the function divides
+// - datetime values into 3-hour buckets
+// - <origin> "1950-01-01 00:00:00" indicates that starting from this datetime
+//   we divide the range of all datetime values (forwards and backwards) into
+//   <bucket_width> subranges.
+// - <input> "2022-01-19 13:38:30" gets assigned to bucket
+//   ["2022-01-19 12:00:00", "2022-01-19 15:00:00") and the start of the bucket
+//   ("2022-01-19 12:00:00") is returned.
+//
+absl::Status DatetimeBucket(const DatetimeValue& input,
+                            zetasql::IntervalValue bucket_width,
+                            const DatetimeValue& origin, TimestampScale scale,
+                            DatetimeValue* output);
+
 // The namespace 'internal_functions' includes the internal implementation
 // details and is not part of the public api.
 namespace internal_functions {

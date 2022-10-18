@@ -18,8 +18,12 @@
 #define ZETASQL_SCRIPTING_SCRIPT_EXECUTOR_IMPL_H_
 
 #include <cstdint>
+#include <memory>
+#include <optional>
+#include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_visitor.h"

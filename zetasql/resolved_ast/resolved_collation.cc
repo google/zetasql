@@ -18,6 +18,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"

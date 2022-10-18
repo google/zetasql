@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_SIMPLE_CATALOG_UTIL_H_
 #define ZETASQL_PUBLIC_SIMPLE_CATALOG_UTIL_H_
 
+#include <memory>
+
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/simple_catalog.h"

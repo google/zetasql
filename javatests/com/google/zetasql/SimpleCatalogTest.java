@@ -405,7 +405,7 @@ public class SimpleCatalogTest {
     Function ceil = catalog1.getFunctionByFullName("ZetaSQL:ceil");
     assertThat(ceil).isNotNull();
     assertThat(ceil.getFullName()).isEqualTo("ZetaSQL:ceil");
-    assertThat(ceil.getSignatureList().size() > 0).isTrue();
+    assertThat(ceil.getSignatureList().size()).isGreaterThan(0);
 
     SimpleCatalog catalog2 = new SimpleCatalog("foo2");
     LanguageOptions languageOptions = new LanguageOptions();
@@ -429,10 +429,10 @@ public class SimpleCatalogTest {
     Function equal = catalog2.getFunctionByFullName("ZetaSQL:$equal");
     assertThat(equal).isNotNull();
     assertThat(equal.getFullName()).isEqualTo("ZetaSQL:$equal");
-    assertThat(equal.getSignatureList().size() > 0).isTrue();
+    assertThat(!equal.getSignatureList().isEmpty()).isTrue();
     Function rank = catalog2.getFunctionByFullName("ZetaSQL:rank");
     assertThat(rank.getFullName()).isEqualTo("ZetaSQL:rank");
-    assertThat(rank.getSignatureList().size() > 0).isTrue();
+    assertThat(!rank.getSignatureList().isEmpty()).isTrue();
 
     // Excluded
     Function abs = catalog2.getFunctionByFullName("ZetaSQL:abs");

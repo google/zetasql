@@ -125,7 +125,7 @@ class SharedStatePool {
 class GenericState {
  public:
   GenericState() = default;
-  virtual ~GenericState() {}
+  virtual ~GenericState() = default;
 
   int64_t GetId() const { return id_; }
   bool IsRegistered() { return id_ != -1; }

@@ -17,10 +17,13 @@
 #include "zetasql/reference_impl/reference_driver.h"
 
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
@@ -130,7 +133,7 @@ ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
   internal::EnableFullEvaluatorFeatures();
 }
 
-ReferenceDriver::~ReferenceDriver() {}
+ReferenceDriver::~ReferenceDriver() = default;
 
 absl::Status ReferenceDriver::LoadProtoEnumTypes(
     const std::set<std::string>& filenames,
@@ -467,9 +470,9 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
   ParameterMap column_map;
   SystemVariablesAlgebrizerMap algebrizer_system_variables;
   ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeStatement(
-      analyzer_options.language(), algebrizer_options, type_factory,
-      analyzed->resolved_statement(), &algebrized_tree, &algebrizer_parameters,
-      &column_map, &algebrizer_system_variables));
+      analyzer_options.language(), algebrizer_options, catalog.get(),
+      type_factory, analyzed->resolved_statement(), &algebrized_tree,
+      &algebrizer_parameters, &column_map, &algebrizer_system_variables));
   ZETASQL_VLOG(1) << "Algebrized tree:\n"
           << algebrized_tree->DebugString(true /* verbose */);
   ZETASQL_RET_CHECK(column_map.empty());
@@ -527,6 +530,12 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     auto it = parameter_map.find(absl::AsciiStrToLower(p.first));
     if (it != parameter_map.end() && it->second.is_valid()) {
       param_variables.push_back(it->second);
+      if (!analyzer_options.language().LanguageFeatureEnabled(
+              FEATURE_TIMESTAMP_NANOS)) {
+        // TODO assert that time related values have no significant
+        //     nanos fraction. Supplying parameters with nanos fractions can
+        //     lead to wrong results.
+      }
       param_values.push_back(p.second);
       ZETASQL_VLOG(1) << "Parameter @" << p.first << " (variable " << it->second
               << "): " << p.second.FullDebugString();

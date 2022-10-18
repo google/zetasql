@@ -100,7 +100,6 @@ class Collation {
 
   // Children only exist if any of the children have a collation. See comments
   // on <child_list_> for more detail.
-  const std::vector<Collation>& child_list() const { return child_list_; }
   const Collation& child(int i) const { return child_list_[i]; }
   uint64_t num_children() const { return child_list_.size(); }
 
@@ -108,9 +107,6 @@ class Collation {
   static absl::StatusOr<Collation> Deserialize(const CollationProto& proto);
 
   std::string DebugString() const;
-
-  static std::string ToString(
-      const std::vector<Collation>& resolved_collation_list);
 
  private:
   Collation(absl::string_view collation_name, std::vector<Collation> child_list)

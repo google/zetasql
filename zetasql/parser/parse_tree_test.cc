@@ -19,6 +19,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"

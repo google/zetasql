@@ -3642,3 +3642,22 @@ create table function myfunc (  )
 ERROR: Parameterized types are not supported in table function signatures [at 2:25]
   returns table<x string(10)>;
                         ^
+==
+
+# Type with collation name is not supported
+create temporary table function maketable(t table<string collate 'und:ci'>)
+  returns table<string>
+  language testlang;
+--
+ERROR: Type with collation name is not supported in table function signatures [at 1:58]
+create temporary table function maketable(t table<string collate 'und:ci'>)
+                                                         ^
+==
+
+# Type with collation name is not supported
+create table function myfunc (  )
+  returns table<x string collate 'und:ci'>;
+--
+ERROR: Type with collation name is not supported in table function signatures [at 2:26]
+  returns table<x string collate 'und:ci'>;
+                         ^

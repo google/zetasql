@@ -523,10 +523,10 @@ inserts one row, which matches the `ASSERT_ROWS_MODIFIED 1` statement.
 Use the `THEN RETURN` clause to return the results of the `INSERT` operation and
 selected data from the newly inserted rows. This is especially useful for
 retrieving values of columns with default values, generated columns, and
-auto-generated keys, without issuing additional SELECT statements.
+auto-generated keys, without issuing additional `SELECT` statements.
 
 `THEN RETURN` supports a returning clause to capture expressions based on newly
-inserted rows that includes these parts:
+inserted rows that include these parts:
 
 +   `WITH ACTION`: An optional clause that adds a `string` column called
     `ACTION` to the result row set. Each value in this column represents the
@@ -556,19 +556,18 @@ fetch these rows and compute a new column called `new_quantity`.
 
 ```sql
 INSERT Inventory (product, quantity)
-VALUES
-    ('washer', 20),
-    ('dryer', 30),
-    ('oven', 5)
+VALUES ('washer', 20),
+       ('dryer', 30),
+       ('oven', 5)
 THEN RETURN *, quantity * 10 AS new_quantity;
 
-+---------+----------+--------------+
-| product | quantity | new_quantity |
-+---------+----------+--------------+
-| washer  |       20 |          200 |
-| dryer   |       30 |          300 |
-| oven    |       10 |          100 |
-+---------+----------+--------------+
++---------+----------+--------------------+--------------+
+| product | quantity | supply_constrained | new_quantity |
++---------+----------+--------------------+--------------+
+| washer  | 20       | false              | 200          |
+| dryer   | 30       | false              | 300          |
+| oven    | 10       | false              | 50           |
++---------+----------+--------------------+--------------+
 ```
 
 The following query tries to insert two rows into a table, but ignores a
@@ -576,14 +575,16 @@ duplicated row. It uses `THEN RETURN` to fetch the inserted row and
 `WITH ACTION` to show the modified row action type.
 
 ```sql
-INSERT IGNORE Inventory (product, quantity) VALUES ('desk', 40), ('desk', 45)
-THEN RETURN WITH ACTION *;
+INSERT IGNORE Inventory (product, quantity)
+VALUES ('desk', 40),
+       ('desk', 45)
+THEN RETURN WITH ACTION * EXCEPT(supply_constrained);
 
-+----------+----------+----------+
-| product  | quantity |  ACTION  |
-+----------+----------+----------+
-| desk     |       40 |  INSERT  |
-+----------+----------+----------+
++----------+----------+--------+
+| product  | quantity | ACTION |
++----------+----------+--------+
+| desk     | 40       | INSERT |
++----------+----------+--------+
 ```
 
 The following query tries to insert or update a row into a table. It uses
@@ -591,14 +592,15 @@ The following query tries to insert or update a row into a table. It uses
 row action type.
 
 ```sql
-INSERT OR UPDATE Inventory (product, quantity) VALUES ('oven', 100)
+INSERT OR UPDATE Inventory (product, quantity)
+VALUES ('oven', 100)
 THEN RETURN WITH ACTION product, quantity * 10 AS new_quantity;
 
-+---------+--------------+----------+
-| product | new_quantity |  ACTION  |
-+---------+--------------+----------+
-| oven    |         1000 |  UPDATE  |
-+---------+--------------+----------+
++---------+--------------+--------+
+| product | new_quantity | ACTION |
++---------+--------------+--------+
+| oven    | 1000         | UPDATE |
++---------+--------------+--------+
 ```
 
 ### INSERT examples
@@ -744,14 +746,15 @@ The following query deletes all rows in a table that contains a product called
 `washer` and then returns the deleted rows.
 
 ```sql
-DELETE Inventory (product, quantity) WHERE product = 'washer'
+DELETE FROM Inventory
+WHERE product = 'washer'
 THEN RETURN *;
 
-+---------+----------+
-| product | quantity |
-+---------+----------+
-| washer  |       20 |
-+---------+----------+
++---------+----------+--------------------+
+| product | quantity | supply_constrained |
++---------+----------+--------------------+
+| washer  | 20       | false              |
++---------+----------+--------------------+
 ```
 
 ## UPDATE statement
@@ -945,18 +948,15 @@ and THEN RETURN][dml-then-return-clause]
 
 Example:
 
-The following query updates all rows in a table that contains a product called
-`washer` and then returns the updated rows.
+The following query updates the `supply_constrained` column in this `Inventory`
+table when the quantity of product is zero, and returns all updated product with
+an out of stock message.
 
 ```sql
-UPDATE Inventory (product, quantity) VALUES ('washer', 20)
-THEN RETURN *;
-
-+---------+----------+
-| product | quantity |
-+---------+----------+
-| washer  |       20 |
-+---------+----------+
+UPDATE Inventory
+SET supply_constrained = true
+WHERE quantity = 0
+THEN RETURN product, product || " is out of stock" AS message;
 ```
 
 ### Setting new values

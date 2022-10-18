@@ -18,10 +18,13 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -376,8 +379,7 @@ static std::vector<ComparisonTest> GetStructComparisonTests() {
 }
 
 static std::vector<ComparisonTest> GetComparisonTests(
-    bool include_struct_comparisons, bool include_array_comparisons,
-    bool include_nano_timestamp) {
+    bool include_struct_comparisons, bool include_array_comparisons) {
   const Value enum0 = Value::Enum(TestEnumType(), 0);
   const Value enum1 = Value::Enum(TestEnumType(), 1);
   std::vector<ComparisonTest> v = {
@@ -658,38 +660,42 @@ static std::vector<ComparisonTest> GetComparisonTests(
        DatetimeMicros(2007, 1, 2, 3, 4, 5, 654321), LESS},
       {DatetimeMicros(2006, 1, 2, 3, 4, 5, 654321), NullDatetime(), NULL_VALUE},
   };
-  if (include_nano_timestamp) {
-    std::vector<ComparisonTest> nano_tests = {
-        // time nanos
-        {TimeNanos(1, 2, 3, 1234567), TimeNanos(1, 2, 3, 1234567), EQUAL},
-        {TimeNanos(1, 2, 3, 1234567), TimeNanos(1, 2, 3, 1234568), LESS},
-        {TimeNanos(1, 2, 3, 1234567), TimeNanos(1, 2, 5, 1234567), LESS},
-        {TimeNanos(1, 2, 3, 1234567), TimeNanos(1, 5, 3, 1234567), LESS},
-        {TimeNanos(1, 2, 3, 1234567), TimeNanos(5, 2, 3, 1234567), LESS},
-        {TimeNanos(1, 2, 3, 1234567), NullTime(), NULL_VALUE},
+  std::set<LanguageFeature> features = {FEATURE_TIMESTAMP_NANOS};
+  std::vector<ComparisonTest> nano_tests = {
+      // time nanos
+      {TimeNanos(1, 2, 3, 1234567), TimeNanos(1, 2, 3, 1234567), EQUAL,
+       features},
+      {TimeNanos(1, 2, 3, 1234567), TimeNanos(1, 2, 3, 1234568), LESS,
+       features},
+      {TimeNanos(1, 2, 3, 1234567), TimeNanos(1, 2, 5, 1234567), LESS,
+       features},
+      {TimeNanos(1, 2, 3, 1234567), TimeNanos(1, 5, 3, 1234567), LESS,
+       features},
+      {TimeNanos(1, 2, 3, 1234567), TimeNanos(5, 2, 3, 1234567), LESS,
+       features},
+      {TimeNanos(1, 2, 3, 1234567), NullTime(), NULL_VALUE, features},
 
-        // datetime nanos
-        {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
-         DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321), EQUAL},
-        {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
-         DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654322), LESS},
-        {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
-         DatetimeNanos(2006, 1, 2, 3, 4, 7, 987654321), LESS},
-        {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
-         DatetimeNanos(2006, 1, 2, 3, 7, 5, 987654321), LESS},
-        {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
-         DatetimeNanos(2006, 1, 2, 7, 4, 5, 987654321), LESS},
-        {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
-         DatetimeNanos(2006, 1, 7, 3, 4, 5, 987654321), LESS},
-        {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
-         DatetimeNanos(2006, 7, 2, 3, 4, 5, 987654321), LESS},
-        {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
-         DatetimeNanos(2007, 1, 2, 3, 4, 5, 987654321), LESS},
-        {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321), NullDatetime(),
-         NULL_VALUE},
-    };
-    v.insert(v.end(), nano_tests.begin(), nano_tests.end());
-  }
+      // datetime nanos
+      {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
+       DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321), EQUAL, features},
+      {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
+       DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654322), LESS, features},
+      {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
+       DatetimeNanos(2006, 1, 2, 3, 4, 7, 987654321), LESS, features},
+      {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
+       DatetimeNanos(2006, 1, 2, 3, 7, 5, 987654321), LESS, features},
+      {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
+       DatetimeNanos(2006, 1, 2, 7, 4, 5, 987654321), LESS, features},
+      {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
+       DatetimeNanos(2006, 1, 7, 3, 4, 5, 987654321), LESS, features},
+      {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
+       DatetimeNanos(2006, 7, 2, 3, 4, 5, 987654321), LESS, features},
+      {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321),
+       DatetimeNanos(2007, 1, 2, 3, 4, 5, 987654321), LESS, features},
+      {DatetimeNanos(2006, 1, 2, 3, 4, 5, 987654321), NullDatetime(),
+       NULL_VALUE, features},
+  };
+  v.insert(v.end(), nano_tests.begin(), nano_tests.end());
   if (include_struct_comparisons) {
     std::vector<ComparisonTest> struct_equality_tests =
         GetStructComparisonTests();
@@ -721,8 +727,8 @@ static std::vector<ComparisonTest> GetComparisonTests(
         continue;
       }
 
-      array_comparison_tests.push_back(
-          ComparisonTest(left_array, right_array, test.result));
+      array_comparison_tests.push_back(ComparisonTest(
+          left_array, right_array, test.result, test.required_features));
     }
     v.insert(v.end(), array_comparison_tests.begin(),
              array_comparison_tests.end());
@@ -744,6 +750,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
 // directly from  <input>/<out>.
 static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
     const std::vector<ValueConstructor>& input, const Value& out,
+    const std::set<LanguageFeature>& required_language_features,
     const std::vector<LanguageFeature>& array_language_features,
     std::vector<QueryParamsWithResult>* result) {
   bool has_any_civil_time = false;
@@ -792,7 +799,7 @@ static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
   }
 
   // Build the feature set.
-  QueryParamsWithResult::FeatureSet feature_set;
+  QueryParamsWithResult::FeatureSet feature_set = required_language_features;
   if (has_any_civil_time) {
     feature_set.insert(FEATURE_V_1_2_CIVIL_TIME);
   }
@@ -808,14 +815,8 @@ static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
     feature_set.insert(FEATURE_BIGNUMERIC_TYPE);
   }
 
-  // If the feature set is not empty then wrap the output result in
-  // a feature set map.
-  if (!feature_set.empty()) {
-    result->push_back(QueryParamsWithResult(
-        input, {{feature_set, QueryParamsWithResult::Result(out)}}));
-  } else {
-    result->push_back(QueryParamsWithResult(input, out));
-  }
+  result->push_back(
+      QueryParamsWithResult(input, out).AddRequiredFeatures(feature_set));
 }
 
 // Wraps any test cases that use NUMERIC with FEATURE_NUMERIC_TYPE.
@@ -838,12 +839,11 @@ static void WrapBigNumericTestCases(std::vector<QueryParamsWithResult>* tests) {
   }
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsEqual(
-    bool include_nano_timestamp) {
+std::vector<QueryParamsWithResult> GetFunctionTestsEqual() {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/true,
-           /*include_array_comparisons=*/true, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true)) {
     Value out;
     switch (test.result) {
       case NULL_VALUE:
@@ -859,21 +859,20 @@ std::vector<QueryParamsWithResult> GetFunctionTestsEqual(
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right}, out,
+        {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.right, test.left}, out,
+        {test.right, test.left}, out, test.required_features,
         /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
   }
   return result;
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsNotEqual(
-    bool include_nano_timestamp) {
+std::vector<QueryParamsWithResult> GetFunctionTestsNotEqual() {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/true,
-           /*include_array_comparisons=*/true, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true)) {
     Value out;
     switch (test.result) {
       case NULL_VALUE:
@@ -889,21 +888,20 @@ std::vector<QueryParamsWithResult> GetFunctionTestsNotEqual(
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right}, out,
+        {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.right, test.left}, out,
+        {test.right, test.left}, out, test.required_features,
         /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
   }
   return result;
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsGreater(
-    bool include_nano_timestamp) {
+std::vector<QueryParamsWithResult> GetFunctionTestsGreater() {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/false,
-           /*include_array_comparisons=*/true, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true)) {
     Value out;
     switch (test.result) {
       case NULL_VALUE:
@@ -919,21 +917,21 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreater(
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right}, out,
+        {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? True() : out,
+        test.required_features,
         /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
   }
   return result;
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsGreaterOrEqual(
-    bool include_nano_timestamp) {
+std::vector<QueryParamsWithResult> GetFunctionTestsGreaterOrEqual() {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/false,
-           /*include_array_comparisons=*/true, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true)) {
     Value out;
     switch (test.result) {
       case NULL_VALUE:
@@ -951,21 +949,21 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreaterOrEqual(
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right}, out,
+        {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? True() : out,
+        test.required_features,
         /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
   }
   return result;
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsLess(
-    bool include_nano_timestamp) {
+std::vector<QueryParamsWithResult> GetFunctionTestsLess() {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/false,
-           /*include_array_comparisons=*/true, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true)) {
     Value out;
     switch (test.result) {
       case NULL_VALUE:
@@ -983,21 +981,21 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLess(
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right}, out,
+        {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? False() : out,
+        test.required_features,
         /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
   }
   return result;
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsLessOrEqual(
-    bool include_nano_timestamp) {
+std::vector<QueryParamsWithResult> GetFunctionTestsLessOrEqual() {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/false,
-           /*include_array_comparisons=*/true, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true)) {
     Value out;
     switch (test.result) {
       case NULL_VALUE:
@@ -1015,10 +1013,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLessOrEqual(
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right}, out,
+        {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? False() : out,
+        test.required_features,
         /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
   }
   return result;
@@ -1409,7 +1408,7 @@ GetNullArrayFirstLastTestCases() {
        NullJson(),
        NullJson(),
        OK,
-       {FEATURE_JSON_TYPE, FEATURE_JSON_ARRAY_FUNCTIONS}},
+       {FEATURE_JSON_TYPE}},
       {Value::Null(IntervalArrayType()),
        NullInterval(),
        NullInterval(),
@@ -1581,25 +1580,39 @@ static void AddWrappedSafeArrayFunctionResult(
 
 struct TypeFeaturePair {
   TypeFeaturePair(const Type* type, const Value& example1,
-                  const Value& example2, const Value& example3)
+                  const Value& example2, const Value& example3,
+                  const Value& example4)
       : type(type),
         example_input_1(example1),
         example_input_2(example2),
         example_input_3(example3),
+        example_input_4(example4),
         required_features({}) {}
+
+  TypeFeaturePair(const Type* type, const Value& example1,
+                  const Value& example2, const Value& example3)
+      : TypeFeaturePair(type, example1, example2, example3, Value()) {}
+
+  TypeFeaturePair(const Type* type, const Value& example1,
+                  const Value& example2, const Value& example3,
+                  const Value& example4, LanguageFeature feature)
+      : type(type),
+        example_input_1(example1),
+        example_input_2(example2),
+        example_input_3(example3),
+        example_input_4(example4),
+        required_features({feature}) {}
+
   TypeFeaturePair(const Type* type, const Value& example1,
                   const Value& example2, const Value& example3,
                   LanguageFeature feature)
-      : type(type),
-        example_input_1(example1),
-        example_input_2(example2),
-        example_input_3(example3),
-        required_features({feature}) {}
+      : TypeFeaturePair(type, example1, example2, example3, Value(), feature) {}
 
   const Type* type;
   Value example_input_1;
   Value example_input_2;
   Value example_input_3;
+  Value example_input_4;
   std::set<LanguageFeature> required_features;
 };
 
@@ -1938,6 +1951,559 @@ static const std::vector<QueryParamsWithResult> GetArraySliceTestCases(
   return test_cases;
 }
 
+static const std::vector<TypeFeaturePair>
+GetOrderableTypesWithFeaturesAndValues() {
+  // All type-feature pairs have 4 example inputs.
+  // example_input_1 to example_input_4 are designed to be in ascending order.
+  // example_input_2 and example_input_3 have equal values.
+  return {
+      {FloatType(), Float(float_neg_inf), Float(-3.3), Float(-3.3),
+       Float(float_pos_inf)},
+      {DoubleType(), Double(double_neg_inf), Double(1.2), Double(1.2),
+       Double(double_pos_inf)},
+      {Int32Type(), Int32(int32min), Int32(1), Int32(1), Int32(int32max)},
+      {Int64Type(), Int64(int64min), Int64(-3), Int64(-3), Int64(int64max)},
+      {Uint32Type(), Uint32(0), Uint32(0x7FFFFFFF), Uint32(0x7FFFFFFF),
+       Uint32(uint32max)},
+      {Uint64Type(), Uint64(0), Uint64(-3), Uint64(-3), Uint64(uint64max)},
+      {BoolType(), Bool(false), Bool(true), Bool(true), Bool(true)},
+      {StringType(), String(""), String("A"), String("A"), String("a")},
+      {BytesType(), Bytes("0x00"), Bytes("0xAA"), Bytes("0xAA"), Bytes("0xFF")},
+      {TimestampType(), Timestamp(timestamp_min), Timestamp(1500000000),
+       Timestamp(1500000000), Timestamp(timestamp_max)},
+      {DateType(), Date(date_min), DateFromStr("1960-01-07"),
+       DateFromStr("1960-01-07"), Date(date_max)},
+      {NumericType(), Numeric(NumericValue::MinValue()), Numeric(-3),
+       Numeric(-3), Numeric(NumericValue::MaxValue()), FEATURE_NUMERIC_TYPE},
+      {BigNumericType(), BigNumeric(BigNumericValue::MinValue()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.456").value()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.456").value()),
+       BigNumeric(BigNumericValue::MaxValue()), FEATURE_BIGNUMERIC_TYPE},
+      {IntervalType(), Interval(IntervalValue::MinValue()),
+       Interval(IntervalValue::FromDays(30).value()),
+       Interval(IntervalValue::FromMonths(1).value()),
+       Interval(IntervalValue::MaxValue()), FEATURE_INTERVAL_TYPE},
+      {TimeType(), TimeMicros(0, 0, 0, 0), TimeMicros(1, 2, 3, 4),
+       TimeMicros(1, 2, 3, 4), TimeMicros(1, 2, 3, 123450),
+       FEATURE_V_1_2_CIVIL_TIME},
+      {DatetimeType(), DatetimeMicros(2006, 1, 2, 3, 4, 5, 123456),
+       DatetimeMicros(2022, 1, 2, 3, 4, 5, 123456),
+       DatetimeMicros(2022, 1, 2, 3, 4, 5, 123456),
+       DatetimeMicros(2022, 12, 24, 1, 2, 3, 123456), FEATURE_V_1_2_CIVIL_TIME},
+      // Enum
+      {
+          TestEnumType(),
+          Value::Enum(TestEnumType(), 0),
+          Value::Enum(TestEnumType(), 1),
+          Value::Enum(TestEnumType(), 1),
+          Value::Enum(TestEnumType(), 0x000000002),
+      },
+  };
+}
+
+static const std::vector<QueryParamsWithResult> GetArrayMinMaxTestCases(
+    bool is_safe, bool is_min) {
+  std::vector<QueryParamsWithResult> test_cases;
+  std::vector<TypeFeaturePair> pairs = GetOrderableTypesWithFeaturesAndValues();
+  ZETASQL_DCHECK_GT(pairs.size(), 0);
+  for (const TypeFeaturePair& v : pairs) {
+    // Setup array values with different example input combinations, which are
+    // used as input of the test cases.
+    ZETASQL_DCHECK(v.example_input_4.is_valid());
+    const ArrayType* array_type = MakeArrayType(v.type, type_factory());
+    Value null = Null(v.type);
+    Value input1234 =
+        values::Array(array_type, {v.example_input_1, v.example_input_2,
+                                   v.example_input_3, v.example_input_4});
+    Value input4132 =
+        values::Array(array_type, {v.example_input_4, v.example_input_1,
+                                   v.example_input_3, v.example_input_2});
+
+    Value input234 = values::Array(
+        array_type, {v.example_input_2, v.example_input_3, v.example_input_4});
+    Value input342 = values::Array(
+        array_type, {v.example_input_3, v.example_input_4, v.example_input_2});
+    Value input123 = values::Array(
+        array_type, {v.example_input_1, v.example_input_2, v.example_input_3});
+    Value input321 = values::Array(
+        array_type, {v.example_input_3, v.example_input_2, v.example_input_1});
+
+    Value input23 =
+        values::Array(array_type, {v.example_input_2, v.example_input_3});
+    Value input32 =
+        values::Array(array_type, {v.example_input_3, v.example_input_2});
+    Value input2 = values::Array(array_type, {v.example_input_2});
+
+    Value input_nulls = values::Array(array_type, {null, null});
+    Value input_null_4132 =
+        values::Array(array_type, {null, v.example_input_4, v.example_input_1,
+                                   v.example_input_3, v.example_input_2});
+    Value input_234_null = values::Array(
+        array_type,
+        {v.example_input_2, v.example_input_3, v.example_input_4, null});
+    Value input_342_null = values::Array(
+        array_type,
+        {v.example_input_3, v.example_input_4, v.example_input_2, null});
+    Value input_123_null = values::Array(
+        array_type,
+        {v.example_input_1, v.example_input_2, v.example_input_3, null});
+    Value input_321_null = values::Array(
+        array_type,
+        {v.example_input_3, v.example_input_2, v.example_input_1, null});
+    Value input_2_null = values::Array(array_type, {v.example_input_2, null});
+
+    size_t existing_num_tests = test_cases.size();
+    // 1. Empty array argument.
+    test_cases.push_back(
+        QueryParamsWithResult({Value::EmptyArray(array_type)}, null));
+
+    // 2. NULL array argument.
+    test_cases.push_back(
+        QueryParamsWithResult({Value::Null(array_type)}, null));
+
+    // 3. Array argument with all NULL elements.
+    test_cases.push_back(QueryParamsWithResult({input_nulls}, null));
+
+    // 4. When array has singleton value, returns the same value.
+    test_cases.push_back(QueryParamsWithResult({input2}, v.example_input_2));
+
+    test_cases.push_back(
+        QueryParamsWithResult({input_2_null}, v.example_input_2));
+
+    if (is_min) {
+      // Test cases for ARRAY_MIN
+      // 5. Array argument with non-NULL elements, returns the smallest.
+      // 5.1 When the smallest element does not have tie, returns the smallest.
+      test_cases.push_back(
+          QueryParamsWithResult({input1234}, v.example_input_1));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input4132}, v.example_input_1));
+
+      // 5.2 When the smallest elements have ties, returns the one with smaller
+      // offset.
+      test_cases.push_back(
+          QueryParamsWithResult({input234}, v.example_input_2));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input342}, v.example_input_3));
+
+      test_cases.push_back(QueryParamsWithResult({input23}, v.example_input_2));
+
+      test_cases.push_back(QueryParamsWithResult({input32}, v.example_input_3));
+
+      // 6. Array argument with NULL and non-NULL elements, returns the smallest
+      // among non-NULL elements.
+      // 6.1 When the smallest element does not have tie, returns the smallest.
+      test_cases.push_back(
+          QueryParamsWithResult({input_null_4132}, v.example_input_1));
+
+      // 6.2 When the smallest elements have ties, returns the one with smaller
+      // offset.
+      test_cases.push_back(
+          QueryParamsWithResult({input_342_null}, v.example_input_3));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input_234_null}, v.example_input_2));
+    } else {
+      // Test cases for ARRAY_MAX
+      // 5. Array argument with non-NULL elements, returns the largest.
+      // 5.1 When the largest element does not have tie, returns the largest.
+      test_cases.push_back(
+          QueryParamsWithResult({input1234}, v.example_input_4));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input4132}, v.example_input_4));
+
+      // 5.2 When the largest elements have ties, returns the one with smaller
+      // offset.
+      test_cases.push_back(
+          QueryParamsWithResult({input123}, v.example_input_2));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input321}, v.example_input_3));
+
+      test_cases.push_back(QueryParamsWithResult({input23}, v.example_input_2));
+
+      test_cases.push_back(QueryParamsWithResult({input32}, v.example_input_3));
+
+      // 6. Array argument with NULL and non-NULL elements, returns the largest
+      // among non-NULL elements.
+      // 6.1 When the largest element does not have tie, returns the largest.
+      test_cases.push_back(
+          QueryParamsWithResult({input_null_4132}, v.example_input_4));
+
+      // 6.2 When the largest elements have ties, returns the one with smaller
+      // offset.
+      test_cases.push_back(
+          QueryParamsWithResult({input_123_null}, v.example_input_2));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input_321_null}, v.example_input_3));
+    }
+
+    // 7. Floating point array argument with NAN element saturation.
+    if (v.type->IsFloatingPoint()) {
+      Value nan = v.type->IsFloat() ? Value::Float(float_nan)
+                                    : Value::Double(double_nan);
+      // 7.1 Array argument with non-NULL elements
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {v.example_input_2, v.example_input_3, nan})},
+          nan));
+
+      // 7.2 Array argument with NULL and non-NULL elements
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {null, v.example_input_2, v.example_input_3, nan})},
+          nan));
+    }
+    for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
+      if (is_safe) {
+        test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+      }
+      test_cases[i]
+          .AddRequiredFeatures(v.required_features)
+          .AddProhibitedFeature(FEATURE_DISABLE_ARRAY_MIN_AND_MAX);
+    }
+  }
+  return test_cases;
+}
+
+struct ArraySumAvgTestCase {
+  ArraySumAvgTestCase(const Type* type, const Value& min, const Value& example1,
+                      const Value& example2, const Value& max,
+                      const Value& output_sum, const Value& output_avg)
+      : type(type),
+        min_input(min),
+        example_input_1(example1),
+        example_input_2(example2),
+        max_input(max),
+        example_output_sum(output_sum),
+        example_output_avg(output_avg),
+        required_features({}) {}
+
+  ArraySumAvgTestCase(const Type* type, const Value& min, const Value& example1,
+                      const Value& example2, const Value& max,
+                      const Value& output_sum, const Value& output_avg,
+                      LanguageFeature feature)
+      : type(type),
+        min_input(min),
+        example_input_1(example1),
+        example_input_2(example2),
+        max_input(max),
+        example_output_sum(output_sum),
+        example_output_avg(output_avg),
+        required_features({feature}) {}
+
+  // Element type of array argument of the test cases. The type has to be either
+  // numerical or interval type.
+  const Type* type;
+  Value min_input;
+  Value example_input_1;
+  Value example_input_2;
+  Value max_input;
+  Value example_output_sum;
+  Value example_output_avg;
+  std::set<LanguageFeature> required_features;
+};
+
+// Generate element types, required features, and example values.
+// They will be used as test cases for ARRAY_SUM and ARRAY_AVG. Example
+// values include two extreme values (min and max), two non-overflowing values
+// whose sum is also non-overflowing, and the sum and avg for the two
+// non-overflowing values.
+// Note that, it is expected to see undeterminism in floating point summation
+// and average. The values here are added for reference purpose.
+static const std::vector<ArraySumAvgTestCase>
+GetSumAvgNumericalAndIntervalTypesWithFeatures() {
+  return {
+      {FloatType(), Float(floatmin), Float(-1.2), Float(3.3), Float(floatmax),
+       Double(2.1), Double(1.05)},
+      {DoubleType(), Double(doublemin), Double(10.2), Double(-13.3),
+       Double(doublemax), Double(-3.1), Double(-1.55)},
+      {Int32Type(), Int32(int32min), Int32(-9), Int32(4), Int32(int32max),
+       Int64(-5), Double(-2.5)},
+      {Int64Type(), Int64(int64min), Int64(int32min_minus_one),
+       Int64(int32max_plus_one), Int64(int64max), Int64(-1), Double(-0.5)},
+      {Uint32Type(), Uint32(0), Uint32(1), Uint32(4), Uint32(uint32max),
+       Uint64(5), Double(2.5)},
+      {Uint64Type(), Uint64(0), Uint64(0x7FFFFFFFFFFFFFFF),
+       Uint64(0x7FFFFFFFFFFFFFFF), Uint64(uint64max),
+       Uint64(0xFFFFFFFFFFFFFFFE), Uint64(0x7FFFFFFFFFFFFFFF)},
+      {NumericType(), Numeric(NumericValue::MinValue()), Numeric(3), Numeric(3),
+       Numeric(NumericValue::MaxValue()), Numeric(6), Numeric(3),
+       FEATURE_NUMERIC_TYPE},
+      {BigNumericType(), BigNumeric(BigNumericValue::MinValue()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.5").value()),
+       BigNumeric(BigNumericValue::FromStringStrict("124").value()),
+       BigNumeric(BigNumericValue::MaxValue()),
+       BigNumeric(BigNumericValue::FromStringStrict("247.5").value()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.75").value()),
+       FEATURE_BIGNUMERIC_TYPE},
+      {IntervalType(), Interval(IntervalValue::MinValue()),
+       Interval(IntervalValue::FromDays(30).value()),
+       Interval(IntervalValue::FromMonths(1).value()),
+       Interval(IntervalValue::MaxValue()),
+       Interval(IntervalValue::FromMonthsDaysMicros(1, 30, 0).value()),
+       Interval(IntervalValue::FromDays(30).value()), FEATURE_INTERVAL_TYPE}};
+}
+
+static const std::vector<QueryParamsWithResult> GetArraySumTestCases(
+    bool is_safe) {
+  Value twice_int32_max = Value::Int64(static_cast<int64_t>(int32max) +
+                                       static_cast<int64_t>(int32max));
+  Value twice_int32_min = Value::Int64(static_cast<int64_t>(int32min) +
+                                       static_cast<int64_t>(int32min));
+  Value twice_uint32_max = Value::Uint64(static_cast<uint64_t>(uint32max) +
+                                         static_cast<uint64_t>(uint32max));
+  Value twice_float_max = Value::Double(static_cast<double>(floatmax) +
+                                        static_cast<double>(floatmax));
+  Value twice_float_min = Value::Double(static_cast<double>(floatmin) +
+                                        static_cast<double>(floatmin));
+
+  std::vector<QueryParamsWithResult> test_cases;
+  std::vector<ArraySumAvgTestCase> raw_test_cases =
+      GetSumAvgNumericalAndIntervalTypesWithFeatures();
+
+  for (const ArraySumAvgTestCase& v : raw_test_cases) {
+    // Set up values with superset types for INT32, UINT32 and FLOAT.
+    Value input_null = Null(v.type);
+    Value output_null = input_null;
+    Value output_1 = v.example_input_1;
+    switch (v.type->kind()) {
+      case TYPE_INT32:
+        output_null = NullInt64();
+        output_1 = Value::Int64(v.example_input_1.ToInt64());
+        break;
+      case TYPE_UINT32:
+        output_null = NullUint64();
+        output_1 = Value::Uint64(v.example_input_1.ToUint64());
+        break;
+      case TYPE_FLOAT:
+        output_null = NullDouble();
+        output_1 = Value::Double(v.example_input_1.ToDouble());
+        break;
+      default:
+        break;
+    }
+    EXPECT_EQ(output_null.type()->kind(), v.example_output_sum.type()->kind());
+
+    // Setup array values with different example inputs. They will be used as
+    // input of the test cases.
+    const ArrayType* array_type = MakeArrayType(v.type, type_factory());
+    Value input1 = values::Array(array_type, {v.example_input_1});
+    Value input_1_null =
+        values::Array(array_type, {v.example_input_1, input_null});
+    Value input12 =
+        values::Array(array_type, {v.example_input_1, v.example_input_2});
+    Value input_12_null = values::Array(
+        array_type, {v.example_input_1, v.example_input_2, input_null});
+    Value input_max_max = values::Array(array_type, {v.max_input, v.max_input});
+    Value input_max_max_null =
+        values::Array(array_type, {v.max_input, v.max_input, input_null});
+    Value input_min_min = values::Array(array_type, {v.min_input, v.min_input});
+    Value input_min_min_null =
+        values::Array(array_type, {v.min_input, v.min_input, input_null});
+    Value input_nulls = values::Array(array_type, {input_null, input_null});
+
+    size_t existing_num_tests = test_cases.size();
+    // 1. Empty array argument.
+    test_cases.push_back(
+        QueryParamsWithResult({Value::EmptyArray(array_type)}, output_null));
+
+    // 2. NULL array argument.
+    test_cases.push_back(
+        QueryParamsWithResult({Value::Null(array_type)}, output_null));
+
+    // 3. Array argument with all NULL elements.
+    test_cases.push_back(QueryParamsWithResult({input_nulls}, output_null));
+
+    // 4. Array argument with non-extreme elements.
+    if (!v.type->IsFloatingPoint()) {
+      // 4.1 For non-floating point element types, the result comparison uses
+      // exact matching floating point margin kExactFloatMargin by default.
+      // 4.1.1 Non-extreme elements without NULL.
+      test_cases.push_back(QueryParamsWithResult({input1}, output_1));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input12}, v.example_output_sum));
+
+      // 4.1.2 Non-extreme elements with NULL.
+      test_cases.push_back(QueryParamsWithResult({input_1_null}, output_1));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input_12_null}, v.example_output_sum));
+    } else {
+      // 4.2 For floating point element types, the result comparison uses
+      // non-precise floating point margin setting with the lowest possible ULP.
+      FloatMargin margin = FloatMargin::UlpMargin(28);
+      // 4.2.1 Non-extreme elements without NULL.
+      test_cases.push_back(QueryParamsWithResult({input1}, output_1, margin));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input12}, v.example_output_sum, margin));
+
+      // 4.2.2 Non-extreme elements with NULL.
+      test_cases.push_back(
+          QueryParamsWithResult({input_1_null}, output_1, margin));
+
+      test_cases.push_back(
+          QueryParamsWithResult({input_12_null}, v.example_output_sum, margin));
+    }
+
+    // 5. Array argument produces overflow in the positive range sometimes.
+    if (v.type->IsInt32() || v.type->IsUint32() || v.type->IsFloat()) {
+      // 5.1 For array argument with element type INT32, UINT32, or FLOAT,
+      // adding not enough positive extreme elements DOES NOT produce overflow.
+      Value output_two_max = twice_int32_max;
+      if (v.type->IsUint32()) {
+        output_two_max = twice_uint32_max;
+      } else if (v.type->IsFloat()) {
+        output_two_max = twice_float_max;
+      }
+
+      // 5.1.1 Upper-bound extreme elements without NULL.
+      test_cases.push_back(
+          QueryParamsWithResult({input_max_max}, output_two_max));
+
+      // 5.1.2 Upper-bound extreme elements with NULL.
+      test_cases.push_back(
+          QueryParamsWithResult({input_max_max_null}, output_two_max));
+    } else {
+      // 5.2 For array argument with element type INT64, UINT64, DOUBLE,
+      // NUMERIC, BIGNUMERIC, or INTERVAL, adding positive extreme elements DOES
+      // easily produce positive overflow.
+      // 5.2.1 Upper-bound extreme elements without NULL.
+      test_cases.push_back(QueryParamsWithResult({input_max_max}, output_null,
+                                                 is_safe ? OK : OUT_OF_RANGE));
+
+      // 5.2.2 Upper-bound extreme elements with NULL.
+      test_cases.push_back(QueryParamsWithResult(
+          {input_max_max_null}, output_null, is_safe ? OK : OUT_OF_RANGE));
+    }
+
+    // 6. Array argument produces overflow in the negative range sometimes.
+    // Note that, UINT32 and UINT64 are not tested here since the minimum are 0.
+    if (v.type->IsInt32() || v.type->IsFloat()) {
+      // 6.1 For array argument with element type INT32 or FLOAT, adding not
+      // enough negative extreme elements DOES NOT produce negative overflow.
+      Value output_two_min = twice_int32_min;
+      if (v.type->IsFloat()) {
+        output_two_min = twice_float_min;
+      }
+
+      // 6.1.1 Lower-bound extreme elements without NULL.
+      test_cases.push_back(
+          QueryParamsWithResult({input_min_min}, output_two_min));
+
+      // 6.1.2 Lower-bound extreme elements with NULL.
+      test_cases.push_back(
+          QueryParamsWithResult({input_min_min_null}, output_two_min));
+    } else if (v.type->IsInt64() || v.type->IsDouble() ||
+               v.type->IsNumericType() || v.type->IsBigNumericType() ||
+               v.type->IsInterval()) {
+      // 6.2 For array argument with element type INT64, DOUBLE, NUMERIC,
+      // BIGNUMERIC, or INTERVAL, adding negative extreme elements DOES easily
+      // produce negative overflow.
+      // 6.2.1 Lower-bound extreme elements without NULL.
+      test_cases.push_back(QueryParamsWithResult({input_min_min}, output_null,
+                                                 is_safe ? OK : OUT_OF_RANGE));
+
+      // 6.2.2 Lower-bound extreme elements with NULL.
+      test_cases.push_back(QueryParamsWithResult(
+          {input_min_min_null}, output_null, is_safe ? OK : OUT_OF_RANGE));
+    }
+
+    // 7. Floating point array argument has special rules.
+    if (v.type->IsFloatingPoint()) {
+      Value input_nan = v.type->IsFloat() ? Value::Float(float_nan)
+                                          : Value::Double(double_nan);
+      Value output_nan = Value::Double(double_nan);
+      Value input_pos_inf = v.type->IsFloat() ? Value::Float(float_pos_inf)
+                                              : Value::Double(double_pos_inf);
+      Value output_pos_inf = Value::Double(double_pos_inf);
+      Value input_neg_inf = v.type->IsFloat() ? Value::Float(float_neg_inf)
+                                              : Value::Double(double_neg_inf);
+      Value output_neg_inf = Value::Double(double_neg_inf);
+
+      // 7.1 FP elements containing +inf will produce +inf.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_pos_inf, v.example_input_1,
+                                      v.example_input_2})},
+          output_pos_inf));
+
+      // 7.2 FP elements containing +inf and NULL will produce +inf.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_pos_inf, v.example_input_1,
+                                      v.example_input_2, input_null})},
+          output_pos_inf));
+
+      // 7.3 FP elements containing -inf and NULL will produce -inf.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_neg_inf, v.example_input_1,
+                                      v.example_input_2})},
+          output_neg_inf));
+
+      // 7.4 FP elements containing -inf and NULL will produce -inf.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_neg_inf, v.example_input_1,
+                                      v.example_input_2, input_null})},
+          output_neg_inf));
+
+      // 7.5 FP elements containing +inf and -inf will produce NAN.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_neg_inf, input_pos_inf,
+                                      v.example_input_1, v.example_input_2})},
+          output_nan));
+
+      // 7.6 FP elements containing +inf, -inf and NULL will produce NAN.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {input_neg_inf, input_pos_inf, v.example_input_1,
+                          v.example_input_2, input_null})},
+          output_nan));
+
+      // 7.7 FP elements containing NAN will produce NAN.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {input_nan, v.example_input_1, v.example_input_2})},
+          output_nan));
+
+      // 7.8 FP elements containing NAN and NULL will produce NAN.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, v.example_input_1,
+                                      v.example_input_2, input_null})},
+          output_nan));
+
+      // 7.9 FP elements containing NAN, -inf and +inf will produce NAN.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, input_pos_inf, input_neg_inf,
+                                      v.example_input_1, v.example_input_2})},
+          output_nan));
+    }
+
+    for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
+      if (is_safe) {
+        test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+      }
+      // TODO: Remove opt-in required feature
+      // FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS and use opt-out prohibited
+      // feature FEATURE_DISABLE_ARRAY_SUM_AND_AVG instead when ARRAY_SUM and
+      // ARRAY_AVG are both done.
+      QueryParamsWithResult::FeatureSet feature_set;
+      feature_set.insert(FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS);
+      if (!v.required_features.empty()) {
+        for (const LanguageFeature& feature : v.required_features) {
+          feature_set.insert(feature);
+        }
+      }
+      test_cases[i].AddRequiredFeatures(feature_set);
+    }
+  }
+  return test_cases;
+}
+
 static std::vector<QueryParamsWithResult>
 GetAndAddWrappedArrayFirstLastFunctionTestResult(bool is_safe, bool is_first) {
   std::vector<ArrayFirstLastTestCase> test_cases = GetArrayFirstLastTestCases();
@@ -1966,12 +2532,23 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArraySlice(bool is_safe) {
   return GetArraySliceTestCases(is_safe);
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
-    bool include_nano_timestamp) {
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayMin(bool is_safe) {
+  return GetArrayMinMaxTestCases(is_safe, /*is_min=*/true);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayMax(bool is_safe) {
+  return GetArrayMinMaxTestCases(is_safe, /*is_min=*/false);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArraySum(bool is_safe) {
+  return GetArraySumTestCases(is_safe);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsGreatest() {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/false,
-           /*include_array_comparisons=*/true, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true)) {
     // TODO: This should be 'Equivalent()', not 'Equals()'.  Need
     // to add tests that illustrate the difference.
     if (!test.left.type()->Equals(test.right.type())) {
@@ -2007,25 +2584,25 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
     }
     // Binary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right}, out,
+        {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/
         {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
         &result);
     // Reverse binary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.right, test.left}, out,
+        {test.right, test.left}, out, test.required_features,
         /*array_language_features=*/
         {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
         &result);
     // Ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.right, test.left, test.right}, out,
+        {test.right, test.left, test.right}, out, test.required_features,
         /*array_language_features=*/
         {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
         &result);
     // Reverse ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right, test.left}, out,
+        {test.left, test.right, test.left}, out, test.required_features,
         /*array_language_features=*/
         {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
         &result);
@@ -2033,12 +2610,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
   return result;
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsLeast(
-    bool include_nano_timestamp) {
+std::vector<QueryParamsWithResult> GetFunctionTestsLeast() {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/false,
-           /*include_array_comparisons=*/true, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true)) {
     // TODO: This should be 'Equivalent()', not 'Equals()'.  Need
     // to add tests that illustrate the difference.
     if (!test.left.type()->Equals(test.right.type())) {
@@ -2073,25 +2649,25 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLeast(
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right}, out,
+        {test.left, test.right}, out, test.required_features,
         /*array_language_features=*/
         {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
         &result);
     // Reverse binary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.right, test.left}, out,
+        {test.right, test.left}, out, test.required_features,
         /*array_language_features=*/
         {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
         &result);
     // Ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.right, test.left, test.right}, out,
+        {test.right, test.left, test.right}, out, test.required_features,
         /*array_language_features=*/
         {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
         &result);
     // Reverse ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
-        {test.left, test.right, test.left}, out,
+        {test.left, test.right, test.left}, out, test.required_features,
         /*array_language_features=*/
         {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
         &result);
@@ -2580,11 +3156,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSafeAtOffset() {
   // position is out of bounds.
   std::vector<QueryParamsWithResult> offset_tests = GetFunctionTestsAtOffset();
   for (auto& offset_test : offset_tests) {
-    QueryParamsWithResult::ResultMap new_result_map = offset_test.results();
-    for (auto& result : new_result_map) {
-      result.second.status = absl::OkStatus();
-    }
-    offset_test.set_results(new_result_map);
+    offset_test.MutateResult([](QueryParamsWithResult::Result& mutable_result) {
+      mutable_result.status = absl::OkStatus();
+    });
   }
   return offset_tests;
 }
@@ -2621,9 +3195,8 @@ static QueryParamsWithResult BuildArrayEqualityQueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
     const ValueConstructor& result,
     const Value& null_value) {
-  return QueryParamsWithResult(arguments,
-                               {{{FEATURE_V_1_1_ARRAY_EQUALITY},
-                                 QueryParamsWithResult::Result(result)}});
+  return QueryParamsWithResult(arguments, result)
+      .AddRequiredFeature(FEATURE_V_1_1_ARRAY_EQUALITY);
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsNullIf() {
@@ -3501,7 +4074,7 @@ std::vector<QueryParamsWithResult>  GetFunctionTestsFromProto3TimeOfDay() {
   std::vector<QueryParamsWithResult> result;
   result.reserve(test_cases.size());
   for (const CivilTimeTestCase& test : test_cases) {
-    result.push_back(WrapResultForCivilTimeAndNanos(test));
+    AddTestCaseWithWrappedResultForCivilTimeAndNanos(test, &result);
   }
 
   return result;
@@ -3551,7 +4124,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay() {
       {{TimeFromStr("13:30:17.000987")}, Proto3TimeOfDay(13, 30, 17, 987000)},
       {{TimeFromStr("02:00:59")}, Proto3TimeOfDay(02, 0, 59, 0)},
       {{Proto3TimeOfDay(13, 30, 17, 987000)},
-       Proto3TimeOfDay(13, 30, 17, 987000)}};
+       Proto3TimeOfDay(13, 30, 17, 987000)},
+      // The signature from PROTO to PROTO is a no-op, so nanos will flow
+      // through even when the TIMESTAMP_NANOS feature is not enabled.
+      {{Proto3TimeOfDay(13, 30, 17, 123456789)},
+       Proto3TimeOfDay(13, 30, 17, 123456789)}};
 
   for (auto&& test : test_cases) {
     test = test.WrapWithFeature(FEATURE_V_1_2_CIVIL_TIME);
@@ -3569,8 +4146,6 @@ std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay() {
       {{TimeFromStr("13:30:17.000987654", functions::kNanoseconds)},
        Proto3TimeOfDay(13, 30, 17, 987654)},
       {{TimeFromStr("13:30:17.123456789", functions::kNanoseconds)},
-       Proto3TimeOfDay(13, 30, 17, 123456789)},
-      {{Proto3TimeOfDay(13, 30, 17, 123456789)},
        Proto3TimeOfDay(13, 30, 17, 123456789)}};
 
   for (auto&& test : nanos_test_cases) {

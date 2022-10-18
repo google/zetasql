@@ -1,18 +1,15 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 select * from KEYWORD_AS_IDENTIFIER_SENTINEL;
 --
-QueryStatement [0-44]
-  Query [0-44]
-    Select [0-44]
-      SelectList [7-8]
-        SelectColumn [7-8]
-          Star(*) [7-8]
-      FromClause [9-44]
-        TablePathExpression [14-44]
-          PathExpression [14-44]
-            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL) [14-44]
+QueryStatement [0-44] [select * from...IFIER_SENTINEL]
+  Query [0-44] [select * from...IFIER_SENTINEL]
+    Select [0-44] [select * from...IFIER_SENTINEL]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-44] [from KEYWORD_AS_I...R_SENTINEL]
+        TablePathExpression [14-44] [KEYWORD_AS_IDENTIFIER_SENTINEL]
+          PathExpression [14-44] [KEYWORD_AS_IDENTIFIER_SENTINEL]
+            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL) [14-44] [KEYWORD_AS_IDENTIFIER_SENTINEL]
 --
 SELECT
   *
@@ -22,14 +19,14 @@ FROM
 
 select 1 AS KEYWORD_AS_IDENTIFIER_SENTINEL;
 --
-QueryStatement [0-42]
-  Query [0-42]
-    Select [0-42]
-      SelectList [7-42]
-        SelectColumn [7-42]
-          IntLiteral(1) [7-8]
-          Alias [9-42]
-            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL) [12-42]
+QueryStatement [0-42] [select 1 AS...NTIFIER_SENTINEL]
+  Query [0-42] [select 1 AS...NTIFIER_SENTINEL]
+    Select [0-42] [select 1 AS...NTIFIER_SENTINEL]
+      SelectList [7-42] [1 AS KEYWORD_AS_I...R_SENTINEL]
+        SelectColumn [7-42] [1 AS KEYWORD_AS_I...R_SENTINEL]
+          IntLiteral(1) [7-8] [1]
+          Alias [9-42] [AS KEYWORD_AS_IDE...R_SENTINEL]
+            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL) [12-42] [KEYWORD_AS_IDENTIFIER_SENTINEL]
 --
 SELECT
   1 AS KEYWORD_AS_IDENTIFIER_SENTINEL
@@ -37,18 +34,18 @@ SELECT
 
 select * from test AS KEYWORD_AS_IDENTIFIER_SENTINEL;
 --
-QueryStatement [0-52]
-  Query [0-52]
-    Select [0-52]
-      SelectList [7-8]
-        SelectColumn [7-8]
-          Star(*) [7-8]
-      FromClause [9-52]
-        TablePathExpression [14-52]
-          PathExpression [14-18]
-            Identifier(test) [14-18]
-          Alias [19-52]
-            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL) [22-52]
+QueryStatement [0-52] [select * from...IFIER_SENTINEL]
+  Query [0-52] [select * from...IFIER_SENTINEL]
+    Select [0-52] [select * from...IFIER_SENTINEL]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-52] [from test...DENTIFIER_SENTINEL]
+        TablePathExpression [14-52] [test AS KEYWORD_A...R_SENTINEL]
+          PathExpression [14-18] [test]
+            Identifier(test) [14-18] [test]
+          Alias [19-52] [AS KEYWORD_AS_IDE...R_SENTINEL]
+            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL) [22-52] [KEYWORD_AS_IDENTIFIER_SENTINEL]
 --
 SELECT
   *
@@ -58,16 +55,16 @@ FROM
 
 select * from KEYWORD_AS_IDENTIFIER_SENTINEL_prefix;
 --
-QueryStatement [0-51]
-  Query [0-51]
-    Select [0-51]
-      SelectList [7-8]
-        SelectColumn [7-8]
-          Star(*) [7-8]
-      FromClause [9-51]
-        TablePathExpression [14-51]
-          PathExpression [14-51]
-            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL_prefix) [14-51]
+QueryStatement [0-51] [select * from...ENTINEL_prefix]
+  Query [0-51] [select * from...ENTINEL_prefix]
+    Select [0-51] [select * from...ENTINEL_prefix]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-51] [from KEYWORD_AS_I...NEL_prefix]
+        TablePathExpression [14-51] [KEYWORD_AS_IDENTI...NEL_prefix]
+          PathExpression [14-51] [KEYWORD_AS_IDENTI...NEL_prefix]
+            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL_prefix) [14-51] [KEYWORD_AS_IDENTI...NEL_prefix]
 --
 SELECT
   *
@@ -77,19 +74,18 @@ FROM
 
 select * from suffix_KEYWORD_AS_IDENTIFIER_SENTINEL;
 --
-QueryStatement [0-51]
-  Query [0-51]
-    Select [0-51]
-      SelectList [7-8]
-        SelectColumn [7-8]
-          Star(*) [7-8]
-      FromClause [9-51]
-        TablePathExpression [14-51]
-          PathExpression [14-51]
-            Identifier(suffix_KEYWORD_AS_IDENTIFIER_SENTINEL) [14-51]
+QueryStatement [0-51] [select * from...IFIER_SENTINEL]
+  Query [0-51] [select * from...IFIER_SENTINEL]
+    Select [0-51] [select * from...IFIER_SENTINEL]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-51] [from suffix_KEYWO...R_SENTINEL]
+        TablePathExpression [14-51] [suffix_KEYWORD_AS...R_SENTINEL]
+          PathExpression [14-51] [suffix_KEYWORD_AS...R_SENTINEL]
+            Identifier(suffix_KEYWORD_AS_IDENTIFIER_SENTINEL) [14-51] [suffix_KEYWORD_AS...R_SENTINEL]
 --
 SELECT
   *
 FROM
   suffix_KEYWORD_AS_IDENTIFIER_SENTINEL
-==

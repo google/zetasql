@@ -23,6 +23,7 @@
 
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/container_type.h"
 #include "zetasql/public/types/type.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
@@ -39,7 +40,7 @@ class TypeParameters;
 class ValueContent;
 class ValueProto;
 
-class ArrayType : public Type {
+class ArrayType : public ContainerType {
  public:
 #ifndef SWIG
   ArrayType(const ArrayType&) = delete;
@@ -100,6 +101,21 @@ class ArrayType : public Type {
     return sizeof(*this);
   }
 
+  std::string GetFormatPrefix(
+      const ValueContent& value_content,
+      const Type::FormatValueContentOptions& options) const override;
+
+  char GetFormatClosingCharacter(
+      const Type::FormatValueContentOptions& options) const override;
+
+  const Type* GetElementType(int index) const override;
+
+  std::string GetFormatElementPrefix(
+      const int index, const bool is_null,
+      const FormatValueContentOptions& options) const override {
+    return "";
+  }
+
  private:
   ArrayType(const TypeFactory* factory, const Type* element_type);
   ~ArrayType() override;
@@ -121,14 +137,14 @@ class ArrayType : public Type {
   absl::HashState HashTypeParameter(absl::HashState state) const override;
   absl::HashState HashValueContent(const ValueContent& value,
                                    absl::HashState state) const override;
+  bool EqualElementMultiSet(const ValueContent& x, const ValueContent& y,
+                            const ValueEqualityCheckOptions& options) const;
   bool ValueContentEquals(
       const ValueContent& x, const ValueContent& y,
       const ValueEqualityCheckOptions& options) const override;
   bool ValueContentLess(const ValueContent& x, const ValueContent& y,
                         const Type* other_type) const override;
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
+
   absl::Status SerializeValueContent(const ValueContent& value,
                                      ValueProto* value_proto) const override;
   absl::Status DeserializeValueContent(const ValueProto& value_proto,
@@ -137,6 +153,9 @@ class ArrayType : public Type {
   const Type* const element_type_;
 
   friend class TypeFactory;
+  FRIEND_TEST(TypeTest, FormatValueContentArraySQLLiteralMode);
+  FRIEND_TEST(TypeTest, FormatValueContentArraySQLExpressionMode);
+  FRIEND_TEST(TypeTest, FormatValueContentArrayDebugMode);
 };
 
 }  // namespace zetasql

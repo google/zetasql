@@ -120,7 +120,7 @@ public class StructType extends Type {
     }
 
     public boolean equivalent(StructField other) {
-      return equalsImpl(other, true  /* equivalent */);
+      return equalsImpl(other, /* equivalent= */ true);
     }
 
     /**
@@ -143,7 +143,7 @@ public class StructType extends Type {
     @Override
     public boolean equals(Object other) {
       return (other instanceof StructField)
-          && equalsImpl((StructField) other, false  /* equivalent */);
+          && equalsImpl((StructField) other, /* equivalent= */ false);
     }
 
     @Override

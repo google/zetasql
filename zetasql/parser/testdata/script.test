@@ -1,20 +1,17 @@
 # Script containing a single statement, with terminating semi-colon.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 [default mode=script]
 SELECT 3{{;|}}
 --
 ALTERNATION GROUP: ;
 --
-Script [0-10]
-  StatementList [0-10]
-    QueryStatement [0-8]
-      Query [0-8]
-        Select [0-8]
-          SelectList [7-8]
-            SelectColumn [7-8]
-              IntLiteral(3) [7-8]
+Script [0-10] [SELECT 3;]
+  StatementList [0-10] [SELECT 3;]
+    QueryStatement [0-8] [SELECT 3]
+      Query [0-8] [SELECT 3]
+        Select [0-8] [SELECT 3]
+          SelectList [7-8] [3]
+            SelectColumn [7-8] [3]
+              IntLiteral(3) [7-8] [3]
 --
 SELECT
   3
@@ -22,14 +19,14 @@ SELECT
 --
 ALTERNATION GROUP: <empty>
 --
-Script [0-8]
-  StatementList [0-8]
-    QueryStatement [0-8]
-      Query [0-8]
-        Select [0-8]
-          SelectList [7-8]
-            SelectColumn [7-8]
-              IntLiteral(3) [7-8]
+Script [0-8] [SELECT 3]
+  StatementList [0-8] [SELECT 3]
+    QueryStatement [0-8] [SELECT 3]
+      Query [0-8] [SELECT 3]
+        Select [0-8] [SELECT 3]
+          SelectList [7-8] [3]
+            SelectColumn [7-8] [3]
+              IntLiteral(3) [7-8] [3]
 --
 SELECT
   3
@@ -39,8 +36,8 @@ SELECT
 # Empty script
 
 --
-Script [0-0]
-  StatementList [0-0]
+Script [0-0] []
+  StatementList [0-0] []
 --
 ==
 
@@ -50,20 +47,20 @@ SELECT 3; SELECT 4{{;|}}
 --
 ALTERNATION GROUP: ;
 --
-Script [0-20]
-  StatementList [0-20]
-    QueryStatement [0-8]
-      Query [0-8]
-        Select [0-8]
-          SelectList [7-8]
-            SelectColumn [7-8]
-              IntLiteral(3) [7-8]
-    QueryStatement [10-18]
-      Query [10-18]
-        Select [10-18]
-          SelectList [17-18]
-            SelectColumn [17-18]
-              IntLiteral(4) [17-18]
+Script [0-20] [SELECT 3; SELECT 4;]
+  StatementList [0-20] [SELECT 3; SELECT 4;]
+    QueryStatement [0-8] [SELECT 3]
+      Query [0-8] [SELECT 3]
+        Select [0-8] [SELECT 3]
+          SelectList [7-8] [3]
+            SelectColumn [7-8] [3]
+              IntLiteral(3) [7-8] [3]
+    QueryStatement [10-18] [SELECT 4]
+      Query [10-18] [SELECT 4]
+        Select [10-18] [SELECT 4]
+          SelectList [17-18] [4]
+            SelectColumn [17-18] [4]
+              IntLiteral(4) [17-18] [4]
 --
 SELECT
   3
@@ -74,20 +71,20 @@ SELECT
 --
 ALTERNATION GROUP: <empty>
 --
-Script [0-18]
-  StatementList [0-18]
-    QueryStatement [0-8]
-      Query [0-8]
-        Select [0-8]
-          SelectList [7-8]
-            SelectColumn [7-8]
-              IntLiteral(3) [7-8]
-    QueryStatement [10-18]
-      Query [10-18]
-        Select [10-18]
-          SelectList [17-18]
-            SelectColumn [17-18]
-              IntLiteral(4) [17-18]
+Script [0-18] [SELECT 3; SELECT 4]
+  StatementList [0-18] [SELECT 3; SELECT 4]
+    QueryStatement [0-8] [SELECT 3]
+      Query [0-8] [SELECT 3]
+        Select [0-8] [SELECT 3]
+          SelectList [7-8] [3]
+            SelectColumn [7-8] [3]
+              IntLiteral(3) [7-8] [3]
+    QueryStatement [10-18] [SELECT 4]
+      Query [10-18] [SELECT 4]
+        Select [10-18] [SELECT 4]
+          SelectList [17-18] [4]
+            SelectColumn [17-18] [4]
+              IntLiteral(4) [17-18] [4]
 --
 SELECT
   3
@@ -113,29 +110,29 @@ IF true then
 end if;
 SELECT 11
 --
-Script [0-55]
-  StatementList [0-55]
-    IfStatement [0-44]
-      BooleanLiteral(true) [3-7]
-      StatementList [15-38]
-        QueryStatement [15-23]
-          Query [15-23]
-            Select [15-23]
-              SelectList [22-23]
-                SelectColumn [22-23]
-                  IntLiteral(9) [22-23]
-        QueryStatement [27-36]
-          Query [27-36]
-            Select [27-36]
-              SelectList [34-36]
-                SelectColumn [34-36]
-                  IntLiteral(10) [34-36]
-    QueryStatement [46-55]
-      Query [46-55]
-        Select [46-55]
-          SelectList [53-55]
-            SelectColumn [53-55]
-              IntLiteral(11) [53-55]
+Script [0-55] [IF true then...SELECT 11]
+  StatementList [0-55] [IF true then...SELECT 11]
+    IfStatement [0-44] [IF true then...10; end if]
+      BooleanLiteral(true) [3-7] [true]
+      StatementList [15-38] [select 9;   select 10;]
+        QueryStatement [15-23] [select 9]
+          Query [15-23] [select 9]
+            Select [15-23] [select 9]
+              SelectList [22-23] [9]
+                SelectColumn [22-23] [9]
+                  IntLiteral(9) [22-23] [9]
+        QueryStatement [27-36] [select 10]
+          Query [27-36] [select 10]
+            Select [27-36] [select 10]
+              SelectList [34-36] [10]
+                SelectColumn [34-36] [10]
+                  IntLiteral(10) [34-36] [10]
+    QueryStatement [46-55] [SELECT 11]
+      Query [46-55] [SELECT 11]
+        Select [46-55] [SELECT 11]
+          SelectList [53-55] [11]
+            SelectColumn [53-55] [11]
+              IntLiteral(11) [53-55] [11]
 --
 IF true THEN
   SELECT
@@ -161,17 +158,17 @@ ERROR: Syntax error: Expected end of input but got integer literal "7" [at 1:1]
 SELECT 1;
 EXECUTE IMMEDIATE x;
 --
-Script [0-31]
-  StatementList [0-31]
-    QueryStatement [0-8]
-      Query [0-8]
-        Select [0-8]
-          SelectList [7-8]
-            SelectColumn [7-8]
-              IntLiteral(1) [7-8]
-    ExecuteImmediateStatement [10-29]
-      PathExpression [28-29]
-        Identifier(x) [28-29]
+Script [0-31] [SELECT 1; EXECUTE IMMEDIATE x;]
+  StatementList [0-31] [SELECT 1; EXECUTE IMMEDIATE x;]
+    QueryStatement [0-8] [SELECT 1]
+      Query [0-8] [SELECT 1]
+        Select [0-8] [SELECT 1]
+          SelectList [7-8] [1]
+            SelectColumn [7-8] [1]
+              IntLiteral(1) [7-8] [1]
+    ExecuteImmediateStatement [10-29] [EXECUTE IMMEDIATE x]
+      PathExpression [28-29] [x]
+        Identifier(x) [28-29] [x]
 --
 SELECT
   1

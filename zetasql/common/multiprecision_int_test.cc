@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <optional>
 #include <random>
 #include <sstream>
 #include <string>
@@ -77,6 +78,8 @@ constexpr uint64_t kuint32max = ~static_cast<uint32_t>(0);
 constexpr int64_t kint32max = kuint32max >> 1;
 constexpr int64_t kint32min = ~kint32max;
 constexpr uint32_t k1e9 = 1000000000;
+constexpr uint64_t k1e18 = static_cast<uint64_t>(k1e9) * k1e9;
+constexpr uint64_t k1e19 = k1e18 * 10;
 static constexpr std::array<uint128, 39> kPowersOf10 =
     multiprecision_int_impl::PowersAsc<uint128, 1, 10, 39>();
 
@@ -1142,7 +1145,7 @@ TYPED_TEST(FixedUintGoldenDataTest, DivMod) {
                                      T(rounded_quotient));
     if (quotient != 0) {
       TestDivModWithVariousRhsTypes<T>(x, quotient, T(y + remainder / quotient),
-                                       remainder % quotient, absl::nullopt);
+                                       remainder % quotient, std::nullopt);
     }
   }
   for (const BinaryOpTestData<uint128>& item : kUnsignedMultiplyTestData) {
@@ -1232,9 +1235,8 @@ void TestNegate(V x, T expected_result, bool expected_overflow) {
 }
 
 TYPED_TEST(FixedIntGoldenDataTest, Negate) {
-  static constexpr int128 kTestData[] = {
-    0, 1, 1000, kint64max, kuint64max, kint128max
-  };
+  static constexpr int128 kTestData[] = {0,         1,          1000,
+                                         kint64max, kuint64max, kint128max};
   for (int128 input : kTestData) {
     TestNegate(input, TypeParam(-input), false);
     TestNegate(-input, TypeParam(input), false);
@@ -1349,9 +1351,9 @@ TYPED_TEST(FixedUintGoldenDataTest, ToString) {
   for (auto pair : kUnsignedValueStrings) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
-    if constexpr (sizeof(typename TypeParam::Word) == sizeof(uint32_t)) {
+    if constexpr (sizeof(typename TypeParam::Word) == sizeof(uint64_t)) {
       auto number = value.number();
-      EXPECT_EQ(pair.second, VarUintRef<32>(number).ToString());
+      EXPECT_EQ(pair.second, VarUintRef<64>(number).ToString());
     }
   }
   for (size_t i = 1; i < kPowersOf10.size(); ++i) {
@@ -1365,9 +1367,9 @@ TYPED_TEST(FixedIntGoldenDataTest, ToString) {
   for (auto pair : kSignedValueStrings) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
-    if constexpr (sizeof(typename TypeParam::Word) == sizeof(uint32_t)) {
+    if constexpr (sizeof(typename TypeParam::Word) == sizeof(uint64_t)) {
       auto number = value.number();
-      EXPECT_EQ(pair.second, VarIntRef<32>(number).ToString());
+      EXPECT_EQ(pair.second, VarIntRef<64>(number).ToString());
     }
   }
   for (size_t i = 1; i < kPowersOf10.size(); ++i) {
@@ -1740,7 +1742,8 @@ TYPED_TEST(FixedIntGeneratedDataTest, Add) {
 template <typename T, typename V>
 T GetExpectedDiff(V x, V y, bool* expected_overflow) {
   bool sub128_overflow = y >= 0 ? x < min128<V>() + y : x > max128<V>() + y;
-  *expected_overflow = sub128_overflow &&
+  *expected_overflow =
+      sub128_overflow &&
       (sizeof(T) <= sizeof(int128) || std::is_unsigned_v<typename T::Word>);
   if (!sub128_overflow) {
     return T(x - y);
@@ -1982,13 +1985,19 @@ void TestArithmeticOperatorsWithConstWordForType(V x) {
     t = T(x);
     t.DivMod(const_divisor, &t, nullptr);
     EXPECT_EQ(t, quotient2);
-
-    if constexpr (std::is_same_v<typename T::Word, uint32_t>) {
-      auto number = T(x).number();
-      VarUintRef<32> ref(number);
+    auto number = T(x).number();
+    VarUintRef<sizeof(typename T::Word) * 8> ref(number);
+    if constexpr (std::is_same_v<typename T::Word, uint32_t> &&
+                  std::is_same_v<decltype(divisor), uint32_t>) {
       EXPECT_EQ(ref.DivMod(const_divisor), remainder2);
       EXPECT_EQ(T(number), quotient2);
-
+    }
+    if constexpr (std::is_same_v<typename T::Word, uint64_t>) {
+      std::integral_constant<uint64_t, divisor> const_divisor_64;
+      EXPECT_EQ(ref.DivMod(const_divisor_64), remainder2);
+      EXPECT_EQ(T(number), quotient2);
+    }
+    if constexpr (std::is_same_v<decltype(divisor), uint32_t>) {
       number = T(x).number();
       EXPECT_EQ(ref.DivMod(divisor), remainder2);
       EXPECT_EQ(T(number), quotient2);
@@ -2000,10 +2009,23 @@ template <typename T>
 void TestArithmeticOperatorsWithConstWord(uint128 x) {
   TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 1>(x);
   TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 2>(x);
+  // Divisor 34 helps cover a rare but important condition in
+  // DivModWordNormalizedConstant.
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 34>(x);
   TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 100>(x);
   TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kint32max>(x);
   TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 0x80000000U>(x);
   TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kuint32max>(x);
+  if constexpr (std::is_same_v<typename T::Word, uint64_t>) {
+    TestArithmeticOperatorsWithConstWordForType<T, uint64_t, k1e9>(x);
+    TestArithmeticOperatorsWithConstWordForType<T, uint64_t, k1e18>(x);
+    TestArithmeticOperatorsWithConstWordForType<T, uint64_t, k1e18>(x);
+    TestArithmeticOperatorsWithConstWordForType<
+        T, uint64_t, std::numeric_limits<int64_t>::max()>(x);
+    TestArithmeticOperatorsWithConstWordForType<T, uint64_t, k1e19>(x);
+    TestArithmeticOperatorsWithConstWordForType<
+        T, uint64_t, std::numeric_limits<uint64_t>::max()>(x);
+  }
 }
 
 template <typename T>
@@ -2098,13 +2120,12 @@ TYPED_TEST(FixedIntGeneratedDataTest, ToString) {
     T v(value);
     std::string actual = v.ToString();
     EXPECT_EQ(expect, actual);
-
-    if constexpr (sizeof(typename T::Word) == sizeof(uint32_t)) {
-      auto number = v.number();
-      actual = VarIntBase<std::is_signed_v<typename T::Word>, uint32_t>(number)
-                   .ToString();
-      EXPECT_EQ(expect, actual);
-    }
+    auto number = v.number();
+    actual =
+        VarIntBase<std::is_signed_v<typename T::Word>,
+                   typename std::make_unsigned<typename T::Word>::type>(number)
+            .ToString();
+    EXPECT_EQ(expect, actual);
   }
 }
 

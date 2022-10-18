@@ -484,6 +484,58 @@ TEST_F(AnalyzerOptionsTest, SetDdlPseudoColumns) {
                        options_, catalog(), &type_factory_, &output));
 }
 
+TEST_F(AnalyzerOptionsTest, AnalyzeStatementWithPreRewriteCallback) {
+  AnalyzerOptions options;
+  options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+  SampleCatalog catalog(options.language());
+  TypeFactory type_factory;
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  options.SetPreRewriteCallback([](const AnalyzerOutput& output) {
+    if (output.resolved_statement() != nullptr) {
+      if (absl::StrContains(output.resolved_statement()->DebugString(),
+                            "FlattenedArg")) {
+        return absl::InternalError(
+            "Pre-rewrite callback called before rewrite");
+      }
+      return absl::InternalError("Pre-rewrite callback called after rewrite");
+    }
+    return absl::OkStatus();
+  });
+  options.enable_rewrite(REWRITE_FLATTEN, true);
+
+  EXPECT_THAT(
+      AnalyzeStatement("SELECT FLATTEN([STRUCT([] AS X)].X)", options,
+                       catalog.catalog(), &type_factory, &output),
+      StatusIs(_, HasSubstr("Pre-rewrite callback called before rewrite")));
+}
+
+TEST_F(AnalyzerOptionsTest, AnalyzeExpressionWithPreRewriteCallback) {
+  AnalyzerOptions options;
+  options.mutable_language()->EnableLanguageFeature(FEATURE_ANONYMIZATION);
+  SampleCatalog catalog(options.language());
+  TypeFactory type_factory;
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  options.SetPreRewriteCallback([](const AnalyzerOutput& output) {
+    if (output.resolved_expr() != nullptr) {
+      if (!absl::StrContains(output.resolved_expr()->DebugString(),
+                             "+-AggregateScan")) {
+        return absl::InternalError(
+            "Pre-rewrite callback called before rewrite");
+      }
+      return absl::InternalError("Pre-rewrite callback called after rewrite");
+    }
+    return absl::OkStatus();
+  });
+
+  EXPECT_THAT(
+      AnalyzeExpression("5 IN (SELECT ANON_COUNT(*) FROM KeyValue)", options,
+                        catalog.catalog(), &type_factory, &output),
+      StatusIs(_, HasSubstr("Pre-rewrite callback called before rewrite")));
+}
+
 TEST_F(AnalyzerOptionsTest, ErrorMessageFormat) {
   std::unique_ptr<const AnalyzerOutput> output;
 
@@ -1027,7 +1079,7 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
 }
 
 TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(280, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
+  EXPECT_EQ(312, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
                      sizeof(AllowedHintsAndOptions) -
                      sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
                      2 * sizeof(QueryParametersMap) - 2 * sizeof(std::string) -
@@ -1108,13 +1160,13 @@ TEST_F(AnalyzerOptionsTest, AllowedHintsAndOptionsSerializeAndDeserialize) {
 }
 
 TEST(AllowedHintsAndOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(8, sizeof(AllowedHintsAndOptions) -
-                   sizeof(std::set<std::string>) -
-                   2 * sizeof(absl::flat_hash_map<std::string, std::string>))
+  EXPECT_EQ(8, sizeof(AllowedHintsAndOptions) - sizeof(std::set<std::string>) -
+                   sizeof(absl::flat_hash_map<std::string, std::string>) -
+                   2 * sizeof(absl::flat_hash_map<std::string, const Type*>))
       << "The size of AllowedHintsAndOptions class has changed, please also "
       << "update the proto and serialization code if you added/removed fields "
       << "in it.";
-  EXPECT_EQ(4, AllowedHintsAndOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(5, AllowedHintsAndOptionsProto::descriptor()->field_count())
       << "The number of fields in AllowedHintsAndOptionsProto has changed, "
       << "please also update the serialization code accordingly.";
 }
@@ -1797,6 +1849,70 @@ TEST(AnalyzerTest, AnalyzeStatementsOfScript) {
       catalog.catalog(), catalog.type_factory(), &analyzer_output);
   ASSERT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument,
                                "Unrecognized name: garbage [at 2:8]"));
+}
+
+// Verify the catalog name path of the outer proto type will be carried to its
+// inner field types.
+// Have to put it here rather than in a text-based test since the Java library
+// does not support deserializing the catalog name paths in the ProtoTypeProto
+// from the SampleCatalog yet.
+// See
+// https://github.com/google/zetasql/blob/master/java/com/google/zetasql/TypeFactory.java;rcl=468220127;l=378
+TEST(AnalyzerTest, ProtoTypesWithCatalogNamePath) {
+  SampleCatalog sample_catalog;
+  SimpleCatalog* catalog = sample_catalog.catalog();
+  TypeFactory* factory = sample_catalog.type_factory();
+
+  // Create a proto type with a catalog name path.
+  const ProtoType* kitchen_sink_type = nullptr;
+  ZETASQL_ASSERT_OK(factory->MakeProtoType(zetasql_test__::KitchenSinkPB::descriptor(),
+                                   &kitchen_sink_type,
+                                   /*catalog_name_path=*/{"abc", "def"}));
+  auto sub1 = std::make_unique<SimpleCatalog>("abc", factory);
+  auto sub2 = std::make_unique<SimpleCatalog>("def", factory);
+  sub2->AddType("zetasql_test__.KitchenSinkPB", kitchen_sink_type);
+  sub1->AddOwnedCatalog("def", std::move(sub2));
+  catalog->AddOwnedCatalog("abc", std::move(sub1));
+
+  // Get the AST
+  AnalyzerOptions analyzer_options;
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+
+  constexpr absl::string_view sql = R"sql(
+WITH source AS (
+  SELECT NEW abc.def.zetasql_test__.KitchenSinkPB(
+    a as int64_key_1,
+    a + 1 as int64_key_2,
+    MOD(a, 3) as test_enum
+  )  t
+FROM UNNEST(GENERATE_ARRAY(1, 10)) a
+)
+SELECT
+  t.test_enum,
+  t.nested_value
+FROM source
+  )sql";
+  ZETASQL_ASSERT_OK(AnalyzeStatement(sql, analyzer_options, catalog, factory,
+                             &analyzer_output));
+
+  SQLBuilder sql_builder;
+  ZETASQL_ASSERT_OK(sql_builder.Process(*analyzer_output->resolved_statement()));
+  std::string formatted_sql;
+  ZETASQL_ASSERT_OK(FormatSql(sql_builder.sql(), &formatted_sql));
+  EXPECT_EQ(R"sql(WITH
+  source AS (
+    SELECT
+      NEW abc.def.`zetasql_test__.KitchenSinkPB`(a_1 AS int64_key_1, a_1 + 1 AS int64_key_2, CAST(MOD(a_1,
+          3) AS abc.def.`zetasql_test__.TestEnum`) AS test_enum) AS a_2
+    FROM
+      UNNEST(GENERATE_ARRAY(1, 10)) AS a_1
+  )
+SELECT
+  withrefscan_3.a_2.test_enum AS test_enum,
+  withrefscan_3.a_2.nested_value AS nested_value
+FROM
+  source AS withrefscan_3;)sql",
+            formatted_sql);
 }
 
 }  // namespace zetasql

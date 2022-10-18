@@ -57,8 +57,10 @@ void JsonFromNumericOrBool(int32_t value, std::string* output);
 void JsonFromNumericOrBool(uint32_t value, std::string* output);
 void JsonFromNumericOrBool(int64_t value, std::string* output);
 void JsonFromNumericOrBool(uint64_t value, std::string* output);
-void JsonFromNumericOrBool(float value, std::string* output);
-void JsonFromNumericOrBool(double value, std::string* output);
+void JsonFromNumericOrBool(float value, std::string* output,
+                           bool canonicalize_zero = false);
+void JsonFromNumericOrBool(double value, std::string* output,
+                           bool canonicalize_zero = false);
 void JsonFromNumericOrBool(NumericValue value, std::string* output);
 void JsonFromNumericOrBool(const BigNumericValue& value, std::string* output);
 

@@ -16,6 +16,9 @@
 
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 
+#include <memory>
+#include <sstream>
+
 #include "google/protobuf/descriptor.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer.h"

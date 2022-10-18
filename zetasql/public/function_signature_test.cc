@@ -1637,7 +1637,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
 
   // If a new enum value is added to SignatureArgumentKind then it *must*
   // be added to <templated_kinds> or <non_templated_kinds> as appropriate.
-  ASSERT_EQ(18, SignatureArgumentKind_ARRAYSIZE);
+  ASSERT_EQ(19, SignatureArgumentKind_ARRAYSIZE);
 
   std::set<SignatureArgumentKind> templated_kinds;
   templated_kinds.insert(ARG_TYPE_ANY_1);
@@ -1656,6 +1656,7 @@ TEST(FunctionSignatureTests, TestIsTemplatedArgument) {
   templated_kinds.insert(ARG_TYPE_CONNECTION);
   templated_kinds.insert(ARG_TYPE_DESCRIPTOR);
   templated_kinds.insert(ARG_TYPE_LAMBDA);
+  templated_kinds.insert(ARG_RANGE_TYPE_ANY);
 
   std::set<SignatureArgumentKind> non_templated_kinds;
   non_templated_kinds.insert(ARG_TYPE_FIXED);
@@ -1865,6 +1866,126 @@ TEST(FunctionSignatureTests, TestArgumentConstraints) {
   EXPECT_THAT(concrete_signature3.CheckArgumentConstraints(
                   {InputArgumentType{types::StringType()}}),
               IsOkAndHolds(true));
+}
+
+void TestArgumentTypeOptionsSerialization(
+    const FunctionArgumentType& arg_type) {
+  FileDescriptorSetMap fdset_map;
+  FunctionArgumentTypeProto proto;
+  ZETASQL_EXPECT_OK(arg_type.Serialize(&fdset_map, &proto));
+  TypeFactory factory;
+  std::vector<const google::protobuf::DescriptorPool*> pools(fdset_map.size());
+  for (const auto& pair : fdset_map) {
+    pools[pair.second->descriptor_set_index] = pair.first;
+  }
+
+  std::unique_ptr<FunctionArgumentType> dummy_type =
+      FunctionArgumentType::Deserialize(proto,
+                                        TypeDeserializer(&factory, pools))
+          .value();
+
+  EXPECT_TRUE(dummy_type->options().must_support_ordering() ==
+              arg_type.options().must_support_ordering());
+  EXPECT_TRUE(dummy_type->options().must_support_equality() ==
+              arg_type.options().must_support_equality());
+  EXPECT_TRUE(dummy_type->options().must_support_grouping() ==
+              arg_type.options().must_support_grouping());
+  EXPECT_TRUE(dummy_type->options().array_element_must_support_ordering() ==
+              arg_type.options().array_element_must_support_ordering());
+  EXPECT_TRUE(dummy_type->options().array_element_must_support_equality() ==
+              arg_type.options().array_element_must_support_equality());
+  EXPECT_TRUE(dummy_type->options().array_element_must_support_grouping() ==
+              arg_type.options().array_element_must_support_grouping());
+}
+
+TEST(FunctionSignatureTests, TestFunctionArgumentTypeOptionsConstraint) {
+  FunctionSignature orderable_element_signature(
+      FunctionArgumentType(ARG_TYPE_ANY_1),
+      {{ARG_TYPE_ANY_1,
+        FunctionArgumentTypeOptions().set_must_support_ordering()}},
+      /*context_id=*/-1);
+
+  EXPECT_TRUE(orderable_element_signature.argument(0)
+                  .options()
+                  .must_support_ordering());
+  EXPECT_FALSE(orderable_element_signature.argument(0)
+                   .options()
+                   .must_support_equality());
+  EXPECT_FALSE(orderable_element_signature.argument(0)
+                   .options()
+                   .must_support_grouping());
+
+  FunctionSignature equatable_element_signature(
+      FunctionArgumentType(ARG_TYPE_ANY_1),
+      {{ARG_TYPE_ANY_1,
+        FunctionArgumentTypeOptions().set_must_support_equality()}},
+      /*context_id=*/-1);
+
+  EXPECT_FALSE(equatable_element_signature.argument(0)
+                   .options()
+                   .must_support_ordering());
+  EXPECT_TRUE(equatable_element_signature.argument(0)
+                  .options()
+                  .must_support_equality());
+  EXPECT_FALSE(equatable_element_signature.argument(0)
+                   .options()
+                   .must_support_grouping());
+
+  FunctionSignature groupable_element_signature(
+      FunctionArgumentType(ARG_TYPE_ANY_1),
+      {{ARG_TYPE_ANY_1,
+        FunctionArgumentTypeOptions().set_must_support_grouping()}},
+      /*context_id=*/-1);
+
+  EXPECT_FALSE(groupable_element_signature.argument(0)
+                   .options()
+                   .must_support_ordering());
+  EXPECT_FALSE(groupable_element_signature.argument(0)
+                   .options()
+                   .must_support_equality());
+  EXPECT_TRUE(groupable_element_signature.argument(0)
+                  .options()
+                  .must_support_grouping());
+
+  TestArgumentTypeOptionsSerialization(orderable_element_signature.argument(0));
+  TestArgumentTypeOptionsSerialization(equatable_element_signature.argument(0));
+  TestArgumentTypeOptionsSerialization(groupable_element_signature.argument(0));
+}
+
+TEST(FunctionSignatureTests,
+     TestFunctionArgumentTypeOptionsArrayElementConstraint) {
+  FunctionArgumentType orderable_array_arg(
+      ARG_ARRAY_TYPE_ANY_1,
+      FunctionArgumentTypeOptions().set_array_element_must_support_ordering());
+  EXPECT_TRUE(
+      orderable_array_arg.options().array_element_must_support_ordering());
+  EXPECT_FALSE(
+      orderable_array_arg.options().array_element_must_support_grouping());
+  EXPECT_FALSE(
+      orderable_array_arg.options().array_element_must_support_equality());
+  TestArgumentTypeOptionsSerialization(orderable_array_arg);
+
+  FunctionArgumentType groupable_array_arg(
+      ARG_ARRAY_TYPE_ANY_1,
+      FunctionArgumentTypeOptions().set_array_element_must_support_grouping());
+  EXPECT_FALSE(
+      groupable_array_arg.options().array_element_must_support_ordering());
+  EXPECT_TRUE(
+      groupable_array_arg.options().array_element_must_support_grouping());
+  EXPECT_FALSE(
+      groupable_array_arg.options().array_element_must_support_equality());
+  TestArgumentTypeOptionsSerialization(groupable_array_arg);
+
+  FunctionArgumentType equatable_array_arg(
+      ARG_ARRAY_TYPE_ANY_1,
+      FunctionArgumentTypeOptions().set_array_element_must_support_equality());
+  EXPECT_FALSE(
+      equatable_array_arg.options().array_element_must_support_ordering());
+  EXPECT_FALSE(
+      equatable_array_arg.options().array_element_must_support_grouping());
+  EXPECT_TRUE(
+      equatable_array_arg.options().array_element_must_support_equality());
+  TestArgumentTypeOptionsSerialization(equatable_array_arg);
 }
 
 }  // namespace zetasql

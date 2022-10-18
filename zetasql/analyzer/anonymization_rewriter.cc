@@ -736,6 +736,24 @@ bool JoinExprIncludesUid(const ResolvedExpr* join_expr,
   return false;
 }
 
+constexpr absl::string_view SetOperationTypeToString(
+    const ResolvedSetOperationScanEnums::SetOperationType type) {
+  switch (type) {
+    case ResolvedSetOperationScanEnums::UNION_ALL:
+      return "UNION ALL";
+    case ResolvedSetOperationScanEnums::UNION_DISTINCT:
+      return "UNION DISTINCT";
+    case ResolvedSetOperationScanEnums::INTERSECT_ALL:
+      return "INTERSECT ALL";
+    case ResolvedSetOperationScanEnums::INTERSECT_DISTINCT:
+      return "INTERSECT DISTINCT";
+    case ResolvedSetOperationScanEnums::EXCEPT_ALL:
+      return "EXCEPT ALL";
+    case ResolvedSetOperationScanEnums::EXCEPT_DISTINCT:
+      return "EXCEPT DISTINCT";
+  }
+}
+
 // Rewrites the rest of the per-user scan, propagating the AnonymizationInfo()
 // userid (aka $uid column) from the base private table scan to the top node
 // returned.
@@ -845,7 +863,12 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         descriptor = field->message_type();
 
         const Type* field_type;
-        ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(field, &field_type));
+        ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
+            field,
+            value_table_value_resolved_column.type()
+                ->AsProto()
+                ->CatalogNamePath(),
+            &field_type));
 
         Value default_value;
         ZETASQL_RETURN_IF_ERROR(
@@ -1525,6 +1548,95 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     return absl::OkStatus();
   }
 
+  absl::Status VisitResolvedSetOperationScan(
+      const ResolvedSetOperationScan* node) override {
+    std::vector<std::unique_ptr<const ResolvedSetOperationItem>>
+        rewritten_input_items;
+    std::vector<UidColumnState> uids;
+
+    // Rewrite each input item.
+    for (const auto& input_item : node->input_item_list()) {
+      PerUserRewriterVisitor input_item_visitor(
+          allocator_, type_factory_, resolver_, resolved_table_scans_,
+          with_entries_);
+      ZETASQL_RETURN_IF_ERROR(input_item->Accept(&input_item_visitor));
+      UidColumnState uid = input_item_visitor.current_uid_;
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<ResolvedSetOperationItem> rewritten_input_item,
+          input_item_visitor.ConsumeRootNode<ResolvedSetOperationItem>());
+
+      if (uid.column.IsInitialized()) {
+        // The $uid column should be included in the output column list, set
+        // operation columns aren't trimmed at this point.
+        ZETASQL_RET_CHECK(std::find(rewritten_input_item->output_column_list().begin(),
+                            rewritten_input_item->output_column_list().end(),
+                            uid.column) !=
+                  rewritten_input_item->output_column_list().end())
+            << "Column " << uid.ToString()
+            << " not included in set operation output";
+      }
+
+      rewritten_input_items.push_back(std::move(rewritten_input_item));
+      uids.push_back(std::move(uid));
+    }
+
+    std::unique_ptr<ResolvedSetOperationScan> copy =
+        MakeResolvedSetOperationScan(node->column_list(), node->op_type(),
+                                     std::move(rewritten_input_items));
+
+    const ResolvedSetOperationItem& reference_input_item =
+        *copy->input_item_list(0);
+    const UidColumnState& reference_uid = uids[0];
+
+    // Validate that either all input items have a $uid column, or that none do.
+    for (int i = 1; i < copy->input_item_list_size(); ++i) {
+      if (reference_uid.column.IsInitialized() !=
+          uids[i].column.IsInitialized()) {
+        return MakeSqlErrorAtNode(*node) << absl::StrFormat(
+                   "Not all queries in %s are anonymization-enabled table "
+                   "expressions; query 1 %s an anonymization-enabled table "
+                   "expression, but query %d %s",
+                   SetOperationTypeToString(copy->op_type()),
+                   reference_uid.column.IsInitialized() ? "is" : "is not",
+                   i + 1, uids[i].column.IsInitialized() ? "is" : "is not");
+      }
+    }
+
+    // If input items set the $uid column, ensure that they all point to the
+    // same column offset.
+    if (reference_uid.column.IsInitialized()) {
+      std::size_t reference_uid_index =
+          std::find(reference_input_item.output_column_list().begin(),
+                    reference_input_item.output_column_list().end(),
+                    reference_uid.column) -
+          reference_input_item.output_column_list().begin();
+      ZETASQL_RET_CHECK_NE(reference_uid_index,
+                   reference_input_item.output_column_list_size());
+      for (int i = 1; i < copy->input_item_list_size(); ++i) {
+        const auto& column_list =
+            copy->input_item_list(i)->output_column_list();
+        std::size_t uid_index =
+            std::find(column_list.begin(), column_list.end(), uids[i].column) -
+            column_list.begin();
+        if (reference_uid_index != uid_index) {
+          return MakeSqlErrorAtNode(*node) << absl::StrFormat(
+                     "Queries in %s have mismatched userid columns; query 1 "
+                     "has userid column '%s' in position %d, query %d has "
+                     "userid column '%s' in position %d",
+                     SetOperationTypeToString(copy->op_type()),
+                     reference_uid.ToString(), reference_uid_index + 1, i + 1,
+                     uids[i].ToString(), uid_index + 1);
+        }
+      }
+
+      current_uid_.SetColumn(
+          copy->column_list(static_cast<int>(reference_uid_index)));
+    }
+    PushNodeToStack(std::move(copy));
+
+    return absl::OkStatus();
+  }
+
   /////////////////////////////////////////////////////////////////////////////
   // For these scans, the $uid column can be implicitly projected
   /////////////////////////////////////////////////////////////////////////////
@@ -1556,7 +1668,6 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
            << "Unsupported scan type inside of SELECT WITH ANONYMIZATION " \
               "from clause: " #resolved_scan;                              \
   }
-  UNSUPPORTED(ResolvedSetOperationScan);
   UNSUPPORTED(ResolvedAnalyticScan);
   UNSUPPORTED(ResolvedRelationArgumentScan);
   UNSUPPORTED(ResolvedRecursiveScan);
@@ -1595,9 +1706,9 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     return absl::OkStatus();
   }
 
-  ColumnFactory* allocator_;   // unowned
-  TypeFactory* type_factory_;  // unowned
-  Resolver* resolver_;         // unowned
+  ColumnFactory* allocator_;                                     // unowned
+  TypeFactory* type_factory_;                                    // unowned
+  Resolver* resolver_;                                           // unowned
   std::vector<const ResolvedTableScan*>& resolved_table_scans_;  // unowned
   std::vector<std::unique_ptr<WithEntryRewriteState>>&
       with_entries_;  // unowned

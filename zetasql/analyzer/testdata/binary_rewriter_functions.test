@@ -1,0 +1,333 @@
+[default enabled_ast_rewrites=DEFAULTS]
+
+[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_STRING_AS_ENUM_ARGUMENT]
+SELECT {{|SAFE.}}ARRAY_OFFSETS([], 'hello')
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_offsets(ARRAY<STRING>, STRING) -> ARRAY<INT64>)
+    |     +-Literal(type=ARRAY<STRING>, value=[])
+    |     +-Literal(type=STRING, value="hello")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT64>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#6]
+    |         +-expr_list=
+    |         | +-$col1#6 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+    |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
+    |         |     | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |     |   +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
+    |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<INT64>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
+    |         |       | +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$array_offset.offset#5]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-FilterScan
+    |         |           |   +-column_list=[$array.e#4, $array_offset.offset#5]
+    |         |           |   +-input_scan=
+    |         |           |   | +-ArrayScan
+    |         |           |   |   +-column_list=[$array.e#4, $array_offset.offset#5]
+    |         |           |   |   +-array_expr=
+    |         |           |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2, is_correlated=TRUE)
+    |         |           |   |   +-element_column=$array.e#4
+    |         |           |   |   +-array_offset_column=
+    |         |           |   |     +-ColumnHolder(column=$array_offset.offset#5)
+    |         |           |   +-filter_expr=
+    |         |           |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |         |           |       +-ColumnRef(type=STRING, column=$array.e#4)
+    |         |           |       +-ColumnRef(type=STRING, column=$subquery1.second_input#3, is_correlated=TRUE)
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$array_offset.offset#5)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[first_input#2, second_input#3]
+    |             +-expr_list=
+    |             | +-first_input#2 := Literal(type=ARRAY<STRING>, value=[])
+    |             | +-second_input#3 := Literal(type=STRING, value="hello")
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: SAFE.
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_offsets(ARRAY<STRING>, STRING) -> ARRAY<INT64>)
+    |     +-Literal(type=ARRAY<STRING>, value=[])
+    |     +-Literal(type=STRING, value="hello")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT64>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#6]
+    |         +-expr_list=
+    |         | +-$col1#6 :=
+    |         |   +-FunctionCall(ZetaSQL:iferror(ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+    |         |     +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+    |         |     | +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |     | | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |     | | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
+    |         |     | | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |     | |   +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
+    |         |     | +-Literal(type=ARRAY<INT64>, value=NULL)
+    |         |     | +-SubqueryExpr
+    |         |     |   +-type=ARRAY<INT64>
+    |         |     |   +-subquery_type=ARRAY
+    |         |     |   +-parameter_list=
+    |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
+    |         |     |   | +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
+    |         |     |   +-subquery=
+    |         |     |     +-OrderByScan
+    |         |     |       +-column_list=[$array_offset.offset#5]
+    |         |     |       +-is_ordered=TRUE
+    |         |     |       +-input_scan=
+    |         |     |       | +-FilterScan
+    |         |     |       |   +-column_list=[$array.e#4, $array_offset.offset#5]
+    |         |     |       |   +-input_scan=
+    |         |     |       |   | +-ArrayScan
+    |         |     |       |   |   +-column_list=[$array.e#4, $array_offset.offset#5]
+    |         |     |       |   |   +-array_expr=
+    |         |     |       |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2, is_correlated=TRUE)
+    |         |     |       |   |   +-element_column=$array.e#4
+    |         |     |       |   |   +-array_offset_column=
+    |         |     |       |   |     +-ColumnHolder(column=$array_offset.offset#5)
+    |         |     |       |   +-filter_expr=
+    |         |     |       |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |         |     |       |       +-ColumnRef(type=STRING, column=$array.e#4)
+    |         |     |       |       +-ColumnRef(type=STRING, column=$subquery1.second_input#3, is_correlated=TRUE)
+    |         |     |       +-order_by_item_list=
+    |         |     |         +-OrderByItem
+    |         |     |           +-column_ref=
+    |         |     |             +-ColumnRef(type=INT64, column=$array_offset.offset#5)
+    |         |     +-Literal(type=ARRAY<INT64>, value=NULL, has_explicit_type=TRUE)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[first_input#2, second_input#3]
+    |             +-expr_list=
+    |             | +-first_input#2 := Literal(type=ARRAY<STRING>, value=[])
+    |             | +-second_input#3 := Literal(type=STRING, value="hello")
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_STRING_AS_ENUM_ARGUMENT]
+SELECT {{|SAFE.}}ARRAY_FIND_ALL([], 'hello')
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_find_all(ARRAY<STRING>, STRING) -> ARRAY<STRING>)
+    |     +-Literal(type=ARRAY<STRING>, value=[])
+    |     +-Literal(type=STRING, value="hello")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<STRING>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#6]
+    |         +-expr_list=
+    |         | +-$col1#6 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
+    |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
+    |         |     | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |     |   +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
+    |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<STRING>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
+    |         |       | +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$array.e#4]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-FilterScan
+    |         |           |   +-column_list=[$array.e#4, $array_offset.offset#5]
+    |         |           |   +-input_scan=
+    |         |           |   | +-ArrayScan
+    |         |           |   |   +-column_list=[$array.e#4, $array_offset.offset#5]
+    |         |           |   |   +-array_expr=
+    |         |           |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2, is_correlated=TRUE)
+    |         |           |   |   +-element_column=$array.e#4
+    |         |           |   |   +-array_offset_column=
+    |         |           |   |     +-ColumnHolder(column=$array_offset.offset#5)
+    |         |           |   +-filter_expr=
+    |         |           |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |         |           |       +-ColumnRef(type=STRING, column=$array.e#4)
+    |         |           |       +-ColumnRef(type=STRING, column=$subquery1.second_input#3, is_correlated=TRUE)
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$array_offset.offset#5)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[first_input#2, second_input#3]
+    |             +-expr_list=
+    |             | +-first_input#2 := Literal(type=ARRAY<STRING>, value=[])
+    |             | +-second_input#3 := Literal(type=STRING, value="hello")
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: SAFE.
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_find_all(ARRAY<STRING>, STRING) -> ARRAY<STRING>)
+    |     +-Literal(type=ARRAY<STRING>, value=[])
+    |     +-Literal(type=STRING, value="hello")
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<STRING>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#6]
+    |         +-expr_list=
+    |         | +-$col1#6 :=
+    |         |   +-FunctionCall(ZetaSQL:iferror(ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
+    |         |     +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
+    |         |     | +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |     | | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |     | | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
+    |         |     | | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |     | |   +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
+    |         |     | +-Literal(type=ARRAY<STRING>, value=NULL)
+    |         |     | +-SubqueryExpr
+    |         |     |   +-type=ARRAY<STRING>
+    |         |     |   +-subquery_type=ARRAY
+    |         |     |   +-parameter_list=
+    |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
+    |         |     |   | +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
+    |         |     |   +-subquery=
+    |         |     |     +-OrderByScan
+    |         |     |       +-column_list=[$array.e#4]
+    |         |     |       +-is_ordered=TRUE
+    |         |     |       +-input_scan=
+    |         |     |       | +-FilterScan
+    |         |     |       |   +-column_list=[$array.e#4, $array_offset.offset#5]
+    |         |     |       |   +-input_scan=
+    |         |     |       |   | +-ArrayScan
+    |         |     |       |   |   +-column_list=[$array.e#4, $array_offset.offset#5]
+    |         |     |       |   |   +-array_expr=
+    |         |     |       |   |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2, is_correlated=TRUE)
+    |         |     |       |   |   +-element_column=$array.e#4
+    |         |     |       |   |   +-array_offset_column=
+    |         |     |       |   |     +-ColumnHolder(column=$array_offset.offset#5)
+    |         |     |       |   +-filter_expr=
+    |         |     |       |     +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |         |     |       |       +-ColumnRef(type=STRING, column=$array.e#4)
+    |         |     |       |       +-ColumnRef(type=STRING, column=$subquery1.second_input#3, is_correlated=TRUE)
+    |         |     |       +-order_by_item_list=
+    |         |     |         +-OrderByItem
+    |         |     |           +-column_ref=
+    |         |     |             +-ColumnRef(type=INT64, column=$array_offset.offset#5)
+    |         |     +-Literal(type=ARRAY<STRING>, value=NULL, has_explicit_type=TRUE)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[first_input#2, second_input#3]
+    |             +-expr_list=
+    |             | +-first_input#2 := Literal(type=ARRAY<STRING>, value=[])
+    |             | +-second_input#3 := Literal(type=STRING, value="hello")
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==

@@ -20,7 +20,9 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/sql_tvf.h"
+#include "zetasql/public/sql_view.h"
 #include "zetasql/public/templated_sql_function.h"
+#include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "absl/status/status.h"
@@ -94,10 +96,36 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
         break;
       case FN_ARRAY_FIRST:
       case FN_ARRAY_LAST:
+      case FN_ARRAY_SUM_INT32:
+      case FN_ARRAY_SUM_INT64:
+      case FN_ARRAY_SUM_UINT32:
+      case FN_ARRAY_SUM_UINT64:
+      case FN_ARRAY_SUM_FLOAT:
+      case FN_ARRAY_SUM_DOUBLE:
+      case FN_ARRAY_SUM_NUMERIC:
+      case FN_ARRAY_SUM_BIGNUMERIC:
+      case FN_ARRAY_SUM_INTERVAL:
+      case FN_ARRAY_AVG_INT32:
+      case FN_ARRAY_AVG_INT64:
+      case FN_ARRAY_AVG_UINT32:
+      case FN_ARRAY_AVG_UINT64:
+      case FN_ARRAY_AVG_FLOAT:
+      case FN_ARRAY_AVG_DOUBLE:
+      case FN_ARRAY_AVG_NUMERIC:
+      case FN_ARRAY_AVG_BIGNUMERIC:
+      case FN_ARRAY_AVG_INTERVAL:
+      case FN_ARRAY_MIN:
+      case FN_ARRAY_MAX:
         applicable_rewrites_->insert(REWRITE_UNARY_FUNCTIONS);
         break;
       case FN_ARRAY_SLICE:
+      case FN_ARRAY_OFFSET:
+      case FN_ARRAY_FIND:
         applicable_rewrites_->insert(REWRITE_TERNARY_FUNCTIONS);
+        break;
+      case FN_ARRAY_OFFSETS:
+      case FN_ARRAY_FIND_ALL:
+        applicable_rewrites_->insert(REWRITE_BINARY_FUNCTIONS);
         break;
       case FN_TYPEOF:
         applicable_rewrites_->insert(REWRITE_TYPEOF_FUNCTION);
@@ -137,8 +165,17 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
+  absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override {
+    if (node->table()->Is<SQLView>()) {
+      applicable_rewrites_->insert(
+          ResolvedASTRewrite::REWRITE_INLINE_SQL_VIEWS);
+    }
+    return DefaultVisit(node);
+  }
+
   absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
-    if (node->tvf()->Is<SQLTableValuedFunction>()) {
+    if (node->tvf()->Is<SQLTableValuedFunction>() ||
+        node->tvf()->Is<TemplatedSQLTVF>()) {
       applicable_rewrites_->insert(ResolvedASTRewrite::REWRITE_INLINE_SQL_TVFS);
     }
     return DefaultVisit(node);

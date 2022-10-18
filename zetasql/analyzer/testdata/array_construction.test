@@ -780,3 +780,10 @@ select array<string(10)>['abc']
 ERROR: Parameterized types are not supported in literal value construction [at 1:20]
 select array<string(10)>['abc']
                    ^
+==
+
+select array<string collate 'und:ci'>['abc']
+--
+ERROR: Type with collation name is not supported in literal value construction [at 1:21]
+select array<string collate 'und:ci'>['abc']
+                    ^

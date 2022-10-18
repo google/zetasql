@@ -16,7 +16,9 @@
 
 #include "zetasql/analyzer/rewrite_resolved_ast.h"
 
+#include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -27,6 +29,7 @@
 #include "zetasql/analyzer/rewriters/rewriter_relevance_checker.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_analyzer_options.h"
+#include "zetasql/common/timer_util.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -66,11 +69,12 @@ const ResolvedNode* NodeFromAnalyzerOutput(const AnalyzerOutput& output) {
 // settings are copied from <analyzer_options>, which is the options used to
 // analyze the outer statement. Some settings are overridden as required by
 // the rewriter implementation.
-AnalyzerOptions AnalyzerOptionsForRewrite(
+std::unique_ptr<AnalyzerOptions> AnalyzerOptionsForRewrite(
     const AnalyzerOptions& analyzer_options,
     const AnalyzerOutput& analyzer_output,
     zetasql_base::SequenceNumber& fallback_sequence_number) {
-  AnalyzerOptions options_for_rewrite = analyzer_options;
+  auto options_for_rewrite =
+      std::make_unique<AnalyzerOptions>(analyzer_options);
 
   // Require that rewrite substitution fragments are written in strict name
   // resolution mode so that column names are qualified. In theory, we could
@@ -80,25 +84,32 @@ AnalyzerOptions AnalyzerOptionsForRewrite(
   // qualification might pass tests and work on most query engines but produce
   // incoherant error messages on engines that operate in strict resolution
   // mode.
-  options_for_rewrite.mutable_language()->set_name_resolution_mode(
+  options_for_rewrite->mutable_language()->set_name_resolution_mode(
       NameResolutionMode::NAME_RESOLUTION_STRICT);
 
   // Turn on WITH expression feature for all rewriters by default. This does not
   // impact languague feature set when resolving user facing query.
-  options_for_rewrite.mutable_language()->EnableLanguageFeature(
+  options_for_rewrite->mutable_language()->EnableLanguageFeature(
       FEATURE_V_1_4_WITH_EXPRESSION);
 
   // Rewriter fragment substitution uses named query parameters as an
   // implementation detail. We override settings that are required to enable
   // named query parameters.
-  options_for_rewrite.set_allow_undeclared_parameters(false);
-  options_for_rewrite.set_parameter_mode(ParameterMode::PARAMETER_NAMED);
-  options_for_rewrite.set_statement_context(StatementContext::CONTEXT_DEFAULT);
+  options_for_rewrite->set_allow_undeclared_parameters(false);
+  options_for_rewrite->set_parameter_mode(ParameterMode::PARAMETER_NAMED);
+  options_for_rewrite->set_statement_context(StatementContext::CONTEXT_DEFAULT);
 
   // Arenas are set to match those in <analyzer_output>, overriding any arenas
   // previously used by the AnalyzerOptions.
-  options_for_rewrite.set_arena(analyzer_output.arena());
-  options_for_rewrite.set_id_string_pool(analyzer_output.id_string_pool());
+  options_for_rewrite->set_arena(analyzer_output.arena());
+  options_for_rewrite->set_id_string_pool(analyzer_output.id_string_pool());
+
+  // No internal ZetaSQL rewrites should depend on the expression columns
+  // in the user-provided AnalyzerOptions. And, such expression columns might
+  // conflict with columns used in AnalyzeSubstitute calls in various
+  // ResolvedASTRewrite rules, which is an error. Therefore, we clear the
+  // expression columns before executing rewriting.
+  InternalAnalyzerOptions::ClearExpressionColumns(*options_for_rewrite);
 
   // If <analyzer_options> does not have a column_id_sequence_number(), sets the
   // sequence number to <fallback_sequence_number>. Also,
@@ -111,7 +122,7 @@ AnalyzerOptions AnalyzerOptionsForRewrite(
     while (fallback_sequence_number.GetNext() <
            analyzer_output.max_column_id()) {
     }
-    options_for_rewrite.set_column_id_sequence_number(
+    options_for_rewrite->set_column_id_sequence_number(
         &fallback_sequence_number);
   }
   return options_for_rewrite;
@@ -151,11 +162,15 @@ namespace {
 absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
     TypeFactory* type_factory, AnalyzerOutput& analyzer_output) {
-  zetasql_base::SequenceNumber fallback_sequence_number;
-  AnalyzerOptions options_for_rewrite = AnalyzerOptionsForRewrite(
-      analyzer_options, analyzer_output, fallback_sequence_number);
-  bool rewrite_activated = false;
+  internal::ElapsedTimer rewriter_timer = internal::MakeTimerStarted();
+
   AnalyzerOutputMutator output_mutator(&analyzer_output);
+  AnalyzerRuntimeInfo& runtime_info = analyzer_output.mutable_runtime_info();
+
+  zetasql_base::SequenceNumber fallback_sequence_number;
+  // Lazy initialize this only if we are actually doing some rewriting.
+  // We might actually be able to drop this completely with a larger effort.
+  std::unique_ptr<AnalyzerOptions> options_for_rewrite;
 
   ZETASQL_VLOG(3) << "Enabled rewriters: "
           << absl::StrJoin(analyzer_options.enabled_rewrites(), " ",
@@ -185,6 +200,7 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
         << "\nChecker: " << absl::StrJoin(checker_detected_rewrites, ", ");
   }
   if (resolver_detected_rewrites.empty()) {
+    runtime_info.rewriters_timed_value().Accumulate(rewriter_timer);
     return absl::OkStatus();
   }
 
@@ -216,18 +232,32 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
       if (!rewrites_to_apply.contains(ast_rewrite)) {
         continue;
       }
+
+      if (options_for_rewrite == nullptr) {
+        options_for_rewrite = AnalyzerOptionsForRewrite(
+            analyzer_options, analyzer_output, fallback_sequence_number);
+      }
       const Rewriter* rewriter =
           RewriteRegistry::global_instance().Get(ast_rewrite);
       ZETASQL_RET_CHECK(rewriter != nullptr)
           << "Requested rewriter was not present in the registry: "
           << ResolvedASTRewrite_Name(ast_rewrite);
 
+      AnalyzerRuntimeInfo::RewriterDetails& runtime_rewriter_details =
+          runtime_info.rewriters_details(ast_rewrite);
+      internal::ScopedTimer rewriter_details_scoped_timer =
+          MakeScopedTimerStarted(&runtime_rewriter_details.timed_value);
+      runtime_rewriter_details.count++;
+
       ZETASQL_VLOG(2) << "Running rewriter " << rewriter->Name();
       ZETASQL_ASSIGN_OR_RETURN(
           last_rewrite_result,
-          rewriter->Rewrite(options_for_rewrite, *rewrite_input, *catalog,
+          rewriter->Rewrite(*options_for_rewrite, *rewrite_input, *catalog,
                             *type_factory,
                             output_mutator.mutable_output_properties()));
+      ZETASQL_RET_CHECK(last_rewrite_result != nullptr)
+          << "Rewriter " << rewriter->Name() << " returned nullptr on input\n"
+          << rewrite_input->DebugString();
       rewrite_input = last_rewrite_result.get();
       // For the time being, any rewriter that we call Rewrite on is making
       // meaningful changes to the ResolvedAST tree, so we unconditionally
@@ -237,7 +267,6 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
       // signal that it made no meaning ful change.
       // TODO: Add a way for Rewrite to signal that it made no
       //     meaningful change.
-      rewrite_activated = true;
     }
     rewrites_to_apply.clear();
     ZETASQL_ASSIGN_OR_RETURN(
@@ -252,22 +281,32 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
     rewrites_to_apply.erase(REWRITE_ANONYMIZATION);
   } while (!rewrites_to_apply.empty());
 
-  if (rewrite_activated) {
+  runtime_info.rewriters_timed_value().Accumulate(rewriter_timer);
+
+  if (options_for_rewrite != nullptr) {
     ZETASQL_RETURN_IF_ERROR(output_mutator.Update(
         std::move(last_rewrite_result),
-        *options_for_rewrite.column_id_sequence_number()));
+        *options_for_rewrite->column_id_sequence_number()));
 
-    // Make sure the generated ResolvedAST is valid.
-    Validator validator(analyzer_options.language());
-    if (analyzer_output.resolved_statement() != nullptr) {
-      ZETASQL_RETURN_IF_ERROR(validator.ValidateResolvedStatement(
-          analyzer_output.resolved_statement()));
-    } else {
-      ZETASQL_RET_CHECK(analyzer_output.resolved_expr() != nullptr);
-      ZETASQL_RETURN_IF_ERROR(validator.ValidateStandaloneResolvedExpr(
-          analyzer_output.resolved_expr()));
+    if (InternalAnalyzerOptions::GetValidateResolvedAST(*options_for_rewrite)) {
+      internal::ScopedTimer validator_scoped_timer =
+          MakeScopedTimerStarted(&runtime_info.validator_timed_value());
+      // Make sure the generated ResolvedAST is valid.
+      ValidatorOptions validator_options{
+          .allowed_hints_and_options =
+              analyzer_options.allowed_hints_and_options()};
+      Validator validator(analyzer_options.language(), validator_options);
+      if (analyzer_output.resolved_statement() != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(validator.ValidateResolvedStatement(
+            analyzer_output.resolved_statement()));
+      } else {
+        ZETASQL_RET_CHECK(analyzer_output.resolved_expr() != nullptr);
+        ZETASQL_RETURN_IF_ERROR(validator.ValidateStandaloneResolvedExpr(
+            analyzer_output.resolved_expr()));
+      }
     }
   }
+
   return absl::OkStatus();
 }
 
@@ -280,11 +319,16 @@ absl::Status InternalRewriteResolvedAst(const AnalyzerOptions& analyzer_options,
                                         absl::string_view sql, Catalog* catalog,
                                         TypeFactory* type_factory,
                                         AnalyzerOutput& analyzer_output) {
+  if (analyzer_options.pre_rewrite_callback() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(analyzer_options.pre_rewrite_callback()(analyzer_output));
+  }
+
   if (analyzer_options.enabled_rewrites().empty() ||
       (analyzer_output.resolved_statement() == nullptr &&
        analyzer_output.resolved_expr() == nullptr)) {
     return absl::OkStatus();
   }
+
   return ConvertInternalErrorLocationAndAdjustErrorString(
       analyzer_options.error_message_mode(), sql,
       InternalRewriteResolvedAstNoConvertErrorLocation(

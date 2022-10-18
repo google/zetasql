@@ -382,6 +382,18 @@ public final class FunctionArgumentType implements Serializable {
     public abstract Boolean getMustSupportOrdering();
 
     @Nullable
+    public abstract Boolean getMustSupportGrouping();
+
+    @Nullable
+    public abstract Boolean getArrayElementMustSupportEquality();
+
+    @Nullable
+    public abstract Boolean getArrayElementMustSupportOrdering();
+
+    @Nullable
+    public abstract Boolean getArrayElementMustSupportGrouping();
+
+    @Nullable
     public abstract Long getMinValue();
 
     @Nullable
@@ -438,6 +450,18 @@ public final class FunctionArgumentType implements Serializable {
       }
       if (getMustSupportOrdering() != null) {
         builder.setMustSupportOrdering(getMustSupportOrdering());
+      }
+      if (getMustSupportGrouping() != null) {
+        builder.setMustSupportGrouping(getMustSupportGrouping());
+      }
+      if (getArrayElementMustSupportEquality() != null) {
+        builder.setArrayElementMustSupportEquality(getArrayElementMustSupportEquality());
+      }
+      if (getArrayElementMustSupportOrdering() != null) {
+        builder.setArrayElementMustSupportOrdering(getArrayElementMustSupportOrdering());
+      }
+      if (getArrayElementMustSupportGrouping() != null) {
+        builder.setArrayElementMustSupportGrouping(getArrayElementMustSupportGrouping());
       }
       if (getMinValue() != null) {
         builder.setMinValue(getMinValue());
@@ -507,6 +531,18 @@ public final class FunctionArgumentType implements Serializable {
       }
       if (proto.hasMustSupportOrdering()) {
         builder.setMustSupportOrdering(proto.getMustSupportOrdering());
+      }
+      if (proto.hasMustSupportGrouping()) {
+        builder.setMustSupportGrouping(proto.getMustSupportGrouping());
+      }
+      if (proto.hasArrayElementMustSupportEquality()) {
+        builder.setArrayElementMustSupportEquality(proto.getArrayElementMustSupportEquality());
+      }
+      if (proto.hasArrayElementMustSupportOrdering()) {
+        builder.setArrayElementMustSupportOrdering(proto.getArrayElementMustSupportOrdering());
+      }
+      if (proto.hasArrayElementMustSupportGrouping()) {
+        builder.setArrayElementMustSupportGrouping(proto.getArrayElementMustSupportGrouping());
       }
       if (proto.hasMinValue()) {
         builder.setMinValue(proto.getMinValue());
@@ -598,6 +634,17 @@ public final class FunctionArgumentType implements Serializable {
       public abstract Builder setMustSupportEquality(Boolean mustSupportEquality);
 
       public abstract Builder setMustSupportOrdering(Boolean mustSupportOrdering);
+
+      public abstract Builder setMustSupportGrouping(Boolean mustSupportGrouping);
+
+      public abstract Builder setArrayElementMustSupportEquality(
+          Boolean elementMustSupportEquality);
+
+      public abstract Builder setArrayElementMustSupportOrdering(
+          Boolean elementMustSupportOrdering);
+
+      public abstract Builder setArrayElementMustSupportGrouping(
+          Boolean elementMustSupportGrouping);
 
       public abstract Builder setMinValue(Long minValue);
 

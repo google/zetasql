@@ -20,12 +20,14 @@
 #include <string.h>
 
 #include <algorithm>
+#include <bitset>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <ostream>
 #include <set>
 #include <string>

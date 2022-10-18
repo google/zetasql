@@ -17,9 +17,11 @@
 #include "zetasql/parser/flex_istream.h"
 
 #include <cstdint>
+#include <ios>
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/parse_resume_location.h"

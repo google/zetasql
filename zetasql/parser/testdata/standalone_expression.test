@@ -1,57 +1,54 @@
 # This file includes tests for standalone expressions, outside of queries.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 [default mode=expression]
 1
 --
-IntLiteral(1) [0-1]
+IntLiteral(1) [0-1] [1]
 --
 1
 ==
 
 'abc'
 --
-StringLiteral('abc') [0-5]
+StringLiteral('abc') [0-5] ['abc']
 --
 'abc'
 ==
 
 abc + @param + @@sysvar + count(*) + (select 1) + (select x from y)
 --
-BinaryExpression(+) [0-67]
-  BinaryExpression(+) [0-47]
-    BinaryExpression(+) [0-34]
-      BinaryExpression(+) [0-23]
-        BinaryExpression(+) [0-12]
-          PathExpression [0-3]
-            Identifier(abc) [0-3]
-          ParameterExpr [6-12]
-            Identifier(param) [7-12]
-        SystemVariableExpr [15-23]
-          PathExpression [17-23]
-            Identifier(sysvar) [17-23]
-      FunctionCall [26-34]
-        PathExpression [26-31]
-          Identifier(count) [26-31]
-        Star(*) [32-33]
-    ExpressionSubquery [37-47]
-      Query [38-46]
-        Select [38-46]
-          SelectList [45-46]
-            SelectColumn [45-46]
-              IntLiteral(1) [45-46]
-  ExpressionSubquery [50-67]
-    Query [51-66]
-      Select [51-66]
-        SelectList [58-59]
-          SelectColumn [58-59]
-            PathExpression [58-59]
-              Identifier(x) [58-59]
-        FromClause [60-66]
-          TablePathExpression [65-66]
-            PathExpression [65-66]
-              Identifier(y) [65-66]
+BinaryExpression(+) [0-67] [abc + @param...x from y)]
+  BinaryExpression(+) [0-47] [abc + @param...(select 1)]
+    BinaryExpression(+) [0-34] [abc + @param...+ count(*)]
+      BinaryExpression(+) [0-23] [abc + @param + @@sysvar]
+        BinaryExpression(+) [0-12] [abc + @param]
+          PathExpression [0-3] [abc]
+            Identifier(abc) [0-3] [abc]
+          ParameterExpr [6-12] [@param]
+            Identifier(param) [7-12] [param]
+        SystemVariableExpr [15-23] [@@sysvar]
+          PathExpression [17-23] [sysvar]
+            Identifier(sysvar) [17-23] [sysvar]
+      FunctionCall [26-34] [count(*)]
+        PathExpression [26-31] [count]
+          Identifier(count) [26-31] [count]
+        Star(*) [32-33] [*]
+    ExpressionSubquery [37-47] [(select 1)]
+      Query [38-46] [select 1]
+        Select [38-46] [select 1]
+          SelectList [45-46] [1]
+            SelectColumn [45-46] [1]
+              IntLiteral(1) [45-46] [1]
+  ExpressionSubquery [50-67] [(select x from y)]
+    Query [51-66] [select x from y]
+      Select [51-66] [select x from y]
+        SelectList [58-59] [x]
+          SelectColumn [58-59] [x]
+            PathExpression [58-59] [x]
+              Identifier(x) [58-59] [x]
+        FromClause [60-66] [from y]
+          TablePathExpression [65-66] [y]
+            PathExpression [65-66] [y]
+              Identifier(y) [65-66] [y]
 --
 abc + @param + @@sysvar + count(*) + (
   SELECT
@@ -67,44 +64,44 @@ abc + @param + @@sysvar + count(*) + (
 
 abc + ? + count(*) + (select 1) + (select x from y) - (select ?) * @test_param
 --
-BinaryExpression(-) [0-78]
-  BinaryExpression(+) [0-51]
-    BinaryExpression(+) [0-31]
-      BinaryExpression(+) [0-18]
-        BinaryExpression(+) [0-7]
-          PathExpression [0-3]
-            Identifier(abc) [0-3]
-          ParameterExpr(1) [6-7]
-        FunctionCall [10-18]
-          PathExpression [10-15]
-            Identifier(count) [10-15]
-          Star(*) [16-17]
-      ExpressionSubquery [21-31]
-        Query [22-30]
-          Select [22-30]
-            SelectList [29-30]
-              SelectColumn [29-30]
-                IntLiteral(1) [29-30]
-    ExpressionSubquery [34-51]
-      Query [35-50]
-        Select [35-50]
-          SelectList [42-43]
-            SelectColumn [42-43]
-              PathExpression [42-43]
-                Identifier(x) [42-43]
-          FromClause [44-50]
-            TablePathExpression [49-50]
-              PathExpression [49-50]
-                Identifier(y) [49-50]
-  BinaryExpression(*) [54-78]
-    ExpressionSubquery [54-64]
-      Query [55-63]
-        Select [55-63]
-          SelectList [62-63]
-            SelectColumn [62-63]
-              ParameterExpr(2) [62-63]
-    ParameterExpr [67-78]
-      Identifier(test_param) [68-78]
+BinaryExpression(-) [0-78] [abc + ? +...test_param]
+  BinaryExpression(+) [0-51] [abc + ? +...x from y)]
+    BinaryExpression(+) [0-31] [abc + ? +...(select 1)]
+      BinaryExpression(+) [0-18] [abc + ? + count(*)]
+        BinaryExpression(+) [0-7] [abc + ?]
+          PathExpression [0-3] [abc]
+            Identifier(abc) [0-3] [abc]
+          ParameterExpr(1) [6-7] [?]
+        FunctionCall [10-18] [count(*)]
+          PathExpression [10-15] [count]
+            Identifier(count) [10-15] [count]
+          Star(*) [16-17] [*]
+      ExpressionSubquery [21-31] [(select 1)]
+        Query [22-30] [select 1]
+          Select [22-30] [select 1]
+            SelectList [29-30] [1]
+              SelectColumn [29-30] [1]
+                IntLiteral(1) [29-30] [1]
+    ExpressionSubquery [34-51] [(select x from y)]
+      Query [35-50] [select x from y]
+        Select [35-50] [select x from y]
+          SelectList [42-43] [x]
+            SelectColumn [42-43] [x]
+              PathExpression [42-43] [x]
+                Identifier(x) [42-43] [x]
+          FromClause [44-50] [from y]
+            TablePathExpression [49-50] [y]
+              PathExpression [49-50] [y]
+                Identifier(y) [49-50] [y]
+  BinaryExpression(*) [54-78] [(select ?) * @test_param]
+    ExpressionSubquery [54-64] [(select ?)]
+      Query [55-63] [select ?]
+        Select [55-63] [select ?]
+          SelectList [62-63] [?]
+            SelectColumn [62-63] [?]
+              ParameterExpr(2) [62-63] [?]
+    ParameterExpr [67-78] [@test_param]
+      Identifier(test_param) [68-78] [test_param]
 --
 abc + ? + count(*) + (
   SELECT
@@ -122,27 +119,27 @@ abc + ? + count(*) + (
 
 ?
 --
-ParameterExpr(1) [0-1]
+ParameterExpr(1) [0-1] [?]
 --
 ?
 ==
 
 @@sysvar
 --
-SystemVariableExpr [0-8]
-  PathExpression [2-8]
-    Identifier(sysvar) [2-8]
+SystemVariableExpr [0-8] [@@sysvar]
+  PathExpression [2-8] [sysvar]
+    Identifier(sysvar) [2-8] [sysvar]
 --
 @@sysvar
 ==
 
 a.b.c.d
 --
-PathExpression [0-7]
-  Identifier(a) [0-1]
-  Identifier(b) [2-3]
-  Identifier(c) [4-5]
-  Identifier(d) [6-7]
+PathExpression [0-7] [a.b.c.d]
+  Identifier(a) [0-1] [a]
+  Identifier(b) [2-3] [b]
+  Identifier(c) [4-5] [c]
+  Identifier(d) [6-7] [d]
 --
 a.b.c.d
 ==
@@ -176,11 +173,11 @@ c. /* comment
 xxxx
 */ d
 --
-PathExpression [0-39]
-  Identifier(a) [0-1]
-  Identifier(b) [3-4]
-  Identifier(c) [16-17]
-  Identifier(d) [38-39]
+PathExpression [0-39] [a. b. # comment...xxxx */ d]
+  Identifier(a) [0-1] [a]
+  Identifier(b) [3-4] [b]
+  Identifier(c) [16-17] [c]
+  Identifier(d) [38-39] [d]
 --
 a.b.c.d
 ==

@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value_test_util.h"
@@ -171,9 +172,11 @@ std::vector<FunctionTestCall> GetFunctionTestsIntervalComparisons() {
       {"=", {Months(10), Months(10)}, Bool(true)},
       {"=", {Days(-3), Days(-3)}, Bool(true)},
       {"=", {Micros(12345), Micros(12345)}, Bool(true)},
-      {"=", {Nanos(-9876), Nanos(-9876)}, Bool(true)},
+      {"=", QueryParamsWithResult({Nanos(-9876), Nanos(-9876)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
 
-      {"<", {Nanos(999), Micros(1)}, Bool(true)},
+      {"<", QueryParamsWithResult({Nanos(999), Micros(1)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
       {"<", {Micros(999999), Seconds(1)}, Bool(true)},
       {"<", {Seconds(59), Minutes(1)}, Bool(true)},
       {"<", {Minutes(59), Hours(1)}, Bool(true)},
@@ -200,19 +203,28 @@ std::vector<FunctionTestCall> GetFunctionTestsIntervalComparisons() {
       {"<", {Micros(IntervalValue::kMicrosInDay - 1), Days(1)}, Bool(true)},
       {"<", {Days(1), Micros(IntervalValue::kMicrosInDay + 1)}, Bool(true)},
       {"=", {Nanos(-IntervalValue::kNanosInDay), Days(-1)}, Bool(true)},
-      {"<", {Nanos(-IntervalValue::kNanosInDay - 1), Days(-1)}, Bool(true)},
+      {"<", QueryParamsWithResult(
+                {Nanos(-IntervalValue::kNanosInDay - 1), Days(-1)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
       {"=", {Micros(IntervalValue::kMicrosInMonth), Months(1)}, Bool(true)},
       {"=", {Nanos(-IntervalValue::kNanosInMonth), Months(-1)}, Bool(true)},
 
       {"=", {Micros(-1), Nanos(-1000)}, Bool(true)},
       {"=", {Micros(7), Nanos(7000)}, Bool(true)},
-      {"<", {Micros(1), Nanos(1001)}, Bool(true)},
-      {"<", {Micros(-1), Nanos(900)}, Bool(true)},
-      {"<", {Nanos(999), Micros(1)}, Bool(true)},
-      {"<", {Nanos(-1001), Micros(-1)}, Bool(true)},
-      {"<", {Nanos(1), Micros(1)}, Bool(true)},
-      {"<", {Micros(-1), Nanos(1)}, Bool(true)},
-      {"<", {Nanos(1), Micros(1)}, Bool(true)},
+      {"<", QueryParamsWithResult({Micros(1), Nanos(1001)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
+      {"<", QueryParamsWithResult({Micros(-1), Nanos(900)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
+      {"<", QueryParamsWithResult({Nanos(999), Micros(1)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
+      {"<", QueryParamsWithResult({Nanos(-1001), Micros(-1)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
+      {"<", QueryParamsWithResult({Nanos(1), Micros(1)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
+      {"<", QueryParamsWithResult({Micros(-1), Nanos(1)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
+      {"<", QueryParamsWithResult({Nanos(1), Micros(1)}, Bool(true))
+                .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS)},
 
       {"=", {YMDHMS(1, 0, 1, 0, 0, 0), Days(361)}, Bool(true)},
       {"=", {YMDHMS(-1, 0, 360, 0, 2, 0), Minutes(2)}, Bool(true)},
@@ -660,7 +672,7 @@ std::vector<QueryParamsWithResult> GetTimestampAddSubInterval() {
         {{test.param(1), Value::Interval(interval)}, test.param(0)});
   }
 
-  return WrapFeaturesIntervalAndCivilTimeTypes(tests);
+  return WrapFeatureIntervalType(tests);
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsIntervalAddBase() {
@@ -767,8 +779,14 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIntervalDivide() {
       {{Minutes(1), -2}, Seconds(-30)},
       {{Seconds(1), 2}, Micros(500000)},
       {{Seconds(1), -2}, Micros(-500000)},
-      {{Micros(1), 2}, Nanos(500)},
-      {{Micros(1), -2}, Nanos(-500)},
+      QueryParamsWithResult({Micros(1), 2}, Nanos(500))
+          .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS),
+      QueryParamsWithResult({Micros(1), -2}, Nanos(-500))
+          .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS),
+      QueryParamsWithResult({Micros(1), 2}, Nanos(0))
+          .AddProhibitedFeature(FEATURE_TIMESTAMP_NANOS),
+      QueryParamsWithResult({Micros(1), -2}, Nanos(0))
+          .AddProhibitedFeature(FEATURE_TIMESTAMP_NANOS),
       {{Nanos(1), 2}, Nanos(0)},
       {{Nanos(1), -2}, Nanos(0)},
       {{YMDHMS(2, 2, 2, 2, 2, 2), 2}, YMDHMS(1, 1, 1, 1, 1, 1)},
@@ -895,7 +913,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsExtractInterval() {
       {{FromString("-1-2 -3 -4:5:6.123456789"), "NANOSECOND"},
        Int64(-123456789)},
 
-      {{Years(0), "DATE"}, NullInt64(), OUT_OF_RANGE},
+      // DATE is a compile time error handled by the resolver.
       {{Years(0), "QUARTER"}, NullInt64(), OUT_OF_RANGE},
       {{Years(0), "WEEK"}, NullInt64(), OUT_OF_RANGE},
       {{Years(0), "ISOWEEK"}, NullInt64(), OUT_OF_RANGE},

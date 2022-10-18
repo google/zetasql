@@ -602,9 +602,8 @@ WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ERROR: generic::out_of_range: COLLATE has invalid collation name 'und:cs:cs':only case sensitivity attribute is supported
 ==
 
-[name=orderby_collate_disallow_legacy_unicode_collation]
-[required_features=V_1_1_ORDER_BY_COLLATE]
-[test_features1=DISALLOW_LEGACY_UNICODE_COLLATION]
+[name=orderby_collate_disallow_legacy_unicode_collation_with_feature]
+[required_features=V_1_1_ORDER_BY_COLLATE,DISALLOW_LEGACY_UNICODE_COLLATION]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL
       select 2, "ca" UNION ALL
@@ -612,16 +611,24 @@ from (select 1 primary_key, "Ca" col UNION ALL
       select 4, "cb")
 ORDER BY col COLLATE "unicode:ci"
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
+ERROR: generic::out_of_range: COLLATE has invalid collation name 'unicode:ci'
+==
+[name=orderby_collate_disallow_legacy_unicode_collation_without_feature]
+[required_features=V_1_1_ORDER_BY_COLLATE]
+[forbidden_features=DISALLOW_LEGACY_UNICODE_COLLATION]
+select primary_key, col
+from (select 1 primary_key, "Ca" col UNION ALL
+      select 2, "ca" UNION ALL
+      select 3, "Cb" UNION ALL
+      select 4, "cb")
+ORDER BY col COLLATE "unicode:ci"
+--
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {2, "ca"},
   {1, "Ca"},
   {4, "cb"},
   {3, "Cb"}
 ]
---
-WITH FEATURES: DISALLOW_LEGACY_UNICODE_COLLATION,V_1_1_ORDER_BY_COLLATE
-ERROR: generic::out_of_range: COLLATE has invalid collation name 'unicode:ci'
 ==
 
 # TODO: Add more non-english language cases.

@@ -17,6 +17,7 @@
 #include "zetasql/scripting/error_helpers.h"
 
 #include <functional>
+#include <utility>
 
 #include "zetasql/common/status_payload_utils.h"
 #include "absl/status/statusor.h"

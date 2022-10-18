@@ -20,8 +20,10 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/analyzer.h"

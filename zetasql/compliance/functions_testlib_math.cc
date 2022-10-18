@@ -2004,8 +2004,8 @@ std::vector<FunctionTestCall> GetFunctionTestsCbrt() {
        NumericValue::FromString("-4641588833.612778892").value()},
   };
 
-  all_tests.reserve(numeric_tests.size());
-  for (const auto& test_case : numeric_tests) {
+  for (auto& test_case : numeric_tests) {
+    test_case.params.AddRequiredFeature(FEATURE_NUMERIC_TYPE);
     all_tests.emplace_back(test_case);
   }
 
@@ -2040,9 +2040,13 @@ std::vector<FunctionTestCall> GetFunctionTestsCbrt() {
            .value()},
   };
 
-  all_tests.reserve(bignumeric_tests.size());
-  for (const auto& test_case : bignumeric_tests) {
+  for (auto& test_case : bignumeric_tests) {
+    test_case.params.AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE);
     all_tests.emplace_back(test_case);
+  }
+
+  for (auto& test_case : all_tests) {
+    test_case.params.AddRequiredFeature(FEATURE_CBRT_FUNCTIONS);
   }
 
   return all_tests;

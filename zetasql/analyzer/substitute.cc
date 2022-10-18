@@ -24,6 +24,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/analyzer_impl.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
@@ -293,6 +294,14 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
   std::vector<std::unique_ptr<const ResolvedColumnRef>> referenced_columns;
 
   for (const auto& var : variables) {
+    if (options_.expression_columns().find(var.first) !=
+        options_.expression_columns().end()) {
+      return MakeSqlError()
+             << "name must not appear in both "
+             << "AnalyzerOptions.expression_columns and "
+             << "AnalyzeSubstitute variable parameter: " << var.first;
+    }
+
     ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*var.second, &referenced_columns));
 
     // We represent each variable as a column in the inner query.

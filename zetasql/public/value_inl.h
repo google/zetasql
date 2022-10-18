@@ -46,6 +46,7 @@
 #include "zetasql/public/value.h"  
 #include <cstdint>
 #include "absl/hash/hash.h"
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -54,14 +55,18 @@
 
 namespace zetasql {
 
-class Value::TypedList : public zetasql_base::SimpleReferenceCounted {
+class Value::TypedList : public internal::ValueContentContainer {
  public:
-  TypedList() = default;
+  explicit TypedList(std::vector<Value>&& values)
+      : values_(std::move(values)) {}
   TypedList(const TypedList&) = delete;
   TypedList& operator=(const TypedList&) = delete;
 
   std::vector<Value>& values() { return values_; }
-  uint64_t physical_byte_size() const {
+
+  const std::vector<Value>& values() const { return values_; }
+
+  uint64_t physical_byte_size() const override {
     if (physical_byte_size_.has_value()) {
       return physical_byte_size_.value();
     }
@@ -72,6 +77,15 @@ class Value::TypedList : public zetasql_base::SimpleReferenceCounted {
     physical_byte_size_ = size;
     return size;
   }
+
+  internal::ValueContentContainerElement element(int i) const override {
+    if (values_.at(i).is_null()) {
+      return internal::ValueContentContainerElement();
+    }
+    return internal::ValueContentContainerElement(values_.at(i).GetContent());
+  }
+
+  int64_t num_elements() const override { return values_.size(); }
 
  private:
   std::vector<Value> values_;
@@ -88,7 +102,7 @@ constexpr
 #else
 inline
 #endif
-Value::Value() {}
+    Value::Value() = default;
 
 inline Value::Value(const Value& that) { CopyFrom(that); }
 
@@ -546,8 +560,7 @@ inline const Value& Value::element(int i) const {
 }
 
 inline bool Value::Equals(const Value& that) const {
-  return EqualsInternal(*this, that, /*allow_bags=*/false,
-                        /*deep_order_spec=*/nullptr, /*options=*/{});
+  return EqualsInternal(*this, that, /*allow_bags=*/false, /*options=*/{});
 }
 
 inline const Value& Value::start() const {
@@ -555,8 +568,12 @@ inline const Value& Value::start() const {
       << "Not a range value";
   ZETASQL_CHECK(!is_null()) << "Null value";  // Crash ok
   ZETASQL_CHECK(type()->IsRange());           // Crash ok
-  ZETASQL_CHECK_EQ(list_ptr_->values().size(), 2);  // Crash ok
-  return list_ptr_->values().at(0);
+  const internal::ValueContentContainer* const container_ptr =
+      container_ptr_->value();
+  const TypedList* const list_ptr =
+      static_cast<const TypedList* const>(container_ptr);
+  ZETASQL_CHECK_EQ(list_ptr->values().size(), 2);  // Crash ok
+  return list_ptr->values().at(0);
 }
 
 inline const Value& Value::end() const {
@@ -564,8 +581,12 @@ inline const Value& Value::end() const {
       << "Not a range value";
   ZETASQL_CHECK(!is_null()) << "Null value";  // Crash ok
   ZETASQL_CHECK(type()->IsRange());           // Crash ok
-  ZETASQL_CHECK_EQ(list_ptr_->values().size(), 2);  // Crash ok
-  return list_ptr_->values().at(1);
+  const internal::ValueContentContainer* const container_ptr =
+      container_ptr_->value();
+  const TypedList* const list_ptr =
+      static_cast<const TypedList* const>(container_ptr);
+  ZETASQL_CHECK_EQ(list_ptr->values().size(), 2);  // Crash ok
+  return list_ptr->values().at(1);
 }
 
 template <typename H>
@@ -602,30 +623,8 @@ H Value::HashValueInternal(H h) const {
   }
 
   // Third, hash the value itself.
-  // TODO: currently we still handle array and struct related logic
-  // in a Value class. This can be moved to a Type class, when we have
-  // Value-agnostic interface for a list of values.
-  switch (type_kind) {
-    case TYPE_ARRAY: {
-      // We must hash arrays as if unordered to support hash_map and hash_set of
-      // values containing arrays with order_kind()=kIgnoresOrder.
-      // absl::Hash lacks support for unordered containers, so we create a
-      // cheapo solution of just adding the hashcodes.
-      absl::Hash<Value> element_hasher;
-      size_t combined_hash = 1;
-      for (int i = 0; i < num_elements(); i++) {
-        combined_hash += element_hasher(element(i));
-      }
-      return H::combine(std::move(h), combined_hash);
-    }
-    case TYPE_STRUCT: {
-      // combine is an ordered combine, which is what we want.
-      return H::combine(std::move(h), fields());
-    }
-    default:
-      type()->HashValueContent(GetContent(), absl::HashState::Create(&h));
-      return h;
-  }
+  type()->HashValueContent(GetContent(), absl::HashState::Create(&h));
+  return h;
 }
 
 template <>

@@ -25,6 +25,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -1023,14 +1024,14 @@ TEST(JSONValueTest, DeserializeFromProtoBytesMaxNestingLevel) {
   EXPECT_THAT(JSONValue::DeserializeFromProtoBytes(encoded_bytes,
                                                    /*max_nesting_level=*/2)
                   .status(),
-              StatusIs(absl::StatusCode::kInvalidArgument,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Max nesting of 2 has been exceeded while "
                                  "parsing JSON document")));
 
   EXPECT_THAT(JSONValue::DeserializeFromProtoBytes(encoded_bytes,
                                                    /*max_nesting_level=*/0)
                   .status(),
-              StatusIs(absl::StatusCode::kInvalidArgument,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Max nesting of 0 has been exceeded while "
                                  "parsing JSON document")));
 
@@ -1367,7 +1368,7 @@ TEST(JSONValueValidator, InvalidJSON) {
   ZETASQL_EXPECT_OK(IsValidJSON(json, {.max_nesting = 3}));
 
   EXPECT_THAT(IsValidJSON(json, {.max_nesting = 2}),
-              StatusIs(absl::StatusCode::kInvalidArgument,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Max nesting of 2 has been exceeded while "
                                  "parsing JSON document")));
 
@@ -1375,7 +1376,7 @@ TEST(JSONValueValidator, InvalidJSON) {
   std::string large_double = R"({"foo": 123456789012345678901234567890})";
   ZETASQL_EXPECT_OK(IsValidJSON(large_double));
   EXPECT_THAT(IsValidJSON(large_double, {.strict_number_parsing = true}),
-              StatusIs(absl::StatusCode::kInvalidArgument,
+              StatusIs(absl::StatusCode::kOutOfRange,
                        ::testing::HasSubstr("cannot round-trip")));
 
   // Invalid values
@@ -1391,7 +1392,7 @@ TEST(JSONValueValidator, InvalidJSON) {
 
   for (const auto& [json, error] : jsons_and_errors) {
     EXPECT_THAT(IsValidJSON(json),
-                StatusIs(absl::StatusCode::kInvalidArgument,
+                StatusIs(absl::StatusCode::kOutOfRange,
                          AllOf(HasSubstr("syntax error while parsing"),
                                HasSubstr(error))));
   }

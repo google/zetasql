@@ -21,8 +21,11 @@
 
 #include <cstdint>
 #include <map>
+#include <memory>
+#include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/builtin_function.pb.h"
@@ -173,6 +176,12 @@ std::string AnonSumWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs);
 
 std::string AnonSumWithReportProtoFunctionSQL(
+    const std::vector<std::string>& inputs);
+
+std::string AnonAvgWithReportJsonFunctionSQL(
+    const std::vector<std::string>& inputs);
+
+std::string AnonAvgWithReportProtoFunctionSQL(
     const std::vector<std::string>& inputs);
 
 std::string AnonCountWithReportJsonFunctionSQL(
@@ -365,45 +374,6 @@ std::string NoMatchingSignatureForDateOrTimeAddOrSubFunction(
 std::string NoMatchingSignatureForGenerateDateOrTimestampArrayFunction(
     const std::string& qualified_function_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
-
-// Supports 'ArgumentType' of either InputArgumentType or FunctionArgumentType.
-//
-// Example return values:
-//   DATE_TIME_PART FROM TIMESTAMP
-//   DATE FROM TIMESTAMP
-//   TIME FROM TIMESTAMP
-//   DATETIME FROM TIMESTAMP
-//   DATE_TIME_PART FROM TIMESTAMP AT TIME ZONE STRING
-//   DATETIME FROM TIMESTAMP [AT TIME ZONE STRING]
-//
-// 'include_bracket' indicates whether or not the 'AT TIME ZONE' argument
-// is enclosed in brackets to indicate that the clause is optional.
-// The input 'arguments' must be a valid signature for EXTRACT.
-//
-// If 'explicit_datepart_name' is non-empty, then the signature must not
-// have a date part argument.  Otherwise, the signature must have a date
-// part argument.
-//
-// For $extract, the date part argument is present in 'arguments', and
-// 'explicit_datepart_name' is empty.
-//
-// For $extract_date, $extract_time, and $extract_datetime, the date part
-// argument is *not* present in 'arguments', and 'explicit_datepart_name'
-// is non-empty.
-template <class ArgumentType>
-std::string GetExtractFunctionSignatureString(
-    const std::string& explicit_datepart_name,
-    const std::vector<ArgumentType>& arguments, ProductMode product_mode,
-    bool include_bracket);
-
-std::string NoMatchingSignatureForExtractFunction(
-    const std::string& explicit_datepart_name,
-    const std::string& qualified_function_name,
-    const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
-
-std::string ExtractSupportedSignatures(
-    const std::string& explicit_datepart_name,
-    const LanguageOptions& language_options, const Function& function);
 
 std::string NoMatchingSignatureForSubscript(
     absl::string_view offset_or_ordinal, absl::string_view operator_name,
@@ -672,9 +642,21 @@ void GetProto3ConversionFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions);
 
+void GetErrorHandlingFunctions(TypeFactory* type_factory,
+                               const ZetaSQLBuiltinFunctionOptions& options,
+                               NameToFunctionMap* functions);
+
+void GetConditionalFunctions(TypeFactory* type_factory,
+                             const ZetaSQLBuiltinFunctionOptions& options,
+                             NameToFunctionMap* functions);
+
 void GetMiscellaneousFunctions(TypeFactory* type_factory,
                                const ZetaSQLBuiltinFunctionOptions& options,
                                NameToFunctionMap* functions);
+
+void GetArrayAggregationFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions);
 
 void GetSubscriptFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,
@@ -735,6 +717,11 @@ void GetTypeOfFunction(TypeFactory* type_factory,
 void GetFilterFieldsFunction(TypeFactory* type_factory,
                              const ZetaSQLBuiltinFunctionOptions& options,
                              NameToFunctionMap* functions);
+
+void GetRangeFunctions(TypeFactory* type_factory,
+                       const ZetaSQLBuiltinFunctionOptions& options,
+                       NameToFunctionMap* functions);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_BUILTIN_FUNCTION_INTERNAL_H_

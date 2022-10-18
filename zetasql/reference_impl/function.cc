@@ -26,9 +26,11 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -45,7 +47,6 @@
 #include "google/protobuf/reflection.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/initialize_required_fields.h"
-#include "zetasql/common/internal_value.h"
 #include "zetasql/proto/anon_output_with_report.pb.h"
 #include "zetasql/public/anonymization_utils.h"
 #include "zetasql/public/cast.h"
@@ -122,9 +123,23 @@
 
 ABSL_RETIRED_FLAG(bool, zetasql_lock_regexp_func, false, "retired");
 
+ABSL_FLAG(bool, zetasql_reference_impl_validate_timestamp_precision, false,
+          "When set, some operations will validate that TIMESTAMP has the "
+          "expected number of significant fractional digits when "
+          "FEATURE_TIMESTAMP_NANOS is not enuabled.");
+
 namespace zetasql {
 
 namespace {
+
+static functions::TimestampScale GetTimestampScale(
+    const LanguageOptions& options) {
+  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+    return functions::TimestampScale::kNanoseconds;
+  } else {
+    return functions::TimestampScale::kMicroseconds;
+  }
+}
 
 // Add() and Subtract() are helper methods with a uniform signature for all
 // numeric types. They do not handle NULLs.
@@ -589,6 +604,8 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kLessOrEqual, "$less_or_equal",
                      "LessOrEqual");
     RegisterFunction(FunctionKind::kLike, "$like", "Like");
+    RegisterFunction(FunctionKind::kLikeWithCollation, "$like_with_collation",
+                     "LikeWithCollation");
     RegisterFunction(FunctionKind::kLikeAny, "$like_any", "LikeAny");
     RegisterFunction(FunctionKind::kLikeAll, "$like_all", "LikeAll");
     RegisterFunction(FunctionKind::kLikeAnyArray, "$like_any_array",
@@ -687,6 +704,9 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kAnonQuantilesWithReportProto,
                      "$anon_quantiles_with_report_proto",
                      "AnonQuantilesWithReportProto");
+    RegisterFunction(FunctionKind::kAnonQuantilesWithReportJson,
+                     "$anon_quantiles_with_report_json",
+                     "AnonQuantilesWithReportJson");
   }();
   [this]() {
     RegisterFunction(FunctionKind::kByteLength, "byte_length", "ByteLength");
@@ -902,6 +922,10 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kArrayFirst, "array_first", "ArrayFirst");
     RegisterFunction(FunctionKind::kArrayLast, "array_last", "ArrayLast");
     RegisterFunction(FunctionKind::kArraySlice, "array_slice", "ArraySlice");
+    RegisterFunction(FunctionKind::kArrayMin, "array_min", "ArrayMin");
+    RegisterFunction(FunctionKind::kArrayMax, "array_max", "ArrayMax");
+    RegisterFunction(FunctionKind::kRangeCtor, "range", "Range");
+    RegisterFunction(FunctionKind::kArraySum, "array_sum", "ArraySum");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -1470,8 +1494,8 @@ absl::StatusOr<FunctionKind> BuiltinFunctionCatalog::GetKindByName(
   const FunctionKind* kind = zetasql_base::FindOrNull(
       GetFunctionMap().function_kind_by_name(), std::string(name));
   if (kind == nullptr) {
-    return absl::Status(absl::StatusCode::kInvalidArgument,
-                        absl::StrCat("Unsupported built-in function: ", name));
+    return absl::UnimplementedError(
+        absl::StrCat("Unsupported built-in function: ", name));
   }
   return *kind;
 }
@@ -1676,6 +1700,10 @@ BuiltinScalarFunction::CreateValidatedRaw(
                                      kind, output_type, arguments));
       return fct.release();
     }
+    case FunctionKind::kLikeWithCollation:
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateInputTypesSupportEqualityComparison(kind, input_types));
+      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kBitwiseNot:
     case FunctionKind::kBitwiseOr:
     case FunctionKind::kBitwiseXor:
@@ -1867,6 +1895,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new ArrayFirstLastFunction(kind, output_type);
     case FunctionKind::kArraySlice:
       return new ArraySliceFunction(kind, output_type);
+    case FunctionKind::kArraySum:
+      return new ArraySumAvgFunction(kind, output_type);
     case FunctionKind::kCurrentDate:
     case FunctionKind::kCurrentDatetime:
     case FunctionKind::kCurrentTime:
@@ -1990,6 +2020,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kError:
       return new ErrorFunction(output_type);
+    case FunctionKind::kRangeCtor:
+      return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     default:
       ZETASQL_RET_CHECK_FAIL() << BuiltinFunctionCatalog::GetDebugNameByKind(kind)
                        << " is not a scalar function";
@@ -2094,12 +2126,27 @@ BuiltinScalarFunction::CreateLikeAnyAllArrayFunction(
   }
 
   if (kind == FunctionKind::kLikeAnyArray) {
-    return absl::WrapUnique(
-        new LikeAnyArrayFunction(kind, output_type, std::move(regexp)));
+    return std::make_unique<LikeAnyArrayFunction>(kind, output_type,
+                                                  std::move(regexp));
   } else {
-    return absl::WrapUnique(
-        new LikeAllArrayFunction(kind, output_type, std::move(regexp)));
+    return std::make_unique<LikeAllArrayFunction>(kind, output_type,
+                                                  std::move(regexp));
   }
+}
+
+absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
+ArrayMinMaxFunction::CreateCall(
+    FunctionKind kind, const LanguageOptions& language_options,
+    const Type* output_type, std::vector<std::unique_ptr<AlgebraArg>> arguments,
+    ResolvedFunctionCallBase::ErrorMode error_mode,
+    CollatorList collator_list) {
+  ZETASQL_RET_CHECK_LE(collator_list.size(), 1);
+
+  std::unique_ptr<BuiltinScalarFunction> function =
+      std::make_unique<ArrayMinMaxFunction>(kind, output_type,
+                                            std::move(collator_list));
+  return ScalarFunctionCallExpr::Create(std::move(function),
+                                        std::move(arguments), error_mode);
 }
 
 namespace {
@@ -2185,6 +2232,11 @@ bool LeastFunction::Eval(absl::Span<const TupleData* const> params,
                          EvaluationContext* context, Value* result,
                          absl::Status* status) const {
   ZETASQL_DCHECK_GT(args.size(), 0);
+  for (int i = 0; i < args.size(); i++) {
+    if (*status = ValidateMicrosPrecision(args[i], context); !status->ok()) {
+      return false;
+    }
+  }
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -2207,6 +2259,11 @@ bool GreatestFunction::Eval(absl::Span<const TupleData* const> params,
                             EvaluationContext* context, Value* result,
                             absl::Status* status) const {
   ZETASQL_DCHECK_GT(args.size(), 0);
+  for (int i = 0; i < args.size(); i++) {
+    if (*status = ValidateMicrosPrecision(args[i], context); !status->ok()) {
+      return false;
+    }
+  }
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -2301,7 +2358,7 @@ absl::StatusOr<Value> FormatFunction::Eval(
   ZETASQL_RETURN_IF_ERROR(functions::StringFormatUtf8(
       args[0].string_value(), values,
       context->GetLanguageOptions().product_mode(), &output,
-      &is_null));
+      &is_null, true));
   Value value;
   if (is_null) {
     value = Value::NullString();
@@ -2736,12 +2793,27 @@ bool ArithmeticFunction::Eval(absl::Span<const TupleData* const> params,
                                            args, result, status);
     case FCT(FunctionKind::kDivide, TYPE_INTERVAL): {
       auto status_interval = args[0].interval_value() / args[1].int64_value();
-      if (status_interval.ok()) {
-        *result = Value::Interval(*status_interval);
-      } else {
+      if (!status_interval.ok()) {
         *status = status_interval.status();
+        return false;
       }
-      return status->ok();
+      IntervalValue quotient = *status_interval;
+      if (quotient.get_nano_fractions() != 0 &&
+          GetTimestampScale(context->GetLanguageOptions()) ==
+              functions::TimestampScale::kMicroseconds) {
+        // Round off the nanos bits toward zero.
+        if (quotient.get_nanos() > 0) {
+          IntervalValue nanos_to_subtract =
+              *IntervalValue::FromNanos(quotient.get_nano_fractions());
+          quotient = *(quotient - nanos_to_subtract);
+        } else {
+          IntervalValue nanos_to_add = *IntervalValue::FromNanos(
+              IntervalValue::kNanosInMicro - quotient.get_nano_fractions());
+          quotient = *(quotient + nanos_to_add);
+        }
+      }
+      *result = Value::Interval(quotient);
+      return true;
     }
 
     case FCT(FunctionKind::kDiv, TYPE_INT64):
@@ -2914,6 +2986,12 @@ bool ComparisonFunction::Eval(absl::Span<const TupleData* const> params,
 
   const Value& x = args[0];
   const Value& y = args[1];
+
+  status->Update(ValidateMicrosPrecision(x, context));
+  status->Update(ValidateMicrosPrecision(y, context));
+  if (!status->ok()) {
+    return false;
+  }
 
   if (kind() == FunctionKind::kEqual) {
     *result = x.SqlEquals(y);
@@ -3485,6 +3563,624 @@ absl::StatusOr<Value> ArraySliceFunction::Eval(
   return output;
 }
 
+absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  ZETASQL_RET_CHECK(kind() == FunctionKind::kArrayMin ||
+            kind() == FunctionKind::kArrayMax);
+  if (args[0].is_null() || args[0].is_empty_array()) {
+    return Value::Null(output_type());
+  }
+  bool has_ties = false;
+
+  Value output_null = Value::Null(output_type());
+  bool has_non_null = false;
+  const Type* element_type = args[0].type()->AsArray()->element_type();
+  switch (FCT(kind(), element_type->kind())) {
+    // ARRAY_MIN
+    case FCT(FunctionKind::kArrayMin, TYPE_FLOAT):
+    case FCT(FunctionKind::kArrayMin, TYPE_DOUBLE): {
+      double min_value = std::numeric_limits<double>::infinity();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        if (std::isnan(element.ToDouble()) || std::isnan(min_value)) {
+          min_value = std::numeric_limits<double>::quiet_NaN();
+        } else {
+          min_value = std::min(min_value, element.ToDouble());
+        }
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return output_type()->IsFloat() ? Value::Float(min_value)
+                                      : Value::Double(min_value);
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_UINT64): {
+      uint64_t min_value = std::numeric_limits<uint64_t>::max();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        min_value = std::min(min_value, element.uint64_value());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Uint64(min_value);
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_INT32):
+    case FCT(FunctionKind::kArrayMin, TYPE_INT64):
+    case FCT(FunctionKind::kArrayMin, TYPE_UINT32):
+    case FCT(FunctionKind::kArrayMin, TYPE_DATE):
+    case FCT(FunctionKind::kArrayMin, TYPE_BOOL):
+    case FCT(FunctionKind::kArrayMin, TYPE_ENUM): {
+      int64_t min_value = std::numeric_limits<int64_t>::max();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        min_value = std::min(min_value, element.ToInt64());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      switch (element_type->kind()) {
+        case TYPE_INT32:
+          return Value::Int32(static_cast<int32_t>(min_value));
+        case TYPE_INT64:
+          return Value::Int64(min_value);
+        case TYPE_UINT32:
+          return Value::Uint32(static_cast<uint32_t>(min_value));
+        case TYPE_DATE:
+          return Value::Date(static_cast<int32_t>(min_value));
+        case TYPE_BOOL:
+          return Value::Bool(min_value > 0);
+        case TYPE_ENUM:
+          return Value::Enum(output_type()->AsEnum(), min_value);
+        default:
+          ZETASQL_RET_CHECK_FAIL();
+      }
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_DATETIME): {
+      DatetimeValue min_value = DatetimeValue::FromYMDHMSAndNanos(
+          9999, 12, 31, 23, 59, 59, 999999999);
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        min_value = element.LessThan(Value::Datetime(min_value))
+                        ? element.datetime_value()
+                        : min_value;
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Datetime(min_value);
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_TIMESTAMP): {
+      int64_t min_value = std::numeric_limits<int64_t>::max();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        // TODO: Support Value::ToUnixNanos in ARRAY_MIN and MIN.
+        min_value = std::min(min_value, element.ToUnixMicros());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::TimestampFromUnixMicros(min_value);
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_TIME): {
+      int64_t min_value = std::numeric_limits<int64_t>::max();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        min_value =
+            std::min(min_value, element.time_value().Packed64TimeNanos());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Time(TimeValue::FromPacked64Nanos(min_value));
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_NUMERIC): {
+      NumericValue min_value = NumericValue::MaxValue();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        min_value = std::min(min_value, element.numeric_value());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Numeric(min_value);
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_BIGNUMERIC): {
+      BigNumericValue min_value = BigNumericValue::MaxValue();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        min_value = std::min(min_value, element.bignumeric_value());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::BigNumeric(min_value);
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_STRING): {
+      std::string min_value;
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        if (!has_non_null) {  // when there isn't already a non-null string
+          min_value = element.string_value();
+        } else if (!collator_list_.empty()) {  // when there is collation_list
+                                               // in ResolvedFunctionCall
+          absl::Status status = absl::OkStatus();
+          int64_t res = collator_list_[0]->CompareUtf8(element.string_value(),
+                                                       min_value, &status);
+          ZETASQL_RETURN_IF_ERROR(status);
+          if (res < 0) {  // current element orders first
+            min_value = element.string_value();
+            has_ties = false;
+          } else if (res == 0) {
+            has_ties = true;
+          }
+        } else {
+          min_value = std::min(min_value, element.string_value());
+        }
+        has_non_null = true;
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      if (has_ties && InternalValue::GetOrderKind(args[0]) ==
+                          InternalValue::kIgnoresOrder) {
+        context->SetNonDeterministicOutput();
+      }
+      return Value::String(min_value);
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_BYTES): {
+      std::string min_value;
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        if (!has_non_null) {  // there isn't already a non-null string
+          min_value = element.bytes_value();
+        } else {
+          min_value = std::min(min_value, element.bytes_value());
+        }
+        has_non_null = true;
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Bytes(min_value);
+    }
+    case FCT(FunctionKind::kArrayMin, TYPE_INTERVAL): {
+      IntervalValue min_value = IntervalValue::MaxValue();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        if (element.interval_value() == min_value) {
+          has_ties = true;
+        } else if (element.interval_value() < min_value) {
+          min_value = element.interval_value();
+          has_ties = false;
+        }
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      if (has_ties && InternalValue::GetOrderKind(args[0]) ==
+                          InternalValue::kIgnoresOrder) {
+        context->SetNonDeterministicOutput();
+      }
+      return Value::Interval(min_value);
+    }
+
+    // ARRAY_MAX
+    case FCT(FunctionKind::kArrayMax, TYPE_FLOAT):
+    case FCT(FunctionKind::kArrayMax, TYPE_DOUBLE): {
+      double max_value = -std::numeric_limits<double>::infinity();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        if (std::isnan(element.ToDouble()) || std::isnan(max_value)) {
+          max_value = std::numeric_limits<double>::quiet_NaN();
+        } else {
+          max_value = std::max(max_value, element.ToDouble());
+        }
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return output_type()->IsFloat() ? Value::Float(max_value)
+                                      : Value::Double(max_value);
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_UINT64): {
+      uint64_t max_value = 0;
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        max_value = std::max(max_value, element.uint64_value());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Uint64(max_value);
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_INT32):
+    case FCT(FunctionKind::kArrayMax, TYPE_INT64):
+    case FCT(FunctionKind::kArrayMax, TYPE_UINT32):
+    case FCT(FunctionKind::kArrayMax, TYPE_DATE):
+    case FCT(FunctionKind::kArrayMax, TYPE_BOOL):
+    case FCT(FunctionKind::kArrayMax, TYPE_ENUM): {
+      int64_t max_value = std::numeric_limits<int64_t>::lowest();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        max_value = std::max(max_value, element.ToInt64());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      switch (element_type->kind()) {
+        case TYPE_INT32:
+          return Value::Int32(static_cast<int32_t>(max_value));
+        case TYPE_INT64:
+          return Value::Int64(max_value);
+        case TYPE_UINT32:
+          return Value::Uint32(static_cast<uint32_t>(max_value));
+        case TYPE_DATE:
+          return Value::Date(static_cast<int32_t>(max_value));
+        case TYPE_BOOL:
+          return Value::Bool(max_value > 0);
+        case TYPE_ENUM:
+          return Value::Enum(output_type()->AsEnum(), max_value);
+        default:
+          ZETASQL_RET_CHECK_FAIL();
+      }
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_DATETIME): {
+      DatetimeValue max_value =
+          DatetimeValue::FromYMDHMSAndNanos(1, 1, 1, 0, 0, 0, 0);
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        max_value = Value::Datetime(max_value).LessThan(element)
+                        ? element.datetime_value()
+                        : max_value;
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Datetime(max_value);
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_TIMESTAMP): {
+      int64_t max_value = std::numeric_limits<int64_t>::lowest();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        max_value = std::max(max_value, element.ToUnixMicros());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::TimestampFromUnixMicros(max_value);
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_TIME): {
+      int64_t max_value = std::numeric_limits<int64_t>::lowest();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        max_value =
+            std::max(max_value, element.time_value().Packed64TimeNanos());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Time(TimeValue::FromPacked64Nanos(max_value));
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_NUMERIC): {
+      NumericValue max_value = NumericValue::MinValue();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        max_value = std::max(max_value, element.numeric_value());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Numeric(max_value);
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_BIGNUMERIC): {
+      BigNumericValue max_value = BigNumericValue::MinValue();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        max_value = std::max(max_value, element.bignumeric_value());
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::BigNumeric(max_value);
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_STRING): {
+      std::string max_value;
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        if (!has_non_null) {  // when there isn't already a non-null string
+          max_value = element.string_value();
+        } else if (!collator_list_.empty()) {  // when there is collation_list
+                                               // in ResolvedFunctionCall
+          absl::Status status = absl::OkStatus();
+          int64_t res = collator_list_[0]->CompareUtf8(element.string_value(),
+                                                       max_value, &status);
+          ZETASQL_RETURN_IF_ERROR(status);
+          if (res > 0) {  // current element orders first
+            max_value = element.string_value();
+            has_ties = false;
+          } else if (res == 0) {
+            has_ties = true;
+          }
+        } else {
+          max_value = std::max(max_value, element.string_value());
+        }
+        has_non_null = true;
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      if (has_ties && InternalValue::GetOrderKind(args[0]) ==
+                          InternalValue::kIgnoresOrder) {
+        context->SetNonDeterministicOutput();
+      }
+      return Value::String(max_value);
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_BYTES): {
+      std::string max_value;
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        if (!has_non_null) {  // there isn't already a non-null string
+          max_value = element.bytes_value();
+        } else {
+          max_value = std::max(max_value, element.bytes_value());
+        }
+        has_non_null = true;
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      return Value::Bytes(max_value);
+    }
+    case FCT(FunctionKind::kArrayMax, TYPE_INTERVAL): {
+      IntervalValue max_value = IntervalValue::MinValue();
+      for (const Value& element : args[0].elements()) {
+        if (element.is_null()) {
+          continue;
+        }
+        has_non_null = true;
+        if (element.interval_value() == max_value) {
+          has_ties = true;
+        } else if (element.interval_value() > max_value) {
+          max_value = element.interval_value();
+          has_ties = false;
+        }
+      }
+      if (!has_non_null) {
+        return output_null;
+      }
+      if (has_ties && InternalValue::GetOrderKind(args[0]) ==
+                          InternalValue::kIgnoresOrder) {
+        context->SetNonDeterministicOutput();
+      }
+      return Value::Interval(max_value);
+    }
+    default:
+      ZETASQL_RET_CHECK_FAIL();
+  }
+}
+
+static absl::StatusOr<Value> AggregateDoubleArraySumValue(
+    const std::vector<Value>& elements, const Type* output_type) {
+  zetasql_base::ExactFloat sum = 0;
+  bool has_non_null = false;
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    }
+    has_non_null = true;
+    sum += element.ToDouble();
+  }
+  if (sum.is_finite() && (sum > std::numeric_limits<double>::max() ||
+                          sum < -std::numeric_limits<double>::max())) {
+    return ::zetasql_base::OutOfRangeErrorBuilder() << "ARRAY_SUM double overflow";
+  }
+  if (has_non_null) {
+    return Value::Double(sum.ToDouble());
+  }
+  return Value::Null(output_type);
+}
+
+static absl::StatusOr<Value> AggregateInt64ArraySumValue(
+    const std::vector<Value>& elements, const Type* output_type) {
+  __int128 sum = 0;
+  bool has_non_null = false;
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    }
+    has_non_null = true;
+    sum += element.ToInt64();
+  }
+  if (sum > std::numeric_limits<int64_t>::max() ||
+      sum < std::numeric_limits<int64_t>::min()) {
+    return ::zetasql_base::OutOfRangeErrorBuilder() << "ARRAY_SUM int64_t overflow";
+  }
+  if (has_non_null) {
+    return Value::Int64(sum);
+  }
+  return Value::Null(output_type);
+}
+
+static absl::StatusOr<Value> AggregateUint64ArraySumValue(
+    const std::vector<Value>& elements, const Type* output_type) {
+  unsigned __int128 sum = 0;
+  bool has_non_null = false;
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    }
+    has_non_null = true;
+    sum += element.ToUint64();
+  }
+  if (sum > std::numeric_limits<uint64_t>::max()) {
+    return ::zetasql_base::OutOfRangeErrorBuilder() << "ARRAY_SUM uint64_t overflow";
+  }
+  if (has_non_null) {
+    return Value::Uint64(sum);
+  }
+  return Value::Null(output_type);
+}
+
+static absl::StatusOr<Value> AggregateNumericArraySumValue(
+    const std::vector<Value>& elements, const Type* output_type) {
+  bool has_non_null = false;
+  NumericValue::SumAggregator aggregator = NumericValue::SumAggregator();
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    } else {
+      has_non_null = true;
+      aggregator.Add(element.numeric_value());
+    }
+  }
+
+  if (has_non_null) {
+    ZETASQL_ASSIGN_OR_RETURN(NumericValue sum, aggregator.GetSum());
+    return Value::Numeric(sum);
+  }
+  return Value::Null(output_type);
+}
+
+static absl::StatusOr<Value> AggregateBigNumericArraySumValue(
+    const std::vector<Value>& elements, const Type* output_type) {
+  bool has_non_null = false;
+  BigNumericValue::SumAggregator aggregator = BigNumericValue::SumAggregator();
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    } else {
+      has_non_null = true;
+      aggregator.Add(element.bignumeric_value());
+    }
+  }
+
+  if (has_non_null) {
+    ZETASQL_ASSIGN_OR_RETURN(BigNumericValue sum, aggregator.GetSum());
+    return Value::BigNumeric(sum);
+  }
+  return Value::Null(output_type);
+}
+
+static absl::StatusOr<Value> AggregateIntervalArraySumValue(
+    const std::vector<Value>& elements, const Type* output_type) {
+  IntervalValue sum;
+  bool has_non_null = false;
+  IntervalValue::SumAggregator aggregator = IntervalValue::SumAggregator();
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    } else {
+      has_non_null = true;
+      aggregator.Add(element.interval_value());
+    }
+  }
+  ZETASQL_ASSIGN_OR_RETURN(sum, aggregator.GetSum());
+  if (has_non_null) {
+    return Value::Interval(sum);
+  }
+  return Value::Null(output_type);
+}
+
+absl::StatusOr<Value> ArraySumAvgFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  ZETASQL_RET_CHECK(kind() == FunctionKind::kArraySum);
+  if (args[0].is_null() || args[0].is_empty_array()) {
+    return Value::Null(output_type());
+  }
+  Value output = Value::Null(output_type());
+  const Type* element_type = args[0].type()->AsArray()->element_type();
+  switch (FCT(kind(), element_type->kind())) {
+    case FCT(FunctionKind::kArraySum, TYPE_INT32):
+    case FCT(FunctionKind::kArraySum, TYPE_INT64): {
+      return AggregateInt64ArraySumValue(args[0].elements(), output_type());
+    }
+    case FCT(FunctionKind::kArraySum, TYPE_UINT32):
+    case FCT(FunctionKind::kArraySum, TYPE_UINT64): {
+      return AggregateUint64ArraySumValue(args[0].elements(), output_type());
+    }
+    case FCT(FunctionKind::kArraySum, TYPE_FLOAT):
+    case FCT(FunctionKind::kArraySum, TYPE_DOUBLE): {
+      return AggregateDoubleArraySumValue(args[0].elements(), output_type());
+    }
+    case FCT(FunctionKind::kArraySum, TYPE_NUMERIC): {
+      return AggregateNumericArraySumValue(args[0].elements(), output_type());
+    }
+    case FCT(FunctionKind::kArraySum, TYPE_BIGNUMERIC): {
+      return AggregateBigNumericArraySumValue(args[0].elements(),
+                                              output_type());
+    }
+    case FCT(FunctionKind::kArraySum, TYPE_INTERVAL): {
+      return AggregateIntervalArraySumValue(args[0].elements(), output_type());
+    }
+    default:
+      ZETASQL_RET_CHECK_FAIL();
+  }
+}
+
 bool IsFunction::Eval(absl::Span<const TupleData* const> params,
                       absl::Span<const Value> args, EvaluationContext* context,
                       Value* result, absl::Status* status) const {
@@ -3539,7 +4235,7 @@ absl::StatusOr<Value> CastFunction::Eval(
       v, context->GetDefaultTimeZone(),
       absl::FromUnixMicros(context->GetCurrentTimestamp()),
       context->GetLanguageOptions(), output_type(), format, time_zone,
-      extended_cast_evaluator_.get());
+      extended_cast_evaluator_.get(), /*canonicalize_zero=*/true);
   if (!status_or.ok() && return_null_on_error) {
     // TODO: check that failure is not due to absence of
     // extended_type_function. In this case we still probably wants to fail the
@@ -4124,6 +4820,7 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       break;
     }
     case FCT(FunctionKind::kAnonQuantilesWithReportProto, TYPE_ARRAY):
+    case FCT(FunctionKind::kAnonQuantilesWithReportJson, TYPE_ARRAY):
     case FCT(FunctionKind::kAnonQuantiles, TYPE_ARRAY): {
       differential_privacy::Quantiles<double>::Builder builder;
       ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilderForArrayFunction<>(args_, &builder));
@@ -4162,6 +4859,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       break;
     }
     case FunctionKind::kPercentileDisc:
+    case FunctionKind::kPercentileCont:
       percentile_population_.push_back(value);
       break;
     default:
@@ -4456,6 +5154,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       break;
     }
     case FCT(FunctionKind::kMin, TYPE_TIMESTAMP): {
+      // TODO: Support Value::ToUnixNanos in ARRAY_MIN and MIN.
       out_int64_ = std::min(out_int64_, value.ToUnixMicros());
       break;
     }
@@ -4571,11 +5270,6 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       }
       break;
     }
-    case FCT(FunctionKind::kPercentileCont, TYPE_DOUBLE):
-    case FCT(FunctionKind::kPercentileCont, TYPE_NUMERIC):
-    case FCT(FunctionKind::kPercentileCont, TYPE_BIGNUMERIC):
-      percentile_population_.push_back(value);
-      break;
     case FCT(FunctionKind::kAnonSum, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_DOUBLE):
@@ -4589,6 +5283,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       break;
     case FCT(FunctionKind::kAnonQuantiles, TYPE_ARRAY):
     case FCT(FunctionKind::kAnonQuantilesWithReportProto, TYPE_ARRAY):
+    case FCT(FunctionKind::kAnonQuantilesWithReportJson, TYPE_ARRAY):
     case FCT(FunctionKind::kAnonVarPop, TYPE_ARRAY):
     case FCT(FunctionKind::kAnonStddevPop, TYPE_ARRAY): {
       for (const Value& value_element : value.elements()) {
@@ -5295,6 +5990,18 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
       }
       return Value::Proto(anon_output_proto_type,
                           absl::Cord(anon_output_proto.SerializeAsString()));
+    }
+    case FCT(FunctionKind::kAnonQuantilesWithReportJson, TYPE_ARRAY): {
+      JSONValue anon_output_json;
+      if (anon_double_ != nullptr) {
+        auto result = anon_double_->PartialResult();
+        if (!result.ok()) {
+          return result.status();
+        }
+        ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToAnonOutputJson(
+            result.value(), &anon_output_json));
+      }
+      return Value::Json(JSONValue::CopyFrom(anon_output_json.GetConstRef()));
     }
     case FCT(FunctionKind::kAnonSum, TYPE_INT64):
       if (anon_int64_ != nullptr) {
@@ -6829,7 +7536,7 @@ FilterFieldsFunction::FilterFieldsFunction(const Type* output_type,
     : SimpleBuiltinScalarFunction(FunctionKind::kFilterFields, output_type),
       reset_cleared_required_fields_(reset_cleared_required_fields) {}
 
-FilterFieldsFunction::~FilterFieldsFunction() {}
+FilterFieldsFunction::~FilterFieldsFunction() = default;
 
 absl::Status FilterFieldsFunction::RecursivelyPrune(
     const FieldPathTrieNode* node, google::protobuf::Message* message) const {
@@ -7216,6 +7923,7 @@ absl::StatusOr<Value> TimestampConversionFunction::Eval(
   if (HasNulls(args)) return Value::Null(output_type());
   if (!args.empty() && args[0].type()->IsDatetime()) {
     absl::Time timestamp;
+    ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
     if (args.size() == 2 && args[1].type()->IsString()) {
       ZETASQL_RETURN_IF_ERROR(functions::ConvertDatetimeToTimestamp(
           args[0].datetime_value(), args[1].string_value(), &timestamp));
@@ -7284,8 +7992,7 @@ absl::StatusOr<Value> CivilTimeConstructionAndConversionFunction::Eval(
       if (args.size() == 3 && Int64Only(args, context)) {
         ZETASQL_RETURN_IF_ERROR(functions::ConstructDate(args[0].int64_value(),
                                                  args[1].int64_value(),
-                                                 args[2].int64_value(),
-                                                 &date));
+                                                 args[2].int64_value(), &date));
       } else if (args.size() == 1 && args[0].type()->IsDatetime()) {
         ZETASQL_RETURN_IF_ERROR(functions::ExtractFromDatetime(
             functions::DATE, args[0].datetime_value(), &date));
@@ -7317,76 +8024,69 @@ absl::StatusOr<Value> CivilTimeConstructionAndConversionFunction::Eval(
       }
       return Value::Date(date);
     } break;
-    case FunctionKind::kTime:
-      {
-        TimeValue time;
-        if (args.size() == 3 && Int64Only(args, context)) {
-          ZETASQL_RETURN_IF_ERROR(functions::ConstructTime(args[0].int64_value(),
-                                                   args[1].int64_value(),
-                                                   args[2].int64_value(),
-                                                   &time));
-          return Value::Time(time);
-        } else if (args.size() == 1 && args[0].type()->IsDatetime()) {
-          ZETASQL_RETURN_IF_ERROR(functions::ExtractTimeFromDatetime(
-              args[0].datetime_value(), &time));
-        } else if (!args.empty() && args[0].type()->IsTimestamp()) {
-          if (args.size() == 2 && args[1].type()->IsString()) {
-            ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToTime(
-                args[0].ToTime(), args[1].string_value(), &time));
-          } else if (args.size() == 1) {
-            ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToTime(
-                args[0].ToTime(), context->GetDefaultTimeZone(), &time));
-          } else {
-            return MakeEvalError() << "Unsupported function: " << debug_name();
-          }
-        } else if (args.size() == 1 && args[0].type()->IsTime()) {
-          return args[0];
-        } else {
-          ZETASQL_RET_CHECK_FAIL() << "Unexpected function call for " << debug_name();
-        }
+    case FunctionKind::kTime: {
+      TimeValue time;
+      if (args.size() == 3 && Int64Only(args, context)) {
+        ZETASQL_RETURN_IF_ERROR(functions::ConstructTime(args[0].int64_value(),
+                                                 args[1].int64_value(),
+                                                 args[2].int64_value(), &time));
         return Value::Time(time);
-      }
-      break;
-    case FunctionKind::kDatetime:
-      {
-        DatetimeValue datetime;
-        if (args.size() == 6 && Int64Only(args, context)) {
-          ZETASQL_RETURN_IF_ERROR(functions::ConstructDatetime(
-              args[0].int64_value(),
-              args[1].int64_value(),
-              args[2].int64_value(),
-              args[3].int64_value(),
-              args[4].int64_value(),
-              args[5].int64_value(),
-              &datetime));
-        } else if (args.size() == 2 && args[0].type()->IsDate() &&
-                   args[1].type()->IsTime()) {
-          ZETASQL_RETURN_IF_ERROR(functions::ConstructDatetime(
-              args[0].date_value(), args[1].time_value(), &datetime));
-        } else if (args.size() == 1 && args[0].type()->IsDate()) {
-          ZETASQL_RETURN_IF_ERROR(functions::ConstructDatetime(args[0].date_value(),
-                                                       TimeValue(), &datetime));
-        } else if (!args.empty() && args[0].type()->IsTimestamp()) {
-          if (args.size() == 2 && args[1].type()->IsString()) {
-            ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToDatetime(
-                args[0].ToTime(), args[1].string_value(), &datetime));
-          } else if (args.size() == 1) {
-            ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToDatetime(
-                args[0].ToTime(), context->GetDefaultTimeZone(), &datetime));
-          } else {
-            return MakeEvalError() << "Unsupported function: " << debug_name();
-          }
-        } else if (args.size() == 1 && args[0].type()->IsDatetime()) {
-          return args[0];
-        } else if (args.size() == 1 && args[0].type()->IsString()) {
-          ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDatetime(
-              args[0].string_value(), functions::kMicroseconds, &datetime));
+      } else if (args.size() == 1 && args[0].type()->IsDatetime()) {
+        ZETASQL_RETURN_IF_ERROR(functions::ExtractTimeFromDatetime(
+            args[0].datetime_value(), &time));
+      } else if (!args.empty() && args[0].type()->IsTimestamp()) {
+        ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
+        if (args.size() == 2 && args[1].type()->IsString()) {
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToTime(
+              args[0].ToTime(), args[1].string_value(), &time));
+        } else if (args.size() == 1) {
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToTime(
+              args[0].ToTime(), context->GetDefaultTimeZone(), &time));
         } else {
-          ZETASQL_RET_CHECK_FAIL() << "Unexpected function call for " << debug_name();
+          return MakeEvalError() << "Unsupported function: " << debug_name();
         }
-        return Value::Datetime(datetime);
+      } else if (args.size() == 1 && args[0].type()->IsTime()) {
+        return args[0];
+      } else {
+        ZETASQL_RET_CHECK_FAIL() << "Unexpected function call for " << debug_name();
       }
-      break;
+      return Value::Time(time);
+    } break;
+    case FunctionKind::kDatetime: {
+      DatetimeValue datetime;
+      if (args.size() == 6 && Int64Only(args, context)) {
+        ZETASQL_RETURN_IF_ERROR(functions::ConstructDatetime(
+            args[0].int64_value(), args[1].int64_value(), args[2].int64_value(),
+            args[3].int64_value(), args[4].int64_value(), args[5].int64_value(),
+            &datetime));
+      } else if (args.size() == 2 && args[0].type()->IsDate() &&
+                 args[1].type()->IsTime()) {
+        ZETASQL_RETURN_IF_ERROR(functions::ConstructDatetime(
+            args[0].date_value(), args[1].time_value(), &datetime));
+      } else if (args.size() == 1 && args[0].type()->IsDate()) {
+        ZETASQL_RETURN_IF_ERROR(functions::ConstructDatetime(args[0].date_value(),
+                                                     TimeValue(), &datetime));
+      } else if (!args.empty() && args[0].type()->IsTimestamp()) {
+        ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
+        if (args.size() == 2 && args[1].type()->IsString()) {
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToDatetime(
+              args[0].ToTime(), args[1].string_value(), &datetime));
+        } else if (args.size() == 1) {
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToDatetime(
+              args[0].ToTime(), context->GetDefaultTimeZone(), &datetime));
+        } else {
+          return MakeEvalError() << "Unsupported function: " << debug_name();
+        }
+      } else if (args.size() == 1 && args[0].type()->IsDatetime()) {
+        return args[0];
+      } else if (args.size() == 1 && args[0].type()->IsString()) {
+        ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDatetime(
+            args[0].string_value(), functions::kMicroseconds, &datetime));
+      } else {
+        ZETASQL_RET_CHECK_FAIL() << "Unexpected function call for " << debug_name();
+      }
+      return Value::Datetime(datetime);
+    } break;
     default:
       ZETASQL_RET_CHECK_FAIL() << "Unexpected function kind";
   }
@@ -7474,15 +8174,6 @@ absl::StatusOr<Value> IntFromTimestampFunction::Eval(
   return Value::Int64(unix_time);
 }
 
-static functions::TimestampScale GetTimestampScale(
-    const LanguageOptions& options) {
-  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-    return functions::TimestampScale::kNanoseconds;
-  } else {
-    return functions::TimestampScale::kMicroseconds;
-  }
-}
-
 absl::StatusOr<Value> StringConversionFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
@@ -7534,12 +8225,10 @@ absl::StatusOr<Value> StringConversionFunction::Eval(
           JSONValueConstRef json_value_const_ref,
           GetJSONValueConstRef(
               args[0],
-              JSONParsingOptions{
-                  .legacy_mode = language_options.LanguageFeatureEnabled(
-                      FEATURE_JSON_LEGACY_PARSE),
-                  .strict_number_parsing =
-                      language_options.LanguageFeatureEnabled(
-                          FEATURE_JSON_STRICT_NUMBER_PARSING)},
+              JSONParsingOptions{.legacy_mode = false,
+                                 .strict_number_parsing =
+                                     language_options.LanguageFeatureEnabled(
+                                         FEATURE_JSON_STRICT_NUMBER_PARSING)},
               json_storage));
       ZETASQL_ASSIGN_OR_RETURN(result_string,
                        functions::ConvertJsonToString(json_value_const_ref));
@@ -7716,17 +8405,22 @@ absl::StatusOr<Value> FromProtoFunction::Eval(
   message.reset(args[0].ToMessage(&factory));
   switch (output_type()->kind()) {
     case TYPE_TIMESTAMP: {
-      int64_t timestamp;
       google::protobuf::Timestamp proto_timestamp;
       functions::TimestampScale scale =
           GetTimestampScale(context->GetLanguageOptions());
       proto_timestamp.CopyFrom(*message);
+
+      if (scale == functions::TimestampScale::kMicroseconds) {
+        int64_t timestamp;
+        ZETASQL_RETURN_IF_ERROR(functions::ConvertProto3TimestampToTimestamp(
+            proto_timestamp, scale, &timestamp));
+        return Value::TimestampFromUnixMicros(timestamp);
+      }
+
+      absl::Time timestamp;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertProto3TimestampToTimestamp(
-          proto_timestamp, scale, &timestamp));
-      return (scale == functions::TimestampScale::kNanoseconds)
-                 ? Value::Timestamp(absl::FromUnixNanos(timestamp))
-                 : Value::TimestampFromUnixMicros(timestamp);
-      break;
+          proto_timestamp, &timestamp));
+      return Value::Timestamp(timestamp);
     }
     case TYPE_DATE: {
       int32_t date;
@@ -7869,6 +8563,7 @@ absl::StatusOr<Value> ToProtoFunction::Eval(
     }
     case TYPE_TIME: {
       google::type::TimeOfDay proto_time_of_day;
+      ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
       ZETASQL_RETURN_IF_ERROR(functions::ConvertTimeToProto3TimeOfDay(
           args[0].time_value(), &proto_time_of_day));
       return zetasql::values::Proto(output_type()->AsProto(),
@@ -9116,8 +9811,7 @@ absl::StatusOr<Value> TypeFunction::Eval(
   JSONValue json_storage;
   LanguageOptions language_options = context->GetLanguageOptions();
   JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .legacy_mode =
-          language_options.LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE),
+      .legacy_mode = false,
       .strict_number_parsing = language_options.LanguageFeatureEnabled(
           FEATURE_JSON_STRICT_NUMBER_PARSING)};
   ZETASQL_ASSIGN_OR_RETURN(
@@ -9138,8 +9832,7 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
   JSONValue json_storage;
   LanguageOptions language_options = context->GetLanguageOptions();
   JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .legacy_mode =
-          language_options.LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE),
+      .legacy_mode = false,
       .strict_number_parsing = language_options.LanguageFeatureEnabled(
           FEATURE_JSON_STRICT_NUMBER_PARSING)};
   switch (kind()) {
@@ -9202,9 +9895,12 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
   constexpr absl::CivilSecond kDefaultOrigin(1950, 1, 1, 0, 0, 0);
   switch (args[0].type_kind()) {
     case TYPE_TIMESTAMP: {
+      ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
+      ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[1], context));
       absl::Time timestamp;
       absl::Time origin;
       if (args.size() == 3) {
+        ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2], context));
         origin = args[2].ToTime();
       } else {
         origin = absl::FromCivil(kDefaultOrigin, context->GetDefaultTimeZone());
@@ -9220,6 +9916,55 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
              << "Unsupported type " << args[0].type()->DebugString()
              << " for datetime BUCKET function";
   }
+}
+
+absl::Status ValidateMicrosPrecision(const Value& value,
+                                     EvaluationContext* context) {
+  if (value.is_null()) {
+    return absl::OkStatus();
+  }
+  functions::TimestampScale scale =
+      GetTimestampScale(context->GetLanguageOptions());
+  if (scale == functions::TimestampScale::kNanoseconds) {
+    return absl::OkStatus();
+  }
+  if (value.type()->IsTimestamp()) {
+    if (absl::GetFlag(
+            FLAGS_zetasql_reference_impl_validate_timestamp_precision)) {
+      absl::Duration dnanos = value.ToTime() - absl::UnixEpoch();
+      absl::Duration dmicros = absl::Floor(dnanos, absl::Microseconds(1));
+      ZETASQL_RET_CHECK_EQ(dnanos, dmicros);
+    }
+    return absl::OkStatus();
+  }
+  if (value.type()->IsInterval()) {
+    ZETASQL_RET_CHECK_EQ(value.interval_value().get_nano_fractions(), 0);
+    return absl::OkStatus();
+  }
+  if (value.type()->IsDatetime()) {
+    DatetimeValue dv = value.datetime_value();
+    ZETASQL_RET_CHECK_EQ(dv.Microseconds() * 1000, dv.Nanoseconds());
+    return absl::OkStatus();
+  }
+  if (value.type()->IsTime()) {
+    TimeValue tv = value.time_value();
+    ZETASQL_RET_CHECK_EQ(tv.Microseconds() * 1000, tv.Nanoseconds());
+    return absl::OkStatus();
+  }
+  if (value.type()->IsArray()) {
+    const Type* element_type = value.type()->AsArray()->element_type();
+
+    if (element_type->IsTimestamp() || element_type->IsInterval() ||
+        element_type->IsDatetime() || element_type->IsTime()) {
+      for (const Value& element : value.elements()) {
+        ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(element, context));
+      }
+    }
+  }
+  // TODO: Validate struct fields and range endpoints.
+  //    Maybe refactor this into a generic visitor which collects refs to the
+  //    the interesting values and a then a separate checking pass.
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

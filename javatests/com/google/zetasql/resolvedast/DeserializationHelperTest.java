@@ -82,7 +82,7 @@ public class DeserializationHelperTest {
     assertThat(field.getDescriptor().getName()).isEqualTo("double_value");
 
     assertThat(TestAccess.getDescriptorPools(fileDescriptorSetsBuilder))
-        .containsExactly(field.getZetaSQLDescriptorPool());
+        .containsExactly(field.getDescriptorPool());
   }
 
   @Test

@@ -46,6 +46,7 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
     case RESOLVED_SYSTEM_VARIABLE:
     case RESOLVED_ARGUMENT_REF:
     case RESOLVED_EXPRESSION_COLUMN:
+    case RESOLVED_CATALOG_COLUMN_REF:
     case RESOLVED_DMLDEFAULT:
       // These can't contain ColumnRefs and are constant for this query.
       return true;

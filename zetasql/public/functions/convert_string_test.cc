@@ -33,6 +33,7 @@
 #include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
@@ -82,7 +83,8 @@ template <typename T>
 void TestRoundtripValue(T value) {
   std::string str;
   absl::Status error;
-  EXPECT_TRUE(NumericToString<T>(value, &str, &error));
+  EXPECT_TRUE(
+      NumericToString<T>(value, &str, &error, /*canonicalize_zero=*/true));
   ZETASQL_EXPECT_OK(error);
   EXPECT_GT(str.size(), 0);
 
@@ -183,18 +185,18 @@ TEST(Convert, TestDouble) {
 template <typename T>
 void TestNumericToString(const QueryParamsWithResult& test) {
   if (test.param(0).is_null()) return;
-  const QueryParamsWithResult::Result& expected_result =
-      test.results().begin()->second;
   std::string str;
   absl::Status error;
-  if (expected_result.status.ok()) {
-    EXPECT_TRUE(NumericToString<T>(test.param(0).Get<T>(), &str, &error));
+  if (test.status().ok()) {
+    EXPECT_TRUE(NumericToString<T>(test.param(0).Get<T>(), &str, &error,
+                                   /*canonicalize_zero=*/true));
     ZETASQL_EXPECT_OK(error);
-    EXPECT_EQ(expected_result.result.string_value(), str);
+    EXPECT_EQ(test.result().string_value(), str);
   } else {
-    EXPECT_FALSE(NumericToString<T>(test.param(0).Get<T>(), &str, &error));
+    EXPECT_FALSE(NumericToString<T>(test.param(0).Get<T>(), &str, &error,
+                                    /*canonicalize_zero=*/true));
     EXPECT_FALSE(error.ok());
-    EXPECT_EQ(error.code(), expected_result.status.code());
+    EXPECT_EQ(error.code(), test.status().code());
   }
 }
 
@@ -229,17 +231,15 @@ void TestStringToNumeric<NumericValue>(const QueryParamsWithResult& test) {
   if (test.param(0).is_null()) return;
   NumericValue out;
   absl::Status error;
-  const QueryParamsWithResult::Result& expected_result =
-      test.results().begin()->second;
-  if (expected_result.status.ok()) {
+  if (test.status().ok()) {
     EXPECT_TRUE(StringToNumeric<NumericValue>(test.param(0).string_value(),
                                               &out, &error));
     ZETASQL_EXPECT_OK(error);
-    EXPECT_EQ(expected_result.result.numeric_value(), out);
+    EXPECT_EQ(test.result().numeric_value(), out);
   } else {
     EXPECT_FALSE(StringToNumeric<NumericValue>(test.param(0).string_value(),
                                                &out, &error));
-    EXPECT_THAT(error, StatusIs(expected_result.status.code()));
+    EXPECT_THAT(error, StatusIs(test.status().code()));
   }
 }
 
@@ -248,17 +248,15 @@ void TestStringToNumeric<BigNumericValue>(const QueryParamsWithResult& test) {
   if (test.param(0).is_null()) return;
   BigNumericValue out;
   absl::Status error;
-  const QueryParamsWithResult::Result& expected_result =
-      test.results().begin()->second;
-  if (expected_result.status.ok()) {
+  if (test.status().ok()) {
     EXPECT_TRUE(StringToNumeric<BigNumericValue>(test.param(0).string_value(),
                                                  &out, &error));
     ZETASQL_EXPECT_OK(error);
-    EXPECT_EQ(expected_result.result.bignumeric_value(), out);
+    EXPECT_EQ(test.result().bignumeric_value(), out);
   } else {
     EXPECT_FALSE(StringToNumeric<BigNumericValue>(test.param(0).string_value(),
                                                   &out, &error));
-    EXPECT_THAT(error, StatusIs(expected_result.status.code()));
+    EXPECT_THAT(error, StatusIs(test.status().code()));
   }
 }
 
@@ -352,6 +350,47 @@ TEST(Convert, Compliance) {
           FAIL() << "unexpected type: " << test.result().type_kind();
       }
     }
+  }
+}
+
+TEST(Convert, TestCanonicalizeZeroDouble) {
+  std::string out;
+  absl::Status status;
+  EXPECT_TRUE(
+      NumericToString<double>(-0.0, &out, &status, /*canonicalize_zero=*/true));
+  ZETASQL_ASSERT_OK(status);
+  EXPECT_THAT(out, testing::Eq("0"));
+
+  EXPECT_TRUE(NumericToString<double>(-0.0, &out, &status,
+                                      /*canonicalize_zero=*/false));
+  ZETASQL_ASSERT_OK(status);
+  EXPECT_THAT(out, testing::Eq("-0"));
+
+  for (const bool canonicalize_zero : {true, false}) {
+    EXPECT_TRUE(
+        NumericToString<double>(-0.5, &out, &status, canonicalize_zero));
+    ZETASQL_ASSERT_OK(status);
+    EXPECT_THAT(out, testing::Eq("-0.5"));
+  }
+}
+
+TEST(Convert, TestCanonicalizeZeroFloat) {
+  std::string out;
+  absl::Status status;
+  EXPECT_TRUE(
+      NumericToString<float>(-0.0f, &out, &status, /*canonicalize_zero=*/true));
+  ZETASQL_ASSERT_OK(status);
+  EXPECT_THAT(out, testing::Eq("0"));
+
+  EXPECT_TRUE(NumericToString<float>(-0.0f, &out, &status,
+                                     /*canonicalize_zero=*/false));
+  ZETASQL_ASSERT_OK(status);
+  EXPECT_THAT(out, testing::Eq("-0"));
+
+  for (const bool canonicalize_zero : {true, false}) {
+    EXPECT_TRUE(NumericToString<float>(-0.5, &out, &status, canonicalize_zero));
+    ZETASQL_ASSERT_OK(status);
+    EXPECT_THAT(out, testing::Eq("-0.5"));
   }
 }
 

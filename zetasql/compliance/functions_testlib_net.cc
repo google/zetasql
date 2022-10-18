@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+#include <vector>
+
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"
@@ -344,14 +346,10 @@ std::vector<FunctionTestCall> GetFunctionTestsNet() {
   };
   for (const QueryParamsWithResult& item : ip_from_string_test_items) {
     result.push_back({"net.ip_from_string", item});
-
-    ZETASQL_CHECK(item.HasEmptyFeatureSetAndNothingElse());
-    QueryParamsWithResult::ResultMap new_result_map = item.results();
-    zetasql_base::FindOrDie(new_result_map, QueryParamsWithResult::kEmptyFeatureSet)
-        .status = absl::OkStatus();
-
     QueryParamsWithResult new_item(item);
-    new_item.set_results(new_result_map);
+    new_item.MutateResult([](QueryParamsWithResult::Result& mutable_result) {
+      mutable_result.status = absl::OkStatus();
+    });
     result.push_back({"net.safe_ip_from_string", new_item});
   }
 

@@ -17,6 +17,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/substitute.h"
@@ -35,6 +36,7 @@
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
@@ -44,332 +46,230 @@
 namespace zetasql {
 namespace {
 
-class RewriteArrayFilterTransformVisitor : public ResolvedASTDeepCopyVisitor {
- public:
-  RewriteArrayFilterTransformVisitor(const AnalyzerOptions& analyzer_options,
-                                     Catalog* catalog,
-                                     TypeFactory* type_factory)
-      : analyzer_options_(analyzer_options),
-        catalog_(catalog),
-        type_factory_(type_factory) {}
-
-  absl::Status VisitResolvedFunctionCall(
-      const ResolvedFunctionCall* node) override {
-    if (node->signature().context_id() ==
-            FunctionSignatureId::FN_ARRAY_FILTER ||
-        node->signature().context_id() ==
-            FunctionSignatureId::FN_ARRAY_FILTER_WITH_INDEX) {
-      return RewriteArrayFilter(node);
-    }
-    if (node->signature().context_id() ==
-            FunctionSignatureId::FN_ARRAY_TRANSFORM ||
-        node->signature().context_id() ==
-            FunctionSignatureId::FN_ARRAY_TRANSFORM_WITH_INDEX) {
-      return RewriteArrayTransform(node);
-    }
-    return CopyVisitResolvedFunctionCall(node);
-  }
-
-  absl::Status RewriteArrayFilter(const ResolvedFunctionCall* node) {
-    // Extract ARRAY_FILTER arguments.
-    ZETASQL_RET_CHECK_EQ(node->generic_argument_list_size(), 2)
-        << "ARRAY_FILTER has at least 2 arguments. Got: "
-        << node->DebugString();
-    const ResolvedExpr* array_input = node->generic_argument_list(0)->expr();
-    ZETASQL_RET_CHECK_NE(array_input, nullptr);
-    const ResolvedInlineLambda* lambda =
-        node->generic_argument_list(1)->inline_lambda();
-    ZETASQL_RET_CHECK_NE(lambda, nullptr);
-
-    // Process child nodes first, so that ARRAY_FILTER inside lambda body are
-    // rewritten.
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_array_input,
-                     ProcessNode(array_input));
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedInlineLambda> processed_lambda,
-                     ProcessNode(lambda));
-
-    // Template that has null hanlding and ordering.
-    constexpr absl::string_view kFilterTemplate = R"(
-    IF (array_input IS NULL,
-        NULL,
-        ARRAY(SELECT element
-          FROM UNNEST(array_input) AS element WITH OFFSET off
-          WHERE INVOKE(@lambda, element, off)
-          ORDER BY off))
-  )";
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<ResolvedExpr> res,
-        AnalyzeSubstitute(
-            analyzer_options_, *catalog_, *type_factory_, kFilterTemplate,
-            /*variables=*/{{"array_input", processed_array_input.get()}},
-            /*lambdas=*/{{"lambda", processed_lambda.get()}}));
-    PushNodeToStack(std::move(res));
-
-    return absl::OkStatus();
-  }
-
-  absl::Status RewriteArrayTransform(const ResolvedFunctionCall* node) {
-    // Extract ARRAY_TRANSFORM arguments.
-    ZETASQL_RET_CHECK_EQ(node->generic_argument_list_size(), 2);
-    const ResolvedExpr* array_input = node->generic_argument_list(0)->expr();
-    ZETASQL_RET_CHECK_NE(array_input, nullptr);
-    const ResolvedInlineLambda* inline_lambda =
-        node->generic_argument_list(1)->inline_lambda();
-    ZETASQL_RET_CHECK_NE(inline_lambda, nullptr);
-
-    // Process child nodes first, so that ARRAY_TRANSFORM inside lambda body are
-    // rewritten.
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_array_input,
-                     ProcessNode(array_input));
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedInlineLambda> processed_lambda,
-                     ProcessNode(inline_lambda));
-
-    // Template that has null hanlding and ordering.
-    constexpr absl::string_view kTransformTemplate = R"(
-      IF (array_input IS NULL,
-          NULL,
-          ARRAY(SELECT INVOKE(@lambda, element, off)
-            FROM UNNEST(array_input) AS element WITH OFFSET off
-            ORDER BY off))
-    )";
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<ResolvedExpr> res,
-        AnalyzeSubstitute(
-            analyzer_options_, *catalog_, *type_factory_, kTransformTemplate,
-            /*variables=*/{{"array_input", processed_array_input.get()}},
-            /*lambdas=*/{{"lambda", processed_lambda.get()}}));
-    PushNodeToStack(std::move(res));
-
-    return absl::OkStatus();
-  }
-
-  const AnalyzerOptions& analyzer_options_;
-  Catalog* catalog_;
-  TypeFactory* type_factory_;
+// There are currently separate flags for rewriting FILTER/TRANSFORM vs
+// INCLUDES. Until we unify those flags, we need to keep the behavior controlled
+// separately.
+enum ArrayFunctionRewriterKind {
+  ARRAY_FILTER_TRANSFORM_REWRITER,
+  ARRAY_INCLUDES_REWRITER,
 };
 
-// A visitor that rewrites ResolvedFunctionCalls with ResolvedInlineLambdas into
-// ResolvedSubqueryExpr.
-class RewriteArrayIncludesVisitor : public ResolvedASTDeepCopyVisitor {
+// Visitor to rewrite all array function calls
+class ArrayFunctionRewriteVisitor : public ResolvedASTDeepCopyVisitor {
  public:
-  explicit RewriteArrayIncludesVisitor(const AnalyzerOptions& analyzer_options,
-                                       Catalog* catalog,
-                                       TypeFactory* type_factory)
+  ArrayFunctionRewriteVisitor(const AnalyzerOptions& analyzer_options,
+                              Catalog* catalog, TypeFactory* type_factory,
+                              ArrayFunctionRewriterKind kind)
       : analyzer_options_(analyzer_options),
         catalog_(catalog),
-        type_factory_(type_factory) {}
+        type_factory_(type_factory),
+        kind_(kind) {}
+
+  // Rewrites array function calls after choosing the appropriate template
+  absl::Status VisitResolvedFunctionCall(
+      const ResolvedFunctionCall* node) override {
+    // If not empty, the template that has null hanlding and ordering.
+    absl::string_view rewrite_template;
+
+    switch (node->signature().context_id()) {
+      case FunctionSignatureId::FN_ARRAY_FILTER:
+      case FunctionSignatureId::FN_ARRAY_FILTER_WITH_INDEX:
+        if (kind_ == ARRAY_FILTER_TRANSFORM_REWRITER) {
+          rewrite_template = R"(
+            IF (array_input IS NULL,
+                NULL,
+                ARRAY(
+                  SELECT element
+                  FROM UNNEST(array_input) AS element WITH OFFSET off
+                  WHERE INVOKE(@lambda, element, off)
+                  ORDER BY off
+                )
+              )
+            )";
+        }
+        break;
+      case FunctionSignatureId::FN_ARRAY_TRANSFORM:
+      case FunctionSignatureId::FN_ARRAY_TRANSFORM_WITH_INDEX:
+        if (kind_ == ARRAY_FILTER_TRANSFORM_REWRITER) {
+          rewrite_template = R"(
+            IF (array_input IS NULL,
+                NULL,
+                ARRAY(
+                  SELECT INVOKE(@lambda, element, off)
+                  FROM UNNEST(array_input) AS element WITH OFFSET off
+                  ORDER BY off
+                )
+            )
+          )";
+        }
+        break;
+      case FunctionSignatureId::FN_ARRAY_INCLUDES:
+        if (kind_ == ARRAY_INCLUDES_REWRITER) {
+          rewrite_template = R"(
+            IF (array_input IS NULL OR target is NULL,
+            NULL,
+            EXISTS(SELECT 1
+                   FROM UNNEST(array_input) AS element
+                   WHERE element = target)
+            )
+          )";
+        }
+        break;
+      case FunctionSignatureId::FN_ARRAY_INCLUDES_LAMBDA:
+        if (kind_ == ARRAY_INCLUDES_REWRITER) {
+          rewrite_template = R"(
+            IF (array_input IS NULL,
+                NULL,
+                EXISTS(SELECT 1
+                       FROM UNNEST(array_input) AS element
+                       WHERE INVOKE(@lambda, element)
+                )
+            )
+          )";
+        }
+        break;
+      case FunctionSignatureId::FN_ARRAY_INCLUDES_ANY:
+        if (kind_ == ARRAY_INCLUDES_REWRITER) {
+          rewrite_template = R"(
+            IF (array_input IS NULL OR target is NULL,
+                NULL,
+                EXISTS(SELECT 1
+                       FROM UNNEST(array_input) AS element
+                       WHERE element IN UNNEST(target)
+                )
+            )
+          )";
+        }
+        break;
+      case FunctionSignatureId::FN_ARRAY_INCLUDES_ALL:
+        if (kind_ == ARRAY_INCLUDES_REWRITER) {
+          rewrite_template = R"(
+            IF (array_input IS NULL OR target is NULL, NULL,
+                IF (ARRAY_LENGTH(target) = 0,
+                    TRUE,
+                    (SELECT LOGICAL_AND(IFNULL(element IN UNNEST(array_input), FALSE))
+                     FROM UNNEST(target) AS element)))
+            )";
+        }
+        break;
+      default:
+        break;
+    }
+
+    return rewrite_template.empty()
+               ? CopyVisitResolvedFunctionCall(node)
+               : RewriteArrayFunctionCall(node, rewrite_template);
+  }
 
  private:
-  absl::Status VisitResolvedFunctionCall(
-      const ResolvedFunctionCall* node) override {
-    if (node->signature().context_id() ==
-        FunctionSignatureId::FN_ARRAY_INCLUDES) {
-      return RewriteArrayIncludes(node);
-    }
-    if (node->signature().context_id() ==
-        FunctionSignatureId::FN_ARRAY_INCLUDES_LAMBDA) {
-      return RewriteArrayIncludesLambda(node);
-    }
-    if (node->signature().context_id() ==
-        FunctionSignatureId::FN_ARRAY_INCLUDES_ANY) {
-      return RewriteArrayIncludesAny(node);
-    }
-    if (node->signature().context_id() ==
-        FunctionSignatureId::FN_ARRAY_INCLUDES_ALL) {
-      return RewriteArrayIncludesAll(node);
+  // Rewrites the given function call node with the input subquery template
+  absl::Status RewriteArrayFunctionCall(
+      const ResolvedFunctionCall* node,
+      const absl::string_view unsafe_template) {
+    const ResolvedExpr* array_input;
+    const ResolvedExpr* target = nullptr;
+    const ResolvedInlineLambda* lambda = nullptr;
+
+    if (node->generic_argument_list_size() == 2) {
+      array_input = node->generic_argument_list(0)->expr();
+      ZETASQL_RET_CHECK_NE(array_input, nullptr);
+      lambda = node->generic_argument_list(1)->inline_lambda();
+      ZETASQL_RET_CHECK_NE(lambda, nullptr);
+
+    } else {
+      ZETASQL_RET_CHECK_EQ(node->argument_list_size(), 2);
+      array_input = node->argument_list(0);
+      ZETASQL_RET_CHECK_NE(array_input, nullptr);
+      target = node->argument_list(1);
+      ZETASQL_RET_CHECK_NE(target, nullptr);
     }
 
-    return CopyVisitResolvedFunctionCall(node);
-  }
-
-  absl::Status RewriteArrayIncludes(const ResolvedFunctionCall* node) {
-    ZETASQL_RET_CHECK_EQ(node->argument_list_size(), 2)
-        << "ARRAY_INCLUDES should have 2 arguments. Got: "
-        << node->DebugString();
-    const ResolvedExpr* array_input = node->argument_list(0);
-    ZETASQL_RET_CHECK_NE(array_input, nullptr);
-    const ResolvedExpr* target = node->argument_list(1);
-    ZETASQL_RET_CHECK_NE(target, nullptr);
-
-    // Process child nodes first, so that ARRAY_INCLUDES inside arguments are
-    // rewritten.
+    // Process child nodes first, for any potential similar rewrites in them.
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_array_input,
                      ProcessNode(array_input));
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_target,
-                     ProcessNode(target));
 
-    // Template with null hanlding.
-    constexpr absl::string_view kIncludesTemplate = R"(
-    IF (array_input IS NULL OR target is NULL,
-        NULL,
-        EXISTS(SELECT 1 FROM UNNEST(array_input) AS element
-               WHERE element = target))
-  )";
+    absl::flat_hash_map<std::string, const ResolvedExpr*> variables{
+        {"array_input", processed_array_input.get()},
+    };
+
+    std::unique_ptr<ResolvedExpr> processed_target;
+    if (target != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(processed_target, ProcessNode(target));
+      variables.insert({"target", processed_target.get()});
+    }
+
+    std::unique_ptr<ResolvedInlineLambda> processed_lambda;
+    absl::flat_hash_map<std::string, const ResolvedInlineLambda*> lambdas{};
+    if (lambda != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(processed_lambda, ProcessNode(lambda));
+      lambdas.insert({"lambda", processed_lambda.get()});
+    }
+
+    absl::string_view chosen_temlpate = unsafe_template;
+
+    // Holds the value for chosen_template. Only computed if actually needed.
+    std::string safe_template;
+    if (node->error_mode() == ResolvedFunctionCall::SAFE_ERROR_MODE) {
+      safe_template = absl::StrCat("NULLIFERROR(", unsafe_template, ")");
+      chosen_temlpate = safe_template;
+    }
+
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<ResolvedExpr> res,
         AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
-                          kIncludesTemplate,
-                          /*variables=*/
-                          {{"array_input", processed_array_input.get()},
-                           {"target", processed_target.get()}}));
-    PushNodeToStack(std::move(res));
-    return absl::OkStatus();
-  }
-
-  absl::Status RewriteArrayIncludesLambda(const ResolvedFunctionCall* node) {
-    // Extract ARRAY_INCLUDES arguments.
-    ZETASQL_RET_CHECK_EQ(node->argument_list_size(), 0);
-    ZETASQL_RET_CHECK_EQ(node->generic_argument_list_size(), 2)
-        << "ARRAY_INCLUDES should have 2 arguments. Got: "
-        << node->DebugString();
-    const ResolvedExpr* array_input = node->generic_argument_list(0)->expr();
-    ZETASQL_RET_CHECK_NE(array_input, nullptr);
-    const ResolvedInlineLambda* inline_lambda =
-        node->generic_argument_list(1)->inline_lambda();
-    ZETASQL_RET_CHECK_NE(inline_lambda, nullptr);
-
-    // Process child nodes first, so that ARRAY_INCLUDES inside arguments are
-    // rewritten.
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_array_input,
-                     ProcessNode(array_input));
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedInlineLambda> processed_lambda,
-                     ProcessNode(inline_lambda));
-
-    // Template with null hanlding.
-    constexpr absl::string_view kIncludesTemplate = R"(
-    IF (array_input IS NULL,
-        NULL,
-        EXISTS(SELECT 1 FROM UNNEST(array_input) AS element
-               WHERE INVOKE(@lambda, element)))
-  )";
-
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<ResolvedExpr> res,
-        AnalyzeSubstitute(
-            analyzer_options_, *catalog_, *type_factory_, kIncludesTemplate,
-            /*variables=*/{{"array_input", processed_array_input.get()}},
-            /*lambdas=*/{{"lambda", processed_lambda.get()}}));
+                          chosen_temlpate, variables, lambdas));
     PushNodeToStack(std::move(res));
 
-    return absl::OkStatus();
-  }
-
-  absl::Status RewriteArrayIncludesAny(const ResolvedFunctionCall* node) {
-    ZETASQL_RET_CHECK_EQ(node->argument_list_size(), 2)
-        << "ARRAY_INCLUDES_ANY should have 2 arguments. Got: "
-        << node->DebugString();
-    const ResolvedExpr* array_input = node->argument_list(0);
-    ZETASQL_RET_CHECK_NE(array_input, nullptr);
-    const ResolvedExpr* target = node->argument_list(1);
-    ZETASQL_RET_CHECK_NE(target, nullptr);
-
-    // Process child nodes first, so that ARRAY_INCLUDES inside arguments are
-    // rewritten.
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_array_input,
-                     ProcessNode(array_input));
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_target,
-                     ProcessNode(target));
-
-    // Template with null hanlding.
-    constexpr absl::string_view kIncludesTemplate = R"(
-    IF (array_input IS NULL OR target is NULL,
-        NULL,
-        EXISTS(SELECT 1 FROM UNNEST(array_input) AS element
-               WHERE element IN UNNEST(target)))
-  )";
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<ResolvedExpr> res,
-        AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
-                          kIncludesTemplate,
-                          /*variables=*/
-                          {{"array_input", processed_array_input.get()},
-                           {"target", processed_target.get()}}));
-    PushNodeToStack(std::move(res));
-    return absl::OkStatus();
-  }
-
-  absl::Status RewriteArrayIncludesAll(const ResolvedFunctionCall* node) {
-    ZETASQL_RET_CHECK_EQ(node->argument_list_size(), 2)
-        << "ARRAY_INCLUDES_ALL should have 2 arguments. Got: "
-        << node->DebugString();
-    const ResolvedExpr* array_input = node->argument_list(0);
-    ZETASQL_RET_CHECK_NE(array_input, nullptr);
-    const ResolvedExpr* target = node->argument_list(1);
-    ZETASQL_RET_CHECK_NE(target, nullptr);
-
-    // Process child nodes first, so that ARRAY_INCLUDES inside arguments are
-    // rewritten.
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_array_input,
-                     ProcessNode(array_input));
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_target,
-                     ProcessNode(target));
-
-    // Template with null hanlding.
-    constexpr absl::string_view kIncludesTemplate = R"(
-    IF (array_input IS NULL OR target is NULL, NULL,
-        IF (ARRAY_LENGTH(target) = 0, TRUE,
-           (SELECT LOGICAL_AND(IFNULL(element IN UNNEST(array_input), FALSE))
-            FROM UNNEST(target) AS element)))
-
-    )";
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<ResolvedExpr> res,
-        AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
-                          kIncludesTemplate,
-                          /*variables=*/
-                          {{"array_input", processed_array_input.get()},
-                           {"target", processed_target.get()}}));
-    PushNodeToStack(std::move(res));
     return absl::OkStatus();
   }
 
   const AnalyzerOptions& analyzer_options_;
   Catalog* catalog_;
   TypeFactory* type_factory_;
+  const ArrayFunctionRewriterKind kind_;
 };
 
-class ArrayFilterTransformRewriter : public Rewriter {
+// Rewriter for array function calls
+class ArrayFunctionsRewriter : public Rewriter {
  public:
+  explicit ArrayFunctionsRewriter(ArrayFunctionRewriterKind kind)
+      : kind_(kind) {}
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.id_string_pool() != nullptr);
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
-    RewriteArrayFilterTransformVisitor rewriter(options, &catalog,
-                                                &type_factory);
+    ArrayFunctionRewriteVisitor rewriter(options, &catalog, &type_factory,
+                                         kind_);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
     return rewriter.ConsumeRootNode<ResolvedNode>();
   }
 
-  std::string Name() const override { return "ArrayFilterTransformRewriter"; }
-};
-
-class ArrayIncludesRewriter : public Rewriter {
- public:
-  absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
-      const AnalyzerOptions& options, const ResolvedNode& input,
-      Catalog& catalog, TypeFactory& type_factory,
-      AnalyzerOutputProperties& output_properties) const override {
-    ZETASQL_RET_CHECK_NE(options.id_string_pool(), nullptr);
-    ZETASQL_RET_CHECK_NE(options.column_id_sequence_number(), nullptr);
-    RewriteArrayIncludesVisitor rewriter(options, &catalog, &type_factory);
-    ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
-    return rewriter.ConsumeRootNode<ResolvedNode>();
+  std::string Name() const override {
+    switch (kind_) {
+      case ARRAY_FILTER_TRANSFORM_REWRITER:
+        return "ArrayFilterTransformRewriter";
+      case ARRAY_INCLUDES_REWRITER:
+        return "ArrayIncludesRewriter";
+    }
   }
 
-  std::string Name() const override { return "ArrayIncludesFunctionRewriter"; }
+ private:
+  const ArrayFunctionRewriterKind kind_;
 };
 
 }  // namespace
 
 const Rewriter* GetArrayFilterTransformRewriter() {
-  static const auto* const kRewriter = new ArrayFilterTransformRewriter;
+  static const auto* const kRewriter =
+      new ArrayFunctionsRewriter(ARRAY_FILTER_TRANSFORM_REWRITER);
   return kRewriter;
 }
 
 const Rewriter* GetArrayIncludesRewriter() {
-  static const auto* const kRewriter = new ArrayIncludesRewriter;
+  static const auto* const kRewriter =
+      new ArrayFunctionsRewriter(ARRAY_INCLUDES_REWRITER);
   return kRewriter;
 }
 

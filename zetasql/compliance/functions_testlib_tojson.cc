@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/compliance/functions_testlib.h"
@@ -211,11 +212,10 @@ void AddArrayStructAndProtoTestCases(bool is_to_json,
   }
 }
 
-// A helper function to add test cases for Civil and Nano iff
-// include_nano_timestamp to the result test set `all_tests`. If
-// is_to_json is true, adds TO_JSON test cases. Otherwise adds TO_JSON_STRING
-// test cases.
-void AddCivilAndNanoTestCases(bool is_to_json, bool include_nano_timestamp,
+// A helper function to add test cases for Civil and Nano to the result test set
+// `all_tests`. If is_to_json is true, adds TO_JSON test cases. Otherwise adds
+// TO_JSON_STRING test cases.
+void AddCivilAndNanoTestCases(bool is_to_json,
                               std::vector<FunctionTestCall>& all_tests) {
   std::vector<std::pair<Value, std::string>> civil_time_test_cases = {
       // DATETIME
@@ -239,24 +239,20 @@ void AddCivilAndNanoTestCases(bool is_to_json, bool include_nano_timestamp,
 
   for (const auto& test_case : civil_time_test_cases) {
     if (is_to_json) {
-      all_tests.emplace_back(
-          "to_json",
-          WrapResultForCivilTimeAndNanos(CivilTimeTestCase(
-              {test_case.first}, values::Json(JSONValue(test_case.second)),
-              nullptr, {FEATURE_JSON_TYPE})));
+      AddTestCaseWithWrappedResultForCivilTimeAndNanos(
+          CivilTimeTestCase({test_case.first},
+                            values::Json(JSONValue(test_case.second)),
+                            /*output_type=*/nullptr, {FEATURE_JSON_TYPE}),
+          "to_json", &all_tests);
     } else {
-      all_tests.emplace_back(
-          "to_json_string",
-          WrapResultForCivilTimeAndNanos(CivilTimeTestCase(
-              {test_case.first},
-              String(absl::StrCat("\"", test_case.second, "\"")))));
+      AddTestCaseWithWrappedResultForCivilTimeAndNanos(
+          CivilTimeTestCase({test_case.first},
+                            String(absl::StrCat("\"", test_case.second, "\""))),
+          "to_json_string", &all_tests);
     }
   }
 
-  // Time, and datetimes with nanosecond precision. While
-  // CivilTimeTestCase supports different results depending on whether
-  // the nanosecond feature is enabled, it doesn't actually avoid running
-  // queries where values have nanosecond precision.
+  // Time, and datetimes with nanosecond precision.
   std::vector<std::pair<Value, std::string>> nanos_civil_time_test_cases = {
       {{DatetimeFromStr("2017-06-25 12:34:56.123456789",
                         functions::kNanoseconds)},
@@ -267,53 +263,48 @@ void AddCivilAndNanoTestCases(bool is_to_json, bool include_nano_timestamp,
       {{TimeFromStr("12:34:56.123456789", functions::kNanoseconds)},
        "12:34:56.123456789"},
   };
-  if (include_nano_timestamp) {
-    for (const auto& test_case : nanos_civil_time_test_cases) {
-      if (is_to_json) {
-        all_tests.emplace_back(
-            "to_json",
-            WrapResultForCivilTimeAndNanos(CivilTimeTestCase(
-                {test_case.first}, values::Json(JSONValue(test_case.second)),
-                nullptr, {FEATURE_JSON_TYPE})));
-      } else {
-        all_tests.emplace_back(
-            "to_json_string",
-            WrapResultForCivilTimeAndNanos(CivilTimeTestCase(
-                {test_case.first},
-                String(absl::StrCat("\"", test_case.second, "\"")))));
-      }
+  for (const auto& test_case : nanos_civil_time_test_cases) {
+    if (is_to_json) {
+      AddTestCaseWithWrappedResultForCivilTimeAndNanos(
+          CivilTimeTestCase({test_case.first},
+                            values::Json(JSONValue(test_case.second)),
+                            /*output_type=*/nullptr,
+                            {FEATURE_JSON_TYPE, FEATURE_TIMESTAMP_NANOS}),
+          "to_json", &all_tests);
+    } else {
+      AddTestCaseWithWrappedResultForCivilTimeAndNanos(
+          CivilTimeTestCase({test_case.first},
+                            String(absl::StrCat("\"", test_case.second, "\"")),
+                            /*output_type=*/nullptr, {FEATURE_TIMESTAMP_NANOS}),
+          "to_json_string", &all_tests);
     }
   }
 
-  if (include_nano_timestamp) {
-    // Timestamp with nanosecond precision. While CivilTimeTestCase
-    // supports different results depending on whether the nanosecond feature
-    // is enabled, it doesn't actually avoid running queries where values have
-    // nanosecond precision.
-    std::vector<std::pair<Value, std::string>> test_cases = {
-        {{TimestampFromStr("2017-06-25 12:34:56.123456789",
-                           functions::kNanoseconds)},
-         "2017-06-25T12:34:56.123456789Z"},
-        {{TimestampFromStr("2017-06-25T12:34:56.1234567",
-                           functions::kNanoseconds)},
-         "2017-06-25T12:34:56.123456700Z"},
-    };
+  // Timestamp with nanosecond precision.
+  std::vector<std::pair<Value, std::string>> test_cases = {
+      {{TimestampFromStr("2017-06-25 12:34:56.123456789",
+                         functions::kNanoseconds)},
+       "2017-06-25T12:34:56.123456789Z"},
+      {{TimestampFromStr("2017-06-25T12:34:56.1234567",
+                         functions::kNanoseconds)},
+       "2017-06-25T12:34:56.123456700Z"},
+  };
 
-    for (const auto& test_case : test_cases) {
-      if (is_to_json) {
-        all_tests.emplace_back("to_json",
-                               WrapResultForCivilTimeAndNanos(
-                                   {{test_case.first},
-                                    values::Json(JSONValue(test_case.second)),
-                                    nullptr,
-                                    {FEATURE_JSON_TYPE}}));
-      } else {
-        all_tests.emplace_back(
-            "to_json_string",
-            WrapResultForCivilTimeAndNanos(
-                {{test_case.first},
-                 String(absl::StrCat("\"", test_case.second, "\""))}));
-      }
+  for (const auto& test_case : test_cases) {
+    if (is_to_json) {
+      all_tests.emplace_back(
+          "to_json",
+          QueryParamsWithResult({test_case.first},
+                                values::Json(JSONValue(test_case.second)))
+              .AddRequiredFeature(FEATURE_JSON_TYPE)
+              .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS));
+    } else {
+      all_tests.emplace_back(
+          "to_json_string",
+          QueryParamsWithResult(
+              {test_case.first},
+              String(absl::StrCat("\"", test_case.second, "\"")))
+              .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS));
     }
   }
 }
@@ -486,19 +477,24 @@ void AddIntervalValueTestCases(bool is_to_json,
       };
 
   for (const auto& test_case : interval_test_cases) {
+    QueryParamsWithResult::FeatureSet required_features{FEATURE_INTERVAL_TYPE};
+    if (test_case.first.get_nano_fractions() != 0) {
+      required_features.insert(FEATURE_TIMESTAMP_NANOS);
+    }
     if (is_to_json) {
       all_tests.emplace_back(
           "to_json",
           QueryParamsWithResult({Value::Interval(test_case.first)},
                                 values::Json(JSONValue(test_case.second)))
-              .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_INTERVAL_TYPE}));
+              .AddRequiredFeatures(required_features)
+              .AddRequiredFeature(FEATURE_JSON_TYPE));
     } else {
       all_tests.emplace_back(
           "to_json_string",
-          WrapResultForInterval(
+          QueryParamsWithResult(
               {Value::Interval(test_case.first)},
-              QueryParamsWithResult::Result(
-                  String(absl::StrCat("\"", test_case.second, "\"")))));
+              String(absl::StrCat("\"", test_case.second, "\"")))
+              .AddRequiredFeatures(required_features));
     }
   }
 
@@ -511,8 +507,8 @@ void AddIntervalValueTestCases(bool is_to_json,
   } else {
     all_tests.emplace_back(
         "to_json_string",
-        WrapResultForInterval({Value::NullInterval()},
-                              QueryParamsWithResult::Result(String("null"))));
+        QueryParamsWithResult({Value::NullInterval()}, String("null"))
+            .AddRequiredFeature(FEATURE_INTERVAL_TYPE));
   }
 }
 
@@ -590,21 +586,7 @@ void AddJsonTestCases(bool is_to_json,
         "to_json", QueryParamsWithResult(
                        {Value::UnvalidatedJsonString(R"({"a": 10})")},
                        Json(JSONValue::ParseJSONString(R"({"a": 10})").value()))
-                       .WrapWithFeatureSet(
-                           {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
-    all_tests.emplace_back(
-        "to_json",
-        QueryParamsWithResult({Value::UnvalidatedJsonString(R"({"a": 10)")},
-                              values::NullJson(), kOutOfRange)
-            .WrapWithFeatureSet(
-                {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
-    all_tests.emplace_back(
-        "to_json",
-        QueryParamsWithResult(
-            {Value::UnvalidatedJsonString(R"({"a": 18446744073709551616})")},
-            values::NullJson(), kOutOfRange)
-            .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
-                                 FEATURE_JSON_STRICT_NUMBER_PARSING}));
+                       .WrapWithFeatureSet({FEATURE_JSON_TYPE}));
   } else {
     // Tests for TO_JSON_STRING with pretty_print argument.
     all_tests.emplace_back(
@@ -667,8 +649,7 @@ void AddJsonTestCases(bool is_to_json,
         QueryParamsWithResult(
             {Value::UnvalidatedJsonString(R"({"a": 10})"), Bool(false)},
             String(R"({"a":10})"))
-            .WrapWithFeatureSet(
-                {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
+            .WrapWithFeatureSet({FEATURE_JSON_TYPE}));
     all_tests.emplace_back(
         "to_json_string",
         QueryParamsWithResult(
@@ -676,30 +657,14 @@ void AddJsonTestCases(bool is_to_json,
             String(R"({
   "a": 10
 })"))
-            .WrapWithFeatureSet(
-                {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
-    all_tests.emplace_back(
-        "to_json_string",
-        QueryParamsWithResult({Value::UnvalidatedJsonString(R"({"a": 10)")},
-                              values::NullString(), kOutOfRange)
-            .WrapWithFeatureSet(
-                {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
-    all_tests.emplace_back(
-        "to_json_string",
-        QueryParamsWithResult(
-            {Value::UnvalidatedJsonString(R"({"a": 18446744073709551616})")},
-            values::NullString(), kOutOfRange)
-            .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
-                                 FEATURE_JSON_STRICT_NUMBER_PARSING}));
+            .WrapWithFeatureSet({FEATURE_JSON_TYPE}));
   }
 }
 
 }  // namespace
 
-// Gets TO_JSON_STRING test cases, including nano_timestamp test cases iff
-// <include_nano_timestamp>.
-std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
-    bool include_nano_timestamp) {
+// Gets TO_JSON_STRING test cases, including nano_timestamp test cases.
+std::vector<FunctionTestCall> GetFunctionTestsToJsonString() {
   // These tests follow the order of the table in (broken link).
   std::vector<FunctionTestCall> all_tests = {
       {"to_json_string", {NullInt64()}, String("null")},
@@ -786,7 +751,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
       {"to_json_string", {Float(0.0f)}, String("0")},
       {"to_json_string", {Float(0.0f), Bool(true)}, String("0")},
       {"to_json_string", {Float(0.0f), Bool(false)}, String("0")},
-      {"to_json_string", {Float(-0.0f)}, String("-0")},
+      {"to_json_string", {Float(-0.0f)}, String("0")},
       {"to_json_string", {Float(3.14f)}, String("3.14")},
       {"to_json_string", {Float(1.618034f)}, String("1.618034")},
       {"to_json_string", {Float(floatmin)}, String("-3.4028235e+38")},
@@ -795,8 +760,9 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
       {"to_json_string", {Float(float_pos_inf)}, String("\"Infinity\"")},
       {"to_json_string", {Float(float_neg_inf)}, String("\"-Infinity\"")},
       {"to_json_string", {Float(float_nan)}, String("\"NaN\"")},
+      {"to_json_string", {Float(float_neg_nan)}, String("\"NaN\"")},
       {"to_json_string", {Double(0.0)}, String("0")},
-      {"to_json_string", {Double(-0.0)}, String("-0")},
+      {"to_json_string", {Double(-0.0)}, String("0")},
       {"to_json_string", {Double(3.14)}, String("3.14")},
       {"to_json_string",
        {Double(1.61803398874989)},
@@ -813,6 +779,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
       {"to_json_string", {Double(double_pos_inf)}, String("\"Infinity\"")},
       {"to_json_string", {Double(double_neg_inf)}, String("\"-Infinity\"")},
       {"to_json_string", {Double(double_nan)}, String("\"NaN\"")},
+      {"to_json_string", {Double(double_neg_nan)}, String("\"NaN\"")},
   };
 
   AddStringByteEnumDateTimestampTestCases(/*is_to_json=*/false, all_tests);
@@ -905,34 +872,34 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
   for (const auto& numeric_test_case : numeric_test_cases) {
     all_tests.emplace_back(
         "to_json_string",
-        WrapResultForNumeric(
-            {Value::Numeric(numeric_test_case.first)},
-            QueryParamsWithResult::Result(numeric_test_case.second)));
+        QueryParamsWithResult({Value::Numeric(numeric_test_case.first)},
+                              numeric_test_case.second)
+            .AddRequiredFeature(FEATURE_NUMERIC_TYPE));
     // Reuse the numeric cases for bignumeric
     all_tests.emplace_back(
         "to_json_string",
-        WrapResultForBigNumeric(
+        QueryParamsWithResult(
             {Value::BigNumeric(BigNumericValue(numeric_test_case.first))},
-            QueryParamsWithResult::Result(numeric_test_case.second)));
+            numeric_test_case.second)
+            .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE));
   }
   for (const auto& big_numeric_test_case : big_numeric_test_cases) {
     all_tests.emplace_back(
         "to_json_string",
-        WrapResultForBigNumeric(
-            {Value::BigNumeric(big_numeric_test_case.first)},
-            QueryParamsWithResult::Result(big_numeric_test_case.second)));
+        QueryParamsWithResult({Value::BigNumeric(big_numeric_test_case.first)},
+                              big_numeric_test_case.second)
+            .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE));
   }
   all_tests.emplace_back(
       "to_json_string",
-      WrapResultForNumeric({Value::NullNumeric()},
-                           QueryParamsWithResult::Result(String("null"))));
+      QueryParamsWithResult({Value::NullNumeric()}, String("null"))
+          .AddRequiredFeature(FEATURE_NUMERIC_TYPE));
   all_tests.emplace_back(
       "to_json_string",
-      WrapResultForBigNumeric({Value::NullBigNumeric()},
-                              QueryParamsWithResult::Result(String("null"))));
+      QueryParamsWithResult({Value::NullBigNumeric()}, String("null"))
+          .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE));
 
-  AddCivilAndNanoTestCases(/*is_to_json=*/false, include_nano_timestamp,
-                           all_tests);
+  AddCivilAndNanoTestCases(/*is_to_json=*/false, all_tests);
   AddIntervalValueTestCases(/*is_to_json=*/false, all_tests);
   AddJsonTestCases(/*is_to_json=*/false, all_tests);
   return all_tests;
@@ -940,10 +907,8 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
 
 // TODO: Unify primitive test cases when to_json_string supports
 // stringify_wide_numbers if it keeps readablity and reduces duplication.
-// Gets TO_JSON test cases, including nano_timestamp test cases iff
-// <include_nano_timestamp>.
-std::vector<FunctionTestCall> GetFunctionTestsToJson(
-    bool include_nano_timestamp) {
+// Gets TO_JSON test cases, including nano_timestamp test cases.
+std::vector<FunctionTestCall> GetFunctionTestsToJson() {
   std::vector<FunctionTestCall> all_tests = {
       // NULL value
       {"to_json", {NullInt64()}, Value::Json(JSONValue())},
@@ -1101,7 +1066,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
                              values::Json(JSONValue(0.0)))
            .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})},
       {"to_json", {Float(0.0f)}, values::Json(JSONValue(0.0))},
-      {"to_json", {Float(-0.0f)}, values::Json(JSONValue(-0.0))},
+      {"to_json", {Float(-0.0f)}, values::Json(JSONValue(0.0))},
       {"to_json",
        {Float(3.14f)},
        values::Json(JSONValue(3.14f)),
@@ -1121,9 +1086,12 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
       {"to_json",
        {Float(float_nan)},
        values::Json(JSONValue(std::string("NaN")))},
+      {"to_json",
+       {Float(float_neg_nan)},
+       values::Json(JSONValue(std::string("NaN")))},
 
       {"to_json", {Double(0.0)}, values::Json(JSONValue(0.0))},
-      {"to_json", {Double(-0.0)}, values::Json(JSONValue(-0.0))},
+      {"to_json", {Double(-0.0)}, values::Json(JSONValue(0.0))},
       {"to_json",
        {Double(3.14)},
        values::Json(JSONValue(3.14)),
@@ -1152,6 +1120,9 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
        values::Json(JSONValue(std::string("-Infinity")))},
       {"to_json",
        {Double(double_nan)},
+       values::Json(JSONValue(std::string("NaN")))},
+      {"to_json",
+       {Double(double_neg_nan)},
        values::Json(JSONValue(std::string("NaN")))},
 
       // STRING, BYTE, ENUM, TIMESTAMP tests are defined below.
@@ -1407,7 +1378,6 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
       QueryParamsWithResult({NumericValue::MaxValue()},
                             Value::Json(JSONValue()), kOutOfRange)
           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NUMERIC_TYPE,
-                               FEATURE_BIGNUMERIC_TYPE,
                                FEATURE_JSON_STRICT_NUMBER_PARSING}));
   all_tests.emplace_back(
       "to_json",
@@ -1416,12 +1386,10 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
                                  "00000000000000000000000000000000000001")
                                  .value()},
                             Value::Json(JSONValue()), kOutOfRange)
-          .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NUMERIC_TYPE,
-                               FEATURE_BIGNUMERIC_TYPE,
+          .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_BIGNUMERIC_TYPE,
                                FEATURE_JSON_STRICT_NUMBER_PARSING}));
 
-  AddCivilAndNanoTestCases(/*is_to_json=*/true, include_nano_timestamp,
-                           all_tests);
+  AddCivilAndNanoTestCases(/*is_to_json=*/true, all_tests);
   AddIntervalValueTestCases(/*is_to_json=*/true, all_tests);
   AddJsonTestCases(/*is_to_json=*/true, all_tests);
 

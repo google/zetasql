@@ -126,10 +126,18 @@ absl::StatusOr<const Type*> TypeDeserializer::Deserialize(
       }
       const google::protobuf::RepeatedPtrField<std::string>& catalog_name_path =
           type_proto.enum_type().catalog_name_path();
-      ZETASQL_RETURN_IF_ERROR(type_factory_->MakeEnumType(
-          enum_descr, &enum_type,
-          std::vector<std::string>{catalog_name_path.begin(),
-                                   catalog_name_path.end()}));
+      if (type_proto.enum_type().is_opaque()) {
+        ZETASQL_RETURN_IF_ERROR(
+            zetasql::internal::TypeFactoryHelper::MakeOpaqueEnumType(
+                type_factory_, enum_descr, &enum_type,
+                std::vector<std::string>{catalog_name_path.begin(),
+                                         catalog_name_path.end()}));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(type_factory_->MakeEnumType(
+            enum_descr, &enum_type,
+            std::vector<std::string>{catalog_name_path.begin(),
+                                     catalog_name_path.end()}));
+      }
       return enum_type;
     }
 

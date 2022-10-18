@@ -22,6 +22,7 @@
 #include <memory>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include <cstdint>
@@ -189,6 +190,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"index", KW_INDEX},
     {"inner", KW_INNER, kReserved},
     {"inout", KW_INOUT},
+    {"input", KW_INPUT},
     {"insert", KW_INSERT},
     {"intersect", KW_INTERSECT, kReserved},
     {"interval", KW_INTERVAL, kReserved},
@@ -236,6 +238,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"order", KW_ORDER, kReserved},
     {"out", KW_OUT},
     {"outer", KW_OUTER, kReserved},
+    {"output", KW_OUTPUT},
     {"over", KW_OVER, kReserved},
     {"overwrite", KW_OVERWRITE},
     {"partition", KW_PARTITION, kReserved},

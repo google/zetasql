@@ -391,13 +391,15 @@ struct ErrorInfo {
 // The action to run when the join/from_clause_contents rule is matched.
 // On success, returns the ASTNode that should be assigned to $$. Returns
 // nullptr on failure, and 'error_info' will contain the error information.
-ASTNode* JoinRuleAction(
-    const zetasql_bison_parser::location& start_location,
-    const zetasql_bison_parser::location& end_location, ASTNode* lhs,
-    bool opt_natural, ASTJoin::JoinType join_type, ASTJoin::JoinHint join_hint,
-    ASTNode* opt_hint, ASTNode* table_primary,
-    ASTNode* opt_on_or_using_clause_list,
-    BisonParser* parser, ErrorInfo* error_info);
+ASTNode* JoinRuleAction(const zetasql_bison_parser::location& start_location,
+                        const zetasql_bison_parser::location& end_location,
+                        ASTNode* lhs, bool opt_natural,
+                        ASTJoin::JoinType join_type,
+                        ASTJoin::JoinHint join_hint, ASTNode* opt_hint,
+                        ASTNode* table_primary,
+                        ASTNode* opt_on_or_using_clause_list,
+                        ASTLocation* join_location, BisonParser* parser,
+                        ErrorInfo* error_info);
 
 // The action to run when the grammar rule
 //   from_clause_contents: from_clause_contents "," table_primary
@@ -407,8 +409,8 @@ ASTNode* JoinRuleAction(
 ASTNode* CommaJoinRuleAction(
     const zetasql_bison_parser::location& start_location,
     const zetasql_bison_parser::location& end_location, ASTNode* lhs,
-    ASTNode* table_primary,
-    BisonParser* parser, ErrorInfo* error_info);
+    ASTNode* table_primary, ASTLocation* comma_location, BisonParser* parser,
+    ErrorInfo* error_info);
 
 // Performs the transformation algorithm on the expression 'node'.
 // On success, returns the created ASTNode. Returns nullptr on failure,

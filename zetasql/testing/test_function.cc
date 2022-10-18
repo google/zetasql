@@ -17,13 +17,17 @@
 #include "zetasql/testing/test_function.h"
 
 #include <iosfwd>
+#include <ostream>
+#include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_value.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
@@ -31,49 +35,40 @@
 
 namespace zetasql {
 
-const QueryParamsWithResult::FeatureSet
-    QueryParamsWithResult::kEmptyFeatureSet = {};
-
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
     const ValueConstructor& result, absl::Status status)
-    : params_(ValueConstructor::ToValues(arguments)),
-      results_({{kEmptyFeatureSet, {result, status}}}) {}
+    : params_(ValueConstructor::ToValues(arguments)), result_(result, status) {}
 
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
-    const ValueConstructor& result, FloatMargin float_margin_arg)
+    const ValueConstructor& result, FloatMargin float_margin_arg,
+    absl::Status status)
     : params_(ValueConstructor::ToValues(arguments)),
-      results_({{kEmptyFeatureSet, {result, float_margin_arg}}}) {}
+      result_(result, status, float_margin_arg) {}
 
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
     const ValueConstructor& result, const std::string& error_substring)
     : params_(ValueConstructor::ToValues(arguments)),
-      results_({{kEmptyFeatureSet,
-                 {result, error_substring.empty()
-                              ? absl::OkStatus()
-                              : absl::Status(absl::StatusCode::kUnknown,
-                                             error_substring)}}}) {}
+      result_(result,
+              error_substring.empty()
+                  ? absl::OkStatus()
+                  : absl::Status(absl::StatusCode::kUnknown, error_substring)) {
+}
 
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
     const ValueConstructor& result, absl::StatusCode code)
-    : params_(ValueConstructor::ToValues(arguments)),
-      results_({{kEmptyFeatureSet, {result, code}}}) {}
+    : params_(ValueConstructor::ToValues(arguments)), result_(result, code) {}
 
-const Value& QueryParamsWithResult::result() const {
-  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
-  return result(kEmptyFeatureSet);
-}
-const absl::Status& QueryParamsWithResult::status() const {
-  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
-  return status(kEmptyFeatureSet);
-}
-const FloatMargin& QueryParamsWithResult::float_margin() const {
-  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
-  return float_margin(kEmptyFeatureSet);
-}
+QueryParamsWithResult::QueryParamsWithResult(
+    const std::vector<ValueConstructor>& params,
+    absl::StatusOr<Value> status_or_result, const Type* output_type)
+    : params_(ValueConstructor::ToValues(params)),
+      result_(status_or_result.ok() ? status_or_result.value()
+                                    : Value::Null(output_type),
+              status_or_result.status()) {}
 
 QueryParamsWithResult::Result::Result(const ValueConstructor& result_in)
     : result(result_in.get()), status() {}
@@ -83,6 +78,13 @@ QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
     : result(result_in.get()), status(), float_margin(float_margin_in) {}
 
 QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
+                                      const absl::Status& status_in,
+                                      FloatMargin float_margin_in)
+    : result(result_in.get()),
+      status(status_in),
+      float_margin(float_margin_in) {}
+
+QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
                                       absl::StatusCode code)
     : result(result_in.get()), status(code, "") {}
 
@@ -90,54 +92,47 @@ QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
                                       const absl::Status& status_in)
     : result(result_in.get()), status(status_in) {}
 
-QueryParamsWithResult::QueryParamsWithResult(
-    const std::vector<ValueConstructor>& params, const ResultMap& results)
-    : params_(ValueConstructor::ToValues(params)), results_(results) {
-  ZETASQL_CHECK(!results_.empty()) << *this;
-}
-
 QueryParamsWithResult QueryParamsWithResult::CopyWithInvertedResult() const {
   ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
-  const Result& result = zetasql_base::FindOrDie(results_, kEmptyFeatureSet);
-  const Value& value = result.result;
+  const Value& value = result();
   ZETASQL_CHECK_EQ(value.type_kind(), TYPE_BOOL);
   return QueryParamsWithResult(
       std::vector<ValueConstructor>(params_.begin(), params_.end()),
-      {{kEmptyFeatureSet,
-        {value.is_null() ? Value::NullBool() : Value::Bool(!value.bool_value()),
-         result.status}}});
+      value.is_null() ? Value::NullBool() : Value::Bool(!value.bool_value()),
+      status());
 }
 
 QueryParamsWithResult QueryParamsWithResult::WrapWithFeature(
     LanguageFeature feature) const {
-  FeatureSet feature_set;
-  feature_set.insert(feature);
-  return WrapWithFeatureSet(feature_set);
+  QueryParamsWithResult copy = *this;
+  return copy.AddRequiredFeature(feature);
 }
 
 QueryParamsWithResult QueryParamsWithResult::WrapWithFeatureSet(
     FeatureSet feature_set) const {
-  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
-  const Result& result = zetasql_base::FindOrDie(results_, kEmptyFeatureSet);
-  ResultMap result_map;
-  result_map.emplace(feature_set, result);
-  return QueryParamsWithResult(ValueConstructor::FromValues(params_),
-                               result_map);
+  QueryParamsWithResult copy = *this;
+  return copy.AddRequiredFeatures(feature_set);
 }
 
-const Value& QueryParamsWithResult::result(
-    const FeatureSet& feature_set) const {
-  return zetasql_base::FindOrDie(results_, feature_set).result;
+QueryParamsWithResult& QueryParamsWithResult::AddRequiredFeature(
+    LanguageFeature feature) {
+  return AddRequiredFeatures({feature});
 }
 
-const absl::Status& QueryParamsWithResult::status(
-    const FeatureSet& feature_set) const {
-  return zetasql_base::FindOrDie(results_, feature_set).status;
+QueryParamsWithResult& QueryParamsWithResult::AddRequiredFeatures(
+    const FeatureSet& features) {
+  for (LanguageFeature feature : features) {
+    ZETASQL_DCHECK(!zetasql_base::ContainsKey(prohibited_features_, feature));
+  }
+  required_features_.insert(features.begin(), features.end());
+  return *this;
 }
 
-const FloatMargin& QueryParamsWithResult::float_margin(
-    const FeatureSet& feature_set) const {
-  return zetasql_base::FindOrDie(results_, feature_set).float_margin;
+QueryParamsWithResult& QueryParamsWithResult::AddProhibitedFeature(
+    LanguageFeature feature) {
+  ZETASQL_DCHECK(!zetasql_base::ContainsKey(required_features_, feature));
+  prohibited_features_.insert(feature);
+  return *this;
 }
 
 std::vector<QueryParamsWithResult> InvertResults(
@@ -168,12 +163,6 @@ FunctionTestCall::FunctionTestCall(
     const ValueConstructor& result, absl::Status status)
     : function_name(function_name), params(arguments, result, status) {}
 
-FunctionTestCall::FunctionTestCall(
-    absl::string_view function_name_in,
-    const std::vector<ValueConstructor>& arguments_in,
-    const QueryParamsWithResult::ResultMap& results_in)
-    : function_name(function_name_in), params(arguments_in, results_in) {}
-
 FunctionTestCall::FunctionTestCall(absl::string_view function_name_in,
                                    const QueryParamsWithResult& params_in)
     : function_name(function_name_in), params(params_in) {}
@@ -203,22 +192,13 @@ std::ostream& operator<<(std::ostream& out, const QueryParamsWithResult& p) {
 
   out << "QueryParamsWithResult[params: {" << absl::StrJoin(arguments, ", ")
       << "}, ";
-  if (p.HasEmptyFeatureSetAndNothingElse()) {
-    return out << "result: " << p.result().FullDebugString()
-               << ", float_margin: " << p.float_margin()
-               << ", status: " << p.status() << "]";
-  } else {
-    out << "results: {";
-    for (const auto& pair : p.results()) {
-      const QueryParamsWithResult::FeatureSet& feature_set = pair.first;
-      const QueryParamsWithResult::Result& result = pair.second;
-      out << " with features: " << feature_set
-          << ", { result: " << result.result.FullDebugString()
-          << ", float_margin: " << result.float_margin
-          << "  status: " << result.status << "} ";
-    }
-    return out << "}]";
+  if (!p.required_features().empty()) {
+    out << " with features: " << p.required_features() << ", ";
   }
+  out << "result: " << p.result().FullDebugString()
+      << ", float_margin: " << p.float_margin() << "  status: " << p.status()
+      << "]";
+  return out;
 }
 
 

@@ -4379,7 +4379,7 @@ ERROR: No matching signature for function ARRAY_FILTER for argument types: ARRAY
 ==
 
 
-[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+[language_features={{|V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b string collate 'und:ci');
 --
 ALTERNATION GROUP: <empty>
@@ -4388,7 +4388,7 @@ ERROR: COLLATE is not supported [at 1:35]
 create table t (a int64, b string collate 'und:ci');
                                   ^
 --
-ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK
 --
 CreateTableStmt
 +-name_path=t
@@ -4404,7 +4404,7 @@ CreateTableStmt
     +-column=t.b#2
 ==
 
-[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+[language_features={{|V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b string collate @test_param_string);
 --
 ALTERNATION GROUP: <empty>
@@ -4413,14 +4413,14 @@ ERROR: COLLATE is not supported [at 1:35]
 create table t (a int64, b string collate @test_param_string);
                                   ^
 --
-ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK
 --
 ERROR: COLLATE must be followed by a string literal [at 1:43]
 create table t (a int64, b string collate @test_param_string);
                                           ^
 ==
 
-[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+[language_features={{|V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK}}]
 create {{|temp}} table t (a int64, b string) default collate 'und:ci';
 --
 ALTERNATION GROUP: <empty>
@@ -4435,7 +4435,7 @@ ERROR: CREATE TABLE with DEFAULT COLLATE is not supported [at 1:49]
 create temp table t (a int64, b string) default collate 'und:ci';
                                                 ^
 --
-ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,
 --
 CreateTableStmt
 +-name_path=t
@@ -4445,7 +4445,7 @@ CreateTableStmt
 +-collation_name=
   +-Literal(type=STRING, value="und:ci")
 --
-ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,temp
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,temp
 --
 CreateTableStmt
 +-name_path=t
@@ -4457,7 +4457,7 @@ CreateTableStmt
   +-Literal(type=STRING, value="und:ci")
 ==
 
-[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+[language_features={{|V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK}}]
 create external table t default collate 'und:ci' options();
 --
 ALTERNATION GROUP: <empty>
@@ -4466,7 +4466,7 @@ ERROR: CREATE EXTERNAL TABLE with DEFAULT COLLATE is not supported [at 1:33]
 create external table t default collate 'und:ci' options();
                                 ^
 --
-ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK
 --
 CreateExternalTableStmt
 +-name_path=t
@@ -4474,7 +4474,7 @@ CreateExternalTableStmt
   +-Literal(type=STRING, value="und:ci")
 ==
 
-[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT}}]
+[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b string collate 'und:cs') default collate 'und:ci';
 --
 ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
@@ -4483,7 +4483,7 @@ ERROR: CREATE TABLE with DEFAULT COLLATE is not supported [at 1:61]
 create table t (a int64, b string collate 'und:cs') default collate 'und:ci';
                                                             ^
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK
 --
 CreateTableStmt
 +-name_path=t
@@ -4501,7 +4501,7 @@ CreateTableStmt
   +-Literal(type=STRING, value="und:ci")
 ==
 
-[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT}}]
+[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b array<string collate 'und:ci'>);
 --
 ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
@@ -4510,7 +4510,7 @@ ERROR: COLLATE is not supported [at 1:41]
 create table t (a int64, b array<string collate 'und:ci'>);
                                         ^
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK
 --
 CreateTableStmt
 +-name_path=t
@@ -4528,7 +4528,7 @@ CreateTableStmt
     +-column=t.b#2
 ==
 
-[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT}}]
+[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK}}]
 create table t (a int64, b struct<int64, string collate 'und:ci', float64>);
 --
 ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
@@ -4537,7 +4537,7 @@ ERROR: COLLATE is not supported [at 1:49]
 create table t (a int64, b struct<int64, string collate 'und:ci', float64>);
                                                 ^
 --
-ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK
 --
 CreateTableStmt
 +-name_path=t

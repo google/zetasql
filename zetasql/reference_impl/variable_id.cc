@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/variable_id.h"
 
+#include <ostream>
 #include <string>
 
 #include "zetasql/base/logging.h"

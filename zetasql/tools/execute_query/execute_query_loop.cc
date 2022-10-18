@@ -16,6 +16,7 @@
 
 #include "zetasql/tools/execute_query/execute_query_loop.h"
 
+#include <optional>
 #include <string>
 
 #include "zetasql/common/status_payload_utils.h"

@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+#include <memory>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/collator.h"
 #include "gmock/gmock.h"

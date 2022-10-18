@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -511,7 +512,7 @@ ZetaSqlLocalServiceImpl::ZetaSqlLocalServiceImpl()
       prepared_queries_(new PreparedQueryPool()),
       prepared_modifies_(new PreparedModifyPool()) {}
 
-ZetaSqlLocalServiceImpl::~ZetaSqlLocalServiceImpl() {}
+ZetaSqlLocalServiceImpl::~ZetaSqlLocalServiceImpl() = default;
 
 void ZetaSqlLocalServiceImpl::CleanupCatalog(
     std::optional<int64_t>* catalog_id) {

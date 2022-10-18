@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
@@ -39,6 +40,9 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
+#include "absl/base/casts.h"
+#include <cstdint>
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/time/civil_time.h"
@@ -231,8 +235,7 @@ GetFunctionTestsCastDateTimestampStringWithFormat() {
   tests.reserve(function_calls.size());
   for (auto& function_call : function_calls) {
     tests.push_back(QueryParamsWithResult(function_call.params)
-                        .WrapWithFeatureSet({FEATURE_V_1_3_FORMAT_IN_CAST,
-                                             FEATURE_V_1_2_CIVIL_TIME}));
+                        .AddRequiredFeature(FEATURE_V_1_3_FORMAT_IN_CAST));
   }
 
   return tests;
@@ -368,6 +371,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{float_nan}, String("nan")},
       {{float_pos_inf}, String("inf")},
       {{float_neg_inf}, String("-inf")},
+      {{-0.0f}, String("0")},
+      {{float_nan}, String("nan")},
+      {{float_neg_nan}, String("nan")},
 
       // string->double
       {{NullString()}, NullDouble()},
@@ -411,6 +417,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
       {{double_nan}, String("nan")},
       {{double_pos_inf}, String("inf")},
       {{double_neg_inf}, String("-inf")},
+      {{-0.0}, String("0")},
+      {{double_nan}, String("nan")},
+      {{double_neg_nan}, String("nan")},
 
       // string->numeric
       QueryParamsWithResult({NullString()}, NullNumeric())
@@ -2465,34 +2474,16 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsSafeCast() {
   std::vector<QueryParamsWithResult> tests;
-  for (const QueryParamsWithResult& test : GetFunctionTestsCast()) {
+  for (QueryParamsWithResult& test : GetFunctionTestsCast()) {
     ZETASQL_CHECK_GE(test.params().size(), 1) << test;
     ZETASQL_CHECK_LE(test.params().size(), 3) << test;
-
-    using FeatureSet = QueryParamsWithResult::FeatureSet;
-    using Result = QueryParamsWithResult::Result;
-    using ResultMap = QueryParamsWithResult::ResultMap;
-
-    ResultMap new_result_map;
-    for (const auto& each : test.results()) {
-      const FeatureSet& feature_set = each.first;
-      const Result& result_struct = each.second;
-      const absl::Status& status = result_struct.status;
-
-      // Reuses all the CAST tests for SAFE_CAST.
-      // For tests with OUT_OF_RANGE errors, makes a test that expects NULL
-      // instead. Errors other than OUT_OF_RANGE are expression errors that
-      // stay the same even inside a SAFE_CAST (for example, invalid cast
-      // types).
-      const Result new_result = status.code() == OUT_OF_RANGE
-                                    ? Result(Value::Null(test.GetResultType()))
-                                    : result_struct;
-      zetasql_base::InsertOrDie(&new_result_map, feature_set, new_result);
-    }
-    if (!new_result_map.empty()) {
-      tests.emplace_back(ValueConstructor::FromValues(test.params()),
-                         new_result_map);
-    }
+    test.MutateResult([](QueryParamsWithResult::Result& result_struct) {
+      if (result_struct.status.code() == OUT_OF_RANGE) {
+        result_struct.status = absl::OkStatus();
+        result_struct.result = Value::Null(result_struct.result.type());
+      }
+    });
+    tests.push_back(test);
   }
   return tests;
 }
@@ -2513,34 +2504,28 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
     }
     ZETASQL_CHECK_EQ(1, test.params().size()) << test;
 
-    for (const auto& test_result : test.results()) {
-      const QueryParamsWithResult::FeatureSet& feature_set = test_result.first;
-      const QueryParamsWithResult::Result& result = test_result.second;
-      const absl::Status& status = result.status;
+    const Value& cast_value = test.param(0);
+    const Value& result_value = test.result();
 
-      const Value& cast_value = test.param(0);
-      const Value& result_value = result.result;
+    if (!cast_value.type()->IsArray() && !result_value.type()->IsArray() &&
+        !cast_value.type()->Equivalent(result_value.type()) &&
+        arrays_with_nulls == cast_value.is_null()) {
+      const ArrayType* from_array_type;
+      const ArrayType* to_array_type;
+      ZETASQL_CHECK_OK(
+          type_factory()->MakeArrayType(cast_value.type(), &from_array_type));
+      ZETASQL_CHECK_OK(
+          type_factory()->MakeArrayType(result_value.type(), &to_array_type));
+      Value from_array = Value::Array(from_array_type, {cast_value});
+      Value to_array = Value::Array(to_array_type, {result_value});
 
-      if (!cast_value.type()->IsArray() && !result_value.type()->IsArray() &&
-          !cast_value.type()->Equivalent(result_value.type()) &&
-          arrays_with_nulls == cast_value.is_null()) {
-        const ArrayType* from_array_type;
-        const ArrayType* to_array_type;
-        ZETASQL_CHECK_OK(
-            type_factory()->MakeArrayType(cast_value.type(), &from_array_type));
-        ZETASQL_CHECK_OK(
-            type_factory()->MakeArrayType(result_value.type(), &to_array_type));
-        Value from_array = Value::Array(from_array_type, {cast_value});
-        Value to_array = Value::Array(to_array_type, {result_value});
-
-        ZETASQL_CHECK_EQ(0,
-                 feature_set.count(FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES));
-        tests.push_back(QueryParamsWithResult(
-            {from_array},
-            {{{zetasql_base::STLSetUnion(feature_set,
-                                {FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES})},
-              {to_array, status}}}));
-      }
+      ZETASQL_CHECK(!zetasql_base::ContainsKey(test.required_features(),
+                              FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES));
+      tests.push_back(
+          QueryParamsWithResult({from_array}, to_array, test.status())
+              .AddRequiredFeatures(zetasql_base::STLSetUnion(
+                  test.required_features(),
+                  {FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES})));
     }
   }
 
@@ -2549,9 +2534,9 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
     const Value null_array = Value::Null(Int32ArrayType());
     const Value another_null_array = Value::Null(Int64ArrayType());
 
-    tests.push_back(QueryParamsWithResult(
-        {null_array}, {{{FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES},
-                        {another_null_array, absl::OkStatus()}}}));
+    tests.push_back(
+        QueryParamsWithResult({null_array}, another_null_array)
+            .AddRequiredFeature(FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES));
   }
 
   return tests;

@@ -16,7 +16,7 @@ ARRAY<STRUCT<
 [name=enum_2]
 SELECT CAST(10 AS `zetasql_test__.TestEnum`) invalid_enum_value
 --
-ERROR: generic::out_of_range: Out of range cast of integer 10 to enum type ENUM<zetasql_test__.TestEnum>
+ERROR: generic::out_of_range: Out of range cast of integer 10 to enum type zetasql_test__.TestEnum
 ==
 [name=enum_3]
 SELECT CAST(0 AS `zetasql_test__.TestEnum`) enum_value,
@@ -59,12 +59,12 @@ ARRAY<STRUCT<enum_value ENUM<zetasql_test__.TestEnum>>>[{TESTENUM0}]
 [name=enum_from_string_case_sensitive]
 SELECT CAST("TeStEnUm0" AS `zetasql_test__.TestEnum`) enum_value
 --
-ERROR: generic::out_of_range: Out of range cast of string 'TeStEnUm0' to enum type ENUM<zetasql_test__.TestEnum>
+ERROR: generic::out_of_range: Out of range cast of string 'TeStEnUm0' to enum type zetasql_test__.TestEnum
 ==
 [name=enum_from_string_invalid]
 SELECT CAST("invalid_enum_name" AS `zetasql_test__.TestEnum`) enum_value
 --
-ERROR: generic::out_of_range: Out of range cast of string 'invalid_enum_name' to enum type ENUM<zetasql_test__.TestEnum>
+ERROR: generic::out_of_range: Out of range cast of string 'invalid_enum_name' to enum type zetasql_test__.TestEnum
 ==
 [name=enum_to_string]
 SELECT CAST(CAST(0 AS `zetasql_test__.TestEnum`) AS STRING) string_value

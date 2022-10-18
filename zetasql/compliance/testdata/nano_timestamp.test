@@ -113,3 +113,11 @@ select cast("2014-12-01 12:34:56.0123456789" as timestamp)
 WITH FEATURES: <none>
 WITH FEATURES: TIMESTAMP_NANOS
 ERROR: generic::out_of_range: Invalid timestamp: '2014-12-01 12:34:56.0123456789'
+==
+[name=from_proto]
+[required_features=TIMESTAMP_NANOS]
+select from_proto(to_proto(TIMESTAMP "9999-12-31 23:59:59.99999999+00"))
+--
+ARRAY<STRUCT<TIMESTAMP>>[{9999-12-31 23:59:59.999999990+00}]
+==
+

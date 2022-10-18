@@ -49,6 +49,16 @@ class ParseTreeSerializer {
       const AnyASTStatementProto& proto,
       const ParserOptions& parser_options_in);
 
+  // Deserialize a proto back to an ASTExpression, which can be retrieved
+  // from output->expression().
+  // ParserOptions can be used to set the Arena and IdStringPool to use.
+  // LanguageOptions has no effect. The ParserOutput holds the output AST
+  // and references to allocated memory pools and should be kept alive as
+  // long as the output AST is used.
+  static absl::StatusOr<std::unique_ptr<ParserOutput>> Deserialize(
+      const AnyASTExpressionProto& proto,
+      const ParserOptions& parser_options_in);
+
  private:
   // Every class ASTFoo, whether abstract or final, has a corresponding
   // static method in ParseTreeSerializer class with signature:

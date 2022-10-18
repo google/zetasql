@@ -17,7 +17,9 @@
 #include "zetasql/reference_impl/functions/string_with_collation.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/collator.h"
 #include "zetasql/public/functions/string_with_collation.h"
@@ -53,6 +55,14 @@ class SplitWithCollationFunction : public SimpleBuiltinScalarFunction {
 };
 
 class CollationKeyFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class LikeWithCollationFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
@@ -196,6 +206,26 @@ absl::StatusOr<Value> CollationKeyFunction::Eval(
   return Value::Bytes(cord.Flatten());
 }
 
+absl::StatusOr<Value> LikeWithCollationFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 3);
+  if (HasNulls(args)) {
+    return Value::NullBool();
+  }
+
+  absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> collator_or_status =
+      MakeSqlCollator(args[0].string_value());
+  if (!collator_or_status.ok()) {
+    return collator_or_status.status();
+  }
+  ZETASQL_ASSIGN_OR_RETURN(bool result,
+                   functions::LikeWithUtf8WithCollation(
+                       args[1].string_value(), args[2].string_value(),
+                       *(collator_or_status.value())));
+  return Value::Bool(result);
+}
+
 }  // namespace
 
 void RegisterBuiltinStringWithCollationFunctions() {
@@ -217,6 +247,11 @@ void RegisterBuiltinStringWithCollationFunctions() {
       {FunctionKind::kCollationKey},
       [](FunctionKind kind, const Type* output_type) {
         return new CollationKeyFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kLikeWithCollation},
+      [](FunctionKind kind, const Type* output_type) {
+        return new LikeWithCollationFunction(kind, output_type);
       });
 }
 

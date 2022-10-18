@@ -34,7 +34,7 @@ done on coerced values. There may be multiple `result` types. `result` and
 
 This expression supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Type**
 
@@ -93,7 +93,7 @@ common [supertype][cond-exp-supertype].
 
 This expression supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Type**
 
@@ -266,7 +266,7 @@ common [supertype][cond-exp-supertype], and must be comparable.
 
 This expression supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Return Data Type**
 

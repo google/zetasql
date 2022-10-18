@@ -22,7 +22,7 @@ ZetaSQL.
     <a href="#select_list">SELECT</a>
         [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
         [ { ALL | DISTINCT } ]
-        [ AS { <span class="var"><a href="https://github.com/google/zetasql/blob/master/docs/protocol-buffers#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
+        [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
         <a href="#select_list"><span class="var">select_list</span></a>
     [ <a href="#from_clause">FROM</a> <a href="#from_clause"><span class="var">from_clause</span></a>[, ...] ]
     [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
@@ -144,7 +144,7 @@ SELECT * FROM TeamMascot
 SELECT
     [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
     [ { ALL | DISTINCT } ]
-    [ AS { <span class="var"><a href="https://github.com/google/zetasql/blob/master/docs/protocol-buffers#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
+    [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
    <span class="var">select_list</span>
 
 <span class="var">select_list</span>:
@@ -184,7 +184,8 @@ SELECT * FROM (SELECT "apple" AS fruit, "carrot" AS vegetable);
 +-------+-----------+
 ```
 
-### SELECT `expression`
+### SELECT `expression` 
+<a id="select_expression"></a>
 
 Items in a `SELECT` list can be expressions. These expressions evaluate to a
 single value and produce one output column, with an optional explicit `alias`.
@@ -194,7 +195,8 @@ according to the rules for [implicit aliases][implicit-aliases], if possible.
 Otherwise, the column is anonymous and you cannot refer to it by name elsewhere
 in the query.
 
-### SELECT `expression.*`
+### SELECT `expression.*` 
+<a id="select_expression_star"></a>
 
 An item in a `SELECT` list can also take the form of `expression.*`. This
 produces one output column for each column or top-level field of `expression`.
@@ -385,6 +387,46 @@ using a struct constructor:
 ```sql
 SELECT AS VALUE STRUCT(1 AS x, 2 AS y, 3 AS x)
 ```
+
+### SELECT AS typename 
+<a id="select_as_typename"></a>
+
+```sql
+SELECT AS typename
+  expr [[AS] field]
+  [, ...]
+```
+
+A `SELECT AS typename` statement produces a value table where the row type
+is a specific named type. Currently, [protocol buffers][proto-buffers] are the
+only supported type that can be used with this syntax.
+
+When selecting as a type that has fields, such as a proto message type,
+the `SELECT` list may produce multiple columns. Each produced column must have
+an explicit or [implicit][implicit-aliases] alias that matches a unique field of
+the named type.
+
+When used with `SELECT DISTINCT`, or `GROUP BY` or `ORDER BY` using column
+ordinals, these operators are applied first, on the columns in the `SELECT`
+list, and then the value construction happens last.  This means that `DISTINCT`
+can be applied on the input columns to the value construction, including in
+cases where `DISTINCT` would not be allowed after value construction because
+grouping is not supported on the constructed type.
+
+The following is an example of a `SELECT AS typename` query.
+
+```sql
+SELECT AS tests.TestProtocolBuffer mytable.key int64_val, mytable.name string_val
+FROM mytable;
+```
+
+The query returns the output as a `tests.TestProtocolBuffer` protocol
+buffer. `mytable.key int64_val` means that values from the `key` column are
+stored in the `int64_val` field in the protocol buffer. Similarly, values from
+the `mytable.name` column are stored in the `string_val` protocol buffer field.
+
+To learn more about protocol buffers, see
+[Protocol buffers][proto-buffers].
 
 ### SELECT AS VALUE
 
@@ -3914,6 +3956,9 @@ FROM
     TABLE MyCustomerTable)
 ```
 
+Note: For definitions for `CustomerRangeWithCustomerType` and
+`CustomerCreationTimeRange`, see [Specify TVF arguments][tvf-arguments].
+
 ## Appendix A: examples with sample data 
 <a id="appendix_a_examples_with_sample_data"></a>
 
@@ -4181,6 +4226,8 @@ Results:
 
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
 
+[tvf-arguments]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvf_arguments
+
 [anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
@@ -4204,6 +4251,8 @@ Results:
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
 
 [array-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_subscript_operator
+
+[proto-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
 
 [flattening-trees-into-table]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_table
 

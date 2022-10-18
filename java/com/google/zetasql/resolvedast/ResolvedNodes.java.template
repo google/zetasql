@@ -21,11 +21,14 @@ package com.google.zetasql.resolvedast;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolMessageEnum;
 import com.google.zetasql.AnyResolvedNodeProto;
+import com.google.zetasql.Column;
+import com.google.zetasql.ColumnRefProto;
 import com.google.zetasql.Connection;
 import com.google.zetasql.ConnectionRefProto;
 import com.google.zetasql.Constant;
@@ -159,7 +162,7 @@ public final class ResolvedNodes {
     proto.setProtoFileName(fieldDescriptor.getFile().getName());
     proto.setFileDescriptorSetIndex(
         fileDescriptorSetsBuilder.getOrAddFileDescriptorIndex(
-            fieldDescriptor.getFile(), descriptor.getZetaSQLDescriptorPool()));
+            fieldDescriptor.getFile(), descriptor.getDescriptorPool()));
 
     fieldDescriptorRef.setContainingProto(proto.build());
     fieldDescriptorRef.setNumber(fieldDescriptor.getNumber());
@@ -201,6 +204,29 @@ public final class ResolvedNodes {
         .setName(table.getName())
         .setFullName(table.getFullName())
         .setSerializationId(table.getId()).build();
+  }
+
+  static ColumnRefProto serialize(Column column,
+      @SuppressWarnings("unused") FileDescriptorSetsBuilder unused) {
+    String colFullName = column.getFullName();
+    int pos = colFullName.lastIndexOf('.');
+    TableRefProto table;
+    if(pos == -1) {
+      return ColumnRefProto.newBuilder()
+              .setName(column.getName())
+              .build();
+    }
+
+    String tableFullName = colFullName.substring(0, pos);
+    String[] namePath = tableFullName.split("\\.");
+
+    return ColumnRefProto.newBuilder()
+        .setName(column.getName())
+        .setTableRef(
+          TableRefProto.newBuilder()
+                  .setName(namePath[namePath.length-1])
+                  .setFullName(tableFullName))
+        .build();
   }
 
   static TypeProto serialize(Type type, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
@@ -246,7 +272,7 @@ public final class ResolvedNodes {
   }
 
   public static ResolvedNode deserialize(
-      AnyResolvedNodeProto proto, DeserializationHelper helper) {
+      AnyResolvedNodeProto proto, AbstractDeserializationHelper helper) {
     switch (proto.getNodeCase()) {
 # for node in root_child_nodes|sort_by_tag
       case {{node.enum_name}}_NODE:
@@ -321,7 +347,7 @@ public final class ResolvedNodes {
     private final {{field.full_java_type}} {{field.name|lower_camel_case}};
   # endfor
     {{ blank_line }}
-    {{node.name}}({{node.proto_type}} proto, DeserializationHelper helper) {
+    {{node.name}}({{node.proto_type}} proto, AbstractDeserializationHelper helper) {
       super(proto.getParent(), helper);
   # for field in node.fields
     # if field.is_node_ptr
@@ -423,12 +449,14 @@ public final class ResolvedNodes {
       {% for field in (node.inherited_fields) %}
       {%if field.is_vector %}
       @Override
+      @CanIgnoreReturnValue
       public Builder set{{field.name|upper_camel_case}}(List<{{field.java_type}}> v) {
         super.set{{field.name|upper_camel_case}}(v);
         return this;
       }
       {% else %}
       @Override
+      @CanIgnoreReturnValue
       public Builder set{{field.name|upper_camel_case}}({{field.full_java_type}} v) {
         super.set{{field.name|upper_camel_case}}(v);
         return this;
@@ -447,12 +475,14 @@ public final class ResolvedNodes {
        */
       {% endif %}
       {%if field.is_vector %}
+      @CanIgnoreReturnValue
       public Builder set{{field.name|upper_camel_case}}(List<{{field.java_type}}> v) {
         {# Copy of performs null checking of v and it's elements. #}
         this.{{field.name|lower_camel_case}} = ImmutableList.copyOf(v);
         return this;
       }
       {% else %}
+      @CanIgnoreReturnValue
       public Builder set{{field.name|upper_camel_case}}({{field.full_java_type}} v) {
         this.{{field.name|lower_camel_case}} = v;
         {% if field.full_java_type == field.nullable_java_type %}
@@ -500,7 +530,7 @@ public final class ResolvedNodes {
 
   # if node.is_abstract
     public static {{node.name}} deserialize(
-        {{node.proto_field_type}} proto, DeserializationHelper helper) {
+        {{node.proto_field_type}} proto, AbstractDeserializationHelper helper) {
       switch (proto.getNodeCase()) {
     # for node in node.subclasses|sort_by_tag
         case {{node.enum_name}}_NODE:
@@ -513,7 +543,7 @@ public final class ResolvedNodes {
     }
   # else
     public static final {{node.name}} deserialize(
-        {{node.proto_type}} proto, DeserializationHelper helper) {
+        {{node.proto_type}} proto, AbstractDeserializationHelper helper) {
       return new {{node.name}}(proto, helper);
     }
 

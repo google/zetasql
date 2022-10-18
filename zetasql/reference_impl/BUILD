@@ -126,7 +126,6 @@ cc_library(
     ],
     deps = [
         "//zetasql/base",
-        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/public:collator_lite",
         "//zetasql/public:type",
@@ -263,6 +262,8 @@ cc_test(
         ":evaluation",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/common:evaluator_registration_utils",
+        "//zetasql/public:interval_value",
         "//zetasql/public/types",
     ],
 )
@@ -460,6 +461,8 @@ cc_library(
 zetasql_compliance_test(
     name = "reference_compliance_test",
     size = "large",
+    args = [
+    ],
     known_error_files = [
         ":reference_impl_known_errors.textproto",
         "//zetasql/compliance/known_errors:reference_impl_known_errors.textproto",
@@ -607,7 +610,7 @@ cc_test(
 
 cc_test(
     name = "relational_op_test",
-    size = "small",
+    size = "large",
     srcs = ["relational_op_test.cc"],
     deps = [
         ":common",

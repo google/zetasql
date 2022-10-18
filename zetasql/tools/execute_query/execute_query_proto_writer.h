@@ -20,6 +20,7 @@
 #include <functional>
 #include <iosfwd>
 #include <memory>
+#include <ostream>
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"

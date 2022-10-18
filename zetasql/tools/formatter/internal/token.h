@@ -32,6 +32,12 @@
 
 namespace zetasql::formatter::internal {
 
+// String used on comments to disable formatter.
+constexpr absl::string_view kDisableComment = "SQLFORMAT:OFF";
+
+// String used on comments to reenable formatter.
+constexpr absl::string_view kEnableComment = "SQLFORMAT:ON";
+
 // Augments the ParseToken returned by the ZetaSQL tokenizer with additional
 // type data.
 class Token : public ParseToken {

@@ -16,6 +16,7 @@
 
 #include "zetasql/compliance/parameters_test_util.h"
 
+#include <map>
 #include <string>
 
 #include "zetasql/compliance/test_driver.h"

@@ -34,14 +34,12 @@ namespace zetasql {
 //   3) FunctionSignature with 4 types of granularities: operator or function,
 //      function name prefix group, SQLName and FunctionSignatureId;
 //   4) Type cast function call;
-//   5) Required LanguageFeatures.
 //
 // See `ComplianceLabelSets::GenerateLabelStrings` for detailed label string
 // format.
 // See (broken link):engine_compliance_reportcard for design doc.
 absl::Status ExtractComplianceLabels(
     const ResolvedNode* node,
-    const std::set<LanguageFeature>& required_features,
     absl::btree_set<std::string>& labels_out);
 
 // A function's prefix group represents the type of prefix being extracted.

@@ -17,7 +17,10 @@
 #include "zetasql/compliance/functions_testlib_common.h"
 
 #include <cstdint>
+#include <functional>
+#include <set>
 #include <string>
+#include <vector>
 
 #include "google/protobuf/timestamp.pb.h"
 #include "google/type/date.pb.h"
@@ -320,7 +323,7 @@ CivilTimeTestCase::CivilTimeTestCase(
 // Helper to check if the date part enum argument is 'NANOSECONDS'. In that
 // case the test case requires the NANOSECONDS feature to be turned on for it
 // to compile.
-static bool HasNanosecondsArgument(const CivilTimeTestCase& test_case) {
+static bool HasNanosecondsPartArgument(const CivilTimeTestCase& test_case) {
   const EnumType* part_enum;
   const google::protobuf::EnumDescriptor* enum_descriptor =
       functions::DateTimestampPart_descriptor();
@@ -335,72 +338,67 @@ static bool HasNanosecondsArgument(const CivilTimeTestCase& test_case) {
   return false;
 }
 
-QueryParamsWithResult WrapResultForCivilTimeAndNanos(
-    const CivilTimeTestCase& test_case) {
-  using Result = QueryParamsWithResult::Result;
-  const Result micros_result = test_case.micros_output.status().ok()
-                                   ? Result(test_case.micros_output.value())
-                                   : Result(Value::Null(test_case.output_type),
-                                            test_case.micros_output.status());
-  const Result nanos_result = test_case.nanos_output.status().ok()
-                                  ? Result(test_case.nanos_output.value())
-                                  : Result(Value::Null(test_case.output_type),
-                                           test_case.nanos_output.status());
-
-  using FeatureSet = QueryParamsWithResult::FeatureSet;
-  FeatureSet micros_features = test_case.required_features;
-  micros_features.insert(FEATURE_V_1_2_CIVIL_TIME);
-
-  FeatureSet nanos_features = micros_features;
-  nanos_features.insert(FEATURE_TIMESTAMP_NANOS);
-
-  if (HasNanosecondsArgument(test_case)) {
-    // This case won't compile without FEATURE_TIMESTAMP_NANOS.
-    return QueryParamsWithResult(test_case.input,
-                                 {{nanos_features, nanos_result}});
+static void AddTestCasesForCivilTimeAndNanos(
+    const CivilTimeTestCase& test_case,
+    std::function<void(QueryParamsWithResult)> add_test) {
+  auto with_nanos_result =
+      QueryParamsWithResult(test_case.input, test_case.nanos_output,
+                            test_case.output_type)
+          .AddRequiredFeatures(test_case.required_features)
+          .AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+  // Some tests are setup with TIMESTAMP_NANOS explicitly required.
+  if (zetasql_base::ContainsKey(test_case.required_features, FEATURE_TIMESTAMP_NANOS)) {
+    add_test(with_nanos_result);
+    return;
   }
-  return QueryParamsWithResult(
-      test_case.input,
-      {{micros_features, micros_result}, {nanos_features, nanos_result}});
+  // Otherwise, tests cases with NANOS timestamp part require the nanos feature.
+  if (HasNanosecondsPartArgument(test_case)) {
+    add_test(with_nanos_result.AddRequiredFeature(FEATURE_TIMESTAMP_NANOS));
+    return;
+  }
+  // There are two paths. If the expected status and value are the same for
+  // micros and nanos (e.g. NULL int64_t + OK) then we don't want to add
+  // the nanos feature as required or as prohibited. The same test applies
+  // reguardless of that feature state.  If they are different, then we need
+  // to generate two tests. One with the feature required, the other with the
+  // feature prohibited.
+  bool requires_feature = false;
+  if (test_case.micros_output.status() != test_case.nanos_output.status()) {
+    requires_feature = true;
+  } else if (test_case.micros_output.ok() && test_case.nanos_output.ok()) {
+    requires_feature =
+        test_case.micros_output.value() != test_case.nanos_output.value();
+  }
+  if (!requires_feature) {
+    add_test(with_nanos_result);
+    return;
+  }
+  auto with_micros_result =
+      QueryParamsWithResult(test_case.input, test_case.micros_output,
+                            test_case.output_type)
+          .AddRequiredFeatures(test_case.required_features)
+          .AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME)
+          .AddProhibitedFeature(FEATURE_TIMESTAMP_NANOS);
+  add_test(with_micros_result);
+  with_nanos_result.AddRequiredFeature(FEATURE_TIMESTAMP_NANOS);
+  add_test(with_nanos_result);
 }
 
 void AddTestCaseWithWrappedResultForCivilTimeAndNanos(
     const CivilTimeTestCase& test_case,
-    std::vector<QueryParamsWithResult>* result) {
-  result->push_back(WrapResultForCivilTimeAndNanos(test_case));
+    std::vector<QueryParamsWithResult>* results) {
+  AddTestCasesForCivilTimeAndNanos(
+      test_case,
+      [results](QueryParamsWithResult result) { results->push_back(result); });
 }
 
-QueryParamsWithResult WrapResultForNumeric(
-    const std::vector<ValueConstructor>& params,
-    const QueryParamsWithResult::Result& result) {
-  QueryParamsWithResult::FeatureSet numeric_feature_set;
-  numeric_feature_set.insert(FEATURE_NUMERIC_TYPE);
-  QueryParamsWithResult::ResultMap result_map;
-  result_map.emplace(numeric_feature_set, QueryParamsWithResult::Result(
-                                              result.result, result.status));
-  return QueryParamsWithResult(params, result_map);
-}
-
-QueryParamsWithResult WrapResultForBigNumeric(
-    const std::vector<ValueConstructor>& params,
-    const QueryParamsWithResult::Result& result) {
-  QueryParamsWithResult::FeatureSet bignumeric_feature_set;
-  bignumeric_feature_set.insert(FEATURE_BIGNUMERIC_TYPE);
-  QueryParamsWithResult::ResultMap result_map;
-  result_map.emplace(bignumeric_feature_set, QueryParamsWithResult::Result(
-                                                 result.result, result.status));
-  return QueryParamsWithResult(params, result_map);
-}
-
-QueryParamsWithResult WrapResultForInterval(
-    const std::vector<ValueConstructor>& params,
-    const QueryParamsWithResult::Result& result) {
-  QueryParamsWithResult::FeatureSet interval_feature_set;
-  interval_feature_set.insert(FEATURE_INTERVAL_TYPE);
-  QueryParamsWithResult::ResultMap result_map;
-  result_map.emplace(interval_feature_set, QueryParamsWithResult::Result(
-                                               result.result, result.status));
-  return QueryParamsWithResult(params, result_map);
+void AddTestCaseWithWrappedResultForCivilTimeAndNanos(
+    const CivilTimeTestCase& test_case, absl::string_view function_name,
+    std::vector<FunctionTestCall>* results) {
+  AddTestCasesForCivilTimeAndNanos(
+      test_case, [results, function_name](QueryParamsWithResult result) {
+        results->emplace_back(function_name, result);
+      });
 }
 
 const std::string EscapeKey(bool sql_standard_mode, const std::string& key) {

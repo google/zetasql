@@ -18,39 +18,39 @@
 # here to exclude them from compliance tests.
 
 known_errors {
-  mode: ALLOW_ERROR
-  reason: "Casts not yet implemented"
-  label: "code:CastTo_DATE_UINT(32|64)_NULL"
-  label: "code:CastTo_INT32_TIMESTAMP_.*_NULL"
-  label: "code:CastTo_TIMESTAMP_.*_U?INT(32|64)_NULL"
-  label: "code:CastTo_TIMESTAMP_.*_STRING_.*"
-  label: "code:CastTo_UINT(32|64)_DATE_NULL"
-  label: "code:CastTo_UINT(32|64)_TIMESTAMP_.*_NULL"
-  label: "code:CastTo_STRING_TIMESTAMP_MICROS_1391258096123456"
-  label: "code:CastTo_STRING_TIMESTAMP_MILLIS_1391258096123"
-  label: "code:CastTo_STRING_TIMESTAMP_NANOS_1391258096123456789"
-  label: "code:CastTo_STRING_TIMESTAMP_SECONDS_1391258096"
+  # TODO: Implement this function.
+  mode: ALLOW_UNIMPLEMENTED
+  label: "analytic_st_accum_test:analytic_st_accum_basic"
 }
 
 known_errors {
-  mode: ALLOW_ERROR
-  reason: "These aggregate functions are not implemented in the reference implementation yet"
-  label: "analytic_st_accum.test:analytic_st_accum_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_init_int64_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_init_uint64_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_init_double_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_merge_partial_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_merge_int64_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_merge_uint64_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_merge_double_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_merge_point_int64_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_merge_point_uint64_basic"
-  label: "analytic_kll_quantiles.test:analytic_kll_quantiles_merge_point_double_basic"
+  # TODO: Implement these functions.
+  mode: ALLOW_UNIMPLEMENTED
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_init_double_basic"
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_init_int64_basic"
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_init_uint64_basic"
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_double_basic"
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_int64_basic"
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_partial_basic"
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_uint64_basic"
 }
 
 known_errors {
+  # TODO: Correct these tests or the function signatures
   mode: ALLOW_ERROR
-  reason: "These functions are not implemented in the reference implementation yet"
-  label: "collation_test:string_agg_with_sort_key_with_collation_.*"
-  label: "collation_test:analytic_function_.*_with_collation_.*"
+  reason: "Compiletime Error: Argument 2 to KLL_QUANTILES.MERGE_POINT_INT64 must be between 0 and 1"
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_double_basic"
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_int64_basic"
+  label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_uint64_basic"
+}
+
+known_errors {
+  # TODO: Implement these functions
+  mode: ALLOW_UNIMPLEMENTED
+  label: "collation_test:analytic_function_count_distinct_with_collation_binary"
+  label: "collation_test:analytic_function_count_distinct_with_collation_ci"
+  label: "collation_test:analytic_function_min_max_with_collation_binary"
+  label: "collation_test:analytic_function_min_max_with_collation_ci"
+  label: "collation_test:string_agg_with_sort_key_with_collation_binary"
+  label: "collation_test:string_agg_with_sort_key_with_collation_ci"
 }

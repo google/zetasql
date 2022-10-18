@@ -25,15 +25,19 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stack>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
+#include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/parameters.h"
 #include "zetasql/reference_impl/tuple.h"
@@ -117,8 +121,11 @@ class Algebrizer {
   // For query statements, 'output' is only valid for as long as 'type_factory'
   // is valid.
   //
-  // For DML statements, 'output' is only valid for as long as 'type_factory'
-  // and 'ast_root' are valid. Also, 'output' is always a DMLValueExpr.
+  // For DML statements:
+  //  * 'output' is only valid for as long as 'type_factory' and 'ast_root' are
+  //     valid. Also, 'output' is always a DMLValueExpr.
+  //  * 'catalog' is used to algebrized column expressions (from default values
+  //    or generated columns) if any.
   //
   // For CREATE TABLE AS SELECT statements, algebrizes the query that would
   // go into the newly created table.
@@ -128,9 +135,10 @@ class Algebrizer {
   // statement/expression.
   static absl::Status AlgebrizeStatement(
       const LanguageOptions& language_options,
-      const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory,
-      const ResolvedStatement* ast_root, std::unique_ptr<ValueExpr>* output,
-      Parameters* parameters, ParameterMap* column_map,
+      const AlgebrizerOptions& algebrizer_options, const Catalog* catalog,
+      TypeFactory* type_factory, const ResolvedStatement* ast_root,
+      std::unique_ptr<ValueExpr>* output, Parameters* parameters,
+      ParameterMap* column_map,
       SystemVariablesAlgebrizerMap* system_variables_map);
 
   // Same as above, but only supports query statements and returns a
@@ -191,8 +199,8 @@ class Algebrizer {
 
   Algebrizer(const LanguageOptions& options,
              const AlgebrizerOptions& algebrizer_options,
-             TypeFactory* type_factory, Parameters* parameters,
-             ParameterMap* column_map,
+             const Catalog* catalog, TypeFactory* type_factory,
+             Parameters* parameters, ParameterMap* column_map,
              SystemVariablesAlgebrizerMap* system_variables_map);
 
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCast(
@@ -254,6 +262,11 @@ class Algebrizer {
       std::unique_ptr<ValueExpr> in_value,
       std::unique_ptr<ValueExpr> array_value,
       const ResolvedCollation& collation);
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeScalarArrayFunction(
+      FunctionKind kind, const Type* output_type,
+      absl::string_view function_name,
+      std::vector<std::unique_ptr<ValueExpr>> args,
+      const std::vector<ResolvedCollation>& collation_list);
 
   // Algebrizes IN, LIKE ANY, or LIKE ALL when the rhs is a subquery.
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInLikeAnyLikeAllRelation(
@@ -555,7 +568,7 @@ class Algebrizer {
   // 'ast_root') to 'column_to_variable_'.
   absl::Status AlgebrizeDescendantsOfDMLStatement(
       const ResolvedStatement* ast_root, ResolvedScanMap* resolved_scan_map,
-      ResolvedExprMap* resolved_expr_map,
+      ResolvedExprMap* resolved_expr_map, ColumnExprMap* column_expr_map,
       const ResolvedTableScan** resolved_table_scan);
 
   // Populates the 'returning_column_list' and 'returning_column_values' from
@@ -574,7 +587,7 @@ class Algebrizer {
   // 'ast_root') to 'column_to_variable_'.
   absl::Status AlgebrizeDescendantsOfUpdateItem(
       const ResolvedUpdateItem* update_item, ResolvedScanMap* resolved_scan_map,
-      ResolvedExprMap* resolved_expr_map);
+      ResolvedExprMap* resolved_expr_map, ColumnExprMap* column_expr_map);
 
   // Adds the entry corresponding to 'resolved_scan' to 'resolved_scan_map'
   // (whose key is 'resolved_scan' and whose value is the algebrized scan). Note
@@ -587,6 +600,11 @@ class Algebrizer {
   // expression). Note that the map does not own the ResolvedExpr nodes.
   absl::Status PopulateResolvedExprMap(const ResolvedExpr* resolved_expr,
                                        ResolvedExprMap* resolved_expr_map);
+
+  // Algebrize expressions of columns with default values or generated columns
+  // in 'table', and put them into the output argument, 'column_expr_map'.
+  absl::Status AlgebrizeDefaultExpressions(const ResolvedTableScan* table_scan,
+                                           ColumnExprMap* column_expr_map);
 
   // Given a list of ResolvedComputedColumn and a column_id, return in
   // (*definition) the expression that defines that column, or nullptr if not
@@ -753,7 +771,7 @@ class Algebrizer {
   // some ways is like a column and in some ways is like a parameter).
   class ColumnOrParameter {
    public:
-    ColumnOrParameter() {}
+    ColumnOrParameter() = default;
 
     explicit ColumnOrParameter(const ResolvedColumn& column)
         : column_or_param_(column) {}
@@ -988,6 +1006,10 @@ class Algebrizer {
   // There may be multiple in a stack as there could be Flatten used as part of
   // the input expression for another Flatten.
   std::stack<std::unique_ptr<const Value*>> flattened_arg_input_;
+
+  // The catalog is used to algebrized column default values or generated column
+  // expressions.
+  const zetasql::Catalog* catalog_;  // Not owned.
 };
 
 }  // namespace zetasql

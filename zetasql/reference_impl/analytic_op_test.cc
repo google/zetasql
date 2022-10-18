@@ -22,6 +22,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <ostream>
 #include <set>
 #include <string>
 #include <utility>
@@ -1466,7 +1467,7 @@ struct AnalyticWindowTestCase {
 class AnalyticWindowTest
     : public ::testing::TestWithParam<AnalyticWindowTestCase> {
  public:
-  AnalyticWindowTest() {}
+  AnalyticWindowTest() = default;
   AnalyticWindowTest(const AnalyticWindowTest&) = delete;
   AnalyticWindowTest& operator=(const AnalyticWindowTest&) = delete;
 

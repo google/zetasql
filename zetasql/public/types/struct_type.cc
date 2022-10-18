@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -35,6 +36,7 @@
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
+#include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
@@ -45,6 +47,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/simple_reference_counted.h"
 #include "zetasql/base/ret_check.h"
@@ -54,7 +57,7 @@ namespace zetasql {
 
 StructType::StructType(const TypeFactory* factory,
                        std::vector<StructField> fields, int nesting_depth)
-    : Type(factory, TYPE_STRUCT),
+    : ContainerType(factory, TYPE_STRUCT),
       fields_(std::move(fields)),
       nesting_depth_(nesting_depth) {}
 
@@ -396,33 +399,88 @@ absl::HashState StructType::HashTypeParameter(absl::HashState state) const {
 
 absl::HashState StructType::HashValueContent(const ValueContent& value,
                                              absl::HashState state) const {
-  // TODO: currently StructType cannot create a list of Values
-  // itself because "types" package doesn't depend on "value" (to avoid
-  // dependency cycle). In the future we will create a virtual list factory
-  // interface defined outside of "value", but which Value can provide to
-  // Array/Struct to use to construct lists.
-  ZETASQL_LOG(FATAL) << "HashValueContent should never be called for StructType, since "
-                "its value content is created in Value class";
+  absl::HashState result = absl::HashState::Create(&state);
+  const internal::ValueContentContainer* container =
+      value.GetAs<internal::ValueContentContainerRef*>()->value();
+  for (int i = 0; i < container->num_elements(); i++) {
+    ValueContentContainerElementHasher hasher(field(i).type);
+    result = absl::HashState::combine(std::move(result),
+                                      hasher(container->element(i)));
+  }
+  return result;
 }
 
 bool StructType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  ZETASQL_LOG(FATAL) << "ValueContentEquals should never be called for StructType,"
-                "since its value content is compared in Value class";
+  const internal::ValueContentContainer* x_container =
+      x.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentContainer* y_container =
+      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  if (x_container->num_elements() != y_container->num_elements()) {
+    if (options.reason) {
+      const auto& format_options = DebugFormatValueContentOptions();
+      absl::StrAppend(
+          options.reason,
+          absl::Substitute(
+              "Number of struct fields is {$0} and {$1} in respective "
+              "structs {$2} and {$3}\n",
+              x_container->num_elements(), y_container->num_elements(),
+              FormatValueContent(x, format_options),
+              FormatValueContent(y, format_options)));
+    }
+    return false;
+  }
+
+  for (int i = 0; i < x_container->num_elements(); i++) {
+    // By default use options provided in arguments
+    ValueEqualityCheckOptions const* field_options = &options;
+    std::unique_ptr<ValueEqualityCheckOptions> options_copy = nullptr;
+    // If "allow_bags" is true, create a copy of options with populated
+    // deep_order_spec
+    if (options.deep_order_spec != nullptr) {
+      options_copy = std::make_unique<ValueEqualityCheckOptions>(options);
+      options_copy->deep_order_spec = &options.deep_order_spec->children[i];
+      field_options = options_copy.get();
+    }
+    const auto& e1 = x_container->element(i);
+    const auto& e2 = y_container->element(i);
+    if (e1.is_null() != e2.is_null()) {
+      return false;
+    }
+    if (e1.is_null()) {
+      // Consider those elements to be equal and continue
+      continue;
+    }
+    if (!field(i).type->ValueContentEquals(
+            e1.value_content(), e2.value_content(), *field_options)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool StructType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                   const Type* other_type) const {
-  ZETASQL_LOG(FATAL) << "ValueContentLess should never be called for StructType,"
-                "since its value content is compared in Value class";
-}
-
-std::string StructType::FormatValueContent(
-    const ValueContent& value, const FormatValueContentOptions& options) const {
-  ZETASQL_LOG(FATAL)
-      << "FormatValueContent should never be called for StructType, since "
-         "its value content is maintained in the Value class";
+  const internal::ValueContentContainer* x_container =
+      x.GetAs<internal::ValueContentContainerRef*>()->value();
+  const internal::ValueContentContainer* y_container =
+      y.GetAs<internal::ValueContentContainerRef*>()->value();
+  if (x_container->num_elements() != y_container->num_elements()) return false;
+  // Because we return true as soon as 'LessThan' returns true for a
+  // field (without checking types of all fields), we may return true for
+  // incompatible types. This behavior is OK for now because we consider
+  // LessThan for incompatible types is undefined.
+  const StructType* other_struct_type = other_type->AsStruct();
+  for (int i = 0; i < x_container->num_elements(); i++) {
+    const Type* x_field_type = field(i).type;
+    const Type* y_field_type = other_struct_type->field(i).type;
+    const std::optional<bool> is_less = ValueContentContainerElementLess(
+        x_container->element(i), y_container->element(i), x_field_type,
+        y_field_type);
+    if (is_less.has_value()) return *is_less;
+  }
+  return false;
 }
 
 absl::Status StructType::SerializeValueContent(const ValueContent& value,
@@ -437,6 +495,53 @@ absl::Status StructType::DeserializeValueContent(const ValueProto& value_proto,
   return absl::FailedPreconditionError(
       "DeserializeValueContent should never be called for StructType, since "
       "its value content is maintained in the Value class");
+}
+
+std::string StructType::GetFormatPrefix(
+    const ValueContent& value_content,
+    const Type::FormatValueContentOptions& options) const {
+  std::string prefix;
+  switch (options.mode) {
+    case Type::FormatValueContentOptions::Mode::kDebug:
+      if (options.verbose) {
+        prefix.append(CapitalizedName());
+      }
+      prefix.push_back('{');
+      break;
+    case Type::FormatValueContentOptions::Mode::kSQLLiteral:
+      if (num_fields() <= 1) {
+        prefix.append("STRUCT");
+      }
+      prefix.push_back('(');
+      break;
+    case Type::FormatValueContentOptions::Mode::kSQLExpression:
+      prefix.append(TypeName(options.product_mode));
+      prefix.push_back('(');
+      break;
+  }
+  return prefix;
+}
+
+char StructType::GetFormatClosingCharacter(
+    const Type::FormatValueContentOptions& options) const {
+  return options.mode == Type::FormatValueContentOptions::Mode::kDebug ? '}'
+                                                                       : ')';
+}
+
+const Type* StructType::GetElementType(int index) const {
+  return fields()[index].type;
+}
+
+std::string StructType::GetFormatElementPrefix(
+    const int index, const bool is_null,
+    const FormatValueContentOptions& options) const {
+  if (options.mode == FormatValueContentOptions::Mode::kDebug) {
+    const std::string& field_name = fields()[index].name;
+    if (!field_name.empty()) {
+      return absl::StrCat(field_name, ":");
+    }
+  }
+  return "";
 }
 
 }  // namespace zetasql

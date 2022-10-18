@@ -1,32 +1,30 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
+[default language_features=V_1_3_IS_DISTINCT]
 SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
 --
 ALTERNATION GROUP: NOT
 --
-QueryStatement [0-31]
-  Query [0-31]
-    Select [0-31]
-      SelectList [7-31]
-        SelectColumn [7-31]
-          BinaryExpression(IS NOT DISTINCT FROM) [7-31]
-            IntLiteral(1) [7-8]
-            IntLiteral(2) [30-31]
+QueryStatement [0-31] [SELECT 1 IS...DISTINCT FROM 2]
+  Query [0-31] [SELECT 1 IS...DISTINCT FROM 2]
+    Select [0-31] [SELECT 1 IS...DISTINCT FROM 2]
+      SelectList [7-31] [1 IS NOT DISTINCT FROM 2]
+        SelectColumn [7-31] [1 IS NOT DISTINCT FROM 2]
+          BinaryExpression(IS NOT DISTINCT FROM) [7-31] [1 IS NOT DISTINCT FROM 2]
+            IntLiteral(1) [7-8] [1]
+            IntLiteral(2) [30-31] [2]
 --
 SELECT
   1 IS NOT DISTINCT FROM 2
 --
 ALTERNATION GROUP: <empty>
 --
-QueryStatement [0-28]
-  Query [0-28]
-    Select [0-28]
-      SelectList [7-28]
-        SelectColumn [7-28]
-          BinaryExpression(IS DISTINCT FROM) [7-28]
-            IntLiteral(1) [7-8]
-            IntLiteral(2) [27-28]
+QueryStatement [0-28] [SELECT 1 IS  DISTINCT FROM 2]
+  Query [0-28] [SELECT 1 IS  DISTINCT FROM 2]
+    Select [0-28] [SELECT 1 IS  DISTINCT FROM 2]
+      SelectList [7-28] [1 IS  DISTINCT FROM 2]
+        SelectColumn [7-28] [1 IS  DISTINCT FROM 2]
+          BinaryExpression(IS DISTINCT FROM) [7-28] [1 IS  DISTINCT FROM 2]
+            IntLiteral(1) [7-8] [1]
+            IntLiteral(2) [27-28] [2]
 --
 SELECT
   1 IS DISTINCT FROM 2
@@ -37,32 +35,32 @@ select 1 + 2 is {{NOT|}} distinct from NULL;
 --
 ALTERNATION GROUP: NOT
 --
-QueryStatement [0-38]
-  Query [0-38]
-    Select [0-38]
-      SelectList [7-38]
-        SelectColumn [7-38]
-          BinaryExpression(IS NOT DISTINCT FROM) [7-38]
-            BinaryExpression(+) [7-12]
-              IntLiteral(1) [7-8]
-              IntLiteral(2) [11-12]
-            NullLiteral(NULL) [34-38]
+QueryStatement [0-38] [select 1 +...from NULL]
+  Query [0-38] [select 1 +...from NULL]
+    Select [0-38] [select 1 +...from NULL]
+      SelectList [7-38] [1 + 2 is NOT...from NULL]
+        SelectColumn [7-38] [1 + 2 is NOT...from NULL]
+          BinaryExpression(IS NOT DISTINCT FROM) [7-38] [1 + 2 is NOT...from NULL]
+            BinaryExpression(+) [7-12] [1 + 2]
+              IntLiteral(1) [7-8] [1]
+              IntLiteral(2) [11-12] [2]
+            NullLiteral(NULL) [34-38] [NULL]
 --
 SELECT
   1 + 2 IS NOT DISTINCT FROM NULL
 --
 ALTERNATION GROUP: <empty>
 --
-QueryStatement [0-35]
-  Query [0-35]
-    Select [0-35]
-      SelectList [7-35]
-        SelectColumn [7-35]
-          BinaryExpression(IS DISTINCT FROM) [7-35]
-            BinaryExpression(+) [7-12]
-              IntLiteral(1) [7-8]
-              IntLiteral(2) [11-12]
-            NullLiteral(NULL) [31-35]
+QueryStatement [0-35] [select 1 +...from NULL]
+  Query [0-35] [select 1 +...from NULL]
+    Select [0-35] [select 1 +...from NULL]
+      SelectList [7-35] [1 + 2 is  distinct from NULL]
+        SelectColumn [7-35] [1 + 2 is  distinct from NULL]
+          BinaryExpression(IS DISTINCT FROM) [7-35] [1 + 2 is  distinct from NULL]
+            BinaryExpression(+) [7-12] [1 + 2]
+              IntLiteral(1) [7-8] [1]
+              IntLiteral(2) [11-12] [2]
+            NullLiteral(NULL) [31-35] [NULL]
 --
 SELECT
   1 + 2 IS DISTINCT FROM NULL
@@ -105,52 +103,52 @@ SELECT 1 + 2 * 3 IS {{NOT|}} DISTINCT FROM (4 * 5 + 6 BETWEEN 7 AND 8);
 --
 ALTERNATION GROUP: NOT
 --
-QueryStatement [0-65]
-  Query [0-65]
-    Select [0-65]
-      SelectList [7-65]
-        SelectColumn [7-65]
-          BinaryExpression(IS NOT DISTINCT FROM) [7-65]
-            BinaryExpression(+) [7-16]
-              IntLiteral(1) [7-8]
-              BinaryExpression(*) [11-16]
-                IntLiteral(2) [11-12]
-                IntLiteral(3) [15-16]
-            BetweenExpression(BETWEEN) [39-64]
-              BinaryExpression(+) [39-48]
-                BinaryExpression(*) [39-44]
-                  IntLiteral(4) [39-40]
-                  IntLiteral(5) [43-44]
-                IntLiteral(6) [47-48]
-              Location [49-56]
-              IntLiteral(7) [57-58]
-              IntLiteral(8) [63-64]
+QueryStatement [0-65] [SELECT 1 +...BETWEEN 7 AND 8)]
+  Query [0-65] [SELECT 1 +...BETWEEN 7 AND 8)]
+    Select [0-65] [SELECT 1 +...BETWEEN 7 AND 8)]
+      SelectList [7-65] [1 + 2 * 3...BETWEEN 7 AND 8)]
+        SelectColumn [7-65] [1 + 2 * 3...BETWEEN 7 AND 8)]
+          BinaryExpression(IS NOT DISTINCT FROM) [7-65] [1 + 2 * 3...BETWEEN 7 AND 8)]
+            BinaryExpression(+) [7-16] [1 + 2 * 3]
+              IntLiteral(1) [7-8] [1]
+              BinaryExpression(*) [11-16] [2 * 3]
+                IntLiteral(2) [11-12] [2]
+                IntLiteral(3) [15-16] [3]
+            BetweenExpression(BETWEEN) [39-64] [4 * 5 + 6 BETWEEN 7 AND 8]
+              BinaryExpression(+) [39-48] [4 * 5 + 6]
+                BinaryExpression(*) [39-44] [4 * 5]
+                  IntLiteral(4) [39-40] [4]
+                  IntLiteral(5) [43-44] [5]
+                IntLiteral(6) [47-48] [6]
+              Location [49-56] [BETWEEN]
+              IntLiteral(7) [57-58] [7]
+              IntLiteral(8) [63-64] [8]
 --
 SELECT
   1 + 2 * 3 IS NOT DISTINCT FROM(4 * 5 + 6 BETWEEN 7 AND 8)
 --
 ALTERNATION GROUP: <empty>
 --
-QueryStatement [0-62]
-  Query [0-62]
-    Select [0-62]
-      SelectList [7-62]
-        SelectColumn [7-62]
-          BinaryExpression(IS DISTINCT FROM) [7-62]
-            BinaryExpression(+) [7-16]
-              IntLiteral(1) [7-8]
-              BinaryExpression(*) [11-16]
-                IntLiteral(2) [11-12]
-                IntLiteral(3) [15-16]
-            BetweenExpression(BETWEEN) [36-61]
-              BinaryExpression(+) [36-45]
-                BinaryExpression(*) [36-41]
-                  IntLiteral(4) [36-37]
-                  IntLiteral(5) [40-41]
-                IntLiteral(6) [44-45]
-              Location [46-53]
-              IntLiteral(7) [54-55]
-              IntLiteral(8) [60-61]
+QueryStatement [0-62] [SELECT 1 +...BETWEEN 7 AND 8)]
+  Query [0-62] [SELECT 1 +...BETWEEN 7 AND 8)]
+    Select [0-62] [SELECT 1 +...BETWEEN 7 AND 8)]
+      SelectList [7-62] [1 + 2 * 3...BETWEEN 7 AND 8)]
+        SelectColumn [7-62] [1 + 2 * 3...BETWEEN 7 AND 8)]
+          BinaryExpression(IS DISTINCT FROM) [7-62] [1 + 2 * 3...BETWEEN 7 AND 8)]
+            BinaryExpression(+) [7-16] [1 + 2 * 3]
+              IntLiteral(1) [7-8] [1]
+              BinaryExpression(*) [11-16] [2 * 3]
+                IntLiteral(2) [11-12] [2]
+                IntLiteral(3) [15-16] [3]
+            BetweenExpression(BETWEEN) [36-61] [4 * 5 + 6 BETWEEN 7 AND 8]
+              BinaryExpression(+) [36-45] [4 * 5 + 6]
+                BinaryExpression(*) [36-41] [4 * 5]
+                  IntLiteral(4) [36-37] [4]
+                  IntLiteral(5) [40-41] [5]
+                IntLiteral(6) [44-45] [6]
+              Location [46-53] [BETWEEN]
+              IntLiteral(7) [54-55] [7]
+              IntLiteral(8) [60-61] [8]
 --
 SELECT
   1 + 2 * 3 IS DISTINCT FROM(4 * 5 + 6 BETWEEN 7 AND 8)
@@ -182,16 +180,16 @@ ERROR: Syntax error: Unexpected integer literal "1" [at 1:1]
 # IS DISTINCT FROM as lhs of IS
 SELECT (1 IS DISTINCT FROM 2) IS TRUE;
 --
-QueryStatement [0-37]
-  Query [0-37]
-    Select [0-37]
-      SelectList [7-37]
-        SelectColumn [7-37]
-          BinaryExpression(IS) [7-37]
-            BinaryExpression(IS DISTINCT FROM) [8-28]
-              IntLiteral(1) [8-9]
-              IntLiteral(2) [27-28]
-            BooleanLiteral(TRUE) [33-37]
+QueryStatement [0-37] [SELECT (1...2) IS TRUE]
+  Query [0-37] [SELECT (1...2) IS TRUE]
+    Select [0-37] [SELECT (1...2) IS TRUE]
+      SelectList [7-37] [(1 IS DISTINCT FROM 2) IS TRUE]
+        SelectColumn [7-37] [(1 IS DISTINCT FROM 2) IS TRUE]
+          BinaryExpression(IS) [7-37] [(1 IS DISTINCT FROM 2) IS TRUE]
+            BinaryExpression(IS DISTINCT FROM) [8-28] [1 IS DISTINCT FROM 2]
+              IntLiteral(1) [8-9] [1]
+              IntLiteral(2) [27-28] [2]
+            BooleanLiteral(TRUE) [33-37] [TRUE]
 --
 SELECT
   (1 IS DISTINCT FROM 2) IS TRUE
@@ -200,18 +198,18 @@ SELECT
 # IS DISTINCT FROM as lhs and rhs of IS DISTINCT FROM
 SELECT (1 IS DISTINCT FROM 2) IS DISTINCT FROM (3 IS DISTINCT FROM 4);
 --
-QueryStatement [0-69]
-  Query [0-69]
-    Select [0-69]
-      SelectList [7-69]
-        SelectColumn [7-69]
-          BinaryExpression(IS DISTINCT FROM) [7-69]
-            BinaryExpression(IS DISTINCT FROM) [8-28]
-              IntLiteral(1) [8-9]
-              IntLiteral(2) [27-28]
-            BinaryExpression(IS DISTINCT FROM) [48-68]
-              IntLiteral(3) [48-49]
-              IntLiteral(4) [67-68]
+QueryStatement [0-69] [SELECT (1...DISTINCT FROM 4)]
+  Query [0-69] [SELECT (1...DISTINCT FROM 4)]
+    Select [0-69] [SELECT (1...DISTINCT FROM 4)]
+      SelectList [7-69] [(1 IS DISTINCT...TINCT FROM 4)]
+        SelectColumn [7-69] [(1 IS DISTINCT...TINCT FROM 4)]
+          BinaryExpression(IS DISTINCT FROM) [7-69] [(1 IS DISTINCT...TINCT FROM 4)]
+            BinaryExpression(IS DISTINCT FROM) [8-28] [1 IS DISTINCT FROM 2]
+              IntLiteral(1) [8-9] [1]
+              IntLiteral(2) [27-28] [2]
+            BinaryExpression(IS DISTINCT FROM) [48-68] [3 IS DISTINCT FROM 4]
+              IntLiteral(3) [48-49] [3]
+              IntLiteral(4) [67-68] [4]
 --
 SELECT
   (1 IS DISTINCT FROM 2) IS DISTINCT FROM(3 IS DISTINCT FROM 4)
@@ -234,7 +232,7 @@ SELECT 1 IS DISTINCT FROM 2 IS DISTINCT FROM (3 IS DISTINCT FROM 4);
 ==
 
 # IS DISTRICT FROM - feature disabled
-[no_allow_is_distinct_from]
+[language_features=]
 SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
 --
 ALTERNATION GROUP: NOT

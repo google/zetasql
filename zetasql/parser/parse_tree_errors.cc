@@ -17,6 +17,7 @@
 #include "zetasql/parser/parse_tree_errors.h"
 
 #include <string>
+#include <string_view>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
@@ -26,7 +27,6 @@
 #include "zetasql/public/parse_location.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
@@ -75,9 +75,9 @@ absl::Status StatusWithInternalErrorLocation(const absl::Status& status,
 }
 
 absl::Status MakeStatusWithErrorLocation(absl::StatusCode code,
-                                         absl::string_view message,
-                                         const std::string& filename,
-                                         const std::string& query,
+                                         std::string_view message,
+                                         std::string_view filename,
+                                         std::string_view query,
                                          const ASTNode* ast_node,
                                          bool include_leftmost_child) {
   const absl::Status status =

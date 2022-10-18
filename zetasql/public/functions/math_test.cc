@@ -89,13 +89,11 @@ void CompareResult<NumericValue>(
     const absl::Status& actual_status, NumericValue actual_value) {
   // This assumes that the value is stored under NUMERIC feature set but
   // this should work with the default feature set too.
-  const QueryParamsWithResult::Result& expected =
-      param.results().begin()->second;
-  if (expected.status.ok()) {
+  if (param.status().ok()) {
     EXPECT_EQ(absl::OkStatus(), actual_status);
-    ASSERT_EQ(expected.result.type_kind(),
+    ASSERT_EQ(param.result().type_kind(),
               Value::MakeNull<NumericValue>().type_kind());
-    EXPECT_EQ(expected.result.Get<NumericValue>(), actual_value);
+    EXPECT_EQ(param.result().Get<NumericValue>(), actual_value);
   } else {
     // Check for the first parameter in the error message.
     EXPECT_THAT(actual_status,
@@ -112,13 +110,11 @@ void CompareResult<BigNumericValue>(const QueryParamsWithResult& param,
                                     BigNumericValue actual_value) {
   // This assumes that the value is stored under BIGNUMERIC feature set but
   // this should work with the default feature set too.
-  const QueryParamsWithResult::Result& expected =
-      param.results().begin()->second;
-  if (expected.status.ok()) {
+  if (param.status().ok()) {
     EXPECT_EQ(absl::OkStatus(), actual_status);
-    ASSERT_EQ(expected.result.type_kind(),
+    ASSERT_EQ(param.result().type_kind(),
               Value::MakeNull<BigNumericValue>().type_kind());
-    EXPECT_EQ(expected.result.Get<BigNumericValue>(), actual_value);
+    EXPECT_EQ(param.result().Get<BigNumericValue>(), actual_value);
   } else {
     // Check for the first parameter in the error message.
     EXPECT_THAT(actual_status,
@@ -207,7 +203,7 @@ TEST_P(MathTemplateTest, Testlib) {
   const FunctionTestCall& param = GetParam();
   const std::string& function = param.function_name;
   if (function == "abs") {
-    switch (param.params.GetResultType()->kind()) {
+    switch (param.params.result().type()->kind()) {
       case TYPE_INT32:
         return TestUnaryFunction(param.params, &Abs<int32_t>);
       case TYPE_INT64:
@@ -228,7 +224,7 @@ TEST_P(MathTemplateTest, Testlib) {
         FAIL() << "unrecognized type for " << function;
     }
   } else if (function == "sign") {
-    switch (param.params.GetResultType()->kind()) {
+    switch (param.params.result().type()->kind()) {
       case TYPE_INT32:
         return TestUnaryFunction(param.params, &Sign<int32_t>);
       case TYPE_INT64:

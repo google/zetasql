@@ -97,7 +97,7 @@ public class EnumType extends Type {
 
   @Override
   public String toString() {
-    return debugString(false  /* details */);
+    return debugString(/* details= */ false);
   }
 
   /**

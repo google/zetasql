@@ -16,6 +16,8 @@
 
 #include "zetasql/public/simple_catalog_util.h"
 
+#include <memory>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/simple_catalog.h"

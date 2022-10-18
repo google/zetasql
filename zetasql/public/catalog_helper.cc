@@ -20,6 +20,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/strings.h"

@@ -24,6 +24,7 @@ py_binary(
     srcs = [
         "gen_resolved_ast.py",
     ],
+    python_version = "PY3",
     deps = [
         ":resolved_ast_enums_py_pb2",
         "@io_abseil_py//absl:app",
@@ -231,6 +232,7 @@ cc_library(
         "//zetasql/base:strings",
         "//zetasql/base:varsetter",
         "//zetasql/common:errors",
+        "//zetasql/public:analyzer_options",
         "//zetasql/public:catalog",
         "//zetasql/public:constant",
         "//zetasql/public:function",

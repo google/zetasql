@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/numeric.h"
 
 #include <string>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
@@ -40,19 +41,17 @@ void TestNumericFunction(FunctionType function,
   OutType out;
   absl::Status status;
   bool success = function(args..., &out, &status);
-  const QueryParamsWithResult::Result& expected =
-      param.results().begin()->second;
-  if (expected.status.ok()) {
+  if (param.status().ok()) {
     EXPECT_EQ(success, true);
     EXPECT_EQ(absl::OkStatus(), status);
-    ASSERT_EQ(expected.result.Get<OutType>(), out)
-        << "Expected: " << expected.result.Get<OutType>() << "\n"
+    ASSERT_EQ(param.result().Get<OutType>(), out)
+        << "Expected: " << param.result().Get<OutType>() << "\n"
         << "Actual: " << out << "\n";
   } else {
     EXPECT_EQ(success, false);
     EXPECT_THAT(status,
-                StatusIs(expected.status.code(),
-                         HasSubstr(std::string(expected.status.message()))));
+                StatusIs(param.status().code(),
+                         HasSubstr(std::string(param.status().message()))));
   }
 }
 

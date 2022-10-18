@@ -22,39 +22,55 @@
 namespace zetasql {
 namespace multiprecision_int_impl {
 
-inline int Print9Digits(uint32_t digits, bool skip_leading_zeros,
-                        char output[9]) {
-  for (int j = 8; j >= 0; --j) {
+template <typename UnsignedWord, int kNumberDigits>
+inline int PrintDigits(UnsignedWord digits, bool skip_leading_zeros,
+                       char output[kNumberDigits]) {
+  for (int j = kNumberDigits - 1; j >= 0; --j) {
     output[j] = static_cast<char>(digits % 10) + '0';
     digits /= 10;
     if (skip_leading_zeros && digits == 0) {
-      memmove(output, output + j, 9 - j);
-      return 9 - j;
+      memmove(output, output + j, kNumberDigits - j);
+      return kNumberDigits - j;
     }
   }
-  return 9;
+  return kNumberDigits;
 }
 
-void AppendSegmentsToString(const uint32_t segments[], size_t num_segments,
+template <typename UnsignedWord>
+void AppendSegmentsToString(const UnsignedWord segments[], size_t num_segments,
                             std::string* result) {
   if (num_segments == 0) {
     result->push_back('0');
     return;
   }
   size_t old_size = result->size();
-  size_t new_size = old_size + num_segments * 9;
+  constexpr UnsignedWord kBitWidth =
+      static_cast<UnsignedWord>(sizeof(UnsignedWord) * 8);
+  constexpr int kMaxWholeDecimalDigits =
+      IntTraits<kBitWidth>::kMaxWholeDecimalDigits;
+  size_t new_size = old_size + num_segments * kMaxWholeDecimalDigits;
   result->resize(new_size);
   char* output = result->data() + old_size;
-  const uint32_t* segment = &segments[num_segments - 1];
+  const UnsignedWord* segment = &segments[num_segments - 1];
   int num_digits_in_first_segment =
-      Print9Digits(*segment, /* skip_leading_zeros */ true, output);
+      PrintDigits<UnsignedWord, kMaxWholeDecimalDigits>(
+          *segment, /* skip_leading_zeros */ true, output);
   output += num_digits_in_first_segment;
   while (segment != segments) {
     --segment;
-    output += Print9Digits(*segment, /* skip_leading_zeros */ false, output);
+    output += PrintDigits<UnsignedWord, kMaxWholeDecimalDigits>(
+        *segment, /* skip_leading_zeros */ false, output);
   }
-  result->resize(new_size - (9 - num_digits_in_first_segment));
+  result->resize(new_size -
+                 (kMaxWholeDecimalDigits - num_digits_in_first_segment));
 }
+
+template void AppendSegmentsToString<uint64_t>(const uint64_t segments[],
+                                               size_t num_segments,
+                                               std::string* result);
+template void AppendSegmentsToString<uint32_t>(const uint32_t segments[],
+                                               size_t num_segments,
+                                               std::string* result);
 
 }  // namespace multiprecision_int_impl
 }  // namespace zetasql

@@ -16,8 +16,12 @@
 
 #include "zetasql/scripting/serialization_helpers.h"
 
+#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "zetasql/scripting/procedure_extension.pb.h"
 #include "absl/status/statusor.h"

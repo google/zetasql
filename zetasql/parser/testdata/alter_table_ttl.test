@@ -1,4 +1,4 @@
-
+[default language_features=V_1_4_TTL]
 alter table T add row deletion policy {{|if not exists}} (c > 1000);
 --
 ALTERNATION GROUP: <empty>
@@ -106,7 +106,7 @@ alter table T replace row policy (c > 1000);
                           ^
 ==
 
-[no_allow_ttl]
+[language_features=]
 alter table T {{add|replace}} row deletion policy (c > 1000);
 --
 ALTERNATION GROUP: add
@@ -166,7 +166,7 @@ alter table T drop row policy;
                        ^
 ==
 
-[no_allow_ttl]
+[language_features=]
 alter table T drop row deletion policy;
 --
 ERROR: DROP ROW DELETION POLICY clause is not supported. [at 1:20]

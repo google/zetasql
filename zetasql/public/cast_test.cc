@@ -27,6 +27,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testdata/test_schema.pb.h"
@@ -43,6 +44,11 @@
 
 namespace zetasql {
 
+MATCHER_P(StringValueMatches, matcher, "") {
+  return ExplainMatchResult(matcher, arg.string_value(), result_listener);
+}
+
+using testing::StrCaseEq;
 using zetasql_base::testing::IsOkAndHolds;
 
 static TypeFactory* type_factory = new TypeFactory();
@@ -156,6 +162,41 @@ TEST(ConversionTest, ValueCastTest) {
                invalid_conversion_message);
 }
 
+TEST(ConversionTest, CanonicalizedNanAndZeroTest) {
+  const Type* string_type = type_factory->get_string();
+  EXPECT_THAT(
+      CastValue(Value::Float(-0.0), absl::UTCTimeZone(), LanguageOptions(),
+                string_type, /*catalog=*/nullptr, /*canonicalize_zero=*/true),
+      IsOkAndHolds(String("0")));
+  EXPECT_THAT(
+      CastValue(Value::Double(-0.0), absl::UTCTimeZone(), LanguageOptions(),
+                string_type, /*catalog=*/nullptr, /*canonicalize_zero=*/true),
+      IsOkAndHolds(String("0")));
+  EXPECT_THAT(
+      CastValue(Value::Float(-0.0), absl::UTCTimeZone(), LanguageOptions(),
+                string_type, /*catalog=*/nullptr, /*canonicalize_zero=*/false),
+      IsOkAndHolds(String("-0")));
+  EXPECT_THAT(
+      CastValue(Value::Double(-0.0), absl::UTCTimeZone(), LanguageOptions(),
+                string_type, /*catalog=*/nullptr, /*canonicalize_zero=*/false),
+      IsOkAndHolds(String("-0")));
+  EXPECT_THAT(CastValue(Value::Float(std::numeric_limits<float>::quiet_NaN()),
+                        absl::UTCTimeZone(), LanguageOptions(), string_type),
+              IsOkAndHolds(StringValueMatches(StrCaseEq("nan"))));
+  EXPECT_THAT(CastValue(Value::Float(std::numeric_limits<double>::quiet_NaN()),
+                        absl::UTCTimeZone(), LanguageOptions(), string_type),
+              IsOkAndHolds(StringValueMatches(StrCaseEq("nan"))));
+  // Negative float NaN.
+  EXPECT_THAT(CastValue(Value::Float(absl::bit_cast<float>(0xffc00000u)),
+                        absl::UTCTimeZone(), LanguageOptions(), string_type),
+              IsOkAndHolds(StringValueMatches(StrCaseEq("nan"))));
+  // Negative double NaN.
+  EXPECT_THAT(
+      CastValue(Value::Float(absl::bit_cast<double>(0xfff8000000000000ul)),
+                absl::UTCTimeZone(), LanguageOptions(), string_type),
+      IsOkAndHolds(StringValueMatches(StrCaseEq("nan"))));
+}
+
 TEST(ConversionTest, ConversionMatchTest) {
   Function conversion_function("Name", "Group", Function::SCALAR);
 
@@ -244,41 +285,34 @@ static void ExecuteTest(const QueryParamsWithResult& test_case) {
   const Value& from_value = test_case.param(0);
   absl::TimeZone los_angeles;
   absl::LoadTimeZone("America/Los_Angeles", &los_angeles);
-  for (const auto& feature_result_pair : test_case.results()) {
-    const QueryParamsWithResult::FeatureSet& feature_set =
-        feature_result_pair.first;
-    const QueryParamsWithResult::Result& expected_result =
-        feature_result_pair.second;
-
-    LanguageOptions language_options;
-    for (LanguageFeature feature : feature_set) {
-      language_options.EnableLanguageFeature(feature);
-    }
-    if ((from_value.type()->IsFeatureV12CivilTimeType() ||
-         feature_result_pair.second.result.type()
-             ->IsFeatureV12CivilTimeType()) &&
-        !language_options.LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) {
-      continue;
-    }
-    const Type* expected_type = expected_result.result.type();
-    const absl::StatusOr<Value> status_or_value =
-        CastValue(from_value, los_angeles, language_options, expected_type);
-    const std::string error_string = absl::StrCat(
-        "from type: ", from_value.type()->DebugString(),
-        "\nfrom value: ", from_value.FullDebugString(),
-        "\nexpected type: ", expected_type->DebugString(),
-        "\nexpected value: ", expected_result.result.FullDebugString());
-    if (feature_result_pair.second.status.ok()) {
-      ZETASQL_ASSERT_OK(status_or_value) << error_string;
-      const Value& coerced_value = status_or_value.value();
-      EXPECT_EQ(feature_result_pair.second.result, coerced_value)
-          << error_string
-          << "\ncoerced value: " << coerced_value.FullDebugString();
-    } else {
-      EXPECT_FALSE(status_or_value.ok())
-          << error_string
-          << "\ncoerced value: " << status_or_value.value().FullDebugString();
-    }
+  LanguageOptions language_options;
+  for (LanguageFeature feature : test_case.required_features()) {
+    language_options.EnableLanguageFeature(feature);
+  }
+  if ((from_value.type()->IsFeatureV12CivilTimeType() ||
+       test_case.result().type()->IsFeatureV12CivilTimeType()) &&
+      !language_options.LanguageFeatureEnabled(FEATURE_V_1_2_CIVIL_TIME)) {
+    return;
+  }
+  const Type* expected_type = test_case.result().type();
+  const absl::StatusOr<Value> status_or_value =
+      CastValue(from_value, los_angeles, language_options, expected_type,
+                /*catalog=*/nullptr, /*canonicalize_zero=*/true);
+  const std::string error_string =
+      absl::StrCat("from type: ", from_value.type()->DebugString(),
+                   "\nfrom value: ", from_value.FullDebugString(),
+                   "\nexpected type: ", expected_type->DebugString(),
+                   "\nexpected value: ", test_case.result().FullDebugString());
+  if (test_case.status().ok()) {
+    ZETASQL_ASSERT_OK(status_or_value) << error_string;
+    const Value& coerced_value = status_or_value.value();
+    EXPECT_EQ(test_case.result(), coerced_value)
+        << error_string
+        << "\ncoerced value: " << coerced_value.FullDebugString();
+  } else {
+    EXPECT_FALSE(status_or_value.ok())
+        << error_string
+        << "\ncoerced value: " << status_or_value.value().FullDebugString();
   }
 }
 

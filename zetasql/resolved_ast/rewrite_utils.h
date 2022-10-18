@@ -27,6 +27,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -310,6 +311,12 @@ class LikeAnyAllSubqueryScanBuilder {
 
 bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* function_call,
                            FunctionSignatureId function_signature_id);
+
+// Generate an Unimplemented error message - if possible, attach a location.
+// Note, Rewriters uniquely need this ability, the resolver generally
+// has access to parser ASTNode objects, which more reliably have a
+// location.
+zetasql_base::StatusBuilder MakeUnimplementedErrorAtNode(const ResolvedNode* node);
 
 }  // namespace zetasql
 

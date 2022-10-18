@@ -284,56 +284,6 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding() {
       {"round", {NumericValue::MinValue(), -1ll}, NullNumeric(), OUT_OF_RANGE},
       {"round", {NumericValue::MinValue(), 0ll}, NullNumeric(), OUT_OF_RANGE},
       {"round", {NumericValue::MinValue(), 1ll}, NullNumeric(), OUT_OF_RANGE},
-      // Round(x, n, round_half_even)
-      {"round",
-       {NumericValue::FromString("3.145000").value(), 2ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NumericValue::FromString("3.14").value()},
-      {"round",
-       {NumericValue::FromString("3144500.00").value(), -3ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NumericValue::FromString("3144000").value()},
-      {"round",
-       {NumericValue::FromString("3.1415925").value(), int64max,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NumericValue::FromString("3.1415925").value()},
-      {"round",
-       {NumericValue::FromString("3.1415925").value(), int64min,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NumericValue::FromString("0.0").value()},
-      {"round",
-       {NullNumeric(), 0ll, Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullNumeric()},
-      {"round",
-       {NumericValue::MaxValue(), -1ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullNumeric(),
-       OUT_OF_RANGE},
-      {"round",
-       {NumericValue::MaxValue(), 0ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullNumeric(),
-       OUT_OF_RANGE},
-      {"round",
-       {NumericValue::MaxValue(), 1ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullNumeric(),
-       OUT_OF_RANGE},
-      {"round",
-       {NumericValue::MinValue(), -1ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullNumeric(),
-       OUT_OF_RANGE},
-      {"round",
-       {NumericValue::MinValue(), 0ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullNumeric(),
-       OUT_OF_RANGE},
-      {"round",
-       {NumericValue::MinValue(), 1ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullNumeric(),
-       OUT_OF_RANGE},
 
       {"trunc", {NullNumeric()}, NullNumeric()},
       {"trunc", {NumericValue()}, NumericValue()},
@@ -422,8 +372,67 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding() {
        NumericValue(-1LL)},
   };
 
-  all_tests.reserve(numeric_tests.size());
-  for (const auto& test_case : numeric_tests) {
+  for (auto& test_case : numeric_tests) {
+    test_case.params.AddRequiredFeature(FEATURE_NUMERIC_TYPE);
+    all_tests.emplace_back(test_case);
+  }
+
+  std::vector<FunctionTestCall> numeric_with_rounding_mode_tests = {
+      // Round(x, n, round_half_even)
+      {"round",
+       {NumericValue::FromString("3.145000").value(), 2ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NumericValue::FromString("3.14").value()},
+      {"round",
+       {NumericValue::FromString("3144500.00").value(), -3ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NumericValue::FromString("3144000").value()},
+      {"round",
+       {NumericValue::FromString("3.1415925").value(), int64max,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NumericValue::FromString("3.1415925").value()},
+      {"round",
+       {NumericValue::FromString("3.1415925").value(), int64min,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NumericValue::FromString("0.0").value()},
+      {"round",
+       {NullNumeric(), 0ll, Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullNumeric()},
+      {"round",
+       {NumericValue::MaxValue(), -1ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullNumeric(),
+       OUT_OF_RANGE},
+      {"round",
+       {NumericValue::MaxValue(), 0ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullNumeric(),
+       OUT_OF_RANGE},
+      {"round",
+       {NumericValue::MaxValue(), 1ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullNumeric(),
+       OUT_OF_RANGE},
+      {"round",
+       {NumericValue::MinValue(), -1ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullNumeric(),
+       OUT_OF_RANGE},
+      {"round",
+       {NumericValue::MinValue(), 0ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullNumeric(),
+       OUT_OF_RANGE},
+      {"round",
+       {NumericValue::MinValue(), 1ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullNumeric(),
+       OUT_OF_RANGE},
+  };
+
+  for (auto& test_case : numeric_with_rounding_mode_tests) {
+    test_case.params.AddRequiredFeature(FEATURE_NUMERIC_TYPE)
+        .AddRequiredFeature(FEATURE_ROUND_WITH_ROUNDING_MODE);
     all_tests.emplace_back(test_case);
   }
 
@@ -527,62 +536,6 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding() {
            .value()},
       {"round",
        {BigNumericValue::MinValue(), 1ll},
-       BigNumericValue::FromString("-578960446186580977117854925043439539266.3")
-           .value()},
-      // ROUND(x, y, round_half_even)
-      {"round",
-       {NullBigNumeric(), NullInt64(),
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullBigNumeric()},
-      {"round",
-       {NullBigNumeric(), 0ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullBigNumeric()},
-      {"round",
-       {BigNumericValue(), NullInt64(),
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullBigNumeric()},
-      {"round",
-       {BigNumericValue::FromString("1.12345678901234567885000000").value(),
-        19ll, Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       BigNumericValue::FromString("1.1234567890123456788").value()},
-      {"round",
-       {BigNumericValue::FromString("1123456500.0000000").value(), -3ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       BigNumericValue::FromString("1123456000").value()},
-      {"round",
-       {BigNumericValue::FromString("1123456789.01234567890123456789012345678")
-            .value(),
-        -39ll, Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       BigNumericValue()},
-      {"round",
-       {BigNumericValue::MaxValue(), -1ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullBigNumeric(),
-       OUT_OF_RANGE},
-      {"round",
-       {BigNumericValue::MaxValue(), 0ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       BigNumericValue::FromString("578960446186580977117854925043439539266")
-           .value()},
-      {"round",
-       {BigNumericValue::MaxValue(), 1ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       BigNumericValue::FromString("578960446186580977117854925043439539266.3")
-           .value()},
-      {"round",
-       {BigNumericValue::MinValue(), -1ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       NullBigNumeric(),
-       OUT_OF_RANGE},
-      {"round",
-       {BigNumericValue::MinValue(), 0ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
-       BigNumericValue::FromString("-578960446186580977117854925043439539266")
-           .value()},
-      {"round",
-       {BigNumericValue::MinValue(), 1ll,
-        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
        BigNumericValue::FromString("-578960446186580977117854925043439539266.3")
            .value()},
 
@@ -789,8 +742,73 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding() {
       {"floor", {BigNumericValue::MinValue()}, NullBigNumeric(), OUT_OF_RANGE},
   };
 
-  all_tests.reserve(bignumeric_tests.size());
-  for (const auto& test_case : bignumeric_tests) {
+  for (auto& test_case : bignumeric_tests) {
+    test_case.params.AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE);
+    all_tests.emplace_back(test_case);
+  }
+
+  std::vector<FunctionTestCall> bignumeric_with_rounding_mode_tests = {
+      // ROUND(x, y, round_half_even)
+      {"round",
+       {NullBigNumeric(), NullInt64(),
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullBigNumeric()},
+      {"round",
+       {NullBigNumeric(), 0ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullBigNumeric()},
+      {"round",
+       {BigNumericValue(), NullInt64(),
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullBigNumeric()},
+      {"round",
+       {BigNumericValue::FromString("1.12345678901234567885000000").value(),
+        19ll, Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       BigNumericValue::FromString("1.1234567890123456788").value()},
+      {"round",
+       {BigNumericValue::FromString("1123456500.0000000").value(), -3ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       BigNumericValue::FromString("1123456000").value()},
+      {"round",
+       {BigNumericValue::FromString("1123456789.01234567890123456789012345678")
+            .value(),
+        -39ll, Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       BigNumericValue()},
+      {"round",
+       {BigNumericValue::MaxValue(), -1ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"round",
+       {BigNumericValue::MaxValue(), 0ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       BigNumericValue::FromString("578960446186580977117854925043439539266")
+           .value()},
+      {"round",
+       {BigNumericValue::MaxValue(), 1ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       BigNumericValue::FromString("578960446186580977117854925043439539266.3")
+           .value()},
+      {"round",
+       {BigNumericValue::MinValue(), -1ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"round",
+       {BigNumericValue::MinValue(), 0ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       BigNumericValue::FromString("-578960446186580977117854925043439539266")
+           .value()},
+      {"round",
+       {BigNumericValue::MinValue(), 1ll,
+        Value::Enum(rounding_mode_type, "ROUND_HALF_EVEN")},
+       BigNumericValue::FromString("-578960446186580977117854925043439539266.3")
+           .value()},
+  };
+
+  for (auto& test_case : bignumeric_with_rounding_mode_tests) {
+    test_case.params.AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)
+        .AddRequiredFeature(FEATURE_ROUND_WITH_ROUNDING_MODE);
     all_tests.emplace_back(test_case);
   }
 

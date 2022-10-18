@@ -17,9 +17,12 @@
 #include "zetasql/parser/parse_tree_serializer.h"
 
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "zetasql/base/path.h"
+#include "zetasql/parser/ast_node.h"
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/language_options.h"
@@ -29,6 +32,7 @@
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "file_based_test_driver/file_based_test_driver.h"
 #include "file_based_test_driver/run_test_case_result.h"
 #include "file_based_test_driver/test_case_options.h"
@@ -42,8 +46,8 @@ class ParseTreeSerializerTest : public ::testing::Test {
   ParseTreeSerializerTest() {}
   void RunTest(absl::string_view test_case_input,
                file_based_test_driver::RunTestCaseResult* test_result) {
-    // Read an SQL statement from the .test file. Parse it and extract the
-    // parsed ASTStatement. Serialize() the ASTStatement and compare the
+    // Read the SQL from the .test file. Parse it and extract the
+    // parsed ASTNode, Serialize() the ASTNode and compare the
     // proto to the expected value.
     std::string sql = std::string(test_case_input);
     auto language_options = std::make_unique<LanguageOptions>();
@@ -51,33 +55,65 @@ class ParseTreeSerializerTest : public ::testing::Test {
         ParserOptions(/*id_string_pool=*/nullptr,
                       /*arena=*/nullptr, language_options.get());
     std::unique_ptr<ParserOutput> parser_output;
-    absl::Status status = ParseStatement(sql, parser_options, &parser_output);
+    absl::Status status;
+    bool is_expression = absl::StartsWith(sql, "expression: ");
+    if (is_expression) {
+      status = ParseExpression(sql.substr(12), parser_options, &parser_output);
+    } else {
+      status = ParseStatement(sql, parser_options, &parser_output);
+    }
     ASSERT_TRUE(status.ok());
-
-    const zetasql::ASTStatement* statement =
-        status.ok() ? parser_output->statement() : nullptr;
-
-    zetasql::AnyASTStatementProto proto;
-    status = ParseTreeSerializer::Serialize(statement, &proto);
-    test_result->AddTestOutput(proto.DebugString());
 
     ParserOptions deserialize_parser_options =
         ParserOptions(/*id_string_pool=*/nullptr,
                       /*arena=*/nullptr, /* language_options=*/nullptr);
+    if (is_expression) {
+      const zetasql::ASTExpression* expression =
+          status.ok() ? parser_output->expression() : nullptr;
 
-    absl::StatusOr<std::unique_ptr<ParserOutput>> deserialized_parser_output =
-        ParseTreeSerializer::Deserialize(proto,
-                                         deserialize_parser_options);
-    ZETASQL_EXPECT_OK(deserialized_parser_output);
-    const zetasql::ASTStatement* deserialized_statement =
-        deserialized_parser_output.value()->statement();
+      zetasql::AnyASTExpressionProto proto;
+      status = ParseTreeSerializer::Serialize(expression, &proto);
+      test_result->AddTestOutput(proto.DebugString());
 
-    // This is only a partially reliable test for node equality
-    // because not all attributes of a node are necessarily represented in
-    // the DebugString. Still need to generate a deep equals() method for
-    // better comparison.
-    EXPECT_EQ(statement->DebugString(), deserialized_statement->DebugString());
-    EXPECT_EQ(Unparse(statement), Unparse(deserialized_statement));
+      absl::StatusOr<std::unique_ptr<ParserOutput>> deserialized_parser_output =
+          ParseTreeSerializer::Deserialize(proto, deserialize_parser_options);
+      ZETASQL_EXPECT_OK(deserialized_parser_output);
+      const zetasql::ASTExpression* deserialized_expression =
+          deserialized_parser_output.value()->expression();
+
+      // This is only a partially reliable test for node equality
+      // because not all attributes of a node are necessarily represented in
+      // the DebugString. Still need to generate a deep equals() method for
+      // better comparison.
+      EXPECT_EQ(expression->DebugString(),
+                deserialized_expression->DebugString());
+      EXPECT_EQ(Unparse(expression), Unparse(deserialized_expression));
+    } else {
+      const zetasql::ASTStatement* statement =
+          status.ok() ? parser_output->statement() : nullptr;
+
+      zetasql::AnyASTStatementProto proto;
+      status = ParseTreeSerializer::Serialize(statement, &proto);
+      test_result->AddTestOutput(proto.DebugString());
+
+      ParserOptions deserialize_parser_options =
+          ParserOptions(/*id_string_pool=*/nullptr,
+                        /*arena=*/nullptr, /* language_options=*/nullptr);
+
+      absl::StatusOr<std::unique_ptr<ParserOutput>> deserialized_parser_output =
+          ParseTreeSerializer::Deserialize(proto, deserialize_parser_options);
+      ZETASQL_EXPECT_OK(deserialized_parser_output);
+      const zetasql::ASTStatement* deserialized_statement =
+          deserialized_parser_output.value()->statement();
+
+      // This is only a partially reliable test for node equality
+      // because not all attributes of a node are necessarily represented in
+      // the DebugString. Still need to generate a deep equals() method for
+      // better comparison.
+      EXPECT_EQ(statement->DebugString(),
+                deserialized_statement->DebugString());
+      EXPECT_EQ(Unparse(statement), Unparse(deserialized_statement));
+    }
   }
 };
 

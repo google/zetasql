@@ -13,6 +13,8 @@ analytic functions.
 
 [ZetaSQL ResolvedAST API](docs/resolved_ast.md)
 
+[ZetaSQL BigQuery Analysis Example](https://github.com/GoogleCloudPlatform/professional-services/tree/main/tools/zetasql-helper)
+
 ## Status of Project and Roadmap
 
 This codebase is being open sourced in multiple phases:
@@ -29,7 +31,7 @@ This codebase is being open sourced in multiple phases:
 
 Multiplatform support is planned for the following platforms:
 
- - Linux (Ubuntu 1804 _with gcc8_ is our reference platform, but others may work).
+ - Linux (Ubuntu 20.04 is our reference platform, but others may work).
  - MacOS (Experimental)
  - Windows (version TDB)
 

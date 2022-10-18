@@ -20,8 +20,10 @@
 
 #include <algorithm>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
@@ -31,6 +33,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type_deserializer.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/base/case.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -231,8 +234,10 @@ absl::StatusOr<std::unique_ptr<Function>> Function::Deserialize(
   std::unique_ptr<FunctionOptions> options;
   ZETASQL_RETURN_IF_ERROR(FunctionOptions::Deserialize(proto.options(), &options));
 
-  return std::make_unique<Function>(name_path, proto.group(), proto.mode(),
-                                    function_signatures, *options);
+  auto function = std::make_unique<Function>(
+      name_path, proto.group(), proto.mode(), function_signatures, *options);
+  function->set_sql_security(proto.sql_security());
+  return function;
 }
 
 absl::Status Function::Serialize(
@@ -251,6 +256,10 @@ absl::Status Function::Serialize(
 
   proto->set_mode(mode());
   proto->set_group(GetGroup());
+  if (sql_security() !=
+      ResolvedCreateStatementEnums::SQL_SECURITY_UNSPECIFIED) {
+    proto->set_sql_security(sql_security());
+  }
   function_options().Serialize(proto->mutable_options());
 
   return absl::OkStatus();

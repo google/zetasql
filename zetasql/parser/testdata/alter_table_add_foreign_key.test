@@ -287,16 +287,16 @@ ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH FULL ON UPDATE CASCADE 
 ==
 
 [no_test_get_parse_tokens]
-[{{no_|}}allow_dashed_table_names]
+[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-bar-123.baz ADD FOREIGN KEY (A) REFERENCES T(B);
 --
-ALTERNATION GROUP: no_
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-bar-123.baz` [at 1:13]
 ALTER TABLE foo-bar-123.baz ADD FOREIGN KEY (A) REFERENCES T(B);
             ^
 --
-ALTERNATION GROUP: <empty>
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-63]
   PathExpression [12-27]

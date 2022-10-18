@@ -30,6 +30,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -54,6 +55,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/evaluation.h"
+#include "zetasql/reference_impl/reference_driver.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testing/type_util.h"
@@ -99,6 +101,8 @@ ABSL_FLAG(bool, ignore_wrong_error_codes, false,
           "The test will accept any status regardless of the error code. This "
           "is useful for engines that cannot plumb through the original error "
           "during failure tests.");
+ABSL_FLAG(bool, zetasql_compliance_accept_all_test_output, false,
+          "Pretend no tests failed by ignoring their output.");
 // Ideally we would rename this to --statement_name_pattern, but that might
 // break some command line somewhere.
 ABSL_FLAG(std::string, query_name_pattern, "",
@@ -115,9 +119,7 @@ ABSL_FLAG(bool, zetasql_compliance_allow_upgradable_known_errors, true,
           "When true, known error listings that need to be upgraded are "
           "allowed in the known errors file.");
 ABSL_FLAG(
-    bool,
-    zetasql_compliance_fail_reference_if_unneeded_required_feature_declared,
-    false,
+    bool, zetasql_detect_falsly_required_features, false,
     "When true, the reference implementation test will fail test cases that "
     "declare a required feature but do not actually require that feature.  "
     "This flag has no effect when run with other engines.");
@@ -126,6 +128,28 @@ ABSL_FLAG(bool, zetasql_compliance_write_labels_to_file, false,
           "the labels to undeclared output in a textproto file format.");
 
 namespace zetasql {
+
+namespace {
+
+// This RTTI helper class allows temporarily modifying language settings on the
+// reference driver, and it will automatically restore original settings upon
+// destruction.
+class AutoLanguageOptions {
+ public:
+  explicit AutoLanguageOptions(ReferenceDriver* reference_driver)
+      : reference_driver_(reference_driver) {
+    original_options_ = reference_driver_->GetSupportedLanguageOptions();
+  }
+  ~AutoLanguageOptions() {
+    reference_driver_->SetLanguageOptions(original_options_);
+  }
+
+ protected:
+  ReferenceDriver* reference_driver_;
+  LanguageOptions original_options_;
+};
+
+}  // anonymous namespace
 
 // Constants for code-based statement names.
 // A name must be RE2 safe. All unsafe characters will be replaced by '@'.
@@ -246,7 +270,9 @@ class Stats {
   void RecordComplianceTestsLabelsProto(
       absl::string_view test_name, absl::string_view sql,
       KnownErrorMode actual_error_mode,
-      const absl::btree_set<std::string>& label_set) {
+      const absl::btree_set<std::string>& label_set,
+      absl::StatusCode expected_error_code,
+      absl::StatusCode actual_error_code) {
     if (absl::GetFlag(FLAGS_zetasql_compliance_write_labels_to_file)) {
       ComplianceTestCaseLabels* test_case = labels_proto_.add_test_cases();
       test_case->set_test_name(std::string(test_name));
@@ -298,6 +324,10 @@ class Stats {
   std::set<std::string> to_be_added_to_known_errors_;
   std::set<std::string> to_be_removed_from_known_errors_;
   std::set<std::string> to_be_upgraded_;
+  std::unordered_map<KnownErrorMode, std::set<std::string>>
+      error_mode_to_new_failures_;
+  std::unordered_map<KnownErrorMode, std::string>
+      error_mode_to_example_message_;
 
   // Compliance labels represented by ComplianceTestsLabels Proto message.
   // This accumulates labels across different test cases and will be written to
@@ -349,6 +379,8 @@ void Stats::RecordFailedStatement(const std::string& msg,
   if (file_based_statements_) RecordProperty(location, "Failed");
   to_be_added_to_known_errors_.insert(
       LabelString(full_name, was_mode, new_mode));
+  error_mode_to_new_failures_[new_mode].insert(full_name);
+  error_mode_to_example_message_[new_mode] = msg;
   failures_.emplace_back(msg);
 }
 
@@ -428,10 +460,6 @@ void Stats::LogBatches(const Iterable& iterable, const std::string& title,
 void Stats::LogReport() const {
   std::vector<std::string> known_error_files =
       absl::GetFlag(FLAGS_known_error_files);
-  ZETASQL_LOG(INFO) << "\n==== RELATED KNOWN ERROR FILES ====\n"
-            << absl::StrJoin(known_error_files, "\n")
-            << "\n==== END RELATED KNOWN ERROR FILES ====\n";
-
   const std::string compliance_report_title = "ZETASQL COMPLIANCE REPORT";
   // Always "====" to the beginning and "==== End " to the end so
   // extract_compliance_results.py can recognize it.
@@ -454,6 +482,34 @@ void Stats::LogReport() const {
   LogBatches(to_be_removed_from_known_errors_,
              "To Be Removed From Known Errors Statements", "\n");
   LogBatches(to_be_upgraded_, "To Be Upgraded Statements", "\n");
+
+  ZETASQL_LOG(INFO) << "\n==== RELATED KNOWN ERROR FILES ====\n"
+            << absl::StrJoin(known_error_files, "\n")
+            << "\n==== END RELATED KNOWN ERROR FILES ====\n";
+  if (!error_mode_to_new_failures_.empty()) {
+    std::vector<std::string> suggestions;
+    for (const auto& [error_mode, cases] : error_mode_to_new_failures_) {
+      KnownErrorFile enclosing_proto;
+      KnownErrorEntry* labels_proto = enclosing_proto.add_known_errors();
+      std::string example_msg =
+          error_mode_to_example_message_.find(error_mode)->second;
+      labels_proto->set_mode(error_mode);
+      // Give an example reason, the last part of the message, which is often
+      // more informative. This likely needs to be edited manually.
+      labels_proto->set_reason("Example: " +
+                               example_msg.substr(example_msg.size() > 100
+                                                      ? example_msg.size() - 80
+                                                      : 0));
+      for (const auto& label : cases) {
+        labels_proto->add_label(label);
+      }
+      google::protobuf::TextFormat::Printer printer;
+      printer.SetPrintMessageFieldsInIndexOrder(true);  // So mode comes first
+
+      printer.PrintToString(enclosing_proto, &suggestions.emplace_back());
+    }
+    LogBatches(suggestions, "Suggestions for adding known errors:", "\n");
+  }
 }
 
 using ComplianceTestCaseResult = SQLTestBase::ComplianceTestCaseResult;
@@ -669,18 +725,17 @@ std::string FileBasedTestName(absl::string_view filename,
 class KnownErrorFilter : public ::testing::MatcherInterface<
                              const absl::StatusOr<ComplianceTestCaseResult>&> {
  public:
+  // 'expected_status' is the same status expected by 'matcher' or OK if
+  // 'matcher' is expecting something other than an error status.
   KnownErrorFilter(
-      SQLTestBase* sql_test,
-      const ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>&
-          matcher)
-      : KnownErrorFilter(sql_test, matcher, false /* check_only */) {}
-
-  KnownErrorFilter(
-      SQLTestBase* sql_test,
+      SQLTestBase* sql_test, absl::Status expected_status,
       const ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>&
           matcher,
-      bool check_only)
-      : sql_test_(sql_test), matcher_(matcher), check_only_(check_only) {}
+      bool check_only = false)
+      : sql_test_(sql_test),
+        matcher_(matcher),
+        expected_status_(expected_status),
+        check_only_(check_only) {}
 
   // Write out a CSV format line with detailed results of each test case.
   // These can be extracted into a file using extract_compliance_results.sh.
@@ -704,7 +759,8 @@ class KnownErrorFilter : public ::testing::MatcherInterface<
       ::testing::MatchResultListener* listener) const override {
     const KnownErrorMode from_mode = sql_test_->known_error_mode();
     // CRASHES_DO_NOT_RUN is always skipped, return here.
-    if (KnownErrorMode::CRASHES_DO_NOT_RUN == from_mode) {
+    if (KnownErrorMode::CRASHES_DO_NOT_RUN == from_mode ||
+        absl::GetFlag(FLAGS_zetasql_compliance_accept_all_test_output)) {
       LogToCSV(/*passed=*/false, from_mode);
       return true;
     }
@@ -729,7 +785,8 @@ class KnownErrorFilter : public ::testing::MatcherInterface<
     // Record actual error mode of current test case to global stats.
     sql_test_->stats_->RecordComplianceTestsLabelsProto(
         sql_test_->full_name_, sql_test_->sql_, to_mode,
-        sql_test_->compliance_labels_);
+        sql_test_->compliance_labels_, expected_status_.code(),
+        result.status().code());
     if (to_mode > from_mode) {
       // 1. to_mode > 0 = from_mode: A failed non-known-error statement.
       // 2. to_mode > from_mode > 0: A known-error statement failed in a more
@@ -805,6 +862,7 @@ class KnownErrorFilter : public ::testing::MatcherInterface<
  private:
   SQLTestBase* sql_test_;
   ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> matcher_;
+  absl::Status expected_status_;  // used for logging compliance labels
   bool check_only_;
 };
 
@@ -834,7 +892,8 @@ absl::Status SQLTestBase::ValidateFirstColumnPrimaryKey(
 
 ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
 SQLTestBase::ReturnsSuccess() {
-  return ::testing::MakeMatcher(new KnownErrorFilter(this, ReturnsOk()));
+  return ::testing::MakeMatcher(
+      new KnownErrorFilter(this, absl::OkStatus(), ReturnsOk()));
 }
 
 ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
@@ -842,12 +901,12 @@ SQLTestBase::Returns(const ComplianceTestCaseResult& result,
                      const absl::Status& status, FloatMargin float_margin) {
   if (status.ok()) {
     return ::testing::MakeMatcher(new KnownErrorFilter(
-        this,
+        this, status,
         ReturnsStatusOrValue(absl::StatusOr<ComplianceTestCaseResult>(result),
                              float_margin)));
   } else {
     return ::testing::MakeMatcher(new KnownErrorFilter(
-        this,
+        this, status,
         ReturnsStatusOrValue(absl::StatusOr<ComplianceTestCaseResult>(status),
                              float_margin)));
   }
@@ -856,8 +915,8 @@ SQLTestBase::Returns(const ComplianceTestCaseResult& result,
 ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
 SQLTestBase::Returns(const absl::StatusOr<ComplianceTestCaseResult>& result,
                      FloatMargin float_margin) {
-  return ::testing::MakeMatcher(
-      new KnownErrorFilter(this, ReturnsStatusOrValue(result, float_margin)));
+  return ::testing::MakeMatcher(new KnownErrorFilter(
+      this, result.status(), ReturnsStatusOrValue(result, float_margin)));
 }
 
 ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
@@ -865,23 +924,107 @@ SQLTestBase::ReturnsCheckOnly(
     const absl::StatusOr<ComplianceTestCaseResult>& result,
     FloatMargin float_margin) {
   return ::testing::MakeMatcher(new KnownErrorFilter(
-      this, ReturnsStatusOrValue(result, float_margin), true /* check_only*/));
+      this, result.status(), ReturnsStatusOrValue(result, float_margin),
+      /*check_only=*/true));
 }
 
 ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
 SQLTestBase::Returns(const std::string& result) {
   return ::testing::MakeMatcher(
-      new KnownErrorFilter(this, ReturnsString(result)));
+      new KnownErrorFilter(this, absl::OkStatus(), ReturnsString(result)));
 }
 
 ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
 SQLTestBase::Returns(
     const ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
         matcher) {
-  return ::testing::MakeMatcher(new KnownErrorFilter(this, matcher));
+  return ::testing::MakeMatcher(
+      new KnownErrorFilter(this, absl::OkStatus(), matcher));
 }
 
-static bool IsOnResolverErrorAllowList(absl::string_view full_name) {
+static bool IsOnResolverErrorFilebasedAllowList(absl::string_view full_name) {
+  // These prefixes are for filebased compliance tests that have analyzer error
+  // queries in them. Such tests should be analyzer tests. As compliance tests,
+  // they don't test any useful engine code. They also cause some noise in
+  // compliance scores. By matching prefixes, we aren't fully preventing new
+  // such cases from being added to these existing files, but at least we are
+  // preventing new files from including such tests.
+  // TODO: Clean up the ~900 tests, burn down this list.
+  for (absl::string_view prefix :
+       {"aggregation_order_by_queries_test:",
+        "aggregation_queries_test:aggregation_string_agg_error_",
+        "analytic_cume_dist_test:cume_dist_",
+        "analytic_dense_rank_test:dense_rank_",
+        "analytic_hll_count_test:analytic_hll_count_merge_partial_over_unbound",
+        "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_",
+        "analytic_lag_test:lag_window_frame",
+        "analytic_lead_test:lead_window_frame",
+        "analytic_ntile_test:ntile_",
+        "analytic_partitionby_orderby_test:",
+        "analytic_percent_rank_test:percent_rank_",
+        "analytic_rank_test:rank_",
+        "analytic_row_number_test:row_number_3",
+        "analytic_sum_test:analytic_sum_range_orderby_bool_",
+        "anonymization_test:",
+        "arithmetic_functions_test:arithmetic_functions_3",
+        "array_aggregation_test:array_concat_agg_array",
+        "array_functions_test:",
+        "array_joins_test:array_",
+        "array_queries_test:select_array_equality_",
+        "bytes_test:",
+        "cast_function_test:",
+        "civil_time_test:",
+        "collation_test:",
+        "concat_function_test:",
+        "constant_queries_test:",
+        "d3a_count_test:",
+        "dml_delete_test:",
+        "dml_insert_test:",
+        "dml_nested_test:",
+        "dml_returning_test:",
+        "dml_update_proto_test:",
+        "dml_update_struct_test:",
+        "dml_update_test",
+        "dml_value_table_test:",
+        "except_intersect_queries_test:",
+        "float_and_double_queries_test:",
+        "geography_analytic_functions_test:st_clusterdbscan_",
+        "geography_functions_test:st_geogfrom",
+        "geography_queries_2_test:",
+        "groupby_queries_test:",
+        "groupby_queries_2_test:",
+        "hll_count_test:",
+        "in_queries_test:in_",
+        "join_queries_test:join_9",
+        "json_queries_test:json_",
+        "keys_test:keys_2",
+        "limit_queries_test:",
+        "logical_functions_test:logical_not_",
+        "nano_timestamp_test:timestamp_to_string_",
+        "orderby_collate_queries_test:",
+        "orderby_queries_test:order_by_array_",
+        "proto2_unknown_enums_test:",
+        "proto_fields_test:has_repeated_scalar_fields",
+        "proto_constructor_test:",
+        "proto3_fields_test:has_repeated_scalar_fields",
+        "replace_fields_test:replace_fields_proto_named_extension",
+        "select_distinct_test:",
+        "safe_function_test:",
+        "strings_test:",
+        "timestamp_test:",
+        "union_distinct_queries_test:",
+        "unionall_queries_test:unionall_",
+        "unnest_queries_test:",
+        "with_queries_test:",
+        "with_recursive_test:"}) {
+    if (absl::StartsWith(full_name, prefix)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool IsOnResolverErrorCodebasedAllowList(absl::string_view full_name) {
   // These are codebased compliance tests that fail in the Resolver during
   // reference implementation tests. Tests that fail in the resolver should be
   // analyzer tests, not compliance tests. These stragglers are allow listed
@@ -890,14 +1033,116 @@ static bool IsOnResolverErrorAllowList(absl::string_view full_name) {
   // Don't add to this list.
   // TODO: Fix these and enable enforcement of resolver success.
   return absl::StartsWith(full_name, "code:TablesampleRepeatable") ||
-         absl::StartsWith(full_name, "code:CastTo_STRING_") ||
-         absl::StartsWith(full_name, "code:Like_with_constant_pattern_") ||
-         // TODO: This case looks like a resolver bug.
-         // SELECT EXTRACT(DATE FROM @p0) AS ColA
-         // No matching signature for function EXTRACT, at least 1 argument must
-         // be provided
-         full_name ==
-             "code:ExtractFromInterval_INTERVAL_0-0 0 0:0:0_STRING_<DATE>";
+         absl::StartsWith(full_name, "code:Like_with_constant_pattern_");
+}
+
+static void ExtractComplianceLabelsFromResolvedAST(
+    absl::string_view sql, const std::map<std::string, Value>& parameters,
+    bool require_resolver_success, absl::string_view test_name,
+    TypeFactory* type_factory, ReferenceDriver* reference_driver,
+    const std::set<LanguageFeature>& required_features,
+    const std::set<LanguageFeature>& forbidden_features,
+    const absl::btree_set<std::string>& explicit_labels,
+    absl::btree_set<std::string>& compliance_labels) {
+  compliance_labels.clear();
+  for (const LanguageFeature feature : required_features) {
+    compliance_labels.insert(
+        absl::StrCat("LanguageFeature:", LanguageFeature_Name(feature)));
+  }
+  for (const std::string& label : explicit_labels) {
+    if (label != test_name) {
+      compliance_labels.insert(label);
+    }
+  }
+  // What are the right LanguageOptions to use for extracting compliance labels?
+  // They aren't what the engine supports because we need to see the
+  // ResolvedAST nodes that appear in queries that aren't supported by the
+  // engine. They must include "required_features" and must not include
+  // "forbidden_features". Otherwise, the maximum LanguageFeatures should be
+  // set. What about ProductMode?  Actually, we would like to include a label
+  // for only supported by PRODUCT_INTERNAL, only supported by PRODUCT_EXTERNAL,
+  // or supported in all product modes.
+  AutoLanguageOptions options_cleanup(reference_driver);
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeaturesForDevelopment();
+  for (LanguageFeature feature : required_features) {
+    language_options.EnableLanguageFeature(feature);
+  }
+  for (LanguageFeature feature : forbidden_features) {
+    language_options.DisableLanguageFeature(feature);
+  }
+
+  // Get a ResolvedAST for PRODUCT_INTERNAL.
+  language_options.set_product_mode(PRODUCT_INTERNAL);
+  reference_driver->SetLanguageOptions(language_options);
+  bool uses_unsupported_type = false;
+  // TODO: Refactor ReferenceDriver::GetAnalyzerOptions to take
+  //     LanguageOptions as an argument so we don't have to set the state and
+  //     then re-set it using AutoLanguageOptions
+  absl::StatusOr<AnalyzerOptions> product_internal_analyzer_options_or_err =
+      reference_driver->GetAnalyzerOptions(parameters, &uses_unsupported_type);
+  EXPECT_FALSE(uses_unsupported_type) << test_name;
+  absl::Status product_internal_analyze_status;
+  std::unique_ptr<const AnalyzerOutput> product_internal_analyzer_out;
+  if (product_internal_analyzer_options_or_err.ok()) {
+    AnalyzerOptions analyzer_options =
+        *product_internal_analyzer_options_or_err;
+    analyzer_options.set_enabled_rewrites({});  // Disable the rewriter.
+    product_internal_analyze_status =
+        AnalyzeStatement(sql, analyzer_options, reference_driver->catalog(),
+                         type_factory, &product_internal_analyzer_out);
+  }
+
+  // Repeat with mode PRODUCT_EXTERNAL
+  language_options.set_product_mode(PRODUCT_EXTERNAL);
+  reference_driver->SetLanguageOptions(language_options);
+  absl::StatusOr<AnalyzerOptions> product_external_analyzer_options_or_err =
+      reference_driver->GetAnalyzerOptions(parameters, &uses_unsupported_type);
+  absl::Status product_external_analyze_status;
+  std::unique_ptr<const AnalyzerOutput> product_external_analyzer_out;
+  if (product_external_analyzer_options_or_err.ok()) {
+    AnalyzerOptions analyzer_options =
+        *product_external_analyzer_options_or_err;
+    analyzer_options.set_enabled_rewrites({});  // Disable the rewriter.
+    product_external_analyze_status =
+        AnalyzeStatement(sql, analyzer_options, reference_driver->catalog(),
+                         type_factory, &product_external_analyzer_out);
+  }
+
+  bool internal_compiles = product_internal_analyzer_options_or_err.ok() &&
+                           product_internal_analyze_status.ok();
+  bool external_compiles = product_external_analyzer_options_or_err.ok() &&
+                           product_external_analyze_status.ok();
+  const ResolvedStatement* statement = nullptr;
+  if (!internal_compiles && !external_compiles) {
+    compliance_labels.insert("Special:NoCompileTest");
+    if (require_resolver_success) {
+      ADD_FAILURE()
+          << "Test '" << test_name << "' does not successfully compile for "
+          << "with maximum features plus required less forbidden. This test is "
+          << "unhealthy. Probably it represents and analyzer failure test. "
+          << "Analyzer failures should be tested in the analyzer tests, not "
+          << "compliance tests, please move the test there. Another less "
+          << "common possibility, is that the test case should have forbidden "
+          << "features that aren't currently explicit. In that case, "
+          << "annotate the test with the apporpriate forbidden feature.";
+    }
+  } else if (internal_compiles && external_compiles) {
+    compliance_labels.insert("ProductMode:InternalAndExternal");
+    // This is an arbitrary choice.
+    statement = product_internal_analyzer_out->resolved_statement();
+  } else if (internal_compiles && !external_compiles) {
+    compliance_labels.insert("ProductMode:InternalOnly");
+    statement = product_internal_analyzer_out->resolved_statement();
+  } else if (!internal_compiles && external_compiles) {
+    compliance_labels.insert("ProductMode:ExternalOnly");
+    statement = product_external_analyzer_out->resolved_statement();
+  } else {
+    ZETASQL_LOG(FATAL) << "Unreachable";
+  }
+  if (statement != nullptr) {
+    ZETASQL_EXPECT_OK(ExtractComplianceLabels(statement, compliance_labels));
+  }
 }
 
 absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::RunSQL(
@@ -915,7 +1160,7 @@ absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::RunSQL(
   ZETASQL_LOG(INFO) << "Starting code-based test: " << full_name_;
   LogStrings(labels, "Effective labels: ");
 
-  InspectTestCase();
+  ZETASQL_RETURN_IF_ERROR(InspectTestCase());
 
   known_error_mode_ = IsKnownError(labels, &by_set_);
   if (KnownErrorMode::CRASHES_DO_NOT_RUN == known_error_mode_) {
@@ -923,26 +1168,114 @@ absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::RunSQL(
     RecordKnownErrorStatement();
     return absl::CancelledError("Known Error");
   }
-
-  absl::Cleanup reset = [old_value = require_resolver_success_, this]() {
-    this->require_resolver_success_ = old_value;
-  };
-  require_resolver_success_ =
-      !permit_compile_failure && !IsOnResolverErrorAllowList(full_name_);
-
   return ExecuteTestCase();
 }
 
-SimpleCatalog* SQLTestBase::catalog() const {
-  if (!IsTestingReferenceImpl()) {
-    // CreateDatabase() has already created a concrete database in the
-    // reference driver.
-    return reference_driver()->catalog();
+void SQLTestBase::RunSQLOnFeaturesAndValidateResult(
+    absl::string_view sql, const std::map<std::string, Value>& params,
+    const std::set<LanguageFeature>& required_features,
+    const std::set<LanguageFeature>& forbidden_features,
+    const Value& expected_value, const absl::Status& expected_status,
+    const FloatMargin& float_margin) {
+  full_name_ = GenerateCodeBasedStatementName(sql, params);
+
+  ZETASQL_CHECK(!script_mode_) << "Codebased tests don't run in script mode.";
+  // TODO: Refactor so that extract labels can be in known_errors.
+  bool require_resolver_success =
+      !IsOnResolverErrorCodebasedAllowList(full_name_) &&
+      IsTestingReferenceImpl();
+  ExtractComplianceLabelsFromResolvedAST(
+      sql, params, require_resolver_success, full_name_,
+      execute_statement_type_factory(), GetReferenceDriver(), required_features,
+      forbidden_features, GetCodeBasedLabels(), compliance_labels_);
+
+  if (IsTestingReferenceImpl()) {
+    auto* reference_driver = GetReferenceDriver();
+    absl::Cleanup reset_language_options =
+        [original = driver()->GetSupportedLanguageOptions(),
+         reference_driver]() {
+          reference_driver->SetLanguageOptions(original);
+        };
+
+    LanguageOptions language_options;
+    language_options.SetEnabledLanguageFeatures(required_features);
+    reference_driver->SetLanguageOptions(language_options);
+
+    auto run_result = RunSQL(sql, params, /*permit_compile_failure=*/false);
+    EXPECT_THAT(run_result,
+                Returns(expected_value, expected_status, float_margin))
+        << "FullName: " << full_name() << "; "
+        << "Labels: " << absl::StrJoin(GetCodeBasedLabels(), ", ");
+
+    if (!absl::GetFlag(FLAGS_zetasql_detect_falsly_required_features)) {
+      return;
+    }
+
+    // For each feature, assert that removing it makes the test fail. This
+    // is a "falsely required" feature.
+    absl::StatusOr<ComplianceTestCaseResult> result_to_check =
+        expected_status.ok()
+            ? absl::StatusOr<ComplianceTestCaseResult>(
+                  ComplianceTestCaseResult(expected_value))
+            : absl::StatusOr<ComplianceTestCaseResult>(expected_status);
+    for (const auto& feature : required_features) {
+      EXPECT_FALSE(IsFeatureFalselyRequired(
+          feature, /*require_inclusive=*/true, sql, params, required_features,
+          run_result.status(), result_to_check, float_margin))
+          << "Feature is falsely required: " << full_name() << ": " << sql
+          << ": " << LanguageFeature_Name(feature);
+    }
+    for (const auto& feature : forbidden_features) {
+      EXPECT_FALSE(IsFeatureFalselyRequired(
+          feature, /*require_inclusive=*/false, sql, params, required_features,
+          run_result.status(), result_to_check, float_margin))
+          << "Feature is falsely prohibited: " << full_name() << ": " << sql
+          << ": " << LanguageFeature_Name(feature);
+    }
   } else {
-    // The test driver is a ReferenceDriver.
-    ReferenceDriver* reference = static_cast<ReferenceDriver*>(driver());
-    return reference->catalog();
+    bool driver_enables_right_features = true;
+    for (LanguageFeature feature : required_features) {
+      driver_enables_right_features &= DriverSupportsFeature(feature);
+    }
+    for (LanguageFeature feature : forbidden_features) {
+      driver_enables_right_features &= !DriverSupportsFeature(feature);
+    }
+
+    if (!driver_enables_right_features) {
+      stats_->RecordComplianceTestsLabelsProto(
+          full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
+          compliance_labels_, expected_status.code(),
+          absl::StatusCode::kUnimplemented);
+      return;  // Skip this test.
+    }
+    // Only run once. Use reference engine to check result. We don't compare
+    // the reference engine output against QueryParamsWithResult::results()
+    // because it isn't clear what feature set to use.
+    TypeFactory type_factory;
+    bool is_deterministic_output;
+    bool uses_unsupported_type = false;
+    sql_ = sql;  // To supply a const std::string&
+    absl::StatusOr<Value> reference_result =
+        reference_driver()->ExecuteStatementForReferenceDriver(
+            sql_, params, GetExecuteStatementOptions(), &type_factory,
+            &is_deterministic_output, &uses_unsupported_type);
+    if (uses_unsupported_type) {
+      stats_->RecordComplianceTestsLabelsProto(
+          full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
+          compliance_labels_, expected_status.code(),
+          absl::StatusCode::kUnimplemented);
+      return;  // Skip this test. It uses types not supported by the driver.
+    }
+    SCOPED_TRACE(sql);
+    // TODO: Should we do something with 'is_deterministic_output'?
+    EXPECT_THAT(RunSQL(sql, params), Returns(reference_result, float_margin))
+        << "FullName: " << full_name() << "; "
+        << "Labels: " << absl::StrJoin(GetCodeBasedLabels(), ", ");
   }
+}
+
+SimpleCatalog* SQLTestBase::catalog() const {
+  return GetReferenceDriver()->catalog();
 }
 
 static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
@@ -1020,37 +1353,6 @@ absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteStatement(
   return ExecuteTestCase();
 }
 
-static absl::Status ExtractComplianceLabelFromResolvedAST(
-    const std::string& sql, const std::map<std::string, Value>& parameters,
-    bool require_resolver_success, absl::string_view test_name,
-    TypeFactory* type_factory, ReferenceDriver* reference_driver,
-    const std::set<LanguageFeature>& required_features,
-    absl::btree_set<std::string>& compliance_labels) {
-  // Do an initial analyze statement to get pre-rewritten resolved AST
-  bool uses_unsupported_type = false;  // unused
-  ZETASQL_ASSIGN_OR_RETURN(
-      AnalyzerOptions analyzer_options,
-      reference_driver->GetAnalyzerOptions(parameters, &uses_unsupported_type));
-  analyzer_options.set_enabled_rewrites({});
-  std::unique_ptr<const AnalyzerOutput> analyzer_out;
-  absl::Status resolver_status =
-      AnalyzeStatement(sql, analyzer_options, reference_driver->catalog(),
-                       type_factory, &analyzer_out);
-  if (require_resolver_success) {
-    ZETASQL_CHECK_OK(resolver_status)
-        << "Test '" << test_name << "' does not successfully compile for "
-        << "the reference implementation. Compilation failures should be "
-        << "tested in the analyzer tests. Compliance tests should always "
-        << "compile so that they are testing engine code, not analyzer code.";
-  }
-  ZETASQL_RETURN_IF_ERROR(resolver_status);
-  const ResolvedStatement* statement = analyzer_out->resolved_statement();
-  ZETASQL_RET_CHECK_NE(statement, nullptr);
-
-  return ExtractComplianceLabels(statement, required_features,
-                                 compliance_labels);
-}
-
 absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCase() {
   sql_ = absl::StripAsciiWhitespace(sql_);
 
@@ -1078,38 +1380,6 @@ absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCase() {
   // KnownErrorFilter::MatchAndExplain(...) is executed.
   if (!known_error_mode_) stats_->RecordExecutedStatement();
 
-  // TODO: Refactor the design of reference_driver_ and test_driver_ to
-  // eliminate confusion. Particularly, when we are testing reference impl,
-  // `reference_driver_ == nullptr`. And when testing engine driver,
-  // `reference_driver_ == test_driver_` and both is not nullptr.
-  ReferenceDriver* ref_driver = reference_driver();
-  if (IsTestingReferenceImpl()) {
-    ref_driver = static_cast<ReferenceDriver*>(driver());
-  }
-
-  // TODO: Get required features for codebased tests.
-  std::set<LanguageFeature> required_features;
-  if (test_case_options_ != nullptr) {
-    required_features = test_case_options_->required_features();
-  }
-
-  bool should_extract_labels =
-      // We don't include scripts in engine compliance report yet.
-      !script_mode_
-      // This case excludes some tests that use SQLTestBase but aren't
-      // compliance tests. Such tests haven't initialized the requisite
-      // data-structures.
-      && (is_catalog_initialized_ || !stats_->IsFileBasedStatement());
-  if (should_extract_labels) {
-    ZETASQL_RET_CHECK_NE(ref_driver, nullptr);
-    ZETASQL_RETURN_IF_ERROR(ExtractComplianceLabelFromResolvedAST(
-        sql_, parameters_, require_resolver_success_, full_name_,
-        execute_statement_type_factory(), ref_driver, required_features,
-        compliance_labels_));
-  } else {
-    ZETASQL_LOG(INFO) << "Skip extracting compliance labels " << full_name_;
-  }
-
   // Time the statement execution time to gather some simple performance
   // metrics.
   absl::Time start_time = absl::Now();
@@ -1120,11 +1390,11 @@ absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCase() {
     if (script_mode_) {
       // Don't support plumbing deterministic output in scripting
       is_deterministic_output = false;
-      result = ref_driver->ExecuteScriptForReferenceDriver(
+      result = GetReferenceDriver()->ExecuteScriptForReferenceDriver(
           sql_, parameters_, GetExecuteStatementOptions(),
           execute_statement_type_factory(), &uses_unsupported_type);
     } else {
-      result = ref_driver->ExecuteStatementForReferenceDriver(
+      result = GetReferenceDriver()->ExecuteStatementForReferenceDriver(
           sql_, parameters_, GetExecuteStatementOptions(),
           execute_statement_type_factory(), &is_deterministic_output,
           &uses_unsupported_type);
@@ -1265,11 +1535,12 @@ void SQLTestBase::StepSkipUnsupportedTest() {
                     "Failed to interpret primary key mode");
   if (statement_workflow_ == CANCELLED) return;
 
-  skip_test |= status_or_skip_test_for_primary_key_mode.value();
+  skip_test = skip_test || status_or_skip_test_for_primary_key_mode.value() ||
+              absl::GetFlag(FLAGS_zetasql_compliance_accept_all_test_output);
 
   if (skip_test) {
     test_result_->set_ignore_test_output(true);
-    statement_workflow_ = SKIPPED;
+    statement_workflow_ = FEATURE_MISMATCH;
   }
 }
 
@@ -1282,7 +1553,7 @@ void SQLTestBase::StepPrepareTimeZoneProtosEnums() {
         SetDefaultTimeZone(std::string(test_file_options_->default_timezone())),
         "Failed to set default time zone");
   }
-  if (CANCELLED == statement_workflow_) return;
+  if (statement_workflow_ == CANCELLED) return;
 
   // Handles proto and enum loading second, because the table being created
   // may use these types.
@@ -1327,7 +1598,7 @@ void SQLTestBase::StepPrepareDatabase() {
         ZETASQL_LOG(ERROR) << "Prepare database failed with error: " << driver_status;
       }
       // The prepare database section is not a test. No need to proceed further.
-      statement_workflow_ = CANCELLED;
+      statement_workflow_ = NOT_A_TEST;
       return;
     }
     if (GetStatementKind(sql_) != RESOLVED_CREATE_TABLE_AS_SELECT_STMT) {
@@ -1336,7 +1607,7 @@ void SQLTestBase::StepPrepareDatabase() {
           "Only CREATE TABLE AS (SELECT...) statements and CREATE TEMP FUNCTION"
           " statements are supported for [prepare_database]");
       CheckCancellation(status, "Invalid CREATE TABLE statement");
-      if (CANCELLED == statement_workflow_) return;
+      if (statement_workflow_ == CANCELLED) return;
     }
 
     // Run everything when testing the reference implementation (even tests
@@ -1347,7 +1618,7 @@ void SQLTestBase::StepPrepareDatabase() {
            test_case_options_->required_features()) {
         if (!driver_language_options().LanguageFeatureEnabled(
                 required_feature)) {
-          statement_workflow_ = SKIPPED;
+          statement_workflow_ = NOT_A_TEST;
           return;
         }
       }
@@ -1363,7 +1634,7 @@ void SQLTestBase::StepPrepareDatabase() {
                 &uses_unsupported_type, &test_db_, &table_name)
             .status(),
         "Failed to create table");
-    if (CANCELLED == statement_workflow_) return;
+    if (statement_workflow_ == CANCELLED) return;
     ZETASQL_CHECK(zetasql_base::ContainsKey(test_db_.tables, table_name));
     *test_db_.tables[table_name].options.mutable_required_features() =
         test_case_options_->required_features();
@@ -1373,7 +1644,7 @@ void SQLTestBase::StepPrepareDatabase() {
         test_db_.tables[table_name].table_as_value.Format());
 
     // The create table section is not a test. No need to proceed further.
-    statement_workflow_ = CANCELLED;
+    statement_workflow_ = NOT_A_TEST;
   } else if (CREATE_DATABASE == file_workflow_) {
     // This is the first statement.
     file_workflow_ = FIRST_STATEMENT;
@@ -1385,7 +1656,7 @@ void SQLTestBase::StepCheckKnownErrors() {
 
   absl::string_view name = test_case_options_->name();
 
-  if (CANCELLED == statement_workflow_) return;
+  if (statement_workflow_ == CANCELLED) return;
 
   if (!absl::GetFlag(FLAGS_query_name_pattern).empty()) {
     const RE2 regex(absl::GetFlag(FLAGS_query_name_pattern));
@@ -1408,7 +1679,7 @@ void SQLTestBase::StepCheckKnownErrors() {
   known_error_mode_ = IsKnownError(effective_labels_, &by_set_);
   if (KnownErrorMode::CRASHES_DO_NOT_RUN == known_error_mode_) {
     RecordKnownErrorStatement();
-    statement_workflow_ = KNOWN_ERROR;
+    statement_workflow_ = KNOWN_CRASH;
   }
 }
 
@@ -1426,39 +1697,62 @@ void SQLTestBase::SkipEmptyTest() {
   // case options and comments.
   if (sql_.empty()) {
     test_result_->set_ignore_test_output(true);
-    statement_workflow_ = SKIPPED;
+    statement_workflow_ = NOT_A_TEST;
   }
 }
 
-namespace {
-
-// This RTTI helper class allows temporarily modifying language settings on the
-// reference driver, and it will automatically restore original settings upon
-// destruction.
-class AutoLanguageOptions {
- public:
-  explicit AutoLanguageOptions(ReferenceDriver* reference_driver)
-      : reference_driver_(reference_driver) {
-    original_options_ = reference_driver_->GetSupportedLanguageOptions();
-  }
-  ~AutoLanguageOptions() {
-    reference_driver_->SetLanguageOptions(original_options_);
-  }
-
- protected:
-  ReferenceDriver* reference_driver_;
-  LanguageOptions original_options_;
-};
-
-}  // anonymous namespace
-
 void SQLTestBase::StepExecuteStatementCheckResult() {
-  if (statement_workflow_ != NORMAL) return;
+  if (statement_workflow_ == NOT_A_TEST || statement_workflow_ == CANCELLED ||
+      statement_workflow_ == SKIPPED) {
+    return;
+  }
+
+  ReferenceDriver* ref_driver = GetReferenceDriver();
+  bool should_extract_labels =
+      // We don't include scripts in engine compliance report yet.
+      !script_mode_
+      // This case excludes some tests that use SQLTestBase but aren't
+      // compliance tests. Such tests haven't initialized the requisite
+      // data-structures.
+      && is_catalog_initialized_;
+  if (should_extract_labels) {
+    bool require_resolver_success =
+        !IsOnResolverErrorFilebasedAllowList(full_name_) &&
+        // Only require success for reference right now. Failures in engine
+        // test drivers (e.g. setting up the catalog) also cause these failures.
+        IsTestingReferenceImpl();
+    ExtractComplianceLabelsFromResolvedAST(
+        sql_, parameters_, require_resolver_success, full_name_,
+        execute_statement_type_factory(), ref_driver,
+        test_case_options_->required_features(),
+        test_case_options_->forbidden_features(), effective_labels_,
+        compliance_labels_);
+  } else {
+    ZETASQL_LOG(INFO) << "Skip extracting compliance labels " << full_name_;
+  }
+
+  if (statement_workflow_ == FEATURE_MISMATCH) {
+    stats_->RecordComplianceTestsLabelsProto(
+        full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
+        compliance_labels_, absl::StatusCode::kOk,
+        absl::StatusCode::kUnimplemented);
+  } else if (statement_workflow_ == KNOWN_CRASH) {
+    stats_->RecordComplianceTestsLabelsProto(
+        full_name_, sql_, KnownErrorMode::CRASHES_DO_NOT_RUN,
+        compliance_labels_, absl::StatusCode::kOk,
+        absl::StatusCode::kUnavailable);
+  }
+
+  if (statement_workflow_ != NORMAL) {
+    return;
+  }
 
   if (IsTestingReferenceImpl()) {
     // TODO: Push this down to ExecuteTestCase once different
     //     test_featuresN= groups have different names.
-    InspectTestCase();
+    if (!InspectTestCase().ok()) {
+      return;
+    }
 
     // Check results against golden files.
     // All features in [required_features] will be turned on.
@@ -1471,16 +1765,11 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
         ExtractFeatureSets(test_case_options_->test_features1(),
                            test_case_options_->test_features2(),
                            test_case_options_->required_features());
-    // TODO We could also implicitly do a test with all features turned
-    // on, to catch cases where the test writer didn't notice that there would
-    // be diffs based on features. (We already always include a run with zero
-    // features enabled.)
 
     absl::btree_map<std::string, TestResults> test_results =
         RunTestAndCollectResults(features_sets);
 
-    if (absl::GetFlag(
-            FLAGS_zetasql_compliance_fail_reference_if_unneeded_required_feature_declared)) {
+    if (absl::GetFlag(FLAGS_zetasql_detect_falsly_required_features)) {
       RunAndCompareTestWithoutEachRequiredFeatures(
           test_case_options_->required_features(), features_sets, test_results);
     }
@@ -1509,7 +1798,20 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
           &uses_unsupported_type);
     }
     if (uses_unsupported_type) {
+      stats_->RecordComplianceTestsLabelsProto(
+          full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
+          compliance_labels_, absl::StatusCode::kOk,
+          absl::StatusCode::kUnimplemented);
       return;  // Skip this test. It uses types not supported by the driver.
+    }
+    if (absl::IsUnimplemented(ref_result.status())) {
+      // This test is not implemented by the reference implementation. Skip
+      // checking the results because we have no results to check against.
+      stats_->RecordComplianceTestsLabelsProto(
+          full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
+          compliance_labels_, absl::StatusCode::kUnimplemented,
+          absl::StatusCode::kUnimplemented);
+      return;
     }
     absl::StatusOr<ComplianceTestCaseResult> actual_result = ExecuteTestCase();
     SCOPED_TRACE(absl::StrCat("Testcase: ", full_name_, "\nSQL:\n", sql_));
@@ -1576,7 +1878,7 @@ SQLTestBase::RunTestAndCollectResults(
 absl::StatusOr<ComplianceTestCaseResult>
 SQLTestBase::RunTestWithFeaturesEnabled(
     const std::set<LanguageFeature>& features_set) {
-  ReferenceDriver* reference_driver = static_cast<ReferenceDriver*>(driver());
+  ReferenceDriver* reference_driver = GetReferenceDriver();
   LanguageOptions language_options =
       reference_driver->GetSupportedLanguageOptions();
   language_options.SetEnabledLanguageFeatures(features_set);
@@ -1651,8 +1953,7 @@ void SQLTestBase::ParseAndCompareExpectedResults(
         absl::StrCat(result_prefix, driver_result);
     test_result_->AddTestOutput(actual_result);
 
-    // TODO: output compliance report labels for test cases that have
-    // statement_workflow_ == SKIPPED or statement_workflow_ == CANCELLED
+    ZETASQL_DCHECK_EQ(statement_workflow_, NORMAL);
     if (test_case_options_->extract_labels()) {
       test_result_->AddTestOutput(absl::StrJoin(compliance_labels_, "\n"));
     }
@@ -1704,6 +2005,55 @@ void SQLTestBase::CheckCancellation(const absl::Status& status,
       }
     }
   }
+}
+
+bool SQLTestBase::IsFeatureFalselyRequired(
+    LanguageFeature feature, bool require_inclusive, absl::string_view sql,
+    const std::map<std::string, Value>& param_map,
+    const std::set<LanguageFeature>& required_features,
+    const absl::Status& initial_run_status,
+    const absl::StatusOr<ComplianceTestCaseResult>& expected_result,
+    const FloatMargin& expected_float_margin) {
+  LanguageOptions::LanguageFeatureSet features_minus_one(
+      required_features.begin(), required_features.end());
+  if (require_inclusive) {
+    // this is the "required feature" case"
+    ZETASQL_DCHECK(features_minus_one.contains(feature));
+    features_minus_one.erase(feature);
+  } else {
+    // this is the "prohibited feature" case.
+    ZETASQL_DCHECK(!features_minus_one.contains(feature));
+    features_minus_one.insert(feature);
+  }
+  LanguageOptions language_options;
+  language_options.SetEnabledLanguageFeatures(features_minus_one);
+  GetReferenceDriver()->SetLanguageOptions(language_options);
+  auto modified_run_result = RunSQL(sql, param_map);
+  if (!modified_run_result.ok() &&
+      modified_run_result.status() == initial_run_status) {
+    // The test case is expecting an error with error message. We see the same
+    // expected error and message with and without 'feature', we can conclude
+    // that 'feature' is not actually required.
+    return true;
+  }
+
+  if (absl::IsOutOfRange(initial_run_status) &&
+      absl::IsInvalidArgument(modified_run_result.status())) {
+    // This is an expected case where we are testing an evaluation time error in
+    // the feature protected path, but without the flag we get a compiletime
+    // error. We handle this as a special case because the 'ReturnsCheckOnly'
+    // matcher is loose with these error codes. Since we are using the
+    // complement of the matcher's result, its looseness becomes over-tightness
+    // causing false postives.
+    return false;
+  }
+
+  // The test case is expecting a result. We see the same result with
+  // and without 'feature'. We can conclude that 'feature' is not
+  // actually required.
+  return ::testing::Value(
+      modified_run_result,
+      ReturnsCheckOnly(expected_result, expected_float_margin));
 }
 
 absl::Status SQLTestBase::AddKnownErrorEntry(

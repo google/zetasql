@@ -14,14 +14,16 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_TOOLS_FORMATTER_INTERNAL_PARSING_UTILS_H_
-#define ZETASQL_TOOLS_FORMATTER_INTERNAL_PARSING_UTILS_H_
+#ifndef ZETASQL_TOOLS_FORMATTER_INTERNAL_RANGE_UTILS_H_
+#define ZETASQL_TOOLS_FORMATTER_INTERNAL_RANGE_UTILS_H_
 
 #include <set>
 #include <vector>
 
 #include "zetasql/public/formatter_options.h"
+#include "zetasql/public/parse_location.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql::formatter::internal {
@@ -40,6 +42,13 @@ absl::Status ExpandByteRangesToFullStatements(
     std::vector<FormatterRange>* sorted_ranges, absl::string_view sql,
     std::set<FormatterRange> allowed_ranges = {});
 
+// Converts the given `line_ranges` into sorted byte ranges and makes sure that:
+// * each range is not empty and within `sql`;
+// * there are no overlapping ranges.
+absl::StatusOr<std::vector<FormatterRange>> ConvertLineRangesToSortedByteRanges(
+    const std::vector<FormatterRange>& line_ranges, absl::string_view sql,
+    const ParseLocationTranslator& location_translator);
+
 }  // namespace zetasql::formatter::internal
 
-#endif  // ZETASQL_TOOLS_FORMATTER_INTERNAL_PARSING_UTILS_H_
+#endif  // ZETASQL_TOOLS_FORMATTER_INTERNAL_RANGE_UTILS_H_

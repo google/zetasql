@@ -1,6 +1,3 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 [default supported_generic_entity_types=RESERVATION,EXPLORE,SUPPORTED_ENTITY]
 [default supported_generic_sub_entity_types=REPLICA,CHILD_OF_REPLICA]
 
@@ -8,31 +5,31 @@ CREATE {{RESERVATION|reSERVAtion|SUPPORTED_ENTITY}} myProject.myReservation
 --
 ALTERNATION GROUP: RESERVATION
 --
-CreateEntityStatement [0-42]
-  Identifier(RESERVATION) [7-18]
-  PathExpression [19-42]
-    Identifier(myProject) [19-28]
-    Identifier(myReservation) [29-42]
+CreateEntityStatement [0-42] [CREATE RESERVATIO...eservation]
+  Identifier(RESERVATION) [7-18] [RESERVATION]
+  PathExpression [19-42] [myProject.myReservation]
+    Identifier(myProject) [19-28] [myProject]
+    Identifier(myReservation) [29-42] [myReservation]
 --
 CREATE RESERVATION myProject.myReservation
 --
 ALTERNATION GROUP: reSERVAtion
 --
-CreateEntityStatement [0-42]
-  Identifier(reSERVAtion) [7-18]
-  PathExpression [19-42]
-    Identifier(myProject) [19-28]
-    Identifier(myReservation) [29-42]
+CreateEntityStatement [0-42] [CREATE reSERVAtio...eservation]
+  Identifier(reSERVAtion) [7-18] [reSERVAtion]
+  PathExpression [19-42] [myProject.myReservation]
+    Identifier(myProject) [19-28] [myProject]
+    Identifier(myReservation) [29-42] [myReservation]
 --
 CREATE reSERVAtion myProject.myReservation
 --
 ALTERNATION GROUP: SUPPORTED_ENTITY
 --
-CreateEntityStatement [0-47]
-  Identifier(SUPPORTED_ENTITY) [7-23]
-  PathExpression [24-47]
-    Identifier(myProject) [24-33]
-    Identifier(myReservation) [34-47]
+CreateEntityStatement [0-47] [CREATE SUPPORTED_...eservation]
+  Identifier(SUPPORTED_ENTITY) [7-23] [SUPPORTED_ENTITY]
+  PathExpression [24-47] [myProject.myReservation]
+    Identifier(myProject) [24-33] [myProject]
+    Identifier(myReservation) [34-47] [myReservation]
 --
 CREATE SUPPORTED_ENTITY myProject.myReservation
 ==
@@ -42,21 +39,21 @@ CREATE OR REPLACE RESERVATION IF NOT EXISTS myProject.myReservation
 OPTIONS(a=b, c=d)
 AS JSON '{"key": "value"}';
 --
-CreateEntityStatement(is_or_replace, is_if_not_exists) [0-112]
-  Identifier(RESERVATION) [18-29]
-  PathExpression [44-67]
-    Identifier(myProject) [44-53]
-    Identifier(myReservation) [54-67]
-  OptionsList [75-85]
-    OptionsEntry [76-79]
-      Identifier(a) [76-77]
-      PathExpression [78-79]
-        Identifier(b) [78-79]
-    OptionsEntry [81-84]
-      Identifier(c) [81-82]
-      PathExpression [83-84]
-        Identifier(d) [83-84]
-  JSONLiteral('{"key": "value"}') [89-112]
+CreateEntityStatement(is_or_replace, is_if_not_exists) [0-112] [CREATE OR..."value"}']
+  Identifier(RESERVATION) [18-29] [RESERVATION]
+  PathExpression [44-67] [myProject.myReservation]
+    Identifier(myProject) [44-53] [myProject]
+    Identifier(myReservation) [54-67] [myReservation]
+  OptionsList [75-85] [(a=b, c=d)]
+    OptionsEntry [76-79] [a=b]
+      Identifier(a) [76-77] [a]
+      PathExpression [78-79] [b]
+        Identifier(b) [78-79] [b]
+    OptionsEntry [81-84] [c=d]
+      Identifier(c) [81-82] [c]
+      PathExpression [83-84] [d]
+        Identifier(d) [83-84] [d]
+  JSONLiteral('{"key": "value"}') [89-112] [JSON '{"key": "value"}']
 --
 CREATE OR REPLACE RESERVATION IF NOT EXISTS myProject.myReservation
 OPTIONS(a = b, c = d)
@@ -72,25 +69,25 @@ explore: test_explore {
 }
 """;
 --
-CreateEntityStatement [0-90]
-  Identifier(EXPLORE) [7-14]
-  PathExpression [15-34]
-    Identifier(myProject) [15-24]
-    Identifier(myExplore) [25-34]
-  OptionsList [42-52]
-    OptionsEntry [43-46]
-      Identifier(a) [43-44]
-      PathExpression [45-46]
-        Identifier(b) [45-46]
-    OptionsEntry [48-51]
-      Identifier(c) [48-49]
-      PathExpression [50-51]
-        Identifier(d) [50-51]
+CreateEntityStatement [0-90] [CREATE EXPLORE...lore {  } """]
+  Identifier(EXPLORE) [7-14] [EXPLORE]
+  PathExpression [15-34] [myProject.myExplore]
+    Identifier(myProject) [15-24] [myProject]
+    Identifier(myExplore) [25-34] [myExplore]
+  OptionsList [42-52] [(a=b, c=d)]
+    OptionsEntry [43-46] [a=b]
+      Identifier(a) [43-44] [a]
+      PathExpression [45-46] [b]
+        Identifier(b) [45-46] [b]
+    OptionsEntry [48-51] [c=d]
+      Identifier(c) [48-49] [c]
+      PathExpression [50-51] [d]
+        Identifier(d) [50-51] [d]
   StringLiteral("""
 explore: test_explore {
 
 }
-""") [56-90]
+""") [56-90] [""" explore...explore {  } """]
 --
 CREATE EXPLORE myProject.myExplore
 OPTIONS(a = b, c = d)
@@ -142,32 +139,32 @@ CREATE OPTIONS myProject.myReservation
 # Generic ALTER statement
 ALTER RESERVATION myProject.myReservation SET OPTIONS (a=b)
 --
-AlterEntityStatement [0-59]
-  Identifier(RESERVATION) [6-17]
-  PathExpression [18-41]
-    Identifier(myProject) [18-27]
-    Identifier(myReservation) [28-41]
-  AlterActionList [42-59]
-    SetOptionsOperation [42-59]
-      OptionsList [54-59]
-        OptionsEntry [55-58]
-          Identifier(a) [55-56]
-          PathExpression [57-58]
-            Identifier(b) [57-58]
+AlterEntityStatement [0-59] [ALTER RESERVATION...IONS (a=b)]
+  Identifier(RESERVATION) [6-17] [RESERVATION]
+  PathExpression [18-41] [myProject.myReservation]
+    Identifier(myProject) [18-27] [myProject]
+    Identifier(myReservation) [28-41] [myReservation]
+  AlterActionList [42-59] [SET OPTIONS (a=b)]
+    SetOptionsOperation [42-59] [SET OPTIONS (a=b)]
+      OptionsList [54-59] [(a=b)]
+        OptionsEntry [55-58] [a=b]
+          Identifier(a) [55-56] [a]
+          PathExpression [57-58] [b]
+            Identifier(b) [57-58] [b]
 --
 ALTER RESERVATION myProject.myReservation SET OPTIONS(a = b)
 ==
 
 ALTER RESERVATION myProject.myReservation SET AS JSON r'{"k\n1" : "v"}';
 --
-AlterEntityStatement [0-71]
-  Identifier(RESERVATION) [6-17]
-  PathExpression [18-41]
-    Identifier(myProject) [18-27]
-    Identifier(myReservation) [28-41]
-  AlterActionList [42-71]
-    SetAsOperation [42-71]
-      JSONLiteral(r'{"k\n1" : "v"}') [49-71]
+AlterEntityStatement [0-71] [ALTER RESERVATION...1" : "v"}']
+  Identifier(RESERVATION) [6-17] [RESERVATION]
+  PathExpression [18-41] [myProject.myReservation]
+    Identifier(myProject) [18-27] [myProject]
+    Identifier(myReservation) [28-41] [myReservation]
+  AlterActionList [42-71] [SET AS JSON r'{"k\n1" : "v"}']
+    SetAsOperation [42-71] [SET AS JSON r'{"k\n1" : "v"}']
+      JSONLiteral(r'{"k\n1" : "v"}') [49-71] [JSON r'{"k\n1" : "v"}']
 --
 ALTER RESERVATION myProject.myReservation SET AS JSON r'{"k\n1" : "v"}'
 ==
@@ -176,34 +173,34 @@ ALTER RESERVATION myProject.myReservation
   SET OPTIONS (a=b),
   SET AS JSON '{"key": "value"}';
 --
-AlterEntityStatement [0-95]
-  Identifier(RESERVATION) [6-17]
-  PathExpression [18-41]
-    Identifier(myProject) [18-27]
-    Identifier(myReservation) [28-41]
-  AlterActionList [44-95]
-    SetOptionsOperation [44-61]
-      OptionsList [56-61]
-        OptionsEntry [57-60]
-          Identifier(a) [57-58]
-          PathExpression [59-60]
-            Identifier(b) [59-60]
-    SetAsOperation [65-95]
-      JSONLiteral('{"key": "value"}') [72-95]
+AlterEntityStatement [0-95] [ALTER RESERVATION..."value"}']
+  Identifier(RESERVATION) [6-17] [RESERVATION]
+  PathExpression [18-41] [myProject.myReservation]
+    Identifier(myProject) [18-27] [myProject]
+    Identifier(myReservation) [28-41] [myReservation]
+  AlterActionList [44-95] [SET OPTIONS..."value"}']
+    SetOptionsOperation [44-61] [SET OPTIONS (a=b)]
+      OptionsList [56-61] [(a=b)]
+        OptionsEntry [57-60] [a=b]
+          Identifier(a) [57-58] [a]
+          PathExpression [59-60] [b]
+            Identifier(b) [59-60] [b]
+    SetAsOperation [65-95] [SET AS JSON '{"key": "value"}']
+      JSONLiteral('{"key": "value"}') [72-95] [JSON '{"key": "value"}']
 --
 ALTER RESERVATION myProject.myReservation SET OPTIONS(a = b), SET AS JSON '{"key": "value"}'
 ==
 
 ALTER EXPLORE myProject.myExplore SET AS "explore: test_explore { }";
 --
-AlterEntityStatement [0-68]
-  Identifier(EXPLORE) [6-13]
-  PathExpression [14-33]
-    Identifier(myProject) [14-23]
-    Identifier(myExplore) [24-33]
-  AlterActionList [34-68]
-    SetAsOperation [34-68]
-      StringLiteral("explore: test_explore { }") [41-68]
+AlterEntityStatement [0-68] [ALTER EXPLORE...t_explore { }"]
+  Identifier(EXPLORE) [6-13] [EXPLORE]
+  PathExpression [14-33] [myProject.myExplore]
+    Identifier(myProject) [14-23] [myProject]
+    Identifier(myExplore) [24-33] [myExplore]
+  AlterActionList [34-68] [SET AS "explore...explore { }"]
+    SetAsOperation [34-68] [SET AS "explore...explore { }"]
+      StringLiteral("explore: test_explore { }") [41-68] ["explore: test_explore { }"]
 --
 ALTER EXPLORE myProject.myExplore SET AS "explore: test_explore { }"
 ==
@@ -225,22 +222,22 @@ ALTER UNSUPPORTED myProject.myReservation
 
 DROP RESERVATION myProject.myReservation
 --
-DropEntityStatement [0-40]
-  Identifier(RESERVATION) [5-16]
-  PathExpression [17-40]
-    Identifier(myProject) [17-26]
-    Identifier(myReservation) [27-40]
+DropEntityStatement [0-40] [DROP RESERVATION...Reservation]
+  Identifier(RESERVATION) [5-16] [RESERVATION]
+  PathExpression [17-40] [myProject.myReservation]
+    Identifier(myProject) [17-26] [myProject]
+    Identifier(myReservation) [27-40] [myReservation]
 --
 DROP RESERVATION myProject.myReservation
 ==
 
 DROP RESERVATION IF EXISTS myProject.myReservation
 --
-DropEntityStatement(is_if_exists) [0-50]
-  Identifier(RESERVATION) [5-16]
-  PathExpression [27-50]
-    Identifier(myProject) [27-36]
-    Identifier(myReservation) [37-50]
+DropEntityStatement(is_if_exists) [0-50] [DROP RESERVATION...Reservation]
+  Identifier(RESERVATION) [5-16] [RESERVATION]
+  PathExpression [27-50] [myProject.myReservation]
+    Identifier(myProject) [27-36] [myProject]
+    Identifier(myReservation) [37-50] [myReservation]
 --
 DROP RESERVATION IF EXISTS myProject.myReservation
 ==
@@ -313,8 +310,8 @@ CREATE SUPPORTED_ENTITY
        ^
 ==
 
-# Unless the allow_missing_path_in_generic_ddl_alter flag is set generic ALTER
-# statements must generate a parser error when missing a path expression.
+# Unless the ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL flag is set genericALTER
+# ALTER statements must generate a parser error when missing a path expression.
 [supported_generic_entity_types=PROJECT,ORGANIZATION]
 
 ALTER {{PROJECT|ORGANIZATION}} SET OPTIONS (a=b)
@@ -332,38 +329,38 @@ ALTER ORGANIZATION SET OPTIONS (a=b)
                    ^
 ==
 
-# When allow_missing_path_in_generic_ddl_alter flag is set generic ALTER
+# When ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL flag is set generic ALTER
 # statements should parse even without a path expression.
 [supported_generic_entity_types=PROJECT,ORGANIZATION]
-[allow_missing_path_in_generic_ddl_alter]
+[language_features=ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL]
 
 ALTER {{PROJECT|ORGANIZATION}} SET OPTIONS (a=b)
 --
 ALTERNATION GROUP: PROJECT
 --
-AlterEntityStatement [0-31]
-  Identifier(PROJECT) [6-13]
-  AlterActionList [14-31]
-    SetOptionsOperation [14-31]
-      OptionsList [26-31]
-        OptionsEntry [27-30]
-          Identifier(a) [27-28]
-          PathExpression [29-30]
-            Identifier(b) [29-30]
+AlterEntityStatement [0-31] [ALTER PROJECT...OPTIONS (a=b)]
+  Identifier(PROJECT) [6-13] [PROJECT]
+  AlterActionList [14-31] [SET OPTIONS (a=b)]
+    SetOptionsOperation [14-31] [SET OPTIONS (a=b)]
+      OptionsList [26-31] [(a=b)]
+        OptionsEntry [27-30] [a=b]
+          Identifier(a) [27-28] [a]
+          PathExpression [29-30] [b]
+            Identifier(b) [29-30] [b]
 --
 ALTER PROJECT SET OPTIONS(a = b)
 --
 ALTERNATION GROUP: ORGANIZATION
 --
-AlterEntityStatement [0-36]
-  Identifier(ORGANIZATION) [6-18]
-  AlterActionList [19-36]
-    SetOptionsOperation [19-36]
-      OptionsList [31-36]
-        OptionsEntry [32-35]
-          Identifier(a) [32-33]
-          PathExpression [34-35]
-            Identifier(b) [34-35]
+AlterEntityStatement [0-36] [ALTER ORGANIZATIO...IONS (a=b)]
+  Identifier(ORGANIZATION) [6-18] [ORGANIZATION]
+  AlterActionList [19-36] [SET OPTIONS (a=b)]
+    SetOptionsOperation [19-36] [SET OPTIONS (a=b)]
+      OptionsList [31-36] [(a=b)]
+        OptionsEntry [32-35] [a=b]
+          Identifier(a) [32-33] [a]
+          PathExpression [34-35] [b]
+            Identifier(b) [34-35] [b]
 --
 ALTER ORGANIZATION SET OPTIONS(a = b)
 
@@ -371,27 +368,27 @@ ALTER ORGANIZATION SET OPTIONS(a = b)
 
 # We also need to verify that non-reserved word alter_actions parse correctly.
 [supported_generic_entity_types=PROJECT,ORGANIZATION]
-[allow_missing_path_in_generic_ddl_alter]
+[language_features=ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL]
 
 ALTER {{PROJECT|ORGANIZATION}} DROP CONSTRAINT foo
 --
 ALTERNATION GROUP: PROJECT
 --
-AlterEntityStatement [0-33]
-  Identifier(PROJECT) [6-13]
-  AlterActionList [14-33]
-    DropConstraintAction [14-33]
-      Identifier(foo) [30-33]
+AlterEntityStatement [0-33] [ALTER PROJECT...CONSTRAINT foo]
+  Identifier(PROJECT) [6-13] [PROJECT]
+  AlterActionList [14-33] [DROP CONSTRAINT foo]
+    DropConstraintAction [14-33] [DROP CONSTRAINT foo]
+      Identifier(foo) [30-33] [foo]
 --
 ALTER PROJECT DROP CONSTRAINT foo
 --
 ALTERNATION GROUP: ORGANIZATION
 --
-AlterEntityStatement [0-38]
-  Identifier(ORGANIZATION) [6-18]
-  AlterActionList [19-38]
-    DropConstraintAction [19-38]
-      Identifier(foo) [35-38]
+AlterEntityStatement [0-38] [ALTER ORGANIZATIO...TRAINT foo]
+  Identifier(ORGANIZATION) [6-18] [ORGANIZATION]
+  AlterActionList [19-38] [DROP CONSTRAINT foo]
+    DropConstraintAction [19-38] [DROP CONSTRAINT foo]
+      Identifier(foo) [35-38] [foo]
 --
 ALTER ORGANIZATION DROP CONSTRAINT foo
 
@@ -399,17 +396,17 @@ ALTER ORGANIZATION DROP CONSTRAINT foo
 
 # Ambiguity testing; ADD is the name of the project.
 [supported_generic_entity_types=PROJECT]
-[allow_missing_path_in_generic_ddl_alter]
+[language_features=ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL]
 
 ALTER PROJECT ADD DROP CONSTRAINT foo
 --
-AlterEntityStatement [0-37]
-  Identifier(PROJECT) [6-13]
-  PathExpression [14-17]
-    Identifier(ADD) [14-17]
-  AlterActionList [18-37]
-    DropConstraintAction [18-37]
-      Identifier(foo) [34-37]
+AlterEntityStatement [0-37] [ALTER PROJECT...CONSTRAINT foo]
+  Identifier(PROJECT) [6-13] [PROJECT]
+  PathExpression [14-17] [ADD]
+    Identifier(ADD) [14-17] [ADD]
+  AlterActionList [18-37] [DROP CONSTRAINT foo]
+    DropConstraintAction [18-37] [DROP CONSTRAINT foo]
+      Identifier(foo) [34-37] [foo]
 --
 ALTER PROJECT ADD DROP CONSTRAINT foo
 ==
@@ -456,35 +453,35 @@ OPTIONS (a=b)
 --
 ALTERNATION GROUP: IF NOT EXISTS
 --
-AlterSchemaStatement [0-77]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-77]
-    AddSubEntityAction(is_if_not_exists) [25-77]
-      Identifier(REPLICA) [29-36]
-      Identifier(replica_name) [51-63]
-      OptionsList [72-77]
-        OptionsEntry [73-76]
-          Identifier(a) [73-74]
-          PathExpression [75-76]
-            Identifier(b) [75-76]
+AlterSchemaStatement [0-77] [ALTER SCHEMA...OPTIONS (a=b)]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-77] [ADD REPLICA...OPTIONS (a=b)]
+    AddSubEntityAction(is_if_not_exists) [25-77] [ADD REPLICA...OPTIONS (a=b)]
+      Identifier(REPLICA) [29-36] [REPLICA]
+      Identifier(replica_name) [51-63] [replica_name]
+      OptionsList [72-77] [(a=b)]
+        OptionsEntry [73-76] [a=b]
+          Identifier(a) [73-74] [a]
+          PathExpression [75-76] [b]
+            Identifier(b) [75-76] [b]
 --
 ALTER SCHEMA schema_name ADD REPLICA IF NOT EXISTS replica_name OPTIONS(a = b)
 --
 ALTERNATION GROUP: <empty>
 --
-AlterSchemaStatement [0-64]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-64]
-    AddSubEntityAction [25-64]
-      Identifier(REPLICA) [29-36]
-      Identifier(replica_name) [38-50]
-      OptionsList [59-64]
-        OptionsEntry [60-63]
-          Identifier(a) [60-61]
-          PathExpression [62-63]
-            Identifier(b) [62-63]
+AlterSchemaStatement [0-64] [ALTER SCHEMA...OPTIONS (a=b)]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-64] [ADD REPLICA...OPTIONS (a=b)]
+    AddSubEntityAction [25-64] [ADD REPLICA...OPTIONS (a=b)]
+      Identifier(REPLICA) [29-36] [REPLICA]
+      Identifier(replica_name) [38-50] [replica_name]
+      OptionsList [59-64] [(a=b)]
+        OptionsEntry [60-63] [a=b]
+          Identifier(a) [60-61] [a]
+          PathExpression [62-63] [b]
+            Identifier(b) [62-63] [b]
 --
 ALTER SCHEMA schema_name ADD REPLICA replica_name OPTIONS(a = b)
 ==
@@ -494,26 +491,26 @@ ALTER SCHEMA schema_name
 ADD REPLICA replica_name1 OPTIONS (a=b),
 ADD REPLICA replica_name2 OPTIONS (c=d)
 --
-AlterSchemaStatement [0-105]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-105]
-    AddSubEntityAction [25-64]
-      Identifier(REPLICA) [29-36]
-      Identifier(replica_name1) [37-50]
-      OptionsList [59-64]
-        OptionsEntry [60-63]
-          Identifier(a) [60-61]
-          PathExpression [62-63]
-            Identifier(b) [62-63]
-    AddSubEntityAction [66-105]
-      Identifier(REPLICA) [70-77]
-      Identifier(replica_name2) [78-91]
-      OptionsList [100-105]
-        OptionsEntry [101-104]
-          Identifier(c) [101-102]
-          PathExpression [103-104]
-            Identifier(d) [103-104]
+AlterSchemaStatement [0-105] [ALTER SCHEMA...OPTIONS (c=d)]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-105] [ADD REPLICA...OPTIONS (c=d)]
+    AddSubEntityAction [25-64] [ADD REPLICA...OPTIONS (a=b)]
+      Identifier(REPLICA) [29-36] [REPLICA]
+      Identifier(replica_name1) [37-50] [replica_name1]
+      OptionsList [59-64] [(a=b)]
+        OptionsEntry [60-63] [a=b]
+          Identifier(a) [60-61] [a]
+          PathExpression [62-63] [b]
+            Identifier(b) [62-63] [b]
+    AddSubEntityAction [66-105] [ADD REPLICA...OPTIONS (c=d)]
+      Identifier(REPLICA) [70-77] [REPLICA]
+      Identifier(replica_name2) [78-91] [replica_name2]
+      OptionsList [100-105] [(c=d)]
+        OptionsEntry [101-104] [c=d]
+          Identifier(c) [101-102] [c]
+          PathExpression [103-104] [d]
+            Identifier(d) [103-104] [d]
 --
 ALTER SCHEMA schema_name ADD REPLICA replica_name1 OPTIONS(a = b), ADD REPLICA replica_name2 OPTIONS(c =
     d)
@@ -524,25 +521,25 @@ DROP REPLICA {{IF EXISTS|}} replica_name
 --
 ALTERNATION GROUP: IF EXISTS
 --
-AlterSchemaStatement [0-60]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-60]
-    DropSubEntityAction(is_if_exists) [25-60]
-      Identifier(REPLICA) [30-37]
-      Identifier(replica_name) [48-60]
+AlterSchemaStatement [0-60] [ALTER SCHEMA...replica_name]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-60] [DROP REPLICA...replica_name]
+    DropSubEntityAction(is_if_exists) [25-60] [DROP REPLICA...replica_name]
+      Identifier(REPLICA) [30-37] [REPLICA]
+      Identifier(replica_name) [48-60] [replica_name]
 --
 ALTER SCHEMA schema_name DROP REPLICA IF EXISTS replica_name
 --
 ALTERNATION GROUP: <empty>
 --
-AlterSchemaStatement [0-51]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-51]
-    DropSubEntityAction [25-51]
-      Identifier(REPLICA) [30-37]
-      Identifier(replica_name) [39-51]
+AlterSchemaStatement [0-51] [ALTER SCHEMA...replica_name]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-51] [DROP REPLICA  replica_name]
+    DropSubEntityAction [25-51] [DROP REPLICA  replica_name]
+      Identifier(REPLICA) [30-37] [REPLICA]
+      Identifier(replica_name) [39-51] [replica_name]
 --
 ALTER SCHEMA schema_name DROP REPLICA replica_name
 ==
@@ -552,16 +549,16 @@ ALTER SCHEMA schema_name
 DROP REPLICA replica_name1,
 DROP REPLICA replica_name2
 --
-AlterSchemaStatement [0-79]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-79]
-    DropSubEntityAction [25-51]
-      Identifier(REPLICA) [30-37]
-      Identifier(replica_name1) [38-51]
-    DropSubEntityAction [53-79]
-      Identifier(REPLICA) [58-65]
-      Identifier(replica_name2) [66-79]
+AlterSchemaStatement [0-79] [ALTER SCHEMA...replica_name2]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-79] [DROP REPLICA...replica_name2]
+    DropSubEntityAction [25-51] [DROP REPLICA replica_name1]
+      Identifier(REPLICA) [30-37] [REPLICA]
+      Identifier(replica_name1) [38-51] [replica_name1]
+    DropSubEntityAction [53-79] [DROP REPLICA replica_name2]
+      Identifier(REPLICA) [58-65] [REPLICA]
+      Identifier(replica_name2) [66-79] [replica_name2]
 --
 ALTER SCHEMA schema_name DROP REPLICA replica_name1, DROP REPLICA replica_name2
 ==
@@ -572,37 +569,37 @@ SET OPTIONS (a=b)
 --
 ALTERNATION GROUP: IF EXISTS
 --
-AlterSchemaStatement [0-79]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-79]
-    AlterSubEntityAction(is_if_exists) [25-79]
-      Identifier(REPLICA) [31-38]
-      Identifier(replica_name) [49-61]
-      SetOptionsOperation [62-79]
-        OptionsList [74-79]
-          OptionsEntry [75-78]
-            Identifier(a) [75-76]
-            PathExpression [77-78]
-              Identifier(b) [77-78]
+AlterSchemaStatement [0-79] [ALTER SCHEMA...OPTIONS (a=b)]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-79] [ALTER REPLICA...OPTIONS (a=b)]
+    AlterSubEntityAction(is_if_exists) [25-79] [ALTER REPLICA...OPTIONS (a=b)]
+      Identifier(REPLICA) [31-38] [REPLICA]
+      Identifier(replica_name) [49-61] [replica_name]
+      SetOptionsOperation [62-79] [SET OPTIONS (a=b)]
+        OptionsList [74-79] [(a=b)]
+          OptionsEntry [75-78] [a=b]
+            Identifier(a) [75-76] [a]
+            PathExpression [77-78] [b]
+              Identifier(b) [77-78] [b]
 --
 ALTER SCHEMA schema_name ALTER REPLICA IF EXISTS replica_name SET OPTIONS(a = b)
 --
 ALTERNATION GROUP: <empty>
 --
-AlterSchemaStatement [0-70]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-70]
-    AlterSubEntityAction [25-70]
-      Identifier(REPLICA) [31-38]
-      Identifier(replica_name) [40-52]
-      SetOptionsOperation [53-70]
-        OptionsList [65-70]
-          OptionsEntry [66-69]
-            Identifier(a) [66-67]
-            PathExpression [68-69]
-              Identifier(b) [68-69]
+AlterSchemaStatement [0-70] [ALTER SCHEMA...OPTIONS (a=b)]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-70] [ALTER REPLICA...OPTIONS (a=b)]
+    AlterSubEntityAction [25-70] [ALTER REPLICA...OPTIONS (a=b)]
+      Identifier(REPLICA) [31-38] [REPLICA]
+      Identifier(replica_name) [40-52] [replica_name]
+      SetOptionsOperation [53-70] [SET OPTIONS (a=b)]
+        OptionsList [65-70] [(a=b)]
+          OptionsEntry [66-69] [a=b]
+            Identifier(a) [66-67] [a]
+            PathExpression [68-69] [b]
+              Identifier(b) [68-69] [b]
 --
 ALTER SCHEMA schema_name ALTER REPLICA replica_name SET OPTIONS(a = b)
 ==
@@ -612,28 +609,28 @@ ALTER SCHEMA schema_name
 ALTER REPLICA replica_name1 SET OPTIONS (a=b),
 ALTER REPLICA replica_name2 SET OPTIONS (c=d)
 --
-AlterSchemaStatement [0-117]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-117]
-    AlterSubEntityAction [25-70]
-      Identifier(REPLICA) [31-38]
-      Identifier(replica_name1) [39-52]
-      SetOptionsOperation [53-70]
-        OptionsList [65-70]
-          OptionsEntry [66-69]
-            Identifier(a) [66-67]
-            PathExpression [68-69]
-              Identifier(b) [68-69]
-    AlterSubEntityAction [72-117]
-      Identifier(REPLICA) [78-85]
-      Identifier(replica_name2) [86-99]
-      SetOptionsOperation [100-117]
-        OptionsList [112-117]
-          OptionsEntry [113-116]
-            Identifier(c) [113-114]
-            PathExpression [115-116]
-              Identifier(d) [115-116]
+AlterSchemaStatement [0-117] [ALTER SCHEMA...OPTIONS (c=d)]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-117] [ALTER REPLICA...OPTIONS (c=d)]
+    AlterSubEntityAction [25-70] [ALTER REPLICA...OPTIONS (a=b)]
+      Identifier(REPLICA) [31-38] [REPLICA]
+      Identifier(replica_name1) [39-52] [replica_name1]
+      SetOptionsOperation [53-70] [SET OPTIONS (a=b)]
+        OptionsList [65-70] [(a=b)]
+          OptionsEntry [66-69] [a=b]
+            Identifier(a) [66-67] [a]
+            PathExpression [68-69] [b]
+              Identifier(b) [68-69] [b]
+    AlterSubEntityAction [72-117] [ALTER REPLICA...OPTIONS (c=d)]
+      Identifier(REPLICA) [78-85] [REPLICA]
+      Identifier(replica_name2) [86-99] [replica_name2]
+      SetOptionsOperation [100-117] [SET OPTIONS (c=d)]
+        OptionsList [112-117] [(c=d)]
+          OptionsEntry [113-116] [c=d]
+            Identifier(c) [113-114] [c]
+            PathExpression [115-116] [d]
+              Identifier(d) [115-116] [d]
 --
 ALTER SCHEMA schema_name ALTER REPLICA replica_name1 SET OPTIONS(a = b), ALTER REPLICA replica_name2 SET OPTIONS(c =
     d)
@@ -647,32 +644,32 @@ ALTER SCHEMA schema_name
 ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_1 OPTIONS (a=b),
 ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_2 OPTIONS (c=d)
 --
-AlterSchemaStatement [0-167]
-  PathExpression [13-24]
-    Identifier(schema_name) [13-24]
-  AlterActionList [25-167]
-    AlterSubEntityAction [25-95]
-      Identifier(REPLICA) [31-38]
-      Identifier(replica_name1) [39-52]
-      AddSubEntityAction [53-95]
-        Identifier(CHILD_OF_REPLICA) [57-73]
-        Identifier(child_1) [74-81]
-        OptionsList [90-95]
-          OptionsEntry [91-94]
-            Identifier(a) [91-92]
-            PathExpression [93-94]
-              Identifier(b) [93-94]
-    AlterSubEntityAction [97-167]
-      Identifier(REPLICA) [103-110]
-      Identifier(replica_name1) [111-124]
-      AddSubEntityAction [125-167]
-        Identifier(CHILD_OF_REPLICA) [129-145]
-        Identifier(child_2) [146-153]
-        OptionsList [162-167]
-          OptionsEntry [163-166]
-            Identifier(c) [163-164]
-            PathExpression [165-166]
-              Identifier(d) [165-166]
+AlterSchemaStatement [0-167] [ALTER SCHEMA...OPTIONS (c=d)]
+  PathExpression [13-24] [schema_name]
+    Identifier(schema_name) [13-24] [schema_name]
+  AlterActionList [25-167] [ALTER REPLICA...OPTIONS (c=d)]
+    AlterSubEntityAction [25-95] [ALTER REPLICA...OPTIONS (a=b)]
+      Identifier(REPLICA) [31-38] [REPLICA]
+      Identifier(replica_name1) [39-52] [replica_name1]
+      AddSubEntityAction [53-95] [ADD CHILD_OF_REPL...IONS (a=b)]
+        Identifier(CHILD_OF_REPLICA) [57-73] [CHILD_OF_REPLICA]
+        Identifier(child_1) [74-81] [child_1]
+        OptionsList [90-95] [(a=b)]
+          OptionsEntry [91-94] [a=b]
+            Identifier(a) [91-92] [a]
+            PathExpression [93-94] [b]
+              Identifier(b) [93-94] [b]
+    AlterSubEntityAction [97-167] [ALTER REPLICA...OPTIONS (c=d)]
+      Identifier(REPLICA) [103-110] [REPLICA]
+      Identifier(replica_name1) [111-124] [replica_name1]
+      AddSubEntityAction [125-167] [ADD CHILD_OF_REPL...IONS (c=d)]
+        Identifier(CHILD_OF_REPLICA) [129-145] [CHILD_OF_REPLICA]
+        Identifier(child_2) [146-153] [child_2]
+        OptionsList [162-167] [(c=d)]
+          OptionsEntry [163-166] [c=d]
+            Identifier(c) [163-164] [c]
+            PathExpression [165-166] [d]
+              Identifier(d) [165-166] [d]
 --
 ALTER SCHEMA schema_name ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_1 OPTIONS(a = b), ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_2 OPTIONS(c =
     d)

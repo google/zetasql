@@ -272,10 +272,12 @@ ARRAY_CONCAT_AGG(
 
 **Description**
 
-Concatenates elements from `expression` of type
-ARRAY, returning a single
-ARRAY as a result. This function ignores NULL input
-arrays, but respects the NULL elements in non-NULL input arrays.
+Concatenates elements from `expression` of type `ARRAY`, returning a single
+array as a result.
+
+This function ignores `NULL` input arrays, but respects the `NULL` elements in
+non-`NULL` input arrays. Returns `NULL` if there are zero input rows or
+`expression` evaluates to `NULL` for all rows.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -288,14 +290,11 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Supported Argument Types**
 
-ARRAY
+`ARRAY`
 
 **Returned Data Types**
 
-ARRAY
-
-Returns `NULL` if there are zero input
-rows or `expression` evaluates to NULL for all rows.
+`ARRAY`
 
 **Examples**
 
@@ -677,7 +676,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 This function with DISTINCT supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Supported Argument Types**
 
@@ -795,6 +794,8 @@ FROM Events;
 | 2                            |
 +------------------------------+
 ```
+
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
 ### COUNTIF
 
@@ -942,21 +943,24 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Supported Argument Types**
 
-BOOL
+`BOOL`
 
 **Return Data Types**
 
-BOOL
+`BOOL`
 
 **Examples**
 
+`LOGICAL_AND` returns `FALSE` because not all of the values in the array are
+less than 3.
+
 ```sql
-SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
+SELECT LOGICAL_AND(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
 +-------------+
 | logical_and |
 +-------------+
-| false       |
+| FALSE       |
 +-------------+
 ```
 
@@ -1005,21 +1009,24 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Supported Argument Types**
 
-BOOL
+`BOOL`
 
 **Return Data Types**
 
-BOOL
+`BOOL`
 
 **Examples**
 
+`LOGICAL_OR` returns `TRUE` because at least one of the values in the array is
+less than 3.
+
 ```sql
-SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
+SELECT LOGICAL_OR(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
 +------------+
 | logical_or |
 +------------+
-| true       |
+| TRUE       |
 +------------+
 ```
 
@@ -1069,7 +1076,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Supported Argument Types**
 
@@ -1107,6 +1114,8 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 55   | 55   |
 +------+------+
 ```
+
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
 ### MIN
 
@@ -1154,7 +1163,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 **Supported Argument Types**
 
@@ -1192,6 +1201,8 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 | 55   | 37   |
 +------+------+
 ```
+
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
 ### STRING_AGG
 
@@ -1492,11 +1503,5 @@ FROM UNNEST([]) AS x;
 +------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
-
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-<!-- mdlint on -->
 

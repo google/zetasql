@@ -38,9 +38,14 @@ const int kNestingLevelStackCheckThreshold = 10;
 // <stringify_wide_numbers> is true. Otherwise, JSON number
 // type is used to represent all values of ZetaSQL number types, including
 // values outside of DOUBLE domain.
+// If true, the sign on a signed zero is removed when converting numeric type
+// to string.
+// TODO : remove canonicalize_zero flag when all
+// engines have rolled out this new behavior.
 absl::StatusOr<JSONValue> ToJson(const Value& value,
                                  bool stringify_wide_numbers,
-                                 const LanguageOptions& language_options);
+                                 const LanguageOptions& language_options,
+                                 bool canonicalize_zero = false);
 
 }  // namespace functions
 }  // namespace zetasql

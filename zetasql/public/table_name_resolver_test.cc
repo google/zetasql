@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <memory>
 #include <string>
 
 #include "zetasql/base/testing/status_matchers.h"

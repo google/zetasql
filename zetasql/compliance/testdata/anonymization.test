@@ -1893,3 +1893,293 @@ ERROR: generic::invalid_argument: No matching signature for aggregate operator A
   ANON_QUANTILES(int64_val, 3 WITH REPORT(FORMAT=PROTO))
   ^
 ==
+
+# NOTE: To have a more robust floating point comparison, instead of:
+#       F(x) -> expect y, we do |F(x) - y| < 0.01 -> expect True.
+[required_features=ANONYMIZATION,JSON_ARRAY_FUNCTIONS,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[name=anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_json]
+[labels=anonymization]
+SELECT
+  ABS(DOUBLE(anon_result[OFFSET(0)].value) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.upper_bound) - 1) < 0.01,
+  DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(1)].value) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.upper_bound) - 1) < 0.01,
+  DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(2)].value) - 1.5) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.lower_bound) - 1.5) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.upper_bound) - 1.5) < 0.01,
+  DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(3)].value) - 1.5) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(3)].noise_confidence_interval.lower_bound) - 1.5) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(3)].noise_confidence_interval.upper_bound) - 1.5) < 0.01,
+  DOUBLE(anon_result[OFFSET(3)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(4)].value) - 2.5) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(4)].noise_confidence_interval.lower_bound) - 2.5) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(4)].noise_confidence_interval.upper_bound) - 2.5) < 0.01,
+  DOUBLE(anon_result[OFFSET(4)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(5)].value) - 2.5) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(5)].noise_confidence_interval.lower_bound) - 2.5) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(5)].noise_confidence_interval.upper_bound) - 2.5) < 0.01,
+  DOUBLE(anon_result[OFFSET(5)].noise_confidence_interval.confidence_level) = 0.95,
+FROM (
+  SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+    JSON_QUERY_ARRAY(ANON_QUANTILES(double_val,
+                     5 CLAMPED BETWEEN 1 AND 3 WITH REPORT(FORMAT=JSON)).result) AS anon_result
+  FROM TestTableWithUid2
+);
+--
+ARRAY<STRUCT<BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL>>
+[{true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true}]
+==
+
+[required_features=ANONYMIZATION,JSON_ARRAY_FUNCTIONS,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[name=anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_json]
+[labels=anonymization]
+SELECT
+  ABS(DOUBLE(anon_result[OFFSET(0)].value) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.upper_bound) - 1) < 0.01,
+  DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(1)].value) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.upper_bound) - 1) < 0.01,
+  DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(2)].value) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.upper_bound) - 1) < 0.01,
+  DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(3)].value) - 2) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(3)].noise_confidence_interval.lower_bound) - 2) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(3)].noise_confidence_interval.upper_bound) - 2) < 0.01,
+  DOUBLE(anon_result[OFFSET(3)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(4)].value) - 2) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(4)].noise_confidence_interval.lower_bound) - 2) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(4)].noise_confidence_interval.upper_bound) - 2) < 0.01,
+  DOUBLE(anon_result[OFFSET(4)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(5)].value) - 3) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(5)].noise_confidence_interval.lower_bound) - 3) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(5)].noise_confidence_interval.upper_bound) - 3) < 0.01,
+  DOUBLE(anon_result[OFFSET(5)].noise_confidence_interval.confidence_level) = 0.95,
+FROM (
+  SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+    JSON_QUERY_ARRAY(ANON_QUANTILES(int64_val,
+                     5 CLAMPED BETWEEN 1 AND 3 WITH REPORT(FORMAT=JSON)).result) AS anon_result
+  FROM TestTableWithUid2
+);
+--
+ARRAY<STRUCT<BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL>>
+[{true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true}]
+==
+
+# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
+# libraries do not yet support them (see b/205277450).
+[required_features=JSON_TYPE,ANONYMIZATION]
+[name=anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_json]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_QUANTILES(double_val, 5 WITH REPORT(FORMAT=JSON))
+FROM TestTableWithUid2;
+--
+ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=JSON)) [at 2:3]
+  ANON_QUANTILES(double_val, 5 WITH REPORT(FORMAT=JSON))
+  ^
+==
+
+# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
+# libraries do not yet support them (see b/205277450).
+[required_features=JSON_TYPE,ANONYMIZATION]
+[name=anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_JSON]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_QUANTILES(int64_val, 5 WITH REPORT(FORMAT=JSON))
+FROM TestTableWithUid2;
+--
+ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: INT64, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=JSON)) [at 2:3]
+  ANON_QUANTILES(int64_val, 5 WITH REPORT(FORMAT=JSON))
+  ^
+==
+
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
+# Because the output of a DP algorithm on an empty data set is indeterministic,
+# we only test that the `noise_confidence_interval` value.
+[required_features=ANONYMIZATION,JSON_ARRAY_FUNCTIONS,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[name=anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_json_zero_rows]
+[labels=anonymization]
+SELECT
+  ABS(DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.upper_bound) - 10) < 0.01,
+  DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.upper_bound) - 10) < 0.01,
+  DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.upper_bound) - 10) < 0.01,
+  DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.confidence_level) = 0.95,
+FROM (
+  SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+    JSON_QUERY_ARRAY(ANON_QUANTILES(double_val,
+                   3 CLAMPED BETWEEN 1 AND 10 WITH REPORT(FORMAT=JSON)).result) AS anon_result
+  FROM TestTableWithUid2 WHERE id > 1000
+);
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, true, true, true, true, true, true, true}
+]
+==
+
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
+# Because the output of a DP algorithm on an empty data set is indeterministic,
+# we only test that the `noise_confidence_interval` value.
+[required_features=ANONYMIZATION,JSON_ARRAY_FUNCTIONS,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+[name=anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_json_zero_rows]
+[labels=anonymization]
+SELECT
+  ABS(DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.upper_bound) - 10) < 0.01,
+  DOUBLE(anon_result[OFFSET(0)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.upper_bound) - 10) < 0.01,
+  DOUBLE(anon_result[OFFSET(1)].noise_confidence_interval.confidence_level) = 0.95,
+  ABS(DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.lower_bound) - 1) < 0.01,
+  ABS(DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.upper_bound) - 10) < 0.01,
+  DOUBLE(anon_result[OFFSET(2)].noise_confidence_interval.confidence_level) = 0.95,
+FROM (
+  SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+    JSON_QUERY_ARRAY(ANON_QUANTILES(int64_val,
+                   3 CLAMPED BETWEEN 1 AND 10 WITH REPORT(FORMAT=JSON)).result) AS anon_result
+  FROM TestTableWithUid2 WHERE id > 1000
+);
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, true, true, true, true, true, true, true}
+]
+==
+
+# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
+# libraries do not yet support them (see b/205277450).
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
+# Because the output of a DP algorithm on an empty data set is indeterministic,
+# we only test that the `noise_confidence_interval` value.
+[required_features=JSON_TYPE,ANONYMIZATION]
+[name=anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_json_zero_rows]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_QUANTILES(double_val, 3 WITH REPORT(FORMAT=JSON))
+FROM TestTableWithUid2 WHERE id > 1000;
+--
+ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=JSON)) [at 2:3]
+  ANON_QUANTILES(double_val, 3 WITH REPORT(FORMAT=JSON))
+  ^
+==
+
+# ANON_QUANTILES with implicit bounds is not yet supported, since the DP
+# libraries do not yet support them (see b/205277450).
+# Test 0 rows as inputs by a filter "WHERE id > 1000" with a CLAMPED clause.
+# Because the output of a DP algorithm on an empty data set is indeterministic,
+# we only test that the `noise_confidence_interval` value.
+[required_features=JSON_TYPE,ANONYMIZATION]
+[name=anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_json_zero_rows]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_QUANTILES(int64_val, 3 WITH REPORT(FORMAT=JSON))
+FROM TestTableWithUid2 WHERE id > 1000;
+--
+ERROR: generic::invalid_argument: No matching signature for aggregate operator ANON_QUANTILES for argument types: INT64, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH REPORT(FORMAT=JSON)) [at 2:3]
+  ANON_QUANTILES(int64_val, 3 WITH REPORT(FORMAT=JSON))
+  ^
+==

@@ -16,6 +16,7 @@
 
 #include "zetasql/public/parse_helpers.h"
 
+#include <map>
 #include <string>
 #include <vector>
 

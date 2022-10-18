@@ -18,6 +18,7 @@
 #define ZETASQL_PARSER_FLEX_ISTREAM_H_
 
 #include <cstring>
+#include <ios>
 #include <istream>
 #include <streambuf>
 #include <string>

@@ -589,7 +589,7 @@ select struct<uint32>(-1)
 
 select struct<string>(5)
 --
-ERROR: Struct field 1 has type literal INT64 which does not coerce to STRING [at 1:23]
+ERROR: Struct field 1 has type INT64 which does not coerce to STRING [at 1:23]
 select struct<string>(5)
                       ^
 ==
@@ -1112,3 +1112,10 @@ select struct<a string(10)>('abc');
 ERROR: Parameterized types are not supported in literal value construction [at 1:23]
 select struct<a string(10)>('abc');
                       ^
+==
+
+select struct<a string collate 'und:ci'>('abc');
+--
+ERROR: Type with collation name is not supported in literal value construction [at 1:24]
+select struct<a string collate 'und:ci'>('abc');
+                       ^

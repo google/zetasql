@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -110,7 +112,7 @@ class ProtoFieldReader;
 // Base class for C++ values which can be associated with a variable.
 class CppValueBase {
  public:
-  virtual ~CppValueBase() {}
+  virtual ~CppValueBase() = default;
 };
 
 // Contains state about the evaluation in progress.
@@ -239,6 +241,13 @@ class EvaluationContext {
   void SetStatementEvaluationDeadline(absl::Time statement_deadline) {
     statement_eval_deadline_ = statement_deadline;
   }
+
+  void SetSessionUser(absl::string_view session_user) {
+    session_user_ = session_user;
+  }
+
+  // Gets the session user string from session_user_.
+  absl::string_view GetSessionUser() { return session_user_; }
 
   absl::Time GetStatementEvaluationDeadline() const {
     return statement_eval_deadline_;
@@ -411,6 +420,10 @@ class EvaluationContext {
 
   // Current C++ values associated with variables.
   absl::flat_hash_map<VariableId, std::unique_ptr<CppValueBase>> cpp_values_;
+
+  // The current user, specified by the engine. Used to evaluate the
+  // SESSION_USER function. Defaults to an empty string if not set.
+  std::string session_user_ = "";
 };
 
 // Returns true if we should suppress 'error' (which must not be OK) in

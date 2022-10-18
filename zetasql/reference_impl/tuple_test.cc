@@ -17,7 +17,10 @@
 #include "zetasql/reference_impl/tuple.h"
 
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <utility>
+#include <vector>
 
 #include "google/protobuf/descriptor.h"
 #include "zetasql/base/testing/status_matchers.h"

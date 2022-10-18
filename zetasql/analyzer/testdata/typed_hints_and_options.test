@@ -302,14 +302,14 @@ select @{ enum_hint=coalesce(TESTENUM2) } 1
 
 select @{ enum_hint=177 } 1
 --
-ERROR: Could not cast literal 177 to type ENUM<zetasql_test__.TestEnum> [at 1:21]
+ERROR: Could not cast literal 177 to type zetasql_test__.TestEnum [at 1:21]
 select @{ enum_hint=177 } 1
                     ^
 ==
 
 select @{ enum_hint='bad value' } 1
 --
-ERROR: Could not cast literal "bad value" to type ENUM<zetasql_test__.TestEnum> [at 1:21]
+ERROR: Could not cast literal "bad value" to type zetasql_test__.TestEnum [at 1:21]
 select @{ enum_hint='bad value' } 1
                     ^
 ==
@@ -317,7 +317,7 @@ select @{ enum_hint='bad value' } 1
 # Enum values are case sensitive.
 select @{ ENUM_hint='TestEnum2' } 1
 --
-ERROR: Could not cast literal "TestEnum2" to type ENUM<zetasql_test__.TestEnum> [at 1:21]
+ERROR: Could not cast literal "TestEnum2" to type zetasql_test__.TestEnum [at 1:21]
 select @{ ENUM_hint='TestEnum2' } 1
                     ^
 ==

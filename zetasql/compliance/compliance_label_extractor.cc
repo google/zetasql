@@ -243,6 +243,7 @@ class ComplianceLabelSets {
     for (const auto& fn_signature : function_signatures_) {
       const FunctionSignatureLabel& signature_label = fn_signature.second;
       if (signature_label.is_operator) {
+        output.insert(absl::StrCat("OperatorName:", signature_label.sql_name));
         output.insert(absl::StrCat(
             "OperatorSignature:", signature_label.sql_name, ":",
             FunctionSignatureId_Name(signature_label.signature_id)));
@@ -251,12 +252,12 @@ class ComplianceLabelSets {
             "FunctionSignature:", signature_label.prefix, ":",
             signature_label.sql_name, ":",
             FunctionSignatureId_Name(signature_label.signature_id)));
-        output.insert(absl::StrCat("FunctionSignature:", signature_label.prefix,
-                                   ":", signature_label.sql_name));
+        output.insert(absl::StrCat("FunctionName:", signature_label.prefix, ":",
+                                   signature_label.sql_name));
         // Exclude prefix label for functions with empty prefix group.
         if (signature_label.prefix_group != PrefixGroup::kNone) {
           output.insert(
-              absl::StrCat("FunctionSignature:", signature_label.prefix));
+              absl::StrCat("FunctionFamily:", signature_label.prefix));
         }
       }
     }
@@ -386,10 +387,8 @@ class ComplianceLabelExtractor : public ResolvedASTVisitor {
   ComplianceLabelSets& compliance_labels_;
 };
 
-absl::Status ExtractComplianceLabels(
-    const ResolvedNode* node,
-    const std::set<LanguageFeature>& required_features,
-    absl::btree_set<std::string>& labels_out) {
+absl::Status ExtractComplianceLabels(const ResolvedNode* node,
+                                     absl::btree_set<std::string>& labels_out) {
   // Create resolved AST visitor and traverse the tree to collect labels against
   // each node.
   ComplianceLabelSets compliance_labels = ComplianceLabelSets();
@@ -397,10 +396,6 @@ absl::Status ExtractComplianceLabels(
       ComplianceLabelExtractor(&compliance_labels);
   ZETASQL_RETURN_IF_ERROR(node->Accept(&visitor));
   compliance_labels.GenerateLabelStrings(labels_out);
-  for (const LanguageFeature feature : required_features) {
-    labels_out.insert(
-        absl::StrCat("LanguageFeature:", LanguageFeature_Name(feature)));
-  }
   return absl::OkStatus();
 }
 

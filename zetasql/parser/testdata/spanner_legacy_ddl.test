@@ -3,8 +3,7 @@
 #######################################################
 # CREATE TABLE... PRIMARY KEY... INTERLEAVE IN PARENT #
 #######################################################
-
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 create table t1 (a int64) primary key (a) {{|, interleave in parent p}};
 --
 ALTERNATION GROUP: <empty>
@@ -55,7 +54,7 @@ CREATE TABLE t1
 ) PRIMARY KEY(a), INTERLEAVE IN PARENT p ON DELETE NO ACTION
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 create table t1 (a int64) primary key (a),
 interleave in parent p on delete {{cascade|no action}};
 --
@@ -112,7 +111,7 @@ CREATE TABLE t1
 
 # Unparser output is in ZetaSQL format and is not a valid Spanner DDL due to
 # explicit foreign key match/actions.
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE]
 create table t1 (
   a int64,
   b string(123),
@@ -234,7 +233,7 @@ create table t1 (a int64) primary key (a) , interleave in parent p;
 # CREATE NULL_FILTERED INDEX... INTERLEAVE IN #
 ###############################################
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 create unique null_filtered index idx on t(c1, c2 asc, c3 desc)
 storing (c4, c5), interleave in p
 --
@@ -266,7 +265,7 @@ CREATE UNIQUE NULL_FILTERED INDEX idx ON t(c1, c2 ASC, c3 DESC)
 STORING(c4, c5), INTERLEAVE IN p
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 create {{|unique}} {{|null_filtered}} index idx on t(c1)
 --
 ALTERNATION GROUP: <empty>
@@ -354,7 +353,7 @@ create unique null_filtered index idx on t(c1)
 # CREATE TABLE with no elements #
 #################################
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 create table t() primary key()
 --
 CreateTableStatement [0-30] [create table t() primary key()]
@@ -381,7 +380,7 @@ create table t() primary key()
 # ALTER TABLE #
 ###############
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 alter table tbl add column col int64;
 --
 AlterTableStatement [0-36] [alter table...col int64]
@@ -398,7 +397,7 @@ AlterTableStatement [0-36] [alter table...col int64]
 ALTER TABLE tbl ADD COLUMN col int64
 ==
 
-[allow_spanner_legacy_ddl][no_test_unparse]
+[language_features=SPANNER_LEGACY_DDL][no_test_unparse]
 alter table tbl add column
 e timestamp not null options (allow_commit_timestamp = true);
 --
@@ -420,7 +419,7 @@ AlterTableStatement [0-87] [alter table...imestamp = true)]
               BooleanLiteral(true) [82-86] [true]
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE]
 alter table tbl {{alter|add}} column col int64 default (x+2);
 --
 ALTERNATION GROUP: alter
@@ -462,7 +461,7 @@ AlterTableStatement [0-50] [alter table...default (x+2)]
 ALTER TABLE tbl ADD COLUMN col int64 DEFAULT (x + 2)
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 alter table tbl drop column col;
 --
 AlterTableStatement [0-31] [alter table...column col]
@@ -475,7 +474,7 @@ AlterTableStatement [0-31] [alter table...column col]
 ALTER TABLE tbl DROP COLUMN col
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 alter table t set on delete {{cascade|no action}};
 --
 ALTERNATION GROUP: cascade
@@ -499,7 +498,7 @@ AlterTableStatement [0-37] [alter table...no action]
 ALTER TABLE t SET ON DELETE NO ACTION
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 alter table t alter column col int64;
 --
 AlterTableStatement [0-36] [alter table...col int64]
@@ -516,7 +515,7 @@ AlterTableStatement [0-36] [alter table...col int64]
 ALTER TABLE t ALTER COLUMN col int64
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 alter table t alter column if exists col int64;
 --
 ERROR: Syntax error: IF EXISTS is not supported [at 1:28]
@@ -526,7 +525,7 @@ alter table t alter column if exists col int64;
 
 # Spanner expects default expression parenthesized, so this DDL is invalid.
 # This will be checked in translator.
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE]
 alter table t {{add|alter}} column col int64 default x+2;
 --
 ALTERNATION GROUP: add
@@ -570,7 +569,7 @@ ALTER TABLE t ALTER COLUMN col int64 DEFAULT x + 2
 
 # Unparsing is disabled because unparsed DDL is not a valid Spanner DDL due to
 # reversed order of NOT NULL and DEFAULT/GENERATED.
-[allow_spanner_legacy_ddl][no_test_unparse]
+[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE][no_test_unparse]
 alter table t
 alter column col int64 {{|not null}} {{|default (x+2)|as (x+2) stored}};
 --
@@ -677,7 +676,7 @@ AlterTableStatement [0-61] [alter table...+2) stored]
             NotNullColumnAttribute [37-45] [not null]
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 alter table t alter column col
 set options (allow_commit_timestamp={{null|true|false}});
 --
@@ -727,7 +726,7 @@ AlterTableStatement [0-73] [alter table...timestamp=false)]
 ALTER TABLE t ALTER COLUMN col SET OPTIONS(allow_commit_timestamp = false)
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 alter table t alter column col set default (x+2);
 --
 AlterTableStatement [0-48] [alter table...default (x+2)]
@@ -744,7 +743,7 @@ AlterTableStatement [0-48] [alter table...default (x+2)]
 ALTER TABLE t ALTER COLUMN col SET DEFAULT(x + 2)
 ==
 
-[allow_spanner_legacy_ddl]
+[language_features=SPANNER_LEGACY_DDL]
 alter table t alter column col drop default;
 --
 AlterTableStatement [0-43] [alter table...drop default]
@@ -757,7 +756,7 @@ AlterTableStatement [0-43] [alter table...drop default]
 ALTER TABLE t ALTER COLUMN col DROP DEFAULT
 ==
 
-[allow_spanner_legacy_ddl][no_test_unparse]
+[language_features=SPANNER_LEGACY_DDL,V_1_3_COLUMN_DEFAULT_VALUE][no_test_unparse]
 alter table tbl alter column col int64 not null default (x+2), drop column col;
 --
 AlterTableStatement [0-78] [alter table...column col]
@@ -790,6 +789,7 @@ alter table t set on delete cascade;
 
 # Spanner DDL parsing is disabled
 # Added variability to make sure parser errors out in correct location.
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
 alter table t
 alter column col int64 {{|not null}} {{|default (x+2)|as (x+2) stored}};
 --

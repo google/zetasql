@@ -18,6 +18,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
@@ -166,11 +167,4 @@ bool Collation::HasCompatibleStructure(const Type* type) const {
   return false;
 }
 
-std::string Collation::ToString(const std::vector<Collation>& collation_list) {
-  std::string joined = absl::StrJoin(
-      collation_list, ",", [](std::string* out, const Collation& collation) {
-        absl::StrAppend(out, collation.DebugString());
-      });
-  return absl::StrCat("[", joined, "]");
-}
 }  // namespace zetasql

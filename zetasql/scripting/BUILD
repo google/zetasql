@@ -43,7 +43,6 @@ cc_library(
     name = "parsed_script",
     srcs = ["parsed_script.cc"],
     hdrs = [
-        "break_continue_context.h",
         "parsed_script.h",
     ],
     deps = [
@@ -182,6 +181,7 @@ cc_library(
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",
+        "//zetasql/public:time_zone_util",
         "//zetasql/public:type",
         "//zetasql/public/types",
         "@com_google_absl//absl/container:flat_hash_set",

@@ -16,6 +16,7 @@
 
 #include "zetasql/public/catalog.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 

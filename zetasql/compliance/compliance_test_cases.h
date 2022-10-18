@@ -23,6 +23,8 @@
 #include <stdint.h>
 
 #include <functional>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -173,10 +175,9 @@ class ComplianceCodebasedTests : public SQLTestBase {
       const std::string& sql, const std::map<std::string, Value>& params,
       const QueryParamsWithResult::FeatureSet& features);
 
-  // Runs a statement with different feature sets. Each feature set is
-  // associated to an expected result.
+  // Runs a statement with required and/or prohibited features.
   void RunStatementOnFeatures(const std::string& sql,
-                              const QueryParamsWithResult& statement_tests);
+                              const QueryParamsWithResult& params);
 
   // Default TestDatabase used by many tests.
   static TestDatabase GetDefaultTestDatabase();
@@ -258,6 +259,20 @@ class ShardedTest : public BaseT {
         << "A shard of " << test_name() << " has over " << kMaxQueriesPerShard
         << " queries. Please increase number of shards to " << num_shards;
     return shard;
+  }
+
+  // Shards a span of test cases to <num_shards> of equal-sized shards,
+  template <class ElementType>
+  absl::Span<const ElementType> Shard(absl::Span<const ElementType> span) {
+    sharded_ = true;
+    size_t slice_size = (span.size() + NumShards - 1) / NumShards;
+    EXPECT_LE(slice_size, kMaxQueriesPerShard)
+        << "A shard of " << test_name() << " has over " << kMaxQueriesPerShard
+        << " queries. Please increase number of shards to "
+        << ((slice_size + kMaxQueriesPerShard - 1) / kMaxQueriesPerShard);
+
+    return span.subspan(std::min(slice_size * index(), span.size()),
+                        slice_size);
   }
 
   // Returns a list of shard indices as strings.

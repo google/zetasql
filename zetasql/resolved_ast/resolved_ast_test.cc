@@ -21,6 +21,7 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"

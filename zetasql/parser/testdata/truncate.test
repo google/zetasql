@@ -1,12 +1,9 @@
 # TRUNCATE TABLE
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 TRUNCATE TABLE foo;
 --
-TruncateStatement [0-18]
-  PathExpression [15-18]
-    Identifier(foo) [15-18]
+TruncateStatement [0-18] [TRUNCATE TABLE foo]
+  PathExpression [15-18] [foo]
+    Identifier(foo) [15-18] [foo]
 --
 TRUNCATE TABLE foo
 ==
@@ -14,13 +11,13 @@ TRUNCATE TABLE foo
 # Specify partition with WHERE expression
 TRUNCATE TABLE foo WHERE bar > 3;
 --
-TruncateStatement [0-32]
-  PathExpression [15-18]
-    Identifier(foo) [15-18]
-  BinaryExpression(>) [25-32]
-    PathExpression [25-28]
-      Identifier(bar) [25-28]
-    IntLiteral(3) [31-32]
+TruncateStatement [0-32] [TRUNCATE TABLE...WHERE bar > 3]
+  PathExpression [15-18] [foo]
+    Identifier(foo) [15-18] [foo]
+  BinaryExpression(>) [25-32] [bar > 3]
+    PathExpression [25-28] [bar]
+      Identifier(bar) [25-28] [bar]
+    IntLiteral(3) [31-32] [3]
 --
 TRUNCATE TABLE foo
 WHERE
@@ -30,17 +27,17 @@ WHERE
 # Verify that TRUNCATE is a non-reserve word.
 SELECT truncate FROM foo;
 --
-QueryStatement [0-24]
-  Query [0-24]
-    Select [0-24]
-      SelectList [7-15]
-        SelectColumn [7-15]
-          PathExpression [7-15]
-            Identifier(truncate) [7-15]
-      FromClause [16-24]
-        TablePathExpression [21-24]
-          PathExpression [21-24]
-            Identifier(foo) [21-24]
+QueryStatement [0-24] [SELECT truncate FROM foo]
+  Query [0-24] [SELECT truncate FROM foo]
+    Select [0-24] [SELECT truncate FROM foo]
+      SelectList [7-15] [truncate]
+        SelectColumn [7-15] [truncate]
+          PathExpression [7-15] [truncate]
+            Identifier(truncate) [7-15] [truncate]
+      FromClause [16-24] [FROM foo]
+        TablePathExpression [21-24] [foo]
+          PathExpression [21-24] [foo]
+            Identifier(foo) [21-24] [foo]
 --
 SELECT
   truncate
@@ -50,16 +47,16 @@ FROM
 
 SELECT * FROM truncate;
 --
-QueryStatement [0-22]
-  Query [0-22]
-    Select [0-22]
-      SelectList [7-8]
-        SelectColumn [7-8]
-          Star(*) [7-8]
-      FromClause [9-22]
-        TablePathExpression [14-22]
-          PathExpression [14-22]
-            Identifier(truncate) [14-22]
+QueryStatement [0-22] [SELECT * FROM truncate]
+  Query [0-22] [SELECT * FROM truncate]
+    Select [0-22] [SELECT * FROM truncate]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-22] [FROM truncate]
+        TablePathExpression [14-22] [truncate]
+          PathExpression [14-22] [truncate]
+            Identifier(truncate) [14-22] [truncate]
 --
 SELECT
   *
@@ -104,20 +101,20 @@ ERROR: Syntax error: Expected keyword DELETE or keyword INSERT or keyword UPDATE
 ==
 
 [no_test_get_parse_tokens]
-[{{no_|}}allow_dashed_table_names]
+[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 TRUNCATE TABLE foo-567-bar.baz;
 --
-ALTERNATION GROUP: no_
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-567-bar.baz` [at 1:16]
 TRUNCATE TABLE foo-567-bar.baz;
                ^
 --
-ALTERNATION GROUP: <empty>
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
 --
-TruncateStatement [0-30]
-  PathExpression [15-30]
-    Identifier(`foo-567-bar`) [15-26]
-    Identifier(baz) [27-30]
+TruncateStatement [0-30] [TRUNCATE TABLE foo-567-bar.baz]
+  PathExpression [15-30] [foo-567-bar.baz]
+    Identifier(`foo-567-bar`) [15-26] [foo-567-bar]
+    Identifier(baz) [27-30] [baz]
 --
 TRUNCATE TABLE `foo-567-bar`.baz

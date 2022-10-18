@@ -1,66 +1,63 @@
 # The TEMP, PUBLIC, and PRIVATE modifiers are allowed in the same location
 # for CREATE statements.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 CREATE {{|temp|public|private}} function foo() returns int64 language testlang;
 --
 ALTERNATION GROUP: <empty>
 --
-CreateFunctionStatement [0-54]
-  FunctionDeclaration [17-22]
-    PathExpression [17-20]
-      Identifier(foo) [17-20]
-    FunctionParameters [20-22]
-  SimpleType [31-36]
-    PathExpression [31-36]
-      Identifier(int64) [31-36]
-  Identifier(testlang) [46-54]
+CreateFunctionStatement [0-54] [CREATE  function...ge testlang]
+  FunctionDeclaration [17-22] [foo()]
+    PathExpression [17-20] [foo]
+      Identifier(foo) [17-20] [foo]
+    FunctionParameters [20-22] [()]
+  SimpleType [31-36] [int64]
+    PathExpression [31-36] [int64]
+      Identifier(int64) [31-36] [int64]
+  Identifier(testlang) [46-54] [testlang]
 --
 CREATE FUNCTION foo()
 RETURNS int64 LANGUAGE testlang
 --
 ALTERNATION GROUP: temp
 --
-CreateFunctionStatement(is_temp) [0-58]
-  FunctionDeclaration [21-26]
-    PathExpression [21-24]
-      Identifier(foo) [21-24]
-    FunctionParameters [24-26]
-  SimpleType [35-40]
-    PathExpression [35-40]
-      Identifier(int64) [35-40]
-  Identifier(testlang) [50-58]
+CreateFunctionStatement(is_temp) [0-58] [CREATE temp...anguage testlang]
+  FunctionDeclaration [21-26] [foo()]
+    PathExpression [21-24] [foo]
+      Identifier(foo) [21-24] [foo]
+    FunctionParameters [24-26] [()]
+  SimpleType [35-40] [int64]
+    PathExpression [35-40] [int64]
+      Identifier(int64) [35-40] [int64]
+  Identifier(testlang) [50-58] [testlang]
 --
 CREATE TEMP FUNCTION foo()
 RETURNS int64 LANGUAGE testlang
 --
 ALTERNATION GROUP: public
 --
-CreateFunctionStatement(is_public) [0-60]
-  FunctionDeclaration [23-28]
-    PathExpression [23-26]
-      Identifier(foo) [23-26]
-    FunctionParameters [26-28]
-  SimpleType [37-42]
-    PathExpression [37-42]
-      Identifier(int64) [37-42]
-  Identifier(testlang) [52-60]
+CreateFunctionStatement(is_public) [0-60] [CREATE public...guage testlang]
+  FunctionDeclaration [23-28] [foo()]
+    PathExpression [23-26] [foo]
+      Identifier(foo) [23-26] [foo]
+    FunctionParameters [26-28] [()]
+  SimpleType [37-42] [int64]
+    PathExpression [37-42] [int64]
+      Identifier(int64) [37-42] [int64]
+  Identifier(testlang) [52-60] [testlang]
 --
 CREATE PUBLIC FUNCTION foo()
 RETURNS int64 LANGUAGE testlang
 --
 ALTERNATION GROUP: private
 --
-CreateFunctionStatement(is_private) [0-61]
-  FunctionDeclaration [24-29]
-    PathExpression [24-27]
-      Identifier(foo) [24-27]
-    FunctionParameters [27-29]
-  SimpleType [38-43]
-    PathExpression [38-43]
-      Identifier(int64) [38-43]
-  Identifier(testlang) [53-61]
+CreateFunctionStatement(is_private) [0-61] [CREATE private...uage testlang]
+  FunctionDeclaration [24-29] [foo()]
+    PathExpression [24-27] [foo]
+      Identifier(foo) [24-27] [foo]
+    FunctionParameters [27-29] [()]
+  SimpleType [38-43] [int64]
+    PathExpression [38-43] [int64]
+      Identifier(int64) [38-43] [int64]
+  Identifier(testlang) [53-61] [testlang]
 --
 CREATE PRIVATE FUNCTION foo()
 RETURNS int64 LANGUAGE testlang
@@ -120,30 +117,30 @@ returns int64 language testlang;
 --
 ALTERNATION GROUP: PUBLIC
 --
-CreateFunctionStatement(is_public, is_or_replace, is_if_not_exists) [0-85]
-  FunctionDeclaration [48-53]
-    PathExpression [48-51]
-      Identifier(foo) [48-51]
-    FunctionParameters [51-53]
-  SimpleType [62-67]
-    PathExpression [62-67]
-      Identifier(int64) [62-67]
-  Identifier(testlang) [77-85]
+CreateFunctionStatement(is_public, is_or_replace, is_if_not_exists) [0-85] [CREATE OR...language testlang]
+  FunctionDeclaration [48-53] [foo()]
+    PathExpression [48-51] [foo]
+      Identifier(foo) [48-51] [foo]
+    FunctionParameters [51-53] [()]
+  SimpleType [62-67] [int64]
+    PathExpression [62-67] [int64]
+      Identifier(int64) [62-67] [int64]
+  Identifier(testlang) [77-85] [testlang]
 --
 CREATE OR REPLACE PUBLIC FUNCTION IF NOT EXISTS foo()
 RETURNS int64 LANGUAGE testlang
 --
 ALTERNATION GROUP: PRIVATE
 --
-CreateFunctionStatement(is_private, is_or_replace, is_if_not_exists) [0-86]
-  FunctionDeclaration [49-54]
-    PathExpression [49-52]
-      Identifier(foo) [49-52]
-    FunctionParameters [52-54]
-  SimpleType [63-68]
-    PathExpression [63-68]
-      Identifier(int64) [63-68]
-  Identifier(testlang) [78-86]
+CreateFunctionStatement(is_private, is_or_replace, is_if_not_exists) [0-86] [CREATE OR...language testlang]
+  FunctionDeclaration [49-54] [foo()]
+    PathExpression [49-52] [foo]
+      Identifier(foo) [49-52] [foo]
+    FunctionParameters [52-54] [()]
+  SimpleType [63-68] [int64]
+    PathExpression [63-68] [int64]
+      Identifier(int64) [63-68] [int64]
+  Identifier(testlang) [78-86] [testlang]
 --
 CREATE OR REPLACE PRIVATE FUNCTION IF NOT EXISTS foo()
 RETURNS int64 LANGUAGE testlang

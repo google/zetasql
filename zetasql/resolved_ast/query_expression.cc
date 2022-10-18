@@ -16,8 +16,11 @@
 
 #include "zetasql/resolved_ast/query_expression.h"
 
+#include <map>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "absl/memory/memory.h"

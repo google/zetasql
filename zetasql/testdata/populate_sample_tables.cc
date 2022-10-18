@@ -72,6 +72,10 @@ absl::Status PopulateSampleTables(TypeFactory* type_factory,
                      {Int64(2), String("Value3")},
                      {Int64(2), String("Value4")}});
 
+  catalog->GetTableOrDie("TableWithDefaultColumn")
+      ->SetContents(
+          {{Int64(1), Int64(1), Int64(100)}, {Int64(2), Int64(2), Int64(200)}});
+
   const Type* kitchen_sink_pb_type;
   ZETASQL_RETURN_IF_ERROR(catalog->catalog()->FindType(
       {KitchenSinkPB::descriptor()->full_name()}, &kitchen_sink_pb_type));

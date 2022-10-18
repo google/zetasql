@@ -18,6 +18,7 @@
 #define ZETASQL_REFERENCE_IMPL_VARIABLE_ID_H_
 
 #include <iosfwd>
+#include <ostream>
 #include <string>
 
 #include "absl/hash/hash.h"

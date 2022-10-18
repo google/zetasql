@@ -1699,6 +1699,26 @@ std::string DMLValueExpr::DebugDMLCommon(const std::string& indent,
       }
     }
   }
+  if (column_expr_map_ != nullptr && !column_expr_map_->empty()) {
+    absl::StrAppend(&ret, indent_input, "column expr map(");
+    absl::btree_map<int, const ValueExpr*> ordered_expr_map;
+    for (const auto& entry : *column_expr_map_) {
+      ordered_expr_map.insert({entry.first, entry.second.get()});
+    }
+    int i = 0;
+    for (const auto& entry : ordered_expr_map) {
+      absl::StrAppend(&ret, indent_entry, "key[", i, "]:", "#", entry.first,
+                      indent_entry, "value[", i, "]:");
+      if (++i == ordered_expr_map.size()) {
+        absl::StrAppend(
+            &ret, entry.second->DebugInternal(indent_entry_space, verbose),
+            ")");
+      } else {
+        absl::StrAppend(
+            &ret, entry.second->DebugInternal(indent_entry_bar, verbose), ",");
+      }
+    }
+  }
   absl::StrAppend(&ret, indent_input,
                   "output type:", dml_output_type_->DebugString());
 
@@ -1714,7 +1734,8 @@ DMLValueExpr::DMLValueExpr(
         returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-    std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
+    std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+    std::unique_ptr<const ColumnExprMap> column_expr_map)
     : ValueExpr(dml_output_type),
       table_(table),
       table_array_type_(table_array_type),
@@ -1726,7 +1747,8 @@ DMLValueExpr::DMLValueExpr(
       returning_column_values_(std::move(returning_column_values)),
       column_to_variable_mapping_(std::move(column_to_variable_mapping)),
       resolved_scan_map_(std::move(resolved_scan_map)),
-      resolved_expr_map_(std::move(resolved_expr_map)) {}
+      resolved_expr_map_(std::move(resolved_expr_map)),
+      column_expr_map_(std::move(column_expr_map)) {}
 
 absl::StatusOr<RelationalOp*> DMLValueExpr::LookupResolvedScan(
     const ResolvedScan* resolved_scan) const {
@@ -1741,6 +1763,13 @@ absl::StatusOr<ValueExpr*> DMLValueExpr::LookupResolvedExpr(
   const std::unique_ptr<ValueExpr>* value_expr =
       zetasql_base::FindOrNull(*resolved_expr_map_, resolved_expr);
   ZETASQL_RET_CHECK(value_expr != nullptr);
+  return value_expr->get();
+}
+
+ValueExpr* DMLValueExpr::LookupDefaultExpr(const int resolved_column_id) const {
+  const std::unique_ptr<ValueExpr>* value_expr =
+      zetasql_base::FindOrNull(*column_expr_map_, resolved_column_id);
+  if (value_expr == nullptr) return nullptr;
   return value_expr->get();
 }
 
@@ -2126,8 +2155,8 @@ DMLDeleteValueExpr::DMLDeleteValueExpr(
                    primary_key_type, dml_output_type, resolved_node,
                    column_list, std::move(returning_column_values),
                    std::move(column_to_variable_mapping),
-                   std::move(resolved_scan_map), std::move(resolved_expr_map)) {
-}
+                   std::move(resolved_scan_map), std::move(resolved_expr_map),
+                   /*column_expr_map=*/nullptr) {}
 
 // -------------------------------------------------------
 // DMLUpdateValueExpr
@@ -2142,12 +2171,14 @@ absl::StatusOr<std::unique_ptr<DMLUpdateValueExpr>> DMLUpdateValueExpr::Create(
         returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-    std::unique_ptr<const ResolvedExprMap> resolved_expr_map) {
+    std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+    std::unique_ptr<const ColumnExprMap> column_expr_map) {
   return absl::WrapUnique(new DMLUpdateValueExpr(
       table, table_array_type, returning_array_type, primary_key_type,
       dml_output_type, resolved_node, column_list,
       std::move(returning_column_values), std::move(column_to_variable_mapping),
-      std::move(resolved_scan_map), std::move(resolved_expr_map)));
+      std::move(resolved_scan_map), std::move(resolved_expr_map),
+      std::move(column_expr_map)));
 }
 
 absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
@@ -2400,8 +2431,9 @@ absl::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewProtoValue(
         component.proto_field_descriptor();
 
     const Type* field_type;
-    ZETASQL_RETURN_IF_ERROR(
-        type_factory.GetProtoFieldType(field_descriptor, &field_type));
+    ZETASQL_RETURN_IF_ERROR(type_factory.GetProtoFieldType(
+        field_descriptor, original_value.type()->AsProto()->CatalogNamePath(),
+        &field_type));
 
     // Read the original value of the field (as an array if it is repeated).
     Value original_field_value;
@@ -2463,13 +2495,14 @@ DMLUpdateValueExpr::DMLUpdateValueExpr(
         returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-    std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
+    std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+    std::unique_ptr<const ColumnExprMap> column_expr_map)
     : DMLValueExpr(table, table_array_type, returning_array_type,
                    primary_key_type, dml_output_type, resolved_node,
                    column_list, std::move(returning_column_values),
                    std::move(column_to_variable_mapping),
-                   std::move(resolved_scan_map), std::move(resolved_expr_map)) {
-}
+                   std::move(resolved_scan_map), std::move(resolved_expr_map),
+                   std::move(column_expr_map)) {}
 
 absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfUpdateItem(
     const ResolvedUpdateItem* update_item,
@@ -2485,8 +2518,20 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfUpdateItem(
 
   if (update_item->array_update_list().empty()) {
     if (update_item->set_value() != nullptr) {
-      ZETASQL_ASSIGN_OR_RETURN(ValueExpr * leaf_value_expr,
-                       LookupResolvedExpr(update_item->set_value()->value()));
+      const ResolvedExpr* target = update_item->target();
+      ValueExpr* leaf_value_expr = nullptr;
+      if (update_item->set_value()->value()->node_kind() ==
+              RESOLVED_DMLDEFAULT &&
+          target->node_kind() == RESOLVED_COLUMN_REF) {
+        // The column may have a default value, look it up first:
+        const ResolvedColumn& column =
+            target->GetAs<ResolvedColumnRef>()->column();
+        leaf_value_expr = LookupDefaultExpr(column.column_id());
+      }
+      if (leaf_value_expr == nullptr) {
+        ZETASQL_ASSIGN_OR_RETURN(leaf_value_expr,
+                         LookupResolvedExpr(update_item->set_value()->value()));
+      }
       return leaf_value_expr->SetSchemasForEvaluation(params_schemas);
     }
 
@@ -2833,8 +2878,19 @@ absl::StatusOr<Value> DMLUpdateValueExpr::GetLeafValue(
   ZETASQL_RET_CHECK(update_item->array_update_list().empty());
 
   if (update_item->set_value() != nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(const ValueExpr* leaf_value_expr,
-                     LookupResolvedExpr(update_item->set_value()->value()));
+    const ResolvedExpr* target = update_item->target();
+    ValueExpr* leaf_value_expr = nullptr;
+    if (update_item->set_value()->value()->node_kind() == RESOLVED_DMLDEFAULT &&
+        target->node_kind() == RESOLVED_COLUMN_REF) {
+      // The column may have a default value, look it up first:
+      const ResolvedColumn& column =
+          target->GetAs<ResolvedColumnRef>()->column();
+      leaf_value_expr = LookupDefaultExpr(column.column_id());
+    }
+    if (leaf_value_expr == nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(leaf_value_expr,
+                       LookupResolvedExpr(update_item->set_value()->value()));
+    }
     return EvalExpr(*leaf_value_expr, tuples_for_row, context);
   }
 
@@ -3161,12 +3217,14 @@ absl::StatusOr<std::unique_ptr<DMLInsertValueExpr>> DMLInsertValueExpr::Create(
         returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-    std::unique_ptr<const ResolvedExprMap> resolved_expr_map) {
+    std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+    std::unique_ptr<const ColumnExprMap> column_expr_map) {
   return absl::WrapUnique(new DMLInsertValueExpr(
       table, table_array_type, returning_array_type, primary_key_type,
       dml_output_type, resolved_node, column_list,
       std::move(returning_column_values), std::move(column_to_variable_mapping),
-      std::move(resolved_scan_map), std::move(resolved_expr_map)));
+      std::move(resolved_scan_map), std::move(resolved_expr_map),
+      std::move(column_expr_map)));
 }
 
 absl::Status DMLInsertValueExpr::SetSchemasForEvaluation(
@@ -3177,9 +3235,20 @@ absl::Status DMLInsertValueExpr::SetSchemasForEvaluation(
   } else {
     for (const std::unique_ptr<const ResolvedInsertRow>& row :
          stmt()->row_list()) {
-      for (const std::unique_ptr<const ResolvedDMLValue>& value :
-           row->value_list()) {
-        ZETASQL_ASSIGN_OR_RETURN(ValueExpr * expr, LookupResolvedExpr(value->value()));
+      for (int i = 0; i < row->value_list().size(); ++i) {
+        const ResolvedDMLValue* dml_value = row->value_list(i);
+        ValueExpr* expr = nullptr;
+        if (stmt()->table_scan() != nullptr &&
+            dml_value->value()->node_kind() == RESOLVED_DMLDEFAULT) {
+          // The column may have a default value, look it up first:
+          expr = LookupDefaultExpr(stmt()->insert_column_list(i).column_id());
+        }
+        if (expr == nullptr) {
+          // A null `expr` means that we don't find a default value
+          // expression.
+          ZETASQL_ASSIGN_OR_RETURN(expr, LookupResolvedExpr(dml_value->value()));
+        }
+        ZETASQL_RET_CHECK(expr != nullptr);
         ZETASQL_RETURN_IF_ERROR(expr->SetSchemasForEvaluation(params_schemas));
       }
     }
@@ -3282,13 +3351,14 @@ DMLInsertValueExpr::DMLInsertValueExpr(
         returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-    std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
+    std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+    std::unique_ptr<const ColumnExprMap> column_expr_map)
     : DMLValueExpr(table, table_array_type, returning_array_type,
                    primary_key_type, dml_output_type, resolved_node,
                    column_list, std::move(returning_column_values),
                    std::move(column_to_variable_mapping),
-                   std::move(resolved_scan_map), std::move(resolved_expr_map)) {
-}
+                   std::move(resolved_scan_map), std::move(resolved_expr_map),
+                   std::move(column_expr_map)) {}
 
 absl::Status DMLInsertValueExpr::PopulateInsertColumnMap(
     InsertColumnMap* insert_column_map) const {
@@ -3343,8 +3413,16 @@ absl::Status DMLInsertValueExpr::PopulateRowsToInsert(
       const InsertColumnOffsets* insert_column_offsets =
           zetasql_base::FindOrNull(insert_column_map, column);
       if (insert_column_offsets == nullptr) {
-        // Fill in NULL for any values that are not being inserted.
-        row_to_insert.push_back(Value::Null(column.type()));
+        ValueExpr* default_expr = LookupDefaultExpr(column.column_id());
+        if (default_expr == nullptr) {
+          // A null `default_expr` means that we don't find a default value
+          // expression for this column, fill in NULL here:
+          row_to_insert.push_back(Value::Null(column.type()));
+        } else {
+          ZETASQL_ASSIGN_OR_RETURN(const Value value,
+                           EvalExpr(*default_expr, params, context));
+          row_to_insert.push_back(value);
+        }
       } else {
         ZETASQL_RET_CHECK_EQ(i, insert_column_offsets->column_offset);
         const int insert_column_offset =
@@ -3397,10 +3475,21 @@ absl::Status DMLInsertValueExpr::PopulateColumnsToInsert(
       ZETASQL_RET_CHECK_EQ(dml_values.size(), insert_column_map.size());
 
       std::vector<Value> columns_to_insert_for_row;
-      for (const std::unique_ptr<const ResolvedDMLValue>& dml_value :
-           dml_values) {
-        ZETASQL_ASSIGN_OR_RETURN(const ValueExpr* value_expr,
-                         LookupResolvedExpr(dml_value->value()));
+
+      for (int i = 0; i < dml_values.size(); ++i) {
+        const ResolvedDMLValue* dml_value = resolved_insert_row->value_list(i);
+        ValueExpr* value_expr = nullptr;
+        if (stmt()->table_scan() != nullptr &&
+            dml_value->value()->node_kind() == RESOLVED_DMLDEFAULT) {
+          // The column may have a default value, look it up first:
+          value_expr =
+              LookupDefaultExpr(stmt()->insert_column_list(i).column_id());
+        }
+        if (value_expr == nullptr) {
+          // A null `value_expr` means that we don't find a default value
+          // expression.
+          ZETASQL_ASSIGN_OR_RETURN(value_expr, LookupResolvedExpr(dml_value->value()));
+        }
         ZETASQL_ASSIGN_OR_RETURN(const Value value,
                          EvalExpr(*value_expr, params, context));
         columns_to_insert_for_row.push_back(value);

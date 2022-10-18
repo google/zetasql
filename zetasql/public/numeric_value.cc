@@ -27,12 +27,16 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <optional>
+#include <ostream>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/multiprecision_int.h"
+#include "zetasql/public/numeric_constants.h"
 #include "zetasql/public/numeric_parser.h"
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
@@ -253,19 +257,12 @@ double RemoveScaleAndConvertToDouble(__int128 value) {
 FixedUint<64, 4> UnsignedFloor(FixedUint<64, 4> value) {
   // Remove the decimal portion of the value by dividing by the
   // ScalingFactor(10^38) then multiplying correspondingly.
-  // For efficiency, the division is split into 5^13, 5^13, 5^12 and 2^38,
-  // and the multiplcation into 2^38, 5^19, 5^19.
-  value /= std::integral_constant<uint32_t, internal::k5to13>();
-  value /= std::integral_constant<uint32_t, internal::k5to13>();
-  value /= std::integral_constant<uint32_t, internal::k5to12>();
-  // Since dividing then multiplying by 2^38 is the same as shifting right
-  // then left by 38, which just zeroes the low 38 bits we can do the equivalent
-  // by directly masking the lower 38 bits.
-  const std::array<uint64_t, 4>& a = value.number();
-  value = FixedUint<64, 4>(
-      std::array<uint64_t, 4>{a[0] & 0xFFFFFFC000000000, a[1], a[2], a[3]});
-  value *= internal::k5to19;
-  value *= internal::k5to19;
+  // For efficiency, the division is split into two rounds of 10^19 and the
+  // multiplcation into two rounds of 10^19.
+  value /= std::integral_constant<uint64_t, internal::k1e19>();
+  value /= std::integral_constant<uint64_t, internal::k1e19>();
+  value *= internal::k1e19;
+  value *= internal::k1e19;
   return value;
 }
 
@@ -1673,46 +1670,32 @@ inline void MaybeRoundFinalBigNumericToEven(
   }
 }
 
-// Rounds to the Pow-th digit using 3 divisions of Factors,
-// whose product must equal 5^Pow, where Pow < 64.
-// If round_away_from_zero is false, the value is always rounded down.
-template <int Pow, int Factor1, int Factor2, int Factor3,
+// Rounds to the Pow-th digit using 2 divisions of Factors, whose product must
+// equal 10^Pow, where Pow <= 38. If round_away_from_zero is false, the value is
+// always rounded down.
+template <int Pow, uint64_t Factor1, uint64_t Factor2,
           RoundingMode rounding_mode>
     inline void
     RoundInternalFixedFactors(FixedUint<64, 4>* value) {
   FixedUint<64, 4> original_input = *value;
-  *value /= std::integral_constant<uint32_t, Factor1>();
-  *value /= std::integral_constant<uint32_t, Factor2>();
-  *value /= std::integral_constant<uint32_t, Factor3>();
-
-  // After dividing by the pow(5,n), determine whether the previous digit is
+  *value /= std::integral_constant<uint64_t, Factor1>();
+  uint64_t remainder;
+  value->DivMod(std::integral_constant<uint64_t, Factor2>(), value, &remainder);
+  // After dividing by the pow(10,n), determine whether the previous digit is
   // even or odd.
   bool should_round_half_up = false;
   if constexpr (rounding_mode == RoundingMode::kRoundHalfEven) {
-    constexpr uint64_t is_odd_mask = (uint64_t{1} << Pow);
     // if we & the is_odd_mask and it's a 1, then the newest least
     // significant digit will be odd and we need to round up
-    should_round_half_up = value->number()[0] & is_odd_mask;
+    should_round_half_up = value->number()[0] & 1;
   }
 
   if (rounding_mode == RoundingMode::kRoundHalfAwayFromZero &&
-      value->number()[0] & (1ULL << (Pow - 1))) {
-    // Since the max value of value is 0x80... this
-    // addition cannot overflow.
-    *value += (uint64_t{1} << Pow);
+      remainder >= (Factor2 >> 1)) {
+    *value += uint64_t{1};
   }
-  // We need to divide by 2^Pow, but rather than do
-  // value >>= Pow, value <<= Pow we instead zero the appropriate bits
-  // using a mask with the high 64 - pow bits set and all others zeroed
-  constexpr uint64_t mask = ~((uint64_t{1} << Pow) - 1);
-  std::array<uint64_t, 4> array = value->number();
-  array[0] &= mask;
-  *value = FixedUint<64, 4>(array);
-  // Following these multiplications, the max value could be is
-  // pow(2, 255) + 5 * pow(10, 38) < pow(2, 256). The multiplications
-  // never overflow, though the highest bit in the result might be 1.
-  *value *= static_cast<uint64_t>(Factor1) * Factor2;
-  *value *= Factor3;
+  *value *= Factor1;
+  *value *= Factor2;
 
   // If round to even is enabled, we need to see if the difference between
   // our original value and the truncated value is exactly halfway.
@@ -1734,32 +1717,32 @@ bool RoundOrTrunc(FixedUint<64, 4>* abs_value, int64_t digits) {
   switch (digits) {
     // Fast paths for some common values of the second argument.
     case 0:
-      RoundInternalFixedFactors<38, internal::k5to13, internal::k5to13,
-                                internal::k5to12, rounding_mode>(abs_value);
+      RoundInternalFixedFactors<38, internal::k1e19, internal::k1e19,
+                                rounding_mode>(abs_value);
       break;
     case 1:
-      RoundInternalFixedFactors<37, internal::k5to13, internal::k5to12,
-                                internal::k5to12, rounding_mode>(abs_value);
+      RoundInternalFixedFactors<37, internal::k1e19, internal::k1e18,
+                                rounding_mode>(abs_value);
       break;
     case 2:
-      RoundInternalFixedFactors<36, internal::k5to12, internal::k5to12,
-                                internal::k5to12, rounding_mode>(abs_value);
+      RoundInternalFixedFactors<36, internal::k1e18, internal::k1e18,
+                                rounding_mode>(abs_value);
       break;
     case 3:
-      RoundInternalFixedFactors<35, internal::k5to12, internal::k5to12,
-                                internal::k5to11, rounding_mode>(abs_value);
+      RoundInternalFixedFactors<35, internal::k1e18, internal::k1e17,
+                                rounding_mode>(abs_value);
       break;
     case 4:
-      RoundInternalFixedFactors<34, internal::k5to12, internal::k5to11,
-                                internal::k5to11, rounding_mode>(abs_value);
+      RoundInternalFixedFactors<34, internal::k1e17, internal::k1e17,
+                                rounding_mode>(abs_value);
       break;
     case 5:
-      RoundInternalFixedFactors<33, internal::k5to11, internal::k5to11,
-                                internal::k5to11, rounding_mode>(abs_value);
+      RoundInternalFixedFactors<33, internal::k1e17, internal::k1e16,
+                                rounding_mode>(abs_value);
       break;
     case 6:
-      RoundInternalFixedFactors<32, internal::k5to11, internal::k5to11,
-                                internal::k5to10, rounding_mode>(abs_value);
+      RoundInternalFixedFactors<32, internal::k1e16, internal::k1e16,
+                                rounding_mode>(abs_value);
       break;
     default: {
       if (ABSL_PREDICT_FALSE(digits >= BigNumericValue::kMaxFractionalDigits)) {
@@ -2073,9 +2056,9 @@ absl::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
   }
 
   // Scale down the value.
-  std::vector<uint32_t> dividend(
-      (little_endian_value.size() + sizeof(uint32_t) - 1) / sizeof(uint32_t));
-  VarIntRef<32> var_int_ref(dividend);
+  std::vector<uint64_t> dividend(
+      (little_endian_value.size() + sizeof(uint64_t) - 1) / sizeof(uint64_t));
+  VarIntRef<64> var_int_ref(dividend);
   bool success = var_int_ref.DeserializeFromBytes(little_endian_value);
   ZETASQL_DCHECK(success);
   if (is_negative) {
@@ -2086,25 +2069,20 @@ absl::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
   }
 
   int scale_down_digits = scale - max_fractional_digits;
-  uint32_t remainder = 0;
-  uint32_t divisor = internal::k1e9;
+  uint64_t remainder;
+  uint64_t divisor;
   // Compute dividend /= pow(10, scale_down_digits) by repeating
-  // dividend /= uint32_t divisor. When scale_down_digits > 9, this loop is not
+  // dividend /= uint64_t divisor. When scale_down_digits > 19, this loop is not
   // as efficient as fixed_int_internal::LongDiv, but this method is not
   // expected to be called in a performance-critical path.
   while (scale_down_digits > 0) {
     if (dividend.empty()) {
       return FixedInt<64, 4>();
     }
-    remainder = 0;
-    VarUintRef<32> var_int_ref(dividend);
-    if (scale_down_digits >= 9) {
-      remainder = var_int_ref.DivMod(
-          std::integral_constant<uint32_t, internal::k1e9>());
-    } else {
-      divisor = FixedUint<32, 1>::PowerOf10(scale_down_digits).number()[0];
-      remainder = var_int_ref.DivMod(divisor);
-    }
+    VarUintRef<64> var_int_ref(dividend);
+    int to_scale_down = std::min(scale_down_digits, 19);
+    divisor = var_int_ref.ScaleDown(to_scale_down, remainder);
+    scale_down_digits -= to_scale_down;
     if (remainder != 0 && !allow_rounding) {
       return MakeEvalError()
              << "Value will lose precision after "
@@ -2112,18 +2090,17 @@ absl::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
              << type_name << " type; input length: " << original_input_len
              << "; scale: " << scale;
     }
-    scale_down_digits -= 9;
     if (dividend.back() == 0) {
       dividend.pop_back();
     }
   }
-  if (dividend.size() > 8) {
+  if (dividend.size() > 4) {
     return FromScaledValueOutOfRangeError(type_name, original_input_len, scale);
   }
-  std::array<uint32_t, 8> src;
+  std::array<uint64_t, 4> src;
   auto itr = std::copy(dividend.begin(), dividend.end(), src.begin());
   std::fill(itr, src.end(), 0);
-  FixedUint<64, 4> abs_value((FixedUint<32, 8>(src)));
+  FixedUint<64, 4> abs_value(src);
   // Here half is rounded away from zero. divisor is always an even number.
   if (remainder >= (divisor >> 1) && abs_value.AddOverflow(uint64_t{1})) {
     return FromScaledValueOutOfRangeError(type_name, original_input_len, scale);
@@ -2511,15 +2488,12 @@ bool BigNumericValue::HasFractionalPart() const {
   FixedUint<64, 4> abs_value = value_.abs();
   // Check whether abs_value is a multiple of pow(2, 38).
   if ((abs_value.number()[0] & ((1ULL << 38) - 1)) != 0) return true;
-  // Check whether abs_value is a multiple of pow(5, 38).
-  uint32_t mod = 0;
-  abs_value.DivMod(std::integral_constant<uint32_t, internal::k5to13>(),
+  // Check whether abs_value is a multiple of pow(10, 38).
+  uint64_t mod = 0;
+  abs_value.DivMod(std::integral_constant<uint64_t, internal::k1e19>(),
                    &abs_value, &mod);
   if (mod != 0) return true;
-  abs_value.DivMod(std::integral_constant<uint32_t, internal::k5to13>(),
-                   &abs_value, &mod);
-  if (mod != 0) return true;
-  abs_value.DivMod(std::integral_constant<uint32_t, internal::k5to12>(),
+  abs_value.DivMod(std::integral_constant<uint64_t, internal::k1e19>(),
                    &abs_value, &mod);
   return (mod != 0);
 }
@@ -2529,54 +2503,50 @@ double BigNumericValue::RemoveScaleAndConvertToDouble(
   bool is_negative = value.is_negative();
   FixedUint<64, 4> abs_value = value.abs();
   int num_32bit_words = FixedUint<32, 8>(abs_value).NonZeroLength();
-  static constexpr std::array<uint32_t, 14> kPowersOf5 =
-      PowersAsc<uint32_t, 1, 5, 14>();
   double binary_scaling_factor = 1;
   // To ensure precision, the number should have more than 54 bits after scaled
-  // down by the all factors as 5 in scaling factor (5^38, 89 bits). Since
-  // dividing the double by 2 won't produce precision loss, the value can be
-  // divided by 5 factors in the scaling factor for 3 times, and divided by all
-  // 2 factors in the scaling factor and binary scaling factor after converted
-  // to double.
+  // down by 10^38. The shifting that is need to ensure proper precision is
+  // undone by dividing by the binary_scaling_factor after coverting to double.
   switch (num_32bit_words) {
     case 0:
       return 0;
     case 1:
-      abs_value <<= 144;
+      abs_value <<= 182;
       // std::exp2, std::pow and std::ldexp are not constexpr.
       // Use static_cast from integers to compute the value at compile time.
       binary_scaling_factor = static_cast<double>(__int128{1} << 100) *
                               static_cast<double>(__int128{1} << 82);
       break;
     case 2:
-      abs_value <<= 112;
+      abs_value <<= 150;
       binary_scaling_factor = static_cast<double>(__int128{1} << 100) *
                               static_cast<double>(__int128{1} << 50);
       break;
     case 3:
-      abs_value <<= 80;
+      abs_value <<= 118;
       binary_scaling_factor = static_cast<double>(__int128{1} << 118);
       break;
     case 4:
-      abs_value <<= 48;
+      abs_value <<= 86;
       binary_scaling_factor = static_cast<double>(__int128{1} << 86);
       break;
     case 5:
-      abs_value <<= 16;
+      abs_value <<= 54;
       binary_scaling_factor = static_cast<double>(__int128{1} << 54);
+      break;
+    case 6:
+      abs_value <<= 22;
+      binary_scaling_factor = static_cast<double>(__int128{1} << 22);
       break;
     default:
       // shifting bits <= 0
-      binary_scaling_factor = static_cast<double>(__int128{1} << 38);
+      binary_scaling_factor = 1;
   }
-  uint32_t remainder_bits;
-  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[13]>(),
+  uint64_t remainder_bits;
+  abs_value.DivMod(std::integral_constant<uint64_t, internal::k1e19>(),
                    &abs_value, &remainder_bits);
-  uint32_t remainder;
-  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[13]>(),
-                   &abs_value, &remainder);
-  remainder_bits |= remainder;
-  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[12]>(),
+  uint64_t remainder;
+  abs_value.DivMod(std::integral_constant<uint64_t, internal::k1e19>(),
                    &abs_value, &remainder);
   remainder_bits |= remainder;
   std::array<uint64_t, 4> n = abs_value.number();
@@ -3104,18 +3074,14 @@ BigNumericValue::CorrelationAggregator::DeserializeFromProtoBytes(
          << "Invalid BigNumericValue::CorrelationAggregator encoding";
 }
 
-std::ostream& operator<<(std::ostream& out, const VarNumericValue& value) {
-  return out << value.ToString();
-}
-
 VarNumericValue VarNumericValue::FromScaledLittleEndianValue(
     absl::string_view little_endian_value, uint scale) {
   VarNumericValue result;
   result.scale_ = scale;
   if (!little_endian_value.empty()) {
-    result.value_.resize((little_endian_value.size() + sizeof(uint32_t) - 1) /
-                         sizeof(uint32_t));
-    VarIntRef<32> var_int_ref(result.value_);
+    result.value_.resize((little_endian_value.size() + sizeof(uint64_t) - 1) /
+                         sizeof(uint64_t));
+    VarIntRef<64> var_int_ref(result.value_);
     bool success = var_int_ref.DeserializeFromBytes(little_endian_value);
     ZETASQL_DCHECK(success);
   }
@@ -3125,7 +3091,7 @@ VarNumericValue VarNumericValue::FromScaledLittleEndianValue(
 void VarNumericValue::AppendToString(std::string* output) const {
   ZETASQL_DCHECK(output != nullptr);
   size_t first_digit_index = output->size();
-  ConstVarIntRef<32>(value_).AppendToString(output);
+  ConstVarIntRef<64>(value_).AppendToString(output);
   if (output->size() == first_digit_index + 1 &&
       output->at(first_digit_index) == '0') {
     return;

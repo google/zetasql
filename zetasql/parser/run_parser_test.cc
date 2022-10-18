@@ -34,6 +34,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
+#include "zetasql/public/testing/test_case_options_util.h"
 #include "zetasql/scripting/parse_helpers.h"
 #include "zetasql/scripting/script_segment.h"
 #include "gmock/gmock.h"
@@ -60,6 +61,7 @@
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(std::string, test_file, "", "location of test data file.");
 
@@ -105,14 +107,6 @@ class RunParserTest : public ::testing::Test {
   // Disable this to skip testing Unparse.  This is necessary in some
   // cases where identifiers are not (yet) properly escaped when unparsing.
   const std::string kTestUnparse = "test_unparse";
-  // Allows dashed table names.
-  const std::string kAllowDashedTableNames = "allow_dashed_table_names";
-  // Allows table names that start with slash.
-  const std::string kAllowSlashedTableNames = "allow_slashed_table_names";
-  // Allows consecutive ON/USING clauses.
-  const std::string kAllowConsecutiveOn = "allow_consecutive_on";
-  // Allows WITH GROUP_ROWS syntax for aggregate functions.
-  const std::string kAllowWithGroupRows = "allow_with_group_rows";
   // Allows a list of generic entity types. Multiple entity types are comma
   // separated and whitespaces are preserved as part of the type string.
   const std::string kSupportedGenericEntityTypes =
@@ -121,76 +115,29 @@ class RunParserTest : public ::testing::Test {
   // separated and whitespaces are preserved as part of the type string.
   const std::string kSupportedGenericSubEntityTypes =
       "supported_generic_sub_entity_types";
-  const std::string kAllowIsDistinctFrom = "allow_is_distinct_from";
-  // Allows QUALIFY clause.
-  const std::string kAllowQualify = "allow_qualify";
   // Indicates that QUALIFY is a reserved keyword.
   const std::string kQualifyReserved = "qualify_reserved";
-  // Allows REPEAT statement.
-  const std::string kAllowRepeat = "allow_repeat";
-  // Allows column DEFAULT values.
-  const std::string kAllowColumnDefaultValue = "allow_column_default_value";
-  // Allows FOR...IN statement.
-  const std::string kAllowForIn = "allow_for_in";
-  // Allows LIKE/ANY/SOME/ALL expressions.
-  const std::string kAllowLikeAnySomeAll = "allow_like_any_some_all";
   // Show the text of the SQL fragment for each parse location, rather than only
   // the integer range.
   const std::string kShowParseLocationText = "show_parse_location_text";
-  // Allows CASE...WHEN statement.
-  const std::string kAllowCaseStmt = "allow_case_stmt";
-  // Allows script label.
-  const std::string kAllowScriptLabel = "allow_script_label";
-  // Allows remote function.
-  const std::string kAllowRemoteFunction = "allow_remote_function";
-  // Allows generic DDL ALTER statements without a <path_expression>.
-  const std::string kAllowMissingPathInGenericDdlAlter =
-      "allow_missing_path_in_generic_ddl_alter";
-  // Allows braced constructors.
-  const std::string kAllowBracedConstructors = "allow_braced_constructors";
-  // Allows non SQL procedure.
-  const std::string kAllowNonSQLProcedure = "allow_non_sql_procedure";
-  // Allows non SQL procedure.
-  const std::string kAllowOrderedPrimaryKeys = "allow_ordered_primary_keys";
-  // Allows Spanner DDL syntax.
-  const std::string kAllowSpannerLegacyDdlSyntax = "allow_spanner_legacy_ddl";
-  // Allows TTL (ROW DELETION POLICY) clause.
-  const std::string kAllowTtl = "allow_ttl";
 
   RunParserTest() {
-    test_case_options_.RegisterString(kModeOption, "statement");
-    test_case_options_.RegisterBool(kStripTrailingNewline, false);
-    test_case_options_.RegisterBool(kTestNewlineTypes, true);
-    test_case_options_.RegisterBool(kParseMultiple, false);
-    test_case_options_.RegisterBool(kTestGetParseTokens, true);
-    test_case_options_.RegisterBool(kTestUnparse, true);
-    test_case_options_.RegisterBool(kAllowDashedTableNames, true);
-    test_case_options_.RegisterBool(kAllowSlashedTableNames, true);
-    test_case_options_.RegisterBool(kAllowConsecutiveOn, true);
-    test_case_options_.RegisterBool(kAllowWithGroupRows, true);
-    test_case_options_.RegisterBool(kAllowIsDistinctFrom, true);
-    test_case_options_.RegisterBool(kAllowQualify, true);
-    test_case_options_.RegisterBool(kQualifyReserved, true);
-    test_case_options_.RegisterBool(kAllowRepeat, true);
-    test_case_options_.RegisterString(kSupportedGenericEntityTypes, "");
-    test_case_options_.RegisterString(kSupportedGenericSubEntityTypes, "");
-    test_case_options_.RegisterBool(kAllowColumnDefaultValue, true);
-    test_case_options_.RegisterBool(kAllowForIn, true);
-    test_case_options_.RegisterBool(kAllowLikeAnySomeAll, true);
-    test_case_options_.RegisterBool(kShowParseLocationText, true);
-    test_case_options_.RegisterBool(kAllowCaseStmt, true);
-    test_case_options_.RegisterBool(kAllowScriptLabel, true);
-    test_case_options_.RegisterBool(kAllowRemoteFunction, true);
-    test_case_options_.RegisterBool(kAllowMissingPathInGenericDdlAlter, false);
-    test_case_options_.RegisterBool(kAllowBracedConstructors, true);
-    test_case_options_.RegisterBool(kAllowNonSQLProcedure, true);
-    test_case_options_.RegisterBool(kAllowOrderedPrimaryKeys, true);
-    test_case_options_.RegisterBool(kAllowSpannerLegacyDdlSyntax, false);
-    test_case_options_.RegisterBool(kAllowTtl, true);
+      test_case_options_.RegisterString(kModeOption, "statement");
+      test_case_options_.RegisterString(kLanguageFeatures, "");
+      test_case_options_.RegisterBool(kStripTrailingNewline, false);
+      test_case_options_.RegisterBool(kTestNewlineTypes, true);
+      test_case_options_.RegisterBool(kParseMultiple, false);
+      test_case_options_.RegisterBool(kTestGetParseTokens, true);
+      test_case_options_.RegisterBool(kTestUnparse, true);
+      test_case_options_.RegisterBool(kQualifyReserved, true);
+      test_case_options_.RegisterString(kSupportedGenericEntityTypes, "");
+      test_case_options_.RegisterString(kSupportedGenericSubEntityTypes, "");
+      test_case_options_.RegisterBool(kShowParseLocationText, true);
 
-    // Force a blank line at the start of every test case.
-    absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines, 1);
-    absl::SetFlag(&FLAGS_output_asc_explicitly, true);
+      // Force a blank line at the start of every test case.
+      absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines,
+                    1);
+      absl::SetFlag(&FLAGS_output_asc_explicitly, true);
   }
 
   void RunTest(absl::string_view test_case_input,
@@ -317,13 +264,15 @@ class RunParserTest : public ::testing::Test {
     const absl::Status status =
         ParseWithMode(test_case, mode, &root, &parser_output);
     bool next_statement_is_ctas;
+    ZETASQL_ASSERT_OK_AND_ASSIGN(ParserOptions guess_parser_options,
+                         GetParserOptions());
     const ASTNodeKind guessed_statement_kind =
-        ParseStatementKind(test_case, GetParserOptions().language_options(),
+        ParseStatementKind(test_case, guess_parser_options.language_options(),
                            &next_statement_is_ctas);
 
     // Ensure that fetching all properties does not fail.
     parser::ASTStatementProperties ast_statement_properties;
-    ParserOptions parser_options = GetParserOptions();
+    ZETASQL_ASSERT_OK_AND_ASSIGN(ParserOptions parser_options, GetParserOptions());
     parser_options.CreateDefaultArenasIfNotSet();
     std::vector<std::unique_ptr<ASTNode>> allocated_ast_nodes;
     ZETASQL_ASSERT_OK(ParseNextStatementProperties(
@@ -357,17 +306,20 @@ class RunParserTest : public ::testing::Test {
               << ", byte_position: " << location.byte_position();
 
       bool next_statement_is_ctas;
+      ZETASQL_ASSERT_OK_AND_ASSIGN(ParserOptions ctas_guess_parser_options,
+                           GetParserOptions());
       const ASTNodeKind guessed_statement_kind = ParseNextStatementKind(
-          location, GetParserOptions().language_options(),
+          location, ctas_guess_parser_options.language_options(),
           &next_statement_is_ctas);
 
       // Ensure that fetching all properties does not fail.
       parser::ASTStatementProperties ast_statement_properties;
-      ParserOptions parser_options = GetParserOptions();
-      parser_options.CreateDefaultArenasIfNotSet();
+      ZETASQL_ASSERT_OK_AND_ASSIGN(ParserOptions properties_parser_options,
+                           GetParserOptions());
+      properties_parser_options.CreateDefaultArenasIfNotSet();
       std::vector<std::unique_ptr<ASTNode>> allocated_ast_nodes;
       ZETASQL_ASSERT_OK(ParseNextStatementProperties(
-          location, parser_options, &allocated_ast_nodes,
+          location, properties_parser_options, &allocated_ast_nodes,
           &ast_statement_properties));
 
       // The statement kinds fetched from ParseNextStatementKind() and
@@ -379,8 +331,9 @@ class RunParserTest : public ::testing::Test {
       ParseResumeLocation location_copy = location;
 
       bool at_end_of_input = false;
+      ZETASQL_ASSERT_OK_AND_ASSIGN(ParserOptions parser_options, GetParserOptions());
       const absl::Status status = ParseNextScriptStatement(
-          &location, GetParserOptions(), &parser_output, &at_end_of_input);
+          &location, parser_options, &parser_output, &at_end_of_input);
 
       const ASTStatement* statement =
           status.ok() ? parser_output->statement() : nullptr;
@@ -482,14 +435,6 @@ class RunParserTest : public ::testing::Test {
   //
   void VerifyParseLocationRanges(const std::string& test_case,
                                  const ASTNode* root) {
-    // Set of nodes that currently violate parent/child range validation.
-    // DO NOT ADD TO THIS LIST - new nodes should respect parent/child range
-    // validation.
-    // TODO: Burn down this list.
-    const absl::flat_hash_set<ASTNodeKind> kChildRangeSkipList = {
-        AST_JOIN,
-    };
-
     // Using a stack instead of recursion to avoid overflowing the stack when
     // running against stack_overflow.test.
     std::stack<const ASTNode*> stack;
@@ -513,19 +458,13 @@ class RunParserTest : public ::testing::Test {
         const ParseLocationRange& child_range = child->GetParseLocationRange();
         BasicValidateParseLocationRange(test_case.length(), child_range);
 
-        // In some cases the parse trees generated for expressions do not
-        // satisfy the below assumptions, so we apply these checks only for
-        // statements.
-        if (!kChildRangeSkipList.contains(node->node_kind())) {
-          // Verify that the child statement is contained entirely within its
-          // parent.
-          EXPECT_GE(child_range.start().GetByteOffset(),
-                    range.start().GetByteOffset())
-              << node->DebugString() << "(child index: " << i << ")";
-          EXPECT_LE(child_range.end().GetByteOffset(),
-                    range.end().GetByteOffset())
-              << node->DebugString() << "(child index: " << i << ")";
-        }
+        // Verify that the child is contained entirely within its parent.
+        EXPECT_GE(child_range.start().GetByteOffset(),
+                  range.start().GetByteOffset())
+            << node->DebugString() << "(child index: " << i << ")";
+        EXPECT_LE(child_range.end().GetByteOffset(),
+                  range.end().GetByteOffset())
+            << node->DebugString() << "(child index: " << i << ")";
 
         if (child->IsStatement()) {
           // We don't make any guarantees about the source location relationship
@@ -645,75 +584,20 @@ class RunParserTest : public ::testing::Test {
     ParserOptions parser_options_;
   };
 
-  ParserOptions GetParserOptions() {
+  absl::StatusOr<ParserOptions> GetParserOptions() {
     // Reset the LanguageOptions.
     language_options_ = std::make_unique<LanguageOptions>();
-    if (test_case_options_.GetBool(kAllowDashedTableNames)) {
-      language_options_->EnableLanguageFeature(
-          FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME);
-    }
-    if (test_case_options_.GetBool(kAllowSlashedTableNames)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
-    }
-    if (test_case_options_.GetBool(kAllowConsecutiveOn)) {
-      language_options_->EnableLanguageFeature(
-          FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON);
-    }
-    if (test_case_options_.GetBool(kAllowWithGroupRows)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_WITH_GROUP_ROWS);
-    }
-    if (test_case_options_.GetBool(kAllowIsDistinctFrom)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_IS_DISTINCT);
-    }
-    if (test_case_options_.GetBool(kAllowQualify)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_QUALIFY);
-    }
+
+    // Parse the language features first because other checks below may depend
+    // on the features that are enabled for the test case.
+    ZETASQL_ASSIGN_OR_RETURN(LanguageOptions::LanguageFeatureSet features,
+                     GetRequiredLanguageFeatures(test_case_options_));
+    language_options_->SetEnabledLanguageFeatures(features);
+
     if (test_case_options_.GetBool(kQualifyReserved)) {
       ZETASQL_EXPECT_OK(language_options_->EnableReservableKeyword("QUALIFY"));
     }
-    if (test_case_options_.GetBool(kAllowRepeat)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_REPEAT);
-    }
-    if (test_case_options_.GetBool(kAllowColumnDefaultValue)) {
-      language_options_->EnableLanguageFeature(
-          FEATURE_V_1_3_COLUMN_DEFAULT_VALUE);
-    }
-    if (test_case_options_.GetBool(kAllowForIn)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_FOR_IN);
-    }
-    if (test_case_options_.GetBool(kAllowLikeAnySomeAll)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_LIKE_ANY_SOME_ALL);
-    }
-    if (test_case_options_.GetBool(kAllowCaseStmt)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_CASE_STMT);
-    }
-    if (test_case_options_.GetBool(kAllowScriptLabel)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_SCRIPT_LABEL);
-    }
-    if (test_case_options_.GetBool(kAllowRemoteFunction)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_3_REMOTE_FUNCTION);
-    }
-    if (test_case_options_.GetBool(kAllowMissingPathInGenericDdlAlter)) {
-      language_options_->EnableLanguageFeature(
-          FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL);
-    }
-    if (test_case_options_.GetBool(kAllowBracedConstructors)) {
-      language_options_->EnableLanguageFeature(
-          FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS);
-    }
-    if (test_case_options_.GetBool(kAllowNonSQLProcedure)) {
-      language_options_->EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
-    }
-    if (test_case_options_.GetBool(kAllowOrderedPrimaryKeys)) {
-      language_options_->EnableLanguageFeature(
-          FEATURE_V_1_4_ORDERED_PRIMARY_KEYS);
-    }
-    if (test_case_options_.GetBool(kAllowSpannerLegacyDdlSyntax)) {
-      language_options_->EnableLanguageFeature(FEATURE_SPANNER_LEGACY_DDL);
-    }
-    if (test_case_options_.GetBool(kAllowTtl)) {
-      language_options_->EnableLanguageFeature(FEATURE_V_1_4_TTL);
-    }
+
     std::string entity_types_config =
         test_case_options_.GetString(kSupportedGenericEntityTypes);
     std::vector<std::string> entity_types =
@@ -847,7 +731,8 @@ class RunParserTest : public ::testing::Test {
         // only ParseAndValidateScript() has the capability of returning
         // errors with sources to begin with.
         EXPECT_EQ(mode, "script") << "Error source without script mode";
-        out_status = ParseAndValidateScript(test_case, GetParserOptions(),
+        ZETASQL_ASSERT_OK_AND_ASSIGN(ParserOptions parser_options, GetParserOptions());
+        out_status = ParseAndValidateScript(test_case, parser_options,
                                             ERROR_MESSAGE_MULTI_LINE_WITH_CARET)
                          .status();
 
@@ -874,8 +759,8 @@ class RunParserTest : public ::testing::Test {
     }
 
     if (status.ok() && is_single && mode == "script") {
-      TestParseNextScriptStatementVisitor visitor(test_case,
-                                                  GetParserOptions());
+      ZETASQL_ASSERT_OK_AND_ASSIGN(ParserOptions parser_options, GetParserOptions());
+      TestParseNextScriptStatementVisitor visitor(test_case, parser_options);
       parsed_root->Accept(&visitor, nullptr);
     }
     // Also verify round-tripping through GetParseTokens.
@@ -962,7 +847,7 @@ class RunParserTest : public ::testing::Test {
   absl::Status ParseWithMode(const std::string& test_case,
                              const std::string& mode, const ASTNode** root,
                              std::unique_ptr<ParserOutput>* parser_output) {
-    ParserOptions parser_options = GetParserOptions();
+    ZETASQL_ASSIGN_OR_RETURN(ParserOptions parser_options, GetParserOptions());
     *root = nullptr;
     if (mode == "statement") {
       ZETASQL_RETURN_IF_ERROR(ParseStatement(test_case, parser_options, parser_output));
@@ -970,10 +855,12 @@ class RunParserTest : public ::testing::Test {
       ZETASQL_RETURN_IF_ERROR(ParseScript(test_case, parser_options,
                                   ERROR_MESSAGE_WITH_PAYLOAD, parser_output));
     } else if (mode == "expression") {
+      ZETASQL_ASSIGN_OR_RETURN(ParserOptions expr_parser_options, GetParserOptions());
       ZETASQL_RETURN_IF_ERROR(
-          ParseExpression(test_case, GetParserOptions(), parser_output));
+          ParseExpression(test_case, expr_parser_options, parser_output));
     } else if (mode == "type") {
-      ZETASQL_RETURN_IF_ERROR(ParseType(test_case, GetParserOptions(), parser_output));
+      ZETASQL_ASSIGN_OR_RETURN(ParserOptions type_parser_options, GetParserOptions());
+      ZETASQL_RETURN_IF_ERROR(ParseType(test_case, type_parser_options, parser_output));
     } else {
       return ::zetasql_base::UnknownErrorBuilder() << "Invalid parse mode: " << mode;
     }

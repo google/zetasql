@@ -27,6 +27,7 @@
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/base/enum_utils.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/analyzer_test_options.h"
 #include "zetasql/common/status_payload_utils.h"
@@ -51,9 +52,11 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
+#include "zetasql/public/testing/test_case_options_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -87,6 +90,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -249,7 +253,8 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
         output.analyzer_output_properties(),
         /*parser_output=*/nullptr, output.deprecation_warnings(),
         output.undeclared_parameters(),
-        output.undeclared_positional_parameters(), output.max_column_id());
+        output.undeclared_positional_parameters(), output.max_column_id(),
+        output.runtime_info());
   } else if (output.resolved_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(output.resolved_expr()->Accept(&visitor));
     return std::make_unique<AnalyzerOutput>(
@@ -258,7 +263,8 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
         output.analyzer_output_properties(),
         /*parser_output=*/nullptr, output.deprecation_warnings(),
         output.undeclared_parameters(),
-        output.undeclared_positional_parameters(), output.max_column_id());
+        output.undeclared_positional_parameters(), output.max_column_id(),
+        output.runtime_info());
   }
   ZETASQL_RET_CHECK_FAIL() << "No resolved AST in AnalyzerOutput";
 }
@@ -317,6 +323,10 @@ class AnalyzerTestRunner {
 
     // Force a blank line at the start of every test case.
     absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines, 1);
+  }
+
+  const std::vector<AnalyzerRuntimeInfo>& runtime_info_list() const {
+    return runtime_info_list_;
   }
 
   // CatalogHolder is a wrapper of either a sample catalog or a special catalog,
@@ -656,6 +666,20 @@ class AnalyzerTestRunner {
     options.set_preserve_unnecessary_cast(
         test_case_options_.GetBool(kPreserveUnnecessaryCast));
 
+    {
+      AllowedHintsAndOptions updated_hints_and_options =
+          options.allowed_hints_and_options();
+      std::string additional_allowed_anonymization_options_string =
+          test_case_options_.GetString(kAdditionalAllowedAnonymizationOptions);
+      for (const auto& option : absl::StrSplit(
+               additional_allowed_anonymization_options_string, ',')) {
+        if (option.empty()) continue;
+        updated_hints_and_options.AddAnonymizationOption(std::string(option),
+                                                         types::StringType());
+      }
+      options.set_allowed_hints_and_options(updated_hints_and_options);
+    }
+
     SetupSampleSystemVariables(&type_factory, &options);
     auto catalog_holder = CreateCatalog(options, &type_factory);
 
@@ -678,6 +702,10 @@ class AnalyzerTestRunner {
     if (mode == "statement") {
       status = AnalyzeStatement(test_case, options, catalog, type_factory,
                                 &output);
+
+      if (status.ok()) {
+        runtime_info_list_.push_back(output->runtime_info());
+      }
 
       // For AnalyzeStatementFromASTStatement()
       if (!test_case_options_.GetBool(kUseSharedIdSequence)) {
@@ -1599,7 +1627,9 @@ class AnalyzerTestRunner {
     if (stmt->node_kind() == RESOLVED_QUERY_STMT) {
       stmt->ClearFieldsAccessed();
 
-      Validator validator(options.language());
+      ValidatorOptions validator_options{
+          .allowed_hints_and_options = options.allowed_hints_and_options()};
+      Validator validator(options.language(), std::move(validator_options));
       ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(stmt));
 
       ZETASQL_EXPECT_OK(stmt->CheckFieldsAccessed())
@@ -2546,13 +2576,40 @@ class AnalyzerTestRunner {
   TestDumperCallback test_dumper_callback_ = nullptr;
   std::vector<std::unique_ptr<AnnotationSpec>>
       engine_specific_annotation_specs_;
+  std::vector<AnalyzerRuntimeInfo> runtime_info_list_;
 };
+
+void ValidateRuntimeInfo(const AnalyzerRuntimeInfo& info) {
+  // We can't really check the absolute values, since timers are weird. But
+  // we should able to check that some relative properties hold.
+  for (ResolvedASTRewrite rewriter :
+       zetasql_base::EnumerateEnumValues<ResolvedASTRewrite>()) {
+    EXPECT_LE(info.rewriters_details(rewriter).elapsed_duration(),
+              info.rewriters_elapsed_duration());
+    if (info.rewriters_details(rewriter).elapsed_duration() >
+        absl::Duration{}) {
+      EXPECT_GE(info.rewriters_details(rewriter).count, 0);
+    }
+  }
+  EXPECT_GE(info.sum_elapsed_duration(), absl::Duration{});
+}
 
 bool RunAllTests(TestDumperCallback callback) {
   AnalyzerTestRunner runner(std::move(callback));
   std::string filename = absl::GetFlag(FLAGS_test_file);
-  return file_based_test_driver::RunTestCasesFromFiles(
+  bool result = file_based_test_driver::RunTestCasesFromFiles(
       filename, absl::bind_front(&AnalyzerTestRunner::RunTest, &runner));
+
+  AnalyzerRuntimeInfo aggregate_info;
+  for (const AnalyzerRuntimeInfo& info : runner.runtime_info_list()) {
+    ValidateRuntimeInfo(info);
+    aggregate_info.AccumulateAll(info);
+  }
+
+  ZETASQL_LOG(INFO) << "Aggregate Runtime Info:\n"
+            << aggregate_info.DebugString(runner.runtime_info_list().size());
+
+  return result;
 }
 
 class RunAnalyzerTest : public ::testing::Test {

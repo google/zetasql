@@ -322,7 +322,7 @@ public class FunctionTest {
             "The number of fields of FunctionProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(FunctionProto.getDescriptor().getFields())
-        .hasSize(7);
+        .hasSize(8);
     assertWithMessage(
             "The number of fields in Function class has changed, "
                 + "please also update the proto and serialization code accordingly.")

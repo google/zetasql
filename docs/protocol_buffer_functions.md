@@ -797,6 +797,96 @@ FROM AlbumList;
 +-------------+
 ```
 
+### REPLACE_FIELDS
+
+```sql
+REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
+```
+
+**Description**
+
+Returns a copy of a protocol buffer, replacing the values in one or more fields.
+`field_path` is a delimited path to the protocol buffer field to be replaced.
+
++ If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
+  component of `field_path` is a required field.
++ Replacing subfields will succeed only if the message containing the field is
+  set.
++ Replacing subfields of repeated field is not allowed.
++ A repeated field can be replaced with an `ARRAY` value.
+
+**Return type**
+
+Type of `proto_expression`
+
+**Examples**
+
+To illustrate the usage of this function, we use protocol buffer messages
+`Book` and `BookDetails`.
+
+```
+message Book {
+  required string title = 1;
+  repeated string reviews = 2;
+  optional BookDetails details = 3;
+};
+
+message BookDetails {
+  optional string author = 1;
+  optional int32 chapters = 2;
+};
+```
+
+This statement replaces value of field `title` and subfield `chapters`
+of proto type `Book`. Note that field `details` must be set for the statement
+to succeed.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book(
+    "The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  "The Hummingbird II" AS title,
+  11 AS details.chapters)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird II" details: {chapters: 11 }}                       |
++-----------------------------------------------------------------------------+
+```
+
+The function can replace value of repeated fields.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book("The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  ["A good read!", "Highly recommended."] AS reviews)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
+| details: {chapters: 10 }}                                                   |
++-----------------------------------------------------------------------------+
+```
+
+It can set a field to `NULL`.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book("The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  NULL AS details)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird" }                                                  |
++-----------------------------------------------------------------------------+
+```
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers

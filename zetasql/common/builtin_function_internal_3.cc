@@ -39,21 +39,17 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
-#include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
-#include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -600,58 +596,119 @@ void GetProto3ConversionFunctions(
                  FunctionOptions().set_allow_external_usage(false));
 }
 
-namespace {
+void GetErrorHandlingFunctions(TypeFactory* type_factory,
+                               const ZetaSQLBuiltinFunctionOptions& options,
+                               NameToFunctionMap* functions) {
+  const Function::Mode SCALAR = Function::SCALAR;
+  const Type* bool_type = type_factory->get_bool();
+  const Type* int64_type = type_factory->get_int64();
+  const Type* string_type = type_factory->get_string();
 
-// Checks that the type is an array type and its elements support equality.
-absl::Status CheckArrayTypeElementsSupportsEquality(
-    const Type* type, absl::string_view context_function_name,
-    const LanguageOptions& language_options) {
-  ZETASQL_RET_CHECK(type->IsArray()) << type->DebugString();
-  const ArrayType* array_type = type->AsArray();
-  ZETASQL_RET_CHECK_NE(array_type, nullptr);
-  if (!array_type->element_type()->SupportsEquality(language_options)) {
-    return zetasql_base::InvalidArgumentErrorBuilder()
-           << context_function_name << " cannot be used on argument of type "
-           << array_type->ShortTypeName(language_options.product_mode())
-           << " because the array's element type does not support equality";
-  }
-  return absl::OkStatus();
+  // The signature is declared as
+  //   ERROR(string) -> int64_t
+  // but this is special-cased in the resolver so that the result can be
+  // coerced to anything, similar to untyped NULL.  This allows using this
+  // in expressions like IF(<condition>, <value>, ERROR("message"))
+  // for any value type.  It would be preferable to declare this with an
+  // undefined or templated return type, but that is not allowed.
+  InsertSimpleFunction(functions, options, "error", SCALAR,
+                       {{int64_type, {string_type}, FN_ERROR}});
+
+  InsertSimpleFunction(
+      functions, options, "iferror", SCALAR,
+      {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_IFERROR}});
+
+  InsertSimpleFunction(functions, options, "iserror", SCALAR,
+                       {{bool_type, {ARG_TYPE_ANY_1}, FN_ISERROR}});
+
+  InsertSimpleFunction(functions, options, "nulliferror", SCALAR,
+                       {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_NULLIFERROR}},
+                       FunctionOptions());
 }
 
-// Checks whether the elements of the input argument types supports equality.
-absl::Status CheckArrayIncludesElementsSupportEquality(
-    absl::string_view context_function_name, const FunctionSignature& signature,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options) {
-  ZETASQL_RET_CHECK_EQ(arguments.size(), 2);
-  for (const InputArgumentType& arg : arguments) {
-    if (arg.is_null()) {
-      continue;
-    }
-    ZETASQL_RET_CHECK(arg.type()) << arg.DebugString();
-    ZETASQL_RETURN_IF_ERROR(CheckArrayTypeElementsSupportsEquality(
-        arg.type(), context_function_name, language_options));
-  }
-  return absl::OkStatus();
-}
+void GetConditionalFunctions(TypeFactory* type_factory,
+                             const ZetaSQLBuiltinFunctionOptions& options,
+                             NameToFunctionMap* functions) {
+  const Function::Mode SCALAR = Function::SCALAR;
+  const FunctionArgumentType::ArgumentCardinality REPEATED =
+      FunctionArgumentType::REPEATED;
+  const Type* bool_type = type_factory->get_bool();
 
-// Checks that ARRAY_INCLUDES arguments supports equality.
-absl::Status CheckArrayIncludesArgumentsSupportEquality(
-    const FunctionSignature& signature,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options) {
-  if (signature.context_id() != FN_ARRAY_INCLUDES) {
-    return absl::OkStatus();
-  }
-  ZETASQL_RET_CHECK_EQ(signature.arguments().size(), 2);
-  const FunctionArgumentType& arg = signature.argument(0);
-  ZETASQL_RET_CHECK(arg.type()) << arg.DebugString();
-  ZETASQL_RETURN_IF_ERROR(CheckArrayTypeElementsSupportsEquality(
-      arg.type(), "ARRAY_INCLUDES", language_options));
-  return absl::OkStatus();
-}
+  InsertSimpleFunction(
+      functions, options, "if", SCALAR,
+      {{ARG_TYPE_ANY_1, {bool_type, ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_IF}});
 
-}  // namespace
+  // COALESCE(expr1, ..., exprN): returns the first non-null expression.
+  // In particular, COALESCE is used to express the output of FULL JOIN.
+  InsertSimpleFunction(
+      functions, options, "coalesce", SCALAR,
+      {{ARG_TYPE_ANY_1, {{ARG_TYPE_ANY_1, REPEATED}}, FN_COALESCE}});
+
+  // IFNULL(expr1, expr2): if expr1 is not null, returns expr1, else expr2
+  InsertSimpleFunction(
+      functions, options, "ifnull", SCALAR,
+      {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_IFNULL}});
+
+  // NULLIF(expr1, expr2): NULL if expr1 = expr2, otherwise returns expr1.
+  InsertSimpleFunction(
+      functions, options, "nullif", SCALAR,
+      {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NULLIF}},
+      FunctionOptions().set_post_resolution_argument_constraint(
+          absl::bind_front(&CheckArgumentsSupportEquality, "NULLIF")));
+
+  // From the SQL language perspective, the ELSE clause is optional for both
+  // CASE statement signatures.  However, the parser will normalize the
+  // CASE expressions so they always have the ELSE, and therefore it is defined
+  // here as a required argument in the function signatures.
+  //
+  // CASE (<T2>) WHEN (/*repeated*/ <T2>)
+  //             THEN (/*repeated*/ <T1>)
+  //             ELSE (<T1>) END
+  // <T2> arguments are marked 'AFFECTS_OPERATION' to be considered in
+  // calculating operation collation.
+  // <T1> arguments are marked 'AFFECTS_PROPAGATION' to be considered
+  // in calculating propagation collation.
+  InsertFunction(
+      functions, options, "$case_with_value", SCALAR,
+      {{ARG_TYPE_ANY_1,
+        {{ARG_TYPE_ANY_2,
+          FunctionArgumentTypeOptions().set_argument_collation_mode(
+              FunctionEnums::AFFECTS_OPERATION)},
+         {ARG_TYPE_ANY_2,
+          FunctionArgumentTypeOptions()
+              .set_argument_collation_mode(FunctionEnums::AFFECTS_OPERATION)
+              .set_cardinality(REPEATED)},
+         {ARG_TYPE_ANY_1,
+          FunctionArgumentTypeOptions()
+              .set_argument_collation_mode(FunctionEnums::AFFECTS_PROPAGATION)
+              .set_cardinality(REPEATED)},
+         {ARG_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_argument_collation_mode(
+              FunctionEnums::AFFECTS_PROPAGATION)}},
+        FN_CASE_WITH_VALUE,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("case")
+          .set_supported_signatures_callback(&EmptySupportedSignatures)
+          .set_get_sql_callback(&CaseWithValueFunctionSQL)
+          .set_pre_resolution_argument_constraint(
+              absl::bind_front(&CheckFirstArgumentSupportsEquality,
+                               "CASE (with value comparison)")));
+
+  InsertSimpleFunction(
+      functions, options, "$case_no_value", SCALAR,
+      {{ARG_TYPE_ANY_1,
+        {{bool_type, REPEATED}, {ARG_TYPE_ANY_1, REPEATED}, {ARG_TYPE_ANY_1}},
+        FN_CASE_NO_VALUE}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("case")
+          .set_supported_signatures_callback(&EmptySupportedSignatures)
+          .set_get_sql_callback(&CaseNoValueFunctionSQL)
+          .set_no_matching_signature_callback(
+              &NoMatchingSignatureForCaseNoValueFunction));
+}
 
 void GetMiscellaneousFunctions(TypeFactory* type_factory,
                                const ZetaSQLBuiltinFunctionOptions& options,
@@ -689,39 +746,6 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   const FunctionArgumentType::ArgumentCardinality REPEATED =
       FunctionArgumentType::REPEATED;
 
-  InsertSimpleFunction(
-      functions, options, "if", SCALAR,
-      {{ARG_TYPE_ANY_1, {bool_type, ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_IF}});
-
-  InsertSimpleFunction(
-      functions, options, "iferror", SCALAR,
-      {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_IFERROR}});
-
-  InsertSimpleFunction(functions, options, "iserror", SCALAR,
-                       {{bool_type, {ARG_TYPE_ANY_1}, FN_ISERROR}});
-
-  InsertSimpleFunction(functions, options, "nulliferror", SCALAR,
-                       {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_NULLIFERROR}},
-                       FunctionOptions());
-
-  // COALESCE(expr1, ..., exprN): returns the first non-null expression.
-  // In particular, COALESCE is used to express the output of FULL JOIN.
-  InsertSimpleFunction(
-      functions, options, "coalesce", SCALAR,
-      {{ARG_TYPE_ANY_1, {{ARG_TYPE_ANY_1, REPEATED}}, FN_COALESCE}});
-
-  // IFNULL(expr1, expr2): if expr1 is not null, returns expr1, else expr2
-  InsertSimpleFunction(
-      functions, options, "ifnull", SCALAR,
-      {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_IFNULL}});
-
-  // NULLIF(expr1, expr2): NULL if expr1 = expr2, otherwise returns expr1.
-  InsertSimpleFunction(
-      functions, options, "nullif", SCALAR,
-      {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NULLIF}},
-      FunctionOptions().set_post_resolution_argument_constraint(
-          absl::bind_front(&CheckArgumentsSupportEquality, "NULLIF")));
-
   // ARRAY_LENGTH(expr1): returns the length of the array
   InsertSimpleFunction(functions, options, "array_length", SCALAR,
                        {{int64_type, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_LENGTH}});
@@ -740,86 +764,6 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                      FN_FLATTEN,
                      FunctionSignatureOptions().set_rejects_collation(true)}});
   }
-
-  // array[OFFSET(i)] gets an array element by zero-based position.
-  // array[ORDINAL(i)] gets an array element by one-based position.
-  // If the array or offset is NULL, a NULL of the array element type is
-  // returned. If the position is off either end of the array a OUT_OF_RANGE
-  // error is returned. The SAFE_ variants of the functions have the same
-  // semantics with the exception of returning NULL rather than OUT_OF_RANGE
-  // for a position that is out of bounds.
-  InsertFunction(
-      functions, options, "$array_at_offset", SCALAR,
-      {{ARG_TYPE_ANY_1,
-        {
-            {ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
-                                       .set_uses_array_element_for_collation()},
-            int64_type,
-        },
-        FN_ARRAY_AT_OFFSET}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("array[offset()]")
-          .set_get_sql_callback(&ArrayAtOffsetFunctionSQL));
-  InsertFunction(
-      functions, options, "$array_at_ordinal", SCALAR,
-      {{ARG_TYPE_ANY_1,
-        {{ARG_ARRAY_TYPE_ANY_1,
-          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
-         int64_type},
-        FN_ARRAY_AT_ORDINAL}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("array[ordinal()]")
-          .set_get_sql_callback(&ArrayAtOrdinalFunctionSQL));
-  InsertFunction(
-      functions, options, "$safe_array_at_offset", SCALAR,
-      {{ARG_TYPE_ANY_1,
-        {{ARG_ARRAY_TYPE_ANY_1,
-          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
-         int64_type},
-        FN_SAFE_ARRAY_AT_OFFSET}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("array[safe_offset()]")
-          .set_get_sql_callback(&SafeArrayAtOffsetFunctionSQL));
-  InsertFunction(
-      functions, options, "$safe_array_at_ordinal", SCALAR,
-      {{ARG_TYPE_ANY_1,
-        {{ARG_ARRAY_TYPE_ANY_1,
-          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
-         int64_type},
-        FN_SAFE_ARRAY_AT_ORDINAL}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("array[safe_ordinal()]")
-          .set_get_sql_callback(&SafeArrayAtOrdinalFunctionSQL));
-
-  // array[KEY(key)] gets the array element corresponding to key if present, or
-  // an error if not present.
-  // array[SAFE_KEY(key)] gets the array element corresponding to a key if
-  // present, or else NULL.
-  // In both cases, if the array or the arg is NULL, the result is NULL.
-  InsertSimpleFunction(functions, options, "$proto_map_at_key", SCALAR,
-                       {{ARG_PROTO_MAP_VALUE_ANY,
-                         {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
-                         FN_PROTO_MAP_AT_KEY}},
-                       FunctionOptions()
-                           .set_supports_safe_error_mode(false)
-                           .set_sql_name("array[key()]")
-                           .set_get_sql_callback(&ProtoMapAtKeySQL)
-                           .add_required_language_feature(
-                               LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
-  InsertSimpleFunction(functions, options, "$safe_proto_map_at_key", SCALAR,
-                       {{ARG_PROTO_MAP_VALUE_ANY,
-                         {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
-                         FN_SAFE_PROTO_MAP_AT_KEY}},
-                       FunctionOptions()
-                           .set_supports_safe_error_mode(false)
-                           .set_sql_name("array[safe_key()]")
-                           .set_get_sql_callback(&SafeProtoMapAtKeySQL)
-                           .add_required_language_feature(
-                               LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
 
   // Is a particular key present in a proto map?
   InsertSimpleFunction(functions, options, "contains_key", SCALAR,
@@ -963,59 +907,6 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
       FunctionOptions().set_pre_resolution_argument_constraint(
           &CheckRangeBucketArguments));
 
-  // From the SQL language perspective, the ELSE clause is optional for both
-  // CASE statement signatures.  However, the parser will normalize the
-  // CASE expressions so they always have the ELSE, and therefore it is defined
-  // here as a required argument in the function signatures.
-  //
-  // CASE (<T2>) WHEN (/*repeated*/ <T2>)
-  //             THEN (/*repeated*/ <T1>)
-  //             ELSE (<T1>) END
-  // <T2> arguments are marked 'AFFECTS_OPERATION' to be considered in
-  // calculating operation collation.
-  // <T1> arguments are marked 'AFFECTS_PROPAGATION' to be considered
-  // in calculating propagation collation.
-  InsertFunction(
-      functions, options, "$case_with_value", SCALAR,
-      {{ARG_TYPE_ANY_1,
-        {{ARG_TYPE_ANY_2,
-          FunctionArgumentTypeOptions().set_argument_collation_mode(
-              FunctionEnums::AFFECTS_OPERATION)},
-         {ARG_TYPE_ANY_2,
-          FunctionArgumentTypeOptions()
-              .set_argument_collation_mode(FunctionEnums::AFFECTS_OPERATION)
-              .set_cardinality(REPEATED)},
-         {ARG_TYPE_ANY_1,
-          FunctionArgumentTypeOptions()
-              .set_argument_collation_mode(FunctionEnums::AFFECTS_PROPAGATION)
-              .set_cardinality(REPEATED)},
-         {ARG_TYPE_ANY_1,
-          FunctionArgumentTypeOptions().set_argument_collation_mode(
-              FunctionEnums::AFFECTS_PROPAGATION)}},
-        FN_CASE_WITH_VALUE,
-        FunctionSignatureOptions().set_uses_operation_collation()}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("case")
-          .set_supported_signatures_callback(&EmptySupportedSignatures)
-          .set_get_sql_callback(&CaseWithValueFunctionSQL)
-          .set_pre_resolution_argument_constraint(
-              absl::bind_front(&CheckFirstArgumentSupportsEquality,
-                               "CASE (with value comparison)")));
-
-  InsertSimpleFunction(
-      functions, options, "$case_no_value", SCALAR,
-      {{ARG_TYPE_ANY_1,
-        {{bool_type, REPEATED}, {ARG_TYPE_ANY_1, REPEATED}, {ARG_TYPE_ANY_1}},
-        FN_CASE_NO_VALUE}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("case")
-          .set_supported_signatures_callback(&EmptySupportedSignatures)
-          .set_get_sql_callback(&CaseNoValueFunctionSQL)
-          .set_no_matching_signature_callback(
-              &NoMatchingSignatureForCaseNoValueFunction));
-
   InsertSimpleFunction(
       functions, options, "bit_cast_to_int32", SCALAR,
       {{int32_type, {int32_type}, FN_BIT_CAST_INT32_TO_INT32},
@@ -1120,7 +1011,9 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
         {ARG_ARRAY_TYPE_ANY_1,
          FunctionArgumentType::Lambda({ARG_TYPE_ANY_1, int64_type}, bool_type)},
         FN_ARRAY_FILTER_WITH_INDEX}},
-      FunctionOptions().set_supports_safe_error_mode(false));
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   InsertFunction(
       functions, options, "array_transform", SCALAR,
@@ -1134,44 +1027,47 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
          FunctionArgumentType::Lambda({ARG_TYPE_ANY_1, int64_type},
                                       ARG_TYPE_ANY_2)},
         FN_ARRAY_TRANSFORM_WITH_INDEX}},
-      FunctionOptions().set_supports_safe_error_mode(false));
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   FunctionArgumentTypeOptions supports_equality;
   supports_equality.set_must_support_equality();
+  FunctionArgumentTypeOptions element_supports_equality;
+  element_supports_equality.set_array_element_must_support_equality();
   InsertFunction(
       functions, options, "array_includes", SCALAR,
       /*signatures=*/
-      {{bool_type, {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_ARRAY_INCLUDES},
+      {{bool_type,
+        {{ARG_ARRAY_TYPE_ANY_1, element_supports_equality}, ARG_TYPE_ANY_1},
+        FN_ARRAY_INCLUDES},
        {bool_type,
         {ARG_ARRAY_TYPE_ANY_1,
          FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
         FN_ARRAY_INCLUDES_LAMBDA}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_post_resolution_argument_constraint(
-              &CheckArrayIncludesArgumentsSupportEquality));
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   InsertFunction(functions, options, "array_includes_any", SCALAR,
                  /*signatures=*/
                  {{bool_type,
-                   {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
+                   {{ARG_ARRAY_TYPE_ANY_1, element_supports_equality},
+                    {ARG_ARRAY_TYPE_ANY_1, element_supports_equality}},
                    FN_ARRAY_INCLUDES_ANY}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_post_resolution_argument_constraint(absl::bind_front(
-                         &CheckArrayIncludesElementsSupportEquality,
-                         "ARRAY_INCLUDES_ANY")));
+                 FunctionOptions().set_supports_safe_error_mode(
+                     options.language_options.LanguageFeatureEnabled(
+                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   InsertFunction(functions, options, "array_includes_all", SCALAR,
                  /*signatures=*/
                  {{bool_type,
-                   {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
+                   {{ARG_ARRAY_TYPE_ANY_1, element_supports_equality},
+                    {ARG_ARRAY_TYPE_ANY_1, element_supports_equality}},
                    FN_ARRAY_INCLUDES_ALL}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_post_resolution_argument_constraint(absl::bind_front(
-                         &CheckArrayIncludesElementsSupportEquality,
-                         "ARRAY_INCLUDES_ALL")));
+                 FunctionOptions().set_supports_safe_error_mode(
+                     options.language_options.LanguageFeatureEnabled(
+                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   InsertFunction(
       functions, options, "array_first", SCALAR,
@@ -1195,6 +1091,70 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                    {ARG_ARRAY_TYPE_ANY_1, int64_type, int64_type},
                    FN_ARRAY_SLICE}});
 
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_STRING_AS_ENUM_ARGUMENT)) {
+    InsertFunction(
+        functions, options, "array_offset", SCALAR,
+        /*signatures=*/
+        {{int64_type,
+          {{ARG_ARRAY_TYPE_ANY_1,
+            FunctionArgumentTypeOptions()
+                .set_array_element_must_support_equality()},
+           {ARG_TYPE_ANY_1,
+            FunctionArgumentTypeOptions().set_must_support_equality()},
+           // TODO: Change 3rd argument of the signature to an ENUM
+           // type when ENUM is productionized.
+           {string_type, FunctionArgumentTypeOptions(OPTIONAL)
+                             .set_must_be_constant()
+                             .set_default(Value::String("FIRST"))}},
+          FN_ARRAY_OFFSET,
+          FunctionSignatureOptions().set_uses_operation_collation()}});
+
+    InsertFunction(
+        functions, options, "array_offsets", SCALAR,
+        /*signatures=*/
+        {{int64_array_type,
+          {{ARG_ARRAY_TYPE_ANY_1,
+            FunctionArgumentTypeOptions()
+                .set_array_element_must_support_equality()},
+           {ARG_TYPE_ANY_1,
+            FunctionArgumentTypeOptions().set_must_support_equality()}},
+          FN_ARRAY_OFFSETS,
+          FunctionSignatureOptions().set_uses_operation_collation()}});
+
+    InsertFunction(
+        functions, options, "array_find", SCALAR,
+        /*signatures=*/
+        {{ARG_TYPE_ANY_1,
+          {{ARG_ARRAY_TYPE_ANY_1,
+            FunctionArgumentTypeOptions()
+                .set_uses_array_element_for_collation()
+                .set_array_element_must_support_equality()},
+           {ARG_TYPE_ANY_1,
+            FunctionArgumentTypeOptions().set_must_support_equality()},
+           // TODO: Change 3rd argument of the signature to an ENUM
+           // type when ENUM is productionized.
+           {string_type, FunctionArgumentTypeOptions(OPTIONAL)
+                             .set_must_be_constant()
+                             .set_default(Value::String("FIRST"))}},
+          FN_ARRAY_FIND,
+          FunctionSignatureOptions().set_uses_operation_collation()}});
+
+    InsertFunction(
+        functions, options, "array_find_all", SCALAR,
+        /*signatures=*/
+        {{{ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                                     .set_uses_array_element_for_collation()},
+          {{ARG_ARRAY_TYPE_ANY_1,
+            FunctionArgumentTypeOptions()
+                .set_uses_array_element_for_collation()
+                .set_array_element_must_support_equality()},
+           {ARG_TYPE_ANY_1,
+            FunctionArgumentTypeOptions().set_must_support_equality()}},
+          FN_ARRAY_FIND_ALL,
+          FunctionSignatureOptions().set_uses_operation_collation()}});
+  }
+
   FunctionOptions function_is_volatile;
   function_is_volatile.set_volatility(FunctionEnums::VOLATILE);
 
@@ -1204,16 +1164,6 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   InsertSimpleFunction(functions, options, "generate_uuid", SCALAR,
                        {{string_type, {}, FN_GENERATE_UUID}},
                        function_is_volatile);
-
-  // The signature is declared as
-  //   ERROR(string) -> int64_t
-  // but this is special-cased in the resolver so that the result can be
-  // coerced to anything, similar to untyped NULL.  This allows using this
-  // in expressions like IF(<condition>, <value>, ERROR("message"))
-  // for any value type.  It would be preferable to declare this with an
-  // undefined or templated return type, but that is not allowed.
-  InsertSimpleFunction(functions, options, "error", SCALAR,
-                       {{int64_type, {string_type}, FN_ERROR}});
 
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL)) {
@@ -1254,10 +1204,179 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   }
 }
 
+void GetArrayAggregationFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions) {
+  const Type* int64_type = type_factory->get_int64();
+  const Type* uint64_type = type_factory->get_uint64();
+  const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
+  const Type* double_type = type_factory->get_double();
+  const Type* interval_type = types::IntervalType();
+
+  const Type* int32_array_type = types::Int32ArrayType();
+  const Type* int64_array_type = types::Int64ArrayType();
+  const Type* uint32_array_type = types::Uint32ArrayType();
+  const Type* uint64_array_type = types::Uint64ArrayType();
+  const Type* numeric_array_type = types::NumericArrayType();
+  const Type* bignumeric_array_type = types::BigNumericArrayType();
+  const Type* float_array_type = types::FloatArrayType();
+  const Type* double_array_type = types::DoubleArrayType();
+  const Type* interval_array_type = types::IntervalArrayType();
+
+  const Function::Mode SCALAR = Function::SCALAR;
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS)) {
+    // ARRAY_SUM follows the same input and output types mapping rule defined
+    // for SUM, which implicitly coerced the following types:
+    //   INT32 -> INT64, UINT32 -> UINT64, and FLOAT -> DOUBLE
+    // Note that there are no defined rules for ARRAY<T1> type to be implicitly
+    // coerced to ARRAY<T2>. For example:
+    //   ARRAY<INT32> -> ARRAY<INT64>
+    //   ARRAY<UINT32> -> ARRAY<UINT64>
+    //   ARRAY<FLOAT> -> ARRAY<DOUBLE>
+    // So concrete typed signatures are required to fill the gap for the above
+    // mapping.
+    InsertFunction(
+        functions, options, "array_sum", SCALAR,
+        /*signatures=*/
+        {{int64_type, {int32_array_type}, FN_ARRAY_SUM_INT32},
+         {uint64_type, {uint32_array_type}, FN_ARRAY_SUM_UINT32},
+         {double_type, {float_array_type}, FN_ARRAY_SUM_FLOAT},
+         {int64_type, {int64_array_type}, FN_ARRAY_SUM_INT64},
+         {uint64_type, {uint64_array_type}, FN_ARRAY_SUM_UINT64},
+         {double_type, {double_array_type}, FN_ARRAY_SUM_DOUBLE},
+         {numeric_type, {numeric_array_type}, FN_ARRAY_SUM_NUMERIC},
+         {bignumeric_type, {bignumeric_array_type}, FN_ARRAY_SUM_BIGNUMERIC},
+         {interval_type, {interval_array_type}, FN_ARRAY_SUM_INTERVAL}});
+    InsertFunction(
+        functions, options, "array_avg", SCALAR,
+        /*signatures=*/
+        {{double_type, {int32_array_type}, FN_ARRAY_AVG_INT32},
+         {double_type, {int64_array_type}, FN_ARRAY_AVG_INT64},
+         {double_type, {uint32_array_type}, FN_ARRAY_AVG_UINT32},
+         {double_type, {uint64_array_type}, FN_ARRAY_AVG_UINT64},
+         {double_type, {float_array_type}, FN_ARRAY_AVG_FLOAT},
+         {double_type, {double_array_type}, FN_ARRAY_AVG_DOUBLE},
+         {numeric_type, {numeric_array_type}, FN_ARRAY_AVG_NUMERIC},
+         {bignumeric_type, {bignumeric_array_type}, FN_ARRAY_AVG_BIGNUMERIC},
+         {interval_type, {interval_array_type}, FN_ARRAY_AVG_INTERVAL}});
+  }
+
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_DISABLE_ARRAY_MIN_AND_MAX)) {
+    InsertFunction(
+        functions, options, "array_min", SCALAR,
+        /*signatures=*/
+        {{{ARG_TYPE_ANY_1},
+          {{ARG_ARRAY_TYPE_ANY_1,
+            FunctionArgumentTypeOptions()
+                .set_uses_array_element_for_collation()
+                .set_array_element_must_support_ordering()}},
+          FN_ARRAY_MIN,
+          FunctionSignatureOptions().set_uses_operation_collation()}});
+
+    InsertFunction(
+        functions, options, "array_max", SCALAR,
+        /*signatures=*/
+        {{ARG_TYPE_ANY_1,
+          {{ARG_ARRAY_TYPE_ANY_1,
+            FunctionArgumentTypeOptions()
+                .set_uses_array_element_for_collation()
+                .set_array_element_must_support_ordering()}},
+          FN_ARRAY_MAX,
+          FunctionSignatureOptions().set_uses_operation_collation()}});
+  }
+}
+
 // This function requires <type_factory>, <functions> to be not nullptr.
 void GetSubscriptFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,
                            NameToFunctionMap* functions) {
+  const Function::Mode SCALAR = Function::SCALAR;
+  const Type* int64_type = type_factory->get_int64();
+
+  // array[OFFSET(i)] gets an array element by zero-based position.
+  // array[ORDINAL(i)] gets an array element by one-based position.
+  // If the array or offset is NULL, a NULL of the array element type is
+  // returned. If the position is off either end of the array a OUT_OF_RANGE
+  // error is returned. The SAFE_ variants of the functions have the same
+  // semantics with the exception of returning NULL rather than OUT_OF_RANGE
+  // for a position that is out of bounds.
+  InsertFunction(
+      functions, options, "$array_at_offset", SCALAR,
+      {{ARG_TYPE_ANY_1,
+        {
+            {ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                                       .set_uses_array_element_for_collation()},
+            int64_type,
+        },
+        FN_ARRAY_AT_OFFSET}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("array[offset()]")
+          .set_get_sql_callback(&ArrayAtOffsetFunctionSQL));
+  InsertFunction(
+      functions, options, "$array_at_ordinal", SCALAR,
+      {{ARG_TYPE_ANY_1,
+        {{ARG_ARRAY_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+         int64_type},
+        FN_ARRAY_AT_ORDINAL}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("array[ordinal()]")
+          .set_get_sql_callback(&ArrayAtOrdinalFunctionSQL));
+  InsertFunction(
+      functions, options, "$safe_array_at_offset", SCALAR,
+      {{ARG_TYPE_ANY_1,
+        {{ARG_ARRAY_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+         int64_type},
+        FN_SAFE_ARRAY_AT_OFFSET}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("array[safe_offset()]")
+          .set_get_sql_callback(&SafeArrayAtOffsetFunctionSQL));
+  InsertFunction(
+      functions, options, "$safe_array_at_ordinal", SCALAR,
+      {{ARG_TYPE_ANY_1,
+        {{ARG_ARRAY_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+         int64_type},
+        FN_SAFE_ARRAY_AT_ORDINAL}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("array[safe_ordinal()]")
+          .set_get_sql_callback(&SafeArrayAtOrdinalFunctionSQL));
+
+  // array[KEY(key)] gets the array element corresponding to key if present, or
+  // an error if not present.
+  // array[SAFE_KEY(key)] gets the array element corresponding to a key if
+  // present, or else NULL.
+  // In both cases, if the array or the arg is NULL, the result is NULL.
+  InsertSimpleFunction(functions, options, "$proto_map_at_key", SCALAR,
+                       {{ARG_PROTO_MAP_VALUE_ANY,
+                         {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
+                         FN_PROTO_MAP_AT_KEY}},
+                       FunctionOptions()
+                           .set_supports_safe_error_mode(false)
+                           .set_sql_name("array[key()]")
+                           .set_get_sql_callback(&ProtoMapAtKeySQL)
+                           .add_required_language_feature(
+                               LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
+  InsertSimpleFunction(functions, options, "$safe_proto_map_at_key", SCALAR,
+                       {{ARG_PROTO_MAP_VALUE_ANY,
+                         {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
+                         FN_SAFE_PROTO_MAP_AT_KEY}},
+                       FunctionOptions()
+                           .set_supports_safe_error_mode(false)
+                           .set_sql_name("array[safe_key()]")
+                           .set_get_sql_callback(&SafeProtoMapAtKeySQL)
+                           .add_required_language_feature(
+                               LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
+
   // The analyzer has been extended to recognize the subscript operator ([]).
   // ZetaSQLcurrently only supports this for JSON, iff the JSON feature is
   // enabled.
@@ -2664,11 +2783,13 @@ void GetGeographyFunctions(TypeFactory* type_factory,
       FunctionArgumentTypeOptions().set_must_be_constant().set_cardinality(
           OPTIONAL);
 
-  auto const_with_mandatory_name = [](const std::string& name) {
+  auto const_with_mandatory_name_and_default_value = [](const std::string& name,
+                                                        Value default_value) {
     return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
         .set_must_be_constant()
         .set_argument_name_is_mandatory(true)
-        .set_argument_name(name);
+        .set_argument_name(name)
+        .set_default(default_value);
   };
 
   auto arg_with_mandatory_name_and_default_value = [](const std::string& name,
@@ -2872,6 +2993,9 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   InsertSimpleFunction(functions, options, "st_isclosed", SCALAR,
                        {{bool_type, {geography_type}, FN_ST_IS_CLOSED}},
                        geography_required);
+  InsertSimpleFunction(functions, options, "st_isring", SCALAR,
+                       {{bool_type, {geography_type}, FN_ST_IS_RING}},
+                       geography_required);
 
   // Measures
   InsertSimpleFunction(
@@ -2943,23 +3067,27 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                    FN_ST_GEOG_FROM_TEXT},
                   {geography_type,
                    {string_type,
-                    {bool_type, const_with_mandatory_name("oriented")},
-                    {bool_type, const_with_mandatory_name("planar")},
-                    {bool_type, const_with_mandatory_name("make_valid")}},
+                    {bool_type, const_with_mandatory_name_and_default_value(
+                                    "oriented", Value::Bool(false))},
+                    {bool_type, const_with_mandatory_name_and_default_value(
+                                    "planar", Value::Bool(false))},
+                    {bool_type, const_with_mandatory_name_and_default_value(
+                                    "make_valid", Value::Bool(false))}},
                    FN_ST_GEOG_FROM_TEXT_EXT,
                    extended_parser_signatures}},
                  geography_required);
   InsertSimpleFunction(functions, options, "st_geogfromkml", SCALAR,
                        {{geography_type, {string_type}, FN_ST_GEOG_FROM_KML}},
                        geography_required);
-  InsertFunction(
-      functions, options, "st_geogfromgeojson", SCALAR,
-      {{geography_type, {string_type}, FN_ST_GEOG_FROM_GEO_JSON},
-       {geography_type,
-        {string_type, {bool_type, const_with_mandatory_name("make_valid")}},
-        FN_ST_GEOG_FROM_GEO_JSON_EXT,
-        extended_parser_signatures}},
-      geography_required);
+  InsertFunction(functions, options, "st_geogfromgeojson", SCALAR,
+                 {{geography_type, {string_type}, FN_ST_GEOG_FROM_GEO_JSON},
+                  {geography_type,
+                   {string_type,
+                    {bool_type, const_with_mandatory_name_and_default_value(
+                                    "make_valid", Value::Bool(false))}},
+                   FN_ST_GEOG_FROM_GEO_JSON_EXT,
+                   extended_parser_signatures}},
+                 geography_required);
   InsertFunction(functions, options, "st_geogfromwkb", SCALAR,
                  {{geography_type, {bytes_type}, FN_ST_GEOG_FROM_WKB},
                   {geography_type,
@@ -3444,6 +3572,34 @@ void GetAnonFunctions(TypeFactory* type_factory,
               .set_sql_name("anon_sum")
               .set_get_sql_callback(&AnonSumWithReportProtoFunctionSQL),
           "sum"));
+
+  InsertCreatedFunction(
+      functions, options,
+      new AnonFunction(
+          "$anon_avg_with_report_json", Function::kZetaSQLFunctionGroupName,
+          {{json_type,
+            {/*expr=*/double_type,
+             /*lower_bound=*/{double_type, optional_const_arg_options},
+             /*upper_bound=*/{double_type, optional_const_arg_options}},
+            FN_ANON_AVG_DOUBLE_WITH_REPORT_JSON}},
+          anon_options.Copy()
+              .set_sql_name("anon_avg")
+              .set_get_sql_callback(&AnonAvgWithReportJsonFunctionSQL),
+          "avg"));
+
+  InsertCreatedFunction(
+      functions, options,
+      new AnonFunction(
+          "$anon_avg_with_report_proto", Function::kZetaSQLFunctionGroupName,
+          {{anon_output_with_report_proto_type,
+            {/*expr=*/double_type,
+             /*lower_bound=*/{double_type, optional_const_arg_options},
+             /*upper_bound=*/{double_type, optional_const_arg_options}},
+            FN_ANON_AVG_DOUBLE_WITH_REPORT_PROTO}},
+          anon_options.Copy()
+              .set_sql_name("anon_avg")
+              .set_get_sql_callback(&AnonAvgWithReportProtoFunctionSQL),
+          "avg"));
 }
 
 void GetTypeOfFunction(TypeFactory* type_factory,
@@ -3471,6 +3627,45 @@ void GetFilterFieldsFunction(TypeFactory* type_factory,
     InsertFunction(functions, options, "filter_fields", Function::SCALAR,
                    empty_signatures, fn_options);
   }
+}
+
+absl::Status RangeFunctionPreResolutionArgumentConstraint(
+    const std::vector<InputArgumentType>& args, const LanguageOptions& opts) {
+  if (args.size() != 2) {
+    return MakeSqlError() << "RANGE() must take exactly two arguments";
+  }
+  if (args[0].is_null() && args[1].is_null()) {
+    return MakeSqlError() << "at least one of RANGE() arguments must be typed";
+  }
+  if (args[0].type() != args[1].type() && !args[0].is_null() &&
+      !args[1].is_null()) {
+    return MakeSqlError() << "RANGE() arguments must be of the same type";
+  }
+
+  int element_type_idx = 0;
+  if (args[0].is_null()) {
+    element_type_idx = 1;
+  }
+  if (args[element_type_idx].type() == nullptr ||
+      !RangeType::IsValidElementType(args[element_type_idx].type())) {
+    return MakeSqlError() << args[element_type_idx].UserFacingName(
+                                 opts.product_mode())
+                          << " is not supported by RANGE()";
+  }
+  return absl::OkStatus();
+}
+
+void GetRangeFunctions(TypeFactory* type_factory,
+                       const ZetaSQLBuiltinFunctionOptions& options,
+                       NameToFunctionMap* functions) {
+  InsertFunction(functions, options, "range", Function::SCALAR,
+                 {{
+                     ARG_RANGE_TYPE_ANY,
+                     {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+                     FN_RANGE,
+                 }},
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &RangeFunctionPreResolutionArgumentConstraint));
 }
 
 }  // namespace zetasql

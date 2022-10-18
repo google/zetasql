@@ -317,7 +317,7 @@ static QueryParamsWithResult::FeatureSet GetFeatureSetForDateTimestampPart(
     case WEEK_SATURDAY:
       return {FEATURE_V_1_2_WEEK_WITH_WEEKDAY};
     default:
-      return QueryParamsWithResult::kEmptyFeatureSet;
+      return {};
   }
 }
 static QueryParamsWithResult::FeatureSet GetFeatureSetForDateTimestampPart(
@@ -486,20 +486,20 @@ std::vector<FunctionTestCall> GetFunctionTestsDateTrunc() {
   auto date_trunc = [part_type](std::string date, std::string part,
                                 std::string result) {
     const Value part_value = Enum(part_type, part);
-    const QueryParamsWithResult::Result date_result(DateFromStr(result));
-    return FunctionTestCall(
-        "date_trunc", {DateFromStr(date), part_value},
-        {{GetFeatureSetForDateTimestampPart(part_value.enum_value()),
-          date_result}});
+    QueryParamsWithResult test_case({DateFromStr(date), part_value},
+                                    DateFromStr(result));
+    test_case.AddRequiredFeatures(
+        GetFeatureSetForDateTimestampPart(part_value.enum_value()));
+    return FunctionTestCall("date_trunc", test_case);
   };
 
   auto date_trunc_error = [part_type](std::string date, std::string part) {
     const Value part_value = Enum(part_type, part);
-    const QueryParamsWithResult::Result error_result(NullDate(), OUT_OF_RANGE);
-    return FunctionTestCall(
-        "date_trunc", {DateFromStr(date), part_value},
-        {{GetFeatureSetForDateTimestampPart(part_value.enum_value()),
-          error_result}});
+    QueryParamsWithResult test_case({DateFromStr(date), part_value}, NullDate(),
+                                    OUT_OF_RANGE);
+    test_case.AddRequiredFeatures(
+        GetFeatureSetForDateTimestampPart(part_value.enum_value()));
+    return FunctionTestCall("date_trunc", test_case);
   };
 
   return {
@@ -556,11 +556,16 @@ std::vector<FunctionTestCall> GetFunctionTestsDateTrunc() {
 static std::vector<FunctionTestCall> PrepareCivilTimeTestCaseAsFunctionTestCall(
     const std::vector<CivilTimeTestCase>& test_cases,
     const std::string& function_name) {
+  std::vector<QueryParamsWithResult> cases_with_features;
+  cases_with_features.reserve(test_cases.size());
+  for (const auto& each : test_cases) {
+    AddTestCaseWithWrappedResultForCivilTimeAndNanos(each,
+                                                     &cases_with_features);
+  }
   std::vector<FunctionTestCall> out;
   out.reserve(test_cases.size());
-  for (const auto& each : test_cases) {
-    out.push_back(
-        FunctionTestCall(function_name, WrapResultForCivilTimeAndNanos(each)));
+  for (const auto& each : cases_with_features) {
+    out.emplace_back(function_name, each);
   }
   return out;
 }
@@ -2339,11 +2344,11 @@ static std::vector<FunctionTestCall> GetFunctionTestsDateDiff() {
                                const std::string& date2,
                                const std::string& part, int64_t result) {
     const Value part_value = Enum(part_type, part);
-    const QueryParamsWithResult::Result diff_result(Int64(result));
-    return FunctionTestCall(
-        "date_diff", {DateFromStr(date1), DateFromStr(date2), part_value},
-        {{GetFeatureSetForDateTimestampPart(part_value.enum_value()),
-          diff_result}});
+    QueryParamsWithResult test_case(
+        {DateFromStr(date1), DateFromStr(date2), part_value}, Int64(result));
+    test_case.AddRequiredFeatures(
+        GetFeatureSetForDateTimestampPart(part_value.enum_value()));
+    return FunctionTestCall("date_diff", test_case);
   };
 
   std::vector<FunctionTestCall> tests({
@@ -2654,12 +2659,13 @@ FunctionTestCall TimestampTruncTest(const std::string& timestamp_string,
                                     &timestamp)) << timestamp_string;
   int64_t expected_timestamp;
   ZETASQL_CHECK_OK(ConvertStringToTimestamp(expected_result, timezone, kMicroseconds,
-                                    &expected_timestamp)) << expected_result;
-  const QueryParamsWithResult::Result result(Timestamp(expected_timestamp));
-
-  return {"timestamp_trunc",
-          {Timestamp(timestamp), GetDatePartValue(part), timezone},
-          {{GetFeatureSetForDateTimestampPart(part), result}}};
+                                    &expected_timestamp))
+      << expected_result;
+  QueryParamsWithResult test_case(
+      {Timestamp(timestamp), GetDatePartValue(part), timezone},
+      Timestamp(expected_timestamp));
+  test_case.AddRequiredFeatures(GetFeatureSetForDateTimestampPart(part));
+  return {"timestamp_trunc", test_case};
 }
 
 // Helper function for constructing TIMESTAMP_TRUNC tests for error cases.
@@ -5843,57 +5849,67 @@ static std::vector<ParseDateTest> GetParseDateTests() {
   return tests;
 }
 
-static QueryParamsWithResult::ResultMap GetResultMapWithMicroAndNanoResults(
-    const QueryParamsWithResult::Result& micro_result,
-    const QueryParamsWithResult::Result& nano_result) {
-  std::set<LanguageFeature> features;
-  std::set<LanguageFeature> empty_features;
-  features.insert(FEATURE_TIMESTAMP_NANOS);
-
-  return {{empty_features, micro_result}, {features, nano_result}};
+static Value GetMicrosResult(const ParseTimestampTest& test) {
+  if (test.expected_result().empty()) {
+    return NullTimestamp();
+  }
+  absl::Time timestamp;
+  absl::TimeZone zone;
+  ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(test.expected_result(), zone,
+                                               kNanoseconds, true, &timestamp));
+  return Value::Timestamp(timestamp);
 }
 
-static QueryParamsWithResult::ResultMap GetResultMapWithMicroAndNanoResults(
-    const ParseTimestampTest& test) {
-  std::unique_ptr<QueryParamsWithResult::Result> micro_result;
-  std::unique_ptr<QueryParamsWithResult::Result> nano_result;
-  if (test.expected_result().empty()) {
-    micro_result = std::make_unique<QueryParamsWithResult::Result>(
-        NullTimestamp(), OUT_OF_RANGE);
-  } else {
-    absl::Time timestamp;
-    absl::TimeZone zone;
-    ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
-    ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
-        test.expected_result(), zone, kNanoseconds, true, &timestamp));
-    micro_result = std::make_unique<QueryParamsWithResult::Result>(
-        Value::Timestamp(timestamp));
-  }
-
+static Value GetNanosResult(const ParseTimestampTest& test) {
   if (test.nano_expected_result().empty()) {
-    nano_result = std::make_unique<QueryParamsWithResult::Result>(
-        NullTimestamp(), OUT_OF_RANGE);
-  } else {
-    absl::Time timestamp;
-    absl::TimeZone zone;
-    ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
-    ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
-        test.nano_expected_result(), zone, kNanoseconds, true, &timestamp));
-    nano_result = std::make_unique<QueryParamsWithResult::Result>(
-        Value::Timestamp(timestamp));
+    return NullTimestamp();
   }
-  return GetResultMapWithMicroAndNanoResults(*micro_result, *nano_result);
+  absl::Time timestamp;
+  absl::TimeZone zone;
+  ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      test.nano_expected_result(), zone, kNanoseconds, true, &timestamp));
+  return Value::Timestamp(timestamp);
+}
+
+static void AddTestCasesForParseTimestampTest(
+    const ParseTimestampTest& test, absl::string_view function_name,
+    const std::vector<ValueConstructor>& args,
+    std::vector<FunctionTestCall>& tests) {
+  if (test.expected_result().empty() && test.nano_expected_result().empty()) {
+    tests.emplace_back(function_name, args, NullTimestamp(),
+                       absl::StatusCode::kOutOfRange);
+    return;
+  }
+  Value micros_value = GetMicrosResult(test);
+  Value nanos_value = GetNanosResult(test);
+  if (test.expected_result() == test.nano_expected_result()) {
+    tests.emplace_back(function_name,
+                       QueryParamsWithResult(args, micros_value));
+    return;
+  }
+  absl::StatusCode micros_status = IsExpectedError(test.expected_result())
+                                       ? absl::StatusCode::kOutOfRange
+                                       : absl::StatusCode::kOk;
+  tests.emplace_back(function_name,
+                     QueryParamsWithResult(args, micros_value, micros_status)
+                         .AddProhibitedFeature(FEATURE_TIMESTAMP_NANOS));
+  absl::StatusCode nanos_status = IsExpectedError(test.nano_expected_result())
+                                      ? absl::StatusCode::kOutOfRange
+                                      : absl::StatusCode::kOk;
+  tests.emplace_back(function_name,
+                     QueryParamsWithResult(args, nanos_value, nanos_status)
+                         .AddRequiredFeature(FEATURE_TIMESTAMP_NANOS));
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp() {
   std::vector<FunctionTestCall> tests;
   for (const ParseTimestampTest& test : GetParseTimestampTests()) {
-    QueryParamsWithResult::ResultMap micro_and_nano_results =
-        GetResultMapWithMicroAndNanoResults(test);
-    tests.push_back({"parse_timestamp",
-                     {String(test.format()), String(test.timestamp_string()),
-                      String(test.default_time_zone())},
-                     micro_and_nano_results});
+    std::vector<ValueConstructor> args = {String(test.format()),
+                                          String(test.timestamp_string()),
+                                          String(test.default_time_zone())};
+    AddTestCasesForParseTimestampTest(test, "parse_timestamp", args, tests);
   }
 
   // Adds PARSE_DATE() tests.
@@ -7116,13 +7132,6 @@ static std::vector<CastStringToDateTest> GetCastStringToDateTests() {
 
 #undef EXPECT_ERROR
 
-static QueryParamsWithResult::ResultMap
-GetResultMapWithNullMicroAndNanoResults() {
-  return GetResultMapWithMicroAndNanoResults(
-      QueryParamsWithResult::Result(NullTimestamp()),
-      QueryParamsWithResult::Result(NullTimestamp()));
-}
-
 static std::vector<FunctionTestCall> GetFunctionTestsCastStringToTime() {
   std::vector<CivilTimeTestCase> test_cases;
   // Add common test cases.
@@ -7255,14 +7264,11 @@ std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp() {
   // Adds CAST_STRING_TO_TIMESTAMP() tests.
   for (const CastStringToTimestampTest& test :
        GetCastStringToTimestampTests()) {
-    QueryParamsWithResult::ResultMap micro_and_nano_results =
-        GetResultMapWithMicroAndNanoResults(test);
-
-    tests.push_back({"cast_string_to_timestamp",
-                     {String(test.format()), String(test.timestamp_string()),
-                      String(test.default_time_zone()),
-                      Timestamp(test.current_timestamp())},
-                     micro_and_nano_results});
+    std::vector<ValueConstructor> args = {
+        String(test.format()), String(test.timestamp_string()),
+        String(test.default_time_zone()), Timestamp(test.current_timestamp())};
+    AddTestCasesForParseTimestampTest(test, "cast_string_to_timestamp", args,
+                                      tests);
   }
 
   // Null arguments handling.
@@ -7272,21 +7278,21 @@ std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp() {
   tests.push_back(
       {"cast_string_to_timestamp",
        {NullString(), String(""), String("UTC"), Timestamp(ts_1970_1_1_utc)},
-       GetResultMapWithNullMicroAndNanoResults()});
+       NullTimestamp()});
   tests.push_back(
       {"cast_string_to_timestamp",
        {String(""), NullString(), String("UTC"), Timestamp(ts_1970_1_1_utc)},
-       GetResultMapWithNullMicroAndNanoResults()});
+       NullTimestamp()});
   tests.push_back(
       {"cast_string_to_timestamp",
        {String(""), String(""), NullString(), Timestamp(ts_1970_1_1_utc)},
-       GetResultMapWithNullMicroAndNanoResults()});
+       NullTimestamp()});
   tests.push_back({"cast_string_to_timestamp",
                    {String(""), String(""), String("UTC"), NullTimestamp()},
-                   GetResultMapWithNullMicroAndNanoResults()});
+                   NullTimestamp()});
   tests.push_back({"cast_string_to_timestamp",
                    {NullString(), NullString(), NullString(), NullTimestamp()},
-                   GetResultMapWithNullMicroAndNanoResults()});
+                   NullTimestamp()});
 
   // Adds CAST_STRING_TO_DATE() tests.
   for (const CastStringToDateTest& test : GetCastStringToDateTests()) {
@@ -7380,31 +7386,21 @@ void AddIsoYearWeekExtractTestsWithDate(
                           civil_time_test_cases);
 }
 
-// Returns the QueryParamsWithResult::ResultMap corresponding to a function test
-// call that extracts 'date_part' and expects 'expected_value' if
-// FEATURE_V_1_2_WEEK_WITH_WEEKDAY is enabled. Also sets 'required_feature_set'
-// to the feature set required for success (either empty or
+// Returns the feature set required for the date part (either empty or
 // {FEATURE_V_1_2_WEEK_WITH_WEEKDAY}.
-static QueryParamsWithResult::ResultMap GetCustomWeekResultMap(
-    int date_part, const Value& expected_value,
-    QueryParamsWithResult::FeatureSet* required_feature_set) {
-  const QueryParamsWithResult::Result expected_result(expected_value);
+static QueryParamsWithResult::FeatureSet GetCustomWeekRequiredFeatures(
+    int date_part) {
   switch (date_part) {
     case WEEK:
     case ISOWEEK:
-      // WEEK and ISOWEEK are supported even if FEATURE_V_1_2_WEEK_WITH_WEEKDAY
-      // is disabled.
-      *required_feature_set = QueryParamsWithResult::kEmptyFeatureSet;
-      return {{*required_feature_set, expected_result},
-              {{FEATURE_V_1_2_WEEK_WITH_WEEKDAY}, expected_result}};
+      return {};
     case WEEK_MONDAY:
     case WEEK_TUESDAY:
     case WEEK_WEDNESDAY:
     case WEEK_THURSDAY:
     case WEEK_FRIDAY:
     case WEEK_SATURDAY:
-      *required_feature_set = {FEATURE_V_1_2_WEEK_WITH_WEEKDAY};
-      return {{*required_feature_set, expected_result}};
+      return {FEATURE_V_1_2_WEEK_WITH_WEEKDAY};
     default:
       ZETASQL_LOG(FATAL) << "Unexpected date part: " << date_part;
   }
@@ -7455,12 +7451,17 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
        {"WEEK_MONDAY", "WEEK_TUESDAY", "WEEK_WEDNESDAY", "WEEK_THURSDAY",
         "WEEK_FRIDAY", "WEEK_SATURDAY"}) {
     const Value part_enum_value = Enum(part_enum, date_part);
-    QueryParamsWithResult::FeatureSet required_feature_set;
-    const QueryParamsWithResult::ResultMap result_map = GetCustomWeekResultMap(
-        part_enum_value.enum_value(), NullInt64(), &required_feature_set);
-    tests.push_back({"extract", {NullDate(), part_enum_value}, result_map});
+    QueryParamsWithResult::FeatureSet required_feature_set =
+        GetCustomWeekRequiredFeatures(part_enum_value.enum_value());
+
     tests.push_back(
-        {"extract", {NullTimestamp(), part_enum_value}, result_map});
+        {"extract",
+         QueryParamsWithResult({NullDate(), part_enum_value}, NullInt64())
+             .AddRequiredFeatures(required_feature_set)});
+    tests.push_back(
+        {"extract",
+         QueryParamsWithResult({NullTimestamp(), part_enum_value}, NullInt64())
+             .AddRequiredFeatures(required_feature_set)});
     civil_time_test_cases.push_back(CivilTimeTestCase(
         {{NullDatetime(), Enum(part_enum, date_part)}}, NullInt64(),
         /*output_type=*/nullptr, required_feature_set));
@@ -7690,22 +7691,24 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
         }
 
         const Value part_enum_value = Enum(part_enum, date_part);
-        QueryParamsWithResult::FeatureSet required_feature_set;
-        const QueryParamsWithResult::ResultMap result_map =
-            GetCustomWeekResultMap(part_enum_value.enum_value(),
-                                   Int64(week_number), &required_feature_set);
+        QueryParamsWithResult::FeatureSet required_feature_set =
+            GetCustomWeekRequiredFeatures(part_enum_value.enum_value());
 
         // No timezone because EXTRACT from DATE does not support AT TIME ZONE.
         tests.push_back(
             {"extract",
-             {Date(static_cast<int32_t>(day - absl::CivilDay(1970))),
-              part_enum_value},
-             result_map});
+             QueryParamsWithResult(
+                 {Date(static_cast<int32_t>(day - absl::CivilDay(1970))),
+                  part_enum_value},
+                 Int64(week_number))
+                 .AddRequiredFeatures(required_feature_set)});
 
-        tests.push_back({"extract",
-                         {Timestamp(absl::FromCivil(day, absl::UTCTimeZone())),
-                          part_enum_value, "UTC"},
-                         result_map});
+        tests.push_back(
+            {"extract", QueryParamsWithResult({Timestamp(absl::FromCivil(
+                                                   day, absl::UTCTimeZone())),
+                                               part_enum_value, "UTC"},
+                                              Int64(week_number))
+                            .AddRequiredFeatures(required_feature_set)});
 
         // No timezone because EXTRACT from DATETIME does not support AT TIME
         // ZONE.
@@ -7902,14 +7905,16 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
                    TimeMicros(0, 59, 59, 0)));
 
   // Invalid timezones for extract.
-  civil_time_test_cases.push_back(CivilTimeTestCase({
-        {TimestampFromStr("1970-01-01 00:00:00+00"),
-              Enum(part_enum, "MONTH"), "invalid time zone"}},
-      FunctionEvalError(), Int64Type()));
-  civil_time_test_cases.push_back(CivilTimeTestCase({
-        {TimestampFromStr("1970-01-01 00:00:00+00"),
-              Enum(part_enum, "DATE"), "invalid time zone"}},
-      FunctionEvalError(), DateType()));
+  tests.push_back({"extract",
+                   {TimestampFromStr("1970-01-01 00:00:00+00"),
+                    Enum(part_enum, "MONTH"), "invalid time zone"},
+                   NullInt64(),
+                   OUT_OF_RANGE});
+  tests.push_back({"extract",
+                   {TimestampFromStr("1970-01-01 00:00:00+00"),
+                    Enum(part_enum, "DATE"), "invalid time zone"},
+                   NullDate(),
+                   OUT_OF_RANGE});
   civil_time_test_cases.push_back(CivilTimeTestCase({
         {TimestampFromStr("1970-01-01 00:00:00+00"),
               Enum(part_enum, "TIME"), "invalid time zone"}},
@@ -7919,14 +7924,16 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
               Enum(part_enum, "DATETIME"), "invalid time zone"}},
       FunctionEvalError(), DatetimeType()));
   // An empty time zone is invalid.
-  civil_time_test_cases.push_back(CivilTimeTestCase({
-        {TimestampFromStr("1970-01-01 00:00:00+00"),
-              Enum(part_enum, "MONTH"), ""}},
-      FunctionEvalError(), Int64Type()));
-  civil_time_test_cases.push_back(CivilTimeTestCase({
-        {TimestampFromStr("1970-01-01 00:00:00+00"),
-              Enum(part_enum, "DATE"), ""}},
-      FunctionEvalError(), DateType()));
+  tests.push_back({"extract",
+                   {TimestampFromStr("1970-01-01 00:00:00+00"),
+                    Enum(part_enum, "MONTH"), ""},
+                   NullInt64(),
+                   OUT_OF_RANGE});
+  tests.push_back({"extract",
+                   {TimestampFromStr("1970-01-01 00:00:00+00"),
+                    Enum(part_enum, "DATE"), ""},
+                   NullInt64(),
+                   OUT_OF_RANGE});
   civil_time_test_cases.push_back(CivilTimeTestCase({
         {TimestampFromStr("1970-01-01 00:00:00+00"),
               Enum(part_enum, "TIME"), ""}},
@@ -8863,6 +8870,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
                        {test.value, String(test.format_string)},
                        String(test.expected_result)});
     }
+    tests.back().params.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
   }
   for (const auto& test : GetCastFormatTimeTests()) {
     if (IsExpectedError(test.expected_result)) {
@@ -8875,6 +8883,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
                        {test.value, String(test.format_string)},
                        String(test.expected_result)});
     }
+    tests.back().params.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
   }
   return tests;
 }
@@ -8883,8 +8892,8 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
 // UTC timezone is used both for interpreting the strings
 // <timestamp_string>, <origin_string> and <expected_result> as timestamps.
 FunctionTestCall TimestampBucketTest(
-    const std::string& timestamp_string, const std::string& interval_string,
-    const std::string& origin_string, const std::string& expected_result,
+    absl::string_view timestamp_string, absl::string_view interval_string,
+    absl::string_view origin_string, absl::string_view expected_result,
     zetasql::functions::TimestampScale scale = kMicroseconds) {
   absl::TimeZone timezone = absl::UTCTimeZone();
 
@@ -8925,8 +8934,8 @@ FunctionTestCall TimestampBucketTest(
 // UTC timezone is for interpreting the strings <timestamp_string> and
 // <origin_string>.
 FunctionTestCall TimestampBucketErrorTest(
-    const std::string& timestamp_string, const std::string& interval_string,
-    const std::string& origin_string, const std::string& expected_error,
+    absl::string_view timestamp_string, absl::string_view interval_string,
+    absl::string_view origin_string, absl::string_view expected_error,
     zetasql::functions::TimestampScale scale = kMicroseconds) {
   absl::TimeZone timezone = absl::UTCTimeZone();
 
@@ -9117,12 +9126,6 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
                           "9999-12-31 23:59:59.999999999", /* Friday */
                           "2020-03-13 23:59:59.999999999" /* Friday */,
                           kNanoseconds),
-      // Nanoseconds precision is not supported with kMicroseconds scale.
-      TimestampBucketErrorTest("2020-03-15 14:57:39.123456",
-                               "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
-                               "1950-01-01 00:00:00",
-                               "TIMESTAMP_BUCKET doesn't support bucket width "
-                               "INTERVAL with nanoseconds precision"),
       // MONTH part is not supported
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-1 0",
                                "1950-01-01 00:00:00",
@@ -9240,6 +9243,819 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
                           "0:0:0.000000025",  // INTERVAL 25 NANOSECOND
                           "2050-01-01 00:00:00.000000002",
                           "2020-03-15 14:57:39.123456727", kNanoseconds),
+  };
+  return v;
+}
+
+// Helper function for constructing simple DATETIME_BUCKET tests.
+FunctionTestCall DatetimeBucketTest(
+    absl::string_view datetime_string, absl::string_view interval_string,
+    absl::string_view origin_string, absl::string_view expected_result,
+    zetasql::functions::TimestampScale scale = kMicroseconds) {
+  DatetimeValue datetime;
+  ZETASQL_CHECK_OK(ConvertStringToDatetime(datetime_string, scale, &datetime))
+      << datetime_string;
+  IntervalValue interval = *IntervalValue::ParseFromString(interval_string);
+  DatetimeValue origin;
+  ZETASQL_CHECK_OK(ConvertStringToDatetime(origin_string, scale, &origin))
+      << origin_string;
+  DatetimeValue expected_datetime;
+  ZETASQL_CHECK_OK(ConvertStringToDatetime(expected_result, scale, &expected_datetime))
+      << expected_result;
+
+  FunctionTestCall call{"datetime_bucket",
+                        {Value::Datetime(datetime), Value::Interval(interval),
+                         Value::Datetime(origin)},
+                        {Value::Datetime(expected_datetime)}};
+
+  QueryParamsWithResult::FeatureSet feature_set;
+  if (scale == kNanoseconds) {
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
+                   FEATURE_TIMESTAMP_NANOS};
+  } else {
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE};
+  }
+  call.params = call.params.WrapWithFeatureSet(feature_set);
+  return call;
+}
+
+// Helper function for constructing DATETIME_BUCKET tests for error cases.
+FunctionTestCall DatetimeBucketErrorTest(
+    absl::string_view datetime_string, absl::string_view interval_string,
+    absl::string_view origin_string, absl::string_view expected_error,
+    zetasql::functions::TimestampScale scale = kMicroseconds) {
+  DatetimeValue datetime;
+  ZETASQL_CHECK_OK(ConvertStringToDatetime(datetime_string, scale, &datetime))
+      << datetime_string;
+  IntervalValue interval = *IntervalValue ::ParseFromString(interval_string);
+  DatetimeValue origin;
+  ZETASQL_CHECK_OK(ConvertStringToDatetime(origin_string, scale, &origin))
+      << origin_string;
+
+  FunctionTestCall call{"datetime_bucket",
+                        {Value::Datetime(datetime), Value::Interval(interval),
+                         Value::Datetime(origin)},
+                        NullDatetime(),
+                        absl::OutOfRangeError(expected_error)};
+
+  QueryParamsWithResult::FeatureSet feature_set;
+  if (scale == kNanoseconds) {
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
+                   FEATURE_TIMESTAMP_NANOS};
+  } else {
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE};
+  }
+  call.params = call.params.WrapWithFeatureSet(feature_set);
+  return call;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsDatetimeBucket() {
+  std::vector<FunctionTestCall> v = {
+      // Default origin and different intervals
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:39.646565600",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:0.000500",  // INTERVAL 500 MICROSECOND
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:39.646500"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0:0:0.000500",  // INTERVAL 500 MICROSECOND
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:39.646500",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:0.100",  // INTERVAL 100 MILLISECOND
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:39.600"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0:0:0.100",  // INTERVAL 100 MILLISECOND
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:39.600",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:15",  // INTERVAL 15 SECOND
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:30"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0:0:15",  // INTERVAL 15 SECOND
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:30",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:20:00",  // INTERVAL 20 MINUTE
+                         "1950-01-01 00:00:00", "2020-03-15 14:40:00"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0:20:00",  // INTERVAL 20 MINUTE
+                         "1950-01-01 00:00:00", "2020-03-15 14:40:00",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "3:00:00",  // INTERVAL 3 HOUR
+                         "1950-01-01 00:00:00", "2020-03-15 12:00:00"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "3:00:00",  // INTERVAL 3 HOUR
+                         "1950-01-01 00:00:00", "2020-03-15 12:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0-0 7",  // INTERVAL 7 DAY
+                         "1950-01-01 00:00:00", "2020-03-15 00:00:00"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0-0 7",  // INTERVAL 7 DAY
+                         "1950-01-01 00:00:00", "2020-03-15 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0-2",  // INTERVAL 2 MONTH
+                         "1950-01-01 00:00:00", "2020-03-01 00:00:00"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0-2",  // INTERVAL 2 MONTH
+                         "1950-01-01 00:00:00", "2020-03-01 00:00:00",
+                         kNanoseconds),
+      // Non-default origin and different intervals
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
+                         "1950-01-01 00:00:00.000000100",
+                         "2020-03-15 14:57:39.646565700", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
+                         "1950-01-01 00:00:00.000000231",
+                         "2020-03-15 14:57:39.646565631", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:0.000500",  // INTERVAL 500 MICROSECOND
+                         "1950-01-01 00:00:00.000100",
+                         "2020-03-15 14:57:39.646100"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:0.000500",  // INTERVAL 500 MICROSECOND
+                         "1950-01-01 00:00:00.000500",
+                         "2020-03-15 14:57:39.646500"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:0.000500",  // INTERVAL 500 MICROSECOND
+                         "1950-01-01 00:00:00.000500789",
+                         "2020-03-15 14:57:39.646500789", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:0.100",  // INTERVAL 100 MILLISECOND
+                         "1950-01-01 00:00:00.050", "2020-03-15 14:57:39.550"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:0.100",  // INTERVAL 100 MILLISECOND
+                         "1950-01-01 00:00:00.100456",
+                         "2020-03-15 14:57:39.600456"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0:0:0.100",  // INTERVAL 100 MILLISECOND
+                         "1950-01-01 00:00:00.100456789",
+                         "2020-03-15 14:57:39.600456789", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:15",  // INTERVAL 15 SECOND
+                         "1950-01-01 00:00:15", "2020-03-15 14:57:30"),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0:0:15",  // INTERVAL 15 SECOND
+                         "1950-01-01 00:00:05.123456",
+                         "2020-03-15 14:57:35.123456"),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0:0:15",  // INTERVAL 15 SECOND
+                         "1950-01-01 00:00:05.123456789",
+                         "2020-03-15 14:57:35.123456789", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0:20:00",  // INTERVAL 20 MINUTE
+                         "1950-01-01 00:10:20", "2020-03-15 14:50:20"),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0:20:00",  // INTERVAL 20 MINUTE
+                         "1950-01-01 00:20:00.123456",
+                         "2020-03-15 14:40:00.123456"),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0:20:00",  // INTERVAL 20 MINUTE
+                         "1950-01-01 00:20:00.123456789",
+                         "2020-03-15 14:40:00.123456789", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "3:00:00",  // INTERVAL 3 HOUR
+                         "1950-01-01 03:15:47.123456",
+                         "2020-03-15 12:15:47.123456"),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "3:00:00",  // INTERVAL 3 HOUR
+                         "1950-01-01 03:15:47.123456789",
+                         "2020-03-15 12:15:47.123456789", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0-0 7",  // INTERVAL 7 DAY
+                         "1950-01-02 13:55:27.123456",
+                         "2020-03-09 13:55:27.123456"),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0-0 7",  // INTERVAL 7 DAY
+                         "1950-01-02 13:55:27.123456789",
+                         "2020-03-09 13:55:27.123456789", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0-2",  // INTERVAL 2 MONTH
+                         "1950-12-07 13:55:27.123456",
+                         "2020-02-07 13:55:27.123456"),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0-2",  // INTERVAL 2 MONTH
+                         "1950-12-07 13:55:27.123456789",
+                         "2020-02-07 13:55:27.123456789", kNanoseconds),
+      // input < origin
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731",
+                         "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
+                         "2051-01-01 00:00:00", "2020-03-15 14:57:39.646565600",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:0.000500",  // INTERVAL 500 MICROSECOND
+                         "2051-01-01 00:00:00", "2020-03-15 14:57:39.646500"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:0.100",  // INTERVAL 100 MILLISECOND
+                         "2051-01-01 00:00:00", "2020-03-15 14:57:39.600"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0:0:15",  // INTERVAL 15 SECOND
+                         "2051-01-01 00:00:00", "2020-03-15 14:57:30"),
+      DatetimeBucketTest("2020-03-15 14:57:39",
+                         "0:20:00",  // INTERVAL 20 MINUTE
+                         "2051-01-01 00:00:00", "2020-03-15 14:40:00"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "3:00:00",  // INTERVAL 3 HOUR
+                         "2051-01-01 00:00:00", "2020-03-15 12:00:00"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0-0 7",  // INTERVAL 7 DAY
+                         "1950-01-01 00:00:00", "2020-03-15 00:00:00"),
+      DatetimeBucketTest("2020-03-15 14:57:39.646565",
+                         "0-2",  // INTERVAL 2 MONTH
+                         "2051-01-01 00:00:00", "2020-03-01 00:00:00"),
+      // Input aligns with a bucket, but an offset may shift it to a previous
+      // bucket
+      DatetimeBucketTest("2020-03-15 00:00:00.000000500",
+                         "0:0:0.000000100",  // INTERVAL 100 NANOSECOND
+                         "1950-01-01 00:00:00.000000001",  // nanosecond offset
+                         "2020-03-15 00:00:00.000000401", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 00:00:00.000000500",
+                         "0:0:0.000000100",  // INTERVAL 100 NANOSECOND
+                         "2051-01-01 00:00:00.000000001",  // nanosecond offset
+                         "2020-03-15 00:00:00.000000401", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 00:00:00.000500",
+                         "0:0:0.000100",  // INTERVAL 100 MICROSECOND
+                         "1950-01-01 00:00:00.000001",  // microsecond offset
+                         "2020-03-15 00:00:00.000401"),
+      DatetimeBucketTest("2020-03-15 00:00:00.000500",
+                         "0:0:0.000100",  // INTERVAL 100 MICROSECOND
+                         "2051-01-01 00:00:00.000001",  // microsecond offset
+                         "2020-03-15 00:00:00.000401"),
+      DatetimeBucketTest("2020-03-15 00:00:00.000500",
+                         "0:0:0.000100",  // INTERVAL 100 MICROSECOND
+                         "1950-01-01 00:00:00.000000001",  // nanosecond offset
+                         "2020-03-15 00:00:00.000400001", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 00:00:00.000500",
+                         "0:0:0.000100",  // INTERVAL 100 MICROSECOND
+                         "2051-01-01 00:00:00.000000001",  // nanosecond offset
+                         "2020-03-15 00:00:00.000400001", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 00:00:00.500",
+                         "0:0:0.100",                // INTERVAL 100 MILLISECOND
+                         "1950-01-01 00:00:00.001",  // millisecond offset
+                         "2020-03-15 00:00:00.401"),
+      DatetimeBucketTest("2020-03-15 00:00:00.500",
+                         "0:0:0.100",                // INTERVAL 100 MILLISECOND
+                         "2051-01-01 00:00:00.001",  // millisecond offset
+                         "2020-03-15 00:00:00.401"),
+      DatetimeBucketTest("2020-03-15 00:00:00.500",
+                         "0:0:0.100",  // INTERVAL 100 MILLISECOND
+                         "1950-01-01 00:00:00.000001",  // microsecond offset
+                         "2020-03-15 00:00:00.400001"),
+      DatetimeBucketTest("2020-03-15 00:00:00.500",
+                         "0:0:0.100",  // INTERVAL 100 MILLISECOND
+                         "2051-01-01 00:00:00.000001",  // microsecond offset
+                         "2020-03-15 00:00:00.400001"),
+      DatetimeBucketTest("2020-03-15 00:00:00.500",
+                         "0:0:0.100",  // INTERVAL 100 MILLISECOND
+                         "1950-01-01 00:00:00.000000001",  // nanosecond offset
+                         "2020-03-15 00:00:00.400000001", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 00:00:30",
+                         "0:0:10",               // INTERVAL 10 SECOND
+                         "1950-01-01 00:00:31",  // second offset
+                         "2020-03-15 00:00:21"),
+      DatetimeBucketTest("2020-03-15 00:00:30",
+                         "0:0:10",               // INTERVAL 10 SECOND
+                         "2051-01-01 00:00:31",  // second offset
+                         "2020-03-15 00:00:21"),
+      DatetimeBucketTest("2020-03-15 00:00:30",
+                         "0:0:10",                   // INTERVAL 10 SECOND
+                         "1950-01-01 00:00:30.001",  // millisecond offset
+                         "2020-03-15 00:00:20.001"),
+      DatetimeBucketTest("2020-03-15 00:00:30",
+                         "0:0:10",                   // INTERVAL 10 SECOND
+                         "2051-01-01 00:00:30.001",  // millisecond offset
+                         "2020-03-15 00:00:20.001"),
+      DatetimeBucketTest("2020-03-15 00:00:30",
+                         "0:0:10",                         // INTERVAL 10 SECOND
+                         "1950-01-01 00:00:30.000000001",  // nanosecond offset
+                         "2020-03-15 00:00:20.000000001", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 00:30:00",
+                         "0:10:00",              // INTERVAL 10 MINUTE
+                         "1950-01-01 00:31:00",  // minute offset
+                         "2020-03-15 00:21:00"),
+      DatetimeBucketTest("2020-03-15 00:30:00",
+                         "0:10:00",              // INTERVAL 10 MINUTE
+                         "2051-01-01 00:31:00",  // minute offset
+                         "2020-03-15 00:21:00"),
+      DatetimeBucketTest("2020-03-15 00:30:00",
+                         "0:10:00",              // INTERVAL 10 MINUTE
+                         "1950-01-01 00:30:01",  // second offset
+                         "2020-03-15 00:20:01"),
+      DatetimeBucketTest("2020-03-15 00:30:00",
+                         "0:10:00",              // INTERVAL 10 MINUTE
+                         "2051-01-01 00:30:01",  // second offset
+                         "2020-03-15 00:20:01"),
+      DatetimeBucketTest("2020-03-15 00:30:00",
+                         "0:10:00",                     // INTERVAL 10 MINUTE
+                         "1950-01-01 00:30:00.000001",  // millisecond offset
+                         "2020-03-15 00:20:00.000001"),
+      DatetimeBucketTest("2020-03-15 00:30:00",
+                         "0:10:00",                        // INTERVAL 10 MINUTE
+                         "1950-01-01 00:30:00.000000001",  // nanosecond offset
+                         "2020-03-15 00:20:00.000000001", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 12:00:00",
+                         "4:00:00",              // INTERVAL 4 HOUR
+                         "1950-01-01 13:00:00",  // hour offset
+                         "2020-03-15 09:00:00"),
+      DatetimeBucketTest("2020-03-15 12:00:00",
+                         "4:00:00",              // INTERVAL 4 HOUR
+                         "2051-01-01 13:00:00",  // hour offset
+                         "2020-03-15 09:00:00"),
+      DatetimeBucketTest("2020-03-15 12:00:00",
+                         "4:00:00",              // INTERVAL 4 HOUR
+                         "1950-01-01 12:01:00",  // minute offset
+                         "2020-03-15 08:01:00"),
+      DatetimeBucketTest("2020-03-15 12:00:00",
+                         "4:00:00",              // INTERVAL 4 HOUR
+                         "2051-01-01 12:01:00",  // minute offset
+                         "2020-03-15 08:01:00"),
+      DatetimeBucketTest("2020-03-15 12:00:00",
+                         "4:00:00",              // INTERVAL 4 HOUR
+                         "1950-01-01 12:00:01",  // second offset
+                         "2020-03-15 08:00:01"),
+      DatetimeBucketTest("2020-03-15 12:00:00",
+                         "4:00:00",                     // INTERVAL 4 HOUR
+                         "1950-01-01 12:00:00.000001",  // millisecond offset
+                         "2020-03-15 08:00:00.000001"),
+      DatetimeBucketTest("2020-03-15 12:00:00",
+                         "4:00:00",                        // INTERVAL 4 HOUR
+                         "1950-01-01 12:00:00.000000001",  // nanosecond offset
+                         "2020-03-15 08:00:00.000000001", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 00:00:00",
+                         "0-0 7",                // INTERVAL 7 DAY
+                         "1950-01-02 00:00:00",  // day offset
+                         "2020-03-09 00:00:00"),
+      DatetimeBucketTest("2020-03-15 00:00:00",
+                         "0-0 7",                // INTERVAL 7 DAY
+                         "2051-01-02 00:00:00",  // day offset
+                         "2020-03-09 00:00:00"),
+      DatetimeBucketTest("2020-03-15 00:00:00",
+                         "0-0 7",                // INTERVAL 7 DAY
+                         "1950-01-01 00:00:01",  // minute offset
+                         "2020-03-08 00:00:01"),
+      DatetimeBucketTest("2020-03-15 00:00:00",
+                         "0-0 7",                // INTERVAL 7 DAY
+                         "2051-01-01 00:00:01",  // minute offset
+                         "2020-03-08 00:00:01"),
+      DatetimeBucketTest("2020-03-15 00:00:00",
+                         "0-0 7",                       // INTERVAL 7 DAY
+                         "1950-01-01 00:00:00.000001",  // millisecond offset
+                         "2020-03-08 00:00:00.000001"),
+      DatetimeBucketTest("2020-03-15 00:00:00",
+                         "0-0 7",                          // INTERVAL 7 DAY
+                         "1950-01-01 00:00:00.000000001",  // nanosecond offset
+                         "2020-03-08 00:00:00.000000001", kNanoseconds),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "1950-02-01 00:00:00",  // month offset
+                         "2020-06-01 00:00:00"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "2051-02-01 00:00:00",  // month offset
+                         "2020-06-01 00:00:00"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "1950-01-02 00:00:00",  // day offset
+                         "2020-05-02 00:00:00"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "2051-01-02 00:00:00",  // day offset
+                         "2020-05-02 00:00:00"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "1950-01-01 00:00:01",  // minute offset
+                         "2020-05-01 00:00:01"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "2051-01-01 00:00:01",  // minute offset
+                         "2020-05-01 00:00:01"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                         // INTERVAL 4 MONTH
+                         "1950-01-01 00:00:00.000001",  // microsecond offset
+                         "2020-05-01 00:00:00.000001"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                            // INTERVAL 4 MONTH
+                         "1950-01-01 00:00:00.000000001",  // nanosecond offset
+                         "2020-05-01 00:00:00.000000001", kNanoseconds),
+      DatetimeBucketTest("2020-09-02 00:00:00",
+                         "0-1",                  // INTERVAL 1 MONTH
+                         "1950-01-01 12:55:30",  // mixed sub-day parts offset
+                         "2020-09-01 12:55:30"),
+      DatetimeBucketTest("2020-09-02 00:00:00",
+                         "0-1",                  // INTERVAL 1 MONTH
+                         "2051-01-01 12:55:30",  // mixed sub-day parts offset
+                         "2020-09-01 12:55:30"),
+      // input == origin
+      DatetimeBucketTest("2020-03-15 14:57:39", "3:35:17",
+                         "2020-03-15 14:57:39", "2020-03-15 14:57:39"),
+      DatetimeBucketTest("0001-01-01 00:00:00", "3:35:17",
+                         "0001-01-01 00:00:00", "0001-01-01 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "3:35:17",
+                         "9999-12-31 23:59:59.999999",
+                         "9999-12-31 23:59:59.999999"),
+      DatetimeBucketTest("2020-03-15 14:57:39", "0-0 7", "2020-03-15 14:57:39",
+                         "2020-03-15 14:57:39"),
+      DatetimeBucketTest("0001-01-01 00:00:00", "0-0 7", "0001-01-01 00:00:00",
+                         "0001-01-01 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "0-0 7",
+                         "9999-12-31 23:59:59.999999",
+                         "9999-12-31 23:59:59.999999"),
+      // input is in the bucket right before origin
+      DatetimeBucketTest("1949-12-31 23:59:59.999999", "0-0 1",
+                         "1950-01-01 00:00:00", "1949-12-31 00:00:00"),
+      DatetimeBucketTest("1949-12-31 23:59:59.999999999", "0-0 1",
+                         "1950-01-01 00:00:00", "1949-12-31 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("1949-12-31 00:00:00", "0-0 1", "1950-01-01 00:00:00",
+                         "1949-12-31 00:00:00"),
+      DatetimeBucketTest("1949-12-31 13:27:34", "0-0 1", "1950-01-01 00:00:00",
+                         "1949-12-31 00:00:00"),
+      DatetimeBucketTest("1949-12-31 23:59:59.999999", "0-1",
+                         "1950-01-01 00:00:00", "1949-12-01 00:00:00"),
+      DatetimeBucketTest("1949-12-31 23:59:59.999999999", "0-1",
+                         "1950-01-01 00:00:00", "1949-12-01 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("1949-12-01 00:00:00", "0-1", "1950-01-01 00:00:00",
+                         "1949-12-01 00:00:00"),
+      // input is in the origin bucket
+      DatetimeBucketTest("1950-01-01 00:00:00.000001", "0-0 1",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+      DatetimeBucketTest("1950-01-01 00:00:00.000000001", "0-0 1",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("1950-01-01 00:00:00.000001", "0-1",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+      DatetimeBucketTest("1950-01-01 00:00:00.000000001", "0-1",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("1950-01-01 23:59:59.999999", "0-0 1",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+      DatetimeBucketTest("1950-01-01 23:59:59.999999999", "0-0 1",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("1950-01-01 23:59:59.999999", "0-1",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+      DatetimeBucketTest("1950-01-31 23:59:59.999999999", "0-1",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("1950-01-01 13:27:34", "0-0 1", "1950-01-01 00:00:00",
+                         "1950-01-01 00:00:00"),
+      DatetimeBucketTest("1950-01-17 13:27:34", "0-1", "1950-01-01 00:00:00",
+                         "1950-01-01 00:00:00"),
+      // input is in the bucket right after origin
+      DatetimeBucketTest("1950-01-02 23:59:59.999999", "0-0 1",
+                         "1950-01-01 00:00:00", "1950-01-02 00:00:00"),
+      DatetimeBucketTest("1950-01-02 23:59:59.999999999", "0-0 1",
+                         "1950-01-01 00:00:00", "1950-01-02 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("1950-02-28 23:59:59.999999", "0-1",
+                         "1950-01-01 00:00:00", "1950-02-01 00:00:00"),
+      DatetimeBucketTest("1950-02-28 23:59:59.999999999", "0-1",
+                         "1950-01-01 00:00:00", "1950-02-01 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("1950-01-02 00:00:00", "0-0 1", "1950-01-01 00:00:00",
+                         "1950-01-02 00:00:00"),
+      DatetimeBucketTest("1950-01-02 13:27:34", "0-0 1", "1950-01-01 00:00:00",
+                         "1950-01-02 00:00:00"),
+      DatetimeBucketTest("1950-02-01 00:00:00", "0-1", "1950-01-01 00:00:00",
+                         "1950-02-01 00:00:00"),
+      // input is on the boundaries
+      DatetimeBucketTest("0001-01-01 00:00:00", "3:00:00",
+                         "1950-01-01 00:00:00", "0001-01-01 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "3:00:00",
+                         "1950-01-01 00:00:00", "9999-12-31 21:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999999", "3:00:00",
+                         "1950-01-01 00:00:00", "9999-12-31 21:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("0001-01-01 00:00:00", "0-0 1", "1950-01-01 00:00:00",
+                         "0001-01-01 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "0-0 1",
+                         "1950-01-01 00:00:00", "9999-12-31 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999999", "0-0 1",
+                         "1950-01-01 00:00:00", "9999-12-31 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("0001-01-01 00:00:00", "0-1", "1950-01-01 00:00:00",
+                         "0001-01-01 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "0-1",
+                         "1950-01-01 00:00:00", "9999-12-01 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999999", "0-1",
+                         "1950-01-01 00:00:00", "9999-12-01 00:00:00",
+                         kNanoseconds),
+      // origin is on the boundaries
+      DatetimeBucketTest("2020-03-15 14:57:39", "3:00:00",
+                         "0001-01-01 00:00:00", "2020-03-15 12:00:00"),
+      DatetimeBucketTest("2020-03-15 14:57:39", "3:00:00",
+                         "9999-12-31 23:59:59.999999",
+                         "2020-03-15 11:59:59.999999"),
+      DatetimeBucketTest("2020-03-15 14:57:39", "3:00:00",
+                         "9999-12-31 23:59:59.999999999",
+                         "2020-03-15 11:59:59.999999999", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39" /* Sunday */, "0-0 7",
+                         "0001-01-01 00:00:00", /* Monday */
+                         "2020-03-09 00:00:00" /* Monday */),
+      DatetimeBucketTest("2020-03-15 14:57:39" /* Sunday */, "0-0 7",
+                         "9999-12-31 23:59:59.999999", /* Friday */
+                         "2020-03-13 23:59:59.999999" /* Friday */),
+      DatetimeBucketTest("2020-03-15 14:57:39" /* Sunday */, "0-0 7",
+                         "9999-12-31 23:59:59.999999999", /* Friday */
+                         "2020-03-13 23:59:59.999999999" /* Friday */,
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39", "0-1", "0001-01-01 00:00:00",
+                         "2020-03-01 00:00:00"),
+      DatetimeBucketTest("2020-03-15 14:57:39", "0-1",
+                         "9999-12-31 23:59:59.999999",
+                         "2020-02-29 23:59:59.999999"),
+      DatetimeBucketTest("2020-03-15 14:57:39", "0-1",
+                         "9999-12-31 23:59:59.999999999",
+                         "2020-02-29 23:59:59.999999999", kNanoseconds),
+      // input and origin are on the boundaries
+      DatetimeBucketTest("0001-01-01 00:00:00", "3:00:00",
+                         "0001-01-01 00:00:00", "0001-01-01 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "3:00:00",
+                         "9999-12-31 23:59:59.999999",
+                         "9999-12-31 23:59:59.999999"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "3:00:00",
+                         "0001-01-01 00:00:00", "9999-12-31 21:00:00"),
+      DatetimeBucketErrorTest("0001-01-01 00:00:00", "3:00:00",
+                              "9999-12-31 23:59:59.999999",
+                              "Bucket for 0001-01-01 00:00:00 "
+                              "is outside of datetime range"),
+      DatetimeBucketTest("0001-01-01 00:00:00", "0-0 1", "0001-01-01 00:00:00",
+                         "0001-01-01 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "0-0 1",
+                         "9999-12-31 23:59:59.999999",
+                         "9999-12-31 23:59:59.999999"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "0-0 1",
+                         "0001-01-01 00:00:00", "9999-12-31 00:00:00"),
+      DatetimeBucketErrorTest("0001-01-01 00:00:00", "0-0 1",
+                              "9999-12-31 23:59:59.999999",
+                              "Bucket for 0001-01-01 00:00:00 "
+                              "is outside of datetime range"),
+      DatetimeBucketTest("0001-01-01 00:00:00", "0-1", "0001-01-01 00:00:00",
+                         "0001-01-01 00:00:00"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "0-1",
+                         "9999-12-31 23:59:59.999999",
+                         "9999-12-31 23:59:59.999999"),
+      DatetimeBucketTest("9999-12-31 23:59:59.999999", "0-1",
+                         "0001-01-01 00:00:00", "9999-12-01 00:00:00"),
+      DatetimeBucketErrorTest("0001-01-01 00:00:00", "0-1",
+                              "9999-12-31 23:59:59.999999",
+                              "Bucket for 0001-01-01 00:00:00 "
+                              "is outside of datetime range"),
+      // Nanoseconds precision is not supported with kMicroseconds scale.
+      DatetimeBucketErrorTest("2020-03-15 14:57:39.123456",
+                              "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET doesn't support bucket width "
+                              "INTERVAL with nanoseconds precision"),
+      // Zero INTERVAL is not supported
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0:0:0",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET requires exactly one non-zero "
+                              "INTERVAL part in bucket width"),
+      // Negative MICROSECOND part is not supported
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "-0:0:1",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET doesn't support negative "
+                              "bucket width INTERVAL"),
+      // Negative DAY part is not supported
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-0 -1",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET doesn't support negative "
+                              "bucket width INTERVAL"),
+      // Negative MONTH part is not supported
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "-0-1",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET doesn't support negative "
+                              "bucket width INTERVAL"),
+      // Mixing MONTH, DAY and MICROSECOND/NANOSECOND parts is not supported
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-1 1",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET requires exactly one non-zero "
+                              "INTERVAL part in bucket width"),
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-1 0 0:0:0.000100",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET requires exactly one non-zero "
+                              "INTERVAL part in bucket width"),
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-1 0 0:0:0.000000001",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET requires exactly one non-zero "
+                              "INTERVAL part in bucket width",
+                              kNanoseconds),
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000100",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET requires exactly one non-zero "
+                              "INTERVAL part in bucket width"),
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000001",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET requires exactly one non-zero "
+                              "INTERVAL part in bucket width"),
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000000001",
+                              "1950-01-01 00:00:00",
+                              "DATETIME_BUCKET requires exactly one non-zero "
+                              "INTERVAL part in bucket width",
+                              kNanoseconds),
+      // Mixing MICROSECONDs and NANOSECONDs.
+      DatetimeBucketTest("2020-03-15 14:57:39.646565731", "0:0:0.000002500",
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:39.646565000",
+                         kNanoseconds),
+      // Bucket is outside of DATETIME range. Output needs to be at 0000-12-31
+      DatetimeBucketErrorTest("0001-01-01", "0-0 2", "0001-01-02",
+                              "Bucket for 0001-01-01 00:00:00 "
+                              "is outside of datetime range"),
+      // Bucket is outside of DATETIME range. Output needs to be at 0000-12-01
+      DatetimeBucketErrorTest("0001-01-01", "0-2", "0001-02-01",
+                              "Bucket for 0001-01-01 00:00:00 "
+                              "is outside of datetime range"),
+      // Max number of days (10000 * 366)
+      DatetimeBucketTest("2020-03-15 14:57:39", "0-0 3660000",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+      // Max number of months (10000 * 12)
+      DatetimeBucketTest("2020-03-15 14:57:39", "10000-0",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+      // Max number of months (10000 * 12), bucket is outside of DATETIME range.
+      // Output needs to be at -7949-01-01
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "10000-0",
+                              "2051-01-01 00:00:00",
+                              "Bucket for 2020-03-15 14:57:39 "
+                              "is outside of datetime range"),
+      // Max number of DAYs (10000 * 366), bucket is outside of DATETIME range.
+      // Output needs to be at -7970-04-06
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-0 3660000",
+                              "2051-01-01 00:00:00",
+                              "Bucket for 2020-03-15 14:57:39 "
+                              "is outside of datetime range"),
+      // Max number of MICROSECONDs (10000 * 366 * 24 hours)
+      DatetimeBucketTest("2020-03-15 14:57:39", "87840000:0:0",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+      // Max number of MICROSECONDs (10000 * 366 * 24 hours), bucket is outside
+      // of DATETIME range. Output needs to be at -7970-04-06
+      DatetimeBucketErrorTest("2020-03-15 14:57:39", "87840000:0:0",
+                              "2051-01-01 00:00:00",
+                              "Bucket for 2020-03-15 14:57:39 "
+                              "is outside of datetime range"),
+      // Close to max number of NANOSECONDs
+      DatetimeBucketTest("2020-03-15 14:57:39", "87839999:59:59.999999999",
+                         "1950-01-01 00:00:00", "1950-01-01 00:00:00",
+                         kNanoseconds),
+      // Very large bucket width (1000 * 366 * 24 hours) and NANOSECOND
+      // precision
+      DatetimeBucketTest("5220-03-15 14:57:39.123456789",
+                         "8784000:00:00.000000005", "1950-01-01 00:00:00",
+                         "4956-03-22 00:00:00.000000015", kNanoseconds),
+      DatetimeBucketTest("2220-03-15 14:57:39.123456789",
+                         "8784000:00:00.000000005", "5000-01-01 00:00:00",
+                         "1993-10-11 23:59:59.999999985", kNanoseconds),
+      // Buckets with NANOSECOND width to test for overflows
+      DatetimeBucketTest("2200-03-15 14:57:39.123456789",
+                         "0:0:0.000000001",  // INTERVAL 1 NANOSECOND
+                         "1900-01-01 00:00:00", "2200-03-15 14:57:39.123456789",
+                         kNanoseconds),
+      DatetimeBucketTest("2000-03-15 14:57:39.123456789",
+                         "0:0:0.000000001",  // INTERVAL 1 NANOSECOND
+                         "2301-01-01", "2000-03-15 14:57:39.123456789",
+                         kNanoseconds),
+      DatetimeBucketTest("9999-12-31 23:59:59.123456789",
+                         "0:0:0.000000001",  // INTERVAL 1 NANOSECOND
+                         "0001-01-01 00:00:00", "9999-12-31 23:59:59.123456789",
+                         kNanoseconds),
+      DatetimeBucketTest("0001-01-01 00:00:00.123456789",
+                         "0:0:0.000000001",  // INTERVAL 1 NANOSECOND
+                         "9999-12-31 23:59:59", "0001-01-01 00:00:00.123456789",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.123456734",
+                         "0:0:0.000000005",  // INTERVAL 5 NANOSECOND
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:39.123456730",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.123456734",
+                         "0:0:0.000000005",  // INTERVAL 5 NANOSECOND
+                         "2051-01-01 00:00:00", "2020-03-15 14:57:39.123456730",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.123456741",
+                         "0:0:0.000000025",  // INTERVAL 25 NANOSECOND
+                         "1950-01-01 00:00:00", "2020-03-15 14:57:39.123456725",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.123456741",
+                         "0:0:0.000000025",  // INTERVAL 25 NANOSECOND
+                         "2051-01-01 00:00:00", "2020-03-15 14:57:39.123456725",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.123456741",
+                         "0:0:0.000000025",  // INTERVAL 25 NANOSECOND
+                         "1950-01-01 00:00:00.000000002",
+                         "2020-03-15 14:57:39.123456727", kNanoseconds),
+      DatetimeBucketTest("2020-03-15 14:57:39.123456741",
+                         "0:0:0.000000025",  // INTERVAL 25 NANOSECOND
+                         "2051-01-01 00:00:00.000000002",
+                         "2020-03-15 14:57:39.123456727", kNanoseconds),
+      // Interesting MONTH part cases.
+      // Origin is on the first day of the month:
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-3",  // INTERVAL 3 MONTH
+                         "1950-01-01 00:00:00", "2020-07-01 0:00:00"),
+      DatetimeBucketTest("2020-09-30 23:59:59.999999999",
+                         "0-4",  // INTERVAL 4 MONTH
+                         "1950-01-01 00:00:00", "2020-09-01 0:00:00",
+                         kNanoseconds),
+      // Origin is on the last day of the month (31 day origin, 31 day output):
+      DatetimeBucketTest("2020-08-31 00:00:00",
+                         "0-3",  // INTERVAL 3 MONTH
+                         "1950-01-31 00:00:00", "2020-07-31 0:00:00"),
+      DatetimeBucketTest("2020-09-29 23:59:59.999999999",
+                         "0-4",  // INTERVAL 4 MONTH
+                         "1950-01-31 00:00:00", "2020-05-31 0:00:00",
+                         kNanoseconds),
+      // Origin is on the last day of the month (31 day origin, 30 day output):
+      DatetimeBucketTest("2020-06-15 14:57:39",
+                         "0-3",  // INTERVAL 3 MONTH
+                         "1950-01-31 00:00:00", "2020-04-30 0:00:00"),
+      // Origin is on the last day of the month (30 day origin, 30 day output):
+      DatetimeBucketTest("2020-07-31 21:54:12.123456",
+                         "0-2",  // INTERVAL 2 MONTH
+                         "1950-04-30 00:00:00", "2020-06-30 00:00:00"),
+      DatetimeBucketTest("2020-09-30 21:54:12.123456",
+                         "0-2",  // INTERVAL 2 MONTH
+                         "1950-04-30 00:00:00", "2020-08-30 00:00:00"),
+      // Origin and input are on the last day of the month (31 day origin,
+      // 30 day input):
+      DatetimeBucketTest("2020-04-30 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "1950-03-31 00:00:00", "2020-04-30 00:00:00"),
+      DatetimeBucketTest("2020-04-30 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "2050-03-31 00:00:00", "2020-04-30 00:00:00"),
+      // Origin and input are on the last day of the month (30 day origin,
+      // 31 day input):
+      DatetimeBucketTest("2020-05-31 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "1950-04-30 00:00:00", "2020-05-30 00:00:00"),
+      DatetimeBucketTest("2020-05-31 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "2050-04-30 00:00:00", "2020-05-30 00:00:00"),
+      // Origin and input are on the last day of the month (28 day origin,
+      // 31 day input):
+      DatetimeBucketTest("2020-03-31 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "1950-02-28 00:00:00", "2020-03-28 00:00:00"),
+      // February edge cases:
+      DatetimeBucketTest("2021-02-28 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "1950-01-31 00:00:00", "2021-02-28 00:00:00"),
+      DatetimeBucketTest("2021-02-28 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "1950-01-31 00:00:01", "2021-01-31 00:00:01"),
+      DatetimeBucketTest("2021-02-28 00:00:01",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "1950-01-31 00:00:01", "2021-02-28 00:00:01"),
+      DatetimeBucketTest("2021-02-28 10:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "1950-01-31 00:00:01", "2021-02-28 00:00:01"),
+      DatetimeBucketTest("2021-02-28 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "1950-01-31 00:00:00", "2021-02-28 00:00:00"),
+      DatetimeBucketTest("2021-02-28 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "2051-01-31 00:00:00", "2021-02-28 00:00:00"),
+      DatetimeBucketTest("2020-02-28 00:00:00",  // last day of the month - 1
+                         "0-1",                  // INTERVAL 1 MONTH
+                         "1950-01-31 00:00:00", "2020-01-31 00:00:00"),
+      DatetimeBucketTest("2020-02-28 00:00:00",  // last day of the month - 1
+                         "0-1",                  // INTERVAL 1 MONTH
+                         "2051-01-31 00:00:00", "2020-01-31 00:00:00"),
+      DatetimeBucketTest("2020-02-29 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "1950-01-31 00:00:00", "2020-02-29 00:00:00"),
+      DatetimeBucketTest("2020-02-29 00:00:00",
+                         "0-1",  // INTERVAL 1 MONTH
+                         "2051-01-31 00:00:00", "2020-02-29 00:00:00"),
+      DatetimeBucketTest("2021-03-30 23:59:59.999999",  // instant before 31
+                         "0-1",                         // INTERVAL 1 MONTH
+                         "1950-01-31 00:00:00", "2021-02-28 00:00:00"),
+      DatetimeBucketTest("2021-03-30 23:59:59.999999",  // instant before 31
+                         "0-1",                         // INTERVAL 1 MONTH
+                         "2051-01-31 00:00:00", "2021-02-28 00:00:00"),
+      DatetimeBucketTest("2020-03-30 23:59:59.999999999",  // instant before 31
+                         "0-1",                            // INTERVAL 1 MONTH
+                         "1950-01-31 00:00:00", "2020-02-29 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-30 23:59:59.999999999",  // instant before 31
+                         "0-1",                            // INTERVAL 1 MONTH
+                         "2051-01-31 00:00:00", "2020-02-29 00:00:00",
+                         kNanoseconds),
+      DatetimeBucketTest("2020-03-30 00:00:00",
+                         "1-0",  // INTERVAL 1 YEAR
+                         "1950-02-28 00:00:00", "2020-02-28 00:00:00"),
+      DatetimeBucketTest("2020-03-30 00:00:00",
+                         "1-0",  // INTERVAL 1 YEAR
+                         "2052-02-29 00:00:00", "2020-02-29 00:00:00"),
+      DatetimeBucketTest("2021-03-30 00:00:00",
+                         "1-0",  // INTERVAL 1 YEAR
+                         "2052-02-29 00:00:00", "2021-02-28 00:00:00"),
   };
   return v;
 }

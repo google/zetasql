@@ -755,3 +755,35 @@ SELECT NEW zetasql_test__.MessageWithMapField(
 ) as pb
 --
 ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in StringInt32MapEntry
+==
+
+[name=braced_proto_constructor]
+[required_features=V_1_3_BRACED_PROTO_CONSTRUCTORS]
+SELECT NEW zetasql_test__.KitchenSinkPB {
+  int64_key_1: 1
+  int64_key_2: 2
+  nested_repeated_value: [{
+    nested_int64: 10
+    nested_repeated_int64: [100, 200]
+  }, {
+    nested_int64: 20
+    nested_repeated_int64: [300, 400]
+  }]
+}
+--
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
+  {{
+     int64_key_1: 1
+     int64_key_2: 2
+     nested_repeated_value {
+       nested_int64: 10
+       nested_repeated_int64: 100
+       nested_repeated_int64: 200
+     }
+     nested_repeated_value {
+       nested_int64: 20
+       nested_repeated_int64: 300
+       nested_repeated_int64: 400
+     }
+   }}
+]

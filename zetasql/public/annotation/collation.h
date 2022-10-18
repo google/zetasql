@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_ANNOTATION_COLLATION_H_
 
 #include "zetasql/parser/ast_node.h"
+#include "zetasql/public/annotation/default_annotation_spec.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -28,7 +29,7 @@ namespace zetasql {
 // This class defines rules to propagate collation annotation for ResolvedAst
 // nodes. Check comments on each method for propagation behavior on each kind of
 // node.
-class CollationAnnotation : public AnnotationSpec {
+class CollationAnnotation : public DefaultAnnotationSpec {
  public:
   CollationAnnotation() {}
 
@@ -45,34 +46,6 @@ class CollationAnnotation : public AnnotationSpec {
   absl::Status CheckAndPropagateForFunctionCallBase(
       const ResolvedFunctionCallBase& function_call,
       AnnotationMap* result_annotation_map) override;
-
-  // Replicates collation from <column_ref>.column to <result_annotation_map>.
-  absl::Status CheckAndPropagateForColumnRef(
-      const ResolvedColumnRef& column_ref,
-      AnnotationMap* result_annotation_map) override;
-
-  // Replicates collation from the referenced struct field to
-  // <result_annotation_map>.
-  absl::Status CheckAndPropagateForGetStructField(
-      const ResolvedGetStructField& get_struct_field,
-      AnnotationMap* result_annotation_map) override;
-
-  // Propagates annotation from the struct fields to
-  // <result_annotation_map>.
-  absl::Status CheckAndPropagateForMakeStruct(
-      const ResolvedMakeStruct& make_struct,
-      StructAnnotationMap* result_annotation_map) override;
-
-  // Propagates annotation from the subquery to <result_annotation_map>.
-  absl::Status CheckAndPropagateForSubqueryExpr(
-      const ResolvedSubqueryExpr& subquery_expr,
-      AnnotationMap* result_annotation_map) override;
-
-  // Propagates annotations from the output columns of set operation items to
-  // <result_annotation_maps>.
-  absl::Status CheckAndPropagateForSetOperationScan(
-      const ResolvedSetOperationScan& set_operation_scan,
-      const std::vector<AnnotationMap*>& result_annotation_maps) override;
 
   // Returns false when <map> is nullptr or CollationAnnotation is not
   // present in <map> or any of its nested AnnotationMaps.
@@ -98,6 +71,11 @@ class CollationAnnotation : public AnnotationSpec {
   // Throws error if any function argument has collation annotation.
   static absl::Status RejectsCollationOnFunctionArguments(
       const ResolvedFunctionCallBase& function_call);
+
+  // Similar to the implementation in the parent class, except it's not an error
+  // if 'in' is NULL when 'out' has our annotation.
+  absl::Status ScalarMergeIfCompatible(const AnnotationMap* in,
+                                       AnnotationMap& out) const override;
 };
 
 }  // namespace zetasql

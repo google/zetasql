@@ -39,7 +39,7 @@ import java.util.List;
  * <p> In this hierarchy, classes are either abstract or leaves.
  */
 public abstract class ResolvedNode implements Serializable, DebugPrintableNode {
-  ResolvedNode(ResolvedNodeProto proto, DeserializationHelper helper) {
+  ResolvedNode(ResolvedNodeProto proto, AbstractDeserializationHelper helper) {
     // Nothing to deserialize for now.
   }
 

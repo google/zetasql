@@ -179,8 +179,6 @@ class ReferenceDriver : public TestDriver {
 
   LanguageOptions language_options() { return language_options_; }
 
-  absl::TimeZone default_time_zone() { return default_time_zone_; }
-
   absl::StatusOr<std::vector<Value>> RepeatExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory, uint64_t times) override;

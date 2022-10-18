@@ -16,6 +16,8 @@
 
 #include "zetasql/scripting/script_executor.h"
 
+#include <memory>
+
 #include "zetasql/parser/parser.h"
 #include "zetasql/scripting/error_helpers.h"
 #include "zetasql/scripting/script_executor_impl.h"

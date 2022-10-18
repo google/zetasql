@@ -1,33 +1,30 @@
 # This file includes tests for standalone types, outside of queries.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 [default mode=type]
 int32
 --
-SimpleType [0-5]
-  PathExpression [0-5]
-    Identifier(int32) [0-5]
+SimpleType [0-5] [int32]
+  PathExpression [0-5] [int32]
+    Identifier(int32) [0-5] [int32]
 --
 int32
 ==
 
 a.b.c
 --
-SimpleType [0-5]
-  PathExpression [0-5]
-    Identifier(a) [0-1]
-    Identifier(b) [2-3]
-    Identifier(c) [4-5]
+SimpleType [0-5] [a.b.c]
+  PathExpression [0-5] [a.b.c]
+    Identifier(a) [0-1] [a]
+    Identifier(b) [2-3] [b]
+    Identifier(c) [4-5] [c]
 --
 a.b.c
 ==
 
 `a.b.c`
 --
-SimpleType [0-7]
-  PathExpression [0-7]
-    Identifier(`a.b.c`) [0-7]
+SimpleType [0-7] [`a.b.c`]
+  PathExpression [0-7] [`a.b.c`]
+    Identifier(`a.b.c`) [0-7] [`a.b.c`]
 --
 `a.b.c`
 ==
@@ -70,17 +67,17 @@ struct<
 
 struct<x int32, y string>
 --
-StructType [0-25]
-  StructField [7-14]
-    Identifier(x) [7-8]
-    SimpleType [9-14]
-      PathExpression [9-14]
-        Identifier(int32) [9-14]
-  StructField [16-24]
-    Identifier(y) [16-17]
-    SimpleType [18-24]
-      PathExpression [18-24]
-        Identifier(string) [18-24]
+StructType [0-25] [struct<x int32, y string>]
+  StructField [7-14] [x int32]
+    Identifier(x) [7-8] [x]
+    SimpleType [9-14] [int32]
+      PathExpression [9-14] [int32]
+        Identifier(int32) [9-14] [int32]
+  StructField [16-24] [y string]
+    Identifier(y) [16-17] [y]
+    SimpleType [18-24] [string]
+      PathExpression [18-24] [string]
+        Identifier(string) [18-24] [string]
 --
 STRUCT< x int32, y string >
 ==
@@ -90,10 +87,10 @@ int32/* comment
 xxxx
 */>
 --
-ArrayType [0-41]
-  SimpleType [17-22]
-    PathExpression [17-22]
-      Identifier(int32) [17-22]
+ArrayType [0-41] [ARRAY< # comment...nt xxxx */>]
+  SimpleType [17-22] [int32]
+    PathExpression [17-22] [int32]
+      Identifier(int32) [17-22] [int32]
 --
 ARRAY< int32 >
 ==
@@ -101,7 +98,7 @@ ARRAY< int32 >
 # Empty struct is allowed.
 struct<>
 --
-StructType [0-8]
+StructType [0-8] [struct<>]
 --
 STRUCT< >
 ==
@@ -115,9 +112,9 @@ proto<>
 
 timestamp_micros
 --
-SimpleType [0-16]
-  PathExpression [0-16]
-    Identifier(timestamp_micros) [0-16]
+SimpleType [0-16] [timestamp_micros]
+  PathExpression [0-16] [timestamp_micros]
+    Identifier(timestamp_micros) [0-16] [timestamp_micros]
 --
 timestamp_micros
 ==
@@ -126,74 +123,74 @@ timestamp_micros
 # and DDL. See (broken link) for language spec.
 timestamp(0)
 --
-SimpleType [0-12]
-  PathExpression [0-9]
-    Identifier(timestamp) [0-9]
-  TypeParameterList [9-11]
-    IntLiteral(0) [10-11]
+SimpleType [0-12] [timestamp(0)]
+  PathExpression [0-9] [timestamp]
+    Identifier(timestamp) [0-9] [timestamp]
+  TypeParameterList [9-11] [(0]
+    IntLiteral(0) [10-11] [0]
 --
 timestamp(0)
 ==
 
 numeric(MAX, 5)
 --
-SimpleType [0-15]
-  PathExpression [0-7]
-    Identifier(numeric) [0-7]
-  TypeParameterList [7-14]
-    MaxLiteral() [8-11]
-    IntLiteral(5) [13-14]
+SimpleType [0-15] [numeric(MAX, 5)]
+  PathExpression [0-7] [numeric]
+    Identifier(numeric) [0-7] [numeric]
+  TypeParameterList [7-14] [(MAX, 5]
+    MaxLiteral() [8-11] [MAX]
+    IntLiteral(5) [13-14] [5]
 --
 numeric(MAX, 5)
 ==
 
 numeric(MAX, MAX)
 --
-SimpleType [0-17]
-  PathExpression [0-7]
-    Identifier(numeric) [0-7]
-  TypeParameterList [7-16]
-    MaxLiteral() [8-11]
-    MaxLiteral() [13-16]
+SimpleType [0-17] [numeric(MAX, MAX)]
+  PathExpression [0-7] [numeric]
+    Identifier(numeric) [0-7] [numeric]
+  TypeParameterList [7-16] [(MAX, MAX]
+    MaxLiteral() [8-11] [MAX]
+    MaxLiteral() [13-16] [MAX]
 --
 numeric(MAX, MAX)
 ==
 
 namespace.typename(1, 2, 3, 4, 5, MAX)
 --
-SimpleType [0-38]
-  PathExpression [0-18]
-    Identifier(namespace) [0-9]
-    Identifier(typename) [10-18]
-  TypeParameterList [18-37]
-    IntLiteral(1) [19-20]
-    IntLiteral(2) [22-23]
-    IntLiteral(3) [25-26]
-    IntLiteral(4) [28-29]
-    IntLiteral(5) [31-32]
-    MaxLiteral() [34-37]
+SimpleType [0-38] [namespace....4, 5, MAX)]
+  PathExpression [0-18] [namespace.typename]
+    Identifier(namespace) [0-9] [namespace]
+    Identifier(typename) [10-18] [typename]
+  TypeParameterList [18-37] [(1, 2, 3, 4, 5, MAX]
+    IntLiteral(1) [19-20] [1]
+    IntLiteral(2) [22-23] [2]
+    IntLiteral(3) [25-26] [3]
+    IntLiteral(4) [28-29] [4]
+    IntLiteral(5) [31-32] [5]
+    MaxLiteral() [34-37] [MAX]
 --
 namespace.typename(1, 2, 3, 4, 5, MAX)
 ==
 
 struct<a string(100), b numeric(MAX, 10)>
 --
-StructType [0-41]
-  StructField [7-20]
-    Identifier(a) [7-8]
-    SimpleType [9-20]
-      PathExpression [9-15]
-        Identifier(string) [9-15]
-      TypeParameterList [15-19]
-        IntLiteral(100) [16-19]
-  StructField [22-40]
-    Identifier(b) [22-23]
-    SimpleType [24-40]
-      PathExpression [24-31]
-        Identifier(numeric) [24-31]
-      TypeParameterList [31-39]
-        MaxLiteral() [32-35]
-        IntLiteral(10) [37-39]
+StructType [0-41] [struct<a string...(MAX, 10)>]
+  StructField [7-20] [a string(100)]
+    Identifier(a) [7-8] [a]
+    SimpleType [9-20] [string(100)]
+      PathExpression [9-15] [string]
+        Identifier(string) [9-15] [string]
+      TypeParameterList [15-19] [(100]
+        IntLiteral(100) [16-19] [100]
+  StructField [22-40] [b numeric(MAX, 10)]
+    Identifier(b) [22-23] [b]
+    SimpleType [24-40] [numeric(MAX, 10)]
+      PathExpression [24-31] [numeric]
+        Identifier(numeric) [24-31] [numeric]
+      TypeParameterList [31-39] [(MAX, 10]
+        MaxLiteral() [32-35] [MAX]
+        IntLiteral(10) [37-39] [10]
 
 --
 STRUCT< a string(100), b numeric(MAX, 10) >
@@ -201,14 +198,14 @@ STRUCT< a string(100), b numeric(MAX, 10) >
 
 struct<x int64>(10)
 --
-StructType [0-19]
-  StructField [7-14]
-    Identifier(x) [7-8]
-    SimpleType [9-14]
-      PathExpression [9-14]
-        Identifier(int64) [9-14]
-  TypeParameterList [15-18]
-    IntLiteral(10) [16-18]
+StructType [0-19] [struct<x int64>(10)]
+  StructField [7-14] [x int64]
+    Identifier(x) [7-8] [x]
+    SimpleType [9-14] [int64]
+      PathExpression [9-14] [int64]
+        Identifier(int64) [9-14] [int64]
+  TypeParameterList [15-18] [(10]
+    IntLiteral(10) [16-18] [10]
 
 --
 STRUCT< x int64 > (10)
@@ -216,12 +213,12 @@ STRUCT< x int64 > (10)
 
 array<string>(200)
 --
-ArrayType [0-18]
-  SimpleType [6-12]
-    PathExpression [6-12]
-      Identifier(string) [6-12]
-  TypeParameterList [13-17]
-    IntLiteral(200) [14-17]
+ArrayType [0-18] [array<string>(200)]
+  SimpleType [6-12] [string]
+    PathExpression [6-12] [string]
+      Identifier(string) [6-12] [string]
+  TypeParameterList [13-17] [(200]
+    IntLiteral(200) [14-17] [200]
 
 --
 ARRAY< string > (200)
@@ -230,12 +227,12 @@ ARRAY< string > (200)
 array<string(100)>
 
 --
-ArrayType [0-18]
-  SimpleType [6-17]
-    PathExpression [6-12]
-      Identifier(string) [6-12]
-    TypeParameterList [12-16]
-      IntLiteral(100) [13-16]
+ArrayType [0-18] [array<string(100)>]
+  SimpleType [6-17] [string(100)]
+    PathExpression [6-12] [string]
+      Identifier(string) [6-12] [string]
+    TypeParameterList [12-16] [(100]
+      IntLiteral(100) [13-16] [100]
 
 --
 ARRAY< string(100) >
@@ -245,26 +242,26 @@ ARRAY< string(100) >
 struct<a array<string(100)>, b struct<f1 numeric(MAX, 5)>>
 
 --
-StructType [0-58]
-  StructField [7-27]
-    Identifier(a) [7-8]
-    ArrayType [9-27]
-      SimpleType [15-26]
-        PathExpression [15-21]
-          Identifier(string) [15-21]
-        TypeParameterList [21-25]
-          IntLiteral(100) [22-25]
-  StructField [29-57]
-    Identifier(b) [29-30]
-    StructType [31-57]
-      StructField [38-56]
-        Identifier(f1) [38-40]
-        SimpleType [41-56]
-          PathExpression [41-48]
-            Identifier(numeric) [41-48]
-          TypeParameterList [48-55]
-            MaxLiteral() [49-52]
-            IntLiteral(5) [54-55]
+StructType [0-58] [struct<a array...(MAX, 5)>>]
+  StructField [7-27] [a array<string(100)>]
+    Identifier(a) [7-8] [a]
+    ArrayType [9-27] [array<string(100)>]
+      SimpleType [15-26] [string(100)]
+        PathExpression [15-21] [string]
+          Identifier(string) [15-21] [string]
+        TypeParameterList [21-25] [(100]
+          IntLiteral(100) [22-25] [100]
+  StructField [29-57] [b struct<f1 numeric(MAX, 5)>]
+    Identifier(b) [29-30] [b]
+    StructType [31-57] [struct<f1 numeric(MAX, 5)>]
+      StructField [38-56] [f1 numeric(MAX, 5)]
+        Identifier(f1) [38-40] [f1]
+        SimpleType [41-56] [numeric(MAX, 5)]
+          PathExpression [41-48] [numeric]
+            Identifier(numeric) [41-48] [numeric]
+          TypeParameterList [48-55] [(MAX, 5]
+            MaxLiteral() [49-52] [MAX]
+            IntLiteral(5) [54-55] [5]
 
 --
 STRUCT< a ARRAY< string(100) >, b STRUCT< f1 numeric(MAX, 5) > >
@@ -274,11 +271,11 @@ STRUCT< a ARRAY< string(100) >, b STRUCT< f1 numeric(MAX, 5) > >
 # Float literal parameter
 numeric(1.1)
 --
-SimpleType [0-12]
-  PathExpression [0-7]
-    Identifier(numeric) [0-7]
-  TypeParameterList [7-11]
-    FloatLiteral(1.1) [8-11]
+SimpleType [0-12] [numeric(1.1)]
+  PathExpression [0-7] [numeric]
+    Identifier(numeric) [0-7] [numeric]
+  TypeParameterList [7-11] [(1.1]
+    FloatLiteral(1.1) [8-11] [1.1]
 --
 numeric(1.1)
 ==
@@ -286,11 +283,11 @@ numeric(1.1)
 # String literal parameter
 numeric("MAX")
 --
-SimpleType [0-14]
-  PathExpression [0-7]
-    Identifier(numeric) [0-7]
-  TypeParameterList [7-13]
-    StringLiteral("MAX") [8-13]
+SimpleType [0-14] [numeric("MAX")]
+  PathExpression [0-7] [numeric]
+    Identifier(numeric) [0-7] [numeric]
+  TypeParameterList [7-13] [("MAX"]
+    StringLiteral("MAX") [8-13] ["MAX"]
 --
 numeric("MAX")
 ==
@@ -298,11 +295,11 @@ numeric("MAX")
 # Bytes literal parameter
 string(B"abc")
 --
-SimpleType [0-14]
-  PathExpression [0-6]
-    Identifier(string) [0-6]
-  TypeParameterList [6-13]
-    BytesLiteral(B"abc") [7-13]
+SimpleType [0-14] [string(B"abc")]
+  PathExpression [0-6] [string]
+    Identifier(string) [0-6] [string]
+  TypeParameterList [6-13] [(B"abc"]
+    BytesLiteral(B"abc") [7-13] [B"abc"]
 --
 string(B"abc")
 ==
@@ -310,11 +307,11 @@ string(B"abc")
 # Boolean literal parameter
 string(TRUE)
 --
-SimpleType [0-12]
-  PathExpression [0-6]
-    Identifier(string) [0-6]
-  TypeParameterList [6-11]
-    BooleanLiteral(TRUE) [7-11]
+SimpleType [0-12] [string(TRUE)]
+  PathExpression [0-6] [string]
+    Identifier(string) [0-6] [string]
+  TypeParameterList [6-11] [(TRUE]
+    BooleanLiteral(TRUE) [7-11] [TRUE]
 --
 string(TRUE)
 ==
@@ -322,13 +319,13 @@ string(TRUE)
 # Mix of int and string literal parameters
 money(20, 6, 'USD')
 --
-SimpleType [0-19]
-  PathExpression [0-5]
-    Identifier(money) [0-5]
-  TypeParameterList [5-18]
-    IntLiteral(20) [6-8]
-    IntLiteral(6) [10-11]
-    StringLiteral('USD') [13-18]
+SimpleType [0-19] [money(20, 6, 'USD')]
+  PathExpression [0-5] [money]
+    Identifier(money) [0-5] [money]
+  TypeParameterList [5-18] [(20, 6, 'USD']
+    IntLiteral(20) [6-8] [20]
+    IntLiteral(6) [10-11] [6]
+    StringLiteral('USD') [13-18] ['USD']
 --
 money(20, 6, 'USD')
 ==
@@ -361,122 +358,122 @@ numeric(MAX(), 10)
 
 string collate 'ABC'
 --
-SimpleType [0-20]
-  PathExpression [0-6]
-    Identifier(string) [0-6]
-  Collate [7-20]
-    StringLiteral('ABC') [15-20]
+SimpleType [0-20] [string collate 'ABC']
+  PathExpression [0-6] [string]
+    Identifier(string) [0-6] [string]
+  Collate [7-20] [collate 'ABC']
+    StringLiteral('ABC') [15-20] ['ABC']
 --
 string COLLATE 'ABC'
 ==
 
 string(100) collate 'ABC'
 --
-SimpleType [0-25]
-  PathExpression [0-6]
-    Identifier(string) [0-6]
-  TypeParameterList [6-10]
-    IntLiteral(100) [7-10]
-  Collate [12-25]
-    StringLiteral('ABC') [20-25]
+SimpleType [0-25] [string(100) collate 'ABC']
+  PathExpression [0-6] [string]
+    Identifier(string) [0-6] [string]
+  TypeParameterList [6-10] [(100]
+    IntLiteral(100) [7-10] [100]
+  Collate [12-25] [collate 'ABC']
+    StringLiteral('ABC') [20-25] ['ABC']
 --
 string(100) COLLATE 'ABC'
 ==
 
 struct<a string collate 'ABC'>
 --
-StructType [0-30]
-  StructField [7-29]
-    Identifier(a) [7-8]
-    SimpleType [9-29]
-      PathExpression [9-15]
-        Identifier(string) [9-15]
-      Collate [16-29]
-        StringLiteral('ABC') [24-29]
+StructType [0-30] [struct<a string collate 'ABC'>]
+  StructField [7-29] [a string collate 'ABC']
+    Identifier(a) [7-8] [a]
+    SimpleType [9-29] [string collate 'ABC']
+      PathExpression [9-15] [string]
+        Identifier(string) [9-15] [string]
+      Collate [16-29] [collate 'ABC']
+        StringLiteral('ABC') [24-29] ['ABC']
 --
 STRUCT< a string COLLATE 'ABC' >
 ==
 
 struct<a string> collate 'ABC'
 --
-StructType [0-30]
-  StructField [7-15]
-    Identifier(a) [7-8]
-    SimpleType [9-15]
-      PathExpression [9-15]
-        Identifier(string) [9-15]
-  Collate [17-30]
-    StringLiteral('ABC') [25-30]
+StructType [0-30] [struct<a string> collate 'ABC']
+  StructField [7-15] [a string]
+    Identifier(a) [7-8] [a]
+    SimpleType [9-15] [string]
+      PathExpression [9-15] [string]
+        Identifier(string) [9-15] [string]
+  Collate [17-30] [collate 'ABC']
+    StringLiteral('ABC') [25-30] ['ABC']
 --
 STRUCT< a string > COLLATE 'ABC'
 ==
 
 struct<a string(100) collate 'ABC'>
 --
-StructType [0-35]
-  StructField [7-34]
-    Identifier(a) [7-8]
-    SimpleType [9-34]
-      PathExpression [9-15]
-        Identifier(string) [9-15]
-      TypeParameterList [15-19]
-        IntLiteral(100) [16-19]
-      Collate [21-34]
-        StringLiteral('ABC') [29-34]
+StructType [0-35] [struct<a string...llate 'ABC'>]
+  StructField [7-34] [a string(100) collate 'ABC']
+    Identifier(a) [7-8] [a]
+    SimpleType [9-34] [string(100) collate 'ABC']
+      PathExpression [9-15] [string]
+        Identifier(string) [9-15] [string]
+      TypeParameterList [15-19] [(100]
+        IntLiteral(100) [16-19] [100]
+      Collate [21-34] [collate 'ABC']
+        StringLiteral('ABC') [29-34] ['ABC']
 --
 STRUCT< a string(100) COLLATE 'ABC' >
 ==
 
 array<string collate 'ABC'>
 --
-ArrayType [0-27]
-  SimpleType [6-26]
-    PathExpression [6-12]
-      Identifier(string) [6-12]
-    Collate [13-26]
-      StringLiteral('ABC') [21-26]
+ArrayType [0-27] [array<string collate 'ABC'>]
+  SimpleType [6-26] [string collate 'ABC']
+    PathExpression [6-12] [string]
+      Identifier(string) [6-12] [string]
+    Collate [13-26] [collate 'ABC']
+      StringLiteral('ABC') [21-26] ['ABC']
 --
 ARRAY< string COLLATE 'ABC' >
 ==
 
 array<string> collate 'ABC'
 --
-ArrayType [0-27]
-  SimpleType [6-12]
-    PathExpression [6-12]
-      Identifier(string) [6-12]
-  Collate [14-27]
-    StringLiteral('ABC') [22-27]
+ArrayType [0-27] [array<string> collate 'ABC']
+  SimpleType [6-12] [string]
+    PathExpression [6-12] [string]
+      Identifier(string) [6-12] [string]
+  Collate [14-27] [collate 'ABC']
+    StringLiteral('ABC') [22-27] ['ABC']
 --
 ARRAY< string > COLLATE 'ABC'
 ==
 
 array<string(100) collate 'ABC'>
 --
-ArrayType [0-32]
-  SimpleType [6-31]
-    PathExpression [6-12]
-      Identifier(string) [6-12]
-    TypeParameterList [12-16]
-      IntLiteral(100) [13-16]
-    Collate [18-31]
-      StringLiteral('ABC') [26-31]
+ArrayType [0-32] [array<string...collate 'ABC'>]
+  SimpleType [6-31] [string(100) collate 'ABC']
+    PathExpression [6-12] [string]
+      Identifier(string) [6-12] [string]
+    TypeParameterList [12-16] [(100]
+      IntLiteral(100) [13-16] [100]
+    Collate [18-31] [collate 'ABC']
+      StringLiteral('ABC') [26-31] ['ABC']
 --
 ARRAY< string(100) COLLATE 'ABC' >
 ==
 
 array<string(100) collate 'ABC'>(200)
 --
-ArrayType [0-37]
-  SimpleType [6-31]
-    PathExpression [6-12]
-      Identifier(string) [6-12]
-    TypeParameterList [12-16]
-      IntLiteral(100) [13-16]
-    Collate [18-31]
-      StringLiteral('ABC') [26-31]
-  TypeParameterList [32-36]
-    IntLiteral(200) [33-36]
+ArrayType [0-37] [array<string...ABC'>(200)]
+  SimpleType [6-31] [string(100) collate 'ABC']
+    PathExpression [6-12] [string]
+      Identifier(string) [6-12] [string]
+    TypeParameterList [12-16] [(100]
+      IntLiteral(100) [13-16] [100]
+    Collate [18-31] [collate 'ABC']
+      StringLiteral('ABC') [26-31] ['ABC']
+  TypeParameterList [32-36] [(200]
+    IntLiteral(200) [33-36] [200]
 --
 ARRAY< string(100) COLLATE 'ABC' > (200)
 
@@ -484,28 +481,28 @@ ARRAY< string(100) COLLATE 'ABC' > (200)
 
 struct<a array<string(100) collate 'ABC'>, b struct<string(50) collate 'CDE'>>
 --
-StructType [0-78]
-  StructField [7-41]
-    Identifier(a) [7-8]
-    ArrayType [9-41]
-      SimpleType [15-40]
-        PathExpression [15-21]
-          Identifier(string) [15-21]
-        TypeParameterList [21-25]
-          IntLiteral(100) [22-25]
-        Collate [27-40]
-          StringLiteral('ABC') [35-40]
-  StructField [43-77]
-    Identifier(b) [43-44]
-    StructType [45-77]
-      StructField [52-76]
-        SimpleType [52-76]
-          PathExpression [52-58]
-            Identifier(string) [52-58]
-          TypeParameterList [58-61]
-            IntLiteral(50) [59-61]
-          Collate [63-76]
-            StringLiteral('CDE') [71-76]
+StructType [0-78] [struct<a array...llate 'CDE'>>]
+  StructField [7-41] [a array<string...ollate 'ABC'>]
+    Identifier(a) [7-8] [a]
+    ArrayType [9-41] [array<string...collate 'ABC'>]
+      SimpleType [15-40] [string(100) collate 'ABC']
+        PathExpression [15-21] [string]
+          Identifier(string) [15-21] [string]
+        TypeParameterList [21-25] [(100]
+          IntLiteral(100) [22-25] [100]
+        Collate [27-40] [collate 'ABC']
+          StringLiteral('ABC') [35-40] ['ABC']
+  StructField [43-77] [b struct<string...llate 'CDE'>]
+    Identifier(b) [43-44] [b]
+    StructType [45-77] [struct<string...collate 'CDE'>]
+      StructField [52-76] [string(50) collate 'CDE']
+        SimpleType [52-76] [string(50) collate 'CDE']
+          PathExpression [52-58] [string]
+            Identifier(string) [52-58] [string]
+          TypeParameterList [58-61] [(50]
+            IntLiteral(50) [59-61] [50]
+          Collate [63-76] [collate 'CDE']
+            StringLiteral('CDE') [71-76] ['CDE']
 --
 STRUCT< a ARRAY< string(100) COLLATE 'ABC' >, b STRUCT< string(50) COLLATE 'CDE' > >
 ==
@@ -513,36 +510,36 @@ STRUCT< a ARRAY< string(100) COLLATE 'ABC' >, b STRUCT< string(50) COLLATE 'CDE'
 # Use parameter as collate clause.
 string collate @collation_name
 --
-SimpleType [0-30]
-  PathExpression [0-6]
-    Identifier(string) [0-6]
-  Collate [7-30]
-    ParameterExpr [15-30]
-      Identifier(collation_name) [16-30]
+SimpleType [0-30] [string collate @collation_name]
+  PathExpression [0-6] [string]
+    Identifier(string) [0-6] [string]
+  Collate [7-30] [collate @collation_name]
+    ParameterExpr [15-30] [@collation_name]
+      Identifier(collation_name) [16-30] [collation_name]
 --
 string COLLATE @collation_name
 ==
 
 struct<a string collate 'ABC', b string(100) collate @collation_name>
 --
-StructType [0-69]
-  StructField [7-29]
-    Identifier(a) [7-8]
-    SimpleType [9-29]
-      PathExpression [9-15]
-        Identifier(string) [9-15]
-      Collate [16-29]
-        StringLiteral('ABC') [24-29]
-  StructField [31-68]
-    Identifier(b) [31-32]
-    SimpleType [33-68]
-      PathExpression [33-39]
-        Identifier(string) [33-39]
-      TypeParameterList [39-43]
-        IntLiteral(100) [40-43]
-      Collate [45-68]
-        ParameterExpr [53-68]
-          Identifier(collation_name) [54-68]
+StructType [0-69] [struct<a string...lation_name>]
+  StructField [7-29] [a string collate 'ABC']
+    Identifier(a) [7-8] [a]
+    SimpleType [9-29] [string collate 'ABC']
+      PathExpression [9-15] [string]
+        Identifier(string) [9-15] [string]
+      Collate [16-29] [collate 'ABC']
+        StringLiteral('ABC') [24-29] ['ABC']
+  StructField [31-68] [b string(100...collation_name]
+    Identifier(b) [31-32] [b]
+    SimpleType [33-68] [string(100...collation_name]
+      PathExpression [33-39] [string]
+        Identifier(string) [33-39] [string]
+      TypeParameterList [39-43] [(100]
+        IntLiteral(100) [40-43] [100]
+      Collate [45-68] [collate @collation_name]
+        ParameterExpr [53-68] [@collation_name]
+          Identifier(collation_name) [54-68] [collation_name]
 --
 STRUCT< a string COLLATE 'ABC', b string(100) COLLATE @collation_name >
 ==

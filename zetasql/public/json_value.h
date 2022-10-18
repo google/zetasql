@@ -43,18 +43,23 @@ struct JSONParsingOptions {
   // If 'legacy_mode' is set to true, the parsing will be done using the legacy
   // proto JSON parser. The legacy parser supports strings that are not
   // valid JSON documents according to JSON RFC (such as single quote strings).
-  bool legacy_mode;
+  bool legacy_mode = false;
   // If 'strict_number_parsing' is set to true, parsing will fail if there is at
   // least one number value in 'str' that does not round-trip from
   // string -> number -> string. 'strict_number_parsing' only affects non-legacy
   // parsing (i.e. 'legacy_mode' = true and 'strict_number_parsing' = true
   // returns an error).
-  bool strict_number_parsing;
+  bool strict_number_parsing = false;
   // If 'max_nesting' is set to a non-negative number, parsing will fail if the
   // JSON document has more than 'max_nesting' levels of nesting. If it is set
   // to a negative number, the max nesting will be set to 0 instead (i.e. only
   // allowing scalar JSONs). JSON Arrays and Objects increase nesting levels.
-  std::optional<int> max_nesting;
+  std::optional<int> max_nesting = std::nullopt;
+  // If true, the sign on a signed zero is removed when converting numeric type
+  // to string.
+  // TODO : remove this option when all engines have
+  // rolled out this new behavior.
+  bool canonicalize_zero = false;
 };
 
 // Returns whether 'json_str' is a valid JSON string.

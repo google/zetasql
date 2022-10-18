@@ -235,7 +235,9 @@ public class EnumTypeTest {
             "The number of fields of EnumTypeProto has changed, please also update the "
                 + "serialization code accordingly.")
         .that(EnumTypeProto.getDescriptor().getFields())
-        .hasSize(4);
+        .hasSize(5);
+    // TODO: Implement java opaque enum support.
+
     assertWithMessage(
             "The number of fields in EnumType class has changed, please also update the proto and "
                 + "serialization code accordingly.")

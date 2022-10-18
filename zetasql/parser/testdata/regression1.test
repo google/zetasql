@@ -1,7 +1,4 @@
 # Ensure this doesn't crash.
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 select col1,(exists @{a = b} (select col2 from T2)
 from T1
 where exists @{a=1} (select col from T3)

@@ -16,6 +16,7 @@
 
 #include "zetasql/public/language_options.h"
 
+#include <set>
 #include <string>
 
 #include "zetasql/base/logging.h"
@@ -45,6 +46,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       // "in_development". Add features here when removing "in_development".
       features.insert(FEATURE_V_1_4_BARE_ARRAY_ACCESS);
       features.insert(FEATURE_V_1_4_WITH_EXPRESSION);
+      features.insert(FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
@@ -224,11 +226,21 @@ void LanguageOptions::EnableMaximumLanguageFeatures(bool for_development) {
       EnableLanguageFeature(feature);
     }
   }
-  EnableAllReservableKeywords();
+
+  // TODO: This should be fleshed out fully when we have an approved
+  // design for keyword maturity
+  if (for_development) {
+    EnableAllReservableKeywords();
+  } else {
+    // QUALIFY is the only exception as it's already launched.
+    ZETASQL_CHECK_OK(EnableReservableKeyword("QUALIFY", /*reserved=*/true));
+  }
 }
 
 const LanguageOptions::KeywordSet& LanguageOptions::GetReservableKeywords() {
-  static auto* reservable_keywords = new KeywordSet{"QUALIFY"};
+  static auto* reservable_keywords = new KeywordSet{
+      "QUALIFY",
+  };
   return *reservable_keywords;
 }
 

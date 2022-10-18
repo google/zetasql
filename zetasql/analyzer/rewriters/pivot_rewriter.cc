@@ -206,8 +206,7 @@ PivotRewriterVisitor::AddExprColumnsToPivotInput(
   if (CollationAnnotation::ExistsIn(
           pivot_scan->for_expr()->type_annotation_map())) {
     // TODO: support collation on FOR expression.
-    return MakeUnimplementedErrorAtPoint(
-               pivot_scan->for_expr()->GetParseLocationOrNULL()->start())
+    return MakeUnimplementedErrorAtNode(pivot_scan->for_expr())
            << "Collation is not supported in a PIVOT clause yet";
   }
 
@@ -225,8 +224,7 @@ PivotRewriterVisitor::AddExprColumnsToPivotInput(
         pivot_expr->GetAs<ResolvedAggregateFunctionCall>();
     if (call->collation_list_size() > 0) {
       // TODO: support collation on aggregation functions
-      return MakeUnimplementedErrorAtPoint(
-                 call->GetParseLocationOrNULL()->start())
+      return MakeUnimplementedErrorAtNode(call)
              << "Collation is not supported in a PIVOT clause yet";
     }
     ZETASQL_RETURN_IF_ERROR(VerifyAggregateFunctionIsSupported(call));
@@ -237,14 +235,12 @@ PivotRewriterVisitor::AddExprColumnsToPivotInput(
       if (CollationAnnotation::ExistsIn(arg->type_annotation_map())) {
         // TODO: support collation for arguments of aggregate
         // functions inside PIVOT clause.
-        return MakeUnimplementedErrorAtPoint(
-                   call->GetParseLocationOrNULL()->start())
-               << absl::Substitute(
-                      "Collation $0 is not supported on argument $1 of "
-                      "aggregate function in a PIVOT clause",
-                      arg->type_annotation_map()->DebugString(
-                          CollationAnnotation::GetId()),
-                      (i + 1));
+        return MakeUnimplementedErrorAtNode(call) << absl::Substitute(
+                   "Collation $0 is not supported on argument $1 of "
+                   "aggregate function in a PIVOT clause",
+                   arg->type_annotation_map()->DebugString(
+                       CollationAnnotation::GetId()),
+                   (i + 1));
       }
       ZETASQL_ASSIGN_OR_RETURN(bool arg_is_constant_expr,
                        IsConstantExpression(arg.get()));
@@ -430,8 +426,7 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
     // the pivot column does not match the pivot value.
     //
     // As HAVING MIN/MAX is not a commonly-used feature, this is low priority.
-    return MakeUnimplementedErrorAtPoint(
-               call->GetParseLocationOrNULL()->start())
+    return MakeUnimplementedErrorAtNode(call)
            << "Use of HAVING inside an aggregate function used as a PIVOT "
               "expression is not supported";
   }
@@ -449,8 +444,7 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
   ZETASQL_RET_CHECK(call->signature().IsConcrete());
   if (call->signature().NumConcreteArguments() == 0) {
     // Zero-argument signatures other than COUNT(*) are not supported.
-    return MakeUnimplementedErrorAtPoint(
-               call->GetParseLocationOrNULL()->start())
+    return MakeUnimplementedErrorAtNode(call)
            << "Use of aggregate function " << call->function()->SQLName()
            << " as PIVOT expression is not supported";
   }
@@ -460,8 +454,7 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
       // Function call is explicitly annotated as ignoring nulls.
       return absl::OkStatus();
     case ResolvedAggregateFunctionCall::RESPECT_NULLS:
-      return MakeUnimplementedErrorAtPoint(
-                 call->GetParseLocationOrNULL()->start())
+      return MakeUnimplementedErrorAtNode(call)
              << "Use of RESPECT NULLS in aggregate function used as a PIVOT "
                 "expression is not supported";
     case ResolvedAggregateFunctionCall::DEFAULT_NULL_HANDLING:
@@ -478,14 +471,12 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
               .supports_null_handling_modifier &&
           analyzer_options_.language().LanguageFeatureEnabled(
               FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE)) {
-        return MakeUnimplementedErrorAtPoint(
-                   call->GetParseLocationOrNULL()->start())
+        return MakeUnimplementedErrorAtNode(call)
                << "Use of aggregate function " << call->function()->SQLName()
                << " as PIVOT expression is not supported unless IGNORE "
                   "NULLS is specified";
       }
-      return MakeUnimplementedErrorAtPoint(
-                 call->GetParseLocationOrNULL()->start())
+      return MakeUnimplementedErrorAtNode(call)
              << "Use of aggregate function " << call->function()->SQLName()
              << " as PIVOT expression is not supported";
   }

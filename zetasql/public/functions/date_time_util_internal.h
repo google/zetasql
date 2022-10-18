@@ -82,6 +82,9 @@ absl::civil_year_t GetIsoYear(absl::CivilDay day);
 // inclusive.
 int GetIsoWeek(absl::CivilDay day);
 
+// Ruturns true if the given year is a leap year, false otherwise.
+bool IsLeapYear(int64_t year);
+
 }  // namespace date_time_util_internal
 }  // namespace functions
 }  // namespace zetasql

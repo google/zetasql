@@ -152,7 +152,8 @@ FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 +--------------+
 ```
 
-## Accessing array elements
+## Accessing array elements 
+<a id="accessing_array_elements"></a>
 
 Consider the following table, `sequences`:
 

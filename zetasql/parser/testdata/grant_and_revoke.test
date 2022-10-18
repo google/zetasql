@@ -1,38 +1,35 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 grant select, update on table foo to 'user@google.com'
 --
-GrantStatement [0-54]
-  Privileges [6-20]
-    Privilege [6-12]
-      Identifier(`select`) [6-12]
-    Privilege [14-20]
-      Identifier(`update`) [14-20]
-  Identifier(table) [24-29]
-  PathExpression [30-33]
-    Identifier(foo) [30-33]
-  GranteeList [37-54]
-    StringLiteral('user@google.com') [37-54]
+GrantStatement [0-54] [grant select...google.com']
+  Privileges [6-20] [select, update]
+    Privilege [6-12] [select]
+      Identifier(`select`) [6-12] [select]
+    Privilege [14-20] [update]
+      Identifier(`update`) [14-20] [update]
+  Identifier(table) [24-29] [table]
+  PathExpression [30-33] [foo]
+    Identifier(foo) [30-33] [foo]
+  GranteeList [37-54] ['user@google.com']
+    StringLiteral('user@google.com') [37-54] ['user@google.com']
 --
 GRANT `select`, `update` ON table foo TO 'user@google.com'
 ==
 
 grant all privileges on view foo to @user1, @@user2, 'mdbuser/bar1', 'mdbuser/bar2'
 --
-GrantStatement [0-83]
-  Privileges [6-20]
-  Identifier(view) [24-28]
-  PathExpression [29-32]
-    Identifier(foo) [29-32]
-  GranteeList [36-83]
-    ParameterExpr [36-42]
-      Identifier(user1) [37-42]
-    SystemVariableExpr [44-51]
-      PathExpression [46-51]
-        Identifier(user2) [46-51]
-    StringLiteral('mdbuser/bar1') [53-67]
-    StringLiteral('mdbuser/bar2') [69-83]
+GrantStatement [0-83] [grant all...mdbuser/bar2']
+  Privileges [6-20] [all privileges]
+  Identifier(view) [24-28] [view]
+  PathExpression [29-32] [foo]
+    Identifier(foo) [29-32] [foo]
+  GranteeList [36-83] [@user1, @@...mdbuser/bar2']
+    ParameterExpr [36-42] [@user1]
+      Identifier(user1) [37-42] [user1]
+    SystemVariableExpr [44-51] [@@user2]
+      PathExpression [46-51] [user2]
+        Identifier(user2) [46-51] [user2]
+    StringLiteral('mdbuser/bar1') [53-67] ['mdbuser/bar1']
+    StringLiteral('mdbuser/bar2') [69-83] ['mdbuser/bar2']
 
 --
 GRANT ALL PRIVILEGES ON view foo TO @user1, @@user2, 'mdbuser/bar1', 'mdbuser/bar2'
@@ -40,57 +37,57 @@ GRANT ALL PRIVILEGES ON view foo TO @user1, @@user2, 'mdbuser/bar1', 'mdbuser/ba
 
 grant all on datascape.foo to 'bar'
 --
-GrantStatement [0-35]
-  Privileges [6-9]
-  PathExpression [13-26]
-    Identifier(datascape) [13-22]
-    Identifier(foo) [23-26]
-  GranteeList [30-35]
-    StringLiteral('bar') [30-35]
+GrantStatement [0-35] [grant all...foo to 'bar']
+  Privileges [6-9] [all]
+  PathExpression [13-26] [datascape.foo]
+    Identifier(datascape) [13-22] [datascape]
+    Identifier(foo) [23-26] [foo]
+  GranteeList [30-35] ['bar']
+    StringLiteral('bar') [30-35] ['bar']
 --
 GRANT ALL PRIVILEGES ON datascape.foo TO 'bar'
 ==
 
 grant select, insert(col1, col2, col3), update(col2) on foo to 'mdbgroup/bar'
 --
-GrantStatement [0-77]
-  Privileges [6-52]
-    Privilege [6-12]
-      Identifier(`select`) [6-12]
-    Privilege [14-38]
-      Identifier(insert) [14-20]
-      PathExpressionList [20-38]
-        PathExpression [21-25]
-          Identifier(col1) [21-25]
-        PathExpression [27-31]
-          Identifier(col2) [27-31]
-        PathExpression [33-37]
-          Identifier(col3) [33-37]
-    Privilege [40-52]
-      Identifier(`update`) [40-46]
-      PathExpressionList [46-52]
-        PathExpression [47-51]
-          Identifier(col2) [47-51]
-  PathExpression [56-59]
-    Identifier(foo) [56-59]
-  GranteeList [63-77]
-    StringLiteral('mdbgroup/bar') [63-77]
+GrantStatement [0-77] [grant select...mdbgroup/bar']
+  Privileges [6-52] [select, insert...update(col2)]
+    Privilege [6-12] [select]
+      Identifier(`select`) [6-12] [select]
+    Privilege [14-38] [insert(col1, col2, col3)]
+      Identifier(insert) [14-20] [insert]
+      PathExpressionList [20-38] [(col1, col2, col3)]
+        PathExpression [21-25] [col1]
+          Identifier(col1) [21-25] [col1]
+        PathExpression [27-31] [col2]
+          Identifier(col2) [27-31] [col2]
+        PathExpression [33-37] [col3]
+          Identifier(col3) [33-37] [col3]
+    Privilege [40-52] [update(col2)]
+      Identifier(`update`) [40-46] [update]
+      PathExpressionList [46-52] [(col2)]
+        PathExpression [47-51] [col2]
+          Identifier(col2) [47-51] [col2]
+  PathExpression [56-59] [foo]
+    Identifier(foo) [56-59] [foo]
+  GranteeList [63-77] ['mdbgroup/bar']
+    StringLiteral('mdbgroup/bar') [63-77] ['mdbgroup/bar']
 --
 GRANT `select`, insert(col1, col2, col3), `update`(col2) ON foo TO 'mdbgroup/bar'
 ==
 
 grant execute on script datascape.script_foo to 'group@google.com'
 --
-GrantStatement [0-66]
-  Privileges [6-13]
-    Privilege [6-13]
-      Identifier(execute) [6-13]
-  Identifier(script) [17-23]
-  PathExpression [24-44]
-    Identifier(datascape) [24-33]
-    Identifier(script_foo) [34-44]
-  GranteeList [48-66]
-    StringLiteral('group@google.com') [48-66]
+GrantStatement [0-66] [grant execute...google.com']
+  Privileges [6-13] [execute]
+    Privilege [6-13] [execute]
+      Identifier(execute) [6-13] [execute]
+  Identifier(script) [17-23] [script]
+  PathExpression [24-44] [datascape.script_foo]
+    Identifier(datascape) [24-33] [datascape]
+    Identifier(script_foo) [34-44] [script_foo]
+  GranteeList [48-66] ['group@google.com']
+    StringLiteral('group@google.com') [48-66] ['group@google.com']
 --
 GRANT execute ON script datascape.script_foo TO 'group@google.com'
 ==
@@ -146,66 +143,66 @@ grant all on foo to 'bar1' bar2
 
 revoke all on foo from 'bar'
 --
-RevokeStatement [0-28]
-  Privileges [7-10]
-  PathExpression [14-17]
-    Identifier(foo) [14-17]
-  GranteeList [23-28]
-    StringLiteral('bar') [23-28]
+RevokeStatement [0-28] [revoke all on foo from 'bar']
+  Privileges [7-10] [all]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  GranteeList [23-28] ['bar']
+    StringLiteral('bar') [23-28] ['bar']
 --
 REVOKE ALL PRIVILEGES ON foo FROM 'bar'
 ==
 
 revoke delete on table foo from 'mdbuser/bar'
 --
-RevokeStatement [0-45]
-  Privileges [7-13]
-    Privilege [7-13]
-      Identifier(delete) [7-13]
-  Identifier(table) [17-22]
-  PathExpression [23-26]
-    Identifier(foo) [23-26]
-  GranteeList [32-45]
-    StringLiteral('mdbuser/bar') [32-45]
+RevokeStatement [0-45] [revoke delete...mdbuser/bar']
+  Privileges [7-13] [delete]
+    Privilege [7-13] [delete]
+      Identifier(delete) [7-13] [delete]
+  Identifier(table) [17-22] [table]
+  PathExpression [23-26] [foo]
+    Identifier(foo) [23-26] [foo]
+  GranteeList [32-45] ['mdbuser/bar']
+    StringLiteral('mdbuser/bar') [32-45] ['mdbuser/bar']
 --
 REVOKE delete ON table foo FROM 'mdbuser/bar'
 ==
 
 revoke all on table table from 'mdbuser/user', @user2, 'user3', @@user4;
 --
-RevokeStatement [0-71]
-  Privileges [7-10]
-  Identifier(table) [14-19]
-  PathExpression [20-25]
-    Identifier(table) [20-25]
-  GranteeList [31-71]
-    StringLiteral('mdbuser/user') [31-45]
-    ParameterExpr [47-53]
-      Identifier(user2) [48-53]
-    StringLiteral('user3') [55-62]
-    SystemVariableExpr [64-71]
-      PathExpression [66-71]
-        Identifier(user4) [66-71]
+RevokeStatement [0-71] [revoke all...', @@user4]
+  Privileges [7-10] [all]
+  Identifier(table) [14-19] [table]
+  PathExpression [20-25] [table]
+    Identifier(table) [20-25] [table]
+  GranteeList [31-71] ['mdbuser/user...', @@user4]
+    StringLiteral('mdbuser/user') [31-45] ['mdbuser/user']
+    ParameterExpr [47-53] [@user2]
+      Identifier(user2) [48-53] [user2]
+    StringLiteral('user3') [55-62] ['user3']
+    SystemVariableExpr [64-71] [@@user4]
+      PathExpression [66-71] [user4]
+        Identifier(user4) [66-71] [user4]
 --
 REVOKE ALL PRIVILEGES ON table table FROM 'mdbuser/user', @user2, 'user3', @@user4
 ==
 
 revoke delete,update(col2) on view foo from 'mdbgroup/bar'
 --
-RevokeStatement [0-58]
-  Privileges [7-26]
-    Privilege [7-13]
-      Identifier(delete) [7-13]
-    Privilege [14-26]
-      Identifier(`update`) [14-20]
-      PathExpressionList [20-26]
-        PathExpression [21-25]
-          Identifier(col2) [21-25]
-  Identifier(view) [30-34]
-  PathExpression [35-38]
-    Identifier(foo) [35-38]
-  GranteeList [44-58]
-    StringLiteral('mdbgroup/bar') [44-58]
+RevokeStatement [0-58] [revoke delete...mdbgroup/bar']
+  Privileges [7-26] [delete,update(col2)]
+    Privilege [7-13] [delete]
+      Identifier(delete) [7-13] [delete]
+    Privilege [14-26] [update(col2)]
+      Identifier(`update`) [14-20] [update]
+      PathExpressionList [20-26] [(col2)]
+        PathExpression [21-25] [col2]
+          Identifier(col2) [21-25] [col2]
+  Identifier(view) [30-34] [view]
+  PathExpression [35-38] [foo]
+    Identifier(foo) [35-38] [foo]
+  GranteeList [44-58] ['mdbgroup/bar']
+    StringLiteral('mdbgroup/bar') [44-58] ['mdbgroup/bar']
 --
 REVOKE delete, `update`(col2) ON view foo FROM 'mdbgroup/bar'
 ==

@@ -666,9 +666,18 @@ void Unparser::visitASTCreateModelStatement(const ASTCreateModelStatement* node,
                                             void* data) {
   print(GetCreateStatementPrefix(node, "MODEL"));
   node->name()->Accept(this, data);
+  if (node->input_output_clause() != nullptr) {
+    node->input_output_clause()->Accept(this, data);
+  }
   if (node->transform_clause() != nullptr) {
     print("TRANSFORM");
     node->transform_clause()->Accept(this, data);
+  }
+  if (node->is_remote()) {
+    print("REMOTE");
+  }
+  if (node->with_connection_clause() != nullptr) {
+    node->with_connection_clause()->Accept(this, data);
   }
   if (node->options_list() != nullptr) {
     print("OPTIONS");
@@ -1843,10 +1852,14 @@ void Unparser::visitASTDateOrTimeLiteral(const ASTDateOrTimeLiteral* node,
 }
 
 void Unparser::visitASTRangeLiteral(const ASTRangeLiteral* node, void* data) {
-  print("RANGE<");
   node->type()->Accept(this, data);
-  print(">");
   node->range_value()->Accept(this, data);
+}
+
+void Unparser::visitASTRangeType(const ASTRangeType* node, void* data) {
+  print("RANGE<");
+  node->element_type()->Accept(this, data);
+  print(">");
 }
 
 void Unparser::visitASTStar(const ASTStar* node, void* data) {
@@ -3921,6 +3934,16 @@ void Unparser::visitASTWithExpression(const ASTWithExpression* node,
   }
   node->expression()->Accept(this, data);
   print(")");
+}
+
+void Unparser::visitASTInputOutputClause(const ASTInputOutputClause* node,
+                                         void* data) {
+  println();
+  print("INPUT");
+  node->input()->Accept(this, data);
+  println();
+  print("OUTPUT");
+  node->output()->Accept(this, data);
 }
 
 void Unparser::visitASTSpannerTableOptions(const ASTSpannerTableOptions* node,

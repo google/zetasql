@@ -18,8 +18,11 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 #include <queue>
+#include <set>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"

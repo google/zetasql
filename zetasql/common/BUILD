@@ -88,6 +88,24 @@ cc_test(
 )
 
 cc_library(
+    name = "timer_util",
+    hdrs = ["timer_util.h"],
+    deps = [
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_test(
+    name = "timer_util_test",
+    srcs = ["timer_util_test.cc"],
+    deps = [
+        ":timer_util",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_library(
     name = "int_ops_util",
     hdrs = ["int_ops_util.h"],
     deps = [
@@ -136,11 +154,15 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/public:analyzer_options",
+        "//zetasql/public:evaluator",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:parse_helpers",
+        "//zetasql/public:strings",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
@@ -156,8 +178,14 @@ cc_test(
         ":options_utils",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/common/testing:proto_matchers",
+        "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public:analyzer_options",
+        "//zetasql/public:builtin_function_options",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "//zetasql/testing:test_value",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/flags:commandlineflag",
         "@com_google_absl//absl/flags:flag",
@@ -232,7 +260,10 @@ cc_library(
 
 cc_library(
     name = "multiprecision_int",
-    srcs = ["multiprecision_int_impl.cc"],
+    srcs = [
+        "multiprecision_int.cc",
+        "multiprecision_int_impl.cc",
+    ],
     hdrs = [
         "multiprecision_int.h",
         "multiprecision_int_impl.h",
@@ -242,6 +273,7 @@ cc_library(
         "//zetasql/base:bits",
         "//zetasql/base:endian",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/numeric:bits",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
     ],

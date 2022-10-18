@@ -19,8 +19,11 @@
 #include <limits>
 #include <memory>
 #include <utility>
+#include <vector>
 
+#include "zetasql/common/evaluator_registration_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/interval_value.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/operator.h"
@@ -98,6 +101,103 @@ TEST(NonDeterministicEvaluationContextTest, ArrayFilterTransformFunctionTest) {
                       &context)
                 .status());
   EXPECT_FALSE(context.IsDeterministicOutput());
+}
+
+TEST(NonDeterministicEvaluationContextTest,
+     ArrayMinMaxDistinguishableTiesStringTest) {
+  // This setup overwrites the CollatorRegistration::CreateFromCollationNameFn
+  // for current process, so that case insensitive collation name can be used.
+  internal::EnableFullEvaluatorFeatures();
+
+  // String with collation introduces non-determinism against distinguishable
+  // ties.
+  TypeFactory factory;
+  const ArrayType* array_type;
+  const Type* element_type = factory.get_string();
+  ZETASQL_EXPECT_OK(factory.MakeArrayType(element_type, &array_type));
+
+  std::vector<ResolvedCollation> collation_list;
+  collation_list.push_back(ResolvedCollation::MakeScalar("unicode:ci"));
+
+  // ARRAY_MIN
+  ZETASQL_ASSERT_OK_AND_ASSIGN(CollatorList collator_list_min,
+                       MakeCollatorList(collation_list));
+
+  ArrayMinMaxFunction arr_min_fn(FunctionKind::kArrayMin, array_type,
+                                 std::move(collator_list_min));
+  EvaluationContext context_min{/*options=*/{}};
+  EXPECT_TRUE(context_min.IsDeterministicOutput());
+  ZETASQL_EXPECT_OK(arr_min_fn
+                .Eval(/*params=*/{},
+                      /*args=*/
+                      {InternalValue::Array(
+                          array_type, {Value::String("a"), Value::String("A")},
+                          InternalValue::kIgnoresOrder)},
+                      &context_min)
+                .status());
+  EXPECT_FALSE(context_min.IsDeterministicOutput());
+
+  // ARRAY_MAX
+  ZETASQL_ASSERT_OK_AND_ASSIGN(CollatorList collator_list_max,
+                       MakeCollatorList(collation_list));
+
+  ArrayMinMaxFunction arr_max_fn(FunctionKind::kArrayMax, array_type,
+                                 std::move(collator_list_max));
+  EvaluationContext context_max{/*options=*/{}};
+  EXPECT_TRUE(context_max.IsDeterministicOutput());
+  ZETASQL_EXPECT_OK(arr_max_fn
+                .Eval(/*params=*/{},
+                      /*args=*/
+                      {InternalValue::Array(
+                          array_type, {Value::String("a"), Value::String("A")},
+                          InternalValue::kIgnoresOrder)},
+                      &context_max)
+                .status());
+  EXPECT_FALSE(context_max.IsDeterministicOutput());
+}
+
+TEST(NonDeterministicEvaluationContextTest,
+     ArrayMinMaxDistinguishableTiesIntervalTest) {
+  // Interval with distinguishable ties could also trigger the deterministic
+  // switch.
+  TypeFactory factory;
+  const ArrayType* array_type;
+  const Type* element_type = factory.get_interval();
+  ZETASQL_EXPECT_OK(factory.MakeArrayType(element_type, &array_type));
+
+  // ARRAY_MIN
+  ArrayMinMaxFunction arr_min_fn(FunctionKind::kArrayMin, array_type);
+  EvaluationContext context_min{/*options=*/{}};
+  EXPECT_TRUE(context_min.IsDeterministicOutput());
+  ZETASQL_EXPECT_OK(
+      arr_min_fn
+          .Eval(/*params=*/{},
+                /*args=*/
+                {InternalValue::Array(
+                    array_type,
+                    {Value::Interval(IntervalValue::FromDays(30).value()),
+                     Value::Interval(IntervalValue::FromMonths(1).value())},
+                    InternalValue::kIgnoresOrder)},
+                &context_min)
+          .status());
+  EXPECT_FALSE(context_min.IsDeterministicOutput());
+
+  // ARRAY_MAX
+  ArrayMinMaxFunction arr_max_fn(FunctionKind::kArrayMax, array_type);
+  EvaluationContext context_max{/*options=*/{}};
+  EXPECT_TRUE(context_max.IsDeterministicOutput());
+  ZETASQL_EXPECT_OK(
+      arr_max_fn
+          .Eval(/*params=*/{},
+                /*args=*/
+                {InternalValue::Array(
+                    array_type,
+                    {Value::Interval(IntervalValue::FromDays(30).value()),
+                     Value::Interval(IntervalValue::FromMonths(1).value())},
+                    InternalValue::kIgnoresOrder)},
+                &context_max)
+          .status());
+  EXPECT_FALSE(context_max.IsDeterministicOutput());
 }
 
 }  // namespace zetasql

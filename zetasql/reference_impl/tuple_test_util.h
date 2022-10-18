@@ -20,6 +20,8 @@
 #define ZETASQL_REFERENCE_IMPL_TUPLE_TEST_UTIL_H_
 
 #include <algorithm>
+#include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 

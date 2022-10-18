@@ -25,35 +25,159 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
-#include "zetasql/common/errors.h"
-#include "zetasql/public/anon_function.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
-#include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
-#include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/map_util.h"
-#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
 class AnalyzerOptions;
+
+template <typename ArgumentType>
+static bool AllArgumentsHaveType(const std::vector<ArgumentType>& arguments) {
+  for (const ArgumentType& arg : arguments) {
+    if (arg.type() == nullptr) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Supports 'ArgumentType' of either InputArgumentType or FunctionArgumentType.
+//
+// Example return values:
+//   DATE_TIME_PART FROM TIMESTAMP
+//   DATE FROM TIMESTAMP
+//   TIME FROM TIMESTAMP
+//   DATETIME FROM TIMESTAMP
+//   DATE_TIME_PART FROM TIMESTAMP AT TIME ZONE STRING
+//   DATETIME FROM TIMESTAMP [AT TIME ZONE STRING]
+//
+// 'include_bracket' indicates whether or not the 'AT TIME ZONE' argument
+// is enclosed in brackets to indicate that the clause is optional.
+// The input 'arguments' must be a valid signature for EXTRACT.
+//
+// If 'explicit_datepart_name' is non-empty, then the signature must not
+// have a date part argument.  Otherwise, the signature must have a date
+// part argument.
+//
+// For $extract, the date part argument is present in 'arguments', and
+// 'explicit_datepart_name' is empty.
+//
+// For $extract_date, $extract_time, and $extract_datetime, the date part
+// argument is *not* present in 'arguments', and 'explicit_datepart_name'
+// is non-empty.
+template <class ArgumentType>
+static std::string GetExtractFunctionSignatureString(
+    const std::string& explicit_datepart_name,
+    const std::vector<ArgumentType>& arguments, ProductMode product_mode,
+    bool include_bracket) {
+  if (arguments.empty()) {
+    return "Must provide at least 1 argument";
+  }
+  if (!AllArgumentsHaveType(arguments)) {
+    return "Unexpected types";
+  }
+  // The 0th argument is the one we are extracting the date part from.
+  const std::string source_type_string =
+      arguments[0].UserFacingName(product_mode);
+  std::string datepart_string;
+  std::string timezone_string;
+  if (explicit_datepart_name.empty()) {
+    // The date part argument is present in 'arguments', so arguments[1]
+    // is the date part and arguments[2] (if present) is the time zone.
+    //
+    // ZETASQL_DCHECK validated - given the non-standard function call syntax for
+    // EXTRACT, the parser enforces 2 or 3 arguments in the language.
+    ZETASQL_DCHECK(arguments.size() == 2 || arguments.size() == 3) << arguments.size();
+    // Expected invariant - the 1th argument is the date part argument.
+    ZETASQL_DCHECK(arguments[1].type()->Equivalent(types::DatePartEnumType()));
+    datepart_string = arguments[1].UserFacingName(product_mode);
+    if (arguments.size() == 3) {
+      timezone_string = arguments[2].UserFacingName(product_mode);
+    }
+  } else {
+    // The date part is populated from 'explicit_datepart_name' and the
+    // date part argument is not present in 'arguments', so arguments[1]
+    // (if present) is the time zone.
+    //
+    // ZETASQL_DCHECK validated - given the non-standard function call syntax for
+    // EXTRACT, the parser enforces 2 or 3 arguments in the language and
+    // the date part argument has been omitted from this signature (i.e.,
+    // $extract_date, etc.).
+    ZETASQL_DCHECK(arguments.size() == 1 || arguments.size() == 2) << arguments.size();
+    datepart_string = explicit_datepart_name;
+    // If present, the 1th argument is the optional timezone argument.
+    if (arguments.size() == 2) {
+      timezone_string = arguments[1].UserFacingName(product_mode);
+    }
+  }
+
+  std::string out;
+  absl::StrAppend(
+      &out, datepart_string, " FROM ", source_type_string,
+      (timezone_string.empty()
+           ? ""
+           : absl::StrCat(" ", (include_bracket ? "[" : ""), "AT TIME ZONE ",
+                          timezone_string, (include_bracket ? "]" : ""))));
+  return out;
+}
+
+static std::string NoMatchingSignatureForExtractFunction(
+    const std::string& explicit_datepart_name,
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+  if (arguments.empty()) {
+    return "No matching signature for function EXTRACT,"
+           " at least 1 argument must be provided";
+  }
+  std::string msg =
+      "No matching signature for function EXTRACT for argument types: ";
+  absl::StrAppend(&msg, GetExtractFunctionSignatureString(
+                            explicit_datepart_name, arguments, product_mode,
+                            /*include_bracket=*/false));
+  return msg;
+}
+
+static std::string ExtractSupportedSignatures(
+    const std::string& explicit_datepart_name,
+    const LanguageOptions& language_options, const Function& function) {
+  std::string supported_signatures;
+  for (const FunctionSignature& signature : function.signatures()) {
+    // Ignore deprecated signatures, and signatures that include
+    // unsupported data types.
+    if (signature.HasUnsupportedType(language_options)) {
+      // We must check for unsupported types since some engines do not
+      // support the DATETIME/TIME types yet.
+      continue;
+    }
+    if (!supported_signatures.empty()) {
+      absl::StrAppend(&supported_signatures, "; ");
+    }
+    absl::StrAppend(
+        &supported_signatures, "EXTRACT(",
+        GetExtractFunctionSignatureString(
+            explicit_datepart_name, signature.arguments(),
+            language_options.product_mode(), true /* include_bracket */),
+        ")");
+  }
+  return supported_signatures;
+}
 
 void GetDatetimeExtractFunctions(TypeFactory* type_factory,
                                  const ZetaSQLBuiltinFunctionOptions& options,
@@ -724,9 +848,9 @@ void GetDatetimeDiffTruncLastFunctions(
           &CheckDateDatetimeTimeTimestampTruncArguments, "TIMESTAMP_TRUNC")));
 
   if (options.language_options.LanguageFeatureEnabled(
-           FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS) &&
+          FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS) &&
       options.language_options.LanguageFeatureEnabled(
-           FEATURE_V_1_2_CIVIL_TIME)) {
+          FEATURE_V_1_2_CIVIL_TIME)) {
     InsertSimpleFunction(
         functions, options, "last_day", SCALAR,
         {{date_type, {date_type, {datepart_type, OPTIONAL}}, FN_LAST_DAY_DATE},
@@ -1992,7 +2116,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
       {{bool_type,
         {string_type, string_type},
         FN_STRING_LIKE,
-        FunctionSignatureOptions().set_rejects_collation()},
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {byte_type, byte_type}, FN_BYTE_LIKE}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)

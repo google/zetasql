@@ -17,14 +17,24 @@
 #include <unistd.h>
 
 #include <iostream>
+#include <map>
+#include <memory>
+#include <ostream>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/init_google.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/compliance/test_driver.h"
+#include "zetasql/compliance/test_driver.pb.h"
 
 ABSL_FLAG(std::string, sql_file, "",
           "Input file containing query; leave blank to read from stdin");
+
+ABSL_FLAG(
+    std::string, test_db, "",
+    "File containing a TestDatabaseProto. Either binary or text format is "
+    "accepted. If blank, the query will run against an empty TestDatabase.");
 
 namespace {
 constexpr char kUsage[] = R"(Runs a query against a compliance test driver.
@@ -76,12 +86,25 @@ int main(int argc, char* argv[]) {
   std::string sql = GetQuery(args);
   zetasql::TestDriver* test_driver = zetasql::GetComplianceTestDriver();
   zetasql::TestDatabase test_db;
+  zetasql::TypeFactory type_factory;
+  const std::vector<google::protobuf::DescriptorPool*> descriptor_pools;
+  std::vector<std::unique_ptr<const zetasql::AnnotationMap>> annotation_maps;
+  if (absl::GetFlag(FLAGS_test_db).empty()) {
+    ZETASQL_CHECK_OK(test_driver->CreateDatabase(test_db));
+  } else {
+    zetasql::TestDatabaseProto proto;
+    zetasql_base::ReadFileToProtoOrDie(absl::GetFlag(FLAGS_test_db), &proto);
+    absl::StatusOr<zetasql::TestDatabase> db =
+        zetasql::DeserializeTestDatabase(proto, &type_factory,
+                                           descriptor_pools, annotation_maps);
+    ZETASQL_CHECK_OK(db.status());
+    test_db = *db;
+  }
   ZETASQL_CHECK_OK(test_driver->CreateDatabase(test_db));
 
   // TODO: Add commandline flag to specify query parameters.
   std::map<std::string, zetasql::Value> query_parameters;
 
-  zetasql::TypeFactory type_factory;
   absl::StatusOr<zetasql::Value> value =
       test_driver->ExecuteStatement(sql, query_parameters, &type_factory);
   if (!value.ok()) {

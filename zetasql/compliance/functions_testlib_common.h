@@ -35,6 +35,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
+#include "absl/base/casts.h"
 #include <cstdint>
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -79,12 +80,14 @@ const float floatminpositive = std::numeric_limits<float>::min();
 const float float_pos_inf = std::numeric_limits<float>::infinity();
 const float float_neg_inf = -std::numeric_limits<float>::infinity();
 const float float_nan = std::numeric_limits<float>::quiet_NaN();
+const float float_neg_nan = absl::bit_cast<float>(0xffc00000u);
 const double doublemax = std::numeric_limits<double>::max();
 const double doublemin = std::numeric_limits<double>::lowest();
 const double doubleminpositive = std::numeric_limits<double>::min();
 const double double_pos_inf = std::numeric_limits<double>::infinity();
 const double double_neg_inf = -std::numeric_limits<double>::infinity();
 const double double_nan = std::numeric_limits<double>::quiet_NaN();
+const double double_neg_nan = absl::bit_cast<double>(0xfff8000000000000ull);
 
 TypeFactory* type_factory();
 const EnumType* TestEnumType();
@@ -170,8 +173,12 @@ enum ComparisonResult {
 
 struct ComparisonTest {
   ComparisonTest(const ValueConstructor& left_in,
-                 const ValueConstructor& right_in, ComparisonResult result_in)
-      : left(left_in.get()), right(right_in.get()), result(result_in) {}
+                 const ValueConstructor& right_in, ComparisonResult result_in,
+                 const std::set<LanguageFeature>& required_features = {})
+      : left(left_in.get()),
+        right(right_in.get()),
+        result(result_in),
+        required_features(required_features) {}
   // Returns NaN of the correct type when result == UNORDERED.
   Value GetNaN() const {
     ZETASQL_CHECK_EQ(result, UNORDERED_BUT_ARRAY_ORDERS_LESS);
@@ -184,6 +191,7 @@ struct ComparisonTest {
   Value left;
   Value right;
   ComparisonResult result;
+  std::set<LanguageFeature> required_features;
 };
 
 // Represents a test case for TIME and DATETIME asserting
@@ -223,33 +231,14 @@ struct CivilTimeTestCase {
   const Type* output_type;
 };
 
-// Wrap the test_case so that the same input can be tested in micros and nanos
-// mode.
-QueryParamsWithResult WrapResultForCivilTimeAndNanos(
-    const CivilTimeTestCase& test_case);
-
 // Adds the <test_case> to <result>, filling in the options map to try the same
 // test case in micros and nanos mode.
 void AddTestCaseWithWrappedResultForCivilTimeAndNanos(
     const CivilTimeTestCase& test_case,
-    std::vector<QueryParamsWithResult>* result);
-
-// Wraps the result to require that FEATURE_NUMERIC_TYPE is enabled.
-// TODO: Remove this in favor of
-// QueryParamsWithResult::WrapWithFeature
-QueryParamsWithResult WrapResultForNumeric(
-    const std::vector<ValueConstructor>& params,
-    const QueryParamsWithResult::Result& result);
-
-// Wraps the result to require that FEATURE_BIGNUMERIC_TYPE is enabled.
-QueryParamsWithResult WrapResultForBigNumeric(
-    const std::vector<ValueConstructor>& params,
-    const QueryParamsWithResult::Result& result);
-
-// Wraps the result to require that FEATURE_INTERVAL_TYPE is enabled.
-QueryParamsWithResult WrapResultForInterval(
-    const std::vector<ValueConstructor>& params,
-    const QueryParamsWithResult::Result& result);
+    std::vector<QueryParamsWithResult>* results);
+void AddTestCaseWithWrappedResultForCivilTimeAndNanos(
+    const CivilTimeTestCase& test_case, absl::string_view function_name,
+    std::vector<FunctionTestCall>* results);
 
 // Forward declarations for functions related to legacy timestamp types.
 std::vector<std::vector<Value>> GetRowsOfLegacyTimestampValues();

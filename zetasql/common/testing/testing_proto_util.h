@@ -17,6 +17,8 @@
 #ifndef ZETASQL_COMMON_TESTING_TESTING_PROTO_UTIL_H_
 #define ZETASQL_COMMON_TESTING_TESTING_PROTO_UTIL_H_
 
+#include <memory>
+
 #include "zetasql/base/path.h"
 #include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/message.h"

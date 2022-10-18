@@ -32,6 +32,7 @@ cc_library(
     deps = [
         ":hash",
         ":json",
+        ":range",
         ":string_with_collation",
         ":uuid",
     ],
@@ -89,5 +90,15 @@ cc_library(
         "//zetasql/public/functions:uuid",
         "//zetasql/reference_impl:evaluation",
         "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_library(
+    name = "range",
+    srcs = ["range.cc"],
+    hdrs = ["range.h"],
+    deps = [
+        "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/types:span",
     ],
 )

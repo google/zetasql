@@ -110,7 +110,7 @@ cc_library(
     deps = [
         ":chunk",
         ":chunk_grouping_strategy",
-        ":parsing_utils",
+        ":range_utils",
         ":token",
         "//zetasql/base:status",
         "//zetasql/common:utf_util",
@@ -141,14 +141,17 @@ cc_library(
 )
 
 cc_library(
-    name = "parsing_utils",
-    srcs = ["parsing_utils.cc"],
-    hdrs = ["parsing_utils.h"],
+    name = "range_utils",
+    srcs = ["range_utils.cc"],
+    hdrs = ["range_utils.h"],
     deps = [
         ":token",
         "//zetasql/base:status",
         "//zetasql/public:formatter_options",
+        "//zetasql/public:parse_location",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )

@@ -27,7 +27,7 @@ FALSE_ACTION;
 ^
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT]
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 alter schema if exists entity set default collate 'unicode:ci';
 --
 AlterSchemaStmt
@@ -39,7 +39,7 @@ AlterSchemaStmt
 +-is_if_exists=TRUE
 ==
 
-[language_features=V_1_3_COLLATION_SUPPORT]
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 alter schema if exists entity set default collate @test_param_string;
 --
 ERROR: COLLATE must be followed by a string literal [at 1:51]

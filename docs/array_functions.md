@@ -433,6 +433,246 @@ ORDER BY size DESC;
 +--------------------+------+
 ```
 
+### ARRAY_SLICE
+
+```sql
+ARRAY_SLICE(array_to_slice, start_offset, end_offset)
+```
+
+**Description**
+
+Returns an array containing zero or more consecutive elements from the
+input array.
+
++ `array_to_slice`: The array that contains the elements you want to slice.
++ `start_offset`: The inclusive starting offset.
++ `end_offset`: The inclusive ending offset.
+
+An offset can be positive or negative. A positive offset starts from the
+beginning of the input array and is 0-based. A negative offset starts from
+the end of the input array. Out-of-bounds offsets are supported. Here are some
+examples:
+
+  <table>
+  <thead>
+    <tr>
+      <th width="150px">Input offset</th>
+      <th width="200px">Final offset in array</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>[<b>'a'</b>, 'b', 'c', 'd']</td>
+      <td>The final offset is <code>0</code>.</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>['a', 'b', 'c', <b>'d'</b>]</td>
+      <td>The final offset is <code>3</code>.</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>['a', 'b', 'c', <b>'d'</b>]</td>
+      <td>
+        Because the input offset is out of bounds,
+        the final offset is <code>3</code> (<code>array length - 1</code>).
+      </td>
+    </tr>
+    <tr>
+      <td>-1</td>
+      <td>['a', 'b', 'c', <b>'d'</b>]</td>
+      <td>
+        Because a negative offset is used, the offset starts at the end of the
+        array. The final offset is <code>3</code>
+        (<code>array length - 1</code>).
+      </td>
+    </tr>
+    <tr>
+      <td>-2</td>
+      <td>['a', 'b', <b>'c'</b>, 'd']</td>
+      <td>
+        Because a negative offset is used, the offset starts at the end of the
+        array. The final offset is <code>2</code>
+        (<code>array length - 2</code>).
+      </td>
+    </tr>
+    <tr>
+      <td>-4</td>
+      <td>[<b>'a'</b>, 'b', 'c', 'd']</td>
+      <td>
+        Because a negative offset is used, the offset starts at the end of the
+        array. The final offset is <code>0</code>
+        (<code>array length - 4</code>).
+      </td>
+    </tr>
+    <tr>
+      <td>-5</td>
+      <td>[<b>'a'</b>, 'b', 'c', 'd']</td>
+      <td>
+        Because the offset is negative and out of bounds, the final offset is
+        <code>0</code> (<code>array length - array length</code>).
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+Additional details:
+
++ The input array can contain `NULL` elements. `NULL` elements are included
+  in the resulting array.
++ Returns `NULL` if `array_to_slice`,  `start_offset`, or `end_offset` is `NULL`.
++ Returns an empty array if `array_to_slice` is empty.
++ Returns an empty array if the position of the `start_offset` in the array is
+  after the position of the `end_offset`.
+
+**Return type**
+
+`ARRAY`
+
+**Examples**
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 3) AS result
+
++-----------+
+| result    |
++-----------+
+| [b, c, d] |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, 3) AS result
+
++-----------+
+| result    |
++-----------+
+| []        |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -3) AS result
+
++--------+
+| result |
++--------+
+| [b, c] |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, -3) AS result
+
++-----------+
+| result    |
++-----------+
+| []        |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -1) AS result
+
++-----------+
+| result    |
++-----------+
+| [c, d, e] |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 3, 3) AS result
+
++--------+
+| result |
++--------+
+| [d]    |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -3) AS result
+
++--------+
+| result |
++--------+
+| [c]    |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 30) AS result
+
++--------------+
+| result       |
++--------------+
+| [b, c, d, e] |
++--------------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -30) AS result
+
++-----------+
+| result    |
++-----------+
+| []        |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, 30) AS result
+
++-----------------+
+| result          |
++-----------------+
+| [a, b, c, d, e] |
++-----------------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, -5) AS result
+
++--------+
+| result |
++--------+
+| [a]    |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 5, 30) AS result
+
++--------+
+| result |
++--------+
+| []     |
++--------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, NULL) AS result
+
++-----------+
+| result    |
++-----------+
+| NULL      |
++-----------+
+```
+
+```sql
+SELECT ARRAY_SLICE(['a', 'b', NULL, 'd', 'e'], 1, 3) AS result
+
++--------------+
+| result       |
++--------------+
+| [b, NULL, d] |
++--------------+
+```
+
 ### ARRAY_TO_STRING
 
 ```sql
@@ -1115,9 +1355,17 @@ FROM example;
 +-----------------+-------------+
 ```
 
+### OFFSET and ORDINAL
+
+For information about using `OFFSET` and `ORDINAL` with arrays, see
+[Array subscript operator][array-subscript-operator] and [Accessing array
+elements][accessing-array-elements].
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [array-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_subscript_operator
+
+[accessing-array-elements]: https://github.com/google/zetasql/blob/master/docs/arrays.md#accessing_array_elements
 
 [subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
 

@@ -20,8 +20,11 @@
 #include <functional>
 #include <limits>
 #include <queue>
+#include <set>
 #include <stack>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/utf_util.h"
@@ -242,6 +245,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_INDEX_STORING_EXPRESSION_LIST] = "IndexStoringExpressionList";
   map[AST_INDEX_UNNEST_EXPRESSION_LIST] = "IndexUnnestExpressionList";
   map[AST_INFERRED_TYPE_COLUMN_SCHEMA] = "InferredTypeColumnSchema";
+  map[AST_INPUT_OUTPUT_CLAUSE] = "InputOutputClause";
   map[AST_INSERT_STATEMENT] = "InsertStatement";
   map[AST_INSERT_VALUES_ROW] = "InsertValuesRow";
   map[AST_INSERT_VALUES_ROW_LIST] = "InsertValuesRowList";
@@ -300,6 +304,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_QUERY_STATEMENT] = "QueryStatement";
   map[AST_RAISE_STATEMENT] = "Raise";
   map[AST_RANGE_LITERAL] = "RangeLiteral";
+  map[AST_RANGE_TYPE] = "RangeType";
   map[AST_REMOVE_FROM_RESTRICTEE_LIST_CLAUSE] =
       "RemoveFromRestricteeListClause";
   map[AST_RENAME_COLUMN_ACTION] = "RenameColumnAction";
@@ -689,6 +694,15 @@ const ASTNode* ASTTableExpression::alias_location() const {
   const ASTAlias* ast_alias = alias();
   if (ast_alias != nullptr) return ast_alias->identifier();
   return this;
+}
+
+bool ASTTableElementList::HasConstraints() const {
+  for (int i = 0; i < num_children(); ++i) {
+    if (dynamic_cast<const ASTTableConstraint*>(child(i))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::string ASTUnpivotClause::GetSQLForNullFilter() const {

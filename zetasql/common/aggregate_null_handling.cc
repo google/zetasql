@@ -36,8 +36,8 @@ bool IgnoresNullArguments(
   switch (aggregate_function->null_handling_modifier()) {
     case ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING:
       return !aggregate_function->function()->IsZetaSQLBuiltin() ||
-             !zetasql_base::ContainsKey(*kFunctionsNotIgnoreNullSet,
-                               aggregate_function->function()->Name());
+             !kFunctionsNotIgnoreNullSet->contains(
+                 aggregate_function->function()->Name());
     case ResolvedNonScalarFunctionCallBase::RESPECT_NULLS:
       return false;
     case ResolvedNonScalarFunctionCallBase::IGNORE_NULLS:

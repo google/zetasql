@@ -1,5 +1,5 @@
 [default enabled_ast_rewrites=ALL]
-[default language_features=TABLE_VALUED_FUNCTIONS]
+[default language_features=TABLE_VALUED_FUNCTIONS,V_1_4_WITH_EXPRESSION]
 [default no_java]
 
 SELECT {{*|a|b}} FROM NullarySelect();
@@ -364,7 +364,6 @@ QueryStmt
             |           +-WithRefScan(column_list=[$inlined_UnaryScalarArg.arg0#3], with_query_name="$inlined_UnaryScalarArg_scalar_args")
             +-input_scan=
               +-SingleRowScan
-
 ==
 
 SELECT * FROM UnaryScalarArg(1) CROSS JOIN UnaryScalarArg(2);
@@ -941,7 +940,7 @@ QueryStmt
         +-input_scan=
           +-SingleRowScan
 
-Rewrite ERROR: generic::unimplemented: Inlining TVF calls with correlated arguments is not supported. Arg #1 ('arg0') references column 'a'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('arg0') references column 'a'.
 ==
 
 SELECT * FROM (SELECT 1 AS a) CROSS JOIN UNNEST(ARRAY(SELECT AS STRUCT * FROM UnaryScalarArg(a)));
@@ -1001,12 +1000,11 @@ QueryStmt
         |               +-column_index_list=[0]
         +-element_column=$array.$unnest1#4
 
-Rewrite ERROR: generic::unimplemented: Inlining TVF calls with correlated arguments is not supported. Arg #1 ('arg0') references column 'a'.
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('arg0') references column 'a'.
 ==
 
 SELECT * FROM UnaryTableArg((SELECT 1 AS a));
 --
-[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-UnaryTableArg.a#2 AS a [INT64]
@@ -1030,4 +1028,2714 @@ QueryStmt
         |   +-argument_column_list=[$subquery1.a#1]
         +-column_index_list=[0]
 
-Rewrite ERROR: generic::unimplemented: Inlining TVFs with table arguments is not yet supported.
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryTableArg.a#2 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryTableArg.a#2]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[UnaryTableArg.a#2]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$subquery1.a#1]
+        |       +-expr_list=
+        |       | +-a#1 := Literal(type=INT64, value=1)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[UnaryTableArg.a#2]
+            +-input_scan=
+              +-WithRefScan(column_list=[UnaryTableArg.a#2], with_query_name="arg0")
+==
+
+SELECT * FROM ScalarParamUsedAsTVFArgument(1);
+
+--
+QueryStmt
++-output_column_list=
+| +-ScalarParamUsedAsTVFArgument.arg0#1 AS arg0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[ScalarParamUsedAsTVFArgument.arg0#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[ScalarParamUsedAsTVFArgument.arg0#1]
+        +-tvf=ScalarParamUsedAsTVFArgument((INT64 arg0) -> TABLE<arg0 INT64>)
+        +-signature=(literal INT64) -> TABLE<arg0 INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=INT64, value=1)
+        +-column_index_list=[0]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-ScalarParamUsedAsTVFArgument.arg0#1 AS arg0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[ScalarParamUsedAsTVFArgument.arg0#1]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[ScalarParamUsedAsTVFArgument.arg0#1]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="$inlined_ScalarParamUsedAsTVFArgument_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_ScalarParamUsedAsTVFArgument.arg0#2]
+        |       +-expr_list=
+        |       | +-arg0#2 := Literal(type=INT64, value=1)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[ScalarParamUsedAsTVFArgument.arg0#1]
+            +-input_scan=
+              +-WithScan
+                +-column_list=[ScalarParamUsedAsTVFArgument.arg0#1]
+                +-with_entry_list=
+                | +-WithEntry
+                |   +-with_query_name="$inlined_UnaryScalarArg_scalar_args"
+                |   +-with_subquery=
+                |     +-ProjectScan
+                |       +-column_list=[$inlined_UnaryScalarArg.arg0#4]
+                |       +-expr_list=
+                |       | +-arg0#4 :=
+                |       |   +-SubqueryExpr
+                |       |     +-type=INT64
+                |       |     +-subquery_type=SCALAR
+                |       |     +-subquery=
+                |       |       +-ProjectScan
+                |       |         +-column_list=[$inlined_ScalarParamUsedAsTVFArgument.arg0#3]
+                |       |         +-input_scan=
+                |       |           +-WithRefScan(column_list=[$inlined_ScalarParamUsedAsTVFArgument.arg0#3], with_query_name="$inlined_ScalarParamUsedAsTVFArgument_scalar_args")
+                |       +-input_scan=
+                |         +-SingleRowScan
+                +-query=
+                  +-ProjectScan
+                    +-column_list=[ScalarParamUsedAsTVFArgument.arg0#1]
+                    +-expr_list=
+                    | +-arg0#1 :=
+                    |   +-SubqueryExpr
+                    |     +-type=INT64
+                    |     +-subquery_type=SCALAR
+                    |     +-subquery=
+                    |       +-ProjectScan
+                    |         +-column_list=[$inlined_UnaryScalarArg.arg0#5]
+                    |         +-input_scan=
+                    |           +-WithRefScan(column_list=[$inlined_UnaryScalarArg.arg0#5], with_query_name="$inlined_UnaryScalarArg_scalar_args")
+                    +-input_scan=
+                      +-SingleRowScan
+==
+
+SELECT WITH(a AS 1, (SELECT * FROM ScalarParamUsedAsTVFArgument(a)));
+
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-WithExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#1 := Literal(type=INT64, value=1)
+    |     +-expr=
+    |       +-SubqueryExpr
+    |         +-type=INT64
+    |         +-subquery_type=SCALAR
+    |         +-parameter_list=
+    |         | +-ColumnRef(type=INT64, column=$with_expr.a#1)
+    |         +-subquery=
+    |           +-ProjectScan
+    |             +-column_list=[ScalarParamUsedAsTVFArgument.arg0#2]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=[ScalarParamUsedAsTVFArgument.arg0#2]
+    |                 +-tvf=ScalarParamUsedAsTVFArgument((INT64 arg0) -> TABLE<arg0 INT64>)
+    |                 +-signature=(INT64) -> TABLE<arg0 INT64>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-ColumnRef(type=INT64, column=$with_expr.a#1, is_correlated=TRUE)
+    |                 +-column_index_list=[0]
+    +-input_scan=
+      +-SingleRowScan
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('arg0') references column 'a'.
+
+==
+
+# Skip unparser because of b/224585752
+[no_run_unparser]
+SELECT {{*|a|b}}
+FROM UnaryAbTableArg{{|SelfJoin|ScannedInCTE}}(
+    {{TABLE abTable|(SELECT 1 AS a, "two" AS b)}});
+
+--
+ALTERNATION GROUP: *,,TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.a#3 AS a [INT64]
+| +-UnaryAbTableArg.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArg.[a#3, b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArg.[a#3, b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0, 1]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.a#3 AS a [INT64]
+| +-UnaryAbTableArg.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArg.[a#3, b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryAbTableArg.[a#3, b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=UnaryAbTableArg.[a#3, b#4]
+            +-input_scan=
+              +-WithRefScan(column_list=UnaryAbTableArg.[a#3, b#4], with_query_name="arg0")
+--
+ALTERNATION GROUP: *,,(SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.a#3 AS a [INT64]
+| +-UnaryAbTableArg.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArg.[a#3, b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArg.[a#3, b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[a#1, b#2]
+        |   |   +-expr_list=
+        |   |   | +-a#1 := Literal(type=INT64, value=1)
+        |   |   | +-b#2 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[a#1, b#2]
+        +-column_index_list=[0, 1]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.a#3 AS a [INT64]
+| +-UnaryAbTableArg.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArg.[a#3, b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryAbTableArg.[a#3, b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[a#1, b#2]
+        |       +-expr_list=
+        |       | +-a#1 := Literal(type=INT64, value=1)
+        |       | +-b#2 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=UnaryAbTableArg.[a#3, b#4]
+            +-input_scan=
+              +-WithRefScan(column_list=UnaryAbTableArg.[a#3, b#4], with_query_name="arg0")
+--
+ALTERNATION GROUP: *,SelfJoin,TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgSelfJoin.a#3 AS a [INT64]
+| +-UnaryAbTableArgSelfJoin.b#4 AS b [STRING]
+| +-UnaryAbTableArgSelfJoin.a#5 AS a [INT64]
+| +-UnaryAbTableArgSelfJoin.b#6 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+        +-tvf=UnaryAbTableArgSelfJoin((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING, a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING, a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0, 1, 2, 3]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgSelfJoin.a#3 AS a [INT64]
+| +-UnaryAbTableArgSelfJoin.b#4 AS b [STRING]
+| +-UnaryAbTableArgSelfJoin.a#5 AS a [INT64]
+| +-UnaryAbTableArgSelfJoin.b#6 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+            +-input_scan=
+              +-JoinScan
+                +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+                +-left_scan=
+                | +-WithRefScan(column_list=UnaryAbTableArgSelfJoin.[a#3, b#4], with_query_name="arg0")
+                +-right_scan=
+                  +-WithRefScan(column_list=UnaryAbTableArgSelfJoin.[a#5, b#6], with_query_name="arg0")
+--
+ALTERNATION GROUP: *,SelfJoin,(SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgSelfJoin.a#3 AS a [INT64]
+| +-UnaryAbTableArgSelfJoin.b#4 AS b [STRING]
+| +-UnaryAbTableArgSelfJoin.a#5 AS a [INT64]
+| +-UnaryAbTableArgSelfJoin.b#6 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+        +-tvf=UnaryAbTableArgSelfJoin((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING, a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING, a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[a#1, b#2]
+        |   |   +-expr_list=
+        |   |   | +-a#1 := Literal(type=INT64, value=1)
+        |   |   | +-b#2 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[a#1, b#2]
+        +-column_index_list=[0, 1, 2, 3]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgSelfJoin.a#3 AS a [INT64]
+| +-UnaryAbTableArgSelfJoin.b#4 AS b [STRING]
+| +-UnaryAbTableArgSelfJoin.a#5 AS a [INT64]
+| +-UnaryAbTableArgSelfJoin.b#6 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[a#1, b#2]
+        |       +-expr_list=
+        |       | +-a#1 := Literal(type=INT64, value=1)
+        |       | +-b#2 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+            +-input_scan=
+              +-JoinScan
+                +-column_list=UnaryAbTableArgSelfJoin.[a#3, b#4, a#5, b#6]
+                +-left_scan=
+                | +-WithRefScan(column_list=UnaryAbTableArgSelfJoin.[a#3, b#4], with_query_name="arg0")
+                +-right_scan=
+                  +-WithRefScan(column_list=UnaryAbTableArgSelfJoin.[a#5, b#6], with_query_name="arg0")
+--
+ALTERNATION GROUP: *,ScannedInCTE,TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.a#3 AS a [INT64]
+| +-UnaryAbTableArgScannedInCTE.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+        +-tvf=UnaryAbTableArgScannedInCTE((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0, 1]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.a#3 AS a [INT64]
+| +-UnaryAbTableArgScannedInCTE.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-WithScan
+            +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+            +-with_entry_list=
+            | +-WithEntry
+            |   +-with_query_name="t"
+            |   +-with_subquery=
+            |     +-ProjectScan
+            |       +-column_list=arg0.[a#5, b#6]
+            |       +-input_scan=
+            |         +-WithRefScan(column_list=arg0.[a#5, b#6], with_query_name="arg0")
+            +-query=
+              +-ProjectScan
+                +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+                +-input_scan=
+                  +-WithRefScan(column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4], with_query_name="t")
+--
+ALTERNATION GROUP: *,ScannedInCTE,(SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.a#3 AS a [INT64]
+| +-UnaryAbTableArgScannedInCTE.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+        +-tvf=UnaryAbTableArgScannedInCTE((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[a#1, b#2]
+        |   |   +-expr_list=
+        |   |   | +-a#1 := Literal(type=INT64, value=1)
+        |   |   | +-b#2 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[a#1, b#2]
+        +-column_index_list=[0, 1]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.a#3 AS a [INT64]
+| +-UnaryAbTableArgScannedInCTE.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[a#1, b#2]
+        |       +-expr_list=
+        |       | +-a#1 := Literal(type=INT64, value=1)
+        |       | +-b#2 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-WithScan
+            +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+            +-with_entry_list=
+            | +-WithEntry
+            |   +-with_query_name="t"
+            |   +-with_subquery=
+            |     +-ProjectScan
+            |       +-column_list=arg0.[a#5, b#6]
+            |       +-input_scan=
+            |         +-WithRefScan(column_list=arg0.[a#5, b#6], with_query_name="arg0")
+            +-query=
+              +-ProjectScan
+                +-column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4]
+                +-input_scan=
+                  +-WithRefScan(column_list=UnaryAbTableArgScannedInCTE.[a#3, b#4], with_query_name="t")
+--
+ALTERNATION GROUP: a,,TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.a#3 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArg.a#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.a#3]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.a#3 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArg.a#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[UnaryAbTableArg.a#3, arg0.b#5]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=[UnaryAbTableArg.a#3, arg0.b#5]
+            +-input_scan=
+              +-WithRefScan(column_list=[UnaryAbTableArg.a#3, arg0.b#5], with_query_name="arg0")
+--
+ALTERNATION GROUP: a,,(SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.a#3 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArg.a#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.a#3]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[a#1, b#2]
+        |   |   +-expr_list=
+        |   |   | +-a#1 := Literal(type=INT64, value=1)
+        |   |   | +-b#2 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[a#1, b#2]
+        +-column_index_list=[0]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.a#3 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArg.a#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[UnaryAbTableArg.a#3, arg0.b#5]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[a#1, b#2]
+        |       +-expr_list=
+        |       | +-a#1 := Literal(type=INT64, value=1)
+        |       | +-b#2 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[UnaryAbTableArg.a#3, arg0.b#5]
+            +-input_scan=
+              +-WithRefScan(column_list=[UnaryAbTableArg.a#3, arg0.b#5], with_query_name="arg0")
+--
+ALTERNATION GROUPS:
+    a,SelfJoin,TABLE abTable
+    a,SelfJoin,(SELECT 1 AS a, "two" AS b)
+--
+ERROR: Column name a is ambiguous [at 1:8]
+SELECT a
+       ^
+--
+ALTERNATION GROUP: a,ScannedInCTE,TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.a#3 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArgScannedInCTE.a#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArgScannedInCTE.a#3]
+        +-tvf=UnaryAbTableArgScannedInCTE((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.a#3 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArgScannedInCTE.a#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[UnaryAbTableArgScannedInCTE.a#3, t.b#7]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-WithScan
+            +-column_list=[UnaryAbTableArgScannedInCTE.a#3, t.b#7]
+            +-with_entry_list=
+            | +-WithEntry
+            |   +-with_query_name="t"
+            |   +-with_subquery=
+            |     +-ProjectScan
+            |       +-column_list=arg0.[a#5, b#6]
+            |       +-input_scan=
+            |         +-WithRefScan(column_list=arg0.[a#5, b#6], with_query_name="arg0")
+            +-query=
+              +-ProjectScan
+                +-column_list=[UnaryAbTableArgScannedInCTE.a#3, t.b#7]
+                +-input_scan=
+                  +-WithRefScan(column_list=[UnaryAbTableArgScannedInCTE.a#3, t.b#7], with_query_name="t")
+--
+ALTERNATION GROUP: a,ScannedInCTE,(SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.a#3 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArgScannedInCTE.a#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArgScannedInCTE.a#3]
+        +-tvf=UnaryAbTableArgScannedInCTE((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[a#1, b#2]
+        |   |   +-expr_list=
+        |   |   | +-a#1 := Literal(type=INT64, value=1)
+        |   |   | +-b#2 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[a#1, b#2]
+        +-column_index_list=[0]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.a#3 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArgScannedInCTE.a#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[UnaryAbTableArgScannedInCTE.a#3, t.b#7]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[a#1, b#2]
+        |       +-expr_list=
+        |       | +-a#1 := Literal(type=INT64, value=1)
+        |       | +-b#2 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-WithScan
+            +-column_list=[UnaryAbTableArgScannedInCTE.a#3, t.b#7]
+            +-with_entry_list=
+            | +-WithEntry
+            |   +-with_query_name="t"
+            |   +-with_subquery=
+            |     +-ProjectScan
+            |       +-column_list=arg0.[a#5, b#6]
+            |       +-input_scan=
+            |         +-WithRefScan(column_list=arg0.[a#5, b#6], with_query_name="arg0")
+            +-query=
+              +-ProjectScan
+                +-column_list=[UnaryAbTableArgScannedInCTE.a#3, t.b#7]
+                +-input_scan=
+                  +-WithRefScan(column_list=[UnaryAbTableArgScannedInCTE.a#3, t.b#7], with_query_name="t")
+--
+ALTERNATION GROUP: b,,TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArg.b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[1]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArg.b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[arg0.a#5, UnaryAbTableArg.b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=[arg0.a#5, UnaryAbTableArg.b#4]
+            +-input_scan=
+              +-WithRefScan(column_list=[arg0.a#5, UnaryAbTableArg.b#4], with_query_name="arg0")
+--
+ALTERNATION GROUP: b,,(SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArg.b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[a#1, b#2]
+        |   |   +-expr_list=
+        |   |   | +-a#1 := Literal(type=INT64, value=1)
+        |   |   | +-b#2 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[a#1, b#2]
+        +-column_index_list=[1]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArg.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArg.b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[arg0.a#5, UnaryAbTableArg.b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[a#1, b#2]
+        |       +-expr_list=
+        |       | +-a#1 := Literal(type=INT64, value=1)
+        |       | +-b#2 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[arg0.a#5, UnaryAbTableArg.b#4]
+            +-input_scan=
+              +-WithRefScan(column_list=[arg0.a#5, UnaryAbTableArg.b#4], with_query_name="arg0")
+--
+ALTERNATION GROUPS:
+    b,SelfJoin,TABLE abTable
+    b,SelfJoin,(SELECT 1 AS a, "two" AS b)
+--
+ERROR: Column name b is ambiguous [at 1:8]
+SELECT b
+       ^
+--
+ALTERNATION GROUP: b,ScannedInCTE,TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArgScannedInCTE.b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArgScannedInCTE.b#4]
+        +-tvf=UnaryAbTableArgScannedInCTE((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[1]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArgScannedInCTE.b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[t.a#7, UnaryAbTableArgScannedInCTE.b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-WithScan
+            +-column_list=[t.a#7, UnaryAbTableArgScannedInCTE.b#4]
+            +-with_entry_list=
+            | +-WithEntry
+            |   +-with_query_name="t"
+            |   +-with_subquery=
+            |     +-ProjectScan
+            |       +-column_list=arg0.[a#5, b#6]
+            |       +-input_scan=
+            |         +-WithRefScan(column_list=arg0.[a#5, b#6], with_query_name="arg0")
+            +-query=
+              +-ProjectScan
+                +-column_list=[t.a#7, UnaryAbTableArgScannedInCTE.b#4]
+                +-input_scan=
+                  +-WithRefScan(column_list=[t.a#7, UnaryAbTableArgScannedInCTE.b#4], with_query_name="t")
+--
+ALTERNATION GROUP: b,ScannedInCTE,(SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArgScannedInCTE.b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArgScannedInCTE.b#4]
+        +-tvf=UnaryAbTableArgScannedInCTE((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[a#1, b#2]
+        |   |   +-expr_list=
+        |   |   | +-a#1 := Literal(type=INT64, value=1)
+        |   |   | +-b#2 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[a#1, b#2]
+        +-column_index_list=[1]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgScannedInCTE.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryAbTableArgScannedInCTE.b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[t.a#7, UnaryAbTableArgScannedInCTE.b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[a#1, b#2]
+        |       +-expr_list=
+        |       | +-a#1 := Literal(type=INT64, value=1)
+        |       | +-b#2 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-WithScan
+            +-column_list=[t.a#7, UnaryAbTableArgScannedInCTE.b#4]
+            +-with_entry_list=
+            | +-WithEntry
+            |   +-with_query_name="t"
+            |   +-with_subquery=
+            |     +-ProjectScan
+            |       +-column_list=arg0.[a#5, b#6]
+            |       +-input_scan=
+            |         +-WithRefScan(column_list=arg0.[a#5, b#6], with_query_name="arg0")
+            +-query=
+              +-ProjectScan
+                +-column_list=[t.a#7, UnaryAbTableArgScannedInCTE.b#4]
+                +-input_scan=
+                  +-WithRefScan(column_list=[t.a#7, UnaryAbTableArgScannedInCTE.b#4], with_query_name="t")
+==
+
+SELECT *
+FROM BinaryTableArg({{TABLE abTable|(SELECT 1 AS a, "two" AS b)}},
+                    (SELECT 1 AS c, "two" AS d));
+--
+ALTERNATION GROUP: TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-BinaryTableArg.a#5 AS a [INT64]
+| +-BinaryTableArg.b#6 AS b [STRING]
+| +-BinaryTableArg.c#7 AS c [INT64]
+| +-BinaryTableArg.d#8 AS d [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+        +-tvf=BinaryTableArg((TABLE<a INT64, b STRING> arg0, TABLE<c INT64, d STRING> arg1) -> TABLE<a INT64, b STRING, c INT64, d STRING>)
+        +-signature=(TABLE<a INT64, b STRING>, TABLE<c INT64, d STRING>) -> TABLE<a INT64, b STRING, c INT64, d STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        | | +-argument_column_list=abTable.[a#1, b#2]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[c#3, d#4]
+        |   |   +-expr_list=
+        |   |   | +-c#3 := Literal(type=INT64, value=1)
+        |   |   | +-d#4 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[c#3, d#4]
+        +-column_index_list=[0, 1, 2, 3]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-BinaryTableArg.a#5 AS a [INT64]
+| +-BinaryTableArg.b#6 AS b [STRING]
+| +-BinaryTableArg.c#7 AS c [INT64]
+| +-BinaryTableArg.d#8 AS d [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+    +-input_scan=
+      +-WithScan
+        +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg0"
+        | | +-with_subquery=
+        | |   +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        | +-WithEntry
+        |   +-with_query_name="arg1"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[c#3, d#4]
+        |       +-expr_list=
+        |       | +-c#3 := Literal(type=INT64, value=1)
+        |       | +-d#4 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+            +-input_scan=
+              +-JoinScan
+                +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+                +-left_scan=
+                | +-WithRefScan(column_list=BinaryTableArg.[a#5, b#6], with_query_name="arg0")
+                +-right_scan=
+                  +-WithRefScan(column_list=BinaryTableArg.[c#7, d#8], with_query_name="arg1")
+--
+ALTERNATION GROUP: (SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-BinaryTableArg.a#5 AS a [INT64]
+| +-BinaryTableArg.b#6 AS b [STRING]
+| +-BinaryTableArg.c#7 AS c [INT64]
+| +-BinaryTableArg.d#8 AS d [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+        +-tvf=BinaryTableArg((TABLE<a INT64, b STRING> arg0, TABLE<c INT64, d STRING> arg1) -> TABLE<a INT64, b STRING, c INT64, d STRING>)
+        +-signature=(TABLE<a INT64, b STRING>, TABLE<c INT64, d STRING>) -> TABLE<a INT64, b STRING, c INT64, d STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=$subquery1.[a#1, b#2]
+        | | |   +-expr_list=
+        | | |   | +-a#1 := Literal(type=INT64, value=1)
+        | | |   | +-b#2 := Literal(type=STRING, value="two")
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=$subquery1.[a#1, b#2]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery2.[c#3, d#4]
+        |   |   +-expr_list=
+        |   |   | +-c#3 := Literal(type=INT64, value=1)
+        |   |   | +-d#4 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery2.[c#3, d#4]
+        +-column_index_list=[0, 1, 2, 3]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-BinaryTableArg.a#5 AS a [INT64]
+| +-BinaryTableArg.b#6 AS b [STRING]
+| +-BinaryTableArg.c#7 AS c [INT64]
+| +-BinaryTableArg.d#8 AS d [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+    +-input_scan=
+      +-WithScan
+        +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg0"
+        | | +-with_subquery=
+        | |   +-ProjectScan
+        | |     +-column_list=$subquery1.[a#1, b#2]
+        | |     +-expr_list=
+        | |     | +-a#1 := Literal(type=INT64, value=1)
+        | |     | +-b#2 := Literal(type=STRING, value="two")
+        | |     +-input_scan=
+        | |       +-SingleRowScan
+        | +-WithEntry
+        |   +-with_query_name="arg1"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery2.[c#3, d#4]
+        |       +-expr_list=
+        |       | +-c#3 := Literal(type=INT64, value=1)
+        |       | +-d#4 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+            +-input_scan=
+              +-JoinScan
+                +-column_list=BinaryTableArg.[a#5, b#6, c#7, d#8]
+                +-left_scan=
+                | +-WithRefScan(column_list=BinaryTableArg.[a#5, b#6], with_query_name="arg0")
+                +-right_scan=
+                  +-WithRefScan(column_list=BinaryTableArg.[c#7, d#8], with_query_name="arg1")
+==
+
+# Skip unparser because of b/224585752
+[no_run_unparser]
+SELECT *
+FROM BinaryAbTableArg({{TABLE abTable|(SELECT 1 AS a, "two" AS b)}},
+                      {{TABLE abTable|(SELECT 1 AS a, "two" AS b)}});
+--
+ALTERNATION GROUP: TABLE abTable,TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-BinaryAbTableArg.a#5 AS a [INT64]
+| +-BinaryAbTableArg.b#6 AS b [STRING]
+| +-BinaryAbTableArg.a#7 AS a [INT64]
+| +-BinaryAbTableArg.b#8 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+        +-tvf=BinaryAbTableArg((TABLE<a INT64, b STRING> arg0, TABLE<a INT64, b STRING> arg1) -> TABLE<a INT64, b STRING, a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>, TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING, a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        | | +-argument_column_list=abTable.[a#1, b#2]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#3, b#4], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#3, b#4]
+        +-column_index_list=[0, 1, 2, 3]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-BinaryAbTableArg.a#5 AS a [INT64]
+| +-BinaryAbTableArg.b#6 AS b [STRING]
+| +-BinaryAbTableArg.a#7 AS a [INT64]
+| +-BinaryAbTableArg.b#8 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+    +-input_scan=
+      +-WithScan
+        +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg0"
+        | | +-with_subquery=
+        | |   +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        | +-WithEntry
+        |   +-with_query_name="arg1"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#3, b#4], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+            +-input_scan=
+              +-JoinScan
+                +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+                +-left_scan=
+                | +-WithRefScan(column_list=BinaryAbTableArg.[a#5, b#6], with_query_name="arg0")
+                +-right_scan=
+                  +-WithRefScan(column_list=BinaryAbTableArg.[a#7, b#8], with_query_name="arg1")
+--
+ALTERNATION GROUP: TABLE abTable,(SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-BinaryAbTableArg.a#5 AS a [INT64]
+| +-BinaryAbTableArg.b#6 AS b [STRING]
+| +-BinaryAbTableArg.a#7 AS a [INT64]
+| +-BinaryAbTableArg.b#8 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+        +-tvf=BinaryAbTableArg((TABLE<a INT64, b STRING> arg0, TABLE<a INT64, b STRING> arg1) -> TABLE<a INT64, b STRING, a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>, TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING, a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        | | +-argument_column_list=abTable.[a#1, b#2]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[a#3, b#4]
+        |   |   +-expr_list=
+        |   |   | +-a#3 := Literal(type=INT64, value=1)
+        |   |   | +-b#4 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[a#3, b#4]
+        +-column_index_list=[0, 1, 2, 3]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-BinaryAbTableArg.a#5 AS a [INT64]
+| +-BinaryAbTableArg.b#6 AS b [STRING]
+| +-BinaryAbTableArg.a#7 AS a [INT64]
+| +-BinaryAbTableArg.b#8 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+    +-input_scan=
+      +-WithScan
+        +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg0"
+        | | +-with_subquery=
+        | |   +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        | +-WithEntry
+        |   +-with_query_name="arg1"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[a#3, b#4]
+        |       +-expr_list=
+        |       | +-a#3 := Literal(type=INT64, value=1)
+        |       | +-b#4 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+            +-input_scan=
+              +-JoinScan
+                +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+                +-left_scan=
+                | +-WithRefScan(column_list=BinaryAbTableArg.[a#5, b#6], with_query_name="arg0")
+                +-right_scan=
+                  +-WithRefScan(column_list=BinaryAbTableArg.[a#7, b#8], with_query_name="arg1")
+--
+ALTERNATION GROUP: (SELECT 1 AS a, "two" AS b),TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-BinaryAbTableArg.a#5 AS a [INT64]
+| +-BinaryAbTableArg.b#6 AS b [STRING]
+| +-BinaryAbTableArg.a#7 AS a [INT64]
+| +-BinaryAbTableArg.b#8 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+        +-tvf=BinaryAbTableArg((TABLE<a INT64, b STRING> arg0, TABLE<a INT64, b STRING> arg1) -> TABLE<a INT64, b STRING, a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>, TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING, a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=$subquery1.[a#1, b#2]
+        | | |   +-expr_list=
+        | | |   | +-a#1 := Literal(type=INT64, value=1)
+        | | |   | +-b#2 := Literal(type=STRING, value="two")
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=$subquery1.[a#1, b#2]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#3, b#4], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#3, b#4]
+        +-column_index_list=[0, 1, 2, 3]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-BinaryAbTableArg.a#5 AS a [INT64]
+| +-BinaryAbTableArg.b#6 AS b [STRING]
+| +-BinaryAbTableArg.a#7 AS a [INT64]
+| +-BinaryAbTableArg.b#8 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+    +-input_scan=
+      +-WithScan
+        +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg0"
+        | | +-with_subquery=
+        | |   +-ProjectScan
+        | |     +-column_list=$subquery1.[a#1, b#2]
+        | |     +-expr_list=
+        | |     | +-a#1 := Literal(type=INT64, value=1)
+        | |     | +-b#2 := Literal(type=STRING, value="two")
+        | |     +-input_scan=
+        | |       +-SingleRowScan
+        | +-WithEntry
+        |   +-with_query_name="arg1"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#3, b#4], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+            +-input_scan=
+              +-JoinScan
+                +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+                +-left_scan=
+                | +-WithRefScan(column_list=BinaryAbTableArg.[a#5, b#6], with_query_name="arg0")
+                +-right_scan=
+                  +-WithRefScan(column_list=BinaryAbTableArg.[a#7, b#8], with_query_name="arg1")
+--
+ALTERNATION GROUP: (SELECT 1 AS a, "two" AS b),(SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-BinaryAbTableArg.a#5 AS a [INT64]
+| +-BinaryAbTableArg.b#6 AS b [STRING]
+| +-BinaryAbTableArg.a#7 AS a [INT64]
+| +-BinaryAbTableArg.b#8 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+        +-tvf=BinaryAbTableArg((TABLE<a INT64, b STRING> arg0, TABLE<a INT64, b STRING> arg1) -> TABLE<a INT64, b STRING, a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>, TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING, a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=$subquery1.[a#1, b#2]
+        | | |   +-expr_list=
+        | | |   | +-a#1 := Literal(type=INT64, value=1)
+        | | |   | +-b#2 := Literal(type=STRING, value="two")
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=$subquery1.[a#1, b#2]
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery2.[a#3, b#4]
+        |   |   +-expr_list=
+        |   |   | +-a#3 := Literal(type=INT64, value=1)
+        |   |   | +-b#4 := Literal(type=STRING, value="two")
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery2.[a#3, b#4]
+        +-column_index_list=[0, 1, 2, 3]
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-BinaryAbTableArg.a#5 AS a [INT64]
+| +-BinaryAbTableArg.b#6 AS b [STRING]
+| +-BinaryAbTableArg.a#7 AS a [INT64]
+| +-BinaryAbTableArg.b#8 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+    +-input_scan=
+      +-WithScan
+        +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg0"
+        | | +-with_subquery=
+        | |   +-ProjectScan
+        | |     +-column_list=$subquery1.[a#1, b#2]
+        | |     +-expr_list=
+        | |     | +-a#1 := Literal(type=INT64, value=1)
+        | |     | +-b#2 := Literal(type=STRING, value="two")
+        | |     +-input_scan=
+        | |       +-SingleRowScan
+        | +-WithEntry
+        |   +-with_query_name="arg1"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$subquery2.[a#3, b#4]
+        |       +-expr_list=
+        |       | +-a#3 := Literal(type=INT64, value=1)
+        |       | +-b#4 := Literal(type=STRING, value="two")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+            +-input_scan=
+              +-JoinScan
+                +-column_list=BinaryAbTableArg.[a#5, b#6, a#7, b#8]
+                +-left_scan=
+                | +-WithRefScan(column_list=BinaryAbTableArg.[a#5, b#6], with_query_name="arg0")
+                +-right_scan=
+                  +-WithRefScan(column_list=BinaryAbTableArg.[a#7, b#8], with_query_name="arg1")
+==
+
+SELECT *
+FROM UnaryAbTableArgWithScalarArgs(5,
+                                   {{TABLE abTable|(SELECT 1 AS a, "two" AS b)}},
+                                   "six");
+--
+ALTERNATION GROUP: TABLE abTable
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgWithScalarArgs.a#3 AS a [INT64]
+| +-UnaryAbTableArgWithScalarArgs.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+        +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+        +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-expr=
+        | |   +-Literal(type=INT64, value=5)
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        | | +-argument_column_list=abTable.[a#1, b#2]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="six")
+        +-column_index_list=[0, 1]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgWithScalarArgs.a#3 AS a [INT64]
+| +-UnaryAbTableArgWithScalarArgs.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg0"
+        | | +-with_subquery=
+        | |   +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        | +-WithEntry
+        |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#5, b#6]
+        |       +-expr_list=
+        |       | +-a#5 := Literal(type=INT64, value=5)
+        |       | +-b#6 := Literal(type=STRING, value="six")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+            +-input_scan=
+              +-FilterScan
+                +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+                +-input_scan=
+                | +-WithRefScan(column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4], with_query_name="arg0")
+                +-filter_expr=
+                  +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                    +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                    | +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#3)
+                    | +-SubqueryExpr
+                    |   +-type=INT64
+                    |   +-subquery_type=SCALAR
+                    |   +-subquery=
+                    |     +-ProjectScan
+                    |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.a#7]
+                    |       +-input_scan=
+                    |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#7, b#8], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+                    +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+                      +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#4)
+                      +-SubqueryExpr
+                        +-type=STRING
+                        +-subquery_type=SCALAR
+                        +-subquery=
+                          +-ProjectScan
+                            +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.b#10]
+                            +-input_scan=
+                              +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#9, b#10], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+--
+ALTERNATION GROUP: (SELECT 1 AS a, "two" AS b)
+--
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgWithScalarArgs.a#3 AS a [INT64]
+| +-UnaryAbTableArgWithScalarArgs.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+        +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+        +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-expr=
+        | |   +-Literal(type=INT64, value=5)
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=$subquery1.[a#1, b#2]
+        | | |   +-expr_list=
+        | | |   | +-a#1 := Literal(type=INT64, value=1)
+        | | |   | +-b#2 := Literal(type=STRING, value="two")
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=$subquery1.[a#1, b#2]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="six")
+        +-column_index_list=[0, 1]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryAbTableArgWithScalarArgs.a#3 AS a [INT64]
+| +-UnaryAbTableArgWithScalarArgs.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg0"
+        | | +-with_subquery=
+        | |   +-ProjectScan
+        | |     +-column_list=$subquery1.[a#1, b#2]
+        | |     +-expr_list=
+        | |     | +-a#1 := Literal(type=INT64, value=1)
+        | |     | +-b#2 := Literal(type=STRING, value="two")
+        | |     +-input_scan=
+        | |       +-SingleRowScan
+        | +-WithEntry
+        |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#5, b#6]
+        |       +-expr_list=
+        |       | +-a#5 := Literal(type=INT64, value=5)
+        |       | +-b#6 := Literal(type=STRING, value="six")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+            +-input_scan=
+              +-FilterScan
+                +-column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4]
+                +-input_scan=
+                | +-WithRefScan(column_list=UnaryAbTableArgWithScalarArgs.[a#3, b#4], with_query_name="arg0")
+                +-filter_expr=
+                  +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                    +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                    | +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#3)
+                    | +-SubqueryExpr
+                    |   +-type=INT64
+                    |   +-subquery_type=SCALAR
+                    |   +-subquery=
+                    |     +-ProjectScan
+                    |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.a#7]
+                    |       +-input_scan=
+                    |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#7, b#8], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+                    +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+                      +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#4)
+                      +-SubqueryExpr
+                        +-type=STRING
+                        +-subquery_type=SCALAR
+                        +-subquery=
+                          +-ProjectScan
+                            +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.b#10]
+                            +-input_scan=
+                              +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#9, b#10], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+==
+
+# Skip unparser because of b/224585752
+[no_run_unparser]
+# Invoke a TVF with various argument including correlated columns invarious
+# configurations.
+SELECT (SELECT AS STRUCT *
+        FROM UnaryAbTableArgWithScalarArgs(
+            {{1|t.a}},
+            {{TABLE abTable|(SELECT 1 AS a, "two" AS b)|(SELECT t.a, "two" AS b)}},
+            {{"two"|t.b}}
+            )
+        )
+FROM UnaryAbTableArg(TABLE abTable) AS t;
+--
+ALTERNATION GROUP: 1,TABLE abTable,"two"
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-Literal(type=INT64, value=1)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-TableScan(column_list=abTable.[a#5, b#6], table=abTable, column_index_list=[0, 1])
+    |                 | | +-argument_column_list=abTable.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-Literal(type=STRING, value="two")
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-alias="t"
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-WithScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-with_entry_list=
+    |                 | +-WithEntry
+    |                 | | +-with_query_name="arg0"
+    |                 | | +-with_subquery=
+    |                 | |   +-TableScan(column_list=abTable.[a#5, b#6], table=abTable, column_index_list=[0, 1])
+    |                 | +-WithEntry
+    |                 |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args"
+    |                 |   +-with_subquery=
+    |                 |     +-ProjectScan
+    |                 |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#11, b#12]
+    |                 |       +-expr_list=
+    |                 |       | +-a#11 := Literal(type=INT64, value=1)
+    |                 |       | +-b#12 := Literal(type=STRING, value="two")
+    |                 |       +-input_scan=
+    |                 |         +-SingleRowScan
+    |                 +-query=
+    |                   +-ProjectScan
+    |                     +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                     +-input_scan=
+    |                       +-FilterScan
+    |                         +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                         +-input_scan=
+    |                         | +-WithRefScan(column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8], with_query_name="arg0")
+    |                         +-filter_expr=
+    |                           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+    |                             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |                             | +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |                             | +-SubqueryExpr
+    |                             |   +-type=INT64
+    |                             |   +-subquery_type=SCALAR
+    |                             |   +-subquery=
+    |                             |     +-ProjectScan
+    |                             |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.a#13]
+    |                             |       +-input_scan=
+    |                             |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#13, b#14], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+    |                             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |                               +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |                               +-SubqueryExpr
+    |                                 +-type=STRING
+    |                                 +-subquery_type=SCALAR
+    |                                 +-subquery=
+    |                                   +-ProjectScan
+    |                                     +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.b#16]
+    |                                     +-input_scan=
+    |                                       +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#15, b#16], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+    +-input_scan=
+      +-WithScan
+        +-column_list=arg0.[a#17, b#18]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=arg0.[a#17, b#18]
+            +-input_scan=
+              +-WithRefScan(column_list=arg0.[a#17, b#18], with_query_name="arg0")
+--
+ALTERNATION GROUP: 1,TABLE abTable,t.b
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-Literal(type=INT64, value=1)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-TableScan(column_list=abTable.[a#5, b#6], table=abTable, column_index_list=[0, 1])
+    |                 | | +-argument_column_list=abTable.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[1]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('b') references column 'b'.
+--
+ALTERNATION GROUP: 1,(SELECT 1 AS a, "two" AS b),"two"
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-Literal(type=INT64, value=1)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-ProjectScan
+    |                 | | |   +-column_list=$subquery1.[a#5, b#6]
+    |                 | | |   +-expr_list=
+    |                 | | |   | +-a#5 := Literal(type=INT64, value=1)
+    |                 | | |   | +-b#6 := Literal(type=STRING, value="two")
+    |                 | | |   +-input_scan=
+    |                 | | |     +-SingleRowScan
+    |                 | | +-argument_column_list=$subquery1.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-Literal(type=STRING, value="two")
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-alias="t"
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-WithScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-with_entry_list=
+    |                 | +-WithEntry
+    |                 | | +-with_query_name="arg0"
+    |                 | | +-with_subquery=
+    |                 | |   +-ProjectScan
+    |                 | |     +-column_list=$subquery1.[a#5, b#6]
+    |                 | |     +-expr_list=
+    |                 | |     | +-a#5 := Literal(type=INT64, value=1)
+    |                 | |     | +-b#6 := Literal(type=STRING, value="two")
+    |                 | |     +-input_scan=
+    |                 | |       +-SingleRowScan
+    |                 | +-WithEntry
+    |                 |   +-with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args"
+    |                 |   +-with_subquery=
+    |                 |     +-ProjectScan
+    |                 |       +-column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#11, b#12]
+    |                 |       +-expr_list=
+    |                 |       | +-a#11 := Literal(type=INT64, value=1)
+    |                 |       | +-b#12 := Literal(type=STRING, value="two")
+    |                 |       +-input_scan=
+    |                 |         +-SingleRowScan
+    |                 +-query=
+    |                   +-ProjectScan
+    |                     +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                     +-input_scan=
+    |                       +-FilterScan
+    |                         +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                         +-input_scan=
+    |                         | +-WithRefScan(column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8], with_query_name="arg0")
+    |                         +-filter_expr=
+    |                           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+    |                             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |                             | +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |                             | +-SubqueryExpr
+    |                             |   +-type=INT64
+    |                             |   +-subquery_type=SCALAR
+    |                             |   +-subquery=
+    |                             |     +-ProjectScan
+    |                             |       +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.a#13]
+    |                             |       +-input_scan=
+    |                             |         +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#13, b#14], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+    |                             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |                               +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |                               +-SubqueryExpr
+    |                                 +-type=STRING
+    |                                 +-subquery_type=SCALAR
+    |                                 +-subquery=
+    |                                   +-ProjectScan
+    |                                     +-column_list=[$inlined_UnaryAbTableArgWithScalarArgs.b#16]
+    |                                     +-input_scan=
+    |                                       +-WithRefScan(column_list=$inlined_UnaryAbTableArgWithScalarArgs.[a#15, b#16], with_query_name="$inlined_UnaryAbTableArgWithScalarArgs_scalar_args")
+    +-input_scan=
+      +-WithScan
+        +-column_list=arg0.[a#17, b#18]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="arg0"
+        |   +-with_subquery=
+        |     +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        +-query=
+          +-ProjectScan
+            +-column_list=arg0.[a#17, b#18]
+            +-input_scan=
+              +-WithRefScan(column_list=arg0.[a#17, b#18], with_query_name="arg0")
+--
+ALTERNATION GROUP: 1,(SELECT 1 AS a, "two" AS b),t.b
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-Literal(type=INT64, value=1)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-ProjectScan
+    |                 | | |   +-column_list=$subquery1.[a#5, b#6]
+    |                 | | |   +-expr_list=
+    |                 | | |   | +-a#5 := Literal(type=INT64, value=1)
+    |                 | | |   | +-b#6 := Literal(type=STRING, value="two")
+    |                 | | |   +-input_scan=
+    |                 | | |     +-SingleRowScan
+    |                 | | +-argument_column_list=$subquery1.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[1]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #3 ('b') references column 'b'.
+--
+ALTERNATION GROUP: 1,(SELECT t.a, "two" AS b),"two"
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-Literal(type=INT64, value=1)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-ProjectScan
+    |                 | | |   +-column_list=$subquery1.[a#5, b#6]
+    |                 | | |   +-expr_list=
+    |                 | | |   | +-a#5 := ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | | |   | +-b#6 := Literal(type=STRING, value="two")
+    |                 | | |   +-input_scan=
+    |                 | | |     +-SingleRowScan
+    |                 | | +-argument_column_list=$subquery1.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-Literal(type=STRING, value="two")
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.a#3]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #2 ('arg0') references column 'a'.
+--
+ALTERNATION GROUP: 1,(SELECT t.a, "two" AS b),t.b
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3)
+    |     | +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(literal INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-Literal(type=INT64, value=1)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-ProjectScan
+    |                 | | |   +-column_list=$subquery1.[a#5, b#6]
+    |                 | | |   +-expr_list=
+    |                 | | |   | +-a#5 := ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | | |   | +-b#6 := Literal(type=STRING, value="two")
+    |                 | | |   +-input_scan=
+    |                 | | |     +-SingleRowScan
+    |                 | | +-argument_column_list=$subquery1.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArg.[a#3, b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0, 1]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #2 ('arg0') references column 'a'.
+--
+ALTERNATION GROUP: t.a,TABLE abTable,"two"
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-TableScan(column_list=abTable.[a#5, b#6], table=abTable, column_index_list=[0, 1])
+    |                 | | +-argument_column_list=abTable.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-Literal(type=STRING, value="two")
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.a#3]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+--
+ALTERNATION GROUP: t.a,TABLE abTable,t.b
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3)
+    |     | +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-TableScan(column_list=abTable.[a#5, b#6], table=abTable, column_index_list=[0, 1])
+    |                 | | +-argument_column_list=abTable.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArg.[a#3, b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0, 1]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+--
+ALTERNATION GROUP: t.a,(SELECT 1 AS a, "two" AS b),"two"
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-ProjectScan
+    |                 | | |   +-column_list=$subquery1.[a#5, b#6]
+    |                 | | |   +-expr_list=
+    |                 | | |   | +-a#5 := Literal(type=INT64, value=1)
+    |                 | | |   | +-b#6 := Literal(type=STRING, value="two")
+    |                 | | |   +-input_scan=
+    |                 | | |     +-SingleRowScan
+    |                 | | +-argument_column_list=$subquery1.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-Literal(type=STRING, value="two")
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.a#3]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+--
+ALTERNATION GROUP: t.a,(SELECT 1 AS a, "two" AS b),t.b
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3)
+    |     | +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-ProjectScan
+    |                 | | |   +-column_list=$subquery1.[a#5, b#6]
+    |                 | | |   +-expr_list=
+    |                 | | |   | +-a#5 := Literal(type=INT64, value=1)
+    |                 | | |   | +-b#6 := Literal(type=STRING, value="two")
+    |                 | | |   +-input_scan=
+    |                 | | |     +-SingleRowScan
+    |                 | | +-argument_column_list=$subquery1.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArg.[a#3, b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0, 1]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+--
+ALTERNATION GROUP: t.a,(SELECT t.a, "two" AS b),"two"
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(INT64, TABLE<a INT64, b STRING>, literal STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-ProjectScan
+    |                 | | |   +-column_list=$subquery1.[a#5, b#6]
+    |                 | | |   +-expr_list=
+    |                 | | |   | +-a#5 := ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | | |   | +-b#6 := Literal(type=STRING, value="two")
+    |                 | | |   +-input_scan=
+    |                 | | |     +-SingleRowScan
+    |                 | | +-argument_column_list=$subquery1.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-Literal(type=STRING, value="two")
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryAbTableArg.a#3]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+--
+ALTERNATION GROUP: t.a,(SELECT t.a, "two" AS b),t.b
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<a INT64, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<a INT64, b STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3)
+    |     | +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<a INT64, b STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=UnaryAbTableArgWithScalarArgs.a#7)
+    |         |       +-ColumnRef(type=STRING, column=UnaryAbTableArgWithScalarArgs.b#8)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |             +-input_scan=
+    |               +-TVFScan
+    |                 +-column_list=UnaryAbTableArgWithScalarArgs.[a#7, b#8]
+    |                 +-tvf=UnaryAbTableArgWithScalarArgs((INT64 a, TABLE<a INT64, b STRING> arg0, STRING b) -> TABLE<a INT64, b STRING>)
+    |                 +-signature=(INT64, TABLE<a INT64, b STRING>, STRING) -> TABLE<a INT64, b STRING>
+    |                 +-argument_list=
+    |                 | +-FunctionArgument
+    |                 | | +-expr=
+    |                 | |   +-ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | +-FunctionArgument
+    |                 | | +-scan=
+    |                 | | | +-ProjectScan
+    |                 | | |   +-column_list=$subquery1.[a#5, b#6]
+    |                 | | |   +-expr_list=
+    |                 | | |   | +-a#5 := ColumnRef(type=INT64, column=UnaryAbTableArg.a#3, is_correlated=TRUE)
+    |                 | | |   | +-b#6 := Literal(type=STRING, value="two")
+    |                 | | |   +-input_scan=
+    |                 | | |     +-SingleRowScan
+    |                 | | +-argument_column_list=$subquery1.[a#5, b#6]
+    |                 | +-FunctionArgument
+    |                 |   +-expr=
+    |                 |     +-ColumnRef(type=STRING, column=UnaryAbTableArg.b#4, is_correlated=TRUE)
+    |                 +-column_index_list=[0, 1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryAbTableArg.[a#3, b#4]
+        +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+        +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-TableScan(column_list=abTable.[a#1, b#2], table=abTable, column_index_list=[0, 1])
+        |   +-argument_column_list=abTable.[a#1, b#2]
+        +-column_index_list=[0, 1]
+        +-alias="t"
+
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('a') references column 'a'.
+==
+
+# The correlated column reference is inside a subquery within the argument
+# subquery.
+SELECT (SELECT b FROM UnaryAbTableArg((SELECT 1 AS a, (SELECT t.b) AS b)))
+FROM (SELECT 'b' AS b) AS t;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#7 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#7]
+    +-expr_list=
+    | +-$col1#7 :=
+    |   +-SubqueryExpr
+    |     +-type=STRING
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRING, column=t.b#1)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[UnaryAbTableArg.b#6]
+    |         +-input_scan=
+    |           +-TVFScan
+    |             +-column_list=[UnaryAbTableArg.b#6]
+    |             +-tvf=UnaryAbTableArg((TABLE<a INT64, b STRING> arg0) -> TABLE<a INT64, b STRING>)
+    |             +-signature=(TABLE<a INT64, b STRING>) -> TABLE<a INT64, b STRING>
+    |             +-argument_list=
+    |             | +-FunctionArgument
+    |             |   +-scan=
+    |             |   | +-ProjectScan
+    |             |   |   +-column_list=$subquery1.[a#3, b#4]
+    |             |   |   +-expr_list=
+    |             |   |   | +-a#3 := Literal(type=INT64, value=1)
+    |             |   |   | +-b#4 :=
+    |             |   |   |   +-SubqueryExpr
+    |             |   |   |     +-type=STRING
+    |             |   |   |     +-subquery_type=SCALAR
+    |             |   |   |     +-parameter_list=
+    |             |   |   |     | +-ColumnRef(type=STRING, column=t.b#1, is_correlated=TRUE)
+    |             |   |   |     +-subquery=
+    |             |   |   |       +-ProjectScan
+    |             |   |   |         +-column_list=[$expr_subquery.b#2]
+    |             |   |   |         +-expr_list=
+    |             |   |   |         | +-b#2 := ColumnRef(type=STRING, column=t.b#1, is_correlated=TRUE)
+    |             |   |   |         +-input_scan=
+    |             |   |   |           +-SingleRowScan
+    |             |   |   +-input_scan=
+    |             |   |     +-SingleRowScan
+    |             |   +-argument_column_list=$subquery1.[a#3, b#4]
+    |             +-column_index_list=[1]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[t.b#1]
+        +-expr_list=
+        | +-b#1 := Literal(type=STRING, value="b")
+        +-input_scan=
+          +-SingleRowScan
+
+Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('arg0') references column 'b'.
+==
+
+SELECT * FROM DefinerRightsTvf((select count(*) from KeyValue))
+--
+QueryStmt
++-output_column_list=
+| +-DefinerRightsTvf.Key#4 AS Key [INT64]
+| +-DefinerRightsTvf.Value#5 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=DefinerRightsTvf.[Key#4, Value#5]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=DefinerRightsTvf.[Key#4, Value#5]
+        +-tvf=DefinerRightsTvf((INT64 a) -> TABLE<Key INT64, Value STRING>)
+        +-signature=(INT64) -> TABLE<Key INT64, Value STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-SubqueryExpr
+        |       +-type=INT64
+        |       +-subquery_type=SCALAR
+        |       +-subquery=
+        |         +-ProjectScan
+        |           +-column_list=[$aggregate.$agg1#3]
+        |           +-input_scan=
+        |             +-AggregateScan
+        |               +-column_list=[$aggregate.$agg1#3]
+        |               +-input_scan=
+        |               | +-TableScan(table=KeyValue)
+        |               +-aggregate_list=
+        |                 +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-column_index_list=[0, 1]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-DefinerRightsTvf.Key#4 AS Key [INT64]
+| +-DefinerRightsTvf.Value#5 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=DefinerRightsTvf.[Key#4, Value#5]
+    +-input_scan=
+      +-WithScan
+        +-column_list=DefinerRightsTvf.[Key#4, Value#5]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="$inlined_DefinerRightsTvf_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_DefinerRightsTvf.a#6]
+        |       +-expr_list=
+        |       | +-a#6 :=
+        |       |   +-SubqueryExpr
+        |       |     +-type=INT64
+        |       |     +-subquery_type=SCALAR
+        |       |     +-subquery=
+        |       |       +-ProjectScan
+        |       |         +-column_list=[$aggregate.$agg1#3]
+        |       |         +-input_scan=
+        |       |           +-AggregateScan
+        |       |             +-column_list=[$aggregate.$agg1#3]
+        |       |             +-input_scan=
+        |       |             | +-TableScan(table=KeyValue)
+        |       |             +-aggregate_list=
+        |       |               +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=DefinerRightsTvf.[Key#4, Value#5]
+            +-input_scan=
+              +-FilterScan
+                +-column_list=DefinerRightsTvf.[Key#4, Value#5]
+                +-input_scan=
+                | +-TableScan(column_list=DefinerRightsTvf.[Key#4, Value#5], table=KeyValue, column_index_list=[0, 1])
+                +-filter_expr=
+                  +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                    +-ColumnRef(type=INT64, column=DefinerRightsTvf.Key#4)
+                    +-SubqueryExpr
+                      +-type=INT64
+                      +-subquery_type=SCALAR
+                      +-subquery=
+                        +-ProjectScan
+                          +-column_list=[$inlined_DefinerRightsTvf.a#7]
+                          +-input_scan=
+                            +-WithRefScan(column_list=[$inlined_DefinerRightsTvf.a#7], with_query_name="$inlined_DefinerRightsTvf_scalar_args")

@@ -27,7 +27,9 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
@@ -400,16 +402,10 @@ absl::Status Resolver::ResolveTypeNameInternal(const std::string& type_name,
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ParseType(type_name, analyzer_options_.GetParserOptions(),
                             &parser_output));
-  TypeParameters type_params;
-  ZETASQL_RETURN_IF_ERROR(ResolveType(parser_output->type(),
-                              /*type_parameter_context=*/{}, type,
-                              &type_params));
-  // TODO: Put the logic to resolve collation into ResolveType
-  // function.
-  ZETASQL_ASSIGN_OR_RETURN(Collation collation,
-                   ResolveTypeCollation(*parser_output->type()));
-  *type_modifiers = TypeModifiers::MakeTypeModifiers(std::move(type_params),
-                                                     std::move(collation));
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveType(parser_output->type(),
+                  {.allow_type_parameters = true, .allow_collation = true},
+                  type, type_modifiers));
   return absl::OkStatus();
 }
 
@@ -716,7 +712,7 @@ static std::string HintName(const std::string& qualifier,
 
 absl::Status Resolver::ResolveHintOrOptionAndAppend(
     const ASTExpression* ast_value, const ASTIdentifier* ast_qualifier,
-    const ASTIdentifier* ast_name, bool is_hint,
+    const ASTIdentifier* ast_name, HintOrOptionType hint_or_option_type,
     const AllowedHintsAndOptions& allowed,
     std::vector<std::unique_ptr<const ResolvedOption>>* option_list) {
   ZETASQL_RET_CHECK(ast_name != nullptr);
@@ -726,6 +722,17 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
   const std::string name = ast_name->GetAsString();
 
   std::unique_ptr<const ResolvedExpr> resolved_expr;
+
+  const char* hint_or_option_name = [&] {
+    switch (hint_or_option_type) {
+      case HintOrOptionType::Hint:
+        return "hint";
+      case HintOrOptionType::Option:
+        return "option";
+      case HintOrOptionType::AnonymizationOption:
+        return "anonymization option";
+    }
+  }();
 
   // Single identifiers are accepted as hint values, and are stored as string
   // values.  These show up in the AST as path expressions with one element.
@@ -739,9 +746,8 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
       // is referring to a literal string "foo" or a constant symbol named
       // "foo".  The user can resolve the error by either adding parentheses or
       // enclosing the name in quotation marks.
-      const char* context = is_hint ? "hint" : "option";
-      if (ResolveScalarExpr(ast_value, empty_name_scope_.get(), context,
-                            &resolved_expr)
+      if (ResolveScalarExpr(ast_value, empty_name_scope_.get(),
+                            hint_or_option_name, &resolved_expr)
               .ok()) {
         return MakeSqlErrorAt(ast_value)
                << "Unable to determine if "
@@ -760,8 +766,7 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
   // with no names visible in scope.
   if (resolved_expr == nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_value, empty_name_scope_.get(),
-                                      is_hint ? "hint" : "option",
-                                      &resolved_expr));
+                                      hint_or_option_name, &resolved_expr));
     // We try collapsing the resolved_expr early as we want to be sure that a
     // literal/parameter is passed as a hint value when possible.
     TryCollapsingExpressionsAsLiterals(
@@ -772,40 +777,64 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
   // <found_ptr> points at the Type* of the hint or option we found.
   // If it points at a NULL, any type is allowed.
   const Type* const* found_ptr = nullptr;
-  if (is_hint) {
-    found_ptr = zetasql_base::FindOrNull(allowed.hints_lower,
-                                std::make_pair(absl::AsciiStrToLower(qualifier),
-                                               absl::AsciiStrToLower(name)));
+  switch (hint_or_option_type) {
+    case HintOrOptionType::Hint: {
+      found_ptr = zetasql_base::FindOrNull(
+          allowed.hints_lower, std::make_pair(absl::AsciiStrToLower(qualifier),
+                                              absl::AsciiStrToLower(name)));
 
-    // If we have a qualifier that we are supposed to validate, then give
-    // an error on unknown hints.  Otherwise, let them through.
-    if (found_ptr == nullptr &&
-        zetasql_base::ContainsKey(allowed.disallow_unknown_hints_with_qualifiers,
-                         qualifier)) {
-      return MakeSqlErrorAt(ast_name)
-             << "Unknown hint: " << HintName(qualifier, name);
-    }
-  } else {
-    ZETASQL_RET_CHECK(qualifier.empty());
-    found_ptr =
-        zetasql_base::FindOrNull(allowed.options_lower, absl::AsciiStrToLower(name));
+      // If we have a qualifier that we are supposed to validate, then give
+      // an error on unknown hints.  Otherwise, let them through.
+      if (found_ptr == nullptr &&
+          zetasql_base::ContainsKey(allowed.disallow_unknown_hints_with_qualifiers,
+                           qualifier)) {
+        return MakeSqlErrorAt(ast_name)
+               << "Unknown hint: " << HintName(qualifier, name);
+      }
+    } break;
+    case HintOrOptionType::Option: {
+      ZETASQL_RET_CHECK(qualifier.empty());
+      found_ptr =
+          zetasql_base::FindOrNull(allowed.options_lower, absl::AsciiStrToLower(name));
 
-    if (found_ptr == nullptr && allowed.disallow_unknown_options) {
-      return MakeSqlErrorAt(ast_name)
-             << "Unknown option: " << HintName(qualifier, name);
-    }
+      if (found_ptr == nullptr && allowed.disallow_unknown_options) {
+        return MakeSqlErrorAt(ast_name)
+               << "Unknown option: " << HintName(qualifier, name);
+      }
+    } break;
+    case HintOrOptionType::AnonymizationOption: {
+      ZETASQL_RET_CHECK(qualifier.empty());
+      found_ptr = zetasql_base::FindOrNull(allowed.anonymization_options_lower,
+                                  absl::AsciiStrToLower(name));
+      if (found_ptr == nullptr) {
+        return MakeSqlErrorAt(ast_name)
+               << "Unknown anonymization option: " << HintName(qualifier, name);
+      }
+    } break;
+    default:
+      return absl::InternalError(absl::StrCat(
+          "Unknown option type: ", static_cast<int>(hint_or_option_type)));
   }
 
   // If we found the option, try to coerce the value to the appropriate type.
   if (found_ptr != nullptr && *found_ptr != nullptr) {
     const Type* expected_type = *found_ptr;
-    auto make_error_msg = [is_hint, &qualifier, &name](
+    auto option_name = [&] {
+      switch (hint_or_option_type) {
+        case HintOrOptionType::Hint:
+          return "Hint";
+        case HintOrOptionType::Option:
+          return "Option";
+        case HintOrOptionType::AnonymizationOption:
+          return "Anonymization option";
+      }
+    }();
+    auto make_error_msg = [option_name, &qualifier, &name](
                               absl::string_view target_t,
                               absl::string_view arg_t) {
       return absl::Substitute(
           "$2 $3 value has type $0 which cannot be coerced to expected type $1",
-          arg_t, target_t, (is_hint ? "Hint" : "Option"),
-          HintName(qualifier, name));
+          arg_t, target_t, option_name, HintName(qualifier, name));
     };
     ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_value, expected_type,
                                      kImplicitCoercion, make_error_msg,
@@ -844,12 +873,9 @@ absl::Status Resolver::ResolveHintAndAppend(
   for (const ASTHintEntry* ast_hint_entry : ast_hint->hint_entries()) {
     std::unique_ptr<const ResolvedExpr> resolved_expr;
     ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
-        ast_hint_entry->value(),
-        ast_hint_entry->qualifier(),
-        ast_hint_entry->name(),
-        /*is_hint=*/true,
-        analyzer_options_.allowed_hints_and_options(),
-        hints));
+        ast_hint_entry->value(), ast_hint_entry->qualifier(),
+        ast_hint_entry->name(), HintOrOptionType::Hint,
+        analyzer_options_.allowed_hints_and_options(), hints));
   }
 
   return absl::OkStatus();
@@ -946,17 +972,12 @@ absl::Status Resolver::ResolveOptionsList(
          options_list->options_entries()) {
       ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
           options_entry->value(), /*ast_qualifier=*/nullptr,
-          options_entry->name(), /*is_hint=*/false,
+          options_entry->name(), HintOrOptionType::Option,
           analyzer_options_.allowed_hints_and_options(), resolved_options));
     }
   }
   return absl::OkStatus();
 }
-
-static constexpr char kDelta[] = "delta";
-static constexpr char kEpsilon[] = "epsilon";
-static constexpr char kKThreshold[] = "k_threshold";
-static constexpr char kKappa[] = "kappa";
 
 absl::Status Resolver::ResolveAnonymizationOptionsList(
     const ASTOptionsList* options_list,
@@ -964,39 +985,34 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
   if (options_list != nullptr) {
     // ZetaSQL defines an allowlist of valid option names for anonymization
     // options.
-    AllowedHintsAndOptions allowed_anonymization_options(/*qualifier=*/"");
-    allowed_anonymization_options.AddOption(kDelta, types::DoubleType());
-    allowed_anonymization_options.AddOption(kEpsilon, types::DoubleType());
-    allowed_anonymization_options.AddOption(kKThreshold, types::Int64Type());
-    allowed_anonymization_options.AddOption(kKappa, types::Int64Type());
     std::set<std::string> specified_options;
     for (const ASTOptionsEntry* options_entry :
-             options_list->options_entries()) {
+         options_list->options_entries()) {
       if (!zetasql_base::InsertIfNotPresent(&specified_options,
                                    options_entry->name()->GetAsString())) {
         return MakeSqlErrorAt(options_entry->name())
-            << "Duplicate anonymization option specified for '"
-            << options_entry->name()->GetAsString() << "'";
+               << "Duplicate anonymization option specified for '"
+               << options_entry->name()->GetAsString() << "'";
       }
       ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
           options_entry->value(), /*ast_qualifier=*/nullptr,
-          options_entry->name(), /*is_hint=*/false,
-          allowed_anonymization_options, resolved_options));
+          options_entry->name(), HintOrOptionType::AnonymizationOption,
+          analyzer_options_.allowed_hints_and_options(), resolved_options));
     }
 
     // Validate that if epsilon is specified, then only at most one of delta or
     // k_threshold are present in the user input.  The engine will compute the
     // third option value from the two that are specified, i.e.,
     // (epsilon, delta) -> k_threshold or (epsilon, k_threshold) -> delta.
-    if (zetasql_base::ContainsKey(specified_options, kEpsilon)) {
+    if (zetasql_base::ContainsKey(specified_options, "epsilon")) {
       // If epsilon is specified, then only one of delta or k_threshold can
       // be specified (but it is also valid for neither to be specified).
-      if (zetasql_base::ContainsKey(specified_options, kDelta) &&
-          zetasql_base::ContainsKey(specified_options, kKThreshold)) {
+      if (zetasql_base::ContainsKey(specified_options, "delta") &&
+          zetasql_base::ContainsKey(specified_options, "k_threshold")) {
         return MakeSqlErrorAt(options_list)
-            << "The anonymization options specify all of (epsilon, delta, "
-            << "and k_threshold), but must only specify (epsilon, delta) or "
-            << "(epsilon, k_threshold)";
+               << "The anonymization options specify all of (epsilon, delta, "
+               << "and k_threshold), but must only specify (epsilon, delta) or "
+               << "(epsilon, k_threshold)";
       }
     }
   }
@@ -1030,7 +1046,7 @@ absl::Status Resolver::ResolveAnonWithReportOptionsList(
   const ASTOptionsEntry* options_entry = options_list->options_entries(0);
   ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
       options_entry->value(), /*ast_qualifier=*/nullptr, options_entry->name(),
-      /*is_hint=*/false, allowed_report_options, resolved_options));
+      HintOrOptionType::Option, allowed_report_options, resolved_options));
 
   ZETASQL_RET_CHECK_EQ(resolved_options->size(), 1);
   ZETASQL_RET_CHECK(
@@ -1057,27 +1073,25 @@ absl::Status Resolver::ResolveAnonWithReportOptionsList(
 
 absl::Status Resolver::ResolveType(
     const ASTType* type,
-    const std::optional<absl::string_view> type_parameter_context,
-    const Type** resolved_type, TypeParameters* resolved_type_params) {
-  if (type->collate() != nullptr &&
-      (!language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT) ||
-       !language().LanguageFeatureEnabled(FEATURE_V_1_4_COLLATION_IN_TYPE))) {
-    return MakeSqlErrorAt(type->collate())
-           << "Type with collation name is not supported";
+    const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+    const Type** resolved_type, TypeModifiers* resolved_type_modifiers) {
+  if (!resolve_type_modifier_options.allow_type_parameters ||
+      !resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolve_type_modifier_options.context.has_value());
   }
 
   switch (type->node_kind()) {
     case AST_SIMPLE_TYPE: {
       return ResolveSimpleType(type->GetAsOrDie<ASTSimpleType>(),
-                               type_parameter_context, resolved_type,
-                               resolved_type_params);
+                               resolve_type_modifier_options, resolved_type,
+                               resolved_type_modifiers);
     }
 
     case AST_ARRAY_TYPE: {
       const ArrayType* array_type;
       ZETASQL_RETURN_IF_ERROR(ResolveArrayType(type->GetAsOrDie<ASTArrayType>(),
-                                       type_parameter_context, &array_type,
-                                       resolved_type_params));
+                                       resolve_type_modifier_options,
+                                       &array_type, resolved_type_modifiers));
       *resolved_type = array_type;
       return absl::OkStatus();
     }
@@ -1085,9 +1099,18 @@ absl::Status Resolver::ResolveType(
     case AST_STRUCT_TYPE: {
       const StructType* struct_type;
       ZETASQL_RETURN_IF_ERROR(ResolveStructType(type->GetAsOrDie<ASTStructType>(),
-                                        type_parameter_context, &struct_type,
-                                        resolved_type_params));
+                                        resolve_type_modifier_options,
+                                        &struct_type, resolved_type_modifiers));
       *resolved_type = struct_type;
+      return absl::OkStatus();
+    }
+
+    case AST_RANGE_TYPE: {
+      const RangeType* range_type;
+      ZETASQL_RETURN_IF_ERROR(ResolveRangeType(type->GetAsOrDie<ASTRangeType>(),
+                                       resolve_type_modifier_options,
+                                       &range_type, resolved_type_modifiers));
+      *resolved_type = range_type;
       return absl::OkStatus();
     }
 
@@ -1096,41 +1119,79 @@ absl::Status Resolver::ResolveType(
   }
 
   ZETASQL_RET_CHECK_FAIL() << type->DebugString();
+  return absl::OkStatus();
 }
 
 absl::Status Resolver::ResolveSimpleType(
     const ASTSimpleType* type,
-    const std::optional<absl::string_view> type_parameter_context,
-    const Type** resolved_type, TypeParameters* resolved_type_params) {
+    const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+    const Type** resolved_type, TypeModifiers* resolved_type_modifiers) {
+  if (!resolve_type_modifier_options.allow_type_parameters ||
+      !resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolve_type_modifier_options.context.has_value());
+  }
+
+  TypeParameters resolved_type_params;
+  Collation resolved_collation;
+
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsType(type->type_name(),
                                               /*is_single_identifier=*/false,
                                               resolved_type));
 
   // Resolve type parameters if type parameters are allowed.
-  if (resolved_type_params != nullptr) {
+  if (resolve_type_modifier_options.allow_type_parameters) {
     std::vector<TypeParameters> child_parameter_list;
     ZETASQL_ASSIGN_OR_RETURN(
-        *resolved_type_params,
+        resolved_type_params,
         ResolveTypeParameters(type->type_parameters(), **resolved_type,
                               child_parameter_list));
   } else {
     if (type->type_parameters() != nullptr) {
       return MakeSqlErrorAt(type->type_parameters())
              << "Parameterized types are not supported in "
-             << type_parameter_context.value();
+             << resolve_type_modifier_options.context.value();
     }
   }
+
+  // Resolve type collation if type collation is allowed.
+  if (resolve_type_modifier_options.allow_collation) {
+    ZETASQL_ASSIGN_OR_RETURN(resolved_collation,
+                     ResolveTypeCollation(type->collate(), **resolved_type,
+                                          /*child_collation_list=*/{}));
+  } else {
+    if (type->collate() != nullptr) {
+      return MakeSqlErrorAt(type->collate())
+             << "Type with collation name is not supported in "
+             << resolve_type_modifier_options.context.value();
+    }
+  }
+
+  if (resolve_type_modifier_options.allow_type_parameters ||
+      resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolved_type_modifiers != nullptr);
+    *resolved_type_modifiers = TypeModifiers::MakeTypeModifiers(
+        std::move(resolved_type_params), std::move(resolved_collation));
+  }
+
   return absl::OkStatus();
 }
 
 absl::Status Resolver::ResolveArrayType(
     const ASTArrayType* array_type,
-    const std::optional<absl::string_view> type_parameter_context,
-    const ArrayType** resolved_type, TypeParameters* resolved_type_params) {
+    const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+    const ArrayType** resolved_type, TypeModifiers* resolved_type_modifiers) {
+  if (!resolve_type_modifier_options.allow_type_parameters ||
+      !resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolve_type_modifier_options.context.has_value());
+  }
+
   const Type* resolved_element_type;
-  ZETASQL_RETURN_IF_ERROR(ResolveType(array_type->element_type(),
-                              type_parameter_context, &resolved_element_type,
-                              resolved_type_params));
+  TypeModifiers resolved_element_type_modifiers;
+  // Use the same <resolve_type_modifier_options> to resolve the type modifiers
+  // for the element type.
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveType(array_type->element_type(), resolve_type_modifier_options,
+                  &resolved_element_type, &resolved_element_type_modifiers));
 
   if (resolved_element_type->IsArray()) {
     return MakeSqlErrorAt(array_type) << "Arrays of arrays are not supported";
@@ -1139,76 +1200,235 @@ absl::Status Resolver::ResolveArrayType(
   ZETASQL_RETURN_IF_ERROR(
       type_factory_->MakeArrayType(resolved_element_type, resolved_type));
 
+  TypeParameters resolved_element_type_params =
+      resolved_element_type_modifiers.release_type_parameters();
+  Collation resolved_element_collation =
+      resolved_element_type_modifiers.release_collation();
+
+  TypeParameters resolved_type_params;
+  Collation resolved_collation;
   // Resolve type parameters if type parameters are allowed.
-  if (resolved_type_params != nullptr) {
+  if (resolve_type_modifier_options.allow_type_parameters) {
     // For an array, determine if the elements in the array have type
     // parameters. If they do, then child_parameter_list[0] will have the
     // element type parameters stored in a TypeParameters class.
     std::vector<TypeParameters> child_parameter_list;
-    if (!resolved_type_params->IsEmpty()) {
-      child_parameter_list.push_back(std::move(*resolved_type_params));
+    if (!resolved_element_type_params.IsEmpty()) {
+      child_parameter_list.push_back(std::move(resolved_element_type_params));
     }
     ZETASQL_ASSIGN_OR_RETURN(
-        *resolved_type_params,
+        resolved_type_params,
         ResolveTypeParameters(array_type->type_parameters(), **resolved_type,
                               child_parameter_list));
   } else {
     if (array_type->type_parameters() != nullptr) {
       return MakeSqlErrorAt(array_type->type_parameters())
              << "Parameterized types are not supported in "
-             << type_parameter_context.value();
+             << resolve_type_modifier_options.context.value();
     }
   }
+
+  // Resolve type collation if type collation is allowed.
+  if (resolve_type_modifier_options.allow_collation) {
+    std::vector<Collation> child_collation_list;
+    child_collation_list.push_back(std::move(resolved_element_collation));
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_collation,
+        ResolveTypeCollation(array_type->collate(), **resolved_type,
+                             std::move(child_collation_list)));
+  } else {
+    if (array_type->collate() != nullptr) {
+      return MakeSqlErrorAt(array_type->collate())
+             << "Type with collation name is not supported in "
+             << resolve_type_modifier_options.context.value();
+    }
+  }
+
+  if (resolve_type_modifier_options.allow_type_parameters ||
+      resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolved_type_modifiers != nullptr);
+    *resolved_type_modifiers = TypeModifiers::MakeTypeModifiers(
+        std::move(resolved_type_params), std::move(resolved_collation));
+  }
+
   return absl::OkStatus();
 }
 
 absl::Status Resolver::ResolveStructType(
     const ASTStructType* struct_type,
-    const std::optional<absl::string_view> type_parameter_context,
-    const StructType** resolved_type, TypeParameters* resolved_type_params) {
+    const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+    const StructType** resolved_type, TypeModifiers* resolved_type_modifiers) {
+  if (!resolve_type_modifier_options.allow_type_parameters ||
+      !resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolve_type_modifier_options.context.has_value());
+  }
+
   std::vector<StructType::StructField> struct_fields;
-  bool has_children = false;
+  bool has_parameter_children = false;
   std::vector<TypeParameters> child_parameter_list;
+  std::vector<Collation> child_collation_list;
   child_parameter_list.reserve(struct_type->struct_fields().size());
+
+  TypeModifiers resolved_field_type_modifiers;
+
   for (auto struct_field : struct_type->struct_fields()) {
     const Type* field_type;
-    ZETASQL_RETURN_IF_ERROR(ResolveType(struct_field->type(), type_parameter_context,
-                                &field_type, resolved_type_params));
+    // Use the same <resolve_type_modifier_options> to resolve the type
+    // modifiers for the field types.
+    ZETASQL_RETURN_IF_ERROR(ResolveType(struct_field->type(),
+                                resolve_type_modifier_options, &field_type,
+                                &resolved_field_type_modifiers));
 
     struct_fields.emplace_back(StructType::StructField(
-        struct_field->name() != nullptr
-            ? struct_field->name()->GetAsString() : "",
+        struct_field->name() != nullptr ? struct_field->name()->GetAsString()
+                                        : "",
         field_type));
+
+    TypeParameters resolved_field_type_params =
+        resolved_field_type_modifiers.release_type_parameters();
+    Collation resolved_field_collation =
+        resolved_field_type_modifiers.release_collation();
 
     // For each field in a struct, determine whether the field has type
     // parameters. If the i-th field has a type parameter, then
     // child_parameter_list[i] will have the TypeParameters stored.
-    if (resolved_type_params != nullptr) {
-      if (!resolved_type_params->IsEmpty()) {
-        has_children = true;
+    if (resolve_type_modifier_options.allow_type_parameters) {
+      if (!resolved_field_type_params.IsEmpty()) {
+        has_parameter_children = true;
       }
-      child_parameter_list.push_back(std::move(*resolved_type_params));
+      child_parameter_list.push_back(std::move(resolved_field_type_params));
+    }
+
+    // For each field in a struct, determine whether the field has collation. If
+    // the i-th field has a collation, then child_collation_list[i] will have
+    // the Collation stored.
+    if (resolve_type_modifier_options.allow_collation) {
+      child_collation_list.push_back(std::move(resolved_field_collation));
     }
   }
 
   ZETASQL_RETURN_IF_ERROR(type_factory_->MakeStructType(struct_fields, resolved_type));
 
+  TypeParameters resolved_type_params;
+  Collation resolved_collation;
+
   // Resolve type parameters if type parameters are allowed.
-  if (resolved_type_params != nullptr) {
-    if (!has_children) {
+  if (resolve_type_modifier_options.allow_type_parameters) {
+    if (!has_parameter_children) {
       child_parameter_list = {};
     }
     ZETASQL_ASSIGN_OR_RETURN(
-        *resolved_type_params,
+        resolved_type_params,
         ResolveTypeParameters(struct_type->type_parameters(), **resolved_type,
                               child_parameter_list));
   } else {
     if (struct_type->type_parameters() != nullptr) {
       return MakeSqlErrorAt(struct_type->type_parameters())
              << "Parameterized types are not supported in "
-             << type_parameter_context.value();
+             << resolve_type_modifier_options.context.value();
     }
   }
+
+  // Resolve type collation if type collation is allowed.
+  if (resolve_type_modifier_options.allow_collation) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_collation,
+        ResolveTypeCollation(struct_type->collate(), **resolved_type,
+                             std::move(child_collation_list)));
+  } else {
+    if (struct_type->collate() != nullptr) {
+      return MakeSqlErrorAt(struct_type->collate())
+             << "Type with collation name is not supported in "
+             << resolve_type_modifier_options.context.value();
+    }
+  }
+
+  if (resolve_type_modifier_options.allow_type_parameters ||
+      resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolved_type_modifiers != nullptr);
+    *resolved_type_modifiers = TypeModifiers::MakeTypeModifiers(
+        std::move(resolved_type_params), std::move(resolved_collation));
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveRangeType(
+    const ASTRangeType* range_type,
+    const ResolveTypeModifiersOptions& resolve_type_modifier_options,
+    const RangeType** resolved_type, TypeModifiers* resolved_type_modifiers) {
+  if (!resolve_type_modifier_options.allow_type_parameters ||
+      !resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolve_type_modifier_options.context.has_value());
+  }
+
+  const Type* resolved_element_type;
+  TypeModifiers resolved_element_type_modifiers;
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveType(range_type->element_type(), resolve_type_modifier_options,
+                  &resolved_element_type, &resolved_element_type_modifiers));
+
+  absl::Status make_range_type_status =
+      type_factory_->MakeRangeType(resolved_element_type, resolved_type);
+  if (!make_range_type_status.ok()) {
+    return MakeSqlErrorAt(range_type->element_type())
+           << make_range_type_status.message();
+  }
+
+  TypeParameters resolved_element_type_params =
+      resolved_element_type_modifiers.release_type_parameters();
+  Collation resolved_element_collation =
+      resolved_element_type_modifiers.release_collation();
+  TypeParameters resolved_type_params;
+  Collation resolved_collation;
+
+  // Resolve type parameters if type parameters are allowed.
+  if (resolve_type_modifier_options.allow_type_parameters) {
+    // For a range, determine if the elements in the range have type
+    // parameters. If they do, then child_parameter_list[0] will have the
+    // element type parameters stored in a TypeParameters class.
+    std::vector<TypeParameters> child_parameter_list;
+    if (!resolved_element_type_params.IsEmpty()) {
+      child_parameter_list.push_back(std::move(resolved_element_type_params));
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        resolved_type_params,
+        ResolveTypeParameters(range_type->type_parameters(), **resolved_type,
+                              child_parameter_list));
+  } else {
+    if (range_type->type_parameters() != nullptr) {
+      return MakeSqlErrorAt(range_type->type_parameters())
+             << "Parameterized types are not supported in "
+             << resolve_type_modifier_options.context.value();
+    }
+  }
+
+  // Resolve type collation if type collation is allowed.
+  if (resolve_type_modifier_options.allow_collation) {
+    // The collatale types such as STRING, ARRAY<STRING> or
+    // STRUCT<x STRING, y INT64> cannot be the element type of RANGE types so
+    // far.
+    ZETASQL_RET_CHECK(resolved_element_collation.Empty());
+
+    if (range_type->collate() != nullptr) {
+      return MakeSqlErrorAt(range_type->collate())
+             << "Range type does not support collation name";
+    }
+  } else {
+    if (range_type->collate() != nullptr) {
+      return MakeSqlErrorAt(range_type->collate())
+             << "Type with collation name is not supported in "
+             << resolve_type_modifier_options.context.value();
+    }
+  }
+
+  if (resolve_type_modifier_options.allow_type_parameters ||
+      resolve_type_modifier_options.allow_collation) {
+    ZETASQL_RET_CHECK(resolved_type_modifiers != nullptr);
+    *resolved_type_modifiers = TypeModifiers::MakeTypeModifiers(
+        std::move(resolved_type_params), std::move(resolved_collation));
+  }
+
   return absl::OkStatus();
 }
 

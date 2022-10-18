@@ -369,10 +369,6 @@ class Coercer::ContextBase {
     return extended_conversion_evaluators_;
   }
 
-  ConversionEvaluatorSet&& extended_conversion_evaluators() && {
-    return std::move(extended_conversion_evaluators_);
-  }
-
   // Saves the extended conversion function. Returns an error if function is
   // already set.
   absl::Status AddExtendedConversion(const Conversion& extended_conversion);
@@ -410,10 +406,6 @@ class Coercer::Context : public Coercer::ContextBase {
       const Type* from_type, const Type* to_type,
       Catalog::ConversionSourceExpressionKind source_kind,
       SignatureMatchResult* result);
-
-  absl::StatusOr<bool> ExtendedTypeCoercesTo(const InputArgumentType& argument,
-                                             const Type* to_type,
-                                             SignatureMatchResult* result);
 
   absl::StatusOr<bool> StructCoercesTo(const InputArgumentType& struct_argument,
                                        const Type* to_type,
@@ -1195,11 +1187,11 @@ absl::StatusOr<bool> Coercer::Context::StructCoercesToProtoMapEntry(
   bool ignore_annotations = false;
   if (!type_factory()
            .GetProtoFieldType(ignore_annotations, to_type_proto->map_key(),
-                              &key_type)
+                              to_type_proto->CatalogNamePath(), &key_type)
            .ok() ||
       !type_factory()
            .GetProtoFieldType(ignore_annotations, to_type_proto->map_value(),
-                              &value_type)
+                              to_type_proto->CatalogNamePath(), &value_type)
            .ok()) {
     result->incr_non_matched_arguments();
     return false;
@@ -1351,25 +1343,11 @@ absl::StatusOr<bool> Coercer::CoercesTo(
   return status;
 }
 
-bool Coercer::TypeCoercesTo(const Type* from_type, const Type* to_type,
-                            bool is_explicit,
-                            SignatureMatchResult* result) const {
-  return StatusToBool(
-      Context(*this, is_explicit).TypeCoercesTo(from_type, to_type, result));
-}
-
 bool Coercer::StructCoercesTo(const InputArgumentType& struct_argument,
                               const Type* to_type, bool is_explicit,
                               SignatureMatchResult* result) const {
   return StatusToBool(Context(*this, is_explicit)
                           .StructCoercesTo(struct_argument, to_type, result));
-}
-
-bool Coercer::ArrayCoercesTo(const InputArgumentType& array_argument,
-                             const Type* to_type, bool is_explicit,
-                             SignatureMatchResult* result) const {
-  return StatusToBool(Context(*this, is_explicit)
-                          .ArrayCoercesTo(array_argument, to_type, result));
 }
 
 bool Coercer::ParameterCoercesTo(const Type* from_type, const Type* to_type,

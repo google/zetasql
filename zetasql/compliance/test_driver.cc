@@ -18,10 +18,15 @@
 
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"
+#include "absl/status/status.h"
+#include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -78,6 +83,74 @@ absl::Status SerializeTestDatabase(const TestDatabase& database,
     }
   }
   return absl::OkStatus();
+}
+
+absl::StatusOr<TestDatabase> DeserializeTestDatabase(
+    const TestDatabaseProto& proto, TypeFactory* type_factory,
+    const std::vector<google::protobuf::DescriptorPool*>& descriptor_pools,
+    std::vector<std::unique_ptr<const AnnotationMap>>& annotation_maps) {
+  TestDatabase db;
+  for (const std::string& proto_file : proto.proto_files()) {
+    if (!db.proto_files.insert(proto_file).second) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate proto file: " << proto_file;
+    }
+  }
+  db.runs_as_test = proto.runs_as_test();
+  for (const std::string& proto_name : proto.proto_names()) {
+    if (!db.proto_names.insert(proto_name).second) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate proto name: " << proto_name;
+    }
+  }
+  for (const std::string& enum_name : proto.enum_names()) {
+    if (!db.enum_names.insert(enum_name).second) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate enum name: " << enum_name;
+    }
+  }
+  for (const TestTableProto& table_proto : proto.test_tables()) {
+    auto [it, inserted] = db.tables.try_emplace(table_proto.name());
+    if (!inserted) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate table name: " << table_proto.name();
+    }
+    TestTable& table = it->second;
+    const Type* contents_type;
+    ZETASQL_RETURN_IF_ERROR(
+        type_factory->DeserializeFromSelfContainedProtoWithDistinctFiles(
+            table_proto.contents().type(), descriptor_pools, &contents_type));
+    ZETASQL_ASSIGN_OR_RETURN(
+        table.table_as_value,
+        Value::Deserialize(table_proto.contents().value(), contents_type));
+
+    table.options.set_expected_table_size_range(
+        static_cast<int>(table_proto.options().expected_table_size_min()),
+        static_cast<int>(table_proto.options().expected_table_size_max()));
+    table.options.set_is_value_table(table_proto.options().is_value_table());
+    table.options.set_nullable_probability(
+        table_proto.options().nullable_probability());
+
+    for (int feature_int : table_proto.options().required_features()) {
+      LanguageFeature feature = static_cast<LanguageFeature>(feature_int);
+      if (!table.options.mutable_required_features()->insert(feature).second) {
+        return zetasql_base::InvalidArgumentErrorBuilder()
+               << "Duplicate required language feature: "
+               << LanguageFeature_Name(feature);
+      }
+    }
+    table.options.set_userid_column(table_proto.options().userid_column());
+    std::vector<const AnnotationMap*> column_annotations;
+    for (const AnnotationMapProto& annotation :
+         table_proto.options().column_annotations()) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const AnnotationMap> annotation_map,
+                       AnnotationMap::Deserialize(annotation));
+      column_annotations.push_back(annotation_map.get());
+      annotation_maps.push_back(std::move(annotation_map));
+    }
+    table.options.set_column_annotations(std::move(column_annotations));
+  }
+  return db;
 }
 
 }  // namespace zetasql

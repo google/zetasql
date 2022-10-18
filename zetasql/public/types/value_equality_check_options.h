@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_TYPES_VALUE_EQUALITY_CHECK_OPTIONS_H_
 
 #include <string>
+#include <vector>
 
 #include "zetasql/common/float_margin.h"
 
@@ -45,6 +46,23 @@ enum class IntervalCompareMode {
   kAllPartsEqual,
 };
 
+// When comparing two deeply nested Values with the same type, we want to
+// treat descendant ArrayValues that have the same relationship to the root
+// with the same ordering requirements. This struct is used to build a map
+// of Array types that ignore order within the full type structure. The
+// recursive shape of a DeepOrderKindSpec will follow that of the Value type
+// used to initialize it.
+struct DeepOrderKindSpec {
+  // For a simple type (e.g. int, string, enum) 'children' will be empty. For
+  // an array type, it will have one element representing the order spec for
+  // the array element type. For a struct type, 'children' will contain one
+  // element per field of the struct.
+  std::vector<DeepOrderKindSpec> children;
+  // If the spec node represents an array type, ignores_order will be true if
+  // any array value corresponding to this node was marked kIgnoresOrder.
+  bool ignores_order = false;
+};
+
 // Contains value equality check options that can be provided to
 // Type::ValueContentEquals function.
 struct ValueEqualityCheckOptions {
@@ -57,6 +75,8 @@ struct ValueEqualityCheckOptions {
   // If 'reason' is not null, upon inequality it may be set to human-readable
   // explanation of what parts of values differ.
   std::string* reason = nullptr;
+
+  DeepOrderKindSpec* deep_order_spec = nullptr;
 };
 
 }  // namespace zetasql

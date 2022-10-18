@@ -66,7 +66,7 @@ class RewriteTernaryFunctionVisitor : public ResolvedASTDeepCopyVisitor {
     bool is_safe =
         node->error_mode() == ResolvedFunctionCallBase::SAFE_ERROR_MODE;
 
-    // Process child node first, so that input array argument is rewritten.
+    // Process child node first, so that input arguments are rewritten.
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_first_input,
                      ProcessNode(first_input));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_second_input,
@@ -96,7 +96,7 @@ class RewriteTernaryFunctionVisitor : public ResolvedASTDeepCopyVisitor {
     // Templates with null hanlding.
     // * ARRAY_SLICE(first_input, second_input, third_input) represents
     //   ARRAY_SLICE(array, start, end)
-    constexpr absl::string_view kArraySliceTemplate = R"(
+    constexpr absl::string_view kArraySliceTemplate = R"sql(
     CASE
       WHEN first_input IS NULL OR second_input IS NULL OR third_input IS NULL THEN NULL
       WHEN ARRAY_LENGTH(first_input) = 0 THEN []
@@ -111,9 +111,62 @@ class RewriteTernaryFunctionVisitor : public ResolvedASTDeepCopyVisitor {
         )
       )
     END
-    )";
+    )sql";
+
+    // * ARRAY_OFFSET(array, target, find_mode)
+    // Note that, rewrite of the non-lambda version signature is interchangeable
+    // with that of the lambda version ARRAY_FIND(array, lambda, find_mode),
+    // where the default lambda for the non-lambda version is `e -> e = target`.
+    constexpr absl::string_view kArrayOffsetTemplate = R"sql(
+    IF(first_input IS NULL OR second_input IS NULL OR third_input IS NULL,
+      NULL,
+      CASE third_input
+        WHEN 'FIRST' THEN (
+          SELECT offset
+          FROM UNNEST(first_input) AS e WITH OFFSET
+          WHERE e = second_input
+          ORDER BY offset LIMIT 1
+        )
+        WHEN 'LAST' THEN (
+          SELECT offset
+          FROM UNNEST(first_input) AS e WITH OFFSET
+          WHERE e = second_input
+          ORDER BY offset DESC LIMIT 1
+        )
+        ELSE ERROR(CONCAT('ARRAY_FIND_MODE ', third_input, ' in ARRAY_OFFSET is unsupported.'))
+      END
+    ))sql";
+
+    // * ARRAY_FIND(array, target, find_mode)
+    // Note that, rewrite of the non-lambda version signature is interchangeable
+    // with that of the lambda version ARRAY_FIND(array, lambda, find_mode),
+    // where the default lambda for the non-lambda version is `e -> e = target`.
+    constexpr absl::string_view kArrayFindTemplate = R"sql(
+    IF(first_input IS NULL OR second_input IS NULL OR third_input IS NULL,
+      NULL,
+      CASE third_input
+        WHEN 'FIRST' THEN (
+          SELECT e
+          FROM UNNEST(first_input) AS e WITH OFFSET
+          WHERE e = second_input
+          ORDER BY offset LIMIT 1
+        )
+        WHEN 'LAST' THEN (
+          SELECT e
+          FROM UNNEST(first_input) AS e WITH OFFSET
+          WHERE e = second_input
+          ORDER BY offset DESC LIMIT 1
+        )
+        ELSE ERROR(CONCAT('ARRAY_FIND_MODE ', third_input, ' ARRAY_FIND_MODE in ARRAY_FIND is unsupported.'))
+      END
+    )
+    )sql";
     if (IsBuiltInFunctionIdEq(node, FN_ARRAY_SLICE)) {
       return Rewrite(node, kArraySliceTemplate);
+    } else if (IsBuiltInFunctionIdEq(node, FN_ARRAY_OFFSET)) {
+      return Rewrite(node, kArrayOffsetTemplate);
+    } else if (IsBuiltInFunctionIdEq(node, FN_ARRAY_FIND)) {
+      return Rewrite(node, kArrayFindTemplate);
     }
     return CopyVisitResolvedFunctionCall(node);
   }

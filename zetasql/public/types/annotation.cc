@@ -39,7 +39,7 @@
 
 namespace zetasql {
 
-static std::string GetAnnotationKindName(AnnotationKind kind) {
+std::string GetAnnotationKindName(AnnotationKind kind) {
   switch (kind) {
     case AnnotationKind::kCollation:
       return "Collation";

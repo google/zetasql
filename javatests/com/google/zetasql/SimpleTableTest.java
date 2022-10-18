@@ -195,7 +195,7 @@ public class SimpleTableTest {
     SimpleTable table = new SimpleTable("Table");
     assertThat(table.allowAnonymousColumnName()).isFalse();
     assertThat(table.getColumnCount()).isEqualTo(0);
-    SimpleColumn column = new SimpleColumn("Table", "" /* name */, intType);
+    SimpleColumn column = new SimpleColumn("Table", /* name= */ "", intType);
     try {
       table.addSimpleColumn(column);
       fail();
@@ -436,7 +436,7 @@ public class SimpleTableTest {
       SimpleTable.tableFromProto(factory.createProtoType(InvalidSQLTable3.class));
       fail();
     } catch (SqlException expected) {
-      assertThat(expected.getMessage().contains("Duplicate column")).isTrue();
+      assertThat(expected.getMessage()).contains("Duplicate column");
     }
   }
 

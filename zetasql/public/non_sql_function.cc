@@ -16,7 +16,10 @@
 
 #include "zetasql/public/non_sql_function.h"
 
+#include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/resolved_ast/resolved_ast.h"

@@ -41,10 +41,12 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -225,7 +227,7 @@ class ExprArg : public AlgebraArg {
   // Creates an argument from 'expr', no variable.
   explicit ExprArg(std::unique_ptr<ValueExpr> expr);
 
-  ~ExprArg() override {}
+  ~ExprArg() override = default;
 
   const Type* type() const { return type_; }
 
@@ -242,7 +244,7 @@ class InlineLambdaArg : public AlgebraArg {
   // Creates an argument from 'expr', no variable.
   explicit InlineLambdaArg(std::unique_ptr<InlineLambdaExpr> lambda);
 
-  ~InlineLambdaArg() override {}
+  ~InlineLambdaArg() override = default;
 };
 
 // Operator argument class used by SortOp and AggregateOp for key arguments.
@@ -324,7 +326,7 @@ class WindowFrameBoundaryArg final : public AlgebraArg {
 
   WindowFrameBoundaryArg(const WindowFrameBoundaryArg&) = delete;
   WindowFrameBoundaryArg& operator=(const WindowFrameBoundaryArg&) = delete;
-  ~WindowFrameBoundaryArg() override {}
+  ~WindowFrameBoundaryArg() override = default;
 
   BoundaryType boundary_type() const {
     return boundary_type_;
@@ -515,7 +517,7 @@ class WindowFrameArg final : public AlgebraArg {
 
   WindowFrameArg(const WindowFrameArg&) = delete;
   WindowFrameArg& operator=(const WindowFrameArg&) = delete;
-  ~WindowFrameArg() override {}
+  ~WindowFrameArg() override = default;
 
   std::string DebugInternal(const std::string& indent,
                             bool verbose) const override;
@@ -632,7 +634,7 @@ class RelationalArg final : public AlgebraArg {
 //   return accumulator->GetFinalResult(/*inputs_in_defined_order=*/false);
 class AggregateArgAccumulator {
  public:
-  virtual ~AggregateArgAccumulator() {}
+  virtual ~AggregateArgAccumulator() = default;
 
   // Accumulates 'input_row'. On success, returns true and populates
   // 'stop_accumulation' with whether the caller may skip subsequent calls to
@@ -893,7 +895,7 @@ class ColumnFilterArg : public AlgebraArg {
   explicit ColumnFilterArg(int column_idx)
       : AlgebraArg(VariableId(), /*node=*/nullptr), column_idx_(column_idx) {}
 
-  ~ColumnFilterArg() override {}
+  ~ColumnFilterArg() override = default;
 
   // Sets the TupleSchemas for the TupleDatas passed to Eval(). A particular
   // VariableId can only occur in one TupleSchema.
@@ -1031,7 +1033,7 @@ class AlgebraNode {
   static constexpr char kIndentBar[] = "| ";
   static constexpr char kIndentSpace[] = "  ";
 
-  AlgebraNode() {}
+  AlgebraNode() = default;
   AlgebraNode(const AlgebraNode&) = delete;
   AlgebraNode& operator=(const AlgebraNode&) = delete;
   virtual ~AlgebraNode();
@@ -1184,7 +1186,7 @@ class ValueExpr : public AlgebraNode {
 // Abstract base class for relational operators.
 class RelationalOp : public AlgebraNode {
  public:
-  RelationalOp() {}
+  RelationalOp() = default;
   RelationalOp(const RelationalOp&) = delete;
   RelationalOp& operator=(const RelationalOp&) = delete;
   ~RelationalOp() override;
@@ -2734,7 +2736,7 @@ class FunctionBody {
 
   FunctionBody(const FunctionBody&) = delete;
   FunctionBody& operator=(const FunctionBody&) = delete;
-  virtual ~FunctionBody() {}
+  virtual ~FunctionBody() = default;
   virtual std::string debug_name() const = 0;
   const Type* output_type() const { return output_type_; }
 
@@ -2751,7 +2753,7 @@ class ScalarFunctionBody : public FunctionBody {
 
   ScalarFunctionBody(const ScalarFunctionBody&) = delete;
   ScalarFunctionBody& operator=(const ScalarFunctionBody&) = delete;
-  ~ScalarFunctionBody() override {}
+  ~ScalarFunctionBody() override = default;
 
   // Evaluates the function using 'args' to represent the arguments.
   // 'params' indicates additional TupleData parameters passed to the
@@ -2786,7 +2788,7 @@ class ScalarFunctionBody : public FunctionBody {
 //   return accumulator->GetFinalResult(/*inputs_in_defined_order=*/false);
 class AggregateAccumulator {
  public:
-  virtual ~AggregateAccumulator() {}
+  virtual ~AggregateAccumulator() = default;
 
   // Resets the accumulation.
   virtual absl::Status Reset() = 0;
@@ -2822,7 +2824,7 @@ class AggregateFunctionBody : public FunctionBody {
 
   AggregateFunctionBody(const AggregateFunctionBody&) = delete;
   AggregateFunctionBody& operator=(const AggregateFunctionBody&) = delete;
-  ~AggregateFunctionBody() override {}
+  ~AggregateFunctionBody() override = default;
 
   bool ignores_null() const { return ignores_null_; }
 
@@ -2942,7 +2944,7 @@ class AnalyticFunctionBody : public FunctionBody {
 
   AnalyticFunctionBody(const AnalyticFunctionBody&) = delete;
   AnalyticFunctionBody& operator=(const AnalyticFunctionBody&) = delete;
-  ~AnalyticFunctionBody() override {}
+  ~AnalyticFunctionBody() override = default;
 
   // Returns true if a tuple comparator is required for evaluation.
   virtual bool RequireTupleComparator() const = 0;
@@ -3195,7 +3197,7 @@ class InlineLambdaExpr : public AlgebraNode {
   InlineLambdaExpr(const InlineLambdaExpr&) = delete;
   InlineLambdaExpr& operator=(const InlineLambdaExpr&) = delete;
 
-  ~InlineLambdaExpr() override {}
+  ~InlineLambdaExpr() override = default;
 
   static std::unique_ptr<InlineLambdaExpr> Create(
       absl::Span<const VariableId> arguments, std::unique_ptr<ValueExpr> body);
@@ -3241,6 +3243,12 @@ using ResolvedScanMap =
 using ResolvedExprMap =
     absl::flat_hash_map<const ResolvedExpr*, std::unique_ptr<ValueExpr>>;
 
+// Maps ResolvedColumn ids to their corresponding algebrized column
+// expressions (ValueExpr). These expressions are coming from default value or
+// generated column. If the column does not have an expression, it doesn't exist
+// in this map.
+using ColumnExprMap = absl::flat_hash_map<int, std::unique_ptr<ValueExpr>>;
+
 // This abstract class is a hack to allow executing a resolved DML statement
 // directly off its resolved AST node without using an intermediate algebra.
 //
@@ -3254,7 +3262,7 @@ class DMLValueExpr : public ValueExpr {
  public:
   DMLValueExpr(const DMLValueExpr&) = delete;
   DMLValueExpr& operator=(const DMLValueExpr&) = delete;
-  ~DMLValueExpr() override {}
+  ~DMLValueExpr() override = default;
 
   // Returns true if the table being modified by the corresponding DML statement
   // is a value table.
@@ -3318,7 +3326,8 @@ class DMLValueExpr : public ValueExpr {
           returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-      std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
+      std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+      std::unique_ptr<const ColumnExprMap> column_expr_map);
 
   // RET_CHECKs that 'resolved_scan' is in 'resolved_scan_map_', and then
   // returns the corresponding RelationalOp.
@@ -3329,6 +3338,10 @@ class DMLValueExpr : public ValueExpr {
   // returns the corresponding ValueExpr.
   absl::StatusOr<ValueExpr*> LookupResolvedExpr(
       const ResolvedExpr* resolved_expr) const;
+
+  // Looks up a column expression by ResolveColumn's 'column_id'. Returns NULL
+  // if the column doesn't have an expression associated with it.
+  ValueExpr* LookupDefaultExpr(int resolved_column_id) const;
 
   // Returns a absl::Status corresponding to whether 'actual_num_rows_modified'
   // matches 'assert_rows_modified' (which may be NULL, which results in
@@ -3412,6 +3425,7 @@ class DMLValueExpr : public ValueExpr {
       column_to_variable_mapping_;
   const std::unique_ptr<const ResolvedScanMap> resolved_scan_map_;
   const std::unique_ptr<const ResolvedExprMap> resolved_expr_map_;
+  const std::unique_ptr<const ColumnExprMap> column_expr_map_;
 };
 
 // Represents a DML DELETE statement.
@@ -3481,7 +3495,8 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
           returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-      std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
+      std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+      std::unique_ptr<const ColumnExprMap> column_expr_map);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -3631,7 +3646,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
     enum class Kind { UNMODIFIED, DELETED, MODIFIED };
 
     // Creates an UNMODIFIED UpdatedElement.
-    UpdatedElement() {}
+    UpdatedElement() = default;
 
     // Returns the Kind of this UpdatedElement.
     Kind kind() const {
@@ -3679,7 +3694,8 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
           returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-      std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
+      std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+      std::unique_ptr<const ColumnExprMap> column_expr_map);
 
   const ResolvedUpdateStmt* stmt() const {
     return resolved_node_->GetAs<ResolvedUpdateStmt>();
@@ -3849,7 +3865,8 @@ class DMLInsertValueExpr final : public DMLValueExpr {
           returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-      std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
+      std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+      std::unique_ptr<const ColumnExprMap> column_expr_map);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -3888,7 +3905,8 @@ class DMLInsertValueExpr final : public DMLValueExpr {
           returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
-      std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
+      std::unique_ptr<const ResolvedExprMap> resolved_expr_map,
+      std::unique_ptr<const ColumnExprMap> column_expr_map);
 
   const ResolvedInsertStmt* stmt() const {
     return resolved_node_->GetAs<ResolvedInsertStmt>();

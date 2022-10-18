@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <string>
 #include <tuple>
@@ -2932,6 +2933,7 @@ class JoinTupleIterator : public TupleIterator {
   //    over all the right tuples.
   // 2a) For each right tuple, we may have to left-pad NULLs.
   TupleData* Next() override {
+
     if (!left_padding_right_tuples_ && !next_left_tuple_.has_value() &&
         next_right_tuple_idx_ == 0) {
       const absl::Status init_status = InitializeJoinCandidates();
@@ -3390,6 +3392,7 @@ class JoinTupleIterator : public TupleIterator {
 absl::StatusOr<std::unique_ptr<TupleIterator>> JoinOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
+
   std::unique_ptr<RightInputForJoin> right_hand_side;
   switch (join_kind_) {
     case kInnerJoin:
@@ -3437,6 +3440,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> JoinOp::CreateIterator(
 }
 
 std::unique_ptr<TupleSchema> JoinOp::CreateOutputSchema() const {
+
   const std::unique_ptr<TupleSchema> left_schema =
       left_input()->CreateOutputSchema();
   const std::unique_ptr<TupleSchema> right_schema =

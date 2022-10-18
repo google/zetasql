@@ -22,10 +22,12 @@
 #include <stddef.h>
 
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <iterator>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>

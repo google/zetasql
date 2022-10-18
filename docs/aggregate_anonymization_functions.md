@@ -90,6 +90,12 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
 
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+
 ### ANON_COUNT
 
 + [Signature 1](#anon_count_signature1)
@@ -230,6 +236,14 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
 
+[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
+
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+
 ### ANON_PERCENTILE_CONT
 
 ```sql
@@ -291,6 +305,10 @@ GROUP BY item;
 +----------+----------------------+
 ```
 
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+
 ### ANON_QUANTILES
 
 ```sql
@@ -344,6 +362,10 @@ GROUP BY item;
 | pencil   | [6.849259,44.010416666666664,62.64204,65.83806818181819,98.59375]    |
 +----------+----------------------------------------------------------------------+
 ```
+
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
 
 ### ANON_STDDEV_POP
 
@@ -405,6 +427,10 @@ GROUP BY item;
 | pen      | 2                      |
 +----------+------------------------+
 ```
+
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
 
 ### ANON_SUM
 
@@ -480,6 +506,12 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
 
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
+
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+
 ### ANON_VAR_POP
 
 ```sql
@@ -541,19 +573,11 @@ GROUP BY item;
 +----------+-----------------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
-
-[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 
 [anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
 
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
-
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-<!-- mdlint on -->
 

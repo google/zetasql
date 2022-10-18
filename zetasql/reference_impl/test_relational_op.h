@@ -18,7 +18,9 @@
 #ifndef ZETASQL_REFERENCE_IMPL_TEST_RELATIONAL_OP_H_
 #define ZETASQL_REFERENCE_IMPL_TEST_RELATIONAL_OP_H_
 
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple_test_util.h"

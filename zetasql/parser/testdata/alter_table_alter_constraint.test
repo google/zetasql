@@ -105,16 +105,16 @@ ALTER TABLE foo ALTER CONSTRAINT bar SET OPTIONS(opt_a = 1, opt_b = 2)
 ==
 
 [no_test_get_parse_tokens]
-[{{no_|}}allow_dashed_table_names]
+[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
 ALTER TABLE foo-123.bar ALTER CONSTRAINT baz ENFORCED
 --
-ALTERNATION GROUP: no_
+ALTERNATION GROUP: <empty>
 --
 ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-123.bar` [at 1:13]
 ALTER TABLE foo-123.bar ALTER CONSTRAINT baz ENFORCED
             ^
 --
-ALTERNATION GROUP: <empty>
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
 --
 AlterTableStatement [0-53]
   PathExpression [12-23]

@@ -24,6 +24,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -165,6 +166,13 @@ int64_t TypeStoreHelper::Test_GetRefCount(const TypeStore* store) {
   return store->ref_count_.load(std::memory_order_seq_cst);
 }
 
+absl::Status TypeFactoryHelper::MakeOpaqueEnumType(
+    TypeFactory* type_factory, const google::protobuf::EnumDescriptor* enum_descriptor,
+    const EnumType** result, absl::Span<const std::string> catalog_name_path) {
+  return type_factory->MakeOpaqueEnumType(enum_descriptor, result,
+                                          catalog_name_path);
+}
+
 }  // namespace internal
 
 // Staticly initialize a few commonly used types.
@@ -232,7 +240,7 @@ int64_t TypeFactory::GetEstimatedOwnedMemoryBytesSize() const {
          internal::GetExternallyAllocatedMemoryEstimate(
              cached_proto_types_with_catalog_name_) +
          internal::GetExternallyAllocatedMemoryEstimate(
-             cached_enum_types_with_catalog_name_) +
+             cached_enum_types_with_extra_attributes_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_catalog_names_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_extended_types_);
 }
@@ -386,28 +394,7 @@ absl::Status TypeFactory::MakeStructTypeFromVector(
                                   reinterpret_cast<const StructType**>(result));
 }
 
-template <typename Descriptor>
-const auto* TypeFactory::MakeDescribedType(
-    const Descriptor* descriptor,
-    absl::Span<const std::string> catalog_name_path) {
-  absl::MutexLock lock(&store_->mutex_);
-
-  const internal::CatalogName* cached_catalog =
-      FindOrCreateCatalogName(catalog_name_path);
-
-  const auto*& cached_type = FindOrCreateCachedType(descriptor, cached_catalog);
-  using DescribedType =
-      absl::remove_pointer_t<absl::remove_reference_t<decltype(cached_type)>>;
-
-  if (cached_type == nullptr) {
-    cached_type = TakeOwnershipLocked(
-        new DescribedType(this, descriptor, cached_catalog));
-  }
-  return cached_type;
-}
-
-template <>
-const auto*& TypeFactory::FindOrCreateCachedType<google::protobuf::Descriptor>(
+const ProtoType*& TypeFactory::FindOrCreateCachedType(
     const google::protobuf::Descriptor* descriptor,
     const internal::CatalogName* catalog) {
   if (catalog == nullptr)
@@ -417,15 +404,51 @@ const auto*& TypeFactory::FindOrCreateCachedType<google::protobuf::Descriptor>(
                                                                 catalog)];
 }
 
-template <>
-const auto*& TypeFactory::FindOrCreateCachedType<google::protobuf::EnumDescriptor>(
+const EnumType*& TypeFactory::FindOrCreateCachedType(
     const google::protobuf::EnumDescriptor* descriptor,
-    const internal::CatalogName* catalog) {
-  if (catalog == nullptr)
+    const internal::CatalogName* catalog, bool is_opaque) {
+  if (catalog == nullptr && !is_opaque) {
     return cached_enum_types_[descriptor];
-  else
-    return cached_enum_types_with_catalog_name_[std::make_pair(descriptor,
-                                                               catalog)];
+  } else {
+    return cached_enum_types_with_extra_attributes_[std::make_tuple(
+        descriptor, catalog, is_opaque)];
+  }
+}
+
+const ProtoType* TypeFactory::MakeProtoTypeImpl(
+    const google::protobuf::Descriptor* descriptor,
+    absl::Span<const std::string> catalog_name_path) {
+  absl::MutexLock lock(&store_->mutex_);
+
+  const internal::CatalogName* cached_catalog =
+      FindOrCreateCatalogName(catalog_name_path);
+
+  const ProtoType*& cached_type =
+      FindOrCreateCachedType(descriptor, cached_catalog);
+
+  if (cached_type == nullptr) {
+    cached_type =
+        TakeOwnershipLocked(new ProtoType(this, descriptor, cached_catalog));
+  }
+  return cached_type;
+}
+
+const EnumType* TypeFactory::MakeEnumTypeImpl(
+    const google::protobuf::EnumDescriptor* descriptor,
+    absl::Span<const std::string> catalog_name_path, bool is_opaque) {
+  absl::MutexLock lock(&store_->mutex_);
+
+  const internal::CatalogName* cached_catalog =
+      FindOrCreateCatalogName(catalog_name_path);
+
+  const EnumType*& cached_type =
+      FindOrCreateCachedType(descriptor, cached_catalog, is_opaque);
+
+  if (cached_type == nullptr) {
+    cached_type = TakeOwnershipLocked(
+        new EnumType(this, descriptor, cached_catalog, is_opaque));
+  }
+  return cached_type;
 }
 
 const internal::CatalogName* TypeFactory::FindOrCreateCatalogName(
@@ -450,28 +473,38 @@ const internal::CatalogName* TypeFactory::FindOrCreateCatalogName(
 absl::Status TypeFactory::MakeProtoType(
     const google::protobuf::Descriptor* descriptor, const ProtoType** result,
     absl::Span<const std::string> catalog_name_path) {
-  *result = MakeDescribedType(descriptor, catalog_name_path);
+  *result = MakeProtoTypeImpl(descriptor, catalog_name_path);
   return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeProtoType(
     const google::protobuf::Descriptor* descriptor, const Type** result,
     absl::Span<const std::string> catalog_name_path) {
-  *result = MakeDescribedType(descriptor, catalog_name_path);
+  *result = MakeProtoTypeImpl(descriptor, catalog_name_path);
   return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result,
     absl::Span<const std::string> catalog_name_path) {
-  *result = MakeDescribedType(enum_descriptor, catalog_name_path);
+  *result =
+      MakeEnumTypeImpl(enum_descriptor, catalog_name_path, /*is_opaque=*/false);
   return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const Type** result,
     absl::Span<const std::string> catalog_name_path) {
-  *result = MakeDescribedType(enum_descriptor, catalog_name_path);
+  *result =
+      MakeEnumTypeImpl(enum_descriptor, catalog_name_path, /*is_opaque=*/false);
+  return absl::OkStatus();
+}
+
+absl::Status TypeFactory::MakeOpaqueEnumType(
+    const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result,
+    absl::Span<const std::string> catalog_name_path) {
+  *result =
+      MakeEnumTypeImpl(enum_descriptor, catalog_name_path, /*is_opaque=*/true);
   return absl::OkStatus();
 }
 
@@ -484,6 +517,16 @@ absl::Status TypeFactory::MakeRangeType(const Type* element_type,
            << "Unsupported type: RANGE<"
            << element_type->ShortTypeName(PRODUCT_EXTERNAL)
            << "> is not supported";
+  }
+
+  static const auto* kStaticTypeSet = new absl::flat_hash_set<const Type*>{
+      types::TimestampType(),
+      types::DateType(),
+      types::DatetimeType(),
+  };
+  ZETASQL_DCHECK(kStaticTypeSet->contains(element_type));
+  if (this != s_type_factory()) {
+    return s_type_factory()->MakeRangeType(element_type, result);
   }
 
   *result = nullptr;
@@ -593,8 +636,8 @@ absl::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
     }
     const google::protobuf::FieldDescriptor* proto_field = message->field(0);
     const Type* field_type;
-    ZETASQL_RETURN_IF_ERROR(
-        GetProtoFieldType(proto_field, use_obsolete_timestamp, &field_type));
+    ZETASQL_RETURN_IF_ERROR(GetProtoFieldType(proto_field, use_obsolete_timestamp,
+                                      /*catalog_name_path=*/{}, &field_type));
     ZETASQL_RET_CHECK_EQ(field_type->IsArray(), proto_field->is_repeated());
     if (!proto_field->options().GetExtension(zetasql::is_raw_proto)) {
       return_status = UnwrapTypeIfAnnotatedProtoImpl(
@@ -608,8 +651,8 @@ absl::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
     for (int i = 0; i < message->field_count(); ++i) {
       const google::protobuf::FieldDescriptor* proto_field = message->field(i);
       const Type* field_type;
-      ZETASQL_RETURN_IF_ERROR(
-          GetProtoFieldType(proto_field, use_obsolete_timestamp, &field_type));
+      ZETASQL_RETURN_IF_ERROR(GetProtoFieldType(proto_field, use_obsolete_timestamp,
+                                        /*catalog_name_path=*/{}, &field_type));
       if (!proto_field->options().GetExtension(zetasql::is_raw_proto)) {
         const Type* unwrapped_field_type;
         ZETASQL_RETURN_IF_ERROR(UnwrapTypeIfAnnotatedProtoImpl(
@@ -641,15 +684,17 @@ absl::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
 
 absl::Status TypeFactory::GetProtoFieldTypeWithKind(
     const google::protobuf::FieldDescriptor* field_descr, TypeKind kind,
-    const Type** type) {
+    absl::Span<const std::string> catalog_name_path, const Type** type) {
   if (Type::IsSimpleType(kind)) {
     *type = MakeSimpleType(kind);
   } else if (kind == TYPE_ENUM) {
     const EnumType* enum_type;
-    ZETASQL_RETURN_IF_ERROR(MakeEnumType(field_descr->enum_type(), &enum_type));
+    ZETASQL_RETURN_IF_ERROR(
+        MakeEnumType(field_descr->enum_type(), &enum_type, catalog_name_path));
     *type = enum_type;
   } else if (kind == TYPE_PROTO) {
-    ZETASQL_RETURN_IF_ERROR(MakeProtoType(field_descr->message_type(), type));
+    ZETASQL_RETURN_IF_ERROR(
+        MakeProtoType(field_descr->message_type(), type, catalog_name_path));
   } else {
     return ::zetasql_base::UnimplementedErrorBuilder()
            << "Unsupported type found: "
@@ -666,11 +711,12 @@ absl::Status TypeFactory::GetProtoFieldTypeWithKind(
 
 absl::Status TypeFactory::GetProtoFieldType(
     bool ignore_annotations, const google::protobuf::FieldDescriptor* field_descr,
-    const Type** type) {
+    absl::Span<const std::string> catalog_name_path, const Type** type) {
   TypeKind kind;
   ZETASQL_RETURN_IF_ERROR(ProtoType::FieldDescriptorToTypeKindBase(ignore_annotations,
                                                            field_descr, &kind));
-  ZETASQL_RETURN_IF_ERROR(GetProtoFieldTypeWithKind(field_descr, kind, type));
+  ZETASQL_RETURN_IF_ERROR(
+      GetProtoFieldTypeWithKind(field_descr, kind, catalog_name_path, type));
   if (ZETASQL_DEBUG_MODE) {
     // For testing, make sure the TypeKinds we get from
     // FieldDescriptorToTypeKind match the Types returned by this method.
@@ -686,12 +732,13 @@ absl::Status TypeFactory::GetProtoFieldType(
 
 absl::Status TypeFactory::GetProtoFieldType(
     const google::protobuf::FieldDescriptor* field_descr, bool use_obsolete_timestamp,
-    const Type** type) {
+    absl::Span<const std::string> catalog_name_path, const Type** type) {
   TypeKind kind;
   ZETASQL_RETURN_IF_ERROR(ProtoType::FieldDescriptorToTypeKindBase(
       field_descr, use_obsolete_timestamp, &kind));
 
-  ZETASQL_RETURN_IF_ERROR(GetProtoFieldTypeWithKind(field_descr, kind, type));
+  ZETASQL_RETURN_IF_ERROR(
+      GetProtoFieldTypeWithKind(field_descr, kind, catalog_name_path, type));
   if (ZETASQL_DEBUG_MODE) {
     // For testing, make sure the TypeKinds we get from
     // FieldDescriptorToTypeKind match the Types returned by this method.
@@ -912,8 +959,9 @@ static const EnumType* s_normalize_mode_enum_type() {
 static const EnumType* s_rounding_mode_enum_type() {
   static const EnumType* s_rounding_mode_enum_type = [] {
     const EnumType* enum_type;
-    ZETASQL_CHECK_OK(s_type_factory()->MakeEnumType(  // Crash OK
-        functions::RoundingMode_descriptor(), &enum_type));
+    ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
+        s_type_factory(), functions::RoundingMode_descriptor(), &enum_type,
+        {}));
     return enum_type;
   }();
   return s_rounding_mode_enum_type;

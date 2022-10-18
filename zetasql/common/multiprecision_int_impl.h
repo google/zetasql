@@ -32,6 +32,7 @@
 #include "zetasql/base/logging.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
+#include "absl/numeric/bits.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/bits.h"
@@ -50,22 +51,27 @@ template <>
 struct IntTraits<32> {
   using Int = int32_t;
   using Uint = uint32_t;
+  using HalfUint = uint16_t;
   static constexpr Uint kMaxPowerOf10 = 1000000000;
   static constexpr size_t kMaxWholeDecimalDigits = 9;
+  static constexpr size_t kFloorLog2MaxPowerOf10 = 29;
 };
 
 template <>
 struct IntTraits<64> {
   using Int = int64_t;
   using Uint = uint64_t;
+  using HalfUint = uint32_t;
   static constexpr Uint kMaxPowerOf10 = 10000000000000000000U;
   static constexpr size_t kMaxWholeDecimalDigits = 19;
+  static constexpr size_t kFloorLog2MaxPowerOf10 = 63;
 };
 
 template <>
 struct IntTraits<128> {
   using Int = __int128;
   using Uint = unsigned __int128;
+  using HalfUint = uint64_t;
 };
 
 template <int num_bits>
@@ -147,6 +153,16 @@ inline Uint<n> ArrayToUint(const Uint<m> src[]) {
 template <int k>
 inline Uint<k * 2> MakeDword(const Uint<k> x[2]) {
   return static_cast<Uint<k * 2>>(x[1]) << k | x[0];
+}
+
+// Calculates the new high word from shifting <high, low> up to 63 bits to the
+// left.
+constexpr uint64_t ShiftLeftAndGetHighWord(uint64_t high, uint64_t low,
+                                           uint8_t shift_amount) {
+  if (shift_amount == 0) {
+    return high;
+  }
+  return (high << shift_amount) | (low >> (64 - shift_amount));
 }
 
 // bits must be > 0 and < 64.
@@ -337,7 +353,7 @@ inline uint8_t AddWithCarry(uint32_t* x, uint32_t y, uint8_t carry) {
 
 inline uint8_t AddWithCarry(uint64_t* x, uint64_t y, uint8_t carry) {
   static_assert(sizeof(uint64_t) == sizeof(unsigned long long));  // NOLINT
-  unsigned long long tmp;                                       // NOLINT
+  unsigned long long tmp;                                         // NOLINT
   carry = _addcarry_u64(carry, *x, y, &tmp);
   *x = tmp;
   return carry;
@@ -395,7 +411,7 @@ inline uint8_t SubtractWithBorrow(uint32_t* x, uint32_t y, uint8_t carry) {
 
 inline uint8_t SubtractWithBorrow(uint64_t* x, uint64_t y, uint8_t carry) {
   static_assert(sizeof(uint64_t) == sizeof(unsigned long long));  // NOLINT
-  unsigned long long tmp;                                       // NOLINT
+  unsigned long long tmp;                                         // NOLINT
   carry = _subborrow_u64(carry, *x, y, &tmp);
   *x = tmp;
   return carry;
@@ -550,6 +566,51 @@ inline Word ShortDivMod(const std::array<Word, size>& dividend, Word divisor,
   return 0;
 }
 
+constexpr uint8_t NormalizedDivisorShiftAmount(uint64_t divisor) {
+  return static_cast<uint8_t>(absl::countl_zero(divisor));
+}
+
+// This divides two 64bit words by a single 64bit divisor using Algorithm 4
+// from "Improved division by invariant integers" by Moller and Grandlund.
+// It is up to the caller to make sure that the quotient has been appropriately
+// shifted and to unshift the remainder.
+template <uint64_t divisor, bool need_quotient = true>
+inline void DivModWordNormalizedConstant(uint64_t dividend_hi,
+                                         uint64_t dividend_lo,
+                                         uint64_t* quotient,
+                                         uint64_t* remainder) {
+  static_assert(divisor != 0);
+  // Shift divisor so that the high order bit is 1.
+  constexpr uint64_t kNormalizedDivisor =
+      divisor << NormalizedDivisorShiftAmount(divisor);
+  constexpr __uint128_t kTwoTo64 = static_cast<__uint128_t>(1) << 64;
+  // Multiplicative inverse. There are cleaner ways to write this, but old GCC
+  // versions seem to have problems with them.
+  constexpr __uint128_t kMaxU128 = ~__uint128_t{0};
+  constexpr uint64_t inverse =
+      static_cast<uint64_t>(kMaxU128 / kNormalizedDivisor - kTwoTo64);
+  __uint128_t q = static_cast<__uint128_t>(dividend_hi) * inverse;
+  q += ((static_cast<__uint128_t>(dividend_hi) << 64) | dividend_lo);
+  uint64_t q1 = static_cast<uint64_t>((q >> 64) + 1);
+  uint64_t q0 = static_cast<uint64_t>(q);
+  uint64_t local_remainder = dividend_lo - q1 * kNormalizedDivisor;
+  if (local_remainder > q0) {
+    // Paper says that this should be cmove and not branch for performance
+    // but we will let the compiler decide.
+    q1--;
+    local_remainder += kNormalizedDivisor;
+  }
+  // This very rare so we should give a hint to the compiler to not use cmove.
+  if (ABSL_PREDICT_FALSE(local_remainder >= kNormalizedDivisor)) {
+    q1 += 1;
+    local_remainder -= kNormalizedDivisor;
+  }
+  if constexpr (need_quotient) {
+    *quotient = q1;
+  }
+  *remainder = local_remainder;
+}
+
 template <int n, uint32_t divisor>
 inline uint32_t ShortDivModConstant(const std::array<uint32_t, n>& dividend,
                                     std::integral_constant<uint32_t, divisor> d,
@@ -557,25 +618,53 @@ inline uint32_t ShortDivModConstant(const std::array<uint32_t, n>& dividend,
   return ShortDivMod<uint32_t, n, true>(dividend, divisor, quotient);
 }
 
+template <int n, uint64_t divisor, bool need_quotient = true>
+inline uint64_t ShortDivModConstant(const std::array<uint64_t, n>& dividend,
+                                    std::integral_constant<uint64_t, divisor> d,
+                                    std::array<uint64_t, n>* quotient) {
+  uint64_t remainder = 0;
+  // Since the divisor is shifted we also must shift the dividend. We do this
+  // inline.
+  constexpr uint64_t kShiftAmount =
+      multiprecision_int_impl::NormalizedDivisorShiftAmount(divisor);
+  if constexpr (kShiftAmount != 0) {
+    // The first division's quotient is always zero, so we throw it away.
+    multiprecision_int_impl::DivModWordNormalizedConstant<
+        divisor, /*need_quotient=*/false>(
+        remainder,
+        multiprecision_int_impl::ShiftLeftAndGetHighWord(0, dividend.back(),
+                                                         kShiftAmount),
+        nullptr, &remainder);
+  }
+  for (int i = n - 1; i > 0; --i) {
+    multiprecision_int_impl::DivModWordNormalizedConstant<divisor,
+                                                          need_quotient>(
+        remainder,
+        multiprecision_int_impl::ShiftLeftAndGetHighWord(
+            dividend[i], dividend[i - 1], kShiftAmount),
+        need_quotient ? &((*quotient)[i]) : nullptr, &remainder);
+  }
+  multiprecision_int_impl::DivModWordNormalizedConstant<divisor, need_quotient>(
+      remainder,
+      multiprecision_int_impl::ShiftLeftAndGetHighWord(dividend[0], 0,
+                                                       kShiftAmount),
+      need_quotient ? &((*quotient)[0]) : nullptr, &remainder);
+  return remainder >> kShiftAmount;
+}
+
 template <int n, uint32_t divisor>
 inline uint32_t ShortDivModConstant(const std::array<uint64_t, n>& dividend,
                                     std::integral_constant<uint32_t, divisor> d,
                                     std::array<uint64_t, n>* quotient) {
-  using Array32 = std::array<uint32_t, n * 2>;
-#ifdef ABSL_IS_BIG_ENDIAN
-  Array32 dividend32 = Convert<32, n * 2, 64, n>(dividend);
-  Array32 quotient32;
-  uint32_t r = ShortDivMod<uint32_t, n * 2, true>(
-      dividend32, divisor, quotient != nullptr ? &quotient32 : nullptr);
   if (quotient != nullptr) {
-    *quotient = Convert<64, n, 32, n * 2>(quotient32);
+    return static_cast<uint32_t>(
+        ShortDivModConstant<n, divisor, /*need_quotient=*/true>(
+            dividend, std::integral_constant<uint64_t, d>(), quotient));
+  } else {
+    return static_cast<uint32_t>(
+        ShortDivModConstant<n, divisor, /*need_quotient=*/false>(
+            dividend, std::integral_constant<uint64_t, d>(), quotient));
   }
-  return r;
-#else
-  return ShortDivMod<uint32_t, n * 2, true>(
-      reinterpret_cast<const Array32&>(dividend), divisor,
-      reinterpret_cast<Array32*>(quotient));
-#endif
 }
 
 // Computes *quotient = *dividend / *divisor.
@@ -768,9 +857,12 @@ bool ParseFromBase10UnsignedString(absl::string_view str, Word* result) {
   return true;
 }
 
-// Appends 9-digit segments to result in decimal format. Each segment must be
-// <= 999999999. They must be in little endian order.
-void AppendSegmentsToString(const uint32_t segments[], size_t num_segments,
+template <typename UnsignedWord>
+// Appends segments to result in decimal format. For uint64_t words, each
+// segment is 19 digits and must be <= 9999999999999999999.
+//  For uint64_t words, each segment is 9 digits and must be <= 999999999. They
+//  must be in little endian order.
+void AppendSegmentsToString(const UnsignedWord segments[], size_t num_segments,
                             std::string* result);
 
 // The following functions are not optimized for performance, but they can be

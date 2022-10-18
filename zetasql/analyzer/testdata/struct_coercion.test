@@ -455,7 +455,7 @@ select STRUCT<INT32, DATE>(1, "invalid")
 
 select STRUCT<INT32, BYTES>(1, "b")
 --
-ERROR: Struct field 2 has type literal STRING which does not coerce to BYTES [at 1:32]
+ERROR: Struct field 2 has type STRING which does not coerce to BYTES [at 1:32]
 select STRUCT<INT32, BYTES>(1, "b")
                                ^
 ==

@@ -116,6 +116,17 @@ class EnumType : public Type {
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;
 
+  // An Opaque enum type, from the user point of view, is _not_ based
+  // on a proto.
+  // In particular:
+  // - It is considered neither equal nor equivalent to a non-opaque EnumType
+  //   with the same descriptor and catalog path.
+  // - It has a different type name (typically SNAKE_CASE), i.e. ROUNDING_MODE
+  //   not RoundingMode.
+  // - Values of this type cannot be passed as an argument to function
+  //   expecting a non-opaque type (e.g. ENUM_VALUE_DESCRIPTOR_PROTO).
+  bool IsOpaque() const { return is_opaque_; }
+
  protected:
   int64_t GetEstimatedOwnedMemoryBytesSize() const override {
     return sizeof(*this);
@@ -126,7 +137,7 @@ class EnumType : public Type {
   // <enum_descriptor> must outlive the type.  The <enum_descr> must not be
   // NULL.
   EnumType(const TypeFactory* factory, const google::protobuf::EnumDescriptor* enum_descr,
-           const internal::CatalogName* catalog_name);
+           const internal::CatalogName* catalog_name, bool is_opaque);
   ~EnumType() override;
 
   bool SupportsGroupingImpl(const LanguageOptions& language_options,
@@ -150,6 +161,12 @@ class EnumType : public Type {
       const BuildFileDescriptorSetMapOptions& options, TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
 
+  // The non-catalog-path portion of the enum name. May contain the proto
+  // path. Opaque enums will typically be SNAKE_CASE.
+  //
+  // Examples: "zetasql.FunctionSignatureId", "ROUNDING_MODE"
+  absl::string_view RawEnumName() const;
+
   bool EqualsForSameKind(const Type* that, bool equivalent) const override;
 
   void DebugStringImpl(bool details, TypeOrStringVector* stack,
@@ -171,8 +188,9 @@ class EnumType : public Type {
   absl::Status DeserializeValueContent(const ValueProto& value_proto,
                                        ValueContent* value) const override;
 
-  const google::protobuf::EnumDescriptor* enum_descriptor_;  // Not owned.
-  const internal::CatalogName* catalog_name_;      // Optional.
+  const google::protobuf::EnumDescriptor* const enum_descriptor_;  // Not owned.
+  const internal::CatalogName* const catalog_name_;      // Optional.
+  const bool is_opaque_;
 
   friend class TypeFactory;
 };

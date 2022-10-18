@@ -685,9 +685,9 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:st_geogfromtext(STRING, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
     |     +-Literal(type=STRING, value="point(0 0)")
-    |     +-Literal(type=BOOL, value=NULL)
+    |     +-Literal(type=BOOL, value=false)
     |     +-Literal(type=BOOL, value=true)
-    |     +-Literal(type=BOOL, value=NULL)
+    |     +-Literal(type=BOOL, value=false)
     +-input_scan=
       +-SingleRowScan
 --
@@ -745,18 +745,18 @@ QueryStmt
     | |   +-Literal(type=STRING, value="point(0 0)")
     | |   +-Literal(type=BOOL, value=false)
     | |   +-Literal(type=BOOL, value=true)
-    | |   +-Literal(type=BOOL, value=NULL)
+    | |   +-Literal(type=BOOL, value=false)
     | +-$col5#5 :=
     | | +-FunctionCall(ZetaSQL:st_geogfromtext(STRING, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
     | |   +-Literal(type=STRING, value="point(0 0)")
-    | |   +-Literal(type=BOOL, value=NULL)
+    | |   +-Literal(type=BOOL, value=false)
     | |   +-Literal(type=BOOL, value=true)
-    | |   +-Literal(type=BOOL, value=NULL)
+    | |   +-Literal(type=BOOL, value=false)
     | +-$col6#6 :=
     |   +-FunctionCall(ZetaSQL:st_geogfromtext(STRING, optional(1) BOOL oriented, optional(1) BOOL planar, optional(1) BOOL make_valid) -> GEOGRAPHY)
     |     +-Literal(type=STRING, value="point(0 0)")
     |     +-Literal(type=BOOL, value=true)
-    |     +-Literal(type=BOOL, value=NULL)
+    |     +-Literal(type=BOOL, value=false)
     |     +-Literal(type=BOOL, value=true)
     +-input_scan=
       +-SingleRowScan

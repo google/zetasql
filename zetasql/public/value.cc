@@ -21,10 +21,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <memory>
+#include <ostream>
 #include <stack>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/timestamp.pb.h"
@@ -227,10 +230,13 @@ absl::StatusOr<Value> Value::MakeArrayInternal(bool already_validated,
           << array_type->element_type()->DebugString();
     }
   }
+
+  std::unique_ptr<internal::ValueContentContainer> container =
+      std::make_unique<TypedList>(std::move(values));
+
   Value result(array_type, /*is_null=*/false, order_kind);
-  result.list_ptr_ = new TypedList();
-  std::vector<Value>& value_list = result.list_ptr_->values();
-  value_list = std::move(values);
+  result.container_ptr_ = new internal::ValueContentContainerRef(
+      std::move(container), order_kind == kPreservesOrder);
   return result;
 }
 
@@ -248,10 +254,12 @@ absl::StatusOr<Value> Value::MakeStructInternal(bool already_validated,
           << "\nvs\nValue type: " << value_type->DebugString();
     }
   }
+  std::unique_ptr<internal::ValueContentContainer> container =
+      std::make_unique<TypedList>(std::move(values));
+
   Value result(struct_type, /*is_null=*/false, kPreservesOrder);
-  result.list_ptr_ = new TypedList();
-  std::vector<Value>& value_list = result.list_ptr_->values();
-  value_list = std::move(values);
+  result.container_ptr_ = new internal::ValueContentContainerRef(
+      std::move(container), /*preserves_order=*/true);
   return result;
 }
 
@@ -262,14 +270,21 @@ absl::StatusOr<Value> Value::MakeRange(const Value& start, const Value& end) {
   const RangeType* range_type =
       types::RangeTypeFromSimpleTypeKind(start.type_kind());
   // If both ends are not unbounded, then enforce that start < end.
-  if (!start.is_null() && !end.is_null()) {
-    ZETASQL_RET_CHECK(start.LessThan(end))
-        << "Range start element must be smaller than range end element";
+  if (!start.is_null() && !end.is_null() && !start.LessThan(end)) {
+    return absl::InternalError(
+        "Range start element must be smaller than range end element");
   }
+
+  std::vector<Value> values;
+  values.push_back(start);
+  values.push_back(end);
+
+  std::unique_ptr<internal::ValueContentContainer> container =
+      std::make_unique<TypedList>(std::move(values));
+
   Value result(range_type, /*is_null=*/false, kPreservesOrder);
-  result.list_ptr_ = new TypedList();
-  result.list_ptr_->values().push_back(start);
-  result.list_ptr_->values().push_back(end);
+  result.container_ptr_ = new internal::ValueContentContainerRef(
+      std::move(container), /*preserves_order=*/true);
   return result;
 }
 
@@ -281,13 +296,21 @@ const Type* Value::type() const {
 const std::vector<Value>& Value::fields() const {
   ZETASQL_CHECK_EQ(TYPE_STRUCT, metadata_.type_kind());
   ZETASQL_CHECK(!is_null()) << "Null value";
-  return list_ptr_->values();
+  const internal::ValueContentContainer* const container_ptr =
+      container_ptr_->value();
+  const TypedList* const list_ptr =
+      static_cast<const TypedList* const>(container_ptr);
+  return list_ptr->values();
 }
 
 const std::vector<Value>& Value::elements() const {
   ZETASQL_CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
   ZETASQL_CHECK(!is_null()) << "Null value";
-  return list_ptr_->values();
+  const internal::ValueContentContainer* const container_ptr =
+      container_ptr_->value();
+  const TypedList* const list_ptr =
+      static_cast<const TypedList* const>(container_ptr);
+  return list_ptr->values();
 }
 
 Value Value::TimestampFromUnixMicros(int64_t v) {
@@ -398,7 +421,7 @@ uint64_t Value::physical_byte_size() const {
   }
 
   if (DoesTypeUseValueList()) {
-    physical_size += list_ptr_->physical_byte_size();
+    physical_size += container_ptr_->physical_byte_size();
   } else {
     physical_size +=
         type()->GetValueContentExternallyAllocatedByteSize(GetContent());
@@ -495,29 +518,32 @@ static bool TypesDiffer(const Value& x, const Value& y, std::string* reason) {
   return false;
 }
 
-void Value::DeepOrderKindSpec::FillSpec(const Value& v) {
+/* static */
+// Method needs metadata, a field of Value, so it can't be moved to Type or
+// a package that does not depend on Value
+void Value::FillDeepOrderKindSpec(const Value& v, DeepOrderKindSpec* spec) {
   if (v.is_null()) {
     return;
   }
   switch (v.type_kind()) {
     case TYPE_ARRAY:
       if (v.order_kind() == kIgnoresOrder) {
-        ignores_order = true;
+        spec->ignores_order = true;
       }
-      if (children.empty()) {
-        children.resize(1);
+      if (spec->children.empty()) {
+        spec->children.resize(1);
       }
       for (int i = 0; i < v.num_elements(); i++) {
-        children[0].FillSpec(v.element(i));
+        Value::FillDeepOrderKindSpec(v.element(i), &spec->children[0]);
       }
       break;
     case TYPE_STRUCT:
-      if (children.empty()) {
-        children.resize(v.num_fields());
+      if (spec->children.empty()) {
+        spec->children.resize(v.num_fields());
       }
-      ZETASQL_DCHECK_EQ(children.size(), v.num_fields());
+      ZETASQL_DCHECK_EQ(spec->children.size(), v.num_fields());
       for (int i = 0; i < v.num_fields(); i++) {
-        children[i].FillSpec(v.field(i));
+        Value::FillDeepOrderKindSpec(v.field(i), &spec->children[i]);
       }
       break;
     default:
@@ -527,8 +553,8 @@ void Value::DeepOrderKindSpec::FillSpec(const Value& v) {
 
 // x is the expected value whose orderedness is taken into account when
 // allow_bags = true.
-bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
-                           DeepOrderKindSpec* deep_order_spec,
+bool Value::EqualsInternal(const Value& x, const Value& y,
+                           const bool allow_bags,
                            const ValueEqualityCheckOptions& options) {
   std::string* reason = options.reason;
   if (!x.is_valid()) { return !y.is_valid(); }
@@ -539,165 +565,22 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
   if (x.is_null() != y.is_null()) return false;
   if (x.is_null() && y.is_null()) return true;
 
+  ValueEqualityCheckOptions const* extended_options = &options;
+  std::unique_ptr<ValueEqualityCheckOptions> options_copy = nullptr;
   std::unique_ptr<DeepOrderKindSpec> owned_deep_order_spec;
-  if (allow_bags && deep_order_spec == nullptr) {
+  // If "allow_bags" is true, create a copy of options with populated
+  // deep_order_spec
+  if (allow_bags) {
+    options_copy = std::make_unique<ValueEqualityCheckOptions>(options);
     owned_deep_order_spec = std::make_unique<DeepOrderKindSpec>();
-    deep_order_spec = owned_deep_order_spec.get();
-
-    deep_order_spec->FillSpec(x);
-    deep_order_spec->FillSpec(y);
+    options_copy->deep_order_spec = owned_deep_order_spec.get();
+    Value::FillDeepOrderKindSpec(x, options_copy->deep_order_spec);
+    Value::FillDeepOrderKindSpec(y, options_copy->deep_order_spec);
+    extended_options = options_copy.get();
   }
-
-  // TODO: move struct and array logic into Type subclasses.
-  switch (x.type_kind()) {
-    case TYPE_ARRAY: {
-      if (x.num_elements() != y.num_elements()) {
-        if (reason) {
-          absl::StrAppend(
-              reason,
-              Substitute(
-                  "Number of array elements is {$0} and {$1} in respective "
-                  "arrays {$2} and {$3}\n",
-                  x.num_elements(), y.num_elements(), x.DebugString(),
-                  y.DebugString()));
-        }
-        return false;
-      }
-      auto element_order_spec =
-          allow_bags ? &deep_order_spec->children[0] : nullptr;
-      if (allow_bags && deep_order_spec->ignores_order) {
-        return EqualElementMultiSet(x, y, element_order_spec, options);
-      }
-      for (int i = 0; i < x.num_elements(); i++) {
-        if (!EqualsInternal(x.element(i), y.element(i), allow_bags,
-                            element_order_spec, options)) {
-          return false;
-        }
-      }
-      return true;
-    }
-    case TYPE_STRUCT:
-      // Structs are considered equal when they have the same number of fields
-      // and the field values are equal. Types of x and y may differ.
-      if (x.num_fields() != y.num_fields()) {
-        if (reason) {
-          absl::StrAppend(
-              reason,
-              Substitute(
-                  "Number of struct fields is {$0} and {$1} in respective "
-                  "structs {$2} and {$3}\n",
-                  x.num_fields(), y.num_fields(), x.DebugString(),
-                  y.DebugString()));
-        }
-        return false;
-      }
-      for (int i = 0; i < x.num_fields(); i++) {
-        auto field_order_spec =
-            allow_bags ? &deep_order_spec->children[i] : nullptr;
-        if (!EqualsInternal(x.field(i), y.field(i), allow_bags,
-                            field_order_spec, options)) {
-          return false;
-        }
-      }
-      return true;
-    default: {
-      return x.type()->ValueContentEquals(x.GetContent(), y.GetContent(),
-                                          options);
-    }
-  }
-}
-
-struct InternalComparer {
-  explicit InternalComparer(const ValueEqualityCheckOptions& options,
-                            Value::DeepOrderKindSpec* order_spec_arg)
-      : options(options), order_spec(order_spec_arg) {}
-  size_t operator()(const zetasql::Value& x,
-                    const zetasql::Value& y) const {
-    return Value::EqualsInternal(x, y,
-                                 /*allow_bags=*/true, order_spec, options);
-  }
-  const ValueEqualityCheckOptions options;
-  Value::DeepOrderKindSpec* order_spec;
-};
-
-// Hasher used by EqualElementMultiSet in tests only.
-struct InternalHasher {
-  explicit InternalHasher(FloatMargin float_margin_arg)
-      : float_margin(float_margin_arg) {}
-  size_t operator()(const zetasql::Value& x) const {
-    return x.HashCodeInternal(float_margin);
-  }
-  FloatMargin float_margin;
-};
-
-// Compares arrays as multisets. Used in tests only. The current algorithm,
-// which counts the number of the same elements, may return false negatives if
-// !float_margin.IsExactEquality(). Specifically, the method may return 'false'
-// on almost-equal bags if those contain elements for which approximate equality
-// is non-transitive, e.g., {a, b, c} such that a~b==true, b~c==true,
-// a~c==false. See a repro in value_test.cc:AlmostEqualsStructArray.
-// TODO: potential fix is to implement Hopcroft-Karp algorithm:
-// http://en.wikipedia.org/wiki/Hopcroft%E2%80%93Karp_algorithm
-// Its complexity is O(|E|*sqrt(|V|)). Computing E requires |V|^2 comparisons,
-// so we get O(|V|^2.5).
-bool Value::EqualElementMultiSet(const Value& x, const Value& y,
-                                 DeepOrderKindSpec* deep_order_spec,
-                                 const ValueEqualityCheckOptions& options) {
-  std::string* reason = options.reason;
-  using ValueCountMap =
-      absl::flat_hash_map<Value, int, InternalHasher, InternalComparer>;
-
-  InternalHasher hasher(options.float_margin);
-  InternalComparer comparer(options, deep_order_spec);
-  ValueCountMap x_multiset(x.num_elements(), hasher, comparer);
-  ValueCountMap y_multiset(x.num_elements(), hasher, comparer);
-  ZETASQL_DCHECK_EQ(x.num_elements(), y.num_elements());
-  for (int i = 0; i < x.num_elements(); i++) {
-    x_multiset[x.element(i)]++;
-    y_multiset[y.element(i)]++;
-  }
-  for (const auto& p : x_multiset) {
-    const Value& element = p.first;
-    auto it = y_multiset.find(element);
-    if (it == y_multiset.end()) {
-      if (reason) {
-        absl::StrAppend(
-            reason, Substitute("Multiset element $0 of $1 is missing in $2\n",
-                               element.DebugString(), x.DebugString(),
-                               y.DebugString()));
-      }
-      return false;
-    }
-    if (it->second != p.second) {
-      if (reason) {
-        absl::StrAppend(
-            reason,
-            Substitute(
-                "Number of occurrences of multiset element $0 is $1 and $2 "
-                "respectively in multisets $3 and $4\n",
-                element.DebugString(), p.second, it->second, x.DebugString(),
-                y.DebugString()));
-      }
-      return false;
-    }
-  }
-  if (x_multiset.size() == y_multiset.size()) {
-    return true;  // All of x is in y and the sizes agree.
-  }
-  if (reason) {
-    // There exists an element in y that's missing from x. Report it.
-    for (const auto& p : y_multiset) {
-      const Value& element = p.first;
-      if (x_multiset.find(element) == x_multiset.end()) {
-        absl::StrAppend(
-            reason, Substitute("Multiset element $0 of $1 is missing in $2\n",
-                               element.DebugString(), y.DebugString(),
-                               x.DebugString()));
-      }
-    }
-    ZETASQL_DCHECK(!reason->empty());
-  }
-  return false;
+  auto result = x.type()->ValueContentEquals(x.GetContent(), y.GetContent(),
+                                             *extended_options);
+  return result;
 }
 
 // Function used to switch of a pair of TypeKinds
@@ -744,6 +627,10 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_ARRAY, TYPE_ARRAY):
       return TypesSupportSqlEquals(type1->AsArray()->element_type(),
                                    type2->AsArray()->element_type());
+    case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
+      ZETASQL_DCHECK(TypesSupportSqlEquals(type1->AsRange()->element_type(),
+                                   type2->AsRange()->element_type()));
+      return true;
     default:
       return false;
   }
@@ -833,107 +720,15 @@ Value Value::SqlEquals(const Value& that) const {
       }
       return values::True();
     }
+    case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
+      return Value::Bool(start().SqlEquals(that.start()).bool_value() &&
+                         end().SqlEquals(that.end()).bool_value());
     default:
       return Value();
   }
 }
 
 size_t Value::HashCode() const { return absl::Hash<Value>()(*this); }
-
-// A dummy struct to allow an alternative hashing scheme within the
-// absl hashing framework.  This overrides hashes for double, float and protos
-// with floating-point fields to be constants, and overrides recursive hashes to
-// use this hasher. This is used for tests which want to be more lenient (i.e.
-// use a float margin) on float equality. Note, this is not guaranteed to
-// produce identical hash-values for float-less Value objects.
-struct ValueHasherIgnoringFloat {
-  const Value& v;
-
-  template <typename H>
-  friend H AbslHashValue(H h, const ValueHasherIgnoringFloat& v) {
-    return HashInternal(std::move(h), v.v);
-  }
-
-  template <typename H>
-  static H HashInternal(H h, const Value& v) {
-    static constexpr uint64_t kFloatApproximateHashCode = 0x1192AA60660CCFABull;
-    static constexpr uint64_t kDoubleApproximateHashCode =
-        0x520C31647E82D8E6ull;
-    static constexpr uint64_t
-        kMessageWithFloatingPointFieldApproximateHashCode =
-            0x1F6432686AAF52A4ull;
-    if (!v.is_valid() || v.is_null()) {
-      // Check this first as type_kind() will crash in this case.
-      return AbslHashValue(std::move(h), v);
-    }
-    switch (v.type_kind()) {
-      case TYPE_FLOAT:
-        return H::combine(std::move(h), kFloatApproximateHashCode);
-      case TYPE_DOUBLE:
-        return H::combine(std::move(h), kDoubleApproximateHashCode);
-      case TYPE_ARRAY: {
-        // We must hash arrays as if unordered to support hash_map and hash_set
-        // of values containing arrays with order_kind()=kIgnoresOrder.
-        // absl::Hash lacks support for unordered containers, so we create a
-        // cheapo solution of just adding the hashcodes.
-        absl::Hash<ValueHasherIgnoringFloat> element_hasher;
-        size_t combined_hash = 1;
-        for (int i = 0; i < v.num_elements(); i++) {
-          combined_hash +=
-              element_hasher(ValueHasherIgnoringFloat{v.element(i)});
-        }
-        return H::combine(std::move(h), TYPE_ARRAY, combined_hash);
-      }
-      case TYPE_STRUCT: {
-        h = H::combine(std::move(h), TYPE_STRUCT);
-        for (int i = 0; i < v.num_fields(); i++) {
-          h = HashInternal(std::move(h), v.field(i));
-        }
-        return h;
-      }
-      case TYPE_PROTO: {
-        absl::flat_hash_set<const google::protobuf::Descriptor*> visited;
-        if (HasFloatingPointFields(v.type()->AsProto()->descriptor(),
-                                   visited)) {
-          return H::combine(std::move(h),
-                            kMessageWithFloatingPointFieldApproximateHashCode);
-        }
-        ABSL_FALLTHROUGH_INTENDED;
-      }
-      default:
-        return AbslHashValue(std::move(h), v);
-    }
-  }
-
- private:
-  static bool HasFloatingPointFields(
-      const google::protobuf::Descriptor* d,
-      absl::flat_hash_set<const google::protobuf::Descriptor*>& visited) {
-    for (int i = 0; i < d->field_count(); ++i) {
-      const google::protobuf::FieldDescriptor* f = d->field(i);
-      if (f->type() == google::protobuf::FieldDescriptor::TYPE_FLOAT ||
-          f->type() == google::protobuf::FieldDescriptor::TYPE_DOUBLE) {
-        return true;
-      } else if (f->type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE &&
-                 visited.insert(f->message_type()).second &&
-                 HasFloatingPointFields(f->message_type(), visited)) {
-        return true;
-      }
-    }
-    return false;
-  }
-};
-
-size_t Value::HashCodeInternal(FloatMargin float_margin) const {
-  if (float_margin.IsExactEquality()) {
-    return HashCode();
-  } else {
-    // If using inexactly equality, just have all floats/doubles hash to a
-    // constant, and let equality deal with float_margin.
-    return absl::Hash<ValueHasherIgnoringFloat>()(
-        ValueHasherIgnoringFloat{*this});
-  }
-}
 
 bool Value::LessThan(const Value& that) const {
   if (!type()->Equivalent(that.type())) {
@@ -947,31 +742,7 @@ bool Value::LessThan(const Value& that) const {
   if (is_null() && !that.is_null()) return true;
   if (that.is_null()) return false;
 
-  switch (type_kind()) {
-    case TYPE_STRUCT:
-      if (num_fields() != that.num_fields()) return false;
-      // Because we return true as soon as 'LessThan' returns true for a
-      // field (without checking types of all fields), we may return true for
-      // incompatible types. This behavior is OK for now because we consider
-      // LessThan for incompatible types is undefined.
-      for (int i = 0; i < num_fields(); i++) {
-        if (field(i).LessThan(that.field(i))) {
-          return true;
-        } else if (that.field(i).LessThan(field(i))) {
-          return false;
-        }
-      }
-      return false;
-    case TYPE_ARRAY:
-      for (int i = 0; i < std::min(num_elements(), that.num_elements()); ++i) {
-        if (element(i).LessThan(that.element(i))) return true;
-        if (that.element(i).LessThan(element(i))) return false;
-      }
-      return num_elements() < that.num_elements();
-    default:
-      return type()->ValueContentLess(GetContent(), that.GetContent(),
-                                      that.type());
-  }
+  return type()->ValueContentLess(GetContent(), that.GetContent(), that.type());
 }
 
 static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
@@ -999,6 +770,10 @@ static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_ARRAY, TYPE_ARRAY):
       return TypesSupportSqlLessThan(type1->AsArray()->element_type(),
                                      type2->AsArray()->element_type());
+    case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
+      ZETASQL_DCHECK(TypesSupportSqlLessThan(type1->AsRange()->element_type(),
+                                     type2->AsRange()->element_type()));
+      return true;
     default:
       return false;
   }
@@ -1026,6 +801,7 @@ Value Value::SqlLessThan(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
     case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
+    case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
       return Value::Bool(LessThan(that));
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       return Value::Bool(LessThan(that));
@@ -1096,158 +872,6 @@ Value Value::SqlLessThan(const Value& that) const {
   }
 }
 
-static std::string CapitalizedNameForType(const Type* type) {
-  switch (type->kind()) {
-    case TYPE_INT32:
-      return "Int32";
-    case TYPE_INT64:
-      return "Int64";
-    case TYPE_UINT32:
-      return "Uint32";
-    case TYPE_UINT64:
-      return "Uint64";
-    case TYPE_BOOL:
-      return "Bool";
-    case TYPE_FLOAT:
-      return "Float";
-    case TYPE_DOUBLE:
-      return "Double";
-    case TYPE_STRING:
-      return "String";
-    case TYPE_BYTES:
-      return "Bytes";
-    case TYPE_DATE:
-      return "Date";
-    case TYPE_TIMESTAMP:
-      return "Timestamp";
-    case TYPE_TIME:
-      return "Time";
-    case TYPE_DATETIME:
-      return "Datetime";
-    case TYPE_INTERVAL:
-      return "Interval";
-    case TYPE_GEOGRAPHY:
-      return "Geography";
-    case TYPE_NUMERIC:
-      return "Numeric";
-    case TYPE_BIGNUMERIC:
-      return "BigNumeric";
-    case TYPE_JSON:
-      return "Json";
-    case TYPE_RANGE:
-      // TODO: Consider moving to the types library and audit use of
-      // DebugString.
-      // TODO: Add tests for this logic after implementing range in
-      // zetasql::Value.
-      return absl::StrCat(
-          "Range<",
-          static_cast<const RangeType*>(type)->element_type()->DebugString(),
-          ">");
-    case TYPE_ENUM:
-      return absl::StrCat("Enum<",
-                          type->AsEnum()->enum_descriptor()->full_name(), ">");
-    case TYPE_ARRAY:
-      // TODO: Consider moving to the types library and audit use of
-      // DebugString.
-      return absl::StrCat(
-          "Array<",
-          static_cast<const ArrayType*>(type)->element_type()->DebugString(),
-          ">");
-    case TYPE_STRUCT:
-      return "Struct";
-    case TYPE_PROTO:
-      ZETASQL_CHECK(type->AsProto()->descriptor() != nullptr);
-      return absl::StrCat("Proto<", type->AsProto()->descriptor()->full_name(),
-                          ">");
-    case TYPE_EXTENDED:
-      // TODO: move this logic into an appropriate function of
-      // Type's interface.
-      return type->ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
-    case TYPE_UNKNOWN:
-    case __TypeKind__switch_must_have_a_default__:
-      ZETASQL_LOG(FATAL) << "Unexpected type kind expected internally only: "
-                 << type->kind();
-  }
-}
-
-// static
-std::string Value::ComplexValueToDebugString(const Value* root, bool verbose) {
-  std::string result;
-  struct Entry {
-    const Value* value;
-    size_t next_child_index;
-  };
-  std::stack<Entry> stack;
-  stack.push(Entry{root, 0});
-  do {
-    const Entry top = stack.top();
-    const Type* type = top.value->type();
-    ZETASQL_DCHECK(type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY);
-    ZETASQL_DCHECK(!top.value->is_null());
-    const std::vector<Value>* children = nullptr;
-    char closure = '\0';
-    const StructType* struct_type = nullptr;
-    if (type->kind() == TYPE_STRUCT) {
-      if (top.next_child_index == 0) {
-        if (verbose) {
-          result.append(CapitalizedNameForType(type));
-        }
-        result.push_back('{');
-      }
-      children = &top.value->fields();
-      closure = '}';
-      struct_type = type->AsStruct();
-    } else {
-      if (top.next_child_index == 0) {
-        if (verbose) {
-          if (top.value->elements().empty()) {
-            result.append(CapitalizedNameForType(type));
-          } else {
-            result.append("Array");
-          }
-        }
-        if (top.value->order_kind() == kIgnoresOrder) {
-          result.append("[unordered: ");
-        } else {
-          result.push_back('[');
-        }
-      }
-      children = &top.value->elements();
-      closure = ']';
-    }
-    const size_t num_children = children->size();
-    size_t child_index = top.next_child_index;
-    while (true) {
-      if (child_index >= num_children) {
-        result.push_back(closure);
-        stack.pop();
-        break;
-      }
-      if (child_index != 0) {
-        result.append(", ");
-      }
-      const Value& child = children->at(child_index);
-      if (struct_type != nullptr) {
-        const std::string& field_name = struct_type->fields()[child_index].name;
-        if (!field_name.empty()) {
-          result.append(field_name);
-          result.push_back(':');
-        }
-      }
-      ++child_index;
-      if (!child.is_null() && (child.type_kind() == TYPE_STRUCT ||
-                               child.type_kind() == TYPE_ARRAY)) {
-        stack.top().next_child_index = child_index;
-        stack.push(Entry{&child, 0});
-        break;
-      }
-      // For leaf nodes, it is fine to recursively call DebugString once.
-      result.append(child.DebugString(verbose));
-    }
-  } while (!stack.empty());
-  return result;
-}
-
 std::string Value::DebugString(bool verbose) const {
   if (metadata_.type_kind() == kInvalidTypeKind) {
     return "Uninitialized value";
@@ -1257,114 +881,32 @@ std::string Value::DebugString(bool verbose) const {
   // Note: This method previously had problems with large stack size because
   // of recursion for structs and arrays.  Using StrCat/StrAppend in particular
   // adds large stack size per argument for the AlphaNum object.
-  std::string s;
+
   bool add_type_prefix = verbose;
+  std::string result;
   if (is_null()) {
-    s = "NULL";
+    result = "NULL";
   } else {
-    switch (type_kind()) {
-      case TYPE_ARRAY:
-      case TYPE_STRUCT:
-        // TODO: move struct/array logic into Type subclasses.
-        s = ComplexValueToDebugString(this, verbose);
-        add_type_prefix = false;
-        break;
-      default: {
-        Type::FormatValueContentOptions options;
-        options.product_mode = ProductMode::PRODUCT_INTERNAL;
-        options.mode = Type::FormatValueContentOptions::Mode::kDebug;
-        options.verbose = verbose;
-
-        s = type()->FormatValueContent(GetContent(), options);
-        break;
-      }
+    if (DoesTypeUseValueList()) {
+      add_type_prefix = false;
     }
-  }
+    Type::FormatValueContentOptions options;
+    options.product_mode = ProductMode::PRODUCT_INTERNAL;
+    options.mode = Type::FormatValueContentOptions::Mode::kDebug;
+    options.verbose = verbose;
 
+    result = type()->FormatValueContent(GetContent(), options);
+  }
   if (add_type_prefix) {
-    if (type_kind() == TYPE_PROTO && !is_null()) {
-      // Proto types wrap their values using curly brackets, so don't need
-      // to add additional parentheses.
-      return absl::StrCat(CapitalizedNameForType(type()), s);
-    }
-
-    return absl::StrCat(CapitalizedNameForType(type()), "(", s, ")");
+    return type()->AddCapitalizedTypePrefix(result, is_null());
   }
-  return s;
+  return result;
 }
 
 // Format will wrap arrays and structs.
 std::string Value::Format(bool print_top_level_type) const {
   return FormatInternal(0, print_top_level_type);
 }
-
-namespace {
-
-std::string ComplexValueToString(
-    const Value* root, ProductMode mode, bool as_literal,
-    std::string (Value::*leaf_to_string_fn)(ProductMode mode) const) {
-  std::string result;
-  struct Entry {
-    const Value* value;
-    size_t next_child_index;
-  };
-  std::stack<Entry> stack;
-  stack.push(Entry{root, 0});
-  do {
-    const Entry top = stack.top();
-    const Type* type = top.value->type();
-    ZETASQL_DCHECK(type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY);
-    ZETASQL_DCHECK(!top.value->is_null());
-    const std::vector<Value>* children = nullptr;
-    char closure = '\0';
-    if (type->kind() == TYPE_STRUCT) {
-      if (top.next_child_index == 0) {
-        if (!as_literal) {
-          result.append(type->TypeName(mode));
-          result.push_back('(');
-        } else if (type->AsStruct()->num_fields() <= 1) {
-          result.append("STRUCT(");
-        } else {
-          result.push_back('(');
-        }
-      }
-      children = &top.value->fields();
-      closure = ')';
-    } else {
-      if (top.next_child_index == 0) {
-        if (!as_literal) {
-          result.append(type->TypeName(mode));
-        }
-        result.push_back('[');
-      }
-      children = &top.value->elements();
-      closure = ']';
-    }
-    const size_t num_children = children->size();
-    size_t child_index = top.next_child_index;
-    while (true) {
-      if (child_index >= num_children) {
-        result.push_back(closure);
-        stack.pop();
-        break;
-      }
-      if (child_index != 0) {
-        result.append(", ");
-      }
-      const Value& child = children->at(child_index);
-      ++child_index;
-      if (!child.is_null() && (child.type_kind() == TYPE_STRUCT ||
-                               child.type_kind() == TYPE_ARRAY)) {
-        stack.top().next_child_index = child_index;
-        stack.push(Entry{&child, 0});
-        break;
-      }
-      result.append((child.*leaf_to_string_fn)(mode));
-    }
-  } while (!stack.empty());
-  return result;
-}
-}  // namespace
 
 // NOTE: There is a similar method in ../resolved_ast/sql_builder.cc.
 //
@@ -1388,14 +930,6 @@ std::string Value::GetSQLInternal(ProductMode mode) const {
     return as_literal
                ? "NULL"
                : absl::StrCat("CAST(NULL AS ", type->TypeName(mode), ")");
-  }
-
-  if (type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY) {
-    // TODO: move struct/array logic into Type subclasses.
-    return ComplexValueToString(
-        this, mode, as_literal,
-        // For leaf nodes, it is fine to recursively call GetSQLInternal once.
-        &Value::GetSQLInternal<as_literal, maybe_add_simple_type_prefix>);
   }
 
   Type::FormatValueContentOptions options;
@@ -1678,6 +1212,22 @@ std::string Value::FormatInternal(int indent, bool force_type) const {
     // cannot contain '$' characters.
     return FormatBlock(absl::StrCat(type_string, "{$0}"), field_strings, "",
                        indent, wraps ? WrapStyle::INDENT : WrapStyle::NONE);
+  } else if (type()->IsRangeType()) {
+    std::string type_string =
+        force_type ? FormatType(type(), ArrayElemFormat::NONE, indent) : "";
+    if (is_null()) {
+      return force_type ? Substitute("$0(NULL)", type_string) : "NULL";
+    }
+    std::vector<std::string> boundaries_strings;
+    boundaries_strings.push_back(
+        start().FormatInternal(indent + kIndentStep, false /* force_type */));
+    boundaries_strings.push_back(
+        end().FormatInternal(indent + kIndentStep, false /* force_type */));
+    // Sanitize any '$' characters before creating substitution template. "$$"
+    // is replaced by "$" in the output from absl::Substitute.
+    std::string templ =
+        absl::StrCat(absl::StrReplaceAll(type_string, {{"$", "$$"}}), "[$0)");
+    return FormatBlock(templ, boundaries_strings, ",", indent, WrapStyle::AUTO);
   } else {
     return DebugString(force_type);
   }
@@ -1909,6 +1459,21 @@ absl::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
         fields.emplace_back(std::move(*status_or_value));
       }
       return Struct(struct_type, fields);
+    }
+    case TYPE_RANGE: {
+      if (!value_proto.has_range_value() ||
+          !value_proto.range_value().has_start() ||
+          !value_proto.range_value().has_end()) {
+        return type->TypeMismatchError(value_proto);
+      }
+      const Type* element_type = type->AsRange()->element_type();
+      ZETASQL_ASSIGN_OR_RETURN(
+          const Value& start,
+          Deserialize(value_proto.range_value().start(), element_type));
+      ZETASQL_ASSIGN_OR_RETURN(
+          const Value& end,
+          Deserialize(value_proto.range_value().end(), element_type));
+      return MakeRange(start, end);
     }
     default: {
       ValueContent content;

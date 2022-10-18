@@ -16,13 +16,15 @@
 
 #include "zetasql/reference_impl/common.h"
 
+#include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -135,6 +137,23 @@ GetCollatorFromResolvedCollationValue(const Value& collation_value) {
   ZETASQL_ASSIGN_OR_RETURN(resolved_collation,
                    ResolvedCollation::Deserialize(resolved_collation_proto));
   return GetCollatorFromResolvedCollation(resolved_collation);
+}
+
+absl::StatusOr<CollatorList> MakeCollatorList(
+    const std::vector<ResolvedCollation>& collation_list) {
+  CollatorList collator_list;
+
+  if (collation_list.empty()) {
+    return collator_list;
+  }
+
+  for (const ResolvedCollation& resolved_collation : collation_list) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ZetaSqlCollator> collator,
+                     GetCollatorFromResolvedCollation(resolved_collation));
+    collator_list.push_back(std::move(collator));
+  }
+
+  return std::move(collator_list);
 }
 
 }  // namespace zetasql

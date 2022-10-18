@@ -45,7 +45,7 @@ CREATE OR REPLACE SCHEMA IF NOT EXISTS myProject.mySchema
 ^
 ==
 
-[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+[language_features={{|V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK}}]
 CREATE SCHEMA myProject.mySchema DEFAULT COLLATE 'und:ci';
 --
 ALTERNATION GROUP: <empty>
@@ -54,7 +54,7 @@ ERROR: CREATE SCHEMA with DEFAULT COLLATE is not supported [at 1:42]
 CREATE SCHEMA myProject.mySchema DEFAULT COLLATE 'und:ci';
                                          ^
 --
-ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK
 --
 CreateSchemaStmt
 +-name_path=myProject.mySchema
@@ -62,7 +62,7 @@ CreateSchemaStmt
   +-Literal(type=STRING, value="und:ci")
 ==
 
-[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+[language_features={{|V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK}}]
 CREATE SCHEMA myProject.mySchema DEFAULT COLLATE @test_param_string;
 --
 ALTERNATION GROUP: <empty>
@@ -71,7 +71,7 @@ ERROR: CREATE SCHEMA with DEFAULT COLLATE is not supported [at 1:42]
 CREATE SCHEMA myProject.mySchema DEFAULT COLLATE @test_param_string;
                                          ^
 --
-ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK
 --
 ERROR: COLLATE must be followed by a string literal [at 1:50]
 CREATE SCHEMA myProject.mySchema DEFAULT COLLATE @test_param_string;

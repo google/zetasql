@@ -269,6 +269,9 @@ static std::string ToStringImpl(const TableValuedFunction* tvf) {
 static std::string ToStringImpl(const Procedure* procedure) {
   return procedure->FullName();
 }
+static std::string ToStringImpl(const Column* column) {
+  return column->FullName();
+}
 static std::string ToStringImpl(const std::shared_ptr<TVFSignature>& tvf_signature) {
   return tvf_signature->DebugString();
 }
@@ -548,6 +551,35 @@ absl::StatusOr<const Procedure*> RestoreFromImpl(
 }
 
 static absl::Status SaveToImpl(
+    const Column* column,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    ColumnRefProto* proto) {
+
+  std::string col_full_name = column->FullName();
+  auto pos = col_full_name.find_last_of('.');
+  ZETASQL_RET_CHECK(pos != std::string::npos);
+  std::string full_table_name = col_full_name.substr(0, pos);
+  const std::vector<std::string> path = absl::StrSplit(full_table_name, '.');
+
+  TableRefProto* table = proto->mutable_table_ref();
+  table->set_name(path.back());
+  table->set_full_name(std::move(full_table_name));
+  proto->set_name(column->Name());
+  return absl::OkStatus();
+}
+
+template<>
+absl::StatusOr<const Column*> RestoreFromImpl(
+    const ColumnRefProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  const std::vector<std::string> path =
+      absl::StrSplit(proto.table_ref().full_name(), '.');
+  const Table* table;
+  ZETASQL_RETURN_IF_ERROR(params.catalog->FindTable(path, &table));
+  return table->FindColumnByName(proto.name());
+}
+
+static absl::Status SaveToImpl(
     const absl::optional<FunctionSignature>& sig,
     FileDescriptorSetMap* file_descriptor_set_map,
     FunctionSignatureProto* proto) {
@@ -785,6 +817,10 @@ static absl::Status SaveToImpl(
     col_proto->set_is_pseudo_column(col.is_pseudo_column);
     ZETASQL_RETURN_IF_ERROR(SaveToImpl(
         col.type, file_descriptor_set_map, col_proto->mutable_type()));
+    if (col.annotation_map != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(
+          col.annotation_map->Serialize(col_proto->mutable_annotation_map()));
+    }
   }
   output_schema_proto->set_is_value_table(
       tvf_signature->result_schema().is_value_table());
@@ -859,12 +895,18 @@ absl::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
   }
   std::vector<TVFRelation::Column> cols;
   cols.reserve(proto.output_schema().column_size());
-  const Type* type = nullptr;
   for (const TVFRelationColumnProto& col_proto :
        proto.output_schema().column()) {
+    const Type* type = nullptr;
+    const AnnotationMap* annotation_map = nullptr;
     ZETASQL_ASSIGN_OR_RETURN(
         type, RestoreFromImpl<const Type*>(col_proto.type(), params));
-    cols.emplace_back(TVFRelation::Column(col_proto.name(), type,
+    if (col_proto.has_annotation_map()) {
+      ZETASQL_RETURN_IF_ERROR(params.type_factory->DeserializeAnnotationMap(
+          col_proto.annotation_map(), &annotation_map));
+    }
+    cols.emplace_back(TVFRelation::Column(col_proto.name(),
+                                          {type, annotation_map},
                                           col_proto.is_pseudo_column()));
   }
 
@@ -875,10 +917,10 @@ absl::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
   }
 
   if (proto.output_schema().is_value_table()) {
-    const Type* type = cols[0].type;
+    AnnotatedType annotated_type = cols[0].annotated_type();
     cols.erase(cols.begin());
     ZETASQL_ASSIGN_OR_RETURN(TVFRelation table_schema,
-                     TVFRelation::ValueTable(type, cols));
+                     TVFRelation::ValueTable(annotated_type, cols));
     return std::shared_ptr<TVFSignature>(
         new TVFSignature(input_args, std::move(table_schema), options));
   } else {

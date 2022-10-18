@@ -1,20 +1,17 @@
 # More system variable tests are in parameters.test
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 
 select @@foo.bar.baz;
 --
-QueryStatement [0-20]
-  Query [0-20]
-    Select [0-20]
-      SelectList [7-20]
-        SelectColumn [7-20]
-          SystemVariableExpr [7-20]
-            PathExpression [9-20]
-              Identifier(foo) [9-12]
-              Identifier(bar) [13-16]
-              Identifier(baz) [17-20]
+QueryStatement [0-20] [select @@foo.bar.baz]
+  Query [0-20] [select @@foo.bar.baz]
+    Select [0-20] [select @@foo.bar.baz]
+      SelectList [7-20] [@@foo.bar.baz]
+        SelectColumn [7-20] [@@foo.bar.baz]
+          SystemVariableExpr [7-20] [@@foo.bar.baz]
+            PathExpression [9-20] [foo.bar.baz]
+              Identifier(foo) [9-12] [foo]
+              Identifier(bar) [13-16] [bar]
+              Identifier(baz) [17-20] [baz]
 --
 SELECT
   @@foo.bar.baz
@@ -22,17 +19,17 @@ SELECT
 
 select (@@foo.bar).baz;
 --
-QueryStatement [0-22]
-  Query [0-22]
-    Select [0-22]
-      SelectList [7-22]
-        SelectColumn [7-22]
-          DotIdentifier [7-22]
-            SystemVariableExpr [8-17]
-              PathExpression [10-17]
-                Identifier(foo) [10-13]
-                Identifier(bar) [14-17]
-            Identifier(baz) [19-22]
+QueryStatement [0-22] [select (@@foo.bar).baz]
+  Query [0-22] [select (@@foo.bar).baz]
+    Select [0-22] [select (@@foo.bar).baz]
+      SelectList [7-22] [(@@foo.bar).baz]
+        SelectColumn [7-22] [(@@foo.bar).baz]
+          DotIdentifier [7-22] [(@@foo.bar).baz]
+            SystemVariableExpr [8-17] [@@foo.bar]
+              PathExpression [10-17] [foo.bar]
+                Identifier(foo) [10-13] [foo]
+                Identifier(bar) [14-17] [bar]
+            Identifier(baz) [19-22] [baz]
 --
 SELECT
   (@@foo.bar).baz
@@ -47,20 +44,20 @@ select foo.@@bar.baz;
 
 select @@foo[OFFSET(0)]
 --
-QueryStatement [0-23]
-  Query [0-23]
-    Select [0-23]
-      SelectList [7-23]
-        SelectColumn [7-23]
-          ArrayElement [7-23]
-            SystemVariableExpr [7-12]
-              PathExpression [9-12]
-                Identifier(foo) [9-12]
-            Location [12-13]
-            FunctionCall [13-22]
-              PathExpression [13-19]
-                Identifier(OFFSET) [13-19]
-              IntLiteral(0) [20-21]
+QueryStatement [0-23] [select @@foo[OFFSET(0)]]
+  Query [0-23] [select @@foo[OFFSET(0)]]
+    Select [0-23] [select @@foo[OFFSET(0)]]
+      SelectList [7-23] [@@foo[OFFSET(0)]]
+        SelectColumn [7-23] [@@foo[OFFSET(0)]]
+          ArrayElement [7-23] [@@foo[OFFSET(0)]]
+            SystemVariableExpr [7-12] [@@foo]
+              PathExpression [9-12] [foo]
+                Identifier(foo) [9-12] [foo]
+            Location [12-13] [[]
+            FunctionCall [13-22] [OFFSET(0)]
+              PathExpression [13-19] [OFFSET]
+                Identifier(OFFSET) [13-19] [OFFSET]
+              IntLiteral(0) [20-21] [0]
 --
 
 SELECT

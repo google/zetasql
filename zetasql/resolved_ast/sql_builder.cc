@@ -40,11 +40,14 @@
 #include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
@@ -381,6 +384,9 @@ absl::StatusOr<std::string> SQLBuilder::GetSQL(const Value& value,
     return absl::StrCat(type->TypeName(mode), "[",
                         absl::StrJoin(elements_sql, ", "), "]");
   }
+  if (type->IsRange()) {
+    return value.GetSQL(mode);
+  }
   if (type->IsExtendedType()) {
     return value.GetSQL(mode);
   }
@@ -425,7 +431,11 @@ absl::Status SQLBuilder::VisitResolvedExpressionColumn(
   PushQueryFragment(node, ToIdentifierLiteral(node->name()));
   return absl::OkStatus();
 }
-
+absl::Status SQLBuilder::VisitResolvedCatalogColumnRef(
+    const ResolvedCatalogColumnRef* node) {
+  PushQueryFragment(node, ToIdentifierLiteral(node->column()->Name()));
+  return absl::OkStatus();
+}
 absl::Status SQLBuilder::VisitResolvedLiteral(const ResolvedLiteral* node) {
   ZETASQL_ASSIGN_OR_RETURN(
       const std::string result,
@@ -462,6 +472,9 @@ absl::StatusOr<std::string> SQLBuilder::GetFunctionCallSQL(
       sql = absl::StrReplaceAll(sql, {{"KEY", "SAFE_KEY"}});
     } else if (function_name == "$subscript_with_ordinal") {
       sql = absl::StrReplaceAll(sql, {{"ORDINAL", "SAFE_ORDINAL"}});
+    } else if (function_name == "$safe_proto_map_at_key") {
+      // Intentionally empty -- this function already renders itself correctly
+      // in GetSQL.
     } else {
       sql = absl::StrCat("SAFE.", sql);
     }
@@ -923,10 +936,13 @@ static bool IsAmbiguousFieldExtraction(
 static absl::StatusOr<bool> IsRawFieldExtraction(
     const ResolvedGetProtoField* node) {
   ZETASQL_RET_CHECK(!node->get_has_bit());
+  ZETASQL_RET_CHECK(node->expr()->type()->IsProto());
   const Type* type_with_annotations;
   TypeFactory type_factory;
-  ZETASQL_RET_CHECK_OK(type_factory.GetProtoFieldType(node->field_descriptor(),
-                                              &type_with_annotations));
+  ZETASQL_RET_CHECK_OK(type_factory.GetProtoFieldType(
+      node->field_descriptor(),
+      node->expr()->type()->AsProto()->CatalogNamePath(),
+      &type_with_annotations));
   // We know this is a RAW extraction if the field type, respecting annotations,
   // is different than the return type of this node or if the field is primitive
   // and is annotated with (zetasql.use_defaults = false), yet the default
@@ -3630,7 +3646,7 @@ absl::StatusOr<std::string> SQLBuilder::ProcessCreateTableStmtBase(
 
   if (node->collation_name() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> collation,
-                         ProcessNode(node->collation_name()));
+                     ProcessNode(node->collation_name()));
     absl::StrAppend(&sql, " DEFAULT COLLATE ", collation->GetSQL());
   }
 
@@ -3643,7 +3659,7 @@ absl::Status SQLBuilder::VisitResolvedCreateSchemaStmt(
   ZETASQL_RETURN_IF_ERROR(GetCreateStatementPrefix(node, "SCHEMA", &sql));
   if (node->collation_name() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> collation,
-                         ProcessNode(node->collation_name()));
+                     ProcessNode(node->collation_name()));
     absl::StrAppend(&sql, " DEFAULT COLLATE ", collation->GetSQL());
   }
   if (node->option_list_size() > 0) {
@@ -3789,6 +3805,9 @@ absl::Status SQLBuilder::VisitResolvedCreateModelStmt(
     column_definition->name();
     column_definition->column();
     column_definition->type();
+    if (column_definition->annotations() != nullptr) {
+      column_definition->annotations()->MarkFieldsAccessed();
+    }
   }
 
   std::string sql;

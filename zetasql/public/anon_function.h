@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_ANON_FUNCTION_H_
 
 #include <string>
+#include <vector>
 
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"

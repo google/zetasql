@@ -74,12 +74,6 @@ public interface DescriptorPool extends Serializable {
    * was created.
    */
   public interface ZetaSQLFileDescriptor {
-    /** @deprecated use {@link #getDescriptorPool()} */
-    @Deprecated
-    default DescriptorPool getZetaSQLDescriptorPool() {
-      return getDescriptorPool();
-    }
-
     DescriptorPool getDescriptorPool();
 
     FileDescriptor getDescriptor();
@@ -90,12 +84,6 @@ public interface DescriptorPool extends Serializable {
    * was created.
    */
   public interface ZetaSQLEnumDescriptor {
-    /** @deprecated use {@link #getDescriptorPool()} */
-    @Deprecated
-    default DescriptorPool getZetaSQLDescriptorPool() {
-      return getDescriptorPool();
-    }
-
     DescriptorPool getDescriptorPool();
 
     EnumDescriptor getDescriptor();
@@ -106,13 +94,6 @@ public interface DescriptorPool extends Serializable {
    * created.
    */
   public interface ZetaSQLDescriptor {
-
-    /** @deprecated use {@link #getDescriptorPool()} */
-    @Deprecated
-    default DescriptorPool getZetaSQLDescriptorPool() {
-      return getDescriptorPool();
-    }
-
     DescriptorPool getDescriptorPool();
 
     Descriptor getDescriptor();
@@ -129,12 +110,6 @@ public interface DescriptorPool extends Serializable {
    * created.
    */
   public interface ZetaSQLFieldDescriptor {
-    /** @deprecated use {@link #getDescriptorPool()} */
-    @Deprecated
-    default DescriptorPool getZetaSQLDescriptorPool() {
-      return getDescriptorPool();
-    }
-
     DescriptorPool getDescriptorPool();
 
     FieldDescriptor getDescriptor();
@@ -142,12 +117,6 @@ public interface DescriptorPool extends Serializable {
 
   /** Wrapped {@link OneofDescriptor} with the {@link DescriptorPool} from which it was created. */
   public interface ZetaSQLOneofDescriptor {
-    /** @deprecated use {@link #getDescriptorPool()} */
-    @Deprecated
-    default DescriptorPool getZetaSQLDescriptorPool() {
-      return getDescriptorPool();
-    }
-
     DescriptorPool getDescriptorPool();
 
     OneofDescriptor getDescriptor();

@@ -46,6 +46,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/functions/normalize_mode.pb.h"

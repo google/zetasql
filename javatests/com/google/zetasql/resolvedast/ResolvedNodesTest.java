@@ -104,10 +104,10 @@ public class ResolvedNodesTest {
 
   @Test
   public void testBuilderFailsOnUnsetNotIgnorableField() {
+    // FloatLiteralId and HasExplicitType are optional constructor arguments and can be omitted.
+    ResolvedLiteral unused =
+        ResolvedLiteral.builder().setType(INT32_TYPE).setValue(Value.createInt32Value(5)).build();
     try {
-      // FloatLiteralId and HasExplicitType are optional constructor arguments and can be omitted.
-      ResolvedLiteral.builder().setType(INT32_TYPE).setValue(Value.createInt32Value(5)).build();
-
       // Value is required argument and must be set.
       ResolvedLiteral.builder()
           .setType(INT32_TYPE)
@@ -116,20 +116,20 @@ public class ResolvedNodesTest {
           // .setValue(Value.createInt32Value(5))  // "forget" to set this.
           .build();
       fail("Expected IllegalArgumentException");
-    } catch (IllegalArgumentException e) {
-      // IllegalArgumentException is expected.
+    } catch (IllegalArgumentException expected) {
     }
   }
 
   @Test
   public void testBuilderSucceedsOnUnsetIgnorableFields() {
-      ResolvedColumnDefinition.builder()
-          .setName("testColumn")
-          .setType(INT32_TYPE)
-          .setIsHidden(false)
-          //.setColumn() skip setting IGNORABLE field
-          //.setGeneratedColumnInfo() skip setting IGNORABLE_DEFAULT field
-          .build();
+    ResolvedColumnDefinition unused =
+        ResolvedColumnDefinition.builder()
+            .setName("testColumn")
+            .setType(INT32_TYPE)
+            .setIsHidden(false)
+            // .setColumn() skip setting IGNORABLE field
+            // .setGeneratedColumnInfo() skip setting IGNORABLE_DEFAULT field
+            .build();
   }
 
   @Test

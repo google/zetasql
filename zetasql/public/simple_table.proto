@@ -51,6 +51,10 @@ message SimpleTableProto {
   optional string full_name = 10;
 }
 
+message ExpressionAttributeProto {
+  optional string expression_string = 8;
+}
+
 message SimpleColumnProto {
   optional string name = 1;
   optional TypeProto type = 2;
@@ -58,4 +62,6 @@ message SimpleColumnProto {
   optional bool is_writable_column = 4 [default = true];
   optional bool can_update_unwritable_to_default = 6;
   optional AnnotationMapProto annotation_map = 5;
+  optional bool has_default_value = 7 [default = false];
+  optional ExpressionAttributeProto column_expression = 8;
 }

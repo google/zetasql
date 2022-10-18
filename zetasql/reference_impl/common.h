@@ -56,6 +56,11 @@ GetCollatorFromResolvedCollationValue(const Value& collation_value);
 // tuple_comparators.h/.cc files.
 using CollatorList = std::vector<std::unique_ptr<const ZetaSqlCollator>>;
 
+// Returns a list of ZetaSqlCollator based on collation information obtained
+// from resolved function call.
+absl::StatusOr<CollatorList> MakeCollatorList(
+    const std::vector<ResolvedCollation>& collation_list);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_REFERENCE_IMPL_COMMON_H_

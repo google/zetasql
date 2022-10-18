@@ -119,7 +119,8 @@ struct FormatGsqlNumeric {
 // Implements the ZetaSQL string FORMAT function.
 class StringFormatEvaluator {
  public:
-  explicit StringFormatEvaluator(ProductMode product_mode);
+  explicit StringFormatEvaluator(ProductMode product_mode,
+                                 bool canonicalize_zero = false);
   StringFormatEvaluator(const StringFormatEvaluator&) = delete;
   StringFormatEvaluator& operator=(const StringFormatEvaluator&) = delete;
 
@@ -189,6 +190,12 @@ class StringFormatEvaluator {
   // Status of function execution. It's initialized as absl::OkStatus() in
   // OnExecutionBegin. It's used for setting the error_reporter status.
   absl::Status status_;
+
+  // If true, the sign on a signed zero is removed when converting numeric type
+  // to string.
+  // TODO : remove this flag when all engines have
+  // rolled out this new behavior.
+  const bool canonicalize_zero_ = false;
 
   // The number of arguments provided to the invocation of FORMAT.
   int64_t provided_arg_count() { return arg_types_.size(); }
@@ -260,6 +267,10 @@ class StringFormatEvaluator {
   template <typename T, bool GROUPING>
   bool CopyDoubleCustom(const FormatPart& part, absl::FormatArg* arg);
 
+  template <typename T, bool GROUPING>
+  bool CopyDoubleCanonicalizeZeroCustom(const FormatPart& part,
+                                        absl::FormatArg* arg);
+
   template <bool GROUPING>
   bool CopyNumericCustom(const FormatPart& part, absl::FormatArg* arg);
 
@@ -318,7 +329,7 @@ class StringFormatEvaluator {
 absl::Status StringFormatUtf8(absl::string_view format_string,
                               absl::Span<const Value> values,
                               ProductMode product_mode, std::string* output,
-                              bool* is_null);
+                              bool* is_null, bool canonicalize_zero = false);
 
 absl::Status CheckStringFormatUtf8ArgumentTypes(absl::string_view format_string,
                                                 std::vector<const Type*> types,

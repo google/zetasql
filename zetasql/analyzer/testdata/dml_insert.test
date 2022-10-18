@@ -408,7 +408,7 @@ InsertStmt
 INSERT TestTable (TestEnum)
 VALUES ("INVALID_ENUM")
 --
-ERROR: Could not cast literal "INVALID_ENUM" to type ENUM<zetasql_test__.TestEnum> [at 2:9]
+ERROR: Could not cast literal "INVALID_ENUM" to type zetasql_test__.TestEnum [at 2:9]
 VALUES ("INVALID_ENUM")
         ^
 ==
@@ -744,7 +744,7 @@ InsertStmt
 INSERT TestTable (KitchenSink)
 VALUES ("aaa")
 --
-ERROR: Could not cast literal "aaa" to type PROTO<zetasql_test__.KitchenSinkPB> (Error parsing proto: Message type "zetasql_test__.KitchenSinkPB" has no field named "aaa". [1:4]) [at 2:9]
+ERROR: Could not cast literal "aaa" to type zetasql_test__.KitchenSinkPB (Error parsing proto: Message type "zetasql_test__.KitchenSinkPB" has no field named "aaa". [1:4]) [at 2:9]
 VALUES ("aaa")
         ^
 ==

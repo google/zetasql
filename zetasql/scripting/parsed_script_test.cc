@@ -17,8 +17,13 @@
 #include "zetasql/scripting/parsed_script.h"
 
 #include <cstdint>
+#include <memory>
+#include <ostream>
+#include <set>
 #include <string>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parse_tree.h"
@@ -112,7 +117,6 @@ class TestCase {
       : sql_(sql), error_(error) {}
 
   const std::vector<TestInput>& inputs() const { return inputs_; }
-  const std::string& error() const { return error_; }
 
  private:
   const std::vector<TestInput> inputs_;

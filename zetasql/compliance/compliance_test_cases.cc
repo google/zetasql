@@ -22,6 +22,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -32,6 +33,7 @@
 #include "zetasql/common/float_margin.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/testing/testing_proto_util.h"
+#include "zetasql/compliance/depth_limit_detector_test_cases.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/sql_test_base.h"
 #include "zetasql/compliance/test_driver.h"
@@ -61,12 +63,11 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
-#include "zetasql/base/file_util.h"
-#include "zetasql/base/map_util.h"
 
 ABSL_FLAG(std::string, file_pattern, "*.test", "File pattern for test files.");
 
@@ -78,10 +79,6 @@ ABSL_FLAG(bool, zetasql_run_codebased_tests, true,
           "Run the code based compliance tests.");
 ABSL_FLAG(bool, zetasql_run_filebased_tests, true,
           "Run the file based compliance tests.");
-
-ABSL_FLAG(bool, zetasql_detect_falsly_required_features, false,
-          "Fail the test if a test case 'requires' a feature that doesn't "
-          "affect the test outcome.");
 
 using zetasql::test_values::kIgnoresOrder;
 
@@ -136,12 +133,7 @@ static Value Singleton(const ValueConstructor& v) {
 }
 
 static void ConvertResultsToSingletons(QueryParamsWithResult* param) {
-  QueryParamsWithResult::ResultMap new_result_map = param->results();
-  for (auto& pair : new_result_map) {
-    Value& result = pair.second.result;
-    result = Singleton(result);
-  }
-  param->set_results(new_result_map);
+  param->MutateResultValue([](Value& value) { value = Singleton(value); });
 }
 
 // Make a label "type_<kind_name>" based on <type>.
@@ -159,7 +151,7 @@ static std::vector<std::string> GetTypeLabels(
   for (const Value& param : query_params_with_result.params()) {
     labels.push_back(MakeLabelForType(param.type()));
   }
-  labels.push_back(MakeLabelForType(query_params_with_result.GetResultType()));
+  labels.push_back(MakeLabelForType(query_params_with_result.result().type()));
   return labels;
 }
 
@@ -215,10 +207,10 @@ std::vector<FunctionTestCall> WrapFeatureLastDay(
   std::vector<FunctionTestCall> wrapped_tests;
   for (auto call : tests) {
     QueryParamsWithResult::FeatureSet feature_set = {
-      FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS, FEATURE_V_1_2_CIVIL_TIME};
+        FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS, FEATURE_V_1_2_CIVIL_TIME};
     functions::DateTimestampPart date_part =
-        static_cast<functions::DateTimestampPart>
-        (call.params.param(1).enum_value());
+        static_cast<functions::DateTimestampPart>(
+            call.params.param(1).enum_value());
     switch (date_part) {
       case functions::WEEK_MONDAY:
       case functions::WEEK_TUESDAY:
@@ -248,19 +240,16 @@ static std::vector<QueryParamsWithResult> WrapFeatureJSON(
   return wrapped_tests;
 }
 
-std::vector<FunctionTestCall> WrapFeatureCbrt(
-    const std::vector<FunctionTestCall>& tests) {
-  std::vector<LanguageFeature> features = {
-      FEATURE_CBRT_FUNCTIONS, FEATURE_NUMERIC_TYPE, FEATURE_BIGNUMERIC_TYPE};
-  return WrapFunctionTestWithFeatures(tests, features);
-}
-
-std::vector<FunctionTestCall> WrapFeatureRoundWithRoundingMode(
-    const std::vector<FunctionTestCall>& tests) {
-  std::vector<LanguageFeature> features = {FEATURE_ROUND_WITH_ROUNDING_MODE,
-                                           FEATURE_NUMERIC_TYPE,
-                                           FEATURE_BIGNUMERIC_TYPE};
-  return WrapFunctionTestWithFeatures(tests, features);
+static std::vector<QueryParamsWithResult> WrapFeatureCollation(
+    const std::vector<QueryParamsWithResult>& tests) {
+  std::vector<QueryParamsWithResult> wrapped_tests;
+  wrapped_tests.reserve(tests.size());
+  for (auto& test_case : tests) {
+    QueryParamsWithResult::FeatureSet feature_set = {
+        FEATURE_V_1_3_ANNOTATION_FRAMEWORK, FEATURE_V_1_3_COLLATION_SUPPORT};
+    wrapped_tests.emplace_back(test_case.WrapWithFeatureSet(feature_set));
+  }
+  return wrapped_tests;
 }
 
 // Owned by
@@ -329,50 +318,68 @@ void CodebasedTestsEnvironment::SetUp() {
   table_empty = Value::EmptyArray(array_type);
 
   // Create non-empty test / result tables.
-  table1 = StructArray(table_columns, {
-      {1ll, True(),  0.1, 1ll, "1"},
-      {2ll, False(), 0.2, 2ll, "2"}, }, kIgnoresOrder);
-  table2 = StructArray(table_columns, {
-      {1ll, True(),  0.3, 3ll, "3"},
-      {2ll, False(), 0.4, 4ll, "4"}, }, kIgnoresOrder);
-  table3 = StructArray(table_columns, {
-      {1ll, True(),  0.5, 5ll, "5"},
-      {2ll, False(), 0.6, 6ll, "6"}, }, kIgnoresOrder);
-  table_large = StructArray(table_columns, {
-      {1ll, NullBool(), NullDouble(), NullInt64(), NullString()},
-      {2ll, True(),  NullDouble(), NullInt64(), NullString()},
-      {3ll, False(), 0.2, NullInt64(), NullString()},
-      {4ll, True(),  0.3, 3ll, NullString()},
-      {5ll, False(), 0.4, 4ll, "4"},
-      {6ll, True(),  0.5, 5ll, "5"},
-      {7ll, False(), 0.6, 6ll, "6"},
-      {8ll, True(),  0.7, 7ll, "7"},
-      {9ll, False(), 0.8, 8ll, "8"},
-      {10ll, True(),  0.9, 9ll, "9"},
-      {11ll, False(), 1.0, 10ll, "10"}, }, kIgnoresOrder);
+  table1 = StructArray(table_columns,
+                       {
+                           {1ll, True(), 0.1, 1ll, "1"},
+                           {2ll, False(), 0.2, 2ll, "2"},
+                       },
+                       kIgnoresOrder);
+  table2 = StructArray(table_columns,
+                       {
+                           {1ll, True(), 0.3, 3ll, "3"},
+                           {2ll, False(), 0.4, 4ll, "4"},
+                       },
+                       kIgnoresOrder);
+  table3 = StructArray(table_columns,
+                       {
+                           {1ll, True(), 0.5, 5ll, "5"},
+                           {2ll, False(), 0.6, 6ll, "6"},
+                       },
+                       kIgnoresOrder);
+  table_large = StructArray(
+      table_columns,
+      {
+          {1ll, NullBool(), NullDouble(), NullInt64(), NullString()},
+          {2ll, True(), NullDouble(), NullInt64(), NullString()},
+          {3ll, False(), 0.2, NullInt64(), NullString()},
+          {4ll, True(), 0.3, 3ll, NullString()},
+          {5ll, False(), 0.4, 4ll, "4"},
+          {6ll, True(), 0.5, 5ll, "5"},
+          {7ll, False(), 0.6, 6ll, "6"},
+          {8ll, True(), 0.7, 7ll, "7"},
+          {9ll, False(), 0.8, 8ll, "8"},
+          {10ll, True(), 0.9, 9ll, "9"},
+          {11ll, False(), 1.0, 10ll, "10"},
+      },
+      kIgnoresOrder);
   table_all_null = StructArray(
       table_columns,
-      {{1ll, NullBool(), NullDouble(), NullInt64(), NullString()}, },
+      {
+          {1ll, NullBool(), NullDouble(), NullInt64(), NullString()},
+      },
       kIgnoresOrder);
-  table_distincts = StructArray(
-      {"primary_key", "distinct_1", "distinct_2", "distinct_4", "distinct_8",
-            "distinct_16", "distinct_2B", "distinct_4B"}, {
-        {1ll, 1ll, 1ll, 1ll, 1ll, 1ll,  /**/ 1ll, 1ll},
-        {2ll, 1ll, 2ll, 2ll, 2ll, 2ll,  /**/ 1ll, 1ll},
-        {3ll, 1ll, 1ll, 3ll, 3ll, 3ll,  /**/ 1ll, 1ll},
-        {4ll, 1ll, 2ll, 4ll, 4ll, 4ll,  /**/ 1ll, 1ll},
-        {5ll, 1ll, 1ll, 1ll, 5ll, 5ll,  /**/ 1ll, 2ll},
-        {6ll, 1ll, 2ll, 2ll, 6ll, 6ll,  /**/ 1ll, 2ll},
-        {7ll, 1ll, 1ll, 3ll, 7ll, 7ll,  /**/ 1ll, 2ll},
-        {8ll, 1ll, 2ll, 4ll, 8ll, 8ll,  /**/ 1ll, 2ll},
-        {9ll, 1ll, 1ll, 1ll, 1ll, 9ll,  /**/ 2ll, 3ll},
-        {10ll, 1ll, 2ll, 2ll, 2ll, 10ll, /**/ 2ll, 3ll},
-        {11ll, 1ll, 1ll, 3ll, 3ll, 11ll, /**/ 2ll, 3ll},
-        {12ll, 1ll, 2ll, 4ll, 4ll, 12ll, /**/ 2ll, 3ll},
-        {13ll, 1ll, 1ll, 1ll, 5ll, 13ll, /**/ 2ll, 4ll},
-        {14ll, 1ll, 2ll, 2ll, 6ll, 14ll, /**/ 2ll, 4ll},
-        {15ll, 1ll, 1ll, 3ll, 7ll, 15ll, /**/ 2ll, 4ll},
-        {16ll, 1ll, 2ll, 4ll, 8ll, 16ll, /**/ 2ll, 4ll}, }, kIgnoresOrder);
+  table_distincts =
+      StructArray({"primary_key", "distinct_1", "distinct_2", "distinct_4",
+                   "distinct_8", "distinct_16", "distinct_2B", "distinct_4B"},
+                  {
+                      {1ll, 1ll, 1ll, 1ll, 1ll, 1ll, /**/ 1ll, 1ll},
+                      {2ll, 1ll, 2ll, 2ll, 2ll, 2ll, /**/ 1ll, 1ll},
+                      {3ll, 1ll, 1ll, 3ll, 3ll, 3ll, /**/ 1ll, 1ll},
+                      {4ll, 1ll, 2ll, 4ll, 4ll, 4ll, /**/ 1ll, 1ll},
+                      {5ll, 1ll, 1ll, 1ll, 5ll, 5ll, /**/ 1ll, 2ll},
+                      {6ll, 1ll, 2ll, 2ll, 6ll, 6ll, /**/ 1ll, 2ll},
+                      {7ll, 1ll, 1ll, 3ll, 7ll, 7ll, /**/ 1ll, 2ll},
+                      {8ll, 1ll, 2ll, 4ll, 8ll, 8ll, /**/ 1ll, 2ll},
+                      {9ll, 1ll, 1ll, 1ll, 1ll, 9ll, /**/ 2ll, 3ll},
+                      {10ll, 1ll, 2ll, 2ll, 2ll, 10ll, /**/ 2ll, 3ll},
+                      {11ll, 1ll, 1ll, 3ll, 3ll, 11ll, /**/ 2ll, 3ll},
+                      {12ll, 1ll, 2ll, 4ll, 4ll, 12ll, /**/ 2ll, 3ll},
+                      {13ll, 1ll, 1ll, 1ll, 5ll, 13ll, /**/ 2ll, 4ll},
+                      {14ll, 1ll, 2ll, 2ll, 6ll, 14ll, /**/ 2ll, 4ll},
+                      {15ll, 1ll, 1ll, 3ll, 7ll, 15ll, /**/ 2ll, 4ll},
+                      {16ll, 1ll, 2ll, 4ll, 8ll, 16ll, /**/ 2ll, 4ll},
+                  },
+                  kIgnoresOrder);
 
   code_based_test_driver = GetComplianceTestDriver();
 
@@ -433,8 +440,7 @@ ComplianceCodebasedTests::ComplianceCodebasedTests()
   }
 }
 
-ComplianceCodebasedTests::~ComplianceCodebasedTests() {
-}
+ComplianceCodebasedTests::~ComplianceCodebasedTests() {}
 
 void ComplianceCodebasedTests::RunStatementTests(
     const std::vector<QueryParamsWithResult>& statement_tests,
@@ -491,8 +497,7 @@ void ComplianceCodebasedTests::RunFunctionTestsPrefix(
 
 template <typename FCT>
 void ComplianceCodebasedTests::RunFunctionTestsCustom(
-    const std::vector<FunctionTestCall>& function_tests,
-    FCT get_sql_string) {
+    const std::vector<FunctionTestCall>& function_tests, FCT get_sql_string) {
   for (const auto& params : function_tests) {
     std::string pattern = get_sql_string(params);
     std::string sql = absl::StrCat("SELECT ", pattern, " AS ", kColA);
@@ -506,9 +511,6 @@ void ComplianceCodebasedTests::RunFunctionTestsCustom(
 
 std::vector<FunctionTestCall> ComplianceCodebasedTests::AddSafeFunctionCalls(
     const std::vector<FunctionTestCall>& calls) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL)) {
-    return calls;
-  }
   std::vector<FunctionTestCall> safe_calls = calls;
   for (const FunctionTestCall& call : calls) {
     bool has_errors = false;
@@ -520,32 +522,16 @@ std::vector<FunctionTestCall> ComplianceCodebasedTests::AddSafeFunctionCalls(
     // Don't add SAFE tests for functions that never had any errors.
     if (!has_errors) continue;
 
-    QueryParamsWithResult::ResultMap safe_results_map;
-    // For each existing call, add another, with SAFE_FUNCTION_CALL enabled,
-    // and error results replaced with NULLs.
-    for (const auto& map_iter : call.params.results()) {
-      QueryParamsWithResult::FeatureSet safe_feature_set = map_iter.first;
-      safe_feature_set.insert(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
-
-      // If we had an OUT_OF_RANGE error, replace that with a NULL result.
-      // For OK and for other errors (e.g. analysis errors), keep the original
-      // expected result or error.
-      safe_results_map.insert(
-          std::make_pair(safe_feature_set,
-                         !absl::IsOutOfRange(map_iter.second.status)
-                             ? map_iter.second
-                             : QueryParamsWithResult::Result(
-                                   Value::Null(map_iter.second.result.type()),
-                                   absl::OkStatus())));
-    }
-
-    std::vector<ValueConstructor> safe_params;
-    for (const Value& param : call.params.params()) {
-      safe_params.emplace_back(param);
-    }
-    QueryParamsWithResult safe_result(safe_params, safe_results_map);
-    FunctionTestCall safe_call(absl::StrCat("safe.", call.function_name),
-                               safe_result);
+    FunctionTestCall safe_call = call;
+    safe_call.params.AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+    safe_call.function_name = absl::StrCat("safe.", call.function_name);
+    safe_call.params.MutateResult(
+        [](QueryParamsWithResult::Result& mutable_result) {
+          if (mutable_result.status.code() == absl::StatusCode::kOutOfRange) {
+            mutable_result.status = absl::OkStatus();
+            mutable_result.result = Value::Null(mutable_result.result.type());
+          }
+        });
     safe_calls.push_back(safe_call);
   }
   return safe_calls;
@@ -633,178 +619,31 @@ void ComplianceCodebasedTests::RunStatementTestsCustom(
     std::string sql = absl::StrCat("SELECT ", pattern, " AS ", kColA);
     QueryParamsWithResult new_params = params;
     ConvertResultsToSingletons(&new_params);
-    SetResultTypeName(params.GetResultType()->TypeName(PRODUCT_INTERNAL));
+    SetResultTypeName(params.result().type()->TypeName(PRODUCT_INTERNAL));
     auto label = MakeScopedLabel(GetTypeLabels(params));
     RunStatementOnFeatures(sql, new_params);
   }
 }
 
-// TODO: Push most of this function down into SQLTestBase
 void ComplianceCodebasedTests::RunStatementOnFeatures(
-    const std::string& sql, const QueryParamsWithResult& statement_tests) {
+    const std::string& sql, const QueryParamsWithResult& params) {
   if (!DriverCanRunTests()) {
     return;
   }
 
   std::map<std::string, Value> param_map;
-  for (int i = 0; i < statement_tests.num_params(); i++) {
+  for (int i = 0; i < params.num_params(); i++) {
     std::string param_name = absl::StrCat("p", i);
-    param_map[param_name] = statement_tests.param(i);
+    param_map[param_name] = params.param(i);
   }
-
-  if (IsTestingReferenceImpl()) {
-    // For each pair of <Features, Result>, set 'Features' to reference driver,
-    // execute the statement and check if the result matches with 'Result'.
-    for (const auto& [features, result] : statement_tests.results()) {
-      auto* reference_driver = static_cast<ReferenceDriver*>(driver());
-      absl::Cleanup reset_language_options =
-          [original = driver()->GetSupportedLanguageOptions(),
-           reference_driver]() {
-            reference_driver->SetLanguageOptions(original);
-          };
-
-      LanguageOptions language_options;
-      language_options.SetEnabledLanguageFeatures(features);
-      reference_driver->SetLanguageOptions(language_options);
-
-      auto run_result =
-          RunSQL(sql, param_map, /*permit_compile_failure=*/false);
-      EXPECT_THAT(run_result,
-                  Returns(result.result, result.status, result.float_margin))
-          << "FullName: " << full_name() << "; "
-          << "Labels: " << absl::StrJoin(GetCodeBasedLabels(), ", ");
-
-      if (!absl::GetFlag(FLAGS_zetasql_detect_falsly_required_features)) {
-        continue;
-      }
-
-      // For each feature, assert that removing it makes the test fail. This
-      // is a "falsely required" feature.
-      absl::flat_hash_set<LanguageFeature> falsely_required_features;
-      for (const auto& feature : features) {
-        switch (feature) {
-          // The features on this allow list are already falsely required on
-          // some compliance tests. They are listed here for the sake of
-          // breaking the cleanup into reasonably sized CLs. In the mean time,
-          // this list should not be extended.
-          // TODO: Cleanup false requirements; burn down this list.
-          case FEATURE_BIGNUMERIC_TYPE:
-          case FEATURE_DISALLOW_GROUP_BY_FLOAT:
-          case FEATURE_GEOGRAPHY:
-          case FEATURE_INTERVAL_TYPE:
-          case FEATURE_JSON_ARRAY_FUNCTIONS:
-          case FEATURE_JSON_NO_VALIDATION:
-          case FEATURE_JSON_TYPE:
-          case FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS:
-          case FEATURE_NAMED_ARGUMENTS:
-          case FEATURE_NUMERIC_TYPE:
-          case FEATURE_ROUND_WITH_ROUNDING_MODE:
-          case FEATURE_TIME_BUCKET_FUNCTIONS:
-          case FEATURE_TIMESTAMP_NANOS:
-          case FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES:
-          case FEATURE_V_1_2_CIVIL_TIME:
-          case FEATURE_V_1_2_WEEK_WITH_WEEKDAY:
-          case FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS:
-          case FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS:
-          case FEATURE_V_1_3_DATE_ARITHMETICS:
-          case FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES:
-          case FEATURE_V_1_3_FORMAT_IN_CAST:
-          case FEATURE_V_1_3_PROTO_MAPS:
-            // Do not extend this list. Only add features to tests that require
-            // the feature to attain the specified result. Changes that extend
-            // this list are broken and will be rolled back.
-            continue;
-          default:
-            break;
-        }
-        LanguageOptions::LanguageFeatureSet features_minus_one(features.begin(),
-                                                               features.end());
-        features_minus_one.erase(feature);
-        language_options.SetEnabledLanguageFeatures(features_minus_one);
-        reference_driver->SetLanguageOptions(language_options);
-        auto modified_run_result = RunSQL(sql, param_map);
-        if (!modified_run_result.ok() &&
-            modified_run_result.status() == run_result.status()) {
-          // The test case is expecting an error with error message. We see the
-          // same expected error and message with and without 'feature', we can
-          // conclude that 'feature' is not actually required.
-          falsely_required_features.insert(feature);
-          continue;
-        }
-
-        absl::StatusOr<ComplianceTestCaseResult> result_to_check =
-            result.status.ok()
-                ? absl::StatusOr<ComplianceTestCaseResult>(
-                      ComplianceTestCaseResult(result.result))
-                : absl::StatusOr<ComplianceTestCaseResult>(result.status);
-        if (::testing::Value(
-                modified_run_result,
-                ReturnsCheckOnly(result_to_check, result.float_margin))) {
-          // The test case is expecting a result. We see the same result with
-          // and without 'feature'. We can conclude that 'feature' is not
-          // actually required.
-          falsely_required_features.insert(feature);
-        }
-      }
-      EXPECT_TRUE(falsely_required_features.empty())
-          << "Has Falsely Required Features: " << full_name() << ": " << sql
-          << ": "
-          << absl::StrJoin(falsely_required_features, ",",
-                           [](std::string* o, LanguageFeature f) {
-                             absl::StrAppend(o, LanguageFeature_Name(f));
-                           });
-    }
-  } else {
-    // Get the loosest float margin over the language features the engine
-    // supports.
-    bool found_feature_set = false;
-    FloatMargin float_margin = kExactFloatMargin;
-    for (const auto& pair : statement_tests.results()) {
-      const QueryParamsWithResult::FeatureSet& test_features = pair.first;
-      const FloatMargin& float_margin_for_features = pair.second.float_margin;
-      bool support_all = true;
-      for (const LanguageFeature& feature : test_features) {
-        support_all &= DriverSupportsFeature(feature);
-      }
-      if (support_all) {
-        found_feature_set = true;
-        float_margin = FloatMargin::MinimalLooseError(
-            float_margin, float_margin_for_features);
-      }
-    }
-
-    if (found_feature_set) {
-      // Only run once. Use reference engine to check result. We don't compare
-      // the reference engine output against QueryParamsWithResult::results()
-      // because it isn't clear what feature set to use.
-      TypeFactory type_factory;
-      bool is_deterministic_output;
-      bool uses_unsupported_type = false;
-      absl::StatusOr<Value> reference_result =
-          reference_driver()->ExecuteStatementForReferenceDriver(
-              sql, param_map, GetExecuteStatementOptions(), &type_factory,
-              &is_deterministic_output, &uses_unsupported_type);
-      if (uses_unsupported_type) {
-        return;  // Skip this test. It uses types not supported by the driver.
-      }
-      SCOPED_TRACE(sql);
-      // TODO: Should we do something with 'is_deterministic_output'?
-      EXPECT_THAT(RunSQL(sql, param_map),
-                  Returns(reference_result, float_margin))
-          << "FullName: " << full_name() << "; "
-          << "Labels: " << absl::StrJoin(GetCodeBasedLabels(), ", ");
-      return;
-    }
-    return;  // Skip this test.
-  }
+  RunSQLOnFeaturesAndValidateResult(
+      sql, param_map, params.required_features(), params.prohibited_features(),
+      params.result(), params.status(), params.float_margin());
 }
 
 std::vector<QueryParamsWithResult>
 ComplianceCodebasedTests::GetFunctionTestsDateArithmetics(
     const std::vector<FunctionTestCall>& tests) {
-  if (!DriverSupportsFeature(FEATURE_V_1_3_DATE_ARITHMETICS)) {
-    return {};
-  }
   std::vector<QueryParamsWithResult> out;
   for (const auto& test : tests) {
     // Only look at tests which use DAY as datepart
@@ -813,76 +652,11 @@ ComplianceCodebasedTests::GetFunctionTestsDateArithmetics(
             functions::DateTimestampPart::DAY) {
       continue;
     }
-    QueryParamsWithResult::ResultMap result_map;
-    for (const auto& p : test.params.results()) {
-      QueryParamsWithResult::FeatureSet feature_set = p.first;
-      feature_set.insert(FEATURE_V_1_3_DATE_ARITHMETICS);
-      result_map.insert(std::make_pair(feature_set, p.second));
-    }
     QueryParamsWithResult params = test.params;
-    params.set_results(result_map);
+    params.AddRequiredFeature(FEATURE_V_1_3_DATE_ARITHMETICS);
     out.push_back(params);
   }
   return out;
-}
-
-// A sample test to test feature lists.
-TEST_F(ComplianceCodebasedTests, TestOnFeatures) {
-  if (!DriverCanRunTests()) {
-    return;
-  }
-
-  const QueryParamsWithResult::FeatureSet& empty_feature_set =
-      QueryParamsWithResult::kEmptyFeatureSet;
-  const QueryParamsWithResult::FeatureSet nonempty_feature_set{
-      LanguageFeature::FEATURE_DISALLOW_GROUP_BY_FLOAT};
-  const std::vector<ValueConstructor> empty_param_list;
-
-  typedef QueryParamsWithResult::Result Result;
-
-  // RunStatementOnFeatures().
-  // With empty feature set, the query returns a result. With feature
-  // "DISALLOW_GROUP_BY_FLOAT", the query returns an INVALID_ARGUMENT
-  // error.
-  SetNamePrefix("QueryOnFeatures");
-  RunStatementOnFeatures(
-      "SELECT DISTINCT double_val as ColA FROM TableAllNull",
-      {empty_param_list, /* parameter list */
-       {{empty_feature_set, Result{Singleton(NullDouble())}}}});
-
-  // RunStatementTests().
-  // Either way the query returns the same result.
-  SetNamePrefix("QueryTestsOnFeatures");
-  RunStatementTests({{{NullDouble()}, /* parameter list */
-                      {{empty_feature_set, Result{NullDouble()}},
-                       {nonempty_feature_set, Result{NullDouble()}}}}},
-                    "@p0");
-
-  // RunFunctionTestsInfix().
-  // Either way the query returns the same result.
-  SetNamePrefix("FunctionTestsInfixOnFeatures");
-  RunFunctionTestsInfix(
-      {{{False(), True()}, /* parameter list */
-        {{empty_feature_set,    Result{False()}},
-         {nonempty_feature_set, Result{False()}}}}},
-      "AND");
-
-  // RunFunctionTestsPrefix().
-  // Either way the query returns the same result.
-  SetNamePrefix("FunctionTestsPrefixOnFeatures");
-  RunFunctionTestsPrefix(
-      {{{Int64(1), Int64(2)}, /* parameter list */
-        {{empty_feature_set,    Result{Int64(2)}},
-         {nonempty_feature_set, Result{Int64(2)}}}}},
-      "Greatest");
-
-  // RunFunctionCalls().
-  // Either way the query returns the same result.
-  // No need to SetNamePrefix, RunFunctionCalls() will do it.
-  RunFunctionCalls({{"abs",       /* function name */
-                     {Int64(-1)}, /* parameter list */
-                     {{empty_feature_set, Result{Int64(1)}},
-                      {nonempty_feature_set, Result{Int64(1)}}}}});
 }
 
 TEST_F(ComplianceCodebasedTests, TestQueryParameters) {
@@ -893,6 +667,43 @@ TEST_F(ComplianceCodebasedTests, TestQueryParameters) {
   SetNamePrefix("Param");
   EXPECT_THAT(RunSQL("SELECT @ColA AS ColA", {{"ColA", Int64(5)}}),
               Returns(Singleton(Int64(5))));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestDepthLimitDetectorTestCases, 12) {
+  for (const DepthLimitDetectorTestCase& depth_case :
+       Shard(AllDepthLimitDetectorTestCases())) {
+    bool driver_enables_right_features = true;
+    LanguageOptions options =
+        DepthLimitDetectorTestCaseLanguageOptions(depth_case);
+    for (LanguageFeature feature : options.GetEnabledLanguageFeatures()) {
+      driver_enables_right_features &= DriverSupportsFeature(feature);
+    }
+    if (!driver_enables_right_features) {
+      ZETASQL_LOG(INFO) << "Skipping " << depth_case
+                << " as not all features supported";
+      continue;
+    }
+    auto label = MakeScopedLabel(absl::StrFormat(
+        "DepthLimitDetector:%s", absl::FormatStreamed(depth_case)));
+    SetNamePrefix(absl::StrFormat("DepthLimitDetector_%s",
+                                  absl::FormatStreamed(depth_case)));
+    absl::Status run_small =
+        RunSQL(DepthLimitDetectorTemplateToString(depth_case, 3)).status();
+    if (!run_small.ok()) {
+      ZETASQL_LOG(INFO) << "Skipping " << depth_case << " as small example returned "
+                << run_small;
+      continue;
+    }
+
+    DepthLimitDetectorTestResult result =
+        RunDepthLimitDetectorTestCase(depth_case, [&](std::string_view sql) {
+          return driver()
+              ->ExecuteStatement(std::string(sql), {},
+                                 execute_statement_type_factory())
+              .status();
+        });
+    ZETASQL_LOG(INFO) << "Depth limit disection finished: " << result;
+  }
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestArithmeticFunctions_Negative, 1) {
@@ -999,16 +810,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringConcatOperator, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestGreatestFunctions, 3) {
   SetNamePrefix("Greatest");
-  RunFunctionTestsPrefix(Shard(GetFunctionTestsGreatest(
-                             DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
-                         "Greatest");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsGreatest()), "Greatest");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestLeastFunctions, 3) {
   SetNamePrefix("Least");
-  RunFunctionTestsPrefix(Shard(GetFunctionTestsLeast(
-                             DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
-                         "Least");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsLeast()), "Least");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFirstFunctions, 1) {
@@ -1047,6 +854,42 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArraySliceFunctions, 2) {
                          "SAFE.ARRAY_SLICE");
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayMinFunctions, 1) {
+  SetNamePrefix("ArrayMin");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayMin(/*is_safe=*/false)),
+                         "ARRAY_MIN");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayMinFunctions, 1) {
+  SetNamePrefix("SafeArrayMin");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayMin(/*is_safe=*/true)),
+                         "SAFE.ARRAY_MIN");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayMaxFunctions, 1) {
+  SetNamePrefix("ArrayMax");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayMax(/*is_safe=*/false)),
+                         "ARRAY_MAX");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayMaxFunctions, 1) {
+  SetNamePrefix("SafeArrayMax");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayMax(/*is_safe=*/true)),
+                         "SAFE.ARRAY_MAX");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArraySumFunctions, 1) {
+  SetNamePrefix("ArraySum");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArraySum(/*is_safe=*/false)),
+                         "ARRAY_SUM");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArraySumFunctions, 1) {
+  SetNamePrefix("SafeArraySum");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArraySum(/*is_safe=*/true)),
+                         "SAFE.ARRAY_SUM");
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestLogicalFunctions_AND, 1) {
   SetNamePrefix("And");
   RunFunctionTestsInfix(Shard(GetFunctionTestsAnd()), "AND");
@@ -1064,30 +907,22 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestLogicalFunctions_NOT, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_EQ, 3) {
   SetNamePrefix("EQ");
-  RunStatementTests(Shard(GetFunctionTestsEqual(
-                        DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
-                    "@p0 = @p1");
+  RunStatementTests(Shard(GetFunctionTestsEqual()), "@p0 = @p1");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_NE, 3) {
   SetNamePrefix("NE");
-  RunStatementTests(Shard(GetFunctionTestsNotEqual(
-                        DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
-                    "@p0 != @p1");
+  RunStatementTests(Shard(GetFunctionTestsNotEqual()), "@p0 != @p1");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_GT, 2) {
   SetNamePrefix("GT");
-  RunStatementTests(Shard(GetFunctionTestsGreater(
-                        DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
-                    "@p0 > @p1");
+  RunStatementTests(Shard(GetFunctionTestsGreater()), "@p0 > @p1");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_GE, 2) {
   SetNamePrefix("GE");
-  RunStatementTests(Shard(GetFunctionTestsGreaterOrEqual(
-                        DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
-                    "@p0 >= @p1");
+  RunStatementTests(Shard(GetFunctionTestsGreaterOrEqual()), "@p0 >= @p1");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_StructIn, 1) {
@@ -1137,16 +972,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_IsNotNull, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_LT, 2) {
   SetNamePrefix("LT");
-  RunStatementTests(Shard(GetFunctionTestsLess(
-                        DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
-                    "@p0 < @p1");
+  RunStatementTests(Shard(GetFunctionTestsLess()), "@p0 < @p1");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_LE, 2) {
   SetNamePrefix("LE");
-  RunStatementTests(Shard(GetFunctionTestsLessOrEqual(
-                        DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
-                    "@p0 <= @p1");
+  RunStatementTests(Shard(GetFunctionTestsLessOrEqual()), "@p0 <= @p1");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestCastFunction, 4) {
@@ -1162,15 +993,14 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestCastFunction, 4) {
               : absl::StrCat("\'", p.param(1).string_value(), "\'"));
       if (p.num_params() == 3) {
         absl::StrAppend(
-            &optional_format_param,
-            " AT TIME ZONE ",
+            &optional_format_param, " AT TIME ZONE ",
             p.param(2).is_null()
                 ? "CAST(NULL AS STRING)"
                 : absl::StrCat("\'", p.param(2).string_value(), "\'"));
       }
     }
     return absl::StrCat("CAST(@p0 AS ",
-                        p.GetResultType()->TypeName(PRODUCT_INTERNAL),
+                        p.result().type()->TypeName(PRODUCT_INTERNAL),
                         optional_format_param, ")");
   };
   SetNamePrefix("CastTo", true /* Need Result Type */);
@@ -1195,7 +1025,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeCastFunction, 4) {
       }
     }
     return absl::StrCat("SAFE_CAST(@p0 AS ",
-                        p.GetResultType()->TypeName(PRODUCT_INTERNAL),
+                        p.result().type()->TypeName(PRODUCT_INTERNAL),
                         optional_format_param, ")");
   };
   SetNamePrefix("SafeCastTo", true /* Need Result Type */);
@@ -1206,28 +1036,26 @@ SHARDED_TEST_F(ComplianceCodebasedTests,
                TestCastArraysWithNullsOfDifferentTypesFunction, 3) {
   auto format_fct = [](const QueryParamsWithResult& p) {
     return absl::StrCat("CAST(@p0 AS ",
-                        p.GetResultType()->TypeName(PRODUCT_INTERNAL), ")");
+                        p.result().type()->TypeName(PRODUCT_INTERNAL), ")");
   };
   SetNamePrefix("CastArraysBetweenDifferentType_WithNulls",
                 true /* Need Result Type */);
-  RunStatementTestsCustom(
-      Shard(GetFunctionTestsCastBetweenDifferentArrayTypes(
-          /*arrays_with_nulls=*/true)),
-      format_fct);
+  RunStatementTestsCustom(Shard(GetFunctionTestsCastBetweenDifferentArrayTypes(
+                              /*arrays_with_nulls=*/true)),
+                          format_fct);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests,
                TestCastArraysWithoutNullsOfDifferentTypesFunction, 3) {
   auto format_fct = [](const QueryParamsWithResult& p) {
     return absl::StrCat("CAST(@p0 AS ",
-                        p.GetResultType()->TypeName(PRODUCT_INTERNAL), ")");
+                        p.result().type()->TypeName(PRODUCT_INTERNAL), ")");
   };
   SetNamePrefix("CastArraysBetweenDifferentType_WithoutNulls",
                 true /* Need Result Type */);
-  RunStatementTestsCustom(
-      Shard(GetFunctionTestsCastBetweenDifferentArrayTypes(
-          /*arrays_with_nulls=*/false)),
-      format_fct);
+  RunStatementTestsCustom(Shard(GetFunctionTestsCastBetweenDifferentArrayTypes(
+                              /*arrays_with_nulls=*/false)),
+                          format_fct);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestBitCastFunctions, 1) {
@@ -1328,24 +1156,9 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractScalar, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsStringJsonExtractScalar()));
 }
 
-namespace {
-
-// Wraps test cases with FEATURE_JSON_ARRAY_FUNCTIONS.
-std::vector<FunctionTestCall> EnableStringJsonArrayFunctionsForTest(
-    std::vector<FunctionTestCall> tests) {
-  for (auto& test_case : tests) {
-    test_case.params =
-        test_case.params.WrapWithFeature(FEATURE_JSON_ARRAY_FUNCTIONS);
-  }
-  return tests;
-}
-
-}  // namespace
-
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonQueryArray, 1) {
   SetNamePrefix("StringJsonQueryArray");
-  RunFunctionCalls(Shard(EnableStringJsonArrayFunctionsForTest(
-      GetFunctionTestsStringJsonQueryArray())));
+  RunFunctionCalls(Shard(GetFunctionTestsStringJsonQueryArray()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractArray, 1) {
@@ -1355,27 +1168,21 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractArray, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonValueArray, 1) {
   SetNamePrefix("StringJsonValueArray");
-  RunFunctionCalls(Shard(EnableStringJsonArrayFunctionsForTest(
-      GetFunctionTestsStringJsonValueArray())));
+  RunFunctionCalls(Shard(GetFunctionTestsStringJsonValueArray()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractStringArray, 1) {
   SetNamePrefix("StringJsonExtractStringArray");
-  RunFunctionCalls(Shard(EnableStringJsonArrayFunctionsForTest(
-      GetFunctionTestsStringJsonExtractStringArray())));
+  RunFunctionCalls(Shard(GetFunctionTestsStringJsonExtractStringArray()));
 }
 
 namespace {
 
-// Wraps test cases with FEATURE_JSON_TYPE.
-// If a test case already has a feature set, do not wrap it.
+// Adds FEATURE_JSON_TYPE as a required feature to all tests in 'tests'.
 std::vector<FunctionTestCall> EnableJsonFeatureForTest(
     std::vector<FunctionTestCall> tests) {
   for (auto& test_case : tests) {
-    if (test_case.params.HasEmptyFeatureSetAndNothingElse()) {
-      test_case.params =
-          test_case.params.WrapWithFeatureSet({FEATURE_JSON_TYPE});
-    }
+    test_case.params.AddRequiredFeature(FEATURE_JSON_TYPE);
   }
   return tests;
 }
@@ -1388,19 +1195,6 @@ std::vector<FunctionTestCall> EnableJsonValueExtractionFunctionsForTest(
     if (test_case.params.HasEmptyFeatureSetAndNothingElse()) {
       test_case.params = test_case.params.WrapWithFeatureSet(
           {FEATURE_JSON_TYPE, FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS});
-    }
-  }
-  return tests;
-}
-
-// Wraps test cases with FEATURE_JSON_TYPE and FEATURE_JSON_ARRAY_FUNCTIONS.
-// If a test case already has a feature set, do not wrap it.
-std::vector<FunctionTestCall> EnableNativeJsonArrayFunctionsForTest(
-    std::vector<FunctionTestCall> tests) {
-  for (auto& test_case : tests) {
-    if (test_case.params.HasEmptyFeatureSetAndNothingElse()) {
-      test_case.params = test_case.params.WrapWithFeatureSet(
-          {FEATURE_JSON_TYPE, FEATURE_JSON_ARRAY_FUNCTIONS});
     }
   }
   return tests;
@@ -1434,32 +1228,31 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractScalar, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonQueryArray, 1) {
   SetNamePrefix("NativeJsonQueryArray");
-  RunFunctionCalls(Shard(EnableNativeJsonArrayFunctionsForTest(
-      GetFunctionTestsNativeJsonQueryArray())));
+  RunFunctionCalls(
+      Shard(EnableJsonFeatureForTest(GetFunctionTestsNativeJsonQueryArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractArray, 1) {
   SetNamePrefix("NativeJsonExtractArray");
-  RunFunctionCalls(Shard(EnableNativeJsonArrayFunctionsForTest(
-      GetFunctionTestsNativeJsonExtractArray())));
+  RunFunctionCalls(Shard(
+      EnableJsonFeatureForTest(GetFunctionTestsNativeJsonExtractArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonValueArray, 1) {
   SetNamePrefix("NativeJsonValueArray");
-  RunFunctionCalls(Shard(EnableNativeJsonArrayFunctionsForTest(
-      GetFunctionTestsNativeJsonValueArray())));
+  RunFunctionCalls(
+      Shard(EnableJsonFeatureForTest(GetFunctionTestsNativeJsonValueArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractStringArray, 1) {
   SetNamePrefix("NativeJsonExtractStringArray");
-  RunFunctionCalls(Shard(EnableNativeJsonArrayFunctionsForTest(
+  RunFunctionCalls(Shard(EnableJsonFeatureForTest(
       GetFunctionTestsNativeJsonExtractStringArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestToJsonString, 1) {
   SetNamePrefix("ToJsonString");
-  RunFunctionCalls(Shard(GetFunctionTestsToJsonString(
-      DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))));
+  RunFunctionCalls(Shard(GetFunctionTestsToJsonString()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestToJson, 1) {
@@ -1471,9 +1264,8 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestToJson, 1) {
     return absl::Substitute("$0(@p0, stringify_wide_numbers=>@p1)",
                             f.function_name);
   };
-  RunFunctionTestsCustom(Shard(EnableJsonFeatureForTest(GetFunctionTestsToJson(
-                             DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS)))),
-                         to_json_fct);
+  RunFunctionTestsCustom(
+      Shard(EnableJsonFeatureForTest(GetFunctionTestsToJson())), to_json_fct);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestParseJson, 1) {
@@ -1554,20 +1346,86 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestLike, 4) {
       });
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestLikeWithCollation, 4) {
+  auto query_params_with_results_with_collation =
+      WrapFeatureCollation(GetFunctionTestsLikeWithCollation());
+  SetNamePrefix("LikeWithCollationTextPatternUndCi");
+  RunStatementTests(Shard(query_params_with_results_with_collation),
+                    "COLLATE(@p0, 'und:ci') LIKE COLLATE(@p1, 'und:ci')");
+  SetNamePrefix("LikeWithCollationTextUndCi");
+  RunStatementTests(Shard(query_params_with_results_with_collation),
+                    "COLLATE(@p0, 'und:ci') LIKE @p1");
+  SetNamePrefix("LikeWithCollationPatternUndCi");
+  RunStatementTests(Shard(query_params_with_results_with_collation),
+                    "@p0 LIKE COLLATE(@p1, 'und:ci')");
+  auto query_params_with_results =
+      WrapFeatureCollation(GetFunctionTestsLikeString());
+  SetNamePrefix("LikeWithCollationTextPatternBinary");
+  RunStatementTests(Shard(query_params_with_results),
+                    "COLLATE(@p0, 'binary') LIKE COLLATE(@p1, 'binary')");
+  SetNamePrefix("LikeWithCollationTextBinary");
+  RunStatementTests(Shard(query_params_with_results),
+                    "COLLATE(@p0, 'binary') LIKE @p1");
+  SetNamePrefix("LikeWithCollationPatternBinary");
+  RunStatementTests(Shard(query_params_with_results),
+                    "@p0 LIKE COLLATE(@p1, 'binary')");
+  SetNamePrefix("LikeWithCollationTextPatternEmpty");
+  RunStatementTests(Shard(query_params_with_results),
+                    "COLLATE(@p0, '') LIKE COLLATE(@p1, '')");
+  SetNamePrefix("LikeWithCollationTextEmpty");
+  RunStatementTests(Shard(query_params_with_results),
+                    "COLLATE(@p0, '') LIKE @p1");
+  SetNamePrefix("LikeWithCollationPatternEmpty");
+  RunStatementTests(Shard(query_params_with_results),
+                    "@p0 LIKE COLLATE(@p1, '')");
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNotLike, 2) {
   SetNamePrefix("NotLike");
   RunStatementTests(InvertResults(Shard(GetFunctionTestsLike())),
                     "@p0 NOT LIKE @p1");
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestNotLikeWithCollation, 4) {
+  auto query_params_with_results_with_collation =
+      WrapFeatureCollation(InvertResults(GetFunctionTestsLikeWithCollation()));
+  SetNamePrefix("NotLikeWithCollationTextPatternUndCi");
+  RunStatementTests(Shard(query_params_with_results_with_collation),
+                    "COLLATE(@p0, 'und:ci') NOT LIKE COLLATE(@p1, 'und:ci')");
+  SetNamePrefix("NotLikeWithCollationTextUndCi");
+  RunStatementTests(Shard(query_params_with_results_with_collation),
+                    "COLLATE(@p0, 'und:ci') NOT LIKE @p1");
+  SetNamePrefix("NotLikeWithCollationPatternUndCi");
+  RunStatementTests(Shard(query_params_with_results_with_collation),
+                    "@p0 NOT LIKE COLLATE(@p1, 'und:ci')");
+  auto query_params_with_results =
+      WrapFeatureCollation(InvertResults(GetFunctionTestsLikeString()));
+  SetNamePrefix("NotLikeWithCollationTextPatternBinary");
+  RunStatementTests(Shard(query_params_with_results),
+                    "COLLATE(@p0, 'binary') NOT LIKE COLLATE(@p1, 'binary')");
+  SetNamePrefix("NotLikeWithCollationTextBinary");
+  RunStatementTests(Shard(query_params_with_results),
+                    "COLLATE(@p0, 'binary') NOT LIKE @p1");
+  SetNamePrefix("NotLikeWithCollationPatternBinary");
+  RunStatementTests(Shard(query_params_with_results),
+                    "@p0 NOT LIKE COLLATE(@p1, 'binary')");
+  SetNamePrefix("NotLikeWithCollationTextPatternEmpty");
+  RunStatementTests(Shard(query_params_with_results),
+                    "COLLATE(@p0, '') NOT LIKE COLLATE(@p1, '')");
+  SetNamePrefix("NotLikeWithCollationTextEmpty");
+  RunStatementTests(Shard(query_params_with_results),
+                    "COLLATE(@p0, '') NOT LIKE @p1");
+  SetNamePrefix("NotLikeWithCollationPatternEmpty");
+  RunStatementTests(Shard(query_params_with_results),
+                    "@p0 NOT LIKE COLLATE(@p1, '')");
+}
+
 TEST_F(ComplianceCodebasedTests, TestSimpleTable) {
   if (!DriverCanRunTests()) {
     return;
   }
-  Value mytable = StructArray({"int64_val", "str_val"}, {
-      {1ll, "foo"},
-      {2ll, "bar"}},
-      kIgnoresOrder);
+  Value mytable = StructArray({"int64_val", "str_val"},
+                              {{1ll, "foo"}, {2ll, "bar"}}, kIgnoresOrder);
 
   SetNamePrefix("Table");
   EXPECT_THAT(RunSQL("SELECT int64_val, str_val FROM MyTable"),
@@ -1575,10 +1433,8 @@ TEST_F(ComplianceCodebasedTests, TestSimpleTable) {
 
   // Scanned rows can be returned in any order.
   SetNamePrefix("PermutedTable");
-  Value permuted_mytable = StructArray({"int64_val", "str_val"}, {
-      {2ll, "bar"},
-      {1ll, "foo"}},
-      kIgnoresOrder);
+  Value permuted_mytable = StructArray(
+      {"int64_val", "str_val"}, {{2ll, "bar"}, {1ll, "foo"}}, kIgnoresOrder);
   EXPECT_THAT(RunSQL("SELECT int64_val, str_val FROM MyTable"),
               Returns(permuted_mytable));
 }
@@ -1591,9 +1447,11 @@ TEST_F(ComplianceCodebasedTests, TestAggregation) {
 
   // ANY_VALUE
   // Read a table of all NULL values.
-  Value any_result_nulls = StructArray(
-      {"bool_any", "double_any", "int64_any", "str_val"}, {
-      {NullBool(), NullDouble(), NullInt64(), NullString()}, });
+  Value any_result_nulls =
+      StructArray({"bool_any", "double_any", "int64_any", "str_val"},
+                  {
+                      {NullBool(), NullDouble(), NullInt64(), NullString()},
+                  });
   SetNamePrefix("TableAllNull");
   EXPECT_THAT(RunSQL("SELECT ANY_VALUE(bool_val) bool_any, "
                      "       ANY_VALUE(double_val) double_any, "
@@ -1809,8 +1667,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Math, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Rounding, 1) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
-  RunFunctionCalls(
-      WrapFeatureRoundWithRoundingMode(Shard(GetFunctionTestsRounding())));
+  RunFunctionCalls(Shard(GetFunctionTestsRounding()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Trigonometric, 1) {
@@ -1825,7 +1682,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_InverseTrigonometric,
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Cbrt, 1) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
-  RunFunctionCalls(WrapFeatureCbrt(Shard(GetFunctionTestsCbrt())));
+  RunFunctionCalls(Shard(GetFunctionTestsCbrt()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNetFunctions, 3) {
@@ -1855,7 +1712,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTimeFunctionsDateDiffFormat,
 // others. The number of shards for this case is picked so that each shard has
 // ~300 queries.
 SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTimeFunctionsExtractFormat,
-               33) {
+               100) {
   auto extract_format_fct = [](const FunctionTestCall& f) {
     if (f.params.num_params() != 2 && f.params.num_params() != 3) {
       ZETASQL_LOG(FATAL) << "Unexpected number of parameters: "
@@ -1939,10 +1796,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestToProto3TimeOfDay, 1) {
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeAddSubFunctions, 2) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   auto datetime_add_sub = [](const FunctionTestCall& f) {
     ZETASQL_CHECK_EQ(3, f.params.num_params());
     return absl::Substitute("$0(@p0, INTERVAL @p1 $1)", f.function_name,
@@ -1955,10 +1808,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeAddSubFunctions, 2) {
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeDiffFunctions, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   auto datetime_diff = [](const FunctionTestCall& f) {
     ZETASQL_CHECK_EQ(3, f.params.num_params());
     return absl::Substitute("$0(@p0, @p1, $1)", f.function_name,
@@ -1971,18 +1820,14 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeDiffFunctions, 1) {
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestLastDayFunctions, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   auto last_day = [](const FunctionTestCall& f) {
     ZETASQL_CHECK_EQ("last_day", f.function_name);
     return absl::Substitute(
         "$0(@p0, $1)", f.function_name,
         functions::DateTimestampPartToSQL(f.params.param(1).enum_value()));
   };
-  RunFunctionTestsCustom(
-      Shard(WrapFeatureLastDay(GetFunctionTestsLastDay())), last_day);
+  RunFunctionTestsCustom(Shard(WrapFeatureLastDay(GetFunctionTestsLastDay())),
+                         last_day);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTruncFunctions, 1) {
@@ -2001,10 +1846,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDateTruncFunctions, 1) {
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeTruncFunctions, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   auto datetime_trunc = [](const FunctionTestCall& f) {
     ZETASQL_CHECK_EQ(2, f.params.num_params());
     return absl::Substitute("$0(@p0, $1)", f.function_name,
@@ -2017,10 +1858,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeTruncFunctions, 1) {
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestTimeAddSubFunctions, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   auto time_add_sub = [](const FunctionTestCall& f) {
     ZETASQL_CHECK_EQ(3, f.params.num_params());
     return absl::Substitute("$0(@p0, INTERVAL @p1 $1)", f.function_name,
@@ -2033,10 +1870,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestTimeAddSubFunctions, 1) {
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestTimeDiffFunctions, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   auto time_diff = [](const FunctionTestCall& f) {
     ZETASQL_CHECK_EQ(3, f.params.num_params());
     return absl::Substitute("$0(@p0, @p1, $1)", f.function_name,
@@ -2049,10 +1882,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestTimeDiffFunctions, 1) {
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestTimeTruncFunctions, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   auto time_trunc = [](const FunctionTestCall& f) {
     ZETASQL_CHECK_EQ(2, f.params.num_params());
     return absl::Substitute("$0(@p0, $1)", f.function_name,
@@ -2105,10 +1934,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestTimestampConversionFunctions, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests,
                TestCivilTimeConstructionFunctions_Date, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   RunFunctionCalls(Shard(GetFunctionTestsDateConstruction()));
 }
 
@@ -2121,46 +1946,26 @@ SHARDED_TEST_F(ComplianceCodebasedTests,
 
 SHARDED_TEST_F(ComplianceCodebasedTests,
                TestCivilTimeConstructionFunctions_Time, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   RunFunctionCalls(Shard(GetFunctionTestsTimeConstruction()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests,
                TestCivilTimeConstructionFunctions_DateTime, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   RunFunctionCalls(Shard(GetFunctionTestsDatetimeConstruction()));
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests,
-                 TestCivilTimeConversionFunctions_Date, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
+SHARDED_TEST_F(ComplianceCodebasedTests, TestCivilTimeConversionFunctions_Date,
+               1) {
   RunFunctionCalls(Shard(GetFunctionTestsConvertDatetimeToTimestamp()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestCivilTimeConversionFunctions_Time,
                1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   RunFunctionCalls(Shard(GetFunctionTestsConvertTimestampToTime()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests,
                TestCivilTimeConversionFunctions_DateTime, 1) {
-  if (!DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    SkipAllShards();
-    return;
-  }
   RunFunctionCalls(Shard(GetFunctionTestsConvertTimestampToDatetime()));
 }
 
@@ -2203,8 +2008,8 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringSoundexFunctions, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringTranslateFunctions, 1) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
-  RunFunctionCalls(Shard(
-      WrapFeatureAdditionalStringFunctions(GetFunctionTestsTranslate())));
+  RunFunctionCalls(
+      Shard(WrapFeatureAdditionalStringFunctions(GetFunctionTestsTranslate())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringInstrFunctions1, 1) {
@@ -2394,18 +2199,11 @@ WrapProtoFieldTestCasesForCivilTime(
   for (auto& each : results) {
     // There's only one parameter for each ProtoField test case.
     ZETASQL_CHECK_EQ(1, each.num_params());
-    // Wrap the result when there is only one result in the test case and the
-    // feature set in that result is empty.
-    if (each.results().size() == 1 &&
-        zetasql_base::ContainsKey(each.results(),
-                         QueryParamsWithResult::kEmptyFeatureSet)) {
+    // Wrap the result when the required feature set is empty.
+    if (each.required_features().empty()) {
       if (each.param(0).type()->UsingFeatureV12CivilTimeType() ||
           each.result().type()->UsingFeatureV12CivilTimeType()) {
-        QueryParamsWithResult::ResultMap wrapped_results = {
-            {{FEATURE_V_1_2_CIVIL_TIME},
-             QueryParamsWithResult::Result(each.result(), each.status())},
-        };
-        each.set_results(wrapped_results);
+        each.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
       }
     }
   }
@@ -2699,8 +2497,8 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
       TEST_REPEATED_FIELD(repeated_sint32_packed, -12, Value::Int32(-12)));
   COLLECT_TEST(
       TEST_REPEATED_FIELD(repeated_sint64_packed, -12, Value::Int64(-12)));
-  const EnumType* enum_type = test_values::MakeEnumType(
-      zetasql_test__::TestEnum_descriptor());
+  const EnumType* enum_type =
+      test_values::MakeEnumType(zetasql_test__::TestEnum_descriptor());
   COLLECT_TEST(TEST_REPEATED_FIELD(
       repeated_enum_packed, zetasql_test__::TESTENUMNEGATIVE,
       Value::Enum(enum_type, zetasql_test__::TESTENUMNEGATIVE)));
@@ -2810,14 +2608,12 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
     TEST_REPEATED_CIVIL_TIME_FIELD(                                            \
         repeated_time_micros, value.Packed64TimeMicros(), Value::Time(value)); \
   }
-  if (DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    COLLECT_TEST(
-        TEST_TIME_MICROS_FIELDS(TimeValue::FromHMSAndMicros(0, 0, 0, 0)));
-    COLLECT_TEST(TEST_TIME_MICROS_FIELDS(
-        TimeValue::FromHMSAndMicros(23, 59, 59, 999999)));
-    COLLECT_TEST(TEST_TIME_MICROS_FIELDS(
-        TimeValue::FromHMSAndMicros(12, 34, 56, 654321)));
-  }
+  COLLECT_TEST(
+      TEST_TIME_MICROS_FIELDS(TimeValue::FromHMSAndMicros(0, 0, 0, 0)));
+  COLLECT_TEST(
+      TEST_TIME_MICROS_FIELDS(TimeValue::FromHMSAndMicros(23, 59, 59, 999999)));
+  COLLECT_TEST(
+      TEST_TIME_MICROS_FIELDS(TimeValue::FromHMSAndMicros(12, 34, 56, 654321)));
 
 #define TEST_TIME_MICROS_FIELDS_INVALID_VALUE(value)                          \
   {                                                                           \
@@ -2830,16 +2626,15 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
     TEST_REPEATED_CIVIL_TIME_FIELD_INVALID_VALUE(repeated_time_micros, value, \
                                                  Value::NullTime());          \
   }
-  if (DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(-1));
-    COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0x1800000000));  // 24h
-    COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0xF0000000));    // 60m
-    COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0x3C00000));     // 60s
-    COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0xF4240));  // 1M micros
-    // The lower 37 bits actually decode to 12:34:56.654321, but there is
-    // something in the higher, unused bits, making it invalid.
-    COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0x100000c8b89fbf1));
-  }
+
+  COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(-1));
+  COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0x1800000000));  // 24h
+  COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0xF0000000));    // 60m
+  COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0x3C00000));     // 60s
+  COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0xF4240));  // 1M micros
+  // The lower 37 bits actually decode to 12:34:56.654321, but there is
+  // something in the higher, unused bits, making it invalid.
+  COLLECT_TEST(TEST_TIME_MICROS_FIELDS_INVALID_VALUE(0x100000c8b89fbf1));
 
 #define TEST_DATETIME_MICROS_FIELDS(value)                                    \
   {                                                                           \
@@ -2855,37 +2650,33 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
                                    Value::Datetime(value));                   \
   }
 
-  if (DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS(
-        DatetimeValue::FromYMDHMSAndMicros(1, 1, 1, 0, 0, 0, 0)));
-    COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS(
-        DatetimeValue::FromYMDHMSAndMicros(9999, 12, 31, 23, 59, 59, 999999)));
-    COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS(
-        DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 0, 0, 0)));
-    COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS(
-        DatetimeValue::FromYMDHMSAndMicros(2016, 2, 16, 13, 35, 57, 456789)));
+  COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS(
+      DatetimeValue::FromYMDHMSAndMicros(1, 1, 1, 0, 0, 0, 0)));
+  COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS(
+      DatetimeValue::FromYMDHMSAndMicros(9999, 12, 31, 23, 59, 59, 999999)));
+  COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS(
+      DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 0, 0, 0)));
+  COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS(
+      DatetimeValue::FromYMDHMSAndMicros(2016, 2, 16, 13, 35, 57, 456789)));
+
+#define TEST_DATETIME_MICROS_FIELDS_INVALID_VALUE(value)                  \
+  {                                                                       \
+    TEST_CIVIL_TIME_FIELD_INVALID_VALUE(datetime_micros,                  \
+                                        value.Packed64DatetimeMicros(),   \
+                                        Value::NullDatetime());           \
+    TEST_CIVIL_TIME_FIELD_INVALID_VALUE(                                  \
+        datetime_micros_default, value.Packed64DatetimeMicros(),          \
+        Value::Datetime(                                                  \
+            DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 0, 0, 0))); \
+    TEST_REPEATED_CIVIL_TIME_FIELD_INVALID_VALUE(                         \
+        repeated_datetime_micros, value.Packed64DatetimeMicros(),         \
+        Value::NullDatetime());                                           \
   }
 
-#define TEST_DATETIME_MICROS_FIELDS_INVALID_VALUE(value)                      \
-  {                                                                           \
-    TEST_CIVIL_TIME_FIELD_INVALID_VALUE(datetime_micros,                      \
-                                        value.Packed64DatetimeMicros(),       \
-                                        Value::NullDatetime());               \
-    TEST_CIVIL_TIME_FIELD_INVALID_VALUE(                                      \
-        datetime_micros_default, value.Packed64DatetimeMicros(),              \
-        Value::Datetime(                                                      \
-            DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 0, 0, 0)));     \
-    TEST_REPEATED_CIVIL_TIME_FIELD_INVALID_VALUE(                             \
-        repeated_datetime_micros, value.Packed64DatetimeMicros(),             \
-        Value::NullDatetime());                                               \
-  }
-  if (DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS_INVALID_VALUE(
-        DatetimeValue::FromYMDHMSAndMicros(0, 0, 0, -1, -1, -1, -1)));
-    COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS_INVALID_VALUE(
-        DatetimeValue::FromYMDHMSAndMicros(99999, 99, 99, 99, 99, 99,
-                                           9999999)));
-  }
+  COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS_INVALID_VALUE(
+      DatetimeValue::FromYMDHMSAndMicros(0, 0, 0, -1, -1, -1, -1)));
+  COLLECT_TEST(TEST_DATETIME_MICROS_FIELDS_INVALID_VALUE(
+      DatetimeValue::FromYMDHMSAndMicros(99999, 99, 99, 99, 99, 99, 9999999)));
 
   // Test enums.
   COLLECT_TEST(TEST_FIELD(test_enum, zetasql_test__::TESTENUM2,
@@ -2904,29 +2695,26 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
   COLLECT_TEST(TEST_REPEATED_MESSAGE_FIELD(nested_repeated_value, nested));
 
   // Test nested civil time proto
-  if (DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    zetasql_test__::CivilTimeTypesSinkPB::NestedCivilTimeFields
-        civil_time_nested;
-    civil_time_nested.set_time_micros(
-        TimeValue::FromHMSAndMicros(12, 34, 56, 654321).Packed64TimeMicros());
-    civil_time_nested.set_datetime_micros(
-        DatetimeValue::FromYMDHMSAndMicros(2016, 3, 3, 16, 29, 48, 456789)
-            .Packed64DatetimeMicros());
-    COLLECT_TEST(TEST_MESSAGE_CIVIL_TIME_FIELD(nested_civil_time_fields,
-                                               civil_time_nested));
+  zetasql_test__::CivilTimeTypesSinkPB::NestedCivilTimeFields civil_time_nested;
+  civil_time_nested.set_time_micros(
+      TimeValue::FromHMSAndMicros(12, 34, 56, 654321).Packed64TimeMicros());
+  civil_time_nested.set_datetime_micros(
+      DatetimeValue::FromYMDHMSAndMicros(2016, 3, 3, 16, 29, 48, 456789)
+          .Packed64DatetimeMicros());
+  COLLECT_TEST(TEST_MESSAGE_CIVIL_TIME_FIELD(nested_civil_time_fields,
+                                             civil_time_nested));
 
-    zetasql_test__::CivilTimeTypesSinkPB::NestedCivilTimeRepeatedFields
-        civil_time_nested_repeated;
-    civil_time_nested_repeated.add_repeated_datetime_micros(
-        TimeValue::FromHMSAndMicros(0, 0, 0, 0).Packed64TimeMicros());
-    civil_time_nested_repeated.add_repeated_datetime_micros(
-        TimeValue::FromHMSAndMicros(23, 59, 59, 999999).Packed64TimeMicros());
-    civil_time_nested_repeated.add_repeated_datetime_micros(
-        DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 0, 0, 0)
-            .Packed64DatetimeMicros());
-    COLLECT_TEST(TEST_MESSAGE_CIVIL_TIME_FIELD(
-        nested_civil_time_repeated_fields, civil_time_nested_repeated));
-  }
+  zetasql_test__::CivilTimeTypesSinkPB::NestedCivilTimeRepeatedFields
+      civil_time_nested_repeated;
+  civil_time_nested_repeated.add_repeated_datetime_micros(
+      TimeValue::FromHMSAndMicros(0, 0, 0, 0).Packed64TimeMicros());
+  civil_time_nested_repeated.add_repeated_datetime_micros(
+      TimeValue::FromHMSAndMicros(23, 59, 59, 999999).Packed64TimeMicros());
+  civil_time_nested_repeated.add_repeated_datetime_micros(
+      DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 0, 0, 0)
+          .Packed64DatetimeMicros());
+  COLLECT_TEST(TEST_MESSAGE_CIVIL_TIME_FIELD(nested_civil_time_repeated_fields,
+                                             civil_time_nested_repeated));
 
   // Test group.
   zetasql_test__::KitchenSinkPB::OptionalGroup optional_group;
@@ -2987,7 +2775,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestProtoFields, 9) {
     function();
   }
 }
-
 
 TEST_F(ComplianceCodebasedTests, TestWideStruct) {
   if (!DriverCanRunTests()) {
@@ -3063,8 +2850,8 @@ TEST_F(ComplianceCodebasedTests, TestDeepArray) {
   int kDepth = 10;
 
   const ArrayType* array_type = MakeArrayType(Int64Type());
-  Value array_value = Value::Array(array_type, {Value::Int64(1),
-                                                Value::Int64(2)});
+  Value array_value =
+      Value::Array(array_type, {Value::Int64(1), Value::Int64(2)});
   for (int i = 0; i < kDepth; i++) {
     StructField struct_field("x", array_type);
     const StructType* struct_type = MakeStructType({struct_field});
@@ -3327,9 +3114,7 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
     ComplianceFilebasedTests);  // TODO (broken link)
 
 // All file-based tests.
-TEST_P(ComplianceFilebasedTests, FilebasedTest) {
-  RunSQLTests(GetParam());
-}
+TEST_P(ComplianceFilebasedTests, FilebasedTest) { RunSQLTests(GetParam()); }
 
 namespace {
 std::string NameForFilebasedTest(

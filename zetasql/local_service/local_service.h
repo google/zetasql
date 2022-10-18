@@ -21,7 +21,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "zetasql/local_service/local_service.pb.h"
 #include "zetasql/local_service/state.h"

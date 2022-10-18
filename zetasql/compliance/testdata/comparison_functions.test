@@ -1079,7 +1079,7 @@ ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[
   {-10000-0 0 1:0:0, -10000-0 0 1:0:0, false, false, true, true}
 ]
 ==
-[required_features=V_1_3_IS_DISTINCT,INTERVAL_TYPE]
+[required_features=V_1_3_IS_DISTINCT,INTERVAL_TYPE,TIMESTAMP_NANOS]
 [name=is_distinct_interval_nanoseconds]
 WITH IntervalTable AS (
   SELECT * FROM UNNEST([

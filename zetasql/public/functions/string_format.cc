@@ -20,9 +20,13 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <limits>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/canonicalize_signed_zero_to_string.h"
@@ -188,8 +192,12 @@ bool StringFormatEvaluator::ValueAsString(const Value& value,
   return true;
 }
 
-StringFormatEvaluator::StringFormatEvaluator(ProductMode product_mode)
-    : product_mode_(product_mode), type_resolver_(nullptr), status_() {}
+StringFormatEvaluator::StringFormatEvaluator(ProductMode product_mode,
+                                             bool canonicalize_zero)
+    : product_mode_(product_mode),
+      type_resolver_(nullptr),
+      status_(),
+      canonicalize_zero_(canonicalize_zero) {}
 
 absl::Status StringFormatEvaluator::SetPattern(absl::string_view pattern) {
   if (pattern_.empty() || pattern != pattern_) {
@@ -542,9 +550,19 @@ FormatPart::SetterFn StringFormatEvaluator::MakeCopyIntCustom(int64_t index) {
     case TYPE_UINT64:
       return &StringFormatEvaluator::CopyIntCustom<uint64_t, GROUPING>;
     case TYPE_DOUBLE:
-      return &StringFormatEvaluator::CopyDoubleCustom<double, GROUPING>;
+      if (canonicalize_zero_) {
+        return &StringFormatEvaluator::CopyDoubleCanonicalizeZeroCustom<
+            double, GROUPING>;
+      } else {
+        return &StringFormatEvaluator::CopyDoubleCustom<double, GROUPING>;
+      }
     case TYPE_FLOAT:
-      return &StringFormatEvaluator::CopyDoubleCustom<float, GROUPING>;
+      if (canonicalize_zero_) {
+        return &StringFormatEvaluator::CopyDoubleCanonicalizeZeroCustom<
+            float, GROUPING>;
+      } else {
+        return &StringFormatEvaluator::CopyDoubleCustom<float, GROUPING>;
+      }
     case TYPE_NUMERIC:
       return &StringFormatEvaluator::CopyNumericCustom<GROUPING>;
     case TYPE_BIGNUMERIC:
@@ -578,6 +596,31 @@ bool StringFormatEvaluator::CopyIntCustom(const FormatPart& part,
   } else {
     fmt_uint_.value = static_cast<uint64_t>(value_data);
     *arg = absl::FormatArg(fmt_uint_);
+  }
+  return true;
+}
+
+template <typename T, bool GROUPING>
+bool StringFormatEvaluator::CopyDoubleCanonicalizeZeroCustom(
+    const FormatPart& part, absl::FormatArg* arg) {
+  const Value* value = &values_[part.var_index];
+
+  if (value->is_null()) {
+    return false;  // NULL
+  }
+  T value_data = value->template Get<T>();
+  if (value_data == -0.0) {
+    value_data = 0.0;
+  }
+  if (std::isnan(value_data)) {
+    value_data = std::numeric_limits<T>::quiet_NaN();
+  }
+  if (GROUPING) {
+    fmt_grouped_double_.value = static_cast<double>(value_data);
+    *arg = absl::FormatArg(fmt_grouped_double_);
+  } else {
+    fmt_double_.value = static_cast<double>(value_data);
+    *arg = absl::FormatArg(fmt_double_);
   }
   return true;
 }
@@ -1630,7 +1673,7 @@ AbslFormatConvert(const FormatGsqlNumeric<NumericType, GROUPING>& value,
 absl::Status StringFormatUtf8(absl::string_view format_string,
                               absl::Span<const Value> values,
                               ProductMode product_mode, std::string* output,
-                              bool* is_null) {
+                              bool* is_null, bool canonicalize_zero) {
   bool maybe_need_proto_factory = false;
   std::vector<const Type*> types;
   for (const Value& value : values) {
@@ -1651,7 +1694,8 @@ absl::Status StringFormatUtf8(absl::string_view format_string,
   if (maybe_need_proto_factory) {
     factory = std::make_unique<google::protobuf::DynamicMessageFactory>();
   }
-  string_format_internal::StringFormatEvaluator evaluator(product_mode);
+  string_format_internal::StringFormatEvaluator evaluator(product_mode,
+                                                          canonicalize_zero);
   ZETASQL_RETURN_IF_ERROR(evaluator.SetTypes(std::move(types), factory.get()));
   ZETASQL_RETURN_IF_ERROR(evaluator.SetPattern(format_string));
 

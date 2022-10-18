@@ -17,8 +17,10 @@
 #include "zetasql/public/table_valued_function.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/proto/function.pb.h"
@@ -38,6 +40,7 @@ void ExpectEqualTVFSchemaColumn(const TVFSchemaColumn& column1,
   EXPECT_EQ(column1.name, column2.name);
   EXPECT_EQ(column1.is_pseudo_column, column2.is_pseudo_column);
   EXPECT_TRUE(column1.type->Equals(column2.type));
+  AnnotationMap::Equals(column1.annotation_map, column2.annotation_map);
   EXPECT_EQ(column1.name_parse_location_range,
             column2.name_parse_location_range);
   EXPECT_EQ(column1.type_parse_location_range,
@@ -51,13 +54,6 @@ void ExpectEqualTVFRelations(const TVFRelation& relation1,
   for (int i = 0; i < relation1.num_columns(); ++i) {
     ExpectEqualTVFSchemaColumn(relation1.column(i), relation2.column(i));
   }
-}
-
-void ExpectEqualTableValuedFunctionOptions(
-    const TableValuedFunctionOptions& options1,
-    const TableValuedFunctionOptions& options2) {
-  EXPECT_EQ(options1.uses_upper_case_sql_name,
-            options2.uses_upper_case_sql_name);
 }
 
 // Serializes given TVFRelation first. Then deserializes and returns the
@@ -76,7 +72,8 @@ void SerializeDeserializeAndCompare(const TVFRelation& relation) {
   TypeFactory type_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       TVFRelation result,
-      TVFRelation::Deserialize(tvf_relation_proto, pools, &type_factory));
+      TVFRelation::Deserialize(tvf_relation_proto,
+                               TypeDeserializer(&type_factory, pools)));
   ExpectEqualTVFRelations(relation, result);
 }
 
@@ -96,20 +93,10 @@ void SerializeDeserializeAndCompare(const TVFSchemaColumn& column) {
   TypeFactory type_factory;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       TVFSchemaColumn result,
-      TVFSchemaColumn::FromProto(tvf_schema_column, pools, &type_factory));
+      TVFSchemaColumn::FromProto(tvf_schema_column,
+                                 TypeDeserializer(&type_factory, pools)));
 
   ExpectEqualTVFSchemaColumn(column, result);
-}
-
-void SerializeDeserializeAndCompare(const TableValuedFunctionOptions& options) {
-  TableValuedFunctionOptionsProto tvf_options_proto;
-  options.Serialize(&tvf_options_proto);
-
-  std::unique_ptr<TableValuedFunctionOptions> result;
-  ZETASQL_ASSERT_OK(
-      TableValuedFunctionOptions::Deserialize(tvf_options_proto, &result));
-
-  ExpectEqualTableValuedFunctionOptions(options, *result);
 }
 
 // Check serialization and deserialization of TVFRelation.
@@ -135,6 +122,21 @@ TEST(TVFTest, TVFRelationSerializationAndDeserializationWithColumnLocations) {
   TVFRelation relation({column});
 
   SerializeDeserializeAndCompare(relation);
+  // Test for relation with collated column in value table.
+  TypeFactory type_factory;
+  std::unique_ptr<AnnotationMap> annotation =
+      AnnotationMap::Create(type_factory.get_string());
+  annotation->SetAnnotation(static_cast<int>(AnnotationKind::kSampleAnnotation),
+                            SimpleValue::String("abc"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const AnnotationMap* annotation_map,
+                       type_factory.TakeOwnership(std::move(annotation)));
+  TVFSchemaColumn pseudo_column =
+      TVFSchemaColumn("pseudo_column", zetasql::types::Int64Type(), true);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      TVFRelation value_table_relation,
+      TVFRelation::ValueTable({zetasql::types::DoubleType(), annotation_map},
+                              {pseudo_column}));
+  SerializeDeserializeAndCompare(relation);
 }
 
 // Check serialization and deserialization of TVFSchemaColumn
@@ -153,6 +155,21 @@ TEST(TVFTest,
   column.type_parse_location_range = location_range2;
 
   SerializeDeserializeAndCompare(column);
+
+  // Test for column with non-empty <annotation_map>.
+  TypeFactory type_factory;
+  std::unique_ptr<AnnotationMap> annotation =
+      AnnotationMap::Create(type_factory.get_string());
+  annotation->SetAnnotation(static_cast<int>(AnnotationKind::kSampleAnnotation),
+                            SimpleValue::String("abc"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const AnnotationMap* annotation_map,
+                       type_factory.TakeOwnership(std::move(annotation)));
+  TVFRelation::Column column_with_annotations(
+      "Col2", {zetasql::types::DoubleType(), annotation_map});
+  column_with_annotations.name_parse_location_range = location_range1;
+  column_with_annotations.type_parse_location_range = location_range2;
+
+  SerializeDeserializeAndCompare(column_with_annotations);
 }
 
 TEST(TVFTest, TestInvalidColumnNameForTVFWithExtraColumns) {
@@ -354,8 +371,8 @@ TEST(TVFTest, TestFixedOutputSchemaTVFSerializeAndDeserialize) {
 
   TypeFactory type_factory;
   std::unique_ptr<TableValuedFunction> deserialized_tvf;
-  ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(tvf_proto, pools, &type_factory,
-                                             &deserialized_tvf));
+  ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(
+      tvf_proto, TypeDeserializer(&type_factory, pools), &deserialized_tvf));
   EXPECT_TRUE(deserialized_tvf->Is<FixedOutputSchemaTVF>());
   ExpectEqualTVFRelations(
       *tvf_schema,
@@ -409,8 +426,9 @@ TEST(TVFTest, TestAnonymizationInfo) {
 
   TypeFactory type_factory;
   std::unique_ptr<TableValuedFunction> deserialized_tvf_with_userid;
-  ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(tvf_proto, pools, &type_factory,
-                                             &deserialized_tvf_with_userid));
+  ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(
+      tvf_proto, TypeDeserializer(&type_factory, pools),
+      &deserialized_tvf_with_userid));
   EXPECT_TRUE(deserialized_tvf_with_userid->Is<TableValuedFunction>());
   std::optional<const AnonymizationInfo> deserialized_anonymization_info =
       deserialized_tvf_with_userid->GetAs<TableValuedFunction>()

@@ -13,11 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <limits>
 #include <memory>
 #include <string>
+#include <tuple>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -49,18 +52,21 @@ using ::zetasql_base::testing::StatusIs;
 // implementation of format.
 using FormatF = std::function<absl::Status(
     absl::string_view format_string, absl::Span<const Value> values,
-    ProductMode product_mode, std::string* output, bool* is_null)>;
+    ProductMode product_mode, std::string* output, bool* is_null,
+    bool canonicalize_zero)>;
 
 // Call `FormatFunction` and abstract error and null results into a
 // unified string representation. Also ensures error codes are of an
 // allowed type.
 static std::string TestFormatFunction(const FormatF& FormatFunction,
+                                      bool canonicalize_zero,
                                       absl::string_view format,
                                       const std::vector<Value>& values) {
   std::string output;
   bool is_null;
-  const absl::Status status = FormatFunction(
-      format, values, ProductMode::PRODUCT_INTERNAL, &output, &is_null);
+  const absl::Status status =
+      FormatFunction(format, values, ProductMode::PRODUCT_INTERNAL, &output,
+                     &is_null, canonicalize_zero);
   if (status.ok()) {
     return is_null ? "<null>" : output;
   } else {
@@ -83,7 +89,8 @@ struct FormatFunctionParam {
 
   // Binds `FormatFunction` to TestFormatFunction.
   TestFormatF WrapTestFormat() const {
-    return absl::bind_front(TestFormatFunction, FormatFunction);
+    return absl::bind_front(TestFormatFunction, FormatFunction,
+                            /*canonicalize_zero=*/true);
   }
   // String suitable for use in SCOPE-TRACE to aid in debugging failing tests.
   std::string ScopeLabel() const {
@@ -812,6 +819,24 @@ str_value: "bar"
       "好你好你好你好你好你好你好全部结束";
   EXPECT_EQ("\"" + long_string_3 + "\"",
             TestFormat("%T", {values::String(long_string_3)}));
+
+  TestFormatF TestFormatLegacy =
+      absl::bind_front(TestFormatFunction, GetParam().FormatFunction,
+                       /*canonicalize_zero=*/false);
+  EXPECT_EQ("-0.000000", TestFormatLegacy("%+f", {Double(-0.0)}));
+  EXPECT_EQ("-0.000000", TestFormatLegacy("%+f", {Float(-0.0)}));
+  EXPECT_EQ("-0.000000", TestFormatLegacy("%f", {Double(-0.0)}));
+  EXPECT_EQ("-0.000000", TestFormatLegacy("%f", {Float(-0.0)}));
+
+  EXPECT_EQ("-0.000000e+00", TestFormatLegacy("%+e", {Double(-0.0)}));
+  EXPECT_EQ("-0.000000e+00", TestFormatLegacy("%+e", {Float(-0.0)}));
+  EXPECT_EQ("-0.000000e+00", TestFormatLegacy("%e", {Double(-0.0)}));
+  EXPECT_EQ("-0.000000e+00", TestFormatLegacy("%e", {Float(-0.0)}));
+
+  EXPECT_EQ("-0", TestFormatLegacy("%+g", {Double(-0.0)}));
+  EXPECT_EQ("-0", TestFormatLegacy("%+g", {Float(-0.0)}));
+  EXPECT_EQ("-0", TestFormatLegacy("%g", {Double(-0.0)}));
+  EXPECT_EQ("-0", TestFormatLegacy("%g", {Float(-0.0)}));
 }
 
 static absl::Status TestCheckFormat(absl::string_view format_string,
@@ -975,7 +1000,8 @@ void CompareFormattedStrings(const std::string& formatted_double,
 
 template <typename T>  // T must be NumericValue or BigNumericValue.
 void TestFormatNumericWithRandomData(FormatF FormatFunction) {
-  auto TestFormat = absl::bind_front(TestFormatFunction, FormatFunction);
+  auto TestFormat = absl::bind_front(TestFormatFunction, FormatFunction,
+                                     /*canonicalize_zero=*/true);
   using values::Int32;
   absl::BitGen random;
   for (int i = 0; i < 20000; ++i) {
@@ -1080,30 +1106,27 @@ TEST_P(FormatComplianceTests, Test) {
 
   std::string actual;
   bool is_null = false;
-  const absl::Status status = FormatFunction(
-      pattern, args, ProductMode::PRODUCT_INTERNAL, &actual, &is_null);
+  const absl::Status status =
+      FormatFunction(pattern, args, ProductMode::PRODUCT_INTERNAL, &actual,
+                     &is_null, /*canonicalize_zero=*/true);
 
-  for (const auto& each : test.params.results()) {
-    const QueryParamsWithResult::FeatureSet& feature_set = each.first;
-    const QueryParamsWithResult::Result& expected = each.second;
+  if (using_any_civil_time_values &&
+      !zetasql_base::ContainsKey(test.params.required_features(),
+                        FEATURE_V_1_2_CIVIL_TIME)) {
+    // The test case in compliance test is expecting an error in this case.
+    EXPECT_FALSE(test.params.status().ok());
+    return;
+  }
 
-    if (using_any_civil_time_values &&
-        !zetasql_base::ContainsKey(feature_set, FEATURE_V_1_2_CIVIL_TIME)) {
-      // The test case in compliance test is expecting an error in this case.
-      EXPECT_FALSE(expected.status.ok());
-      continue;
+  if (test.params.status().ok()) {
+    EXPECT_TRUE(test.params.result().type()->IsString());
+    ZETASQL_EXPECT_OK(status);
+    EXPECT_EQ(test.params.result().is_null(), is_null);
+    if (!test.params.result().is_null() && !is_null) {
+      EXPECT_EQ(test.params.result().string_value(), actual);
     }
-
-    if (expected.status.ok()) {
-      EXPECT_TRUE(expected.result.type()->IsString());
-      ZETASQL_EXPECT_OK(status);
-      EXPECT_EQ(expected.result.is_null(), is_null);
-      if (!expected.result.is_null() && !is_null) {
-        EXPECT_EQ(expected.result.string_value(), actual);
-      }
-    } else {
-      EXPECT_FALSE(status.ok()) << "Should have failed";
-    }
+  } else {
+    EXPECT_FALSE(status.ok()) << "Should have failed";
   }
 }
 

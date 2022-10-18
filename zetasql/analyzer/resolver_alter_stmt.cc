@@ -17,6 +17,7 @@
 // This file contains the implementation of ALTER related resolver
 // methods from resolver.h.
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -875,7 +876,7 @@ absl::Status Resolver::ResolveAlterColumnTypeAction(
       return MakeSqlErrorAt(action)
              << "ALTER TABLE ALTER COLUMN SET DATA TYPE "
              << "requires that the existing column type ("
-             << column_reference->column().type()->TypeName(
+             << column_reference->column().type()->ShortTypeName(
                     language().product_mode())
              << ") is assignable to the new type ("
              << resolved_type->ShortTypeName(language().product_mode()) << ")";

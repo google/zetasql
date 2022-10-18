@@ -22,6 +22,7 @@ option java_package = "com.google.zetasql";
 option java_outer_classname = "FunctionProtos";
 
 // Public enum and message definitions.
+import "zetasql/public/annotation.proto";
 import "zetasql/public/deprecation_warning.proto";
 import "zetasql/public/function.proto";
 import "zetasql/public/options.proto";
@@ -30,6 +31,7 @@ import "zetasql/public/parse_resume_location.proto";
 import "zetasql/public/simple_table.proto";
 import "zetasql/public/type.proto";
 import "zetasql/public/value.proto";
+import "zetasql/resolved_ast/resolved_ast_enums.proto";
 import "zetasql/resolved_ast/serialization.proto";
 
 // Wire format of Function related messages, these shouldn't be exposed to end
@@ -39,6 +41,7 @@ message TVFRelationColumnProto {
   optional string name = 1;
   optional TypeProto type = 2;
   optional bool is_pseudo_column = 3;
+  optional AnnotationMapProto annotation_map = 6;
   // Store the parse location ranges for column name and type.
   optional ParseLocationRangeProto name_parse_location_range = 4;
   optional ParseLocationRangeProto type_parse_location_range = 5;
@@ -90,6 +93,10 @@ message FunctionArgumentTypeOptionsProto {
   optional FunctionEnums.ArgumentCollationMode argument_collation_mode = 19
       [default = AFFECTS_OPERATION_AND_PROPAGATION];
   optional bool uses_array_element_for_collation = 20;
+  optional bool must_support_grouping = 21;
+  optional bool array_element_must_support_equality = 22;
+  optional bool array_element_must_support_ordering = 23;
+  optional bool array_element_must_support_grouping = 24;
 }
 
 message ArgumentTypeLambdaProto {
@@ -154,6 +161,8 @@ message FunctionProto {
   optional FunctionOptionsProto options = 5;
   optional ParseResumeLocationProto parse_resume_location = 8;
   repeated string templated_sql_function_argument_name = 7;
+  optional ResolvedCreateStatementEnums.SqlSecurity sql_security = 9
+      [default = SQL_SECURITY_UNSPECIFIED];
 }
 
 message ResolvedFunctionCallInfoProto {

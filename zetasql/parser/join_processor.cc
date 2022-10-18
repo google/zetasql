@@ -17,6 +17,8 @@
 #include "zetasql/parser/join_processor.h"
 
 #include <deque>
+#include <memory>
+#include <stack>
 #include <string>
 
 #include "zetasql/common/errors.h"
@@ -99,7 +101,11 @@ static std::stack<ASTNode*> FlattenJoinExpression(ASTNode* node) {
       ASTNode* on_clause = nullptr;
       ASTNode* using_clause = nullptr;
       ASTOnOrUsingClauseList* clause_list = nullptr;
+      // We set this field on `join` so we can pull this value back out of
+      // the join in later in processing - this is significantly less
+      // error prone than fiddling with the stack.
 
+      ASTLocation* join_location = nullptr;
       lhs = join->mutable_child(0);
       for (int i = 1; i < join->num_children(); ++i) {
         ASTNode* child = join->mutable_child(i);
@@ -111,6 +117,9 @@ static std::stack<ASTNode*> FlattenJoinExpression(ASTNode* node) {
           using_clause = child;
         } else if (child->node_kind() == AST_ON_OR_USING_CLAUSE_LIST) {
           clause_list = child->GetAsOrDie<ASTOnOrUsingClauseList>();
+        } else if (child->node_kind() == AST_LOCATION) {
+          join_location = child->GetAsOrDie<ASTLocation>();
+          join->set_join_location(join_location);
         } else if (child->node_kind() == AST_HINT) {
           // Ignore
         } else {
@@ -275,13 +284,13 @@ static ASTNode* GenerateError(const JoinErrorTracker& error_tracker,
                             ? "INNER"
                             : join->GetSQLForJoinType();
   return MakeSyntaxError(
-      error_info, parser->GetBisonLocation(join->GetParseLocationRange()),
-      absl::StrCat(
-          "The number of join conditions is ",
-          error_tracker.join_condition_count(),
-          " but the number of joins that require a join condition is ",
-          error_tracker.join_count(), ". ", join_type_name, " JOIN",
-          " must have an ON or USING clause"));
+      error_info,
+      parser->GetBisonLocation(join->join_location()->GetParseLocationRange()),
+      absl::StrCat("The number of join conditions is ",
+                   error_tracker.join_condition_count(),
+                   " but the number of joins that require a join condition is ",
+                   error_tracker.join_count(), ". ", join_type_name, " JOIN",
+                   " must have an ON or USING clause"));
 }
 
 ASTNode* ProcessFlattenedJoinExpression(
@@ -294,7 +303,7 @@ ASTNode* ProcessFlattenedJoinExpression(
   JoinErrorTracker error_tracker;
 
   while (!flattened_join_expression->empty()) {
-    auto item = flattened_join_expression->top();
+    ASTNode* item = flattened_join_expression->top();
     flattened_join_expression->pop();
     ASTJoin* join = GetCrossCommaOrNaturalJoin(item);
     if (join != nullptr) {
@@ -312,9 +321,13 @@ ASTNode* ProcessFlattenedJoinExpression(
       ASTNode* rhs = flattened_join_expression->top();
       flattened_join_expression->pop();
 
+      ASTLocation* join_location =
+          parser->MakeLocation(parser->GetBisonLocation(
+              join->join_location()->GetParseLocationRange()));
+
       ASTJoin* new_join = parser->CreateASTNode<ASTJoin>(
           zetasql_bison_parser::location(),
-          {lhs, GetJoinHint(join), rhs});
+          {lhs, GetJoinHint(join), join_location, rhs});
       new_join->set_join_type(join->join_type());
       new_join->set_join_hint(join->join_hint());
       new_join->set_natural(join->natural());
@@ -341,8 +354,12 @@ ASTNode* ProcessFlattenedJoinExpression(
       ASTNode* lhs = stack.top();
       stack.pop();
 
+      ASTLocation* join_location =
+          parser->MakeLocation(parser->GetBisonLocation(
+              join->join_location()->GetParseLocationRange()));
+
       ASTJoin* new_join = parser->CreateASTNode<ASTJoin>(
-          location, {lhs, GetJoinHint(join), rhs, item});
+          location, {lhs, GetJoinHint(join), join_location, rhs, item});
       new_join->set_join_type(join->join_type());
       new_join->set_join_hint(join->join_hint());
       new_join->set_natural(join->natural());
@@ -397,13 +414,14 @@ static const ASTJoin::ParseError* GetParseError(const ASTNode* node) {
   return nullptr;
 }
 
-ASTNode* JoinRuleAction(
-    const zetasql_bison_parser::location& start_location,
-    const zetasql_bison_parser::location& end_location, ASTNode* lhs,
-    bool natural, ASTJoin::JoinType join_type, ASTJoin::JoinHint join_hint,
-    ASTNode* hint, ASTNode* table_primary, ASTNode* on_or_using_clause_list,
-    BisonParser* parser,
-    ErrorInfo* error_info) {
+ASTNode* JoinRuleAction(const zetasql_bison_parser::location& start_location,
+                        const zetasql_bison_parser::location& end_location,
+                        ASTNode* lhs, bool natural, ASTJoin::JoinType join_type,
+                        ASTJoin::JoinHint join_hint, ASTNode* hint,
+                        ASTNode* table_primary,
+                        ASTNode* on_or_using_clause_list,
+                        ASTLocation* join_location, BisonParser* parser,
+                        ErrorInfo* error_info) {
   auto clause_list =
       on_or_using_clause_list == nullptr
           ? nullptr
@@ -441,11 +459,12 @@ ASTNode* JoinRuleAction(
     }
     join = parser->CreateASTNode<ASTJoin>(
         start_location, end_location,
-        {lhs, hint, table_primary, on_or_using_clause});
+        {lhs, hint, join_location, table_primary, on_or_using_clause});
     join->set_transformation_needed(IsTransformationNeeded(lhs));
   } else {
     join = parser->CreateASTNode<ASTJoin>(
-        start_location, end_location, {lhs, hint, table_primary, clause_list});
+        start_location, end_location,
+        {lhs, hint, join_location, table_primary, clause_list});
     join->set_transformation_needed(true);
   }
 
@@ -492,8 +511,7 @@ ASTNode* JoinRuleAction(
 ASTNode* CommaJoinRuleAction(
     const zetasql_bison_parser::location& start_location,
     const zetasql_bison_parser::location& end_location, ASTNode* lhs,
-    ASTNode* table_primary,
-    BisonParser* parser,
+    ASTNode* table_primary, ASTLocation* comma_location, BisonParser* parser,
     ErrorInfo* error_info) {
   if (IsTransformationNeeded(lhs)) {
     return MakeSyntaxError(
@@ -502,7 +520,7 @@ ASTNode* CommaJoinRuleAction(
   }
 
   auto* comma_join = parser->CreateASTNode<ASTJoin>(
-      start_location, end_location, {lhs, table_primary});
+      start_location, end_location, {lhs, comma_location, table_primary});
   comma_join->set_join_type(ASTJoin::COMMA);
   comma_join->set_contains_comma_join(true);
   return comma_join;

@@ -145,6 +145,14 @@ known_errors {
   label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_proto_zero_rows"
   label: "anonymization_test:anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_proto_zero_rows"
   label: "anonymization_test:anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_json_zero_rows"
 }
 known_errors {
   mode: ALLOW_UNIMPLEMENTED
@@ -184,4 +192,9 @@ known_errors {
   reason: "Unsupported query shape: A struct value cannot be returned as a column value."
   label: "regression_test:b/228574862_1"
   label: "regression_test:b/228574862_2"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  label: "range_constructors_test:.*"
 }

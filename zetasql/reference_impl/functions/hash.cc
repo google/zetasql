@@ -16,6 +16,8 @@
 
 #include "zetasql/reference_impl/functions/hash.h"
 
+#include <memory>
+
 #include "zetasql/public/functions/hash.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"

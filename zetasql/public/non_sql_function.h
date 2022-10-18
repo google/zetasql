@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_NON_SQL_FUNCTION_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 

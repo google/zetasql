@@ -80,7 +80,7 @@ class JSONValueBuilder {
 
   absl::Status BeginObject() {
     if (max_nesting_.has_value() && ref_stack_.size() >= *max_nesting_) {
-      return absl::InvalidArgumentError(
+      return absl::OutOfRangeError(
           absl::StrCat("Max nesting of ", *max_nesting_,
                        " has been exceeded while parsing JSON document"));
     }
@@ -118,7 +118,7 @@ class JSONValueBuilder {
 
   absl::Status BeginArray() {
     if (max_nesting_.has_value() && ref_stack_.size() >= *max_nesting_) {
-      return absl::InvalidArgumentError(
+      return absl::OutOfRangeError(
           absl::StrCat("Max nesting of ", *max_nesting_,
                        " has been exceeded while parsing JSON document"));
     }
@@ -289,7 +289,7 @@ class JSONValueLegacyParser : public ::zetasql::JSONParser,
 
   bool ReportFailure(const std::string& error_message) override {
     if (status().ok()) {
-      MaybeUpdateStatus(absl::InvalidArgumentError(
+      MaybeUpdateStatus(absl::OutOfRangeError(
           absl::Substitute("Parsing JSON string failed: $0", error_message)));
     }
     return false;
@@ -374,7 +374,7 @@ class JSONValueStandardParser : public JSONValueParserBase {
     if (!splits.second.empty()) {
       error = splits.second;
     }
-    return MaybeUpdateStatus(absl::InvalidArgumentError(error));
+    return MaybeUpdateStatus(absl::OutOfRangeError(error));
   }
 
   bool is_errored() const { return !status().ok(); }
@@ -423,7 +423,7 @@ class JSONValueStandardValidator : public JSONValueParserBase {
   }
   bool start_object(std::size_t /*unused*/) {
     if (max_nesting_.has_value() && current_nesting_ >= *max_nesting_) {
-      return MaybeUpdateStatus(absl::InvalidArgumentError(
+      return MaybeUpdateStatus(absl::OutOfRangeError(
           absl::StrCat("Max nesting of ", *max_nesting_,
                        " has been exceeded while parsing JSON document")));
     }
@@ -439,7 +439,7 @@ class JSONValueStandardValidator : public JSONValueParserBase {
 
   bool start_array(std::size_t /*unused*/) {
     if (max_nesting_.has_value() && current_nesting_ >= *max_nesting_) {
-      return MaybeUpdateStatus(absl::InvalidArgumentError(
+      return MaybeUpdateStatus(absl::OutOfRangeError(
           absl::StrCat("Max nesting of ", *max_nesting_,
                        " has been exceeded while parsing JSON document")));
     }
@@ -460,7 +460,7 @@ class JSONValueStandardValidator : public JSONValueParserBase {
     if (v.size() > 1) {
       error = v[1];
     }
-    return MaybeUpdateStatus(absl::InvalidArgumentError(error));
+    return MaybeUpdateStatus(absl::OutOfRangeError(error));
   }
 
   bool is_errored() const { return !status().ok(); }
@@ -817,7 +817,7 @@ absl::Status internal::CheckNumberRoundtrip(absl::string_view lhs, double val) {
   constexpr uint32_t kMaxStringLength = 1500;
   // Reject round-trip if input string is too long
   if (lhs.length() > kMaxStringLength) {
-    return zetasql_base::InvalidArgumentErrorBuilder()
+    return zetasql_base::OutOfRangeErrorBuilder()
            << "Input number " << lhs << " is too long.";
   }
 
@@ -844,7 +844,7 @@ absl::Status internal::CheckNumberRoundtrip(absl::string_view lhs, double val) {
       lhs_number.output == rhs_number.output) {
     return absl::OkStatus();
   }
-  return zetasql_base::InvalidArgumentErrorBuilder()
+  return zetasql_base::OutOfRangeErrorBuilder()
          << "Input number: " << lhs
          << " cannot round-trip through string representation";
 }

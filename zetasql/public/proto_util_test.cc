@@ -17,8 +17,11 @@
 #include "zetasql/public/proto_util.h"
 
 #include <cstdint>
+#include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
@@ -26,13 +29,15 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "zetasql/base/check.h"
+#include "absl/strings/str_join.h"
 #include "zetasql/common/testing/testing_proto_util.h"
+#include "zetasql/testdata/test_proto3.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -48,6 +53,7 @@ namespace zetasql {
 using ::testing::HasSubstr;
 
 using zetasql_test__::KitchenSinkPB;
+using zetasql_test__::Proto3KitchenSink;
 using zetasql_test__::ProtoWithIntervalField;
 
 using zetasql::testing::EqualsProto;
@@ -64,15 +70,24 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
  protected:
   ReadProtoFieldsTest() {
     absl::SetFlag(&FLAGS_zetasql_read_proto_field_optimized_path, GetParam());
+    ZETASQL_CHECK_OK(
+        type_factory_.MakeEnumType(test_enum_descriptor_, &test_enum_type_));
+    ZETASQL_CHECK_OK(
+        type_factory_.MakeArrayType(test_enum_type_, &test_enum_array_type_));
+    ZETASQL_CHECK_OK(type_factory_.MakeEnumType(proto3_test_enum_descriptor_,
+                                        &proto3_test_enum_type_));
+    ZETASQL_CHECK_OK(type_factory_.MakeArrayType(proto3_test_enum_type_,
+                                         &proto3_test_enum_array_type_));
   }
 
+  template <typename ProtoType = KitchenSinkPB>
   absl::StatusOr<Value> ReadField(const std::string& field_name,
                                   FieldFormat::Format format, const Type* type,
                                   const Value& default_value,
                                   const absl::Cord& bytes,
                                   bool get_has_bit = false) {
     const google::protobuf::FieldDescriptor* field_descriptor =
-        kitchen_sink_.GetDescriptor()->FindFieldByName(field_name);
+        ProtoType().GetDescriptor()->FindFieldByName(field_name);
     ZETASQL_RET_CHECK(field_descriptor != nullptr) << field_name;
 
     Value value;
@@ -98,6 +113,19 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
   }
 
   KitchenSinkPB kitchen_sink_;
+  const google::protobuf::FieldDescriptor* test_enum_field_descriptor_ =
+      kitchen_sink_.GetDescriptor()->FindFieldByName("test_enum");
+  const google::protobuf::EnumDescriptor* test_enum_descriptor_ =
+      test_enum_field_descriptor_->enum_type();
+  const EnumType* test_enum_type_;
+  const ArrayType* test_enum_array_type_;
+
+  Proto3KitchenSink proto3_kitchen_sink_;
+  const google::protobuf::EnumDescriptor* proto3_test_enum_descriptor_ =
+      test_enum_field_descriptor_->enum_type();
+
+  const EnumType* proto3_test_enum_type_;
+  const ArrayType* proto3_test_enum_array_type_;
 
   TypeFactory type_factory_;
 };
@@ -225,45 +253,233 @@ TEST_P(ReadProtoFieldsTest, Enum) {
               IsOkAndHolds(Value::Enum(enum_type, 2)));
 }
 
-TEST_P(ReadProtoFieldsTest, EnumOutOfRange) {
-  absl::Cord bytes;
+// Generate the serialization bytes for (potentially invalid) enum fields
+template <typename ProtoType = KitchenSinkPB>
+absl::Cord KitchenSinkBytesForEnumValues(
+    const char* field_name, const std::vector<int32_t>& enum_values) {
+  ProtoType proto;
 
-  // Append test_enum with value 1000. The streams are scoped to be closed
-  // correctly.
-  {
-    using google::protobuf::internal::WireFormatLite;
-    std::string bytes_str;
-    {
-    google::protobuf::io::StringOutputStream cord_stream(&bytes_str);
-
-    google::protobuf::io::CodedOutputStream out(&cord_stream);
-    out.WriteVarint32(WireFormatLite::MakeTag(36 /* tag for test_enum */,
-                                              WireFormatLite::WIRETYPE_VARINT));
-    out.WriteVarint32(1000);
-    out.Trim();
-    } bytes = absl::Cord(bytes_str);
+  const auto* field = proto.GetDescriptor()->FindFieldByName(field_name);
+  for (int32_t enum_value : enum_values) {
+    proto.GetReflection()->MutableUnknownFields(&proto)->AddVarint(
+        field->number(), enum_value);
   }
 
-  const google::protobuf::FieldDescriptor* field_descriptor =
-      kitchen_sink_.GetDescriptor()->FindFieldByName("test_enum");
-  ASSERT_TRUE(field_descriptor != nullptr);
+  absl::Cord bytes = SerializePartialToCord(proto);
+  ZETASQL_VLOG(1) << "KitchenSinkBytesForEnumValues {"
+          << proto.GetDescriptor()->full_name() << "." << field_name << "="
+          << absl::StrJoin(enum_values, ",") << "}: "
+          << EscapeBytes(std::string(bytes), /*escape_all_bytes=*/true);
+  return bytes;
+}
 
-  const google::protobuf::EnumDescriptor* enum_descriptor = field_descriptor->enum_type();
-  ASSERT_TRUE(enum_descriptor != nullptr);
+TEST_P(ReadProtoFieldsTest, EnumOutOfRange) {
+  absl::Cord unknown_test_enum_bytes =
+      KitchenSinkBytesForEnumValues("test_enum", {7});
 
-  const EnumType* enum_type;
-  ZETASQL_ASSERT_OK(type_factory_.MakeEnumType(enum_descriptor, &enum_type));
+  // Demonstrate that C++ proto2 also marks has_bit false and returns the
+  // default for unknown enum values.
+  KitchenSinkPB full_proto_object;
+  EXPECT_TRUE(
+      ParsePartialFromCord(unknown_test_enum_bytes, &full_proto_object));
+  EXPECT_FALSE(full_proto_object.has_test_enum());
+  EXPECT_EQ(full_proto_object.test_enum(), zetasql_test__::TESTENUM0);
 
   EXPECT_THAT(
-      ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, enum_type,
-                Value::Enum(enum_type, 0), bytes),
+      ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, test_enum_type_,
+                Value::Enum(test_enum_type_, 0), unknown_test_enum_bytes),
+      IsOkAndHolds(Value::Enum(test_enum_type_, 0)));
+
+  // Prove that the default value is used, by using another default.
+  EXPECT_THAT(
+      ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, test_enum_type_,
+                Value::Enum(test_enum_type_, 1), unknown_test_enum_bytes),
+      IsOkAndHolds(Value::Enum(test_enum_type_, 1)));
+
+  EXPECT_THAT(
+      ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, types::BoolType(),
+                values::NullBool(), unknown_test_enum_bytes,
+                /*get_has_bit=*/true),
+      IsOkAndHolds(values::Bool(false)));
+}
+
+TEST_P(ReadProtoFieldsTest, Proto2RequiredEnumRange) {
+  absl::Cord unknown_required_enum_bytes =
+      KitchenSinkBytesForEnumValues<zetasql_test__::KitchenSinkEnumPB>(
+          "required_test_enum", {7});
+
+  // Demonstrate that C++ proto2 rejects the enum value.
+  zetasql_test__::KitchenSinkEnumPB full_proto_object;
+  EXPECT_FALSE(ParseFromCord(unknown_required_enum_bytes, &full_proto_object));
+
+  EXPECT_THAT(
+      ReadField<zetasql_test__::KitchenSinkEnumPB>(
+          "required_test_enum", FieldFormat::DEFAULT_FORMAT, test_enum_type_,
+          Value::Enum(test_enum_type_, 0), unknown_required_enum_bytes),
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          HasSubstr("Protocol buffer missing required field "
+                    "zetasql_test__.KitchenSinkEnumPB.required_test_enum")));
+
+  EXPECT_THAT(
+      ReadField<zetasql_test__::KitchenSinkEnumPB>(
+          "required_test_enum", FieldFormat::DEFAULT_FORMAT, types::BoolType(),
+          values::NullBool(), unknown_required_enum_bytes,
+          /*get_has_bit=*/true),
+      IsOkAndHolds(values::Bool(false)));
+}
+
+TEST_P(ReadProtoFieldsTest, Proto3EnumOutOfRange) {
+  absl::Cord unknown_test_enum_bytes =
+      KitchenSinkBytesForEnumValues<Proto3KitchenSink>("test_enum", {7});
+
+  // Demonstrate that C++ proto3 retrieves the enum value.
+  Proto3KitchenSink full_proto_object;
+  EXPECT_TRUE(ParseFromCord(unknown_test_enum_bytes, &full_proto_object));
+  EXPECT_EQ(full_proto_object.test_enum(), 7);
+
+  // TODO: Fix to return 7 as a TestEnum.
+  EXPECT_THAT(
+      ReadField<Proto3KitchenSink>(
+          "test_enum", FieldFormat::DEFAULT_FORMAT, proto3_test_enum_type_,
+          Value::Enum(proto3_test_enum_type_, 0), unknown_test_enum_bytes),
       StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
-                         "zetasql_test__.KitchenSinkPB.test_enum: 1000")));
+                         "zetasql_test__.Proto3KitchenSink.test_enum: 7")));
 
-  EXPECT_THAT(ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, enum_type,
-                        Value::Enum(enum_type, 0), bytes, /*get_has_bit=*/true),
+  EXPECT_THAT(ReadField<Proto3KitchenSink>(
+                  "test_enum", FieldFormat::DEFAULT_FORMAT, types::BoolType(),
+                  values::NullBool(), unknown_test_enum_bytes,
+                  /*get_has_bit=*/true),
               IsOkAndHolds(values::Bool(true)));
+}
+
+TEST_P(ReadProtoFieldsTest, RepeatedEnumOutOfRange) {
+  absl::Cord all_unknown_bytes =
+      KitchenSinkBytesForEnumValues("repeated_test_enum", {7, 8, 9});
+
+  // Demonstrate that C++ proto2 also skips all the missing values.
+  KitchenSinkPB full_proto_object;
+  EXPECT_TRUE(ParsePartialFromCord(all_unknown_bytes, &full_proto_object));
+  EXPECT_THAT(full_proto_object.repeated_test_enum(), ::testing::IsEmpty());
+
+  EXPECT_THAT(
+      ReadField("repeated_test_enum", FieldFormat::DEFAULT_FORMAT,
+                test_enum_array_type_, Value::EmptyArray(test_enum_array_type_),
+                all_unknown_bytes),
+      IsOkAndHolds(Value::EmptyArray(test_enum_array_type_)));
+
+  absl::Cord one_known_bytes = KitchenSinkBytesForEnumValues(
+      "repeated_test_enum", {7, 8, zetasql_test__::TESTENUM2, 9});
+
+  // Demonstrate that C++ proto2 also skips all the missing values and includes
+  // the valid one.
+  EXPECT_TRUE(ParsePartialFromCord(one_known_bytes, &full_proto_object));
+  EXPECT_THAT(full_proto_object.repeated_test_enum(),
+              ::testing::ElementsAre(zetasql_test__::TESTENUM2));
+
+  EXPECT_THAT(
+      ReadField("repeated_test_enum", FieldFormat::DEFAULT_FORMAT,
+                test_enum_array_type_, Value::EmptyArray(test_enum_array_type_),
+                one_known_bytes),
+      IsOkAndHolds(Value::Array(
+          test_enum_array_type_,
+          {Value::Enum(test_enum_type_, zetasql_test__::TESTENUM2)})));
+
+  absl::Cord two_known_bytes = KitchenSinkBytesForEnumValues(
+      "repeated_test_enum",
+      {7, 8, zetasql_test__::TESTENUM2, 9, zetasql_test__::TESTENUM1, 7, 8});
+
+  // Demonstrate that C++ proto2 also skips all the missing values and includes
+  // the valid one.
+  EXPECT_TRUE(ParsePartialFromCord(two_known_bytes, &full_proto_object));
+  EXPECT_THAT(full_proto_object.repeated_test_enum(),
+              ::testing::ElementsAre(zetasql_test__::TESTENUM2,
+                                     zetasql_test__::TESTENUM1));
+
+  EXPECT_THAT(
+      ReadField("repeated_test_enum", FieldFormat::DEFAULT_FORMAT,
+                test_enum_array_type_, Value::EmptyArray(test_enum_array_type_),
+                two_known_bytes),
+      IsOkAndHolds(Value::Array(
+          test_enum_array_type_,
+          {Value::Enum(test_enum_type_, zetasql_test__::TESTENUM2),
+           Value::Enum(test_enum_type_, zetasql_test__::TESTENUM1)})));
+}
+
+TEST_P(ReadProtoFieldsTest, Proto3RepeatedEnumOutOfRange) {
+  absl::Cord unknown_test_enum_bytes =
+      KitchenSinkBytesForEnumValues<Proto3KitchenSink>("repeated_test_enum",
+                                                       {7, 8, 9});
+
+  // Demonstrate that C++ proto3 retrieves the enum values.
+  Proto3KitchenSink full_proto_object;
+  EXPECT_TRUE(ParseFromCord(unknown_test_enum_bytes, &full_proto_object));
+  EXPECT_THAT(full_proto_object.repeated_test_enum(),
+              ::testing::ElementsAre(7, 8, 9));
+
+  // TODO: Fix to return 7,8,9 as a TestEnum array.
+  EXPECT_THAT(
+      ReadField<Proto3KitchenSink>(
+          "repeated_test_enum", FieldFormat::DEFAULT_FORMAT,
+          proto3_test_enum_array_type_,
+          Value::EmptyArray(proto3_test_enum_array_type_),
+          unknown_test_enum_bytes),
+      StatusIs(
+          absl::StatusCode::kOutOfRange,
+          HasSubstr("Failed to interpret value for field "
+                    "zetasql_test__.Proto3KitchenSink.repeated_test_enum")));
+}
+
+TEST_P(ReadProtoFieldsTest, RepeatedPackedEnumOutOfRange) {
+  absl::Cord all_unknown_bytes =
+      KitchenSinkBytesForEnumValues("repeated_enum_packed", {7, 8, 9});
+  // Demonstrate that C++ proto2 also skips all the missing values.
+  KitchenSinkPB full_proto_object;
+  EXPECT_TRUE(ParsePartialFromCord(all_unknown_bytes, &full_proto_object));
+  EXPECT_THAT(full_proto_object.repeated_test_enum(), ::testing::IsEmpty());
+
+  EXPECT_THAT(
+      ReadField("repeated_enum_packed", FieldFormat::DEFAULT_FORMAT,
+                test_enum_array_type_, Value::EmptyArray(test_enum_array_type_),
+                all_unknown_bytes),
+      IsOkAndHolds(Value::EmptyArray(test_enum_array_type_)));
+
+  absl::Cord one_known_bytes = KitchenSinkBytesForEnumValues(
+      "repeated_enum_packed",
+      {7, zetasql_test__::TESTENUM2, 8, zetasql_test__::TESTENUM2, 9,
+       zetasql_test__::TESTENUM1});
+
+  // Demonstrate that C++ proto2 also skips all the missing values and includes
+  // the valid ones.
+  EXPECT_TRUE(ParsePartialFromCord(one_known_bytes, &full_proto_object));
+  EXPECT_THAT(full_proto_object.repeated_enum_packed(),
+              ::testing::ElementsAre(zetasql_test__::TESTENUM2,
+                                     zetasql_test__::TESTENUM2,
+                                     zetasql_test__::TESTENUM1));
+
+  EXPECT_THAT(
+      ReadField("repeated_enum_packed", FieldFormat::DEFAULT_FORMAT,
+                test_enum_array_type_, Value::EmptyArray(test_enum_array_type_),
+                one_known_bytes),
+      IsOkAndHolds(Value::Array(
+          test_enum_array_type_,
+          {Value::Enum(test_enum_type_, zetasql_test__::TESTENUM2),
+           Value::Enum(test_enum_type_, zetasql_test__::TESTENUM2),
+           Value::Enum(test_enum_type_, zetasql_test__::TESTENUM1)})));
+}
+
+TEST_P(ReadProtoFieldsTest, EmptyDeserializationHasAllFieldsMissing) {
+  absl::Cord empty_bytes;
+  EXPECT_THAT(
+      ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, test_enum_type_,
+                Value::Enum(test_enum_type_, 0), empty_bytes),
+      IsOkAndHolds(Value::Enum(test_enum_type_, 0)));
+
+  EXPECT_THAT(ReadField("test_enum", FieldFormat::DEFAULT_FORMAT,
+                        types::BoolType(), values::NullBool(), empty_bytes,
+                        /*get_has_bit=*/true),
+              IsOkAndHolds(values::Bool(false)));
 }
 
 TEST_P(ReadProtoFieldsTest, Message) {

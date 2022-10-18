@@ -27,6 +27,18 @@ AlterTableStmt
     +-table=TwoIntegers
 ==
 
+ALTER TABLE TwoIntegers ADD FOREIGN KEY(kEy, vALue) REFERENCES FourIntegers(key1, key2);
+--
+AlterTableStmt
++-name_path=TwoIntegers
++-alter_action_list=
+  +-AddConstraintAction
+    +-is_if_not_exists=FALSE
+    +-constraint=
+    | +-ForeignKey(constraint_name="", referencing_column_offset_list=[0, 1], referenced_table=FourIntegers, referenced_column_offset_list=[0, 2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=key.value)
+    +-table=TwoIntegers
+==
+
 ALTER TABLE TwoIntegers ADD CONSTRAINT foo FOREIGN KEY(key, value) REFERENCES FourIntegers(key1, key2);
 --
 AlterTableStmt

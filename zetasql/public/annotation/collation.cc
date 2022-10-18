@@ -22,6 +22,7 @@
 
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/annotation/default_annotation_spec.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
@@ -35,38 +36,6 @@
 namespace zetasql {
 
 namespace {
-
-// Copies annotation value of a given <id> recursively from <from_annotated_map>
-// to <to_annotated_map>. <from_annotated_map> and <to_annotated_map> must be
-// equivalent or an error is thrown.
-absl::Status CopyAnnotationRecursively(int id,
-                                       const AnnotationMap* from_annotated_map,
-                                       AnnotationMap* to_annotated_map) {
-  if (from_annotated_map == nullptr) {
-    return absl::OkStatus();
-  }
-  ZETASQL_RET_CHECK_NE(to_annotated_map, nullptr);
-  const SimpleValue* from_value = from_annotated_map->GetAnnotation(id);
-  if (from_value != nullptr) {
-    to_annotated_map->SetAnnotation(id, *from_value);
-  }
-  if (from_annotated_map->IsArrayMap()) {
-    ZETASQL_RET_CHECK(to_annotated_map->IsArrayMap());
-    ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-        id, from_annotated_map->AsArrayMap()->element(),
-        to_annotated_map->AsArrayMap()->mutable_element()));
-  } else if (from_annotated_map->IsStructMap()) {
-    ZETASQL_RET_CHECK(to_annotated_map->IsStructMap());
-    ZETASQL_RET_CHECK_EQ(from_annotated_map->AsStructMap()->num_fields(),
-                 to_annotated_map->AsStructMap()->num_fields());
-    for (int i = 0; i < from_annotated_map->AsStructMap()->num_fields(); i++) {
-      ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-          id, from_annotated_map->AsStructMap()->field(i),
-          to_annotated_map->AsStructMap()->mutable_field(i)));
-    }
-  }
-  return absl::OkStatus();
-}
 
 // Returns true if <type> supports collation.
 bool SupportsCollation(const Type* type) {
@@ -94,46 +63,6 @@ std::string GetArgumentNameOrIndex(const FunctionSignature& signature, int i) {
 }
 
 }  // namespace
-
-absl::Status CollationAnnotation::CheckAndPropagateForColumnRef(
-    const ResolvedColumnRef& column_ref,
-    AnnotationMap* result_annotation_map) {
-  if (column_ref.column().type_annotation_map() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-        GetId(), column_ref.column().type_annotation_map(),
-        result_annotation_map));
-  }
-  return absl::OkStatus();
-}
-
-absl::Status CollationAnnotation::CheckAndPropagateForGetStructField(
-    const ResolvedGetStructField& get_struct_field,
-    AnnotationMap* result_annotation_map) {
-  const AnnotationMap* struct_annotation_map =
-      get_struct_field.expr()->type_annotation_map();
-  if (struct_annotation_map != nullptr) {
-    ZETASQL_RET_CHECK(struct_annotation_map->IsStructMap());
-    int field_idx = get_struct_field.field_idx();
-    ZETASQL_RET_CHECK_LT(field_idx, struct_annotation_map->AsStructMap()->num_fields());
-    ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-        GetId(), struct_annotation_map->AsStructMap()->field(field_idx),
-        result_annotation_map));
-  }
-  return absl::OkStatus();
-}
-
-absl::Status CollationAnnotation::CheckAndPropagateForMakeStruct(
-    const ResolvedMakeStruct& make_struct,
-    StructAnnotationMap* result_annotation_map) {
-  ZETASQL_RET_CHECK_EQ(result_annotation_map->num_fields(),
-               make_struct.field_list_size());
-  for (int i = 0; i < make_struct.field_list_size(); i++) {
-    ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-        GetId(), make_struct.field_list(i)->type_annotation_map(),
-        result_annotation_map->mutable_field(i)));
-  }
-  return absl::OkStatus();
-}
 
 absl::Status CollationAnnotation::RejectsCollationOnFunctionArguments(
     const ResolvedFunctionCallBase& function_call) {
@@ -200,68 +129,8 @@ absl::Status CollationAnnotation::CheckAndPropagateForFunctionCallBase(
       result_annotation_map =
           result_annotation_map->AsArrayMap()->mutable_element();
     }
-    ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(GetId(), collation_to_propagate,
-                                              result_annotation_map));
-  }
-  return absl::OkStatus();
-}
-
-
-absl::Status CollationAnnotation::CheckAndPropagateForSubqueryExpr(
-    const ResolvedSubqueryExpr& subquery_expr,
-    AnnotationMap* result_annotation_map) {
-  if (!SupportsCollation(subquery_expr.type())) {
-    return absl::OkStatus();
-  }
-  const ResolvedScan* subquery_scan = subquery_expr.subquery();
-  ZETASQL_RET_CHECK_NE(subquery_scan, nullptr);
-  ZETASQL_RET_CHECK_EQ(subquery_scan->column_list_size(), 1);
-  if (subquery_expr.subquery_type() == ResolvedSubqueryExpr::ARRAY) {
-    ZETASQL_RET_CHECK(result_annotation_map->IsArrayMap());
-    ZETASQL_RET_CHECK(subquery_scan->column_list(0).type()->Equivalent(
-        subquery_expr.type()->AsArray()->element_type()));
-    result_annotation_map =
-        result_annotation_map->AsArrayMap()->mutable_element();
-  } else {
-    ZETASQL_RET_CHECK(
-        subquery_scan->column_list(0).type()->Equivalent(subquery_expr.type()));
-  }
-  return CopyAnnotationRecursively(
-      GetId(), subquery_scan->column_list(0).type_annotation_map(),
-      result_annotation_map);
-}
-
-absl::Status CollationAnnotation::CheckAndPropagateForSetOperationScan(
-    const ResolvedSetOperationScan& set_operation_scan,
-    const std::vector<AnnotationMap*>& result_annotation_maps) {
-  int column_list_size = set_operation_scan.column_list_size();
-  ZETASQL_RET_CHECK_EQ(column_list_size, result_annotation_maps.size());
-  bool all_empty_collations = true;
-  for (const auto& item : set_operation_scan.input_item_list()) {
-    ZETASQL_RET_CHECK_EQ(item->output_column_list_size(), column_list_size);
-    for (int i = 0; i < column_list_size; i++) {
-      const AnnotationMap* candidate_annotation_map =
-          item->output_column_list(i).type_annotation_map();
-      if (result_annotation_maps[i] == nullptr ||
-          !SupportsCollation(set_operation_scan.column_list(i).type()) ||
-          !CollationAnnotation::ExistsIn(candidate_annotation_map)) {
-        continue;
-      }
-      if (result_annotation_maps[i]->Empty()) {
-        ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-            GetId(), candidate_annotation_map, result_annotation_maps[i]));
-        all_empty_collations = false;
-      } else {
-        if (!candidate_annotation_map->HasEqualAnnotations(
-                *result_annotation_maps[i], GetId())) {
-          return MakeSqlError() << absl::Substitute(
-                     "Collation mismatch is found for output column $0 of set "
-                     "operation: $1 vs $2",
-                     i + 1, candidate_annotation_map->DebugString(GetId()),
-                     result_annotation_maps[i]->DebugString(GetId()));
-        }
-      }
-    }
+    ZETASQL_RETURN_IF_ERROR(
+        MergeAnnotations(collation_to_propagate, *result_annotation_map));
   }
   return absl::OkStatus();
 }
@@ -353,6 +222,14 @@ absl::Status CollationAnnotation::ResolveCollationForResolvedOrderByItem(
   }
   resolved_order_by_item->set_collation(resolved_collation);
   return absl::OkStatus();
+}
+
+absl::Status CollationAnnotation::ScalarMergeIfCompatible(
+    const AnnotationMap* in, AnnotationMap& out) const {
+  if (!CollationAnnotation::ExistsIn(in)) {
+    return absl::OkStatus();
+  }
+  return DefaultAnnotationSpec::ScalarMergeIfCompatible(in, out);
 }
 
 }  // namespace zetasql

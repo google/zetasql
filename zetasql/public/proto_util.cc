@@ -20,8 +20,10 @@
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -49,7 +51,6 @@
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -308,10 +309,11 @@ absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
 
 absl::Status GetProtoFieldTypeAndDefault(
     const ProtoFieldDefaultOptions& options,
-    const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
+    const google::protobuf::FieldDescriptor* field,
+    absl::Span<const std::string> catalog_name_path, TypeFactory* type_factory,
     const Type** type, Value* default_value) {
   ZETASQL_RETURN_IF_ERROR(type_factory->GetProtoFieldType(
-      options.ignore_format_annotations, field, type));
+      options.ignore_format_annotations, field, catalog_name_path, type));
   if (default_value != nullptr) {
     ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefault(options, field, *type, default_value));
   }
@@ -395,6 +397,43 @@ using WireValueType = std::variant<
     // TYPE_BYTES
     std::string>;
 
+// Returns true if we should pretend the wire value is not present. This occurs
+// for unknown enums in proto2.
+bool WireValueShouldBeHidden(const ProtoFieldInfo& info,
+                             WireValueType const& wire_value) {
+  const google::protobuf::EnumDescriptor* enum_descriptor = info.descriptor->enum_type();
+  if (!enum_descriptor) {
+    return false;
+  }
+
+  const int32_t* const value = std::get_if<int32_t>(&wire_value);
+  if (!value) {
+    return false;
+  }
+
+  // TODO: Update to use feature.enum when that is available.
+  if (enum_descriptor->file()->syntax() ==
+          google::protobuf::FileDescriptor::SYNTAX_PROTO2 &&
+      !enum_descriptor->FindValueByNumber(*value)) {
+    // Proto2 hides unknown enums, and returns false for has_.
+    return true;
+  }
+  return false;
+}
+
+// Determines all wire values should be hidden, as if the whole vector did not
+// exist. Shorthand for WireValueShouldBeHidden being true for all values in the
+// vector.
+template <typename Vector>
+bool AllWireValuesShouldBeHidden(const ProtoFieldInfo& info,
+                                 const Vector& values) {
+  for (WireValueType const& wire_value : values) {
+    if (!WireValueShouldBeHidden(info, wire_value)) {
+      return false;
+    }
+  }
+  return true;
+}
 }  // namespace
 
 // Populates 'value' with the value of the field at the front of 'in' (which is
@@ -715,6 +754,7 @@ static absl::StatusOr<Value> TranslateWireValue(
       ZETASQL_RET_CHECK_NE(value, nullptr);
       Value enum_value = Value::Enum(type->AsEnum(), *value);
       if (ABSL_PREDICT_FALSE(!enum_value.is_valid())) {
+        // TODO: Properly support open proto3 enums.
         return zetasql_base::OutOfRangeErrorBuilder()
                << MakeReadValueErrorReason(field_descriptor, format, *value);
       }
@@ -745,7 +785,7 @@ static absl::StatusOr<Value> TranslateWireValue(
 
 inline bool IsPackedWireType(uint32_t tag) {
   return WireFormatLite::GetTagWireType(tag) ==
-      WireFormatLite::WIRETYPE_LENGTH_DELIMITED;
+         WireFormatLite::WIRETYPE_LENGTH_DELIMITED;
 }
 
 using PackedValuesVector = absl::InlinedVector<WireValueType, 8>;
@@ -830,9 +870,12 @@ static absl::StatusOr<Value> ReadSingularProtoField(
     ZETASQL_RET_CHECK(!wire_values.empty());
 
     if (field_info.get_has_bit) {
-      return Value::Bool(true);
+      return Value::Bool(!AllWireValuesShouldBeHidden(field_info, wire_values));
     }
     for (const WireValueType& wire_value : wire_values) {
+      if (WireValueShouldBeHidden(field_info, wire_value)) {
+        continue;
+      }
       const Type* element_type =
           field_info.type->IsArray()
               ? field_info.type->AsArray()->element_type()
@@ -974,15 +1017,19 @@ absl::Status ReadProtoFields(
 
         if (info->get_has_bit) {
           if (elements.empty()) {
-            elements.push_back(Value::Bool(true));
+            if (!AllWireValuesShouldBeHidden(*info, wire_values)) {
+              elements.push_back(Value::Bool(true));
+            }
           }
         } else {
           const Type* element_type = info->type->IsArray()
                                          ? info->type->AsArray()->element_type()
                                          : info->type;
           for (const WireValueType& wire_value : wire_values) {
-            elements.push_back(TranslateWireValue(wire_value, descriptor,
-                                                  info->format, element_type));
+            if (!WireValueShouldBeHidden(*info, wire_value)) {
+              elements.push_back(TranslateWireValue(
+                  wire_value, descriptor, info->format, element_type));
+            }
           }
         }
       }

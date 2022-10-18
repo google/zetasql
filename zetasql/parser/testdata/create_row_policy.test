@@ -1,87 +1,84 @@
-# TODO: Remove no_show_parse_location_text after parse locations
-# have been manually verified as correct.
-[default no_show_parse_location_text]
 create row policy on t1 to 'foo@google.com' using(c1 = 'foo');
 --
-CreateRowAccessPolicyStatement [0-61]
-  PathExpression [21-23]
-    Identifier(t1) [21-23]
-  GrantToClause [24-43]
-    GranteeList [27-43]
-      StringLiteral('foo@google.com') [27-43]
-  FilterUsingClause [43-61]
-    BinaryExpression(=) [50-60]
-      PathExpression [50-52]
-        Identifier(c1) [50-52]
-      StringLiteral('foo') [55-60]
+CreateRowAccessPolicyStatement [0-61] [create row...c1 = 'foo')]
+  PathExpression [21-23] [t1]
+    Identifier(t1) [21-23] [t1]
+  GrantToClause [24-43] [to 'foo@google.com']
+    GranteeList [27-43] ['foo@google.com']
+      StringLiteral('foo@google.com') [27-43] ['foo@google.com']
+  FilterUsingClause [43-61] [using(c1 = 'foo')]
+    BinaryExpression(=) [50-60] [c1 = 'foo']
+      PathExpression [50-52] [c1]
+        Identifier(c1) [50-52] [c1]
+      StringLiteral('foo') [55-60] ['foo']
 --
 CREATE ROW POLICY ON t1 TO 'foo@google.com' USING (c1 = 'foo')
 ==
 
 create row policy p1 on t1 to 'mdbuser/bar' using(c2 = 'foo');
 --
-CreateRowAccessPolicyStatement [0-61]
-  PathExpression [24-26]
-    Identifier(t1) [24-26]
-  GrantToClause [27-43]
-    GranteeList [30-43]
-      StringLiteral('mdbuser/bar') [30-43]
-  FilterUsingClause [43-61]
-    BinaryExpression(=) [50-60]
-      PathExpression [50-52]
-        Identifier(c2) [50-52]
-      StringLiteral('foo') [55-60]
-  PathExpression [18-20]
-    Identifier(p1) [18-20]
+CreateRowAccessPolicyStatement [0-61] [create row...c2 = 'foo')]
+  PathExpression [24-26] [t1]
+    Identifier(t1) [24-26] [t1]
+  GrantToClause [27-43] [to 'mdbuser/bar']
+    GranteeList [30-43] ['mdbuser/bar']
+      StringLiteral('mdbuser/bar') [30-43] ['mdbuser/bar']
+  FilterUsingClause [43-61] [using(c2 = 'foo')]
+    BinaryExpression(=) [50-60] [c2 = 'foo']
+      PathExpression [50-52] [c2]
+        Identifier(c2) [50-52] [c2]
+      StringLiteral('foo') [55-60] ['foo']
+  PathExpression [18-20] [p1]
+    Identifier(p1) [18-20] [p1]
 --
 CREATE ROW POLICY p1 ON t1 TO 'mdbuser/bar' USING (c2 = 'foo')
 ==
 
 create row policy on t1 to 'foo@google.com', 'mdbgroup/bar' using(c1);
 --
-CreateRowAccessPolicyStatement [0-69]
-  PathExpression [21-23]
-    Identifier(t1) [21-23]
-  GrantToClause [24-59]
-    GranteeList [27-59]
-      StringLiteral('foo@google.com') [27-43]
-      StringLiteral('mdbgroup/bar') [45-59]
-  FilterUsingClause [59-69]
-    PathExpression [66-68]
-      Identifier(c1) [66-68]
+CreateRowAccessPolicyStatement [0-69] [create row...using(c1)]
+  PathExpression [21-23] [t1]
+    Identifier(t1) [21-23] [t1]
+  GrantToClause [24-59] [to 'foo@google...mdbgroup/bar']
+    GranteeList [27-59] ['foo@google...mdbgroup/bar']
+      StringLiteral('foo@google.com') [27-43] ['foo@google.com']
+      StringLiteral('mdbgroup/bar') [45-59] ['mdbgroup/bar']
+  FilterUsingClause [59-69] [using(c1)]
+    PathExpression [66-68] [c1]
+      Identifier(c1) [66-68] [c1]
 --
 CREATE ROW POLICY ON t1 TO 'foo@google.com', 'mdbgroup/bar' USING (c1)
 ==
 
 create row policy on n1.t1 to 'foo@google.com', 'mdbgroup/bar' using(c1);
 --
-CreateRowAccessPolicyStatement [0-72]
-  PathExpression [21-26]
-    Identifier(n1) [21-23]
-    Identifier(t1) [24-26]
-  GrantToClause [27-62]
-    GranteeList [30-62]
-      StringLiteral('foo@google.com') [30-46]
-      StringLiteral('mdbgroup/bar') [48-62]
-  FilterUsingClause [62-72]
-    PathExpression [69-71]
-      Identifier(c1) [69-71]
+CreateRowAccessPolicyStatement [0-72] [create row...using(c1)]
+  PathExpression [21-26] [n1.t1]
+    Identifier(n1) [21-23] [n1]
+    Identifier(t1) [24-26] [t1]
+  GrantToClause [27-62] [to 'foo@google...mdbgroup/bar']
+    GranteeList [30-62] ['foo@google...mdbgroup/bar']
+      StringLiteral('foo@google.com') [30-46] ['foo@google.com']
+      StringLiteral('mdbgroup/bar') [48-62] ['mdbgroup/bar']
+  FilterUsingClause [62-72] [using(c1)]
+    PathExpression [69-71] [c1]
+      Identifier(c1) [69-71] [c1]
 --
 CREATE ROW POLICY ON n1.t1 TO 'foo@google.com', 'mdbgroup/bar' USING (c1)
 ==
 
 create row policy on n1.t1 to 'foo@google.com', 'mdbgroup/bar' using(1);
 --
-CreateRowAccessPolicyStatement [0-71]
-  PathExpression [21-26]
-    Identifier(n1) [21-23]
-    Identifier(t1) [24-26]
-  GrantToClause [27-62]
-    GranteeList [30-62]
-      StringLiteral('foo@google.com') [30-46]
-      StringLiteral('mdbgroup/bar') [48-62]
-  FilterUsingClause [62-71]
-    IntLiteral(1) [69-70]
+CreateRowAccessPolicyStatement [0-71] [create row...' using(1)]
+  PathExpression [21-26] [n1.t1]
+    Identifier(n1) [21-23] [n1]
+    Identifier(t1) [24-26] [t1]
+  GrantToClause [27-62] [to 'foo@google...mdbgroup/bar']
+    GranteeList [30-62] ['foo@google...mdbgroup/bar']
+      StringLiteral('foo@google.com') [30-46] ['foo@google.com']
+      StringLiteral('mdbgroup/bar') [48-62] ['mdbgroup/bar']
+  FilterUsingClause [62-71] [using(1)]
+    IntLiteral(1) [69-70] [1]
 --
 CREATE ROW POLICY ON n1.t1 TO 'foo@google.com', 'mdbgroup/bar' USING (1)
 ==
@@ -95,12 +92,12 @@ create row policy on n1.t1 to 'foo@google.com', 'mdbgroup/bar';
 
 create row policy on n1.t1 using(true);
 --
-CreateRowAccessPolicyStatement [0-38]
-  PathExpression [21-26]
-    Identifier(n1) [21-23]
-    Identifier(t1) [24-26]
-  FilterUsingClause [26-38]
-    BooleanLiteral(true) [33-37]
+CreateRowAccessPolicyStatement [0-38] [create row...using(true)]
+  PathExpression [21-26] [n1.t1]
+    Identifier(n1) [21-23] [n1]
+    Identifier(t1) [24-26] [t1]
+  FilterUsingClause [26-38] [using(true)]
+    BooleanLiteral(true) [33-37] [true]
 --
 CREATE ROW POLICY ON n1.t1 USING (true)
 ==
@@ -165,31 +162,31 @@ create row policy on t1 @{a=1} to 'foo@google.com' using(true);
 
 create row policy on t1 to @test_param_string using(true);
 --
-CreateRowAccessPolicyStatement [0-57]
-  PathExpression [21-23]
-    Identifier(t1) [21-23]
-  GrantToClause [24-45]
-    GranteeList [27-45]
-      ParameterExpr [27-45]
-        Identifier(test_param_string) [28-45]
-  FilterUsingClause [45-57]
-    BooleanLiteral(true) [52-56]
+CreateRowAccessPolicyStatement [0-57] [create row...using(true)]
+  PathExpression [21-23] [t1]
+    Identifier(t1) [21-23] [t1]
+  GrantToClause [24-45] [to @test_param_string]
+    GranteeList [27-45] [@test_param_string]
+      ParameterExpr [27-45] [@test_param_string]
+        Identifier(test_param_string) [28-45] [test_param_string]
+  FilterUsingClause [45-57] [using(true)]
+    BooleanLiteral(true) [52-56] [true]
 --
 CREATE ROW POLICY ON t1 TO @test_param_string USING (true)
 ==
 
 create row policy on t1 to @@sysvar using(true);
 --
-CreateRowAccessPolicyStatement [0-47]
-  PathExpression [21-23]
-    Identifier(t1) [21-23]
-  GrantToClause [24-35]
-    GranteeList [27-35]
-      SystemVariableExpr [27-35]
-        PathExpression [29-35]
-          Identifier(sysvar) [29-35]
-  FilterUsingClause [35-47]
-    BooleanLiteral(true) [42-46]
+CreateRowAccessPolicyStatement [0-47] [create row...using(true)]
+  PathExpression [21-23] [t1]
+    Identifier(t1) [21-23] [t1]
+  GrantToClause [24-35] [to @@sysvar]
+    GranteeList [27-35] [@@sysvar]
+      SystemVariableExpr [27-35] [@@sysvar]
+        PathExpression [29-35] [sysvar]
+          Identifier(sysvar) [29-35] [sysvar]
+  FilterUsingClause [35-47] [using(true)]
+    BooleanLiteral(true) [42-46] [true]
 --
 CREATE ROW POLICY ON t1 TO @@sysvar USING (true)
 ==
@@ -217,14 +214,14 @@ create row policy on t1 to NULL using(true);
 --
 ALTERNATION GROUP: ""
 --
-CreateRowAccessPolicyStatement [0-41]
-  PathExpression [21-23]
-    Identifier(t1) [21-23]
-  GrantToClause [24-29]
-    GranteeList [27-29]
-      StringLiteral("") [27-29]
-  FilterUsingClause [29-41]
-    BooleanLiteral(true) [36-40]
+CreateRowAccessPolicyStatement [0-41] [create row...using(true)]
+  PathExpression [21-23] [t1]
+    Identifier(t1) [21-23] [t1]
+  GrantToClause [24-29] [to ""]
+    GranteeList [27-29] [""]
+      StringLiteral("") [27-29] [""]
+  FilterUsingClause [29-41] [using(true)]
+    BooleanLiteral(true) [36-40] [true]
 --
 CREATE ROW POLICY ON t1 TO "" USING (true)
 --

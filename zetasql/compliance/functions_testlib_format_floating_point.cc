@@ -18,6 +18,7 @@
 // with "functions_testlib_" because an optimized compile with ASAN of the
 // original single file timed out at 900 seconds.
 
+#include <limits>
 #include <vector>
 
 #include "zetasql/public/value.h"
@@ -28,9 +29,11 @@ namespace zetasql {
 
 std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
   const double kNan = std::numeric_limits<double>::quiet_NaN();
+  const double kNegNan = absl::bit_cast<double>(0xfff8000000000000ull);
   const double kPosInf = std::numeric_limits<double>::infinity();
   const double kNegInf = -std::numeric_limits<double>::infinity();
   const float kFloatNan = std::numeric_limits<float>::quiet_NaN();
+  const float kFloatNegNan = absl::bit_cast<float>(0xffc00000u);
   const float kFloatPosInf = std::numeric_limits<float>::infinity();
   const float kFloatNegInf = -std::numeric_limits<float>::infinity();
 
@@ -39,33 +42,37 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
       {"format", {"%f", Float(0)}, "0.000000"},
       {"format", {"%f", Float(-10.25)}, "-10.250000"},
       {"format", {"%f", kFloatNan}, "nan"},
+      {"format", {"%f", kFloatNegNan}, "nan"},
       {"format", {"%f", kFloatPosInf}, "inf"},
       {"format", {"%f", kFloatNegInf}, "-inf"},
       {"format", {"%F", kFloatNan}, "NAN"},
+      {"format", {"%F", kFloatNegNan}, "NAN"},
       {"format", {"%F", kFloatPosInf}, "INF"},
       {"format", {"%F", kFloatNegInf}, "-INF"},
 
       {"format", {"%f", 0.0}, "0.000000"},
       {"format", {"%f", -10.25}, "-10.250000"},
       {"format", {"%f", kNan}, "nan"},
+      {"format", {"%f", kNegNan}, "nan"},
       {"format", {"%f", kPosInf}, "inf"},
       {"format", {"%f", kNegInf}, "-inf"},
       {"format", {"%F", kNan}, "NAN"},
+      {"format", {"%F", kNegNan}, "NAN"},
       {"format", {"%F", kPosInf}, "INF"},
       {"format", {"%F", kNegInf}, "-INF"},
 
       {"format", {"%+f", 0.0}, "+0.000000"},
       {"format", {"%+f", +0.0}, "+0.000000"},
-      {"format", {"%+f", -0.0}, "-0.000000"},
-      {"format", {"%f", -0.0}, "-0.000000"},
+      {"format", {"%+f", -0.0}, "+0.000000"},
+      {"format", {"%f", -0.0}, "0.000000"},
       {"format", {"%+e", 0.0}, "+0.000000e+00"},
       {"format", {"%+e", +0.0}, "+0.000000e+00"},
-      {"format", {"%+e", -0.0}, "-0.000000e+00"},
-      {"format", {"%e", -0.0}, "-0.000000e+00"},
+      {"format", {"%+e", -0.0}, "+0.000000e+00"},
+      {"format", {"%e", -0.0}, "0.000000e+00"},
       {"format", {"%+g", 0.0}, "+0"},
       {"format", {"%+g", +0.0}, "+0"},
-      {"format", {"%+g", -0.0}, "-0"},
-      {"format", {"%g", -0.0}, "-0"},
+      {"format", {"%+g", -0.0}, "+0"},
+      {"format", {"%g", -0.0}, "0"},
 
       {"format", {"%f", 0.0}, "0.000000"},
       {"format", {"%'f", 0.1}, "0.100000"},
@@ -196,12 +203,15 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
       {"format", {"% 'g", Double(1234567)}, " 1.23457e+06"},
       {"format", {"% 'e", Double(1234567)}, " 1.234567e+06"},
       {"format", {"%015.2e", kNan}, "            nan"},
+      {"format", {"%015.2e", kNegNan}, "            nan"},
       {"format", {"%015.2f", kPosInf}, "            inf"},
       {"format", {"%015.2g", kNegInf}, "           -inf"},
       {"format", {"%'15.2e", kNan}, "            nan"},
+      {"format", {"%'15.2e", kNegNan}, "            nan"},
       {"format", {"%'15.2f", kPosInf}, "            inf"},
       {"format", {"%'15.2g", kNegInf}, "           -inf"},
       {"format", {"%-'15.2e", kNan}, "nan            "},
+      {"format", {"%-'15.2e", kNegNan}, "nan            "},
       {"format", {"%-'15.2f", kPosInf}, "inf            "},
       {"format", {"%-'15.2g", kNegInf}, "-inf           "},
       // These are cases where %g/G takes the %f style format with grouping.
@@ -210,12 +220,15 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
 
       // Float and double special values with %t and %T.
       {"format", {"%t", kFloatNan}, "nan"},
+      {"format", {"%t", kFloatNegNan}, "nan"},
       {"format", {"%t", kFloatPosInf}, "inf"},
       {"format", {"%t", kFloatNegInf}, "-inf"},
       {"format", {"%t", kNan}, "nan"},
+      {"format", {"%t", kNegNan}, "nan"},
       {"format", {"%t", kPosInf}, "inf"},
       {"format", {"%t", kNegInf}, "-inf"},
       {"format", {"%T", kFloatNan}, "CAST(\"nan\" AS FLOAT)"},
+      {"format", {"%T", kFloatNegNan}, "CAST(\"nan\" AS FLOAT)"},
       {"format", {"%T", kFloatPosInf}, "CAST(\"inf\" AS FLOAT)"},
       {"format", {"%T", kFloatNegInf}, "CAST(\"-inf\" AS FLOAT)"},
       // Note that these always produce a cast to FLOAT64, in both INTERNAL
@@ -223,6 +236,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
       // in the INTERNAL mode case, but then the same query could get different
       // results in INTERNAL vs. EXTERNAL mode and that seems bad.
       {"format", {"%T", kNan}, "CAST(\"nan\" AS FLOAT64)"},
+      {"format", {"%T", kNegNan}, "CAST(\"nan\" AS FLOAT64)"},
       {"format", {"%T", kPosInf}, "CAST(\"inf\" AS FLOAT64)"},
       {"format", {"%T", kNegInf}, "CAST(\"-inf\" AS FLOAT64)"},
 

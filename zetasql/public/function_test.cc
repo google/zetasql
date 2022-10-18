@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/testing/proto_matchers.h"
@@ -803,6 +804,25 @@ TEST_F(FunctionSerializationTests,
 
     CheckSerializationAndDeserialization(argument_type);
   }
+}
+
+// Test serialization and deserialization of array element type comparison
+// constraint signal in the function argument type options.
+TEST_F(FunctionSerializationTests,
+       SerializationAndDeserializationArrayElementTypeConstraint) {
+  FunctionArgumentTypeOptions options1;
+  options1.set_array_element_must_support_equality();
+  FunctionArgumentType argument_type1(ARG_ARRAY_TYPE_ANY_1, options1);
+  CheckSerializationAndDeserialization(argument_type1);
+
+  FunctionArgumentTypeOptions options2;
+  options2.set_array_element_must_support_ordering();
+  FunctionArgumentType argument_type2(ARG_ARRAY_TYPE_ANY_2, options2);
+  CheckSerializationAndDeserialization(argument_type2);
+
+  options2.set_array_element_must_support_grouping();
+  FunctionArgumentType argument_type3(ARG_ARRAY_TYPE_ANY_2, options2);
+  CheckSerializationAndDeserialization(argument_type3);
 }
 
 }  // namespace zetasql

@@ -58,26 +58,30 @@ SAFE.function_name()
 
 **Description**
 
-If you begin a function with the `SAFE.` prefix, it will return `NULL` instead
-of an error. The `SAFE.` prefix only prevents errors from the prefixed function
-itself: it does not prevent errors that occur while evaluating argument
+If you begin a function with
+the `SAFE.` prefix, it will return `NULL` instead of an error.
+The `SAFE.` prefix only prevents errors from the prefixed function
+itself: it doesn't prevent errors that occur while evaluating argument
 expressions. The `SAFE.` prefix only prevents errors that occur because of the
 value of the function inputs, such as "value out of range" errors; other
 errors, such as internal or system errors, may still occur. If the function
-does not return an error, `SAFE.` has no effect on the output.
+doesn't return an error, `SAFE.` has no effect on the output.
 
-[Operators][link-to-operators], such as `+` and `=`, do not support the `SAFE.`
-prefix. To prevent errors from a division
-operation, use [SAFE_DIVIDE][link-to-SAFE_DIVIDE]. Some operators,
-such as `IN`, `ARRAY`, and `UNNEST`, resemble functions, but do not support the
-`SAFE.` prefix. The `CAST` and `EXTRACT` functions also do not support the
-`SAFE.` prefix. To prevent errors from casting, use
-[SAFE_CAST][link-to-SAFE_CAST].
+**Exclusions**
+
++ [Operators][link-to-operators], such as `+` and `=`, don't support the
+  `SAFE.` prefix. To prevent errors from a
+   division operation, use [SAFE_DIVIDE][link-to-SAFE_DIVIDE].
++ Some operators, such as `IN`, `ARRAY`, and `UNNEST`, resemble functions but
+  don't support the `SAFE.` prefix.
++ The `CAST` and `EXTRACT` functions don't support the `SAFE.`
+  prefix. To prevent errors from casting, use
+  [SAFE_CAST][link-to-SAFE_CAST].
 
 **Example**
 
 In the following example, the first use of the `SUBSTR` function would normally
-return an error, because the function does not support length arguments with
+return an error, because the function doesn't support length arguments with
 negative values. However, the `SAFE.` prefix causes the function to return
 `NULL` instead. The second use of the `SUBSTR` function provides the expected
 output: the `SAFE.` prefix has no effect.
@@ -95,6 +99,8 @@ SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[lambdas]: #lambdas
 
 [link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 

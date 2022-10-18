@@ -42,10 +42,12 @@ namespace functions {
 
 // Ensure a compile-time error (rather than link-time) for unsupported types.
 template <typename T>
-bool NumericToString(T value, std::string* out, absl::Status* error) = delete;
+bool NumericToString(T value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero = false) = delete;
 
 template <typename T>
-bool NumericToString(T value, std::string* out, absl::Status* error);
+bool NumericToString(T value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero);
 
 // Ensure a compile-time error (rather than link-time) for unsupported types.
 template <typename T>
@@ -56,24 +58,32 @@ template <typename T>
 bool StringToNumeric(absl::string_view value, T* out, absl::Status* error);
 
 template <>
-bool NumericToString(bool value, std::string* out, absl::Status* error);
+bool NumericToString(bool value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero);
 template <>
-bool NumericToString(int32_t value, std::string* out, absl::Status* error);
+bool NumericToString(int32_t value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero);
 template <>
-bool NumericToString(int64_t value, std::string* out, absl::Status* error);
+bool NumericToString(int64_t value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero);
 template <>
-bool NumericToString(uint32_t value, std::string* out, absl::Status* error);
+bool NumericToString(uint32_t value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero);
 template <>
-bool NumericToString(uint64_t value, std::string* out, absl::Status* error);
+bool NumericToString(uint64_t value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero);
 template <>
-bool NumericToString(float value, std::string* out, absl::Status* error);
+bool NumericToString(float value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero);
 template <>
-bool NumericToString(double value, std::string* out, absl::Status* error);
+bool NumericToString(double value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero);
 template <>
-bool NumericToString(NumericValue value, std::string* out, absl::Status* error);
+bool NumericToString(NumericValue value, std::string* out, absl::Status* error,
+                     bool canonicalize_zero);
 template <>
 bool NumericToString(BigNumericValue value, std::string* out,
-                     absl::Status* error);
+                     absl::Status* error, bool canonicalize_zero);
 
 template <>
 bool StringToNumeric(absl::string_view value, bool* out, absl::Status* error);
