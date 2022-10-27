@@ -17,8 +17,12 @@
 """Build rule for generating C or C++ sources with Bison.
 """
 
+load("@rules_bison//bison:bison.bzl", "BISON_TOOLCHAIN_TYPE", "bison_toolchain")
+load("@rules_m4//m4:m4.bzl", "M4_TOOLCHAIN_TYPE")
+
 def _genyacc_impl(ctx):
     """Implementation for genyacc rule."""
+    bison = bison_toolchain(ctx)
 
     # Argument list
     args = ctx.actions.args()
@@ -36,14 +40,10 @@ def _genyacc_impl(ctx):
     ]
 
     ctx.actions.run(
-        executable = ctx.executable._bison,
-        env = {
-            "M4": ctx.executable._m4.path,
-            "BISON_PKGDATADIR": ctx.files._bison_data[0].dirname,
-        },
+        executable = bison.bison_tool,
+        env = bison.bison_env,
         arguments = [args],
-        inputs = ctx.files._bison_data + ctx.files.src,
-        tools = [ctx.executable._m4],
+        inputs = ctx.files.src,
         outputs = outputs,
         mnemonic = "Yacc",
         progress_message = "Generating %s and %s from %s" %
@@ -79,17 +79,10 @@ genyacc = rule(
             doc = "A list of extra options to pass to Bison.  These are " +
                   "subject to $(location ...) expansion.",
         ),
-        "_bison_data": attr.label(default = "@bison//:bison_runtime_data"),
-        "_bison": attr.label(
-            default = Label("//bazel:bison_bin"),
-            executable = True,
-            cfg = "host",
-        ),
-        "_m4": attr.label(
-            default = Label("//bazel:m4_bin"),
-            executable = True,
-            cfg = "host",
-        ),
     },
+    toolchains = [
+        BISON_TOOLCHAIN_TYPE,
+        M4_TOOLCHAIN_TYPE,
+    ],
     output_to_genfiles = True,
 )

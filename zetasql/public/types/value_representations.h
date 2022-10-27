@@ -79,6 +79,13 @@ class ValueContentContainer {
   virtual ValueContentContainerElement element(int i) const = 0;
   virtual int64_t num_elements() const = 0;
   virtual uint64_t physical_byte_size() const = 0;
+
+  // Returns this container as const SubType*. Must only be used when it
+  // is known that the object *is* this subclass.
+  template <class SubType>
+  const SubType* GetAs() const {
+    return static_cast<const SubType*>(this);
+  }
 };
 
 // -------------------------------------------------------

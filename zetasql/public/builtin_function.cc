@@ -90,10 +90,20 @@ const std::string FunctionSignatureIdToName(FunctionSignatureId id) {
 }
 
 using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+using NameToTypeMap = absl::flat_hash_map<std::string, const Type*>;
 
 void GetZetaSQLFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,
                            NameToFunctionMap* functions) {
+  NameToTypeMap types_ignored;
+  absl::Status status = GetZetaSQLFunctionsAndTypes(
+      type_factory, options, functions, &types_ignored);
+  ZETASQL_DCHECK_OK(status);
+}
+
+absl::Status GetZetaSQLFunctionsAndTypes(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions, NameToTypeMap* types) {
   GetDatetimeFunctions(type_factory, options, functions);
   GetIntervalFunctions(type_factory, options, functions);
   GetArithmeticFunctions(type_factory, options, functions);
@@ -111,7 +121,7 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
   GetArrayAggregationFunctions(type_factory, options, functions);
   GetSubscriptFunctions(type_factory, options, functions);
   GetJSONFunctions(type_factory, options, functions);
-  GetMathFunctions(type_factory, options, functions);
+  ZETASQL_RETURN_IF_ERROR(GetMathFunctions(type_factory, options, functions, types));
   GetHllCountFunctions(type_factory, options, functions);
   GetD3ACountFunctions(type_factory, options, functions);
   GetKllQuantilesFunctions(type_factory, options, functions);
@@ -136,6 +146,7 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
   if (options.language_options.LanguageFeatureEnabled(FEATURE_RANGE_TYPE)) {
     GetRangeFunctions(type_factory, options, functions);
   }
+  return absl::OkStatus();
 }
 
 bool FunctionMayHaveUnintendedArgumentCoercion(const Function* function) {

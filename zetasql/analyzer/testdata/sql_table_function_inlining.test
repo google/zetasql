@@ -3654,6 +3654,7 @@ QueryStmt
 Rewrite ERROR: generic::unimplemented: TVF arguments that reference columns are not supported. Arg #1 ('arg0') references column 'b'.
 ==
 
+[no_run_unparser]
 SELECT * FROM DefinerRightsTvf((select count(*) from KeyValue))
 --
 QueryStmt
@@ -3686,6 +3687,7 @@ QueryStmt
         |                 +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         +-column_index_list=[0, 1]
 
+
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -3702,9 +3704,9 @@ QueryStmt
         |   +-with_query_name="$inlined_DefinerRightsTvf_scalar_args"
         |   +-with_subquery=
         |     +-ProjectScan
-        |       +-column_list=[$inlined_DefinerRightsTvf.a#6]
+        |       +-column_list=[$inlined_DefinerRightsTvf.a#8]
         |       +-expr_list=
-        |       | +-a#6 :=
+        |       | +-a#8 :=
         |       |   +-SubqueryExpr
         |       |     +-type=INT64
         |       |     +-subquery_type=SCALAR
@@ -3721,21 +3723,24 @@ QueryStmt
         |       +-input_scan=
         |         +-SingleRowScan
         +-query=
-          +-ProjectScan
+          +-ExecuteAsRoleScan
             +-column_list=DefinerRightsTvf.[Key#4, Value#5]
             +-input_scan=
-              +-FilterScan
-                +-column_list=DefinerRightsTvf.[Key#4, Value#5]
+              +-ProjectScan
+                +-column_list=DefinerRightsTvf.[Key#6, Value#7]
                 +-input_scan=
-                | +-TableScan(column_list=DefinerRightsTvf.[Key#4, Value#5], table=KeyValue, column_index_list=[0, 1])
-                +-filter_expr=
-                  +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-                    +-ColumnRef(type=INT64, column=DefinerRightsTvf.Key#4)
-                    +-SubqueryExpr
-                      +-type=INT64
-                      +-subquery_type=SCALAR
-                      +-subquery=
-                        +-ProjectScan
-                          +-column_list=[$inlined_DefinerRightsTvf.a#7]
-                          +-input_scan=
-                            +-WithRefScan(column_list=[$inlined_DefinerRightsTvf.a#7], with_query_name="$inlined_DefinerRightsTvf_scalar_args")
+                  +-FilterScan
+                    +-column_list=DefinerRightsTvf.[Key#6, Value#7]
+                    +-input_scan=
+                    | +-TableScan(column_list=DefinerRightsTvf.[Key#6, Value#7], table=KeyValue, column_index_list=[0, 1])
+                    +-filter_expr=
+                      +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                        +-ColumnRef(type=INT64, column=DefinerRightsTvf.Key#6)
+                        +-SubqueryExpr
+                          +-type=INT64
+                          +-subquery_type=SCALAR
+                          +-subquery=
+                            +-ProjectScan
+                              +-column_list=[$inlined_DefinerRightsTvf.a#9]
+                              +-input_scan=
+                                +-WithRefScan(column_list=[$inlined_DefinerRightsTvf.a#9], with_query_name="$inlined_DefinerRightsTvf_scalar_args")

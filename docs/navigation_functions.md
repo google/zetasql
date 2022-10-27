@@ -648,8 +648,9 @@ window_specification:
 Computes the specified percentile value for the value_expression, with linear
 interpolation.
 
-This function ignores NULL values if `RESPECT NULLS` is absent.  If `RESPECT
-NULLS` is present:
+This function ignores NULL
+values if
+`RESPECT NULLS` is absent.  If `RESPECT NULLS` is present:
 
 + Interpolation between two `NULL` values returns `NULL`.
 + Interpolation between a `NULL` value and a non-`NULL` value returns the
@@ -752,7 +753,9 @@ Computes the specified percentile value for a discrete `value_expression`. The
 returned value is the first sorted value of `value_expression` with cumulative
 distribution greater than or equal to the given `percentile` value.
 
-This function ignores `NULL` values unless `RESPECT NULLS` is present.
+This function ignores `NULL`
+values unless
+`RESPECT NULLS` is present.
 
 To learn more about the `OVER` clause and how to use it, see
 [Window function calls][window-function-calls].
@@ -821,9 +824,5 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
 [window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
-
-<!-- mdlint on -->
 

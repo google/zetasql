@@ -5592,7 +5592,7 @@ QueryStmt
 #
 # (Overriding feature options, as FEATURE_V_1_2_GROUP_BY_STRUCT must be off for
 #  this test).
-[default language_features=V_1_3_PIVOT]
+[language_features=V_1_3_PIVOT]
 select * from (
     select struct(1,2), 100 AS y union all
     select struct(1,2), 101 AS y union all
@@ -5611,7 +5611,7 @@ PIVOT(SUM(y) FOR true in (true));
 #
 # (Overriding feature options, as FEATURE_V_1_2_GROUP_BY_STRUCT must be off for
 #  this test).
-[default language_features=V_1_3_PIVOT]
+[language_features=V_1_3_PIVOT]
 select * from (
     select struct(1,2) AS x, 100 AS y union all
     select struct(1,2) AS x, 101 AS y union all
@@ -5623,3 +5623,187 @@ PIVOT(SUM(y) FOR true in (true));
 ERROR: Column x of type STRUCT cannot be used as an implicit grouping column of a PIVOT clause [at 7:1]
 PIVOT(SUM(y) FOR true in (true));
 ^
+==
+
+[mode=expression]
+[enabled_ast_rewrites=ALL]
+ARRAY(
+  SELECT AS STRUCT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one))
+)
+--
+SubqueryExpr
++-type=ARRAY<STRUCT<zero INT64, one INT64>>
++-subquery_type=ARRAY
++-subquery=
+  +-ProjectScan
+    +-column_list=[$make_struct.$struct#6]
+    +-expr_list=
+    | +-$struct#6 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<zero INT64, one INT64>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=$pivot.zero#4)
+    |       +-ColumnRef(type=INT64, column=$pivot.one#5)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$pivot.[zero#4, one#5]
+        +-input_scan=
+          +-PivotScan
+            +-column_list=$pivot.[zero#4, one#5]
+            +-input_scan=
+            | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-pivot_expr_list=
+            | +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
+            |   +-parse_location=48-60
+            |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-for_expr=
+            | +-ColumnRef(parse_location=65-68, type=INT64, column=KeyValue.Key#1)
+            +-pivot_value_list=
+            | +-Literal(type=INT64, value=0)
+            | +-Literal(type=INT64, value=1)
+            +-pivot_column_list=
+              +-PivotColumn(column=$pivot.zero#4, pivot_expr_index=0, pivot_value_index=0)
+              +-PivotColumn(column=$pivot.one#5, pivot_expr_index=0, pivot_value_index=1)
+
+[REWRITTEN AST]
+SubqueryExpr
++-type=ARRAY<STRUCT<zero INT64, one INT64>>
++-subquery_type=ARRAY
++-subquery=
+  +-ProjectScan
+    +-column_list=[$make_struct.$struct#6]
+    +-expr_list=
+    | +-$struct#6 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<zero INT64, one INT64>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=$pivot.zero#4)
+    |       +-ColumnRef(type=INT64, column=$pivot.one#5)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$pivot.[zero#4, one#5]
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=$pivot.[zero#4, one#5]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#7, $pivot.$pivot_expr_arg#8]
+            |   +-expr_list=
+            |   | +-$pivot_value#7 := ColumnRef(parse_location=65-68, type=INT64, column=KeyValue.Key#1)
+            |   | +-$pivot_expr_arg#8 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |   +-input_scan=
+            |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-aggregate_list=
+              +-zero#4 :=
+              | +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
+              |   +-SubqueryExpr
+              |     +-type=STRING
+              |     +-subquery_type=SCALAR
+              |     +-parameter_list=
+              |     | +-ColumnRef(type=INT64, column=$pivot.$pivot_value#7)
+              |     | +-ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#8)
+              |     +-subquery=
+              |       +-ProjectScan
+              |         +-column_list=[$expr_subquery.$col1#12]
+              |         +-expr_list=
+              |         | +-$col1#12 :=
+              |         |   +-FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
+              |         |     +-FunctionCall(ZetaSQL:$is_not_distinct_from(INT64, INT64) -> BOOL)
+              |         |     | +-ColumnRef(type=INT64, column=$subquery1.pivot_column#10)
+              |         |     | +-ColumnRef(type=INT64, column=$subquery1.pivot_value#11)
+              |         |     +-ColumnRef(type=STRING, column=$subquery1.orig_arg#9)
+              |         |     +-Literal(type=STRING, value=NULL)
+              |         +-input_scan=
+              |           +-ProjectScan
+              |             +-column_list=$subquery1.[orig_arg#9, pivot_column#10, pivot_value#11]
+              |             +-expr_list=
+              |             | +-orig_arg#9 := ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#8, is_correlated=TRUE)
+              |             | +-pivot_column#10 := ColumnRef(type=INT64, column=$pivot.$pivot_value#7, is_correlated=TRUE)
+              |             | +-pivot_value#11 := Literal(type=INT64, value=0)
+              |             +-input_scan=
+              |               +-SingleRowScan
+              +-one#5 :=
+                +-AggregateFunctionCall(ZetaSQL:count(STRING) -> INT64)
+                  +-SubqueryExpr
+                    +-type=STRING
+                    +-subquery_type=SCALAR
+                    +-parameter_list=
+                    | +-ColumnRef(type=INT64, column=$pivot.$pivot_value#7)
+                    | +-ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#8)
+                    +-subquery=
+                      +-ProjectScan
+                        +-column_list=[$expr_subquery.$col1#16]
+                        +-expr_list=
+                        | +-$col1#16 :=
+                        |   +-FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
+                        |     +-FunctionCall(ZetaSQL:$is_not_distinct_from(INT64, INT64) -> BOOL)
+                        |     | +-ColumnRef(type=INT64, column=$subquery1.pivot_column#14)
+                        |     | +-ColumnRef(type=INT64, column=$subquery1.pivot_value#15)
+                        |     +-ColumnRef(type=STRING, column=$subquery1.orig_arg#13)
+                        |     +-Literal(type=STRING, value=NULL)
+                        +-input_scan=
+                          +-ProjectScan
+                            +-column_list=$subquery1.[orig_arg#13, pivot_column#14, pivot_value#15]
+                            +-expr_list=
+                            | +-orig_arg#13 := ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#8, is_correlated=TRUE)
+                            | +-pivot_column#14 := ColumnRef(type=INT64, column=$pivot.$pivot_value#7, is_correlated=TRUE)
+                            | +-pivot_value#15 := Literal(type=INT64, value=1)
+                            +-input_scan=
+                              +-SingleRowScan
+==
+
+# Regression test for b/250862965
+# (Disabling SQLBuilder due to b/254913718).
+# TODO: Enable SQLBuilder when fixed.
+[no_run_unparser]
+WITH t AS (
+  SELECT *, 1 AS a, 2 AS b, c AS d
+  FROM ( SELECT 3 AS c)
+)
+SELECT * FROM t PIVOT(MAX(a) FOR b IN (2))
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.c#9 AS c [INT64]
+| +-$groupby.d#10 AS d [INT64]
+| +-$pivot._2#11 AS _2 [INT64]
++-query=
+  +-WithScan
+    +-column_list=[$groupby.c#9, $groupby.d#10, $pivot._2#11]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[$subquery1.c#1, t.a#2, t.b#3, $subquery1.c#1]
+    |       +-expr_list=
+    |       | +-a#2 := Literal(type=INT64, value=1)
+    |       | +-b#3 := Literal(type=INT64, value=2)
+    |       +-input_scan=
+    |         +-ProjectScan
+    |           +-column_list=[$subquery1.c#1]
+    |           +-expr_list=
+    |           | +-c#1 := Literal(type=INT64, value=3)
+    |           +-input_scan=
+    |             +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[$groupby.c#9, $groupby.d#10, $pivot._2#11]
+        +-input_scan=
+          +-PivotScan
+            +-column_list=[$groupby.c#9, $groupby.d#10, $pivot._2#11]
+            +-input_scan=
+            | +-WithRefScan(column_list=t.[c#4, a#5, b#6, c#7], with_query_name="t")
+            +-group_by_list=
+            | +-c#9 := ColumnRef(type=INT64, column=t.c#7)
+            | +-d#10 := ColumnRef(type=INT64, column=t.c#7)
+            +-pivot_expr_list=
+            | +-AggregateFunctionCall(ZetaSQL:max(INT64) -> INT64)
+            |   +-parse_location=95-101
+            |   +-ColumnRef(type=INT64, column=t.a#5)
+            +-for_expr=
+            | +-ColumnRef(parse_location=106-107, type=INT64, column=t.b#6)
+            +-pivot_value_list=
+            | +-Literal(type=INT64, value=2, preserve_in_literal_remover=TRUE)
+            +-pivot_column_list=
+              +-PivotColumn(column=$pivot._2#11, pivot_expr_index=0, pivot_value_index=0)

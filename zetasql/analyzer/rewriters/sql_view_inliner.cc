@@ -19,6 +19,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
@@ -35,6 +36,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_format.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
@@ -62,14 +64,17 @@ class SqlViewInlineVistor : public ResolvedASTDeepCopyVisitor {
     if (!view->enable_view_inline()) {
       return false;
     }
-    if (view->sql_security() != SQLView::kSecurityInvoker) {
-      // The ResolvedAST has no mechanism to annotate the authentication
-      // difference between nodes from inside the view vs outside the view.
-      return absl::InvalidArgumentError(absl::StrCat(
-          "View inlining is only supported for SQL_SECURITY_INVOKER views",
-          ". View ", view->Name(), " has ",
-          ResolvedCreateStatementEnums::SqlSecurity_Name(view->sql_security()),
-          ", and the catalog should not report it as inlineable."));
+    if (view->sql_security() != SQLView::kSecurityInvoker &&
+        view->sql_security() != SQLView::kSecurityDefiner) {
+      // We make no assumption about unspecified SQL SECURITY. We cannot inline
+      // this view invocation.
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "View inlining not supported for unspecified SQL SECURITY views. "
+          "View %s has %s, and the catalog should not report it as "
+          "inlineable.",
+          view->Name(),
+          ResolvedCreateStatementEnums::SqlSecurity_Name(
+              view->sql_security())));
     }
     if (scan->hint_list_size() > 0) {
       // View inlining leaves no place to hang table scan hints. It's not clear
@@ -91,39 +96,33 @@ class SqlViewInlineVistor : public ResolvedASTDeepCopyVisitor {
   absl::Status InlineSqlView(const ResolvedTableScan* scan,
                              const SQLView* view) {
     ZETASQL_RET_CHECK_NE(column_factory_, nullptr);
-
-    // The view definition was pre-compiled (or will be lazily compiled) and
-    // owned by the catalog. The ResolvedColumns in the view definition scan
-    // are not allocated by 'column_factory_' and are thus declared in a
-    // differenct id space. When we copy the view definition, we need to map
-    // those columns to columns that are allocated by column_factory_. There
-    // are two sorts of columns that we need to concern ourselves with.
-    //
-    // 1) Columns that are output by the view and consumed in the scan. This is
-    //    possibly a subset of the view definitions projected columns. For these
-    //    columns we want to remap the column ids used in the view definition to
-    //    the existing column ids that were projected by the TableScan.
-    // 2) Columns that are defined within the view but are either not projected
-    //    by the view definition scan or aren't consumed by the TableScan. These
-    //    columns are handled inside ColumnRemappingResolvedASTDeepCopyVisitor
-    //    and will get new column ids allocated by 'column_factory_'.
+    ZETASQL_DCHECK(scan->table()->Is<SQLView>());
 
     const ResolvedScan* const view_def = view->view_query();
-    ZETASQL_RET_CHECK(view_def != nullptr);
+    ZETASQL_RET_CHECK_NE(view_def, nullptr);
 
-    // Initialize a map from the column ids in the view definition to the column
-    // ids in the invoking query to remap the columns that were consumed by the
-    // TableScan.
-    ColumnReplacementMap column_map;
-    for (int i = 0; i < scan->column_index_list_size(); ++i) {
-      int column_idx = scan->column_index_list(i);
-      ZETASQL_RET_CHECK_GT(view_def->column_list_size(), column_idx);
-      column_map[view_def->column_list(column_idx)] = scan->column_list(i);
+    // For definer-rights views, we introduce a ResolvedExecuteAsRole node to
+    // mark the boundary between invoker and definer rights. In this case,
+    // we remap the columns so that consumers of this view call do not reach
+    // into its subtree and move things outside of the rights zone.
+    if (scan->table()->GetAs<SQLView>()->sql_security() ==
+        SQLView::kSecurityDefiner) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<ResolvedScan> view_query,
+          ReplaceScanColumns(
+              *column_factory_, *view_def, scan->column_index_list(),
+              CreateReplacementColumns(*column_factory_, scan->column_list())));
+
+      PushNodeToStack(MakeResolvedExecuteAsRoleScan(scan->column_list(),
+                                                    std::move(view_query)));
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<ResolvedScan> view_query,
+          ReplaceScanColumns(*column_factory_, *view_def,
+                             scan->column_index_list(), scan->column_list()));
+      PushNodeToStack(std::move(view_query));
     }
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> view_query,
-                     CopyResolvedASTAndRemapColumns(*view_def, *column_factory_,
-                                                    column_map));
-    PushNodeToStack(std::move(view_query));
+
     return absl::OkStatus();
   }
 };

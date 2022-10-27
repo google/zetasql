@@ -20,6 +20,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Followup from zetasql_deps_step_1.bzl
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+load("@rules_m4//m4:m4.bzl", "m4_register_toolchains")
+load("@rules_flex//flex:flex.bzl", "flex_register_toolchains")
+load("@rules_bison//bison:bison.bzl", "bison_register_toolchains")
 
 def _load_deps_from_step_1():
     rules_foreign_cc_dependencies()
@@ -410,63 +413,20 @@ alias(
 """,
             )
 
-    ##########################################################################
-    # Rules which depend on rules_foreign_cc
-    #
-    # These require a "./configure && make" style build and depend on an
-    # experimental project to allow building from source with non-bazel
-    # build systems.
-    #
-    # All of these archives basically just create filegroups and separate
-    # BUILD files introduce the relevant rules.
-    ##########################################################################
-    if analyzer_deps:
-        all_content = """filegroup(name = "all", srcs = glob(["**"]), visibility = ["//visibility:public"])"""
-        bison_build_file_content = all_content + """
-filegroup(
-    name = "bison_runtime_data",
-    srcs = glob(["data/**/*"]),
-    output_licenses = ["unencumbered"],
-    path = "data",
-    visibility = ["//visibility:public"],
+        m4_register_toolchains(version = "1.4.18")
+        flex_register_toolchains(version = "2.6.4")
+        bison_register_toolchains(version = "3.3.2")
 
-)
-exports_files(["data"])
-
-"""
-
-        http_archive(
-            name = "bison",
-            build_file_content = bison_build_file_content,
-            strip_prefix = "bison-3.6.2",
-            sha256 = "e28ed3aad934de2d1df68be209ac0b454f7b6d3c3d6d01126e5cd2cbadba089a",
-            urls = [
-                "https://ftp.gnu.org/gnu/bison/bison-3.6.2.tar.gz",
-                "https://mirrors.kernel.org/gnu/bison/bison-3.6.2.tar.gz",
-            ],
-        )
-
-        http_archive(
-            name = "flex",
-            build_file_content = all_content,
-            strip_prefix = "flex-2.6.4",
-            sha256 = "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995",
-            urls = ["https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz"],
-            patches = ["@com_google_zetasql//bazel:flex.patch"],
-        )
-
-        if not native.existing_rule("m4"):
-            http_archive(
-                name = "m4",
-                build_file_content = all_content,
-                strip_prefix = "m4-1.4.18",
-                sha256 = "ab2633921a5cd38e48797bf5521ad259bdc4b979078034a3b790d7fec5493fab",
-                urls = [
-                    "https://ftp.gnu.org/gnu/m4/m4-1.4.18.tar.gz",
-                    "https://mirrors.kernel.org/gnu/m4/m4-1.4.18.tar.gz",
-                ],
-                patches = ["@com_google_zetasql//bazel:m4.patch"],
-            )
+        ##########################################################################
+        # Rules which depend on rules_foreign_cc
+        #
+        # These require a "./configure && make" style build and depend on an
+        # experimental project to allow building from source with non-bazel
+        # build systems.
+        #
+        # All of these archives basically just create filegroups and separate
+        # BUILD files introduce the relevant rules.
+        ##########################################################################
 
         http_archive(
             name = "icu",

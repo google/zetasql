@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 359
+NEXT_NODE_TAG_ID = 364
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -168,9 +168,6 @@ SCALAR_MODIFIER = EnumScalarType('Modifier', 'ASTExpressionSubquery', 'NONE')
 
 SCALAR_MODIFIER_KIND = EnumScalarType('ModifierKind', 'ASTHavingModifier',
                                       'MAX')
-SCALAR_OPERATION_TYPE = EnumScalarType('OperationType', 'ASTSetOperation',
-                                       'NOT_SET')
-
 SCALAR_OPERATION_TYPE = EnumScalarType('OperationType', 'ASTSetOperation',
                                        'NOT_SET')
 

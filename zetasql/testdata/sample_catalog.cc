@@ -207,8 +207,8 @@ void SampleCatalog::LoadCatalog(const LanguageOptions& language_options) {
 void SampleCatalog::LoadCatalogBuiltins(
     const LanguageOptions& language_options) {
   // Populate the sample catalog with the ZetaSQL functions.
-  catalog_->AddZetaSQLFunctions(
-      ZetaSQLBuiltinFunctionOptions(language_options));
+  ZETASQL_CHECK_OK(catalog_->AddZetaSQLFunctionsAndTypes(
+      ZetaSQLBuiltinFunctionOptions(language_options)));
 }
 
 void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
@@ -381,10 +381,6 @@ void SampleCatalog::LoadTypes() {
 
   // Add a simple type for testing alias type from engine catalog
   catalog_->AddType("INT64AliasType", types_->get_int64());
-
-  // TODO: Remove once this is part of the builtin
-  //                               catalog
-  catalog_->AddType("ROUNDING_MODE", types::RoundingModeEnumType());
 }
 
 namespace {
@@ -1328,7 +1324,7 @@ void SampleCatalog::LoadViews(const LanguageOptions& language_options) {
       "SELECT 1 AS a;");
   add_view(
       "CREATE VIEW DefinerRightsView SQL SECURITY DEFINER AS "
-      "SELECT 1 AS a;");
+      "SELECT 1 AS a, 'x' AS b, false AS c;");
 }
 
 void SampleCatalog::LoadNestedCatalogs() {

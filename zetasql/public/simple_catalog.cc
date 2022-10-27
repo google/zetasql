@@ -731,36 +731,77 @@ void SimpleCatalog::AddZetaSQLFunctions(
   }
 }
 
-void SimpleCatalog::AddZetaSQLFunctions(
-    const ZetaSQLBuiltinFunctionOptions& options) {
+absl::Status SimpleCatalog::AddZetaSQLFunctionsAndTypesImpl(
+    const ZetaSQLBuiltinFunctionOptions& options, bool add_types) {
   std::map<std::string, std::unique_ptr<Function>> function_map;
   // We have to call type_factory() while not holding mutex_.
   TypeFactory* type_factory = this->type_factory();
-  GetZetaSQLFunctions(type_factory, options, &function_map);
+  absl::flat_hash_map<std::string, const Type*> type_map;
+
+  ZETASQL_RETURN_IF_ERROR(GetZetaSQLFunctionsAndTypes(type_factory, options,
+                                                &function_map, &type_map));
   for (auto& function_pair : function_map) {
     const std::vector<std::string>& path =
         function_pair.second->FunctionNamePath();
     SimpleCatalog* catalog = this;
     if (path.size() > 1) {
-      ZETASQL_CHECK_LE(path.size(), 2);
+      ZETASQL_RET_CHECK_LE(path.size(), 2);
       absl::MutexLock l(&mutex_);
       const std::string& space = path[0];
       auto sub_entry = owned_zetasql_subcatalogs_.find(space);
       if (sub_entry != owned_zetasql_subcatalogs_.end()) {
         catalog = sub_entry->second.get();
-        ZETASQL_CHECK(catalog != nullptr) << "internal state corrupt: " << space;
+        ZETASQL_RET_CHECK(catalog != nullptr) << "internal state corrupt: " << space;
       } else {
         auto new_catalog = std::make_unique<SimpleCatalog>(space, type_factory);
         AddCatalogLocked(space, new_catalog.get());
         catalog = new_catalog.get();
-        ZETASQL_CHECK(
+        ZETASQL_RET_CHECK(
             owned_zetasql_subcatalogs_.emplace(space, std::move(new_catalog))
                 .second);
       }
     }
     catalog->AddOwnedFunction(path.back(), std::move(function_pair.second));
   }
+  if (add_types) {
+    for (const auto& [name, type] : type_map) {
+      AddTypeIfNotPresent(name, type);
+    }
+  }
+  return absl::OkStatus();
 }
+
+void SimpleCatalog::AddZetaSQLFunctions(
+    const ZetaSQLBuiltinFunctionOptions& options) {
+  absl::Status status =
+      this->AddZetaSQLFunctionsAndTypesImpl(options, /*add_types=*/false);
+  ZETASQL_DCHECK_OK(status);
+}
+
+absl::Status SimpleCatalog::AddZetaSQLFunctionsAndTypes(
+    const ZetaSQLBuiltinFunctionOptions& options) {
+  return this->AddZetaSQLFunctionsAndTypesImpl(options, /*add_types=*/true);
+}
+
+int SimpleCatalog::RemoveTypes(std::function<bool(const Type*)> predicate) {
+  absl::MutexLock l(&mutex_);
+  int num_removed = 0;
+  for (const auto& [_, sub_catalog] : owned_zetasql_subcatalogs_) {
+    num_removed += sub_catalog->RemoveTypes(predicate);
+  }
+  for (auto& [_, sub_catalog] : catalogs_) {
+    if (sub_catalog->Is<SimpleCatalog>()) {
+      num_removed +=
+          sub_catalog->GetAs<SimpleCatalog>()->RemoveTypes(predicate);
+    }
+  }
+  num_removed += absl::erase_if(
+      types_, [predicate](std::pair<const std::string, const Type*> pair) {
+        return predicate(pair.second);
+      });
+  return num_removed;
+}
+
 int SimpleCatalog::RemoveFunctionsLocked(
     std::function<bool(const Function*)> predicate,
     std::vector<std::unique_ptr<const Function>>& removed) {
@@ -943,7 +984,7 @@ absl::Status SimpleCatalog::DeserializeImpl(
 
   if (proto.has_builtin_function_options()) {
     ZetaSQLBuiltinFunctionOptions options(proto.builtin_function_options());
-    AddZetaSQLFunctions(options);
+    ZETASQL_RETURN_IF_ERROR(AddZetaSQLFunctionsAndTypes(options));
   }
 
   for (const TableValuedFunctionProto& tvf_proto : proto.custom_tvf()) {

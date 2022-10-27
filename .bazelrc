@@ -16,7 +16,8 @@
 
 # ZetaSQL requires c++17 support to match internal Google development
 # environments.
-build --cxxopt=-std=c++17
+# This is a special snowflake setting that bazel requires special handling for.
+build --action_env=BAZEL_CXXOPTS="-std=c++17"
 
 # By default, we don't suppress any warnings, to get clang-specific warning
 # suppression you can invoke with --config=clang

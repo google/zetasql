@@ -72,8 +72,8 @@ absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
   ZETASQL_RETURN_IF_ERROR(SetEvaluatorOptionsFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(AddTablesFromFlags(config));
 
-  config.mutable_catalog().AddZetaSQLFunctions(
-      config.analyzer_options().language());
+  ZETASQL_RETURN_IF_ERROR(config.mutable_catalog().AddZetaSQLFunctionsAndTypes(
+      config.analyzer_options().language()));
   return absl::OkStatus();
 }
 

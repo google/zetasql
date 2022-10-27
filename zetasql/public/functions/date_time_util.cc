@@ -173,7 +173,7 @@ static bool ParseDigits(absl::string_view str, int min_digits, int max_digits,
 // <idx> if successful and return success or failure.
 static bool ParseCharacter(absl::string_view str, const char character,
                            int* idx) {
-  if (str[*idx] != character) {
+  if (*idx >= str.length() || str[*idx] != character) {
     return false;
   }
   ++(*idx);
@@ -4197,10 +4197,9 @@ void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale) {
   }
 }
 
-absl::Status TimestampBucket(absl::Time input,
-                             zetasql::IntervalValue bucket_width,
-                             absl::Time origin, absl::TimeZone timezone,
-                             TimestampScale scale, absl::Time* output) {
+absl::StatusOr<TimestampBucketizer> TimestampBucketizer::Create(
+    zetasql::IntervalValue bucket_width, absl::Time origin,
+    absl::TimeZone timezone, TimestampScale scale) {
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
   if (scale == kMicroseconds && bucket_width.get_nano_fractions() != 0) {
@@ -4253,21 +4252,37 @@ absl::Status TimestampBucket(absl::Time input,
     }
   }
 
-  absl::Duration rem = (input - origin) % bucket_size;
+  return TimestampBucketizer(std::move(bucket_size), std::move(origin),
+                             std::move(timezone));
+}
+
+absl::Status TimestampBucketizer::Compute(absl::Time input,
+                                          absl::Time* output) const {
+  absl::Duration rem = (input - origin_) % bucket_width_;
   absl::Time result = input - rem;
   if (rem < absl::ZeroDuration()) {
     // Negative remainder indicates that input < origin. When input precedes
     // origin we need shift the result backwards by one bucket.
-    result -= bucket_size;
+    result -= bucket_width_;
   }
 
   if (!IsValidTime(result)) {
     return MakeEvalError() << "Bucket for "
-                           << TimestampErrorString(input, timezone)
+                           << TimestampErrorString(input, timezone_)
                            << " is outside of timestamp range";
   }
   *output = result;
   return absl::OkStatus();
+}
+
+absl::Status TimestampBucket(absl::Time input,
+                             zetasql::IntervalValue bucket_width,
+                             absl::Time origin, absl::TimeZone timezone,
+                             TimestampScale scale, absl::Time* output) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      TimestampBucketizer bucket_fn,
+      TimestampBucketizer::Create(bucket_width, origin, timezone, scale));
+  return bucket_fn.Compute(input, output);
 }
 
 absl::Status DatetimeBucket(const DatetimeValue& input,
@@ -4407,6 +4422,90 @@ absl::Status DatetimeBucket(const DatetimeValue& input,
   if (!output->IsValid()) {
     return MakeEvalError() << "Bucket for " << input.DebugString()
                            << " is outside of datetime range";
+  }
+  return absl::OkStatus();
+}
+
+absl::Status DateBucket(int32_t input_date,
+                        zetasql::IntervalValue bucket_width,
+                        int32_t origin_date, int32_t* output_date) {
+  if (bucket_width.get_micros() > 0 || bucket_width.get_nano_fractions() > 0) {
+    return MakeEvalError() << "DATE_BUCKET only supports bucket width INTERVAL "
+                              "with MONTH and DAY parts";
+  }
+  if (bucket_width.get_months() < 0 || bucket_width.get_days() < 0) {
+    return MakeEvalError() << "DATE_BUCKET doesn't support negative bucket "
+                              "width INTERVAL";
+  }
+  if ((bucket_width.get_months() > 0) == (bucket_width.get_days() > 0)) {
+    return MakeEvalError() << "DATE_BUCKET requires exactly one non-zero "
+                              "INTERVAL part in bucket width";
+  }
+
+  // Here we branch out into handling MONTHs and DAY interval types.
+  // MONTH is special since it's a non-fixed interval, therefore it requires
+  // use of civil time library to perform all arithmetic on dates.
+  if (bucket_width.get_months() > 0) {
+    absl::CivilDay input_civil = EpochDaysToCivilDay(input_date);
+    absl::CivilDay origin_civil = EpochDaysToCivilDay(origin_date);
+    absl::CivilMonth input_month = absl::CivilMonth(input_civil);
+    absl::CivilMonth origin_month = absl::CivilMonth(origin_civil);
+    int64_t rem = (input_month - origin_month) % bucket_width.get_months();
+    absl::CivilMonth result = input_month - rem;
+
+    // We consider input and origin day to be equal when they both are the
+    // ends of the month, so when that happens we just set input day to the
+    // origin day, which we only use for comparison purposes.
+    int input_day = input_civil.day();
+    int origin_day = origin_civil.day();
+    if (input_day < origin_day &&
+        IsLastDayOfTheMonth(static_cast<int>(origin_civil.year()),
+                            origin_civil.month(), origin_civil.day()) &&
+        IsLastDayOfTheMonth(static_cast<int>(input_civil.year()),
+                            input_civil.month(), input_civil.day())) {
+      input_day = origin_day;
+    }
+
+    // Negative remainder indicates that input < origin. When input precedes
+    // origin we need shift the result backwards by one bucket.
+    //
+    // We also shift the result to the previous bucket when the input day is
+    // less than origin day. This compensates for the fact that when we did the
+    // math on CivilMonth we completely discarded days.
+    if (rem < 0 || (rem == 0 && input_day < origin_day)) {
+      result -= bucket_width.get_months();
+    }
+
+    // cast is safe, given method contract.
+    int year = static_cast<int32_t>(result.year());
+    int month = result.month();
+    int day = origin_civil.day();
+    // AdjustYearMonthDay takes care of handling last day of the month case: if
+    // the resulting month has fewer days than the origin's month, then the
+    // result day is the last day of the result month.
+    AdjustYearMonthDay(&year, &month, &day);
+    *output_date = CivilDayToEpochDays(absl::CivilDay(year, month, day));
+  } else {
+    int64_t bucket_size = bucket_width.get_days();
+    // Note that it's safe to cast the remainder to int32_t, since both input
+    // and origin are int32_t, therefore the result will never be larger than
+    // "input - origin", which is guaranteed to fit into 32 bits.
+    int32_t rem =
+        static_cast<int32_t>((input_date - origin_date) % bucket_size);
+    int32_t result = input_date - rem;
+    if (rem < 0) {
+      // Negative remainder indicates that input < origin. When input precedes
+      // origin we need shift the result backwards by one bucket.
+      result -= bucket_size;
+    }
+    *output_date = result;
+  }
+
+  if (ABSL_PREDICT_FALSE(!IsValidDate(*output_date))) {
+    std::string input_date_str;
+    ZETASQL_RETURN_IF_ERROR(ConvertDateToString(input_date, &input_date_str));
+    return MakeEvalError() << "Bucket for " << input_date_str
+                           << " is outside of date range";
   }
   return absl::OkStatus();
 }

@@ -268,6 +268,7 @@ QueryStmt
                               +-ColumnRef(type=STRING, column=CallsUnaryAbTableArgWithScalarArgsTempl.b#2)
 ==
 
+[no_run_unparser]
 SELECT * FROM definer_rights_templated_tvf((SELECT 1 AS a))
 --
 QueryStmt
@@ -317,6 +318,7 @@ QueryStmt
             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             +-ArgumentRef(type=INT64, name="x")
 
+
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -333,9 +335,9 @@ QueryStmt
         |   +-with_query_name="$inlined_definer_rights_templated_tvf_scalar_args"
         |   +-with_subquery=
         |     +-ProjectScan
-        |       +-column_list=[$inlined_definer_rights_templated_tvf.x#4]
+        |       +-column_list=[$inlined_definer_rights_templated_tvf.x#6]
         |       +-expr_list=
-        |       | +-x#4 :=
+        |       | +-x#6 :=
         |       |   +-SubqueryExpr
         |       |     +-type=INT64
         |       |     +-subquery_type=SCALAR
@@ -349,21 +351,24 @@ QueryStmt
         |       +-input_scan=
         |         +-SingleRowScan
         +-query=
-          +-ProjectScan
+          +-ExecuteAsRoleScan
             +-column_list=definer_rights_templated_tvf.[Key#2, Value#3]
             +-input_scan=
-              +-FilterScan
-                +-column_list=definer_rights_templated_tvf.[Key#2, Value#3]
+              +-ProjectScan
+                +-column_list=definer_rights_templated_tvf.[Key#4, Value#5]
                 +-input_scan=
-                | +-TableScan(column_list=definer_rights_templated_tvf.[Key#2, Value#3], table=KeyValue, column_index_list=[0, 1])
-                +-filter_expr=
-                  +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-                    +-ColumnRef(type=INT64, column=definer_rights_templated_tvf.Key#2)
-                    +-SubqueryExpr
-                      +-type=INT64
-                      +-subquery_type=SCALAR
-                      +-subquery=
-                        +-ProjectScan
-                          +-column_list=[$inlined_definer_rights_templated_tvf.x#5]
-                          +-input_scan=
-                            +-WithRefScan(column_list=[$inlined_definer_rights_templated_tvf.x#5], with_query_name="$inlined_definer_rights_templated_tvf_scalar_args")
+                  +-FilterScan
+                    +-column_list=definer_rights_templated_tvf.[Key#4, Value#5]
+                    +-input_scan=
+                    | +-TableScan(column_list=definer_rights_templated_tvf.[Key#4, Value#5], table=KeyValue, column_index_list=[0, 1])
+                    +-filter_expr=
+                      +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                        +-ColumnRef(type=INT64, column=definer_rights_templated_tvf.Key#4)
+                        +-SubqueryExpr
+                          +-type=INT64
+                          +-subquery_type=SCALAR
+                          +-subquery=
+                            +-ProjectScan
+                              +-column_list=[$inlined_definer_rights_templated_tvf.x#7]
+                              +-input_scan=
+                                +-WithRefScan(column_list=[$inlined_definer_rights_templated_tvf.x#7], with_query_name="$inlined_definer_rights_templated_tvf_scalar_args")

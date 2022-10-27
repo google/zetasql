@@ -269,29 +269,27 @@ SELECT albumtitle FROM AlbumReviewsData
 ```
 
 Value tables are not limited for use with compound data types.
-A value table can consist of any supported ZetaSQL data type, although value
-tables consisting of scalar types occur less frequently than structs or
-protocol buffers.
+A value table can consist of any supported ZetaSQL data type,
+although value tables consisting of scalar types occur less frequently than
+structs or protocol buffers.
 
 ### Returning query results as value tables
 
-You can use ZetaSQL to return query results as a value table. This is useful
-when you want to create a compound value, such as a protocol buffer, from a
-query result and store it as a table that acts like a value table.
-To return a query result as a
-value table, use the `SELECT AS` statement. See
-[Query Syntax][query-syntax-value-tables]
-for more information and examples.
+You can use ZetaSQL to return query results as a value table. This
+is useful when you want to create a compound value, such as a protocol buffer,
+from a query result and store it as a table that acts like a value table.
+To return a query result as a value table, use the `SELECT AS` statement. See
+[Query Syntax][query-syntax-value-tables] for more information and examples.
 
 #### Example: Copying protocol buffers using value tables
 
 In some cases you might not want to work with the data within a protocol buffer,
 but with the protocol buffer itself. 
 
-Using `SELECT AS VALUE` can help you keep your ZetaSQL statements as simple
-as possible. To illustrate this, consider the [AlbumReview][value-table-example]
-example specified earlier. To create a new table from this data, you could
-write:
+Using `SELECT AS VALUE` can help you keep your ZetaSQL statements as
+simple as possible. To illustrate this, consider the
+[AlbumReview][value-table-example] example specified earlier. To create a new
+table from this data, you could write:
 
 ```
 CREATE TABLE Reviews AS
@@ -329,10 +327,10 @@ FROM Reviews;
 ### Set operations on value tables
 
 Normally, a `SET` operation like `UNION ALL` expects all tables to be either
-standard SQL tables or value tables. However, ZetaSQL allows you to combine
-standard SQL tables with value tables&mdash;provided that the standard SQL table
-consists of a single column with a type that matches the value table's type. The
-result of these operations is always a value table.
+standard SQL tables or value tables. However, ZetaSQL allows you to
+combine standard SQL tables with value tables&mdash;provided that the
+standard SQL table consists of a single column with a type that matches the
+value table's type. The result of these operations is always a value table.
 
 For example, consider the following definition for a table,
 **SingersAndAlbums**.
@@ -415,8 +413,8 @@ The following table demonstrates the result of this query:
 </table>
 
 This example works because `a` is an alias of the table `AlbumReviewData`, and
-this table has a `ROWNUM` pseudo-column. As a result, `AlbumReviewData a` represents the scanned rows,
-not the value.
+this table has a `ROWNUM` pseudo-column. As a result, `AlbumReviewData a`
+represents the scanned rows, not the value.
 
 However, if you tried to construct the query like this:
 
@@ -434,11 +432,15 @@ value does not have a field called `ROWNUM`.
 
 [pseudo-columns]: #pseudo_columns
 
+[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#value_tables
+
+<!-- mdlint on -->
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
 
 [data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language.md
-
-[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#value_tables
 
 <!-- mdlint on -->
 

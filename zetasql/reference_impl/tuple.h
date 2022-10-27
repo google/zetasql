@@ -44,6 +44,8 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/flat_set.h"
@@ -626,8 +628,11 @@ class MemoryAccountant {
  public:
   // Constructs a MemoryAccountant that can allocate at most 'total_num_bytes'
   // at once.
-  explicit MemoryAccountant(int64_t total_num_bytes)
-      : total_num_bytes_(total_num_bytes), remaining_bytes_(total_num_bytes) {}
+  explicit MemoryAccountant(int64_t total_num_bytes,
+                            absl::string_view name = "")
+      : total_num_bytes_(total_num_bytes),
+        remaining_bytes_(total_num_bytes),
+        name_(name) {}
 
   MemoryAccountant(const MemoryAccountant&) = delete;
   MemoryAccountant& operator=(const MemoryAccountant&) = delete;
@@ -639,10 +644,11 @@ class MemoryAccountant {
   bool RequestBytes(int64_t num_bytes, absl::Status* status) {
     ZETASQL_DCHECK_GE(num_bytes, 0);
     if (num_bytes > remaining_bytes_) {
-      *status = zetasql_base::ResourceExhaustedErrorBuilder()
-                << "Out of memory: requested " << num_bytes
-                << " bytes but only " << remaining_bytes_
-                << " are available out of a total of " << total_num_bytes_;
+      *status = absl::ResourceExhaustedError(absl::Substitute(
+          "Out of memory for MemoryAccountant($0): requested $1 bytes but only "
+          "$2 are available out of a total of $3.",
+          name_, num_bytes, remaining_bytes_, total_num_bytes_));
+
       return false;
     }
     remaining_bytes_ -= num_bytes;
@@ -661,6 +667,7 @@ class MemoryAccountant {
  private:
   const int64_t total_num_bytes_;
   int64_t remaining_bytes_;
+  std::string name_;
 };
 
 // Holds a deque of TupleDatas whose memory usage is tracked by a

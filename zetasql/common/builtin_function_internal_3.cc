@@ -1627,9 +1627,10 @@ void GetJSONFunctions(TypeFactory* type_factory,
         FunctionSignatureOptions().set_propagates_collation(false)}});
 }
 
-void GetNumericFunctions(TypeFactory* type_factory,
-                         const ZetaSQLBuiltinFunctionOptions& options,
-                         NameToFunctionMap* functions) {
+absl::Status GetNumericFunctions(TypeFactory* type_factory,
+                                 const ZetaSQLBuiltinFunctionOptions& options,
+                                 NameToFunctionMap* functions,
+                                 NameToTypeMap* types) {
   const Type* bool_type = type_factory->get_bool();
   const Type* int32_type = type_factory->get_int32();
   const Type* int64_type = type_factory->get_int64();
@@ -1685,8 +1686,8 @@ void GetNumericFunctions(TypeFactory* type_factory,
   // Only add in the third argument ROUND functions if the feature is enabled.
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_ROUND_WITH_ROUNDING_MODE)) {
-    InsertFunction(
-        functions, options, "round", SCALAR,
+    ZETASQL_RETURN_IF_ERROR(InsertFunctionAndTypes(
+        functions, types, options, "round", SCALAR,
         {{float_type, {float_type}, FN_ROUND_FLOAT},
          {double_type, {double_type}, FN_ROUND_DOUBLE},
          {numeric_type,
@@ -1714,7 +1715,8 @@ void GetNumericFunctions(TypeFactory* type_factory,
          {bignumeric_type,
           {bignumeric_type, int64_type, rounding_mode_type},
           FN_ROUND_WITH_ROUNDING_MODE_BIGNUMERIC,
-          has_bignumeric_type_argument}});
+          has_bignumeric_type_argument}},
+        /* function_options=*/{}, {rounding_mode_type}));
   } else {
     InsertFunction(
         functions, options, "round", SCALAR,
@@ -1995,6 +1997,7 @@ void GetNumericFunctions(TypeFactory* type_factory,
                        {{numeric_type, {string_type}, FN_PARSE_NUMERIC}});
   InsertSimpleFunction(functions, options, "parse_bignumeric", SCALAR,
                        {{bignumeric_type, {string_type}, FN_PARSE_BIGNUMERIC}});
+  return absl::OkStatus();
 }
 
 void GetTrigonometricFunctions(TypeFactory* type_factory,
@@ -2046,12 +2049,13 @@ void GetTrigonometricFunctions(TypeFactory* type_factory,
                        {{double_type, {double_type}, FN_COTH_DOUBLE}});
 }
 
-void GetMathFunctions(TypeFactory* type_factory,
-
-                      const ZetaSQLBuiltinFunctionOptions& options,
-                      NameToFunctionMap* functions) {
-  GetNumericFunctions(type_factory, options, functions);
+absl::Status GetMathFunctions(TypeFactory* type_factory,
+                              const ZetaSQLBuiltinFunctionOptions& options,
+                              NameToFunctionMap* functions,
+                              NameToTypeMap* types) {
+  ZETASQL_RETURN_IF_ERROR(GetNumericFunctions(type_factory, options, functions, types));
   GetTrigonometricFunctions(type_factory, options, functions);
+  return absl::OkStatus();
 }
 
 void GetNetFunctions(TypeFactory* type_factory,

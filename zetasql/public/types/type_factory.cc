@@ -669,6 +669,58 @@ absl::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
       struct_fields.emplace_back(name, field_type);
     }
     return_status = MakeStructType(struct_fields, result_type);
+  } else if (ProtoType::GetIsRangeAnnotation(message)) {
+    // If we have zetasql.is_range, convert this proto to a range type.
+    // Check that the message has exactly two fields
+    if (message->field_count() != 2) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Proto " << message->full_name()
+             << " is invalid because it has zetasql.is_range annotation"
+                " but does not have exactly two fields";
+    }
+    const google::protobuf::FieldDescriptor* start_field = message->field(0);
+    // Check that the first field is named "start"
+    if (start_field->name() != "start") {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Proto " << message->full_name()
+             << " is invalid because it has zetasql.is_range annotation"
+                " but the first field is not named 'start'";
+    }
+    const google::protobuf::FieldDescriptor* end_field = message->field(1);
+    // Check that the second field is named "end"
+    if (end_field->name() != "end") {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Proto " << message->full_name()
+             << " is invalid because it has zetasql.is_range annotation"
+                " but the second field is not named 'end'";
+    }
+    const Type* start_field_type;
+    ZETASQL_RETURN_IF_ERROR(GetProtoFieldType(start_field, use_obsolete_timestamp,
+                                      /*catalog_name_path=*/{},
+                                      &start_field_type));
+    const Type* unwrapped_start_field_type;
+    ZETASQL_RETURN_IF_ERROR(UnwrapTypeIfAnnotatedProtoImpl(
+        start_field_type, use_obsolete_timestamp, &unwrapped_start_field_type,
+        ancestor_messages));
+    start_field_type = unwrapped_start_field_type;
+    const Type* end_field_type;
+    ZETASQL_RETURN_IF_ERROR(GetProtoFieldType(end_field, use_obsolete_timestamp,
+                                      /*catalog_name_path=*/{},
+                                      &end_field_type));
+    const Type* unwrapped_end_field_type;
+    ZETASQL_RETURN_IF_ERROR(UnwrapTypeIfAnnotatedProtoImpl(
+        end_field_type, use_obsolete_timestamp, &unwrapped_end_field_type,
+        ancestor_messages));
+    end_field_type = unwrapped_end_field_type;
+    // Check that start type matches end type
+    if (start_field_type != end_field_type) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Proto " << message->full_name()
+             << " is invalid because it has zetasql.is_range annotation"
+                " but the type of 'start' field is not the same as type of "
+                "'end' field";
+    }
+    return_status = MakeRangeType(start_field_type, result_type);
   } else if (existing_message_type != nullptr) {
     // Use the message_type we already have allocated.
     ZETASQL_DCHECK(existing_message_type->IsProto());

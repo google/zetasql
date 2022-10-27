@@ -223,6 +223,9 @@ class ProtoType : public Type {
   // Returns true if <message> is annotated with zetasql.is_struct=true.
   static bool GetIsStructAnnotation(const google::protobuf::Descriptor* message);
 
+  // Returns true if <message> is annotated with zetasql.is_range=true.
+  static bool GetIsRangeAnnotation(const google::protobuf::Descriptor* message);
+
   // Get the struct field name from a FieldDescriptor.
   static bool HasStructFieldName(const google::protobuf::FieldDescriptor* field);
   static const std::string& GetStructFieldName(

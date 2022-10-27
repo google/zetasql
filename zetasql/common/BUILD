@@ -208,6 +208,14 @@ cc_test(
 )
 
 cc_library(
+    name = "thread_stack",
+    srcs = ["thread_stack.cc"],
+    hdrs = ["thread_stack.h"],
+    deps = [
+    ],
+)
+
+cc_library(
     name = "proto_helper",
     srcs = ["proto_helper.cc"],
     hdrs = ["proto_helper.h"],

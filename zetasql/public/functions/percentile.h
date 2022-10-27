@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "zetasql/common/multiprecision_int.h"
+#include "zetasql/public/collator.h"
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
 #include "absl/status/statusor.h"
@@ -36,6 +37,35 @@
 namespace zetasql {
 template <typename T>
 class PercentileHelper;
+
+// A comparator to determine if the <lhs> is less than the <rhs> given the
+// collation from the input <collator>.
+class LessComparatorWithCollation {
+ public:
+  explicit LessComparatorWithCollation(const ZetaSqlCollator* collator)
+      : collator_(collator) {
+    ZETASQL_DCHECK(collator_ != nullptr);
+  }
+
+  bool operator()(absl::string_view lhs, absl::string_view rhs) {
+    // CompareUtf8 function returns -1 if <lhs> is less than <rhs>, returns 1 if
+    // <lhs> is greater than <rhs>, and returns 0 is <lhs> is equal to <rhs>.
+    // Therefore we compare this value with 0 to get final comparison result.
+    absl::Status status;
+    // TODO: Consider using status->Update() inside CompareUtf8
+    // function call.
+    int64_t collator_res = collator_->CompareUtf8(lhs, rhs, &status);
+    if (!status.ok()) {
+      status_.Update(status);
+    }
+    return collator_res < 0;
+  }
+  absl::Status status() const { return status_; }
+
+ private:
+  const ZetaSqlCollator* collator_;
+  absl::Status status_;
+};
 
 // PercentileType = double, NumericValue or BigNumericValue
 template <typename PercentileType>
@@ -122,16 +152,18 @@ class PercentileEvaluator {
     size_t index = ComputePercentileIndex(
         num_nonnull_values - 1 + num_nulls,
         &left_weight, &right_weight);
+    std::less<PercentileType> comp;
     if (index >= num_nulls) {
       // The percentile is within normal values.
       index -= num_nulls;
       const size_t num_nans = PartitionNaNs<sorted, Itr, PercentileType>(
           nonnull_values_begin, nonnull_values_end);
       *result = *GetNthElement<sorted, Itr>(
-          nonnull_values_begin, nonnull_values_end, index, num_nans);
+          nonnull_values_begin, nonnull_values_end, index, num_nans, comp);
       if (right_weight > Weight()) {
         const PercentileType right_value = *GetNthElement<sorted, Itr>(
-            nonnull_values_begin, nonnull_values_end, index + 1, num_nans);
+            nonnull_values_begin, nonnull_values_end, index + 1, num_nans,
+            comp);
         *result = ComputeLinearInterpolation((*result), left_weight,
                                              right_value, right_weight);
       }
@@ -139,8 +171,8 @@ class PercentileEvaluator {
       // The percentile is between a null value and the minimum normal value.
       const size_t num_nans = PartitionNaNs<sorted, Itr, PercentileType>(
           nonnull_values_begin, nonnull_values_end);
-      *result = *GetNthElement<sorted, Itr>(nonnull_values_begin,
-                                            nonnull_values_end, 0, num_nans);
+      *result = *GetNthElement<sorted, Itr>(
+          nonnull_values_begin, nonnull_values_end, 0, num_nans, comp);
     } else {
       // The percentile is within null values.
       return false;
@@ -179,26 +211,24 @@ class PercentileEvaluator {
   Itr ComputePercentileDisc(
       Itr nonnull_values_begin, Itr nonnull_values_end,
       size_t num_nulls) const {
-    size_t num_nonnull_values = nonnull_values_end - nonnull_values_begin;
-    if (num_nonnull_values == 0) {
-      return nonnull_values_end;
+    std::less<T> comp;
+    return ComputePercentileDiscImpl<T, sorted, Itr>(
+        nonnull_values_begin, nonnull_values_end, num_nulls, comp);
+  }
+
+  // Similar to the function above but accepts an <collator> argument to
+  // compare the values with collation.
+  template <bool sorted, typename Itr>
+  absl::StatusOr<Itr> ComputePercentileDiscWithCollation(
+      Itr nonnull_values_begin, Itr nonnull_values_end, size_t num_nulls,
+      const ZetaSqlCollator* collator) const {
+    LessComparatorWithCollation comp(collator);
+    Itr itr = ComputePercentileDiscImpl<absl::string_view, sorted, Itr>(
+        nonnull_values_begin, nonnull_values_end, num_nulls, comp);
+    if (!comp.status().ok()) {
+      return comp.status();
     }
-    Weight left_weight = Weight();
-    Weight right_weight = Weight();
-    size_t index = ComputePercentileIndex(num_nonnull_values + num_nulls,
-                                          &left_weight, &right_weight);
-    if (index > 0 && right_weight == Weight()) {
-      --index;
-    }
-    if (index >= num_nulls) {
-      // The percentile is within normal values.
-      index -= num_nulls;
-      const size_t num_nans = PartitionNaNs<sorted, Itr, T>(
-          nonnull_values_begin, nonnull_values_end);
-      return GetNthElement<sorted, Itr>(nonnull_values_begin,
-                                        nonnull_values_end, index, num_nans);
-    }
-    return nonnull_values_end;
+    return itr;
   }
 
  private:
@@ -218,18 +248,46 @@ class PercentileEvaluator {
     }
   }
 
-  template <bool sorted, typename Itr>
-  static Itr GetNthElement(Itr begin, Itr end, size_t index, size_t num_nans) {
+  template <bool sorted, typename Itr, typename Comparator>
+  static Itr GetNthElement(Itr begin, Itr end, size_t index, size_t num_nans,
+                           Comparator& comp) {
     if constexpr (sorted) {
       return begin + index;
     } else {
       Itr itr = begin + index;
       if (index >= num_nans) {
-        std::nth_element(begin + num_nans, itr, end);
+        std::nth_element(begin + num_nans, itr, end, comp);
       }
       return itr;
     }
   }
+
+  template <typename T, bool sorted, typename Itr, typename Compare>
+  Itr ComputePercentileDiscImpl(Itr nonnull_values_begin,
+                                Itr nonnull_values_end, size_t num_nulls,
+                                Compare& comp) const {
+    size_t num_nonnull_values = nonnull_values_end - nonnull_values_begin;
+    if (num_nonnull_values == 0) {
+      return nonnull_values_end;
+    }
+    Weight left_weight = Weight();
+    Weight right_weight = Weight();
+    size_t index = ComputePercentileIndex(num_nonnull_values + num_nulls,
+                                          &left_weight, &right_weight);
+    if (index > 0 && right_weight == Weight()) {
+      --index;
+    }
+    if (index >= num_nulls) {
+      // The percentile is within normal values.
+      index -= num_nulls;
+      const size_t num_nans = PartitionNaNs<sorted, Itr, T>(
+          nonnull_values_begin, nonnull_values_end);
+      return GetNthElement<sorted, Itr>(
+          nonnull_values_begin, nonnull_values_end, index, num_nans, comp);
+    }
+    return nonnull_values_end;
+  }
+
   explicit PercentileEvaluator(const PercentileHelper<PercentileType>& helper)
       : helper_(helper) {}
 

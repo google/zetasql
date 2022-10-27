@@ -926,6 +926,7 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kArrayMax, "array_max", "ArrayMax");
     RegisterFunction(FunctionKind::kRangeCtor, "range", "Range");
     RegisterFunction(FunctionKind::kArraySum, "array_sum", "ArraySum");
+    RegisterFunction(FunctionKind::kArrayAvg, "array_avg", "ArrayAvg");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -1896,6 +1897,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kArraySlice:
       return new ArraySliceFunction(kind, output_type);
     case FunctionKind::kArraySum:
+    case FunctionKind::kArrayAvg:
       return new ArraySumAvgFunction(kind, output_type);
     case FunctionKind::kCurrentDate:
     case FunctionKind::kCurrentDatetime:
@@ -2027,7 +2029,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
                        << " is not a scalar function";
       break;
   }
-}
+}  // NOLINT(readability/fn_size)
 
 absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
 BuiltinScalarFunction::CreateValidated(
@@ -4143,17 +4145,118 @@ static absl::StatusOr<Value> AggregateIntervalArraySumValue(
   return Value::Null(output_type);
 }
 
+// When the input array contains +/-inf, ARRAY_AVG might return +/-inf or NaN
+// which means the output cannot be validated by approximate comparison.
+static absl::StatusOr<Value> AggregateDoubleArrayAvgValue(
+    const std::vector<Value>& elements) {
+  double avg = 0;
+  int64_t non_null_count = 0;
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    }
+    non_null_count++;
+    double delta;
+    absl::Status status;
+
+    // Use Donald Knuth's iterative running mean algorithm to compute average.
+    // ARRAY_AVG could overflow when subtracting or adding two numbers.
+    if (!functions::Subtract(element.ToDouble(), avg, &delta, &status) ||
+        !functions::Add(avg, delta / non_null_count, &avg, &status)) {
+      return status;
+    }
+  }
+  if (non_null_count > 0) {
+    return Value::Double(avg);
+  }
+  return Value::NullDouble();
+}
+
+static absl::StatusOr<Value> AggregateNumericArrayAvgValue(
+    const std::vector<Value>& elements) {
+  int64_t non_null_count = 0;
+  NumericValue::SumAggregator aggregator = NumericValue::SumAggregator();
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    }
+    non_null_count++;
+    aggregator.Add(element.numeric_value());
+  }
+  if (non_null_count > 0) {
+    ZETASQL_ASSIGN_OR_RETURN(NumericValue avg, aggregator.GetAverage(non_null_count));
+    return Value::Numeric(avg);
+  }
+  return Value::NullNumeric();
+}
+
+static absl::StatusOr<Value> AggregateBigNumericArrayAvgValue(
+    const std::vector<Value>& elements) {
+  int64_t non_null_count = 0;
+  BigNumericValue::SumAggregator aggregator = BigNumericValue::SumAggregator();
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    }
+    non_null_count++;
+    aggregator.Add(element.bignumeric_value());
+  }
+
+  if (non_null_count > 0) {
+    ZETASQL_ASSIGN_OR_RETURN(BigNumericValue avg,
+                     aggregator.GetAverage(non_null_count));
+    return Value::BigNumeric(avg);
+  }
+  return Value::NullBigNumeric();
+}
+
+static absl::StatusOr<Value> AggregateIntervalArrayAvgValue(
+    const std::vector<Value>& elements) {
+  int64_t non_null_count = 0;
+  IntervalValue::SumAggregator aggregator = IntervalValue::SumAggregator();
+  for (const Value& element : elements) {
+    if (element.is_null()) {
+      continue;
+    }
+    non_null_count++;
+    aggregator.Add(element.interval_value());
+  }
+
+  if (non_null_count > 0) {
+    ZETASQL_ASSIGN_OR_RETURN(IntervalValue avg, aggregator.GetAverage(non_null_count));
+    return Value::Interval(avg);
+  }
+  return Value::NullInterval();
+}
+
 absl::StatusOr<Value> ArraySumAvgFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(args.size(), 1);
-  ZETASQL_RET_CHECK(kind() == FunctionKind::kArraySum);
+  ZETASQL_RET_CHECK(kind() == FunctionKind::kArraySum ||
+            kind() == FunctionKind::kArrayAvg);
   if (args[0].is_null() || args[0].is_empty_array()) {
     return Value::Null(output_type());
   }
-  Value output = Value::Null(output_type());
   const Type* element_type = args[0].type()->AsArray()->element_type();
+  // Indeterminism is only possible when there are multiple elements in the
+  // array, as well as:
+  // 1. if the input array element type is FLOAT or DOUBLE, both ARRAY_SUM and
+  //    ARRAY_AVG are indeterministic; or
+  // 2. if the input array element type is INT32, INT64, UINT32 or UINT64,
+  //    only ARRAY_AVG is indeterministic.
+  if (args[0].num_elements() > 1) {
+    if (element_type->IsFloatingPoint() ||
+        (kind() == FunctionKind::kArrayAvg &&
+         (element_type->IsSignedInteger() ||
+          element_type->IsUnsignedInteger()))) {
+      context->SetNonDeterministicOutput();
+    }
+  }
+  Value output = Value::Null(output_type());
+
   switch (FCT(kind(), element_type->kind())) {
+    // ARRAY_SUM
     case FCT(FunctionKind::kArraySum, TYPE_INT32):
     case FCT(FunctionKind::kArraySum, TYPE_INT64): {
       return AggregateInt64ArraySumValue(args[0].elements(), output_type());
@@ -4175,6 +4278,25 @@ absl::StatusOr<Value> ArraySumAvgFunction::Eval(
     }
     case FCT(FunctionKind::kArraySum, TYPE_INTERVAL): {
       return AggregateIntervalArraySumValue(args[0].elements(), output_type());
+    }
+
+    // ARRAY_AVG
+    case FCT(FunctionKind::kArrayAvg, TYPE_INT32):
+    case FCT(FunctionKind::kArrayAvg, TYPE_INT64):
+    case FCT(FunctionKind::kArrayAvg, TYPE_UINT32):
+    case FCT(FunctionKind::kArrayAvg, TYPE_UINT64):
+    case FCT(FunctionKind::kArrayAvg, TYPE_FLOAT):
+    case FCT(FunctionKind::kArrayAvg, TYPE_DOUBLE): {
+      return AggregateDoubleArrayAvgValue(args[0].elements());
+    }
+    case FCT(FunctionKind::kArrayAvg, TYPE_NUMERIC): {
+      return AggregateNumericArrayAvgValue(args[0].elements());
+    }
+    case FCT(FunctionKind::kArrayAvg, TYPE_BIGNUMERIC): {
+      return AggregateBigNumericArrayAvgValue(args[0].elements());
+    }
+    case FCT(FunctionKind::kArrayAvg, TYPE_INTERVAL): {
+      return AggregateIntervalArrayAvgValue(args[0].elements());
     }
     default:
       ZETASQL_RET_CHECK_FAIL();

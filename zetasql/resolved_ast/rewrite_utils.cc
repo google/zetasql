@@ -31,6 +31,8 @@
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -354,6 +356,38 @@ absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> FunctionCallBuilder::If(
   return MakeResolvedFunctionCall(result_type, if_fn, if_signature,
                                   std::move(if_args),
                                   ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+}
+
+absl::StatusOr<std::unique_ptr<ResolvedScan>> ReplaceScanColumns(
+    ColumnFactory& column_factory, const ResolvedScan& scan,
+    const std::vector<int>& target_column_indices,
+    const std::vector<ResolvedColumn>& replacement_columns_to_use) {
+  // Initialize a map from the column ids in the VIEW/TVF definition to the
+  // column ids in the invoking query to remap the columns that were consumed
+  // by the TableScan.
+  ZETASQL_RET_CHECK_EQ(replacement_columns_to_use.size(), target_column_indices.size());
+  ColumnReplacementMap column_map;
+  for (int i = 0; i < target_column_indices.size(); ++i) {
+    int column_idx = target_column_indices[i];
+    ZETASQL_RET_CHECK_GT(scan.column_list_size(), column_idx);
+    column_map[scan.column_list(column_idx)] = replacement_columns_to_use[i];
+  }
+
+  return CopyResolvedASTAndRemapColumns(scan, column_factory, column_map);
+}
+
+std::vector<ResolvedColumn> CreateReplacementColumns(
+    ColumnFactory& column_factory,
+    const std::vector<ResolvedColumn>& column_list) {
+  std::vector<ResolvedColumn> replacement_columns;
+  replacement_columns.reserve(column_list.size());
+
+  for (const ResolvedColumn& old_column : column_list) {
+    replacement_columns.push_back(column_factory.MakeCol(
+        old_column.table_name(), old_column.name(), old_column.type()));
+  }
+
+  return replacement_columns;
 }
 
 absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>>

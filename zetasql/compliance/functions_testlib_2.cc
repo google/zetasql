@@ -2230,7 +2230,7 @@ GetSumAvgNumericalAndIntervalTypesWithFeatures() {
        Uint64(5), Double(2.5)},
       {Uint64Type(), Uint64(0), Uint64(0x7FFFFFFFFFFFFFFF),
        Uint64(0x7FFFFFFFFFFFFFFF), Uint64(uint64max),
-       Uint64(0xFFFFFFFFFFFFFFFE), Uint64(0x7FFFFFFFFFFFFFFF)},
+       Uint64(0xFFFFFFFFFFFFFFFE), Double(0x7FFFFFFFFFFFFFFF)},
       {NumericType(), Numeric(NumericValue::MinValue()), Numeric(3), Numeric(3),
        Numeric(NumericValue::MaxValue()), Numeric(6), Numeric(3),
        FEATURE_NUMERIC_TYPE},
@@ -2504,6 +2504,318 @@ static const std::vector<QueryParamsWithResult> GetArraySumTestCases(
   return test_cases;
 }
 
+static const std::vector<QueryParamsWithResult> GetArrayAvgTestCases(
+    bool is_safe) {
+  Value int32_zero = Int32(0);
+  Value int64_zero = Int64(0);
+  Value uint32_zero = Uint32(0);
+  Value uint64_zero = Uint64(0);
+  Value float_zero = Float(0);
+  Value double_zero = Double(0);
+  Value numeric_zero = Numeric(0);
+  Value bignumeric_zero = BigNumeric(0);
+  Value interval_zero = Value::Interval(IntervalValue::FromDays(0).value());
+  Value double_null = Value::NullDouble();
+
+  std::vector<QueryParamsWithResult> test_cases;
+  std::vector<ArraySumAvgTestCase> raw_test_cases =
+      GetSumAvgNumericalAndIntervalTypesWithFeatures();
+
+  for (const ArraySumAvgTestCase& v : raw_test_cases) {
+    // Set up frequently used values with different example inputs.
+    // They will be used as input of the test cases.
+    const ArrayType* array_type = MakeArrayType(v.type, type_factory());
+    Value input_null = Null(v.type);
+    Value input_zero;
+    Value output_null;
+    Value output_zero;
+    Value output_1;
+    Value output_min;
+    Value output_max;
+
+    switch (v.type->kind()) {
+      case TYPE_NUMERIC:
+        input_zero = values::Array(array_type, {numeric_zero});
+        output_null = Value::NullNumeric();
+        output_zero = numeric_zero;
+        output_1 = v.example_input_1;
+        output_min = v.min_input;
+        output_max = v.max_input;
+        break;
+      case TYPE_BIGNUMERIC:
+        input_zero = values::Array(array_type, {bignumeric_zero});
+        output_null = Value::NullBigNumeric();
+        output_zero = bignumeric_zero;
+        output_1 = v.example_input_1;
+        output_min = v.min_input;
+        output_max = v.max_input;
+        break;
+      case TYPE_INTERVAL:
+        input_zero = values::Array(array_type, {interval_zero});
+        output_null = Value::NullInterval();
+        output_zero = interval_zero;
+        output_1 = v.example_input_1;
+        output_min = v.min_input;
+        output_max = v.max_input;
+        break;
+      case TYPE_INT32:
+        input_zero = values::Array(array_type, {int32_zero});
+        output_null = double_null;
+        output_zero = double_zero;
+        output_1 = Value::Double(v.example_input_1.ToDouble());
+        output_min = Value::Double(v.min_input.ToDouble());
+        output_max = Value::Double(v.max_input.ToDouble());
+        break;
+      case TYPE_INT64:
+        input_zero = values::Array(array_type, {int64_zero});
+        output_null = double_null;
+        output_zero = double_zero;
+        output_1 = Value::Double(v.example_input_1.ToDouble());
+        output_min = Value::Double(v.min_input.ToDouble());
+        output_max = Value::Double(v.max_input.ToDouble());
+        break;
+      case TYPE_UINT32:
+        input_zero = values::Array(array_type, {uint32_zero});
+        output_null = double_null;
+        output_zero = double_zero;
+        output_1 = Value::Double(v.example_input_1.ToDouble());
+        output_min = Value::Double(v.min_input.ToDouble());
+        output_max = Value::Double(v.max_input.ToDouble());
+        break;
+      case TYPE_UINT64:
+        input_zero = values::Array(array_type, {uint64_zero});
+        output_null = double_null;
+        output_zero = double_zero;
+        output_1 = Value::Double(v.example_input_1.ToDouble());
+        output_min = Value::Double(v.min_input.ToDouble());
+        output_max = Value::Double(v.max_input.ToDouble());
+        break;
+      case TYPE_FLOAT:
+        input_zero = values::Array(array_type, {float_zero});
+        output_null = double_null;
+        output_zero = double_zero;
+        output_1 = Value::Double(v.example_input_1.ToDouble());
+        output_min = Value::Double(v.min_input.ToDouble());
+        output_max = Value::Double(v.max_input.ToDouble());
+        break;
+      case TYPE_DOUBLE:
+        input_zero = values::Array(array_type, {double_zero});
+        output_null = double_null;
+        output_zero = double_zero;
+        output_1 = Value::Double(v.example_input_1.ToDouble());
+        output_min = Value::Double(v.min_input.ToDouble());
+        output_max = Value::Double(v.max_input.ToDouble());
+        break;
+      default:
+        ZETASQL_CHECK(false)
+            << "ARRAY_AVG only supports INT32, INT64, UINT32, UINT64, FLOAT, "
+               "DOUBLE, NUMERIC, BIGNUMERIC or INTERVAL array element type";
+        break;
+    }
+    EXPECT_EQ(output_null.type()->kind(), v.example_output_avg.type()->kind());
+
+    Value input1 = values::Array(array_type, {v.example_input_1});
+    Value input_1_null =
+        values::Array(array_type, {v.example_input_1, input_null});
+    Value input_11 =
+        values::Array(array_type, {v.example_input_1, v.example_input_1});
+    Value input_11_null = values::Array(
+        array_type, {v.example_input_1, v.example_input_1, input_null});
+    Value input12 =
+        values::Array(array_type, {v.example_input_1, v.example_input_2});
+    Value input_12_null = values::Array(
+        array_type, {v.example_input_1, v.example_input_2, input_null});
+    Value input_max_max = values::Array(array_type, {v.max_input, v.max_input});
+    Value input_max_max_null =
+        values::Array(array_type, {v.max_input, v.max_input, input_null});
+    Value input_min_min = values::Array(array_type, {v.min_input, v.min_input});
+    Value input_min_min_null =
+        values::Array(array_type, {v.min_input, v.min_input, input_null});
+    Value input_nulls = values::Array(array_type, {input_null, input_null});
+
+    size_t existing_num_tests = test_cases.size();
+    // 1. Empty array argument.
+    test_cases.push_back(
+        QueryParamsWithResult({Value::EmptyArray(array_type)}, output_null));
+
+    // 2. NULL array argument.
+    test_cases.push_back(
+        QueryParamsWithResult({Value::Null(array_type)}, output_null));
+
+    // 3. Array argument with all NULL elements.
+    test_cases.push_back(QueryParamsWithResult({input_nulls}, output_null));
+
+    // 4. Array argument with element(s) of the same value produces an average
+    // of the same singleton value.
+    // 4.1 Non-extreme elements.
+    // 4.1.1 Array element(s) without NULL.
+    test_cases.push_back(QueryParamsWithResult({input1}, output_1));
+
+    test_cases.push_back(QueryParamsWithResult({input_11}, output_1));
+
+    // 4.1.1 Array elements with NULL.
+    test_cases.push_back(QueryParamsWithResult({input_1_null}, output_1));
+
+    test_cases.push_back(QueryParamsWithResult({input_11_null}, output_1));
+
+    // 4.2 Extreme elements.
+    // 4.2.1 Array element(s) without NULL.
+    test_cases.push_back(QueryParamsWithResult({input_min_min}, output_min));
+
+    test_cases.push_back(QueryParamsWithResult({input_max_max}, output_max));
+
+    test_cases.push_back(QueryParamsWithResult({input_zero}, output_zero));
+
+    // 4.2.2 Array elements with NULL.
+    test_cases.push_back(
+        QueryParamsWithResult({input_min_min_null}, output_min));
+
+    test_cases.push_back(
+        QueryParamsWithResult({input_max_max_null}, output_max));
+
+    // 5. Array argument with elements of different values produces
+    // indeterministic output, and the result comparison uses FloatMargin. ulp=4
+    FloatMargin margin = FloatMargin::UlpMargin(28);
+    // 5.1 Elements without NULL.
+    test_cases.push_back(
+        QueryParamsWithResult({input12}, v.example_output_avg, margin));
+
+    // 5.2 Elements with NULL.
+    test_cases.push_back(
+        QueryParamsWithResult({input_12_null}, v.example_output_avg, margin));
+
+    // 6. Floating point array argument has special rules.
+    if (v.type->IsFloatingPoint()) {
+      Value input_nan = v.type->IsFloat() ? Value::Float(float_nan)
+                                          : Value::Double(double_nan);
+      Value output_nan = Value::Double(double_nan);
+      Value input_pos_inf = v.type->IsFloat() ? Value::Float(float_pos_inf)
+                                              : Value::Double(double_pos_inf);
+      Value output_pos_inf = Value::Double(double_pos_inf);
+      Value input_neg_inf = v.type->IsFloat() ? Value::Float(float_neg_inf)
+                                              : Value::Double(double_neg_inf);
+      Value output_neg_inf = Value::Double(double_neg_inf);
+
+      // 6.1 FP array containing a singleton +/-inf will produce the
+      // corresponding +/-inf.
+      // 6.1.1 Positive infinity.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_pos_inf})}, output_pos_inf));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_pos_inf, input_null})},
+          output_pos_inf));
+
+      // 6.1.2 Negative infinity.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_neg_inf})}, output_neg_inf));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_neg_inf, input_null})},
+          output_neg_inf));
+
+      // 6.2 FP array containing multiple +/-inf saturates and returns NAN.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_pos_inf, input_pos_inf})},
+          output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {input_pos_inf, input_pos_inf, input_null})},
+          output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_neg_inf, input_neg_inf})},
+          output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {input_neg_inf, input_neg_inf, input_null})},
+          output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_pos_inf, input_neg_inf})},
+          output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {input_pos_inf, input_neg_inf, input_null})},
+          output_nan));
+
+      // 6.3 FP array containing NAN saturates and returns NAN.
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan})}, output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, input_null})}, output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, input_nan})}, output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, input_nan, input_null})},
+          output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, v.example_input_1})},
+          output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {input_nan, v.example_input_1, input_null})},
+          output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, input_pos_inf})}, output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, input_pos_inf, input_null})},
+          output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, input_neg_inf})}, output_nan));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {input_nan, input_neg_inf, input_null})},
+          output_nan));
+    }
+
+    // 7. Only if the array element type is DOUBLE can ARRAY_AVG witness
+    // numeric overflow.
+    if (v.type->IsDouble()) {
+      Value input_min_max =
+          values::Array(array_type, {v.min_input, v.max_input});
+      Value input_min_max_null =
+          values::Array(array_type, {v.min_input, v.max_input, input_null});
+
+      test_cases.push_back(QueryParamsWithResult({input_min_max}, output_null,
+                                                 is_safe ? OK : OUT_OF_RANGE));
+
+      test_cases.push_back(QueryParamsWithResult(
+          {input_min_max_null}, output_null, is_safe ? OK : OUT_OF_RANGE));
+    }
+
+    for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
+      if (is_safe) {
+        test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+      }
+      // TODO: Remove opt-in required feature
+      // FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS and use opt-out prohibited
+      // feature FEATURE_DISABLE_ARRAY_SUM_AND_AVG instead when ARRAY_SUM and
+      // ARRAY_AVG are both done.
+      QueryParamsWithResult::FeatureSet feature_set;
+      feature_set.insert(FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS);
+      if (!v.required_features.empty()) {
+        for (const LanguageFeature& feature : v.required_features) {
+          feature_set.insert(feature);
+        }
+      }
+      test_cases[i].AddRequiredFeatures(feature_set);
+    }
+  }
+  return test_cases;
+}
+
 static std::vector<QueryParamsWithResult>
 GetAndAddWrappedArrayFirstLastFunctionTestResult(bool is_safe, bool is_first) {
   std::vector<ArrayFirstLastTestCase> test_cases = GetArrayFirstLastTestCases();
@@ -2542,6 +2854,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArrayMax(bool is_safe) {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsArraySum(bool is_safe) {
   return GetArraySumTestCases(is_safe);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayAvg(bool is_safe) {
+  return GetArrayAvgTestCases(is_safe);
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsGreatest() {

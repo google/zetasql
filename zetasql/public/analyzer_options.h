@@ -199,10 +199,18 @@ class AnalyzerOptions {
 
   AnalyzerOptions();
   explicit AnalyzerOptions(const LanguageOptions& language_options);
-  AnalyzerOptions(const AnalyzerOptions& options) = default;
-  AnalyzerOptions(AnalyzerOptions&& options) = default;
-  AnalyzerOptions& operator=(const AnalyzerOptions& options) = default;
-  AnalyzerOptions& operator=(AnalyzerOptions&& options) = default;
+  AnalyzerOptions(const AnalyzerOptions& options)
+      : data_(std::make_unique<Data>(*options.data_)) {}
+  AnalyzerOptions(AnalyzerOptions&& options)
+      : data_(std::move(options.data_)) {}
+  AnalyzerOptions& operator=(const AnalyzerOptions& options) {
+    data_ = std::make_unique<Data>(*options.data_);
+    return *this;
+  }
+  AnalyzerOptions& operator=(AnalyzerOptions&& options) {
+    data_ = std::move(options).data_;
+    return *this;
+  }
   ~AnalyzerOptions();
 
   // Deserialize AnalyzerOptions from proto. Types will be deserialized using
@@ -223,35 +231,37 @@ class AnalyzerOptions {
                          AnalyzerOptionsProto* proto) const;
 
   // Options for the language.
-  const LanguageOptions& language() const { return language_options_; }
-  LanguageOptions* mutable_language() { return &language_options_; }
+  const LanguageOptions& language() const { return data_->language_options; }
+  LanguageOptions* mutable_language() { return &data_->language_options; }
   void set_language(const LanguageOptions& options) {
-    language_options_ = options;
+    data_->language_options = options;
   }
 
   // Allows updating the set of enabled AST rewrites.
   // By default rewrites in DefaultResolvedASTRewrites() are enabled.
   // These are documented with the ResolvedASTRewrite enum.
   void set_enabled_rewrites(absl::btree_set<ResolvedASTRewrite> rewrites) {
-    enabled_rewrites_ = std::move(rewrites);
+    data_->enabled_rewrites = std::move(rewrites);
   }
   const absl::btree_set<ResolvedASTRewrite>& enabled_rewrites() const {
-    return enabled_rewrites_;
+    return data_->enabled_rewrites;
   }
   // Enables or disables a particular rewrite.
   void enable_rewrite(ResolvedASTRewrite rewrite, bool enable = true);
   // Returns if a given AST rewrite is enabled.
   ABSL_MUST_USE_RESULT bool rewrite_enabled(ResolvedASTRewrite rewrite) const {
-    return enabled_rewrites_.contains(rewrite);
+    return data_->enabled_rewrites.contains(rewrite);
   }
   // Returns the set of rewrites that are enabled by default.
   static absl::btree_set<ResolvedASTRewrite> DefaultRewrites();
 
   // Options for Find*() name lookups into the Catalog.
-  const Catalog::FindOptions& find_options() const { return find_options_; }
-  Catalog::FindOptions* mutable_find_options() { return &find_options_; }
+  const Catalog::FindOptions& find_options() const {
+    return data_->find_options;
+  }
+  Catalog::FindOptions* mutable_find_options() { return &data_->find_options; }
   void set_find_options(const Catalog::FindOptions& options) {
-    find_options_ = options;
+    data_->find_options = options;
   }
 
   // Adds a named query parameter.
@@ -272,11 +282,11 @@ class AnalyzerOptions {
   absl::Status AddQueryParameter(const std::string& name, const Type* type);
 
   const QueryParametersMap& query_parameters() const {
-    return query_parameters_;
+    return data_->query_parameters;
   }
 
   // Clears <query_parameters_>.
-  void clear_query_parameters() { query_parameters_.clear(); }
+  void clear_query_parameters() { data_->query_parameters.clear(); }
 
   // Adds a positional query parameter.
   //
@@ -298,12 +308,12 @@ class AnalyzerOptions {
   // Defined positional parameters. Only used in positional parameter mode.
   // Index 0 corresponds with the query parameter at position 1 and so on.
   const std::vector<const Type*>& positional_query_parameters() const {
-    return positional_query_parameters_;
+    return data_->positional_query_parameters;
   }
 
   // Clears <positional_query_parameters_>.
   void clear_positional_query_parameters() {
-    positional_query_parameters_.clear();
+    data_->positional_query_parameters.clear();
   }
 
   // Add columns that are visible when resolving standalone expressions.
@@ -354,15 +364,15 @@ class AnalyzerOptions {
 
   ABSL_DEPRECATED("This function is going away. Please don't add new uses.")
   LookupExpressionColumnCallback lookup_expression_column_callback() const {
-    return lookup_expression_column_callback_;
+    return data_->lookup_expression_column_callback;
   }
 
   void SetPreRewriteCallback(const PreRewriteCallback& pre_rewrite_callback) {
-    pre_rewrite_callback_ = std::move(pre_rewrite_callback);
+    data_->pre_rewrite_callback = std::move(pre_rewrite_callback);
   }
 
   PreRewriteCallback pre_rewrite_callback() const {
-    return pre_rewrite_callback_;
+    return data_->pre_rewrite_callback;
   }
 
   // Get the named expression columns added.
@@ -370,7 +380,7 @@ class AnalyzerOptions {
   // This doesn't include the columns resolved using the
   // 'lookup_expression_callback_' function.
   const QueryParametersMap& expression_columns() const {
-    return expression_columns_;
+    return data_->expression_columns;
   }
 
   bool has_in_scope_expression_column() const {
@@ -379,10 +389,10 @@ class AnalyzerOptions {
   // Get the name and Type of the in-scope expression column.
   // These return "" and NULL if there is no in-scope expression column.
   const std::string& in_scope_expression_column_name() const {
-    return in_scope_expression_column_.first;
+    return data_->in_scope_expression_column.first;
   }
   const Type* in_scope_expression_column_type() const {
-    return in_scope_expression_column_.second;
+    return data_->in_scope_expression_column.second;
   }
 
   // Provides the set of pseudo-columns that will be visible on tables created
@@ -401,14 +411,14 @@ class AnalyzerOptions {
   // Returns the callback to access pseudo-columns for the target of a DDL
   // statement.
   const DdlPseudoColumnsCallback& ddl_pseudo_columns_callback() const {
-    return ddl_pseudo_columns_callback_;
+    return data_->ddl_pseudo_columns_callback;
   }
 
   void set_column_id_sequence_number(zetasql_base::SequenceNumber* sequence) {
-    column_id_sequence_number_ = sequence;
+    data_->column_id_sequence_number = sequence;
   }
   zetasql_base::SequenceNumber* column_id_sequence_number() const {
-    return column_id_sequence_number_;
+    return data_->column_id_sequence_number;
   }
 
   // Sets an IdStringPool for storing strings used in parsing and analysis.
@@ -416,10 +426,10 @@ class AnalyzerOptions {
   // query that is analyzed. WARNING: If this is set, calling Analyze functions
   // concurrently with the same AnalyzerOptions is not allowed.
   void set_id_string_pool(const std::shared_ptr<IdStringPool>& id_string_pool) {
-    id_string_pool_ = id_string_pool;
+    data_->id_string_pool = id_string_pool;
   }
   std::shared_ptr<IdStringPool> id_string_pool() const {
-    return id_string_pool_;
+    return data_->id_string_pool;
   }
 
   // Sets an zetasql_base::UnsafeArena for storing objects created during parsing and
@@ -427,9 +437,9 @@ class AnalyzerOptions {
   // every query that is analyzed. WARNING: If this is set, calling Analyze
   // functions concurrently with the same AnalyzerOptions is not allowed.
   void set_arena(std::shared_ptr<zetasql_base::UnsafeArena> arena) {
-    arena_ = std::move(arena);
+    data_->arena = std::move(arena);
   }
-  std::shared_ptr<zetasql_base::UnsafeArena> arena() const { return arena_; }
+  std::shared_ptr<zetasql_base::UnsafeArena> arena() const { return data_->arena; }
 
   // Creates default-sized id_string_pool() and arena().
   // WARNING: After calling this, calling Analyze functions concurrently with
@@ -438,7 +448,7 @@ class AnalyzerOptions {
 
   // Returns true if arena() and id_string_pool() are both non-NULL.
   bool AllArenasAreInitialized() const {
-    return arena_ != nullptr && id_string_pool_ != nullptr;
+    return data_->arena != nullptr && data_->id_string_pool != nullptr;
   }
 
   static constexpr ErrorMessageMode ERROR_MESSAGE_WITH_PAYLOAD =
@@ -449,50 +459,59 @@ class AnalyzerOptions {
       zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET;
 
   void set_error_message_mode(ErrorMessageMode mode) {
-    error_message_mode_ = mode;
+    data_->error_message_mode = mode;
   }
-  ErrorMessageMode error_message_mode() const { return error_message_mode_; }
+  ErrorMessageMode error_message_mode() const {
+    return data_->error_message_mode;
+  }
 
   // TODO Should this be a LanguageOption instead?
   void set_default_time_zone(absl::TimeZone timezone) {
-    default_timezone_ = timezone;
+    data_->default_timezone = timezone;
   }
-  const absl::TimeZone default_time_zone() const { return default_timezone_; }
+  const absl::TimeZone default_time_zone() const {
+    return data_->default_timezone;
+  }
 
   void set_default_anon_function_report_format(absl::string_view format) {
-    default_anon_function_report_format_ = format;
+    data_->default_anon_function_report_format = format;
   }
   absl::string_view default_anon_function_report_format() const {
-    return default_anon_function_report_format_;
+    return data_->default_anon_function_report_format;
   }
 
   absl::Status set_default_anon_kappa_value(int64_t value);
-  int64_t default_anon_kappa_value() const { return default_anon_kappa_value_; }
+  int64_t default_anon_kappa_value() const {
+    return data_->default_anon_kappa_value;
+  }
 
   void set_statement_context(StatementContext context) {
-    statement_context_ = context;
+    data_->statement_context = context;
   }
-  StatementContext statement_context() const { return statement_context_; }
+  StatementContext statement_context() const {
+    return data_->statement_context;
+  }
 
   void set_parse_location_record_type(
       ParseLocationRecordType parse_location_record_type) {
-    parse_location_record_type_ = parse_location_record_type;
+    data_->parse_location_record_type = parse_location_record_type;
   }
   const ParseLocationRecordType& parse_location_record_type() const {
-    return parse_location_record_type_;
+    return data_->parse_location_record_type;
   }
   // Set this to true to record parse locations in resolved AST nodes,
   ABSL_DEPRECATED("Inline me!")
   void set_record_parse_locations(bool value) {
-    parse_location_record_type_ = (value ? PARSE_LOCATION_RECORD_CODE_SEARCH
-                                         : PARSE_LOCATION_RECORD_NONE);
+    data_->parse_location_record_type =
+        (value ? PARSE_LOCATION_RECORD_CODE_SEARCH
+               : PARSE_LOCATION_RECORD_NONE);
   }
 
   void set_create_new_column_for_each_projected_output(bool value) {
-    create_new_column_for_each_projected_output_ = value;
+    data_->create_new_column_for_each_projected_output = value;
   }
   bool create_new_column_for_each_projected_output() const {
-    return create_new_column_for_each_projected_output_;
+    return data_->create_new_column_for_each_projected_output;
   }
 
   // Controls whether undeclared parameters are allowed. Undeclared parameters
@@ -504,35 +523,39 @@ class AnalyzerOptions {
   // mode is positional, no positional parameters may be provided in
   // AnalyzerOptions.
   void set_allow_undeclared_parameters(bool value) {
-    allow_undeclared_parameters_ = value;
+    data_->allow_undeclared_parameters = value;
   }
   bool allow_undeclared_parameters() const {
-    return allow_undeclared_parameters_;
+    return data_->allow_undeclared_parameters;
   }
 
   // Controls whether positional parameters are allowed. The analyzer supports
   // either named parameters or positional parameters but not both in the same
   // query.
-  void set_parameter_mode(ParameterMode mode) { parameter_mode_ = mode; }
-  ParameterMode parameter_mode() const { return parameter_mode_; }
+  void set_parameter_mode(ParameterMode mode) { data_->parameter_mode = mode; }
+  ParameterMode parameter_mode() const { return data_->parameter_mode; }
 
-  void set_prune_unused_columns(bool value) { prune_unused_columns_ = value; }
-  bool prune_unused_columns() const { return prune_unused_columns_; }
+  void set_prune_unused_columns(bool value) {
+    data_->prune_unused_columns = value;
+  }
+  bool prune_unused_columns() const { return data_->prune_unused_columns; }
 
   void set_allowed_hints_and_options(const AllowedHintsAndOptions& allowed) {
-    allowed_hints_and_options_ = allowed;
+    data_->allowed_hints_and_options = allowed;
   }
   const AllowedHintsAndOptions& allowed_hints_and_options() const {
-    return allowed_hints_and_options_;
+    return data_->allowed_hints_and_options;
   }
 
   // If false (default), the analyzer will avoid adding a ResolvedCast node for
   // a CAST operation in the query when the source and target types are the
   // same. Otherwise, the ResolvedCast will be generated.
   void set_preserve_unnecessary_cast(bool value) {
-    preserve_unnecessary_cast_ = value;
+    data_->preserve_unnecessary_cast = value;
   }
-  bool preserve_unnecessary_cast() const { return preserve_unnecessary_cast_; }
+  bool preserve_unnecessary_cast() const {
+    return data_->preserve_unnecessary_cast;
+  }
 
   // Controls whether to preserve aliases of aggregate columns and analytic
   // function columns. This option has no effect on query semantics and just
@@ -545,18 +568,20 @@ class AnalyzerOptions {
   //
   // TODO: Make this the default and remove this option.
   void set_preserve_column_aliases(bool value) {
-    preserve_column_aliases_ = value;
+    data_->preserve_column_aliases = value;
   }
-  bool preserve_column_aliases() const { return preserve_column_aliases_; }
+  bool preserve_column_aliases() const {
+    return data_->preserve_column_aliases;
+  }
 
   // Returns the ParserOptions to use for these AnalyzerOptions, including the
   // same id_string_pool() and arena() values.
   ParserOptions GetParserOptions() const;
 
   const SystemVariablesMap& system_variables() const {
-    return system_variables_;
+    return data_->system_variables;
   }
-  void clear_system_variables() { system_variables_.clear(); }
+  void clear_system_variables() { data_->system_variables.clear(); }
   absl::Status AddSystemVariable(const std::vector<std::string>& name_path,
                                  const Type* type);
 
@@ -573,18 +598,19 @@ class AnalyzerOptions {
   // only contain a single struct or proto type.
   // TODO: Remove this last condition
   void set_target_column_types(absl::Span<const Type* const> types) {
-    target_column_types_ = std::vector<const Type*>(types.begin(), types.end());
+    data_->target_column_types =
+        std::vector<const Type*>(types.begin(), types.end());
   }
   absl::Span<const Type* const> get_target_column_types() const {
-    return target_column_types_;
+    return data_->target_column_types;
   }
 
   void set_annotation_specs(std::vector<AnnotationSpec*> annotation_specs) {
-    annotation_specs_ = annotation_specs;
+    data_->annotation_specs = annotation_specs;
   }
 
   const std::vector<AnnotationSpec*>& get_annotation_specs() const {
-    return annotation_specs_;
+    return data_->annotation_specs;
   }
 
  private:
@@ -596,167 +622,176 @@ class AnalyzerOptions {
   // when adding new fields here.
   // ======================================================================
 
-  // These options determine the language that is accepted.
-  LanguageOptions language_options_;
+  // AnalyzerOptions are frequently allocated on the stack. The huge contents
+  // of this object makes for expensive stack frames, and in the recursive
+  // nature of much ZetaSQL processing this becomes a problem. Therefore,
+  // we always allocate the class data on the heap. (Initializing the
+  // AnalyzerOptions was already so expensive that throwing one more heap
+  // allocation into the mix was in the noise.)
+  struct Data {
+    // These options determine the language that is accepted.
+    LanguageOptions language_options;
 
-  // These options are used for name lookups into the catalog, i.e., for
-  // Catalog::Find*() calls.
-  Catalog::FindOptions find_options_;
+    // These options are used for name lookups into the catalog, i.e., for
+    // Catalog::Find*() calls.
+    Catalog::FindOptions find_options;
 
-  // Maps of defined parameters and expression columns (including in-scope).
-  // The keys are lowercased.  Only used in named parameter mode.
-  // This doesn't include the columns resolved using the
-  // 'lookup_expression_column_callback_' function.
-  QueryParametersMap query_parameters_;
-  QueryParametersMap expression_columns_;
+    // Maps of defined parameters and expression columns (including in-scope).
+    // The keys are lowercased.  Only used in named parameter mode.
+    // This doesn't include the columns resolved using the
+    // 'lookup_expression_column_callback_' function.
+    QueryParametersMap query_parameters;
+    QueryParametersMap expression_columns;
 
-  // Maps system variables to their types.
-  SystemVariablesMap system_variables_;
+    // Maps system variables to their types.
+    SystemVariablesMap system_variables;
 
-  // TODO: Clean up the legacy callback once all getters are removed.
-  LookupExpressionColumnCallback lookup_expression_column_callback_ = nullptr;
+    // TODO: Clean up the legacy callback once all getters are removed.
+    LookupExpressionColumnCallback lookup_expression_column_callback = nullptr;
 
-  // Callback function to resolve columns in standalone expressions.
-  LookupExpressionCallback lookup_expression_callback_ = nullptr;
+    // Callback function to resolve columns in standalone expressions.
+    LookupExpressionCallback lookup_expression_callback = nullptr;
 
-  // Callback function runs after the initial resolve, before any rewriters run.
-  // This can be used for query validations before rewriters making changes
-  // (e.g. rewriter can introduce nodes that are unsupported for public queries
-  // and we want throw an error if the node was also included in the original
-  // query)
-  // Note that if the callback returns an error, the analyzer
-  // will return that same error.
-  PreRewriteCallback pre_rewrite_callback_ = nullptr;
+    // Callback function runs after the initial resolve, before any rewriters
+    // run. This can be used for query validations before rewriters making
+    // changes (e.g. rewriter can introduce nodes that are unsupported for
+    // public queries and we want throw an error if the node was also included
+    // in the original query) Note that if the callback returns an error, the
+    // analyzer will return that same error.
+    PreRewriteCallback pre_rewrite_callback = nullptr;
 
-  // Defined positional parameters. Only used in positional parameter mode.
-  // Index 0 corresponds with the query parameter at position 1 and so on.
-  std::vector<const Type*> positional_query_parameters_;
+    // Defined positional parameters. Only used in positional parameter mode.
+    // Index 0 corresponds with the query parameter at position 1 and so on.
+    std::vector<const Type*> positional_query_parameters;
 
-  // If we have an in-scope expression column, its name and Type are stored
-  // here (and also in expression_columns_).  The name may be empty.
-  std::pair<std::string, const Type*> in_scope_expression_column_;
+    // If we have an in-scope expression column, its name and Type are stored
+    // here (and also in expression_columns_).  The name may be empty.
+    std::pair<std::string, const Type*> in_scope_expression_column;
 
-  // Callback to retrieve pseudo-columns visible in top-level PARTITION BY and
-  // CLUSTER BY clauses of DDL statements analyzed using AnalyzeStatement, or
-  // else an explicit list of columns. If ddl_pseudo_columns_ is non-empty, the
-  // callback is a wrapper that returns ddl_pseudo_columns_ as output regardless
-  // of the input.
-  // NOTE: Ensure that variables captured by this lamda either outlive this
-  // AnalyzerOptions and any copy of it OR are captured by value instead.
-  DdlPseudoColumnsCallback ddl_pseudo_columns_callback_;
-  std::vector<std::pair<std::string, const Type*>> ddl_pseudo_columns_;
+    // Callback to retrieve pseudo-columns visible in top-level PARTITION BY and
+    // CLUSTER BY clauses of DDL statements analyzed using AnalyzeStatement, or
+    // else an explicit list of columns. If ddl_pseudo_columns_ is non-empty,
+    // the callback is a wrapper that returns ddl_pseudo_columns_ as output
+    // regardless of the input. NOTE: Ensure that variables captured by this
+    // lamda either outlive this AnalyzerOptions and any copy of it OR are
+    // captured by value instead.
+    DdlPseudoColumnsCallback ddl_pseudo_columns_callback;
+    std::vector<std::pair<std::string, const Type*>> ddl_pseudo_columns;
 
-  // If set, use this to allocate column_ids for the resolved AST.
-  // This can be used to analyze multiple queries and ensure that
-  // all resolved ASTs have non-overlapping column_ids.
-  zetasql_base::SequenceNumber* column_id_sequence_number_ = nullptr;  // Not owned.
+    // If set, use this to allocate column_ids for the resolved AST.
+    // This can be used to analyze multiple queries and ensure that
+    // all resolved ASTs have non-overlapping column_ids.
+    zetasql_base::SequenceNumber* column_id_sequence_number = nullptr;  // Not owned.
 
-  // Allocate parts of the parse tree and resolved AST in this arena.
-  // The arena will also be referenced in AnalyzerOutput to keep it alive.
-  std::shared_ptr<zetasql_base::UnsafeArena> arena_;
+    // Allocate parts of the parse tree and resolved AST in this arena.
+    // The arena will also be referenced in AnalyzerOutput to keep it alive.
+    std::shared_ptr<zetasql_base::UnsafeArena> arena;
 
-  // Allocate all IdStrings in the resolved AST in this pool.
-  // The pool will also be referenced in AnalyzerOutput to keep it alive.
-  std::shared_ptr<IdStringPool> id_string_pool_;
+    // Allocate all IdStrings in the resolved AST in this pool.
+    // The pool will also be referenced in AnalyzerOutput to keep it alive.
+    std::shared_ptr<IdStringPool> id_string_pool;
 
-  ErrorMessageMode error_message_mode_ = ERROR_MESSAGE_ONE_LINE;
+    ErrorMessageMode error_message_mode = ERROR_MESSAGE_ONE_LINE;
 
-  // Some timestamp-related functions take an optional timezone argument, and
-  // allow a default timezone to be used if the argument is not provided.
-  // The <default_timezone_> may also be used when coercing string literals
-  // to timestamp literals during analysis.  Defaults to America/Los_Angeles.
-  absl::TimeZone default_timezone_;
+    // Some timestamp-related functions take an optional timezone argument, and
+    // allow a default timezone to be used if the argument is not provided.
+    // The <default_timezone_> may also be used when coercing string literals
+    // to timestamp literals during analysis.  Defaults to America/Los_Angeles.
+    absl::TimeZone default_timezone;
 
-  // Some anonymized functions take an optional report format option, and
-  // allow a default report format to be used if the option is not provided.
-  std::string default_anon_function_report_format_;
+    // Some anonymized functions take an optional report format option, and
+    // allow a default report format to be used if the option is not provided.
+    std::string default_anon_function_report_format;
 
-  // Anonymized functions take an optional kappa value, and allow a default
-  // kappa value to be used if the option is not provided. If it is unset, we
-  // initialize it as 0, which is not a valid kappa.
-  int64_t default_anon_kappa_value_ = 0;
+    // Anonymized functions take an optional kappa value, and allow a default
+    // kappa value to be used if the option is not provided. If it is unset, we
+    // initialize it as 0, which is not a valid kappa.
+    int64_t default_anon_kappa_value = 0;
 
-  // This identifies the ZetaSQL resolution context - whether we are in
-  // a normal statement context or whether we are resolving statements
-  // in a module.  See (broken link) for details.
-  StatementContext statement_context_ = CONTEXT_DEFAULT;
+    // This identifies the ZetaSQL resolution context - whether we are in
+    // a normal statement context or whether we are resolving statements
+    // in a module.  See (broken link) for details.
+    StatementContext statement_context = CONTEXT_DEFAULT;
 
-  // Option that controls whether and how parse locations are recorded in
-  // ResolvedNodes.
-  ParseLocationRecordType parse_location_record_type_ =
-      PARSE_LOCATION_RECORD_NONE;
+    // Option that controls whether and how parse locations are recorded in
+    // ResolvedNodes.
+    ParseLocationRecordType parse_location_record_type =
+        PARSE_LOCATION_RECORD_NONE;
 
-  // If set to true, creates a new column for each output produced by each
-  // ResolvedProjectScan. This means that each entry in the column_list will
-  // always have a corresponding entry in the expr_list.
-  //
-  // Here is an example:
-  //
-  //  SELECT * FROM (SELECT a AS b FROM (SELECT 1 AS a));
-  //
-  //  option      scan      column_list        expr_list
-  // -------- ------------- ----------- -----------------------
-  //          SELECT 1 AS a    [a#1]      [a#1 := Literal(1)]
-  //   false  SELECT a AS b    [a#1]              []
-  //          SELECT *         [a#1]              []
-  // -------- ------------- ----------- -----------------------
-  //          SELECT 1 AS a    [a#1]      [a#1 := Literal(1)]
-  //   true   SELECT a AS b    [b#2]    [b#2 := ColumnRef(a#1)]
-  //          SELECT *         [b#3]    [b#3 := ColumnRef(b#2)]
-  // -------- ------------- ----------- -----------------------
-  //
-  // Setting this option to true results in a larger resolved AST, but has the
-  // benefit that it provides a place to store additional information about how
-  // the query was parsed. In combination with record_parse_locations, it
-  // allows keeping track of all places in the query where columns are
-  // referenced, which is useful to highlight long chains of dependencies
-  // through complex queries composed of deeply nested subqueries.
-  bool create_new_column_for_each_projected_output_ = false;
+    // If set to true, creates a new column for each output produced by each
+    // ResolvedProjectScan. This means that each entry in the column_list will
+    // always have a corresponding entry in the expr_list.
+    //
+    // Here is an example:
+    //
+    //  SELECT * FROM (SELECT a AS b FROM (SELECT 1 AS a));
+    //
+    //  option      scan      column_list        expr_list
+    // -------- ------------- ----------- -----------------------
+    //          SELECT 1 AS a    [a#1]      [a#1 := Literal(1)]
+    //   false  SELECT a AS b    [a#1]              []
+    //          SELECT *         [a#1]              []
+    // -------- ------------- ----------- -----------------------
+    //          SELECT 1 AS a    [a#1]      [a#1 := Literal(1)]
+    //   true   SELECT a AS b    [b#2]    [b#2 := ColumnRef(a#1)]
+    //          SELECT *         [b#3]    [b#3 := ColumnRef(b#2)]
+    // -------- ------------- ----------- -----------------------
+    //
+    // Setting this option to true results in a larger resolved AST, but has the
+    // benefit that it provides a place to store additional information about
+    // how the query was parsed. In combination with record_parse_locations, it
+    // allows keeping track of all places in the query where columns are
+    // referenced, which is useful to highlight long chains of dependencies
+    // through complex queries composed of deeply nested subqueries.
+    bool create_new_column_for_each_projected_output = false;
 
-  bool allow_undeclared_parameters_ = false;
+    bool allow_undeclared_parameters = false;
 
-  ParameterMode parameter_mode_ = PARAMETER_NAMED;
+    ParameterMode parameter_mode = PARAMETER_NAMED;
 
-  // This controls whether or not current resolved AST needs validation.
-  // It is initialized with <zetasql_validate_resolved_ast> global flag value.
-  bool validate_resolved_ast_ = false;
+    // This controls whether or not current resolved AST needs validation.
+    // It is initialized with <zetasql_validate_resolved_ast> global flag
+    // value.
+    bool validate_resolved_ast = false;
 
-  // If true, columns that were never referenced in the query will be pruned
-  // from column_lists of all ResolvedScans.  This allows using the column_list
-  // on ResolvedTableScan for column-level ACL checking.
-  // If false, ResolvedTableScans will include all columns on the table,
-  // regardless of what the user selected.
-  //
-  // TODO I want to make this the default once engines are updated,
-  // and then remove this option.
-  bool prune_unused_columns_ = false;
+    // If true, columns that were never referenced in the query will be pruned
+    // from column_lists of all ResolvedScans.  This allows using the
+    // column_list on ResolvedTableScan for column-level ACL checking. If false,
+    // ResolvedTableScans will include all columns on the table, regardless of
+    // what the user selected.
+    //
+    // TODO I want to make this the default once engines are updated,
+    // and then remove this option.
+    bool prune_unused_columns = false;
 
-  // This specifies the set of allowed hints and options, their expected
-  // types, and whether to give errors on unrecognized names.
-  // See the class definition for details.
-  AllowedHintsAndOptions allowed_hints_and_options_;
+    // This specifies the set of allowed hints and options, their expected
+    // types, and whether to give errors on unrecognized names.
+    // See the class definition for details.
+    AllowedHintsAndOptions allowed_hints_and_options;
 
-  // Controls whether to preserve aliases of aggregate columns and analytic
-  // function columns. See set_preserve_column_aliases() for details.
-  bool preserve_column_aliases_ = true;
+    // Controls whether to preserve aliases of aggregate columns and analytic
+    // function columns. See set_preserve_column_aliases() for details.
+    bool preserve_column_aliases = true;
 
-  // Target output column types for a query.
-  std::vector<const Type*> target_column_types_;
+    // Target output column types for a query.
+    std::vector<const Type*> target_column_types;
 
-  // The set of ASTRewrites that are enabled.
-  // Note that we store these as a btree_set to make the order in which the
-  // rewrites are applied consistent, and thus prevent instability in the
-  // analyzer test column ids.
-  absl::btree_set<ResolvedASTRewrite> enabled_rewrites_ = DefaultRewrites();
+    // The set of ASTRewrites that are enabled.
+    // Note that we store these as a btree_set to make the order in which the
+    // rewrites are applied consistent, and thus prevent instability in the
+    // analyzer test column ids.
+    absl::btree_set<ResolvedASTRewrite> enabled_rewrites = DefaultRewrites();
 
-  // Controls whether the analyzer will add a ResolvedCAST node for a CAST
-  // operation in the query even when the source and target types are the
-  // same.
-  bool preserve_unnecessary_cast_ = false;
+    // Controls whether the analyzer will add a ResolvedCAST node for a CAST
+    // operation in the query even when the source and target types are the
+    // same.
+    bool preserve_unnecessary_cast = false;
 
-  // The annotations specs that are passed in and should be handled by
-  // the annotation framework.
-  std::vector<AnnotationSpec*> annotation_specs_;  // Not owned.
+    // The annotations specs that are passed in and should be handled by
+    // the annotation framework.
+    std::vector<AnnotationSpec*> annotation_specs;  // Not owned.
+  };
+  std::unique_ptr<Data> data_;
 
   // Copyable
 };

@@ -333,7 +333,7 @@ A `SELECT ALL` statement returns all rows, including duplicate rows.
 SELECT AS STRUCT expr [[AS] struct_field_name1] [,...]
 ```
 
-This produces a [value table][query-value-tables] with a
+This produces a [value table][value-tables] with a
 STRUCT row type, where the
 STRUCT field names and types match the column names
 and types produced in the `SELECT` list.
@@ -426,11 +426,11 @@ stored in the `int64_val` field in the protocol buffer. Similarly, values from
 the `mytable.name` column are stored in the `string_val` protocol buffer field.
 
 To learn more about protocol buffers, see
-[Protocol buffers][proto-buffers].
+[Work with protocol buffers][proto-buffers].
 
 ### SELECT AS VALUE
 
-`SELECT AS VALUE` produces a [value table][query-value-tables] from any
+`SELECT AS VALUE` produces a [value table][value-tables] from any
 `SELECT` list that produces exactly one column. Instead of producing an
 output table with one column, possibly with a name, the output will be a
 value table where the row type is just the value type that was produced in the
@@ -616,7 +616,7 @@ return multiple columns:
 return a second column with the array element indexes.
 
 For several ways to use `UNNEST`, including construction, flattening, and
-filtering, see [Working with arrays][working-with-arrays].
+filtering, see [Work with arrays][working-with-arrays].
 
 ### UNNEST and STRUCTs
 For an input `ARRAY` of `STRUCT`s, `UNNEST`
@@ -639,7 +639,7 @@ FROM UNNEST(ARRAY<STRUCT<x INT64, y STRING>>[(1, 'foo'), (3, 'bar')]);
 ```
 
 Because the `UNNEST` operator returns a
-[value table][query-value-tables],
+[value table][value-tables],
 you can alias `UNNEST` to define a range variable that you can reference
 elsewhere in the query. If you reference the range variable in the `SELECT`
 list, the query returns a `STRUCT` containing all of the fields of the original
@@ -3820,7 +3820,7 @@ In ZetaSQL, a range variable is a table expression alias in the
 range variable lets you reference rows being scanned from a table expression.
 A table expression represents an item in the `FROM` clause that returns a table.
 Common items that this expression can represent include
-tables, [value tables][query-value-tables], [subqueries][subquery-concepts],
+tables, [value tables][value-tables], [subqueries][subquery-concepts],
 [table value functions (TVFs)][tvf-concepts], [joins][query-joins], and [parenthesized joins][query-joins].
 
 In general, a range variable provides a reference to the rows of a table
@@ -3885,27 +3885,6 @@ SELECT Coordinate FROM Grid AS Coordinate;
 | {x: 1, y: 2} |
 +--------------+
 ```
-
-## Working with value tables 
-<a id="value_tables"></a>
-
-In ZetaSQL, a value table is a table where the row type is a single
-value.  In a regular table, each row is made up of columns, each of which has a
-name and a type.  In a value table, the row type is just a single value, and
-there are no column names.
-
-A query will produce a value table if it uses `SELECT AS STRUCT` or
-`SELECT AS VALUE`.
-
-Most commonly, value tables are used for protocol buffer value tables, where the
-table contains a stream of protocol buffer values. In this case, the top-level
-protocol buffer fields can be used in the same way that column names are used
-when querying a regular table.
-
-In contexts where a query with exactly one column is expected, a value table
-query can be used instead.  For example, scalar subqueries and array subqueries
-(see [Subqueries][subquery-concepts]) normally require a single-column query,
-but in ZetaSQL, they also allow using a value table query.
 
 ## Table function calls
 
@@ -4172,8 +4151,6 @@ Results:
 
 [join-hints]: #join_hints
 
-[query-value-tables]: #value_tables
-
 [roster-table]: #roster_table
 
 [playerstats-table]: #playerstats_table
@@ -4261,6 +4238,8 @@ Results:
 [array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
 
 [collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
+
+[value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
 
 <!-- mdlint on -->
 

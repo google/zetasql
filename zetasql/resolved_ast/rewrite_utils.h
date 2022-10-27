@@ -140,7 +140,7 @@ using ColumnReplacementMap =
     absl::flat_hash_map</*column_in_input=*/ResolvedColumn,
                         /*column_in_output=*/ResolvedColumn>;
 
-// Prforms a deep copy of 'input_tree' replacing all of the ResolvedColumns in
+// Performs a deep copy of 'input_tree' replacing all of the ResolvedColumns in
 // that tree either with ResolvedColumns as specified by 'column_map' or by new
 // columns allocated from 'column_factory' for any column not found in
 // 'column_map'.
@@ -165,6 +165,34 @@ absl::StatusOr<std::unique_ptr<ResolvedNode>>
 CopyResolvedASTAndRemapColumnsImpl(const ResolvedNode& input_tree,
                                    ColumnFactory& column_factory,
                                    ColumnReplacementMap& column_map);
+
+// Helper function used when deep copying a plan. Takes a 'scan' and
+// replaces all of its ResolvedColumns, including in child scans recursively.
+// Some columns produced by the 'scan' are remapped to new columns based on
+// 'target_column_indices' and 'replacement_columns_to_use'. All other columns
+// in the 'scan' and its descendants are replaced by new columns allocated by
+// 'column_factory'.
+//
+// 'target_column_indices' corresponds 1:1 with 'replacement_columns_to_use',
+// and maps entries in the 'scan' 'column_list()' to the appropriate
+// replacement columns.
+//
+// Columns in 'replacement_columns_to_use' must have been allocated from
+// 'column_factory'.
+//
+// Ultimately, the copied/returned plan will have all column references
+// allocated by 'column_factory', either through the explicit remapping or via
+// new allocations.
+absl::StatusOr<std::unique_ptr<ResolvedScan>> ReplaceScanColumns(
+    ColumnFactory& column_factory, const ResolvedScan& scan,
+    const std::vector<int>& target_column_indices,
+    const std::vector<ResolvedColumn>& replacement_columns_to_use);
+
+// Creates a new set of replacement columns to the given list.
+// Useful when replacing columns for a ResolvedExecuteAsRole node.
+std::vector<ResolvedColumn> CreateReplacementColumns(
+    ColumnFactory& column_factory,
+    const std::vector<ResolvedColumn>& column_list);
 
 // Contains helper functions that reduce boilerplate in rewriting rules logic
 // related to constructing new ResolvedFunctionCall instances.

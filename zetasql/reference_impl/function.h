@@ -210,6 +210,7 @@ enum class FunctionKind {
   kArrayMin,
   kArrayMax,
   kArraySum,
+  kArrayAvg,
 
   // Proto map functions. Like array functions, the map functions must use
   // MaybeSetNonDeterministicArrayOutput.
@@ -846,7 +847,7 @@ class ArraySliceFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
-// Implementation for ARRAY_MIN(ARRAY<T1>) -> T1.
+// Implementation for ARRAY_(MIN|MAX)(ARRAY<T1>) -> T1.
 class ArrayMinMaxFunction : public SimpleBuiltinScalarFunction {
  public:
   ArrayMinMaxFunction(FunctionKind kind, const Type* output_type)
@@ -872,7 +873,7 @@ class ArrayMinMaxFunction : public SimpleBuiltinScalarFunction {
   CollatorList collator_list_;
 };
 
-// Implementation for ARRAY_SUM(ARRAY<T>) -> U
+// Implementation for ARRAY_(SUM|AVG)(ARRAY<T>) -> U
 class ArraySumAvgFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;

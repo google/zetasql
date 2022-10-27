@@ -2140,6 +2140,40 @@ absl::Status Validator::ValidateResolvedTVFScan(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedExecuteAsRoleScan(
+    const ResolvedExecuteAsRoleScan* scan,
+    const std::set<ResolvedColumn>& visible_parameters) {
+  PushErrorContext push(this, scan);
+
+  VALIDATOR_RET_CHECK(scan->input_scan() != nullptr);
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->input_scan(), visible_parameters));
+
+  VALIDATOR_RET_CHECK_EQ(scan->column_list_size(),
+                         scan->input_scan()->column_list().size());
+
+  for (int i = 0; i < scan->column_list_size(); ++i) {
+    const ResolvedColumn& output_column = scan->column_list(i);
+    const ResolvedColumn& input_column = scan->input_scan()->column_list(i);
+
+    VALIDATOR_RET_CHECK_EQ(output_column.type(), input_column.type());
+
+    // We are checking name equality only as a sanity check, since our code
+    // copies the names over. Names are used mainly in readability of tests and
+    // sanity checks, not the query semantics. For query semantics, we rely on
+    // column IDs. We validate column ID uniqueness immediately after in
+    // CheckUniqueColumnId().
+    VALIDATOR_RET_CHECK_EQ(output_column.name(), input_column.name());
+  }
+
+  // Make sure column ids are unique
+  for (const ResolvedColumn& column : scan->column_list()) {
+    ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(column));
+  }
+
+  ZETASQL_RETURN_IF_ERROR(ValidateHintList(scan->hint_list()));
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedRelationArgumentScan(
     const ResolvedRelationArgumentScan* arg_ref,
     const std::set<ResolvedColumn>& visible_parameters) {
@@ -2977,41 +3011,110 @@ absl::Status Validator::ValidateResolvedCreateTableAsSelectStmt(
 absl::Status Validator::ValidateResolvedCreateModelStmt(
     const ResolvedCreateModelStmt* stmt) {
   PushErrorContext push(this, stmt);
-  ZETASQL_RETURN_IF_ERROR(
-      ValidateResolvedScan(stmt->query(), {} /* visible_parameters */));
-  ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(stmt->query()->column_list(),
-                                                   stmt->output_column_list(),
-                                                   /*is_value_table=*/false));
-  ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
-  if (!stmt->transform_list().empty()) {
-    // Validate transform_input_column_list is used properly in transform_list.
-    std::set<ResolvedColumn> transform_input_cols;
-    for (const auto& transform_input_col :
-         stmt->transform_input_column_list()) {
-      transform_input_cols.insert(transform_input_col->column());
-    }
-    for (const auto& group : stmt->transform_analytic_function_group_list()) {
-      ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(
-          group->analytic_function_list(), &transform_input_cols));
-    }
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedComputedColumnList(transform_input_cols, {},
-                                                       stmt->transform_list()));
 
-    // Validate transform_list is used properly in transform_output_column_list.
-    std::vector<ResolvedColumn> transform_resolved_cols;
-    for (const auto& transform_col : stmt->transform_list()) {
-      transform_resolved_cols.push_back(transform_col->column());
+  auto validate_input_output_columns = [this, stmt]() -> absl::Status {
+    std::set<ResolvedColumn> visible_input_columns;
+    ZETASQL_RETURN_IF_ERROR(ValidateColumnDefinitions(
+        stmt->input_column_definition_list(), &visible_input_columns));
+    std::set<ResolvedColumn> visible_output_columns;
+    ZETASQL_RETURN_IF_ERROR(ValidateColumnDefinitions(
+        stmt->output_column_definition_list(), &visible_output_columns));
+    return absl::OkStatus();
+  };
+
+  if (stmt->is_remote()) {
+    // Remote model.
+    VALIDATOR_RET_CHECK(
+        language_options_.LanguageFeatureEnabled(FEATURE_V_1_4_REMOTE_MODEL));
+
+    if (stmt->query() == nullptr) {
+      // External model.
+
+      // Input & output are optional.
+      ZETASQL_RETURN_IF_ERROR(validate_input_output_columns());
+
+      // The rest must be empty.
+      VALIDATOR_RET_CHECK_EQ(stmt->query(), nullptr);
+      VALIDATOR_RET_CHECK(stmt->output_column_list().empty());
+      VALIDATOR_RET_CHECK(stmt->transform_list().empty());
+      VALIDATOR_RET_CHECK(stmt->transform_input_column_list().empty());
+      VALIDATOR_RET_CHECK(stmt->transform_output_column_list().empty());
+      VALIDATOR_RET_CHECK(
+          stmt->transform_analytic_function_group_list().empty());
+    } else {
+      // Remotely trained model.
+      VALIDATOR_RET_CHECK_FAIL() << "Remotely trained models are unsupported";
     }
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(
-        transform_resolved_cols, stmt->transform_output_column_list(),
-        /*is_value_table=*/false));
   } else {
-    // All transform related fields should be empty if there is no TRANSFORM
-    // clause.
-    VALIDATOR_RET_CHECK(stmt->transform_input_column_list().empty());
-    VALIDATOR_RET_CHECK(stmt->transform_output_column_list().empty());
-    VALIDATOR_RET_CHECK(stmt->transform_analytic_function_group_list().empty());
+    // Local model.
+    VALIDATOR_RET_CHECK_EQ(stmt->connection(), nullptr);
+
+    if (!language_options_.LanguageFeatureEnabled(FEATURE_V_1_4_REMOTE_MODEL)) {
+      VALIDATOR_RET_CHECK_NE(stmt->query(), nullptr);
+    }
+
+    if (stmt->query() == nullptr) {
+      // Imported model.
+
+      // Input & output are required.
+      VALIDATOR_RET_CHECK(!stmt->input_column_definition_list().empty());
+      VALIDATOR_RET_CHECK(!stmt->output_column_definition_list().empty());
+      ZETASQL_RETURN_IF_ERROR(validate_input_output_columns());
+
+      // The rest must be empty.
+      VALIDATOR_RET_CHECK(stmt->output_column_list().empty());
+      VALIDATOR_RET_CHECK(stmt->transform_list().empty());
+      VALIDATOR_RET_CHECK(stmt->transform_input_column_list().empty());
+      VALIDATOR_RET_CHECK(stmt->transform_output_column_list().empty());
+      VALIDATOR_RET_CHECK(
+          stmt->transform_analytic_function_group_list().empty());
+    } else {
+      // Locally trained model.
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateResolvedScan(stmt->query(), {} /* visible_parameters */));
+      ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(
+          stmt->query()->column_list(), stmt->output_column_list(),
+          /*is_value_table=*/false));
+
+      if (!stmt->transform_list().empty()) {
+        // Validate transform_input_column_list is used properly in
+        // transform_list.
+        std::set<ResolvedColumn> transform_input_cols;
+        for (const auto& transform_input_col :
+             stmt->transform_input_column_list()) {
+          transform_input_cols.insert(transform_input_col->column());
+        }
+        for (const auto& group :
+             stmt->transform_analytic_function_group_list()) {
+          ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(
+              group->analytic_function_list(), &transform_input_cols));
+        }
+        ZETASQL_RETURN_IF_ERROR(ValidateResolvedComputedColumnList(
+            transform_input_cols, {}, stmt->transform_list()));
+
+        // Validate transform_list is used properly in
+        // transform_output_column_list.
+        std::vector<ResolvedColumn> transform_resolved_cols;
+        for (const auto& transform_col : stmt->transform_list()) {
+          transform_resolved_cols.push_back(transform_col->column());
+        }
+        ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(
+            transform_resolved_cols, stmt->transform_output_column_list(),
+            /*is_value_table=*/false));
+      } else {
+        VALIDATOR_RET_CHECK(stmt->transform_input_column_list().empty());
+        VALIDATOR_RET_CHECK(stmt->transform_output_column_list().empty());
+        VALIDATOR_RET_CHECK(
+            stmt->transform_analytic_function_group_list().empty());
+      }
+
+      // The rest must be empty.
+      VALIDATOR_RET_CHECK(stmt->input_column_definition_list().empty());
+      VALIDATOR_RET_CHECK(stmt->output_column_definition_list().empty());
+    }
   }
+
+  ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
   return absl::OkStatus();
 }
 
@@ -3710,6 +3813,10 @@ absl::Status Validator::ValidateResolvedScan(
       scan_subtype_status = ValidateResolvedTVFScan(
           scan->GetAs<ResolvedTVFScan>(), visible_parameters);
       break;
+    case RESOLVED_EXECUTE_AS_ROLE_SCAN:
+      scan_subtype_status = ValidateResolvedExecuteAsRoleScan(
+          scan->GetAs<ResolvedExecuteAsRoleScan>(), visible_parameters);
+      break;
     case RESOLVED_RELATION_ARGUMENT_SCAN:
       scan_subtype_status = ValidateResolvedRelationArgumentScan(
           scan->GetAs<ResolvedRelationArgumentScan>(), visible_parameters);
@@ -3820,6 +3927,9 @@ absl::Status Validator::ValidateResolvedScanOrdering(const ResolvedScan* scan) {
       break;
     case RESOLVED_WITH_SCAN:
       input_scan = scan->GetAs<ResolvedWithScan>()->query();
+      break;
+    case RESOLVED_EXECUTE_AS_ROLE_SCAN:
+      input_scan = scan->GetAs<ResolvedExecuteAsRoleScan>()->input_scan();
       break;
 
     // For all other scan types, is_ordered is not allowed.
@@ -5089,7 +5199,6 @@ absl::Status Validator::ValidateResolvedPivotScan(
   absl::flat_hash_set<ResolvedColumn> output_columns_created;
 
   // Validate groupby columns
-  absl::flat_hash_set<ResolvedColumn> groupby_input_columns_seen;
   for (const auto& column : scan->group_by_list()) {
     VALIDATOR_RET_CHECK_EQ(column->expr()->node_kind(), RESOLVED_COLUMN_REF)
         << "ComputedColumn in group-by column of pivot scan should be a "
@@ -5097,11 +5206,6 @@ absl::Status Validator::ValidateResolvedPivotScan(
     const ResolvedColumn& input_column =
         column->expr()->GetAs<ResolvedColumnRef>()->column();
 
-    // Validate input column
-    VALIDATOR_RET_CHECK(
-        zetasql_base::InsertIfNotPresent(&groupby_input_columns_seen, input_column))
-        << "Duplicate input column " << input_column.DebugString()
-        << " in ResolvedPivotScan's group_by_column_list";
     VALIDATOR_RET_CHECK(zetasql_base::ContainsKey(input_column_set, input_column))
         << "ResolvedPivotScan's groupby input column not in input column list: "
         << input_column.DebugString();

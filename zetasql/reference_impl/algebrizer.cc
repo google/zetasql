@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <set>
@@ -80,6 +81,9 @@ namespace zetasql {
 
 namespace {
 
+constexpr FunctionSignatureId kCollationSupportedAnalyticFunctions[] = {
+    FN_COUNT, FN_MIN, FN_MAX};
+
 absl::Status CheckHints(
     const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list) {
   for (const auto& hint : hint_list) {
@@ -114,6 +118,13 @@ GetExtendedCastEvaluatorFromResolvedCast(const ResolvedCast* cast) {
   }
 
   return {};
+}
+
+bool IsAnalyticFunctionCollationSupported(const FunctionSignature& signature) {
+  return std::find(std::begin(kCollationSupportedAnalyticFunctions),
+                   std::end(kCollationSupportedAnalyticFunctions),
+                   signature.context_id()) !=
+         std::end(kCollationSupportedAnalyticFunctions);
 }
 
 }  // namespace
@@ -3340,7 +3351,9 @@ Algebrizer::AlgebrizeAnalyticFunctionGroup(
         static_cast<const ResolvedAnalyticFunctionCall*>(
             analytic_column->expr());
     // TODO: Support analytic functions with collations.
-    if (!analytic_function_call->collation_list().empty()) {
+    if (!analytic_function_call->collation_list().empty() &&
+        !IsAnalyticFunctionCollationSupported(
+            analytic_function_call->signature())) {
       ZETASQL_RET_CHECK_EQ(analytic_function_call->collation_list().size(), 1);
       return absl::UnimplementedError(absl::Substitute(
           "Analytic function '$0' with collation '$1' is not supported",

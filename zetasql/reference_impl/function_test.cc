@@ -200,4 +200,80 @@ TEST(NonDeterministicEvaluationContextTest,
   EXPECT_FALSE(context_max.IsDeterministicOutput());
 }
 
+TEST(NonDeterministicEvaluationContextTest, ArraySumAvgFloatingPointTypeTest) {
+  // Array input with floating-point type element introduces indeterminism for
+  // ARRAY_SUM and ARRAY_AVG because floating point addition is not associative.
+  TypeFactory factory;
+  const ArrayType* array_type;
+  const Type* element_type = factory.get_double();
+  ZETASQL_EXPECT_OK(factory.MakeArrayType(element_type, &array_type));
+
+  // ARRAY_SUM
+  ArraySumAvgFunction arr_sum_fn(FunctionKind::kArraySum, array_type);
+  EvaluationContext context_sum{/*options=*/{}};
+  EXPECT_TRUE(context_sum.IsDeterministicOutput());
+  ZETASQL_EXPECT_OK(arr_sum_fn
+                .Eval(/*params=*/{},
+                      /*args=*/
+                      {InternalValue::Array(
+                          array_type, {Value::Double(4.1), Value::Double(-3.5)},
+                          InternalValue::kIgnoresOrder)},
+                      &context_sum)
+                .status());
+  EXPECT_FALSE(context_sum.IsDeterministicOutput());
+
+  // ARRAY_AVG
+  element_type = factory.get_float();
+  ZETASQL_EXPECT_OK(factory.MakeArrayType(element_type, &array_type));
+  ArraySumAvgFunction arr_avg_fn(FunctionKind::kArrayAvg, array_type);
+  EvaluationContext context_avg{/*options=*/{}};
+  EXPECT_TRUE(context_avg.IsDeterministicOutput());
+  ZETASQL_EXPECT_OK(arr_avg_fn
+                .Eval(/*params=*/{},
+                      /*args=*/
+                      {InternalValue::Array(
+                          array_type, {Value::Float(4.1), Value::Float(-3.5)},
+                          InternalValue::kIgnoresOrder)},
+                      &context_avg)
+                .status());
+  EXPECT_FALSE(context_avg.IsDeterministicOutput());
+}
+
+TEST(NonDeterministicEvaluationContextTest, ArraySumAvgUnsignedIntTypeTest) {
+  // Array input with signed or unsigned integer type element introduces
+  // indeterminism for ARRAY_AVG but not for ARRAY_SUM.
+  TypeFactory factory;
+  const ArrayType* array_type;
+  const Type* element_type = factory.get_uint64();
+  ZETASQL_EXPECT_OK(factory.MakeArrayType(element_type, &array_type));
+
+  // ARRAY_SUM
+  ArraySumAvgFunction arr_sum_fn(FunctionKind::kArraySum, array_type);
+  EvaluationContext context_sum{/*options=*/{}};
+  EXPECT_TRUE(context_sum.IsDeterministicOutput());
+  ZETASQL_EXPECT_OK(arr_sum_fn
+                .Eval(/*params=*/{},
+                      /*args=*/
+                      {InternalValue::Array(
+                          array_type, {Value::Uint64(40), Value::Uint64(20)},
+                          InternalValue::kIgnoresOrder)},
+                      &context_sum)
+                .status());
+  EXPECT_TRUE(context_sum.IsDeterministicOutput());
+
+  // ARRAY_AVG
+  ArraySumAvgFunction arr_avg_fn(FunctionKind::kArrayAvg, array_type);
+  EvaluationContext context_avg{/*options=*/{}};
+  EXPECT_TRUE(context_avg.IsDeterministicOutput());
+  ZETASQL_EXPECT_OK(arr_avg_fn
+                .Eval(/*params=*/{},
+                      /*args=*/
+                      {InternalValue::Array(
+                          array_type, {Value::Uint64(40), Value::Uint64(20)},
+                          InternalValue::kIgnoresOrder)},
+                      &context_avg)
+                .status());
+  EXPECT_FALSE(context_avg.IsDeterministicOutput());
+}
+
 }  // namespace zetasql

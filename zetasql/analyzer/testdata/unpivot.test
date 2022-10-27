@@ -2561,3 +2561,104 @@ QueryStmt
                     +-expr=
                     | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_1.unpivot_unnest#11)
                     +-field_idx=0
+==
+
+[mode=expression]
+[enabled_ast_rewrites=ALL]
+ARRAY(
+  SELECT AS STRUCT * FROM KeyValue UNPIVOT(a for b in (Key))
+)
+--
+SubqueryExpr
++-type=ARRAY<STRUCT<Value STRING, a INT64, b STRING>>
++-subquery_type=ARRAY
++-subquery=
+  +-ProjectScan
+    +-column_list=[$make_struct.$struct#6]
+    +-expr_list=
+    | +-$struct#6 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<Value STRING, a INT64, b STRING>
+    |     +-field_list=
+    |       +-ColumnRef(type=STRING, column=$unpivot.Value#5)
+    |       +-ColumnRef(type=INT64, column=$unpivot.a#3)
+    |       +-ColumnRef(type=STRING, column=$unpivot.b#4)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
+        +-input_scan=
+          +-UnpivotScan
+            +-column_list=$unpivot.[Value#5, a#3, b#4]
+            +-input_scan=
+            | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            +-value_column_list=[$unpivot.a#3]
+            +-label_column=$unpivot.b#4
+            +-label_list=
+            | +-Literal(type=STRING, value="Key")
+            +-unpivot_arg_list=
+            | +-UnpivotArg
+            |   +-column_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-projected_input_column_list=
+            | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-include_nulls=FALSE
+
+[REWRITTEN AST]
+SubqueryExpr
++-type=ARRAY<STRUCT<Value STRING, a INT64, b STRING>>
++-subquery_type=ARRAY
++-subquery=
+  +-ProjectScan
+    +-column_list=[$make_struct.$struct#6]
+    +-expr_list=
+    | +-$struct#6 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<Value STRING, a INT64, b STRING>
+    |     +-field_list=
+    |       +-ColumnRef(type=STRING, column=$unpivot.Value#5)
+    |       +-ColumnRef(type=INT64, column=$unpivot.a#3)
+    |       +-ColumnRef(type=STRING, column=$unpivot.b#4)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=$unpivot.[Value#5, a#3, b#4]
+            +-expr_list=
+            | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+            | +-a#3 :=
+            | | +-GetStructField
+            | |   +-type=INT64
+            | |   +-expr=
+            | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+            | |   +-field_idx=0
+            | +-b#4 :=
+            |   +-GetStructField
+            |     +-type=STRING
+            |     +-expr=
+            |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+            |     +-field_idx=1
+            +-input_scan=
+              +-FilterScan
+                +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
+                +-input_scan=
+                | +-ArrayScan
+                |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
+                |   +-input_scan=
+                |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+                |   +-array_expr=
+                |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b STRING>) -> ARRAY<STRUCT<a INT64, b STRING>>)
+                |   |   +-MakeStruct
+                |   |     +-type=STRUCT<a INT64, b STRING>
+                |   |     +-field_list=
+                |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
+                |   +-element_column=unpivot_array_0.unpivot_unnest#7
+                +-filter_expr=
+                  +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+                    +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+                      +-GetStructField
+                        +-type=INT64
+                        +-expr=
+                        | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+                        +-field_idx=0

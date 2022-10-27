@@ -903,6 +903,8 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 "/"                       { return '/'; }
 "~"                       { return '~'; }
 "?"                       { return '?'; }
+"!"                       { return '!'; }
+"%"                       { return '%'; }
 "@"{opt_whitespace}"{"    {
   // "{" needs to suspend special modes such as IN_BETWEEN. This is popped
   // again in the "}" rule.

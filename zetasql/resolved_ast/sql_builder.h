@@ -63,6 +63,12 @@ class QueryExpression;
 // Be wary of using SQLBuilder with positional query parameters; there is no
 // guarantee that they will appear in the same order as their positions in the
 // resolved AST.
+//
+// There are some ResolvedAST nodes that have no SQL equivalent, such as
+// ResolvedExecuteAsRoleScan. Such nodes result from specific rewriters as there
+// is no way to generate them directly from SQL. SQLBuilder produces a
+// kInvalidArgument error in this case. Engines that invoke such rewriters
+// should not ask SQLBuilder to generate SQL.
 class SQLBuilder : public ResolvedASTVisitor {
  public:
   // Options to use when generating SQL.
@@ -319,6 +325,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override;
   absl::Status VisitResolvedProjectScan(
       const ResolvedProjectScan* node) override;
+  absl::Status VisitResolvedExecuteAsRoleScan(
+      const ResolvedExecuteAsRoleScan* node) override;
   absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override;
   absl::Status VisitResolvedRelationArgumentScan(
       const ResolvedRelationArgumentScan* node) override;

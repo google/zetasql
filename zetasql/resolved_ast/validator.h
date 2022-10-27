@@ -263,6 +263,9 @@ class Validator {
   absl::Status ValidateResolvedTVFScan(
       const ResolvedTVFScan* resolved_tvf_scan,
       const std::set<ResolvedColumn>& visible_parameters);
+  absl::Status ValidateResolvedExecuteAsRoleScan(
+      const ResolvedExecuteAsRoleScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
   absl::Status ValidateResolvedRelationArgumentScan(
       const ResolvedRelationArgumentScan* arg_ref,
       const std::set<ResolvedColumn>& visible_parameters);

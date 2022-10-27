@@ -405,8 +405,11 @@ java_library(
         "@com_google_auto_value",
         "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
+        "@maven//:javax_annotation_javax_annotation_api",  # unuseddeps: keep # buildcleaner: keep
     ],
 )
 
@@ -429,10 +432,12 @@ java_library(
         "//zetasql/public:type_proto_java_proto",
         "@com_google_auto_value",
         "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:javax_annotation_javax_annotation_api",  # unuseddeps: keep # buildcleaner: keep
     ],
 )
 

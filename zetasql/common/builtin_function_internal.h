@@ -129,6 +129,7 @@ struct FunctionSignatureProxy {
 using FunctionIdToNameMap =
     absl::flat_hash_map<FunctionSignatureId, std::string>;
 using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+using NameToTypeMap = absl::flat_hash_map<std::string, const Type*>;
 
 bool ArgumentsAreComparable(const std::vector<InputArgumentType>& arguments,
                             const LanguageOptions& language_options,
@@ -513,6 +514,22 @@ void InsertFunction(NameToFunctionMap* functions,
                     const std::vector<FunctionSignatureOnHeap>& signatures,
                     FunctionOptions function_options);
 
+// Inserts the given function if enabled with the given options, otherwise
+// does nothing and returns absl::OkStatus();
+//
+// `types_to_insert` will also be inserted if the function is inserted, and the
+// type are supported based on the options.
+//
+// If any error is returned, outputs are left in an undefined state.
+//
+// Note: This is currently based on at least one function signature being
+// enabled.
+absl::Status InsertFunctionAndTypes(
+    NameToFunctionMap* functions, NameToTypeMap* types,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view name,
+    Function::Mode mode, const std::vector<FunctionSignatureOnHeap>& signatures,
+    FunctionOptions function_options, std::vector<const Type*> types_to_insert);
+
 // Note: This function is intentionally overloaded to prevent a default
 // FunctionOptions object to be allocated on the callers stack.
 void InsertFunction(NameToFunctionMap* functions,
@@ -558,6 +575,10 @@ void InsertSimpleNamespaceFunction(
     absl::string_view name, Function::Mode mode,
     std::initializer_list<FunctionSignatureProxy> signatures,
     FunctionOptions function_options);
+
+absl::Status InsertType(NameToTypeMap* types,
+                        const ZetaSQLBuiltinFunctionOptions& options,
+                        const Type* type);
 
 void GetDatetimeExtractFunctions(TypeFactory* type_factory,
                                  const ZetaSQLBuiltinFunctionOptions& options,
@@ -666,17 +687,19 @@ void GetJSONFunctions(TypeFactory* type_factory,
                       const ZetaSQLBuiltinFunctionOptions& options,
                       NameToFunctionMap* functions);
 
-void GetNumericFunctions(TypeFactory* type_factory,
-                         const ZetaSQLBuiltinFunctionOptions& options,
-                         NameToFunctionMap* functions);
+absl::Status GetNumericFunctions(TypeFactory* type_factory,
+                                 const ZetaSQLBuiltinFunctionOptions& options,
+                                 NameToFunctionMap* functions,
+                                 NameToTypeMap* types);
 
 void GetTrigonometricFunctions(TypeFactory* type_factory,
                                const ZetaSQLBuiltinFunctionOptions& options,
                                NameToFunctionMap* functions);
 
-void GetMathFunctions(TypeFactory* type_factory,
-                      const ZetaSQLBuiltinFunctionOptions& options,
-                      NameToFunctionMap* functions);
+absl::Status GetMathFunctions(TypeFactory* type_factory,
+                              const ZetaSQLBuiltinFunctionOptions& options,
+                              NameToFunctionMap* functions,
+                              NameToTypeMap* types);
 
 void GetNetFunctions(TypeFactory* type_factory,
                      const ZetaSQLBuiltinFunctionOptions& options,

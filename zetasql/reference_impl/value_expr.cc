@@ -352,7 +352,7 @@ bool ArrayNestExpr::Eval(absl::Span<const TupleData* const> params,
   std::unique_ptr<MemoryAccountant> local_accountant;
   if (!is_with_table_) {
     local_accountant = std::make_unique<MemoryAccountant>(
-        context->options().max_value_byte_size);
+        context->options().max_value_byte_size, "max_value_byte_size");
   }
   ArrayBuilder builder(is_with_table_ ? context->memory_accountant()
                                       : local_accountant.get());

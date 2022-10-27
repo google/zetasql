@@ -51,3 +51,19 @@ def zetasql_deps_step_1(add_bazel_version = True):
             url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.9.0.tar.gz",
             sha256 = "2a4d07cd64b0719b39a7c12218a3e507672b82a97b98c6a89d38565894cf7c51",
         )
+
+    http_archive(
+        name = "rules_m4",
+        sha256 = "b0309baacfd1b736ed82dc2bb27b0ec38455a31a3d5d20f8d05e831ebeef1a8e",
+        urls = ["https://github.com/jmillikin/rules_m4/releases/download/v0.2.2/rules_m4-v0.2.2.tar.xz"],
+    )
+    http_archive(
+        name = "rules_flex",
+        urls = ["https://github.com/jmillikin/rules_flex/releases/download/v0.2/rules_flex-v0.2.tar.xz"],
+        sha256 = "f1685512937c2e33a7ebc4d5c6cf38ed282c2ce3b7a9c7c0b542db7e5db59d52",
+    )
+    http_archive(
+        name = "rules_bison",
+        urls = ["https://github.com/jmillikin/rules_bison/releases/download/v0.2.1/rules_bison-v0.2.1.tar.xz"],
+        sha256 = "9577455967bfcf52f9167274063ebb74696cb0fd576e4226e14ed23c5d67a693",
+    )

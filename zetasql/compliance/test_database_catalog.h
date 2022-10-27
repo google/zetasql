@@ -50,15 +50,20 @@ class TestDatabaseCatalog {
   class BuiltinFunctionCache {
    public:
     ~BuiltinFunctionCache();
-    void SetLanguageOptions(const LanguageOptions& options,
-                            SimpleCatalog* catalog);
+    absl::Status SetLanguageOptions(const LanguageOptions& options,
+                                    SimpleCatalog* catalog);
     void DumpStats();
 
    private:
     using BuiltinFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+    using BuiltinTypeMap = absl::flat_hash_map<std::string, const Type*>;
+    struct CacheEntry {
+      BuiltinFunctionMap functions;
+      BuiltinTypeMap types;
+    };
     int total_calls_ = 0;
     int cache_hit_ = 0;
-    absl::flat_hash_map<LanguageOptions, BuiltinFunctionMap> function_cache_;
+    absl::flat_hash_map<LanguageOptions, CacheEntry> builtins_cache_;
   };
 
   std::vector<std::string> errors_;

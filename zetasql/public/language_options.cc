@@ -47,6 +47,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_BARE_ARRAY_ACCESS);
       features.insert(FEATURE_V_1_4_WITH_EXPRESSION);
       features.insert(FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS);
+      features.insert(FEATURE_V_1_4_STRUCT_POSITIONAL_ACCESSOR);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are

@@ -396,7 +396,12 @@ TEST(EvaluatorTest, WithRecursiveMemoryExhaustedByHashSet) {
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
   const absl::StatusOr<Value> result = expr.Execute();
-  EXPECT_THAT(result, StatusIs(_, HasSubstr("Out of memory: requested")));
+  EXPECT_THAT(
+      result,
+      StatusIs(_,
+               HasSubstr(
+                   "Out of memory for "
+                   "MemoryAccountant(max_intermediate_byte_size): requested")));
 }
 
 TEST(EvaluatorTest, WithClauseSubquery_b119901615) {

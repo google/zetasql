@@ -187,21 +187,27 @@ absl::Span<const std::string> EnumType::CatalogNamePath() const {
   }
 }
 
-bool EnumType::FindNumber(const std::string& name, int* number) const {
-  const google::protobuf::EnumValueDescriptor* value_descr =
-      enum_descriptor_->FindValueByName(name);
-  if (value_descr == nullptr) {
-    *number = std::numeric_limits<int32_t>::min();
+bool EnumType::IsValidEnumValue(
+    const google::protobuf::EnumValueDescriptor* value_descriptor) const {
+  if (value_descriptor == nullptr) {
     return false;
   }
   if (IsOpaque()) {
-    // For opaque enums we also must ensure the value is not marked invalid.
-    const OpaqueEnumValueOptions& options =
-        value_descr->options().GetExtension(opaque_enum_value_options);
-    if (options.invalid_enum_value()) {
-      *number = std::numeric_limits<int32_t>::min();
-      return false;
-    }
+    // Opaque enum may mark some values as invalid, even though the exist
+    // in the proto enum.
+    return !value_descriptor->options()
+                .GetExtension(opaque_enum_value_options)
+                .invalid_enum_value();
+  }
+  return true;
+}
+
+bool EnumType::FindNumber(const std::string& name, int* number) const {
+  const google::protobuf::EnumValueDescriptor* value_descr =
+      enum_descriptor_->FindValueByName(name);
+  if (!IsValidEnumValue(value_descr)) {
+    *number = std::numeric_limits<int32_t>::min();
+    return false;
   }
   *number = value_descr->number();
   return true;
@@ -300,10 +306,7 @@ absl::Status EnumType::DeserializeValueContent(const ValueProto& value_proto,
   const google::protobuf::EnumValueDescriptor* value_descriptor =
       enum_descriptor()->FindValueByNumber(value_proto.enum_value());
 
-  if (value_descriptor == nullptr ||
-      (is_opaque_ && value_descriptor->options()
-                         .GetExtension(opaque_enum_value_options)
-                         .invalid_enum_value())) {
+  if (!IsValidEnumValue(value_descriptor)) {
     return absl::Status(absl::StatusCode::kOutOfRange,
                         absl::StrCat("Invalid value for ", DebugString(), ": ",
                                      value_proto.enum_value()));

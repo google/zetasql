@@ -2160,80 +2160,172 @@ absl::Status Resolver::ResolveIndexUnnestExpressions(
 absl::Status Resolver::ResolveCreateModelStatement(
     const ASTCreateModelStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
+  const IdString model_name_id_string =
+      MakeIdString(ast_statement->name()->ToIdentifierPathString());
+
   // Resolve base create statement.
   ResolvedCreateStatement::CreateScope create_scope;
   ResolvedCreateStatement::CreateMode create_mode;
   ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, "CREATE MODEL",
                                                 &create_scope, &create_mode));
 
-  // Resolve input and output statements.
+  // Validate clause exclusivity.
   const ASTInputOutputClause* input_output_clause =
       ast_statement->input_output_clause();
-  if (input_output_clause != nullptr) {
-    return MakeSqlErrorAt(input_output_clause)
-           << "INPUT and OUTPUT clause is not supported";
+  const ASTTransformClause* transform_clause =
+      ast_statement->transform_clause();
+  const bool is_remote = ast_statement->is_remote();
+  const ASTWithConnectionClause* with_connection_clause =
+      ast_statement->with_connection_clause();
+  const ASTQuery* query = ast_statement->query();
+
+  if (!language().LanguageFeatureEnabled(FEATURE_V_1_4_REMOTE_MODEL)) {
+    if (input_output_clause != nullptr) {
+      return MakeSqlErrorAt(input_output_clause)
+             << "INPUT and OUTPUT clause is not supported";
+    }
+
+    if (ast_statement->is_remote()) {
+      return MakeSqlErrorAt(ast_statement) << "REMOTE is not supported";
+    }
+
+    if (with_connection_clause != nullptr) {
+      return MakeSqlErrorAt(with_connection_clause)
+             << "WITH CONNECTION is not supported";
+    }
+
+    if (query == nullptr) {
+      return MakeSqlErrorAt(ast_statement)
+             << "The AS SELECT clause is required for CREATE MODEL";
+    }
   }
 
-  if (ast_statement->is_remote()) {
-    return MakeSqlErrorAt(ast_statement) << "REMOTE is not supported";
+  if (is_remote) {
+    // Remote model.
+    if (query == nullptr) {
+      // External model.
+      // input_output_clause is optional
+      // with_connection_clause is optional
+      if (transform_clause != nullptr) {
+        return MakeSqlErrorAt(transform_clause)
+               << "The TRANSFORM clause cannot be used with REMOTE";
+      }
+    } else {
+      return MakeSqlErrorAt(query)
+             << "The AS SELECT clause cannot be used with REMOTE";
+    }
+  } else {
+    // Local model.
+    if (with_connection_clause != nullptr) {
+      return MakeSqlErrorAt(with_connection_clause)
+             << "WITH CONNECTION clause can be specified only for remote "
+                "models";
+    }
+
+    if (query == nullptr) {
+      // Imported model.
+      if (input_output_clause == nullptr) {
+        return MakeSqlErrorAt(ast_statement)
+               << "Local model requires INPUT OUTPUT or AS SELECT clause";
+      }
+      if (transform_clause != nullptr) {
+        return MakeSqlErrorAt(transform_clause)
+               << "The TRANSFORM clause cannot be used with INPUT and OUTPUT";
+      }
+    } else {
+      // Locally trained model.
+      if (input_output_clause != nullptr) {
+        return MakeSqlErrorAt(query)
+               << "The AS SELECT clause cannot be used with INPUT and OUTPUT";
+      }
+      // transform_clause is optional
+    }
+  }
+
+  // Resolve input and output statements.
+  std::vector<std::unique_ptr<const ResolvedColumnDefinition>>
+      input_column_definition_list, output_column_definition_list;
+  if (input_output_clause != nullptr) {
+    auto resolve_columns =
+        [this, &model_name_id_string](
+            const ASTTableElementList* columns,
+            std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
+                resolved_columns) -> absl::Status {
+      ZETASQL_RET_CHECK_NE(columns, nullptr);
+      std::vector<const ASTColumnDefinition*> ast_column_definitions;
+      ColumnIndexMap column_indexes;
+      for (const ASTTableElement* table_element : columns->elements()) {
+        // Parser should reject constraints.
+        ZETASQL_RET_CHECK_EQ(table_element->node_kind(), AST_COLUMN_DEFINITION);
+        ast_column_definitions.push_back(
+            static_cast<const ASTColumnDefinition*>(table_element));
+      }
+      return ResolveColumnDefinitionList(model_name_id_string,
+                                         ast_column_definitions,
+                                         resolved_columns, &column_indexes);
+    };
+
+    ZETASQL_RETURN_IF_ERROR(resolve_columns(input_output_clause->input(),
+                                    &input_column_definition_list));
+    ZETASQL_RETURN_IF_ERROR(resolve_columns(input_output_clause->output(),
+                                    &output_column_definition_list));
   }
 
   // Resolve connection.
-  const ASTWithConnectionClause* with_connection_clause =
-      ast_statement->with_connection_clause();
+  std::unique_ptr<const ResolvedConnection> resolved_connection;
   if (with_connection_clause != nullptr) {
-    return MakeSqlErrorAt(with_connection_clause)
-           << "WITH CONNECTION is not supported";
+    ZETASQL_RETURN_IF_ERROR(ResolveConnection(ast_statement->with_connection_clause()
+                                          ->connection_clause()
+                                          ->connection_path(),
+                                      &resolved_connection));
   }
 
   // Resolve the query.
-  const ASTQuery* query = ast_statement->query();
-  if (query == nullptr) {
-    return MakeSqlErrorAt(ast_statement)
-           << "The AS SELECT clause is required for CREATE MODEL";
-  }
-  bool is_value_table = false;
   std::unique_ptr<const ResolvedScan> query_scan;
   std::vector<std::unique_ptr<const ResolvedOutputColumn>>
       query_output_column_list;
-  const std::vector<IdString> table_name_id =
-      ast_statement->name()->ToIdStringVector();
-  std::vector<std::unique_ptr<const ResolvedColumnDefinition>>
-      transform_input_column_list;
-  const ASTTransformClause* transform_clause =
-      ast_statement->transform_clause();
-  std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
-      column_definition_list_ptr =
-          transform_clause == nullptr ? nullptr : &transform_input_column_list;
-  ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
-      query, /*object_type=*/"MODEL", /*is_recursive_view=*/false,
-      table_name_id, kCreateAsId, /*explicit_column_list=*/nullptr, &query_scan,
-      &is_value_table, &query_output_column_list, column_definition_list_ptr));
-
-  // Resolve transform list.
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> transform_list;
   std::vector<std::unique_ptr<const ResolvedOutputColumn>>
       transform_output_column_list;
   std::vector<std::unique_ptr<const ResolvedAnalyticFunctionGroup>>
       transform_analytic_function_group_list;
-  if (transform_clause != nullptr) {
-    ZETASQL_DCHECK_EQ(query_output_column_list.size(),
-              transform_input_column_list.size());
-    std::shared_ptr<NameList> query_column_definition_name_list(new NameList);
-    query_column_definition_name_list->ReserveColumns(
-        static_cast<int>(transform_input_column_list.size()));
-    for (const auto& column_definition : transform_input_column_list) {
-      ZETASQL_RETURN_IF_ERROR(query_column_definition_name_list->AddColumn(
-          MakeIdString(column_definition->name()), column_definition->column(),
-          /*is_explicit=*/true));
+  std::vector<std::unique_ptr<const ResolvedColumnDefinition>>
+      transform_input_column_list;
+  if (query != nullptr) {
+    bool is_value_table = false;
+    const std::vector<IdString> table_name_id =
+        ast_statement->name()->ToIdStringVector();
+    std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
+        column_definition_list_ptr =
+            transform_clause == nullptr ? nullptr
+                                        : &transform_input_column_list;
+    ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
+        query, /*object_type=*/"MODEL", /*is_recursive_view=*/false,
+        table_name_id, kCreateAsId, /*explicit_column_list=*/nullptr,
+        &query_scan, &is_value_table, &query_output_column_list,
+        column_definition_list_ptr));
+
+    // Resolve transform list.
+    if (transform_clause != nullptr) {
+      ZETASQL_RET_CHECK_EQ(query_output_column_list.size(),
+                   transform_input_column_list.size());
+      std::shared_ptr<NameList> query_column_definition_name_list(new NameList);
+      query_column_definition_name_list->ReserveColumns(
+          static_cast<int>(transform_input_column_list.size()));
+      for (const auto& column_definition : transform_input_column_list) {
+        ZETASQL_RETURN_IF_ERROR(query_column_definition_name_list->AddColumn(
+            MakeIdString(column_definition->name()),
+            column_definition->column(),
+            /*is_explicit=*/true));
+      }
+      std::unique_ptr<const NameScope> from_scan_scope(new NameScope(
+          empty_name_scope_.get(), query_column_definition_name_list));
+      ZETASQL_RETURN_IF_ERROR(ResolveModelTransformSelectList(
+          from_scan_scope.get(), transform_clause->select_list(),
+          query_column_definition_name_list, &transform_list,
+          &transform_output_column_list,
+          &transform_analytic_function_group_list));
     }
-    std::unique_ptr<const NameScope> from_scan_scope(new NameScope(
-        empty_name_scope_.get(), query_column_definition_name_list));
-    ZETASQL_RETURN_IF_ERROR(ResolveModelTransformSelectList(
-        from_scan_scope.get(), transform_clause->select_list(),
-        query_column_definition_name_list, &transform_list,
-        &transform_output_column_list,
-        &transform_analytic_function_group_list));
   }
 
   // Resolve options.
@@ -2241,14 +2333,17 @@ absl::Status Resolver::ResolveCreateModelStatement(
   ZETASQL_RETURN_IF_ERROR(
       ResolveOptionsList(ast_statement->options_list(), &resolved_options));
 
-  const std::vector<std::string> table_name =
+  const std::vector<std::string> model_name =
       ast_statement->name()->ToIdentifierVector();
   *output = MakeResolvedCreateModelStmt(
-      table_name, create_scope, create_mode, std::move(resolved_options),
+      model_name, create_scope, create_mode, std::move(resolved_options),
       std::move(query_output_column_list), std::move(query_scan),
       std::move(transform_input_column_list), std::move(transform_list),
       std::move(transform_output_column_list),
-      std::move(transform_analytic_function_group_list));
+      std::move(transform_analytic_function_group_list),
+      std::move(input_column_definition_list),
+      std::move(output_column_definition_list), is_remote,
+      std::move(resolved_connection));
 
   return absl::OkStatus();
 }

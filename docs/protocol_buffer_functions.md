@@ -38,7 +38,7 @@ In this statement, table `library_books` contains a column named `book`,
 whose type is `Book`.
 
 ```sql
-SELECT PROTO_DEFAULT_IF_NULL(book.country) as origin FROM library_books;
+SELECT PROTO_DEFAULT_IF_NULL(book.country) AS origin FROM library_books;
 ```
 
 `Book` is a type that contains a field called `country`.

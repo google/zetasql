@@ -890,6 +890,18 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArraySumFunctions, 1) {
                          "SAFE.ARRAY_SUM");
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayAvgFunctions, 1) {
+  SetNamePrefix("ArrayAvg");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayAvg(/*is_safe=*/false)),
+                         "ARRAY_AVG");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayAvgFunctions, 1) {
+  SetNamePrefix("SafeArrayAvg");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayAvg(/*is_safe=*/true)),
+                         "SAFE.ARRAY_AVG");
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestLogicalFunctions_AND, 1) {
   SetNamePrefix("And");
   RunFunctionTestsInfix(Shard(GetFunctionTestsAnd()), "AND");

@@ -749,5 +749,400 @@ TEST(ValidateTest, AnonymizedAggregateScan) {
   ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(query_stmt.get()));
 }
 
+TEST(ValidatorTest, ValidCreateModelStatement_Local) {
+  IdStringPool pool;
+  ResolvedColumn x(1, pool.Make("tbl"), pool.Make("x"), types::Int64Type());
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/
+      MakeNodeVector(MakeResolvedOutputColumn(/*name=*/"x", /*column=*/x)),
+      /*query=*/
+      MakeResolvedProjectScan(
+          /*column_list=*/{x},
+          /*expr_list=*/
+          MakeNodeVector(MakeResolvedComputedColumn(
+              x, MakeResolvedLiteral(Value::Int64(1)))),
+          /*input_scan=*/MakeResolvedSingleRowScan()),
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/{},
+      /*output_column_definition_list=*/{},
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  Validator validator;
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(statement.get()));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_Imported) {
+  IdStringPool pool;
+  ResolvedColumn i1(1, pool.Make("tbl"), pool.Make("i1'"), types::Int64Type());
+  ResolvedColumn i2(2, pool.Make("tbl"), pool.Make("i2"), types::DoubleType());
+  ResolvedColumn o1(3, pool.Make("tbl"), pool.Make("o1"), types::BoolType());
+
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/{},
+      /*query=*/{},
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"i1",
+                                                  /*type=*/types::Int64Type(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{}),
+                     MakeResolvedColumnDefinition(/*name=*/"i2",
+                                                  /*type=*/types::DoubleType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i2,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*output_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"o1",
+                                                  /*type=*/types::BoolType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/o1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
+  Validator validator(language_options);
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(statement.get()));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_ImportedV13_Invalid) {
+  IdStringPool pool;
+  ResolvedColumn i1(1, pool.Make("tbl"), pool.Make("i1'"), types::Int64Type());
+  ResolvedColumn i2(2, pool.Make("tbl"), pool.Make("i2"), types::DoubleType());
+  ResolvedColumn o1(3, pool.Make("tbl"), pool.Make("o1"), types::BoolType());
+
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/{},
+      /*query=*/{},
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"i1",
+                                                  /*type=*/types::Int64Type(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{}),
+                     MakeResolvedColumnDefinition(/*name=*/"i2",
+                                                  /*type=*/types::DoubleType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i2,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*output_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"o1",
+                                                  /*type=*/types::BoolType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/o1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  Validator validator;
+  EXPECT_THAT(validator.ValidateResolvedStatement(statement.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("stmt->query() != nullptr")));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_Remote) {
+  IdStringPool pool;
+  ResolvedColumn i1(1, pool.Make("tbl"), pool.Make("i1'"), types::Int64Type());
+  ResolvedColumn i2(2, pool.Make("tbl"), pool.Make("i2"), types::DoubleType());
+  ResolvedColumn o1(3, pool.Make("tbl"), pool.Make("o1"), types::BoolType());
+  SimpleConnection connection("c");
+
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/
+      MakeNodeVector(MakeResolvedOption(
+          "", "abc",
+          MakeResolvedLiteral(types::StringType(), Value::String("def")))),
+      /*output_column_list=*/{},
+      /*query=*/{},
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"i1",
+                                                  /*type=*/types::Int64Type(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{}),
+                     MakeResolvedColumnDefinition(/*name=*/"i2",
+                                                  /*type=*/types::DoubleType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i2,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*output_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"o1",
+                                                  /*type=*/types::BoolType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/o1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*is_remote=*/true,
+      /*connection=*/MakeResolvedConnection(&connection));
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
+  Validator validator(language_options);
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(statement.get()));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_RemoteV13_Invalid) {
+  IdStringPool pool;
+  ResolvedColumn i1(1, pool.Make("tbl"), pool.Make("i1'"), types::Int64Type());
+  ResolvedColumn i2(2, pool.Make("tbl"), pool.Make("i2"), types::DoubleType());
+  ResolvedColumn o1(3, pool.Make("tbl"), pool.Make("o1"), types::BoolType());
+  SimpleConnection connection("c");
+
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/
+      MakeNodeVector(MakeResolvedOption(
+          "", "abc",
+          MakeResolvedLiteral(types::StringType(), Value::String("def")))),
+      /*output_column_list=*/{},
+      /*query=*/{},
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"i1",
+                                                  /*type=*/types::Int64Type(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{}),
+                     MakeResolvedColumnDefinition(/*name=*/"i2",
+                                                  /*type=*/types::DoubleType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i2,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*output_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"o1",
+                                                  /*type=*/types::BoolType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/o1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*is_remote=*/true,
+      /*connection=*/MakeResolvedConnection(&connection));
+
+  Validator validator;
+  EXPECT_THAT(validator.ValidateResolvedStatement(statement.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("FEATURE_V_1_4_REMOTE_MODEL")));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_SchemaAndQuery_Invalid) {
+  IdStringPool pool;
+  ResolvedColumn i1(1, pool.Make("tbl"), pool.Make("i1'"), types::Int64Type());
+  ResolvedColumn i2(2, pool.Make("tbl"), pool.Make("i2"), types::DoubleType());
+  ResolvedColumn o1(3, pool.Make("tbl"), pool.Make("o1"), types::BoolType());
+  ResolvedColumn x(4, pool.Make("tbl"), pool.Make("x"), types::Int64Type());
+
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/
+      MakeNodeVector(MakeResolvedOutputColumn(/*name=*/"x", /*column=*/x)),
+      /*query=*/
+      MakeResolvedProjectScan(
+          /*column_list=*/{x},
+          /*expr_list=*/
+          MakeNodeVector(MakeResolvedComputedColumn(
+              x, MakeResolvedLiteral(Value::Int64(1)))),
+          /*input_scan=*/MakeResolvedSingleRowScan()),
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"i1",
+                                                  /*type=*/types::Int64Type(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{}),
+                     MakeResolvedColumnDefinition(/*name=*/"i2",
+                                                  /*type=*/types::DoubleType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i2,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*output_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"o1",
+                                                  /*type=*/types::BoolType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/o1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
+  Validator validator(language_options);
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(statement.get()),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("stmt->input_column_definition_list().empty()")));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_ConnectionNoRemote_Invalid) {
+  IdStringPool pool;
+  ResolvedColumn i1(1, pool.Make("tbl"), pool.Make("i1'"), types::Int64Type());
+  ResolvedColumn i2(2, pool.Make("tbl"), pool.Make("i2"), types::DoubleType());
+  ResolvedColumn o1(3, pool.Make("tbl"), pool.Make("o1"), types::BoolType());
+  SimpleConnection connection("c");
+
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/{},
+      /*query=*/{},
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"i1",
+                                                  /*type=*/types::Int64Type(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{}),
+                     MakeResolvedColumnDefinition(/*name=*/"i2",
+                                                  /*type=*/types::DoubleType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/i2,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*output_column_definition_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"o1",
+                                                  /*type=*/types::BoolType(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/o1,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*is_remote=*/false,
+      /*connection=*/MakeResolvedConnection(&connection));
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
+  Validator validator(language_options);
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(statement.get()),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("stmt->connection()")));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_EmptyV13_Invalid) {
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/{},
+      /*query=*/{},
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/{},
+      /*output_column_definition_list=*/{},
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  Validator validator;
+  EXPECT_THAT(validator.ValidateResolvedStatement(statement.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("stmt->query() != nullptr")));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_EmptyV14_Invalid) {
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/{},
+      /*query=*/{},
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/{},
+      /*output_column_definition_list=*/{},
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
+  Validator validator(language_options);
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(statement.get()),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("!stmt->input_column_definition_list().empty()")));
+}
+
 }  // namespace testing
 }  // namespace zetasql

@@ -277,6 +277,10 @@ class SimpleCatalog : public EnumerableCatalog {
                                  ZetaSQLBuiltinFunctionOptions())
       ABSL_LOCKS_EXCLUDED(mutex_);
 
+  absl::Status AddZetaSQLFunctionsAndTypes(
+      const ZetaSQLBuiltinFunctionOptions& options =
+          ZetaSQLBuiltinFunctionOptions()) ABSL_LOCKS_EXCLUDED(mutex_);
+
   // Add ZetaSQL built-in function definitions into this catalog.
   // This can add functions in both the global namespace and more specific
   // namespaces. If any of the selected functions are in namespaces,
@@ -317,6 +321,15 @@ class SimpleCatalog : public EnumerableCatalog {
   // <predicate> are complete so that <predicate> can safely
   // de-reference Function*s it captures from the invoking context.
   int RemoveFunctions(std::function<bool(const Function*)> predicate)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+
+  // Removes all types that satisfy <predicate> from this catalog and from
+  // all sub-catalogs that are SimpleCatalog. Returns the number of types
+  // removed.
+  //
+  // All types continue to be owned by the TypeFactory, so no deallocation
+  // will occur.
+  int RemoveTypes(std::function<bool(const Type*)> predicate)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Removes all table valued functions that satisfy <predicate> from this
@@ -477,6 +490,9 @@ class SimpleCatalog : public EnumerableCatalog {
   std::string SuggestFunctionOrTableValuedFunction(
       bool is_table_valued_function,
       absl::Span<const std::string> mistyped_path);
+
+  absl::Status AddZetaSQLFunctionsAndTypesImpl(
+      const ZetaSQLBuiltinFunctionOptions& options, bool add_types);
 
   const std::string name_;
 

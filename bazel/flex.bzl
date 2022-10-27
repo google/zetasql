@@ -59,8 +59,12 @@ genlex(
 ```
 """
 
+load("@rules_flex//flex:flex.bzl", "FLEX_TOOLCHAIN_TYPE", "flex_toolchain")
+load("@rules_m4//m4:m4.bzl", "M4_TOOLCHAIN_TYPE")
+
 def _genlex_impl(ctx):
     """Implementation for genlex rule."""
+    flex = flex_toolchain(ctx)
 
     # Compute the prefix, if not specified.
     if ctx.attr.prefix:
@@ -76,13 +80,10 @@ def _genlex_impl(ctx):
     args.add(ctx.file.src)
 
     ctx.actions.run(
-        executable = ctx.executable._flex,
-        env = {
-            "M4": ctx.executable._m4.path,
-        },
+        executable = flex.flex_tool,
+        env = flex.flex_env,
         arguments = [args],
         inputs = ctx.files.src + ctx.files.includes,
-        tools = [ctx.executable._m4],
         outputs = [ctx.outputs.out],
         mnemonic = "Flex",
         progress_message = "Generating %s from %s" % (
@@ -115,16 +116,29 @@ genlex = rule(
         "lexopts": attr.string_list(
             doc = "A list of options to be added to the flex command line.",
         ),
-        "_flex": attr.label(
-            default = Label("//bazel:flex_bin"),
-            executable = True,
-            cfg = "host",
-        ),
-        "_m4": attr.label(
-            default = Label("//bazel:m4_bin"),
-            executable = True,
-            cfg = "host",
-        ),
     },
+    toolchains = [
+        FLEX_TOOLCHAIN_TYPE,
+        M4_TOOLCHAIN_TYPE,
+    ],
     output_to_genfiles = True,
+)
+
+def _flex_header(ctx):
+    flex = flex_toolchain(ctx)
+
+    return [
+        CcInfo(compilation_context = cc_common.create_compilation_context(
+            includes = depset([flex.flex_lexer_h.dirname]),
+            headers = depset([flex.flex_lexer_h]),
+        )),
+    ]
+
+flex_header = rule(
+    implementation = _flex_header,
+    output_to_genfiles = True,
+    toolchains = [
+        FLEX_TOOLCHAIN_TYPE,
+        M4_TOOLCHAIN_TYPE,
+    ],
 )

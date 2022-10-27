@@ -95,7 +95,7 @@
 //
 //   AnalyzerOptions options;
 //   SimpleCatalog catalog{"udf_catalog"};
-//   catalog.AddZetaSQLFunctions(options.language());
+//   ZETASQL_CHECK_OK(catalog.AddZetaSQLFunctionsAndTypes(options.language()));
 //   catalog.AddOwnedFunction(new Function(
 //       "MyStrLen", "udf", zetasql::Function::SCALAR,
 //       {{zetasql::types::Int64Type(), {zetasql::types::StringType()},
@@ -298,7 +298,7 @@ class PreparedExpressionBase {
   // details). Calling any user-defined function that does not provide an
   // evaluator returns an error. 'catalog' must outlive Execute() and
   // output_type() calls.  'catalog' should contain ZetaSQL built-in functions
-  // added by calling AddZetaSQLFunctions with 'options.language'.
+  // added by calling AddZetaSQLFunctionsAndTypes with 'options.language'.
   //
   // If a ResolvedExpr was already supplied to the PreparedExpression
   // constructor, 'catalog' is ignored.
@@ -498,7 +498,7 @@ class PreparedQueryBase {
   // details). Calling any user-defined function that does not provide an
   // evaluator returns an error. 'catalog' must outlive Execute() and
   // output_type() calls.  'catalog' should contain ZetaSQL built-in functions
-  // added by calling AddZetaSQLFunctions with 'options.language'.
+  // added by calling AddZetaSQLFunctionsAndTypes with 'options.language'.
   //
   // If a ResolvedQueryStmt was already supplied to the PreparedQuery
   // constructor, 'catalog' is ignored.
@@ -726,7 +726,7 @@ class PreparedModifyBase {
   // details). Calling any user-defined function that does not provide an
   // evaluator returns an error. `catalog` must outlive Execute() and
   // output_type() calls.  `catalog` should contain ZetaSQL built-in functions
-  // added by calling AddZetaSQLFunctions with `options.language`.
+  // added by calling AddZetaSQLFunctionsAndTypes with `options.language`.
   //
   // If a ResolvedStatement was already supplied to the PreparedModifyBase
   // constructor, `catalog` is ignored.

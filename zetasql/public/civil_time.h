@@ -316,7 +316,7 @@ class DatetimeValue {
       int64_t bit_field_datetime_seconds, int32_t nanosecond);
 
   // It's impossible to encode all fields for Datetime with nano precision in a
-  // single 8 byte integer, so there is no facotry function for building a
+  // single 8 byte integer, so there is no factory function for building a
   // DatetimeValue from a single int64_t.
 
   // Return a debug string like:

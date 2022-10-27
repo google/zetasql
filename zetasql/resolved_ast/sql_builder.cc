@@ -1622,6 +1622,12 @@ absl::Status SQLBuilder::VisitResolvedGetStructField(
                    ProcessNode(node->expr()));
   std::string result_sql = result->GetSQL();
 
+  if (node->field_expr_is_positional()) {
+    absl::StrAppend(&text, result_sql, "[OFFSET(", node->field_idx(), ")]");
+    PushQueryFragment(node, text);
+    return absl::OkStatus();
+  }
+
   // When struct_expr is an empty identifier, we directly use the field_name to
   // access the struct field (in the generated sql). This shows up for in-scope
   // expression column fields where the expression column is anonymous.
@@ -2041,6 +2047,14 @@ std::string SQLBuilder::ComputedColumnAliasDebugString() const {
     pairs.push_back(absl::StrCat("(", kv.first, ", ", kv.second, ")"));
   }
   return absl::StrCat("[", absl::StrJoin(pairs, ", "), "]");
+}
+
+absl::Status SQLBuilder::VisitResolvedExecuteAsRoleScan(
+    const ResolvedExecuteAsRoleScan* node) {
+  // There is currently no way to express this node in SQL (which is the
+  // boundary between rights zones).
+  return ::zetasql_base::InvalidArgumentErrorBuilder()
+         << "SQLBuilder cannot generate SQL for " << node->node_kind_string();
 }
 
 absl::Status SQLBuilder::VisitResolvedTVFScan(const ResolvedTVFScan* node) {
@@ -3814,12 +3828,27 @@ absl::Status SQLBuilder::VisitResolvedCreateModelStmt(
   // Restore CREATE MODEL sql prefix.
   ZETASQL_RETURN_IF_ERROR(GetCreateStatementPrefix(node, "MODEL", &sql));
 
+  // Restore INPUT and OUTPUT clause.
+  if (!node->input_column_definition_list().empty()) {
+    absl::StrAppend(&sql, " INPUT");
+    ZETASQL_RETURN_IF_ERROR(ProcessTableElementsBase(
+        &sql, node->input_column_definition_list(), {}, {}, {}));
+  }
+  if (!node->output_column_definition_list().empty()) {
+    absl::StrAppend(&sql, " OUTPUT");
+    ZETASQL_RETURN_IF_ERROR(ProcessTableElementsBase(
+        &sql, node->output_column_definition_list(), {}, {}, {}));
+  }
+
   // Restore SELECT statement.
   // Note this step must run before Restore TRANSFORM clause to fill
   // computed_column_alias_.
-  ZETASQL_ASSIGN_OR_RETURN(QueryExpression * query_result,
-                   ProcessQuery(node->query(), node->output_column_list()));
-  std::unique_ptr<QueryExpression> query_expression(query_result);
+  std::unique_ptr<QueryExpression> query_expression;
+  if (node->query() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(QueryExpression * query_result,
+                     ProcessQuery(node->query(), node->output_column_list()));
+    query_expression.reset(query_result);
+  }
 
   // Restore TRANSFORM clause.
   if (!node->transform_list().empty()) {
@@ -3882,6 +3911,18 @@ absl::Status SQLBuilder::VisitResolvedCreateModelStmt(
                     absl::StrJoin(transform_list_strs, ", "), ")");
   }
 
+  // Restore REMOTE.
+  if (node->is_remote()) {
+    absl::StrAppend(&sql, " REMOTE");
+  }
+
+  // Restore WITH CONNECTION.
+  if (node->connection() != nullptr) {
+    const std::string connection_alias =
+        ToIdentifierLiteral(node->connection()->connection()->Name());
+    absl::StrAppend(&sql, " WITH CONNECTION ", connection_alias, " ");
+  }
+
   // Restore OPTIONS list.
   if (!node->option_list().empty()) {
     ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
@@ -3890,7 +3931,9 @@ absl::Status SQLBuilder::VisitResolvedCreateModelStmt(
   }
 
   // Append SELECT statement.
-  absl::StrAppend(&sql, " AS ", query_expression->GetSQLQuery());
+  if (query_expression) {
+    absl::StrAppend(&sql, " AS ", query_expression->GetSQLQuery());
+  }
 
   PushQueryFragment(node, sql);
   return absl::OkStatus();

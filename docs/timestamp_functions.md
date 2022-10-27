@@ -693,7 +693,7 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
 ```
 
 The format string fully supports most format elements, except for
-`%a`, `%A`, `%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+`%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
 

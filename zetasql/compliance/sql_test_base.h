@@ -100,6 +100,7 @@
 
 ABSL_DECLARE_FLAG(bool, zetasql_detect_falsly_required_features);
 ABSL_DECLARE_FLAG(bool, zetasql_compliance_write_labels_to_file);
+ABSL_DECLARE_FLAG(bool, zetasql_compliance_accept_all_test_output);
 
 namespace zetasql {
 class Stats;  // Defined in implementation file.

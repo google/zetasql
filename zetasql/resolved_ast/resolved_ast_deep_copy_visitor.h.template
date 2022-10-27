@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_node.h"
@@ -218,7 +219,8 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   // The top object on the stack must be an instance of 'ResolvedNodeType'
   template <typename ResolvedNodeType>
   ResolvedNodeType* GetUnownedTopOfStack() const {
-    ZETASQL_DCHECK(!stack_.empty());
+    ZETASQL_DCHECK(!stack_.empty()) << "\n" << CurrentStackTrace()
+    ;
     if (stack_.empty() || stack_.top() == nullptr) {
       return nullptr;
     }
@@ -226,7 +228,9 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
       // When call requires the wrong type of node, try to fail tests helpfully.
       // In production, return nullptr and hope the caller can do better than
       // crash.
-      ZETASQL_LOG(DFATAL) << "Top of stack is not expected type.";
+      ZETASQL_LOG(DFATAL)
+          << "Top of stack is not expected type.\n"
+          << CurrentStackTrace();
       return nullptr;
     }
     return static_cast<ResolvedNodeType*>(stack_.top().get());
@@ -237,7 +241,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   // The top object on the stack must be an instance of 'ResolvedNodeType'
   template <typename ResolvedNodeType>
   std::unique_ptr<ResolvedNodeType> ConsumeTopOfStack() {
-    ZETASQL_DCHECK(!stack_.empty());
+    ZETASQL_DCHECK(!stack_.empty()) << "\n" << CurrentStackTrace();
     if (stack_.empty()) {
       return std::unique_ptr<ResolvedNodeType>();
     }
@@ -249,7 +253,8 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
       // When call requires the wrong type of node, try to fail tests helpfully.
       // In production, return nullptr and hope the caller can do better than
       // crash.
-      ZETASQL_LOG(DFATAL) << "Top of stack is not expected type.";
+      ZETASQL_LOG(DFATAL) << "Top of stack is not expected type.\n"
+          << CurrentStackTrace();
       return std::unique_ptr<ResolvedNodeType>();
     }
     std::unique_ptr<ResolvedNodeType> node(
@@ -262,7 +267,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   template <typename ResolvedNodeType>
   absl::StatusOr<std::unique_ptr<ResolvedNodeType>> ProcessNode(
       const ResolvedNodeType* node) {
-    ZETASQL_DCHECK(stack_.empty());
+    ZETASQL_DCHECK(stack_.empty()) << "\n" << CurrentStackTrace();
     if (node == nullptr) {
       return std::unique_ptr<ResolvedNodeType>();
     }

@@ -1115,6 +1115,7 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:multiprecision_int",
+        "//zetasql/public:collator",
         "//zetasql/public:numeric_value",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status:statusor",

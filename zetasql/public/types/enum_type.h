@@ -114,6 +114,11 @@ class EnumType : public Type {
   ABSL_MUST_USE_RESULT bool FindNumber(const std::string& name,
                                        int* number) const;
 
+  // Helper function to determine if a given descriptor value is valid.
+  // Returns true unless `value` is null, or this type IsOpaque and
+  // OpaqueEnumValueOptions::invalid_enum_value is true.
+  bool IsValidEnumValue(const google::protobuf::EnumValueDescriptor* value) const;
+
   bool IsSupportedType(const LanguageOptions& language_options) const override;
 
   // An Opaque enum type, from the user point of view, is _not_ based

@@ -401,7 +401,8 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Supported Argument Types**
 
-Any numeric input type, such as  INT64. Note that, for
+Any numeric input type, such as
+INT64. Note that, for
 floating point input types, the return result is non-deterministic, which
 means you might receive a different result each time you use this function.
 

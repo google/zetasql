@@ -676,7 +676,7 @@ SELECT PARSE_DATE("%F", "2000-12-30")
 ```
 
 The format string fully supports most format elements except for
-`%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+`%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_DATE`, keep the following in mind:
 

@@ -194,8 +194,6 @@ class Algebrizer {
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupByMax);
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupByMin);
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupBySum);
-  FRIEND_TEST(NonDeterministicEvaluationContextTest,
-              ArrayFilterTransformFunctionTest);
 
   Algebrizer(const LanguageOptions& options,
              const AlgebrizerOptions& algebrizer_options,

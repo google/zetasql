@@ -1079,12 +1079,7 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
 }
 
 TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(312, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
-                     sizeof(AllowedHintsAndOptions) -
-                     sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
-                     2 * sizeof(QueryParametersMap) - 2 * sizeof(std::string) -
-                     sizeof(std::vector<AnnotationSpec*>) -
-                     sizeof(absl::btree_set<ResolvedASTRewrite>))
+  EXPECT_EQ(8, sizeof(AnalyzerOptions))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
   EXPECT_EQ(22, AnalyzerOptionsProto::descriptor()->field_count())

@@ -34,35 +34,56 @@ namespace zetasql {
 TestDatabaseCatalog::BuiltinFunctionCache::~BuiltinFunctionCache() {
   DumpStats();
 }
-void TestDatabaseCatalog::BuiltinFunctionCache::SetLanguageOptions(
+absl::Status TestDatabaseCatalog::BuiltinFunctionCache::SetLanguageOptions(
     const LanguageOptions& options, SimpleCatalog* catalog) {
   ++total_calls_;
-  const BuiltinFunctionMap* builtin_function_map = nullptr;
-  if (auto it = function_cache_.find(options); it != function_cache_.end()) {
+  const CacheEntry* cache_entry = nullptr;
+  if (auto it = builtins_cache_.find(options); it != builtins_cache_.end()) {
     cache_hit_++;
-    builtin_function_map = &it->second;
+    cache_entry = &it->second;
   } else {
-    std::map<std::string, std::unique_ptr<Function>> function_map;
+    CacheEntry entry;
     // We have to call type_factory() while not holding mutex_.
     TypeFactory* type_factory = catalog->type_factory();
-    GetZetaSQLFunctions(type_factory, options, &function_map);
-    builtin_function_map =
-        &(function_cache_.emplace(options, std::move(function_map))
-              .first->second);
+    ZETASQL_RETURN_IF_ERROR(GetZetaSQLFunctionsAndTypes(
+        type_factory, options, &entry.functions, &entry.types));
+    cache_entry =
+        &(builtins_cache_.emplace(options, std::move(entry)).first->second);
   }
+
+  auto builtin_function_predicate = [](const Function* fn) {
+    return fn->IsZetaSQLBuiltin();
+  };
+
+  // We need to remove all the types that are added along with builtin
+  // functions, which, at the moment is limited to opaque enum types.
+  auto builtin_type_predicate = [](const Type* type) {
+    return type->IsEnum() && type->AsEnum()->IsOpaque();
+  };
+
+  catalog->RemoveFunctions(builtin_function_predicate);
+  catalog->RemoveTypes(builtin_type_predicate);
+
   std::vector<const Function*> functions;
-  functions.reserve(builtin_function_map->size());
-  for (const auto& entry : *builtin_function_map) {
-    functions.push_back(entry.second.get());
+  functions.reserve(cache_entry->functions.size());
+  for (const auto& [_, function] : cache_entry->functions) {
+    ZETASQL_RET_CHECK(builtin_function_predicate(function.get()));
+    functions.push_back(function.get());
   }
-  catalog->RemoveFunctions(
-      [](const Function* fn) { return fn->IsZetaSQLBuiltin(); });
   catalog->AddZetaSQLFunctions(functions);
+
+  for (const auto& [name, type] : cache_entry->types) {
+    // Make sure we are consistent with types we add and remove.
+    ZETASQL_RET_CHECK(builtin_type_predicate(type));
+    // Note, we currently don't support builtin types with catalog paths.
+    catalog->AddType(name, type);
+  }
+  return absl::OkStatus();
 }
 void TestDatabaseCatalog::BuiltinFunctionCache::DumpStats() {
   ZETASQL_LOG(INFO) << "BuiltinFunctionCache: hit: " << cache_hit_ << " / "
             << total_calls_ << "(" << (cache_hit_ * 100. / total_calls_) << "%)"
-            << " size: " << function_cache_.size();
+            << " size: " << builtins_cache_.size();
 }
 
 TestDatabaseCatalog::TestDatabaseCatalog(TypeFactory* type_factory)
@@ -175,7 +196,8 @@ absl::Status TestDatabaseCatalog::SetTestDatabase(const TestDatabase& test_db) {
 void TestDatabaseCatalog::SetLanguageOptions(
     const LanguageOptions& language_options) {
   if (catalog_ != nullptr) {
-    function_cache_->SetLanguageOptions(language_options, catalog_.get());
+    ZETASQL_CHECK_OK(
+        function_cache_->SetLanguageOptions(language_options, catalog_.get()));
   }
 }
 }  // namespace zetasql

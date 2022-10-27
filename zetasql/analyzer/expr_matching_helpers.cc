@@ -272,6 +272,8 @@ bool IsSameFieldPath(const ResolvedExpr* field_path1,
                  proto_field2->return_default_value_when_unset();
     }
     case RESOLVED_GET_STRUCT_FIELD: {
+      // Do not need to check field_expr_is_positional as it is just for
+      // printing nicely.
       const ResolvedGetStructField* struct_field1 =
           field_path1->GetAs<ResolvedGetStructField>();
       const ResolvedGetStructField* struct_field2 =

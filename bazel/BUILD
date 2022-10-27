@@ -13,12 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 """
-Rules for adding './configure && make' style dependencies.
+Bazel build files for ZetaSQL.
 """
 
-load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
+load("flex.bzl", "flex_header")
 
 licenses(["notice"])  # Apache v2.0
 
@@ -37,69 +36,6 @@ exports_files([
     "zetasql_java_deps.bzl",
 ])
 
-configure_make(
-    name = "m4",
-    env = select({
-        "@platforms//os:macos": {"AR": ""},
-        "//conditions:default": {},
-    }),
-    lib_source = "@m4//:all",
-    out_binaries = [
-        "m4",
-    ],
-)
-
-filegroup(
-    name = "m4_bin",
-    srcs = [":m4"],
-    output_group = "m4",
-)
-
-configure_make(
-    name = "bison",
-    build_data = [":m4_bin"],
-    # Without specifying m4 directly, cc_rules_foreign may fallback
-    # on the system m4, which might be too old.
-    env = select({
-        "@platforms//os:macos": {
-            "AR": "",
-            "M4": "$(execpath :m4_bin)",
-        },
-        "//conditions:default": {"M4": "$(execpath :m4_bin)"},
-    }),
-    lib_source = "@bison//:all",
-    out_binaries = [
-        "bison",
-        "yacc",
-    ],
-)
-
-filegroup(
-    name = "bison_bin",
-    srcs = [":bison"],
-    output_group = "bison",
-)
-
-configure_make(
+flex_header(
     name = "flex",
-    build_data = [":m4_bin"],
-    # Flex requires m4 when it _executes_, unlike bison, which only
-    # requires it when it is built - this requires some additional handling.
-    env = select({
-        "@platforms//os:macos": {
-            "AR": "",
-            "M4": "$(execpath :m4_bin)",
-        },
-        "//conditions:default": {"M4": "$(execpath :m4_bin)"},
-    }),
-    lib_source = "@flex//:all",
-    out_binaries = [
-        "flex",
-    ],
-)
-
-filegroup(
-    name = "flex_bin",
-    srcs = [":flex"],
-    output_group = "flex",
 )

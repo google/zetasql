@@ -82,6 +82,9 @@ class TypeToProtoConverter {
   std::map<const Type*, google::protobuf::DescriptorProto*> constructed_structs_;
   // Array protos, keyed by element type.
   std::map<const Type*, google::protobuf::DescriptorProto*> constructed_arrays_;
+  // Range protos.
+  absl::flat_hash_map<const Type*, google::protobuf::DescriptorProto*>
+      constructed_ranges_;
 
   // Add a field to <in_message>.
   absl::Status MakeFieldDescriptor(const Type* field_type,
@@ -103,9 +106,20 @@ class TypeToProtoConverter {
                               const std::string& name,
                               google::protobuf::DescriptorProto* array_proto);
 
+  // Make a proto to represent <range_type> in <range_proto>, which is
+  // assumed to be an empty message.
+  absl::Status MakeRangeProto(const RangeType* range_type,
+                              const std::string& name,
+                              google::protobuf::DescriptorProto* range_proto);
+
   // Get the DescriptorProto for a struct, re-using a cached one if possible.
   absl::Status GetDescriptorForStruct(
       const StructType* struct_type,
+      const google::protobuf::DescriptorProto** descriptor_proto);
+
+  // Get the DescriptorProto for a range, re-using a cached one if possible.
+  absl::Status GetDescriptorForRange(
+      const RangeType* range_type,
       const google::protobuf::DescriptorProto** descriptor_proto);
 
   // Get the wrapper DescriptorProto for storing a nullable object of
@@ -228,8 +242,12 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       break;
     }
     case TYPE_RANGE: {
-      // TODO: Implement this for RANGE.
-      return absl::UnimplementedError("RANGE type is not fully implemented");
+      const google::protobuf::DescriptorProto* descriptor_proto;
+      ZETASQL_RETURN_IF_ERROR(
+          GetDescriptorForRange(field_type->AsRange(), &descriptor_proto));
+      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_MESSAGE);
+      proto_field->set_type_name(descriptor_proto->name());
+      break;
     }
     case TYPE_ENUM: {
       const EnumType* enum_type = field_type->AsEnum();
@@ -398,6 +416,37 @@ absl::Status TypeToProtoConverter::MakeArrayProto(
   return absl::OkStatus();
 }
 
+absl::Status TypeToProtoConverter::MakeRangeProto(
+    const RangeType* range_type, const std::string& name,
+    google::protobuf::DescriptorProto* range_proto) {
+  ZETASQL_RET_CHECK_EQ(range_proto->field_size(), 0);
+
+  range_proto->set_name(name);
+  range_proto->mutable_options()->SetExtension(zetasql::is_range, true);
+  range_proto->mutable_options()->SetExtension(zetasql::use_field_defaults,
+                                               false);
+  // We need to wrap the element with a proto to support NULL elements.
+  const google::protobuf::DescriptorProto* element_proto;
+  ZETASQL_RETURN_IF_ERROR(
+      GetWrapperDescriptorForType(range_type->element_type(), &element_proto));
+
+  google::protobuf::FieldDescriptorProto* start_field = range_proto->add_field();
+  start_field->set_name("start");
+  start_field->set_number(1);
+  start_field->set_label(google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+  start_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_MESSAGE);
+  start_field->set_type_name(element_proto->name());
+
+  google::protobuf::FieldDescriptorProto* end_field = range_proto->add_field();
+  end_field->set_name("end");
+  end_field->set_number(2);
+  end_field->set_label(google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+  end_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_MESSAGE);
+  end_field->set_type_name(element_proto->name());
+
+  return absl::OkStatus();
+}
+
 absl::Status TypeToProtoConverter::GetDescriptorForStruct(
     const StructType* struct_type,
     const google::protobuf::DescriptorProto** descriptor_proto) {
@@ -414,6 +463,25 @@ absl::Status TypeToProtoConverter::GetDescriptorForStruct(
     *cached_struct_proto = struct_proto;
   }
   *descriptor_proto = *cached_struct_proto;
+  return absl::OkStatus();
+}
+
+absl::Status TypeToProtoConverter::GetDescriptorForRange(
+    const RangeType* range_type,
+    const google::protobuf::DescriptorProto** descriptor_proto) {
+  google::protobuf::DescriptorProto* range_proto = nullptr;
+  google::protobuf::DescriptorProto** cached_range_proto = &range_proto;
+  if (options_.consolidate_constructed_types) {
+    cached_range_proto = &constructed_ranges_[range_type];
+  }
+  if (*cached_range_proto == nullptr) {
+    range_proto = main_message_->add_nested_type();
+    ZETASQL_RETURN_IF_ERROR(MakeRangeProto(
+        range_type, absl::StrCat("_Range", ++unique_name_counter_),
+        range_proto));
+    *cached_range_proto = range_proto;
+  }
+  *descriptor_proto = *cached_range_proto;
   return absl::OkStatus();
 }
 

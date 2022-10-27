@@ -1855,6 +1855,7 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
   std::map<ResolvedColumn, ResolvedColumn> injected_col_map;
 
   // Look for kappa in the options.
+  bool null_kappa = false;
   const Value* kappa_value = nullptr;
   for (const auto& option : node->anonymization_option_list()) {
     if (zetasql_base::CaseEqual(option->name(), "kappa")) {
@@ -1865,10 +1866,14 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
       if (option->value()->node_kind() == RESOLVED_LITERAL &&
           option->value()->GetAs<ResolvedLiteral>()->type()->IsInt64()) {
         kappa_value = &option->value()->GetAs<ResolvedLiteral>()->value();
-        // The privacy libraries only support int32_t kappa, so produce an
-        // error if the kappa value does not fit in that range.
-        if (kappa_value->int64_value() < 1 ||
-            kappa_value->int64_value() > std::numeric_limits<int32_t>::max()) {
+        if (kappa_value->is_null()) {
+          null_kappa = true;
+          continue;
+        } else if (!kappa_value->is_valid() || kappa_value->int64_value() < 1 ||
+                   kappa_value->int64_value() >
+                       std::numeric_limits<int32_t>::max()) {
+          // The privacy libraries only support int32_t kappa, so produce an
+          // error if the kappa value does not fit in that range.
           return MakeSqlErrorAtNode(*option)
                  << "Anonymization option kappa must be an INT64 literal "
                     "between "
@@ -1888,30 +1893,34 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
       std::unique_ptr<ResolvedScan> input_scan,
       RewriteInnerAggregateScan(node, &injected_col_map, &uid_column));
 
-  // Inject a SampleScan if kappa is present or the default_anon_kappa_value is
-  // set. Setting kappa provides epsilon-delta dataset level differential
-  // privacy in the presence of a GROUP BY clause.
-  const int64_t default_kappa_int =
-      resolver_->analyzer_options().default_anon_kappa_value();
   bool is_default_kappa = false;
   Value final_kappa;
-  if (kappa_value != nullptr) {
-    final_kappa = *kappa_value;
-  } else if (default_kappa_int > 0 &&
-             default_kappa_int <= std::numeric_limits<int32_t>::max()) {
-    final_kappa = Value::Int64(default_kappa_int);
-    is_default_kappa = true;
-  }
+  if (!null_kappa) {
+    // Inject a SampleScan if non-NULL kappa is present or the
+    // default_anon_kappa_value is set. Setting kappa provides epsilon-delta
+    // dataset level differential privacy in the presence of a GROUP BY clause.
+    const int64_t default_kappa_int =
+        resolver_->analyzer_options().default_anon_kappa_value();
 
-  if (final_kappa.is_valid() && !final_kappa.is_null()) {
-    std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
-    partition_by_list.push_back(MakeColRef(uid_column));
-    const std::vector<ResolvedColumn>& column_list = input_scan->column_list();
-    input_scan = MakeResolvedSampleScan(
-        column_list, std::move(input_scan),
-        /*method=*/"RESERVOIR", MakeResolvedLiteral(final_kappa),
-        ResolvedSampleScan::ROWS, /*repeatable_argument=*/nullptr,
-        /*weight_column=*/nullptr, std::move(partition_by_list));
+    if (kappa_value != nullptr) {
+      final_kappa = *kappa_value;
+    } else if (default_kappa_int > 0 &&
+               default_kappa_int <= std::numeric_limits<int32_t>::max()) {
+      final_kappa = Value::Int64(default_kappa_int);
+      is_default_kappa = true;
+    }
+
+    if (final_kappa.is_valid() && !final_kappa.is_null()) {
+      std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
+      partition_by_list.push_back(MakeColRef(uid_column));
+      const std::vector<ResolvedColumn>& column_list =
+          input_scan->column_list();
+      input_scan = MakeResolvedSampleScan(
+          column_list, std::move(input_scan),
+          /*method=*/"RESERVOIR", MakeResolvedLiteral(final_kappa),
+          ResolvedSampleScan::ROWS, /*repeatable_argument=*/nullptr,
+          /*weight_column=*/nullptr, std::move(partition_by_list));
+    }
   }
 
   // Rewrite the outer aggregate list, changing the first argument of each
@@ -1957,7 +1966,7 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
                      deep_copy_visitor.ConsumeRootNode<ResolvedOption>());
     resolved_anonymization_options.push_back(std::move(option_copy));
   }
-  if (is_default_kappa) {
+  if (!null_kappa && is_default_kappa) {
     ZETASQL_RET_CHECK(final_kappa.is_valid() && !final_kappa.is_null());
     std::unique_ptr<ResolvedOption> option_kappa = MakeResolvedOption(
         /*qualifier=*/"", /*name=*/"kappa", MakeResolvedLiteral(final_kappa));

@@ -1916,6 +1916,73 @@ SELECT 1 IS NOT DISTINCT FROM 2
 SELECT 1 IS NOT DISTINCT FROM NULL
 ```
 
+### NEW operator 
+<a id="new_operator"></a>
+
+The `NEW` operator supports only protocol buffers and uses the following syntax:
+
++ Create a protocol buffer using a map constructor:
+
+  ```sql
+  NEW protocol_buffer {
+    field_name: literal_or_expression
+    field_name { ... }
+    repeated_field_name: [literal_or_expression, ... ]
+    map_field_name: [{key: literal_or_expression value: literal_or_expression}, ...],
+    (extension_name): literal_or_expression
+  }
+  ```
++ Create a protocol buffer using a parenthesized list of arguments:
+
+  ```sql
+  NEW protocol_buffer(field [AS alias], ...field [AS alias])
+  ```
+
+**Examples**
+
+Example with a map constructor:
+
+```sql
+NEW Universe {
+  name: "Sol"
+  closest_planets: ["Mercury", "Venus", "Earth" ]
+  star {
+    radius_miles: 432,690
+    age: 4,603,000,000
+  }
+  constellations [{
+    name: "Libra"
+    index: 0
+  }, {
+    name: "Scorpio"
+    index: 1
+  }]
+  planet_distances: [{
+    key: "Mercury"
+    distance: 46,507,000
+  }, {
+    key: "Venus"
+    distance: 107,480,000
+  }],
+  (UniverseExtraInfo.extension) {
+    ...
+  }
+  all_planets: (SELECT planets FROM SolTable)
+}
+```
+
+Example with a parenthesized list of arguments:
+
+```sql
+SELECT
+  key,
+  name,
+  NEW zetasql.examples.music.Chart { rank: 1 chart_name: "2" }
+```
+
+To learn more about constructing, configuring, and using protocol buffers in
+ZetaSQL, see [Work with protocol buffers][protocol-buffers].
+
 ### Concatenation operator
 
 The concatenation operator combines multiple values into one.
@@ -2062,6 +2129,8 @@ FROM UNNEST([
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
 
 [operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
 
 [operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
 
@@ -2787,7 +2856,8 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Supported Argument Types**
 
-Any numeric input type, such as  INT64. Note that, for
+Any numeric input type, such as
+INT64. Note that, for
 floating point input types, the return result is non-deterministic, which
 means you might receive a different result each time you use this function.
 
@@ -4819,7 +4889,11 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Return type**
 
-Matches the type in the expression.
+One of the following [supertypes][anon-supertype]:
+
++ `INT64`
++ `UINT64`
++ `DOUBLE`
 
 **Examples**
 
@@ -4871,6 +4945,8 @@ noise [here][anon-noise].
 [anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
 
 [anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+
+[anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
 ### ANON_VAR_POP
 
@@ -6229,7 +6305,7 @@ but accepts KLL sketches initialized on data of type
 The following sections describe the numbering functions that ZetaSQL
 supports. Numbering functions are a subset of window functions. To create a
 window function call and learn about the syntax for window functions,
-see [Window function_calls][window-function-calls].
+see [Window function calls][window-function-calls].
 
 Numbering functions assign integer values to each row based on their position
 within the specified window. The `OVER` clause syntax varies across
@@ -13854,8 +13930,9 @@ window_specification:
 Computes the specified percentile value for the value_expression, with linear
 interpolation.
 
-This function ignores NULL values if `RESPECT NULLS` is absent.  If `RESPECT
-NULLS` is present:
+This function ignores NULL
+values if
+`RESPECT NULLS` is absent.  If `RESPECT NULLS` is present:
 
 + Interpolation between two `NULL` values returns `NULL`.
 + Interpolation between a `NULL` value and a non-`NULL` value returns the
@@ -13958,7 +14035,9 @@ Computes the specified percentile value for a discrete `value_expression`. The
 returned value is the first sorted value of `value_expression` with cumulative
 distribution greater than or equal to the given `percentile` value.
 
-This function ignores `NULL` values unless `RESPECT NULLS` is present.
+This function ignores `NULL`
+values unless
+`RESPECT NULLS` is present.
 
 To learn more about the `OVER` clause and how to use it, see
 [Window function calls][window-function-calls].
@@ -14027,11 +14106,7 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
 [window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
-
-<!-- mdlint on -->
 
 ## Hash functions
 
@@ -22224,7 +22299,7 @@ SELECT PARSE_DATE("%F", "2000-12-30")
 ```
 
 The format string fully supports most format elements except for
-`%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+`%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_DATE`, keep the following in mind:
 
@@ -23024,7 +23099,7 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008")
 ```
 
 The format string fully supports most format elements, except for
-`%a`, `%A`, `%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+`%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 `PARSE_DATETIME` parses `string` according to the following rules:
 
@@ -24222,7 +24297,7 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
 ```
 
 The format string fully supports most format elements, except for
-`%a`, `%A`, `%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+`%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
 
@@ -24784,7 +24859,7 @@ In this statement, table `library_books` contains a column named `book`,
 whose type is `Book`.
 
 ```sql
-SELECT PROTO_DEFAULT_IF_NULL(book.country) as origin FROM library_books;
+SELECT PROTO_DEFAULT_IF_NULL(book.country) AS origin FROM library_books;
 ```
 
 `Book` is a type that contains a field called `country`.

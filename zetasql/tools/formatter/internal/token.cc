@@ -1167,6 +1167,16 @@ TokenGroupingState MaybeMoveParseTokenIntoTokens(
         return grouping_state;
       }
 
+      if (TokenEndOffset(parse_token) > grouping_state.start_position) {
+        // Token starts before <<EOF, but ends after it. This can happen when
+        // EOF appears to be a part of the comment, e.g.:
+        // DEFINE TABLE #comment <<EOF
+        //              [parse_token ]
+        // It means we marked the line as legacy define table statement by
+        // mistake and should reset.
+        grouping_state.Reset();
+      }
+
       break;
     }
 

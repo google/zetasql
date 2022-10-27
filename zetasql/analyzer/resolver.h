@@ -3202,7 +3202,6 @@ class Resolver {
       const ASTArrayElement* array_element,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
-
   // Function names returned by ResolveArrayElement().
   static const char kArrayAtOffset[];
   static const char kArrayAtOrdinal[];
@@ -3255,6 +3254,16 @@ class Resolver {
       const ASTExpression** unwrapped_ast_position_expr,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
       std::string* original_wrapper_name);
+
+  // Requires that <resolved_struct> is a struct and verifies that
+  // <field_position> is an appropriate literal integer (wrapped in a call to
+  // OFFSET for example). Resolves <ast_position> into the field_idx of the
+  // ResolvedGetStructField populated into <resolved_expr_out>.
+  absl::Status ResolveStructSubscriptElementAccess(
+      std::unique_ptr<const ResolvedExpr> resolved_struct,
+      const ASTExpression* field_position,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveCaseNoValueExpression(
       const ASTCaseNoValueExpression* case_no_value,
@@ -4096,6 +4105,17 @@ class Resolver {
       std::vector<const ASTNode*>* arg_locations,
       std::vector<ResolvedTVFArg>* resolved_tvf_args,
       SignatureMatchResult* signature_match_result);
+
+  // Prepares a list of TVF input arguments and a result signature. This
+  // includes addding necessary casts and coercions, and wrapping the resolved
+  // input arguments with TVFInputArgumentType as appropriate.
+  absl::Status PrepareTVFInputArguments(
+      absl::string_view tvf_name_string, const ASTTVF* ast_tvf,
+      const TableValuedFunction* tvf_catalog_entry,
+      const NameScope* external_scope, const NameScope* local_scope,
+      std::unique_ptr<FunctionSignature>* result_signature,
+      std::vector<ResolvedTVFArg>* resolved_tvf_args,
+      std::vector<TVFInputArgumentType>* tvf_input_arguments);
 
   // Generates an error status about a TVF call not matching a signature.
   // It is made to avoid redundant code in MatchTVFSignature.

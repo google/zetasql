@@ -262,20 +262,21 @@ absl::Status AllowedHintsAndOptions::Serialize(
 AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {}
 
 AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
-    : language_options_(language_options),
-      validate_resolved_ast_(
-          absl::GetFlag(FLAGS_zetasql_validate_resolved_ast)) {
-  ZETASQL_CHECK_OK(FindTimeZoneByName("America/Los_Angeles", &default_timezone_));
+    : data_(new Data{.language_options = language_options,
+                     .validate_resolved_ast = absl::GetFlag(
+                         FLAGS_zetasql_validate_resolved_ast)}) {
+  ZETASQL_CHECK_OK(FindTimeZoneByName("America/Los_Angeles",  // Crash OK
+                              &data_->default_timezone));
 }
 
-AnalyzerOptions::~AnalyzerOptions() {}
+AnalyzerOptions::~AnalyzerOptions() = default;
 
 void AnalyzerOptions::CreateDefaultArenasIfNotSet() {
-  if (arena_ == nullptr) {
-    arena_ = std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096);
+  if (data_->arena == nullptr) {
+    data_->arena = std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096);
   }
-  if (id_string_pool_ == nullptr) {
-    id_string_pool_ = std::make_shared<IdStringPool>(arena_);
+  if (data_->id_string_pool == nullptr) {
+    data_->id_string_pool = std::make_shared<IdStringPool>(data_->arena);
   }
 }
 
@@ -339,7 +340,7 @@ absl::Status AnalyzerOptions::Deserialize(
 
   if (proto.has_default_timezone()) {
     ZETASQL_RETURN_IF_ERROR(FindTimeZoneByName(proto.default_timezone(),
-                                       &result->default_timezone_));
+                                       &result->data_->default_timezone));
   }
 
   if (proto.has_default_anon_function_report_format()) {
@@ -378,29 +379,31 @@ absl::Status AnalyzerOptions::Deserialize(
     result->set_allowed_hints_and_options(hints_and_options);
   }
 
-  result->enabled_rewrites_.clear();
+  result->data_->enabled_rewrites.clear();
   for (int rewrite : proto.enabled_rewrites()) {
-    result->enabled_rewrites_.insert(static_cast<ResolvedASTRewrite>(rewrite));
+    result->data_->enabled_rewrites.insert(
+        static_cast<ResolvedASTRewrite>(rewrite));
   }
 
   if (proto.has_parse_location_record_type()) {
-    result->parse_location_record_type_ = proto.parse_location_record_type();
+    result->data_->parse_location_record_type =
+        proto.parse_location_record_type();
   }
   return absl::OkStatus();
 }
 
 absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
                                         AnalyzerOptionsProto* proto) const {
-  language_options_.Serialize(proto->mutable_language_options());
+  data_->language_options.Serialize(proto->mutable_language_options());
 
-  for (const auto& param : query_parameters_) {
+  for (const auto& param : data_->query_parameters) {
     auto* param_proto = proto->add_query_parameters();
     param_proto->set_name(param.first);
     ZETASQL_RETURN_IF_ERROR(param.second->SerializeToProtoAndDistinctFileDescriptors(
         param_proto->mutable_type(), map));
   }
 
-  for (const auto& system_variable : system_variables_) {
+  for (const auto& system_variable : data_->system_variables) {
     auto* system_variable_proto = proto->add_system_variables();
     for (const std::string& path_part : system_variable.first) {
       system_variable_proto->add_name_path(path_part);
@@ -410,27 +413,27 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
             system_variable_proto->mutable_type(), map));
   }
 
-  for (const Type* param_type : positional_query_parameters_) {
+  for (const Type* param_type : data_->positional_query_parameters) {
     ZETASQL_RETURN_IF_ERROR(param_type->SerializeToProtoAndDistinctFileDescriptors(
         proto->add_positional_query_parameters(), map));
   }
 
-  for (const auto& column : expression_columns_) {
+  for (const auto& column : data_->expression_columns) {
     auto* column_proto = proto->add_expression_columns();
     column_proto->set_name(column.first);
     ZETASQL_RETURN_IF_ERROR(column.second->SerializeToProtoAndDistinctFileDescriptors(
         column_proto->mutable_type(), map));
   }
 
-  if (!in_scope_expression_column_.first.empty()) {
+  if (!data_->in_scope_expression_column.first.empty()) {
     auto* in_scope_expression = proto->mutable_in_scope_expression_column();
-    in_scope_expression->set_name(in_scope_expression_column_.first);
-    const Type* type = in_scope_expression_column_.second;
+    in_scope_expression->set_name(data_->in_scope_expression_column.first);
+    const Type* type = data_->in_scope_expression_column.second;
     ZETASQL_RETURN_IF_ERROR(type->SerializeToProtoAndDistinctFileDescriptors(
         in_scope_expression->mutable_type(), map));
   }
 
-  for (const auto& ddl_pseudo_column : ddl_pseudo_columns_) {
+  for (const auto& ddl_pseudo_column : data_->ddl_pseudo_columns) {
     auto* column_proto = proto->add_ddl_pseudo_columns();
     column_proto->set_name(ddl_pseudo_column.first);
     ZETASQL_RETURN_IF_ERROR(
@@ -438,33 +441,33 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
             column_proto->mutable_type(), map));
   }
 
-  proto->set_default_timezone(default_timezone_.name());
+  proto->set_default_timezone(data_->default_timezone.name());
   proto->set_default_anon_function_report_format(
-      default_anon_function_report_format_);
-  proto->set_default_anon_kappa_value(default_anon_kappa_value_);
-  proto->set_statement_context(statement_context_);
-  proto->set_error_message_mode(error_message_mode_);
+      data_->default_anon_function_report_format);
+  proto->set_default_anon_kappa_value(data_->default_anon_kappa_value);
+  proto->set_statement_context(data_->statement_context);
+  proto->set_error_message_mode(data_->error_message_mode);
   proto->set_create_new_column_for_each_projected_output(
-      create_new_column_for_each_projected_output_);
-  proto->set_prune_unused_columns(prune_unused_columns_);
-  proto->set_allow_undeclared_parameters(allow_undeclared_parameters_);
-  proto->set_parameter_mode(parameter_mode_);
-  proto->set_preserve_column_aliases(preserve_column_aliases_);
-  proto->set_preserve_unnecessary_cast(preserve_unnecessary_cast_);
+      data_->create_new_column_for_each_projected_output);
+  proto->set_prune_unused_columns(data_->prune_unused_columns);
+  proto->set_allow_undeclared_parameters(data_->allow_undeclared_parameters);
+  proto->set_parameter_mode(data_->parameter_mode);
+  proto->set_preserve_column_aliases(data_->preserve_column_aliases);
+  proto->set_preserve_unnecessary_cast(data_->preserve_unnecessary_cast);
 
-  ZETASQL_RETURN_IF_ERROR(allowed_hints_and_options_.Serialize(
+  ZETASQL_RETURN_IF_ERROR(data_->allowed_hints_and_options.Serialize(
       map, proto->mutable_allowed_hints_and_options()));
 
-  if (parse_location_record_type_ != PARSE_LOCATION_RECORD_NONE) {
-    proto->set_parse_location_record_type(parse_location_record_type_);
+  if (data_->parse_location_record_type != PARSE_LOCATION_RECORD_NONE) {
+    proto->set_parse_location_record_type(data_->parse_location_record_type);
   }
 
-  for (const Type* type : target_column_types_) {
+  for (const Type* type : data_->target_column_types) {
     ZETASQL_RETURN_IF_ERROR(type->SerializeToProtoAndDistinctFileDescriptors(
         proto->add_target_column_types(), map));
   }
 
-  for (ResolvedASTRewrite rewrite : enabled_rewrites_) {
+  for (ResolvedASTRewrite rewrite : data_->enabled_rewrites) {
     proto->add_enabled_rewrites(rewrite);
   }
   return absl::OkStatus();
@@ -492,7 +495,7 @@ absl::Status AnalyzerOptions::AddSystemVariable(
                           << type->TypeName(language().product_mode());
   }
 
-  if (!zetasql_base::InsertIfNotPresent(&system_variables_,
+  if (!zetasql_base::InsertIfNotPresent(&data_->system_variables,
                                std::make_pair(name_path, type))) {
     return MakeSqlError() << "Duplicate system variable "
                           << absl::StrJoin(name_path, ".");
@@ -517,7 +520,7 @@ absl::Status AnalyzerOptions::AddQueryParameter(const std::string& name,
   }
 
   if (!zetasql_base::InsertIfNotPresent(
-          &query_parameters_,
+          &data_->query_parameters,
           std::make_pair(absl::AsciiStrToLower(name), type))) {
     return MakeSqlError() << "Duplicate parameter name "
                           << absl::AsciiStrToLower(name);
@@ -532,7 +535,7 @@ absl::Status AnalyzerOptions::AddPositionalQueryParameter(const Type* type) {
            << "Type associated with query parameter cannot be NULL";
   }
 
-  if (allow_undeclared_parameters_) {
+  if (data_->allow_undeclared_parameters) {
     return MakeSqlError()
            << "Positional query parameters cannot be provided when "
               "undeclared parameters are allowed";
@@ -540,12 +543,12 @@ absl::Status AnalyzerOptions::AddPositionalQueryParameter(const Type* type) {
 
   if (!type->IsSupportedType(language())) {
     return MakeSqlError() << "Parameter at position "
-                          << positional_query_parameters_.size()
+                          << data_->positional_query_parameters.size()
                           << " has unsupported type: "
                           << type->TypeName(language().product_mode());
   }
 
-  positional_query_parameters_.push_back(type);
+  data_->positional_query_parameters.push_back(type);
 
   return absl::OkStatus();
 }
@@ -566,7 +569,7 @@ absl::Status AnalyzerOptions::AddExpressionColumn(const std::string& name,
   }
 
   if (!zetasql_base::InsertIfNotPresent(
-          &expression_columns_,
+          &data_->expression_columns,
           std::make_pair(absl::AsciiStrToLower(name), type))) {
     return MakeSqlError() << "Duplicate expression column name "
                           << absl::AsciiStrToLower(name);
@@ -592,19 +595,19 @@ absl::Status AnalyzerOptions::SetInScopeExpressionColumn(
 
   const std::pair<std::string, const Type*> name_and_type(
       absl::AsciiStrToLower(name), type);
-  if (!zetasql_base::InsertIfNotPresent(&expression_columns_, name_and_type)) {
+  if (!zetasql_base::InsertIfNotPresent(&data_->expression_columns, name_and_type)) {
     return MakeSqlError() << "Duplicate expression column name "
                           << absl::AsciiStrToLower(name);
   }
-  in_scope_expression_column_ = name_and_type;
+  data_->in_scope_expression_column = name_and_type;
 
   return absl::OkStatus();
 }
 
 void AnalyzerOptions::SetLookupExpressionColumnCallback(
     const LookupExpressionColumnCallback& lookup_expression_column_callback) {
-  lookup_expression_column_callback_ = lookup_expression_column_callback;
-  lookup_expression_callback_ =
+  data_->lookup_expression_column_callback = lookup_expression_column_callback;
+  data_->lookup_expression_callback =
       [callback = std::move(lookup_expression_column_callback)](
           const std::string& column_name,
           std::unique_ptr<const ResolvedExpr>& expr) -> absl::Status {
@@ -619,19 +622,19 @@ void AnalyzerOptions::SetLookupExpressionColumnCallback(
 
 void AnalyzerOptions::SetDdlPseudoColumnsCallback(
     DdlPseudoColumnsCallback ddl_pseudo_columns_callback) {
-  ddl_pseudo_columns_callback_ = std::move(ddl_pseudo_columns_callback);
-  ddl_pseudo_columns_.clear();
+  data_->ddl_pseudo_columns_callback = std::move(ddl_pseudo_columns_callback);
+  data_->ddl_pseudo_columns.clear();
 }
 void AnalyzerOptions::SetDdlPseudoColumns(
     const std::vector<std::pair<std::string, const Type*>>&
         ddl_pseudo_columns) {
-  ddl_pseudo_columns_ = ddl_pseudo_columns;
+  data_->ddl_pseudo_columns = ddl_pseudo_columns;
   // We explicitly make the lambda capture a copy of ddl_pseudo_columns to be
   // safe. If we capture by reference instead ("this" or "&"), then when a copy
   // of AnalyzerOptions is made, the copied lambda would still point to
   // references of the old AnalyzerOptions that may not exist anymore leading to
   // memory errors.
-  ddl_pseudo_columns_callback_ =
+  data_->ddl_pseudo_columns_callback =
       [ddl_pseudo_columns](
           const std::vector<std::string>& table_name,
           const std::vector<const ResolvedOption*>& options,
@@ -642,14 +645,14 @@ void AnalyzerOptions::SetDdlPseudoColumns(
 }
 
 ParserOptions AnalyzerOptions::GetParserOptions() const {
-  return ParserOptions(id_string_pool(), arena(), &language_options_);
+  return ParserOptions(id_string_pool(), arena(), &data_->language_options);
 }
 
 void AnalyzerOptions::enable_rewrite(ResolvedASTRewrite rewrite, bool enable) {
   if (enable) {
-    enabled_rewrites_.insert(rewrite);
+    data_->enabled_rewrites.insert(rewrite);
   } else {
-    enabled_rewrites_.erase(rewrite);
+    data_->enabled_rewrites.erase(rewrite);
   }
 }
 
@@ -661,7 +664,7 @@ absl::Status AnalyzerOptions::set_default_anon_kappa_value(int64_t value) {
            << "The default anonymization option kappa must be between 0 and "
            << std::numeric_limits<int32_t>::max() << " where 0 means unset";
   }
-  default_anon_kappa_value_ = value;
+  data_->default_anon_kappa_value = value;
   return absl::OkStatus();
 }
 

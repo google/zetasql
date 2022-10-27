@@ -459,7 +459,11 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Return type**
 
-Matches the type in the expression.
+One of the following [supertypes][anon-supertype]:
+
++ `INT64`
++ `UINT64`
++ `DOUBLE`
 
 **Examples**
 
@@ -511,6 +515,8 @@ noise [here][anon-noise].
 [anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
 
 [anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+
+[anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
 ### ANON_VAR_POP
 

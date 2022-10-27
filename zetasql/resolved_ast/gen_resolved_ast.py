@@ -524,7 +524,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 207
+          Next tag_id: 208
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1720,7 +1720,16 @@ def main(unused_argv):
               """,
       fields=[
           Field('expr', 'ResolvedExpr', tag_id=2),
-          Field('field_idx', SCALAR_INT, tag_id=3)
+          Field('field_idx', SCALAR_INT, tag_id=3),
+          Field(
+              'field_expr_is_positional',
+              SCALAR_BOOL,
+              tag_id=4,
+              ignorable=IGNORABLE,
+              is_optional_constructor_arg=True,
+              comment="""True if using s[OFFSET(0)] syntax rather than
+              specifying field name, Only for preserving user intent; no
+              semantic consequences"""),
       ])
 
   gen.AddNode(
@@ -2168,6 +2177,34 @@ value.
               is_constructor_arg=False)
       ],
       extra_defs="""bool IsScan() const final { return true; }""")
+
+  gen.AddNode(
+      name='ResolvedExecuteAsRoleScan',
+      tag_id=207,
+      parent='ResolvedScan',
+      comment="""
+      This node provides the role context for its subtree. The role object is
+      attached to this node and covers the whole subtree underneath it, except
+      subtrees under other nested ResolvedExecuteAsRoleScan nodes.
+
+      This node is useful when inlining definer-rights functions or views.
+
+      Always creates new output columns in <column_list>, which map 1:1 with
+      the <input_scan>'s output columns. Most rewriters trace their columns all
+      the way back to the scan that defined them so this makes this node a
+      boundary, as desired.
+      """,
+      fields=[
+          Field(
+              'input_scan',
+              'ResolvedScan',
+              tag_id=2,
+              propagate_order=True,
+              comment="""
+              The input scan whose subtree is to be encompassed by the current
+              role context.
+              """),
+      ])
 
   gen.AddNode(
       name='ResolvedModel',
@@ -3883,20 +3920,45 @@ right.
       parent='ResolvedCreateStatement',
       comment="""
       This statement:
-        CREATE [TEMP] MODEL <name> [TRANSFORM(...)] [OPTIONS (...)] AS SELECT ..
+        CREATE [TEMP] MODEL <name> [INPUT(...) OUTPUT(...)] [TRANSFORM(...)]
+        [REMOTE [WITH CONNECTION ...]] [OPTIONS (...)] [AS SELECT ...]
+
+      Models can be evaluated either locally or remotely. Orthogonally, they can
+      be either trained using SQL or come from external source. Depending on
+      these properties, different clauses are expected to be present.
+
+      * Local models <is_remote> = FALSE
+        * Trained: <query> IS NOT NULL
+        * External: <query> IS NULL
+      * Remote models <is_remote> = TRUE
+        * Trained: <query> IS NOT NULL [Not supported yet]
+        * External: <query> IS NULL
 
       <option_list> has engine-specific directives for how to train this model.
-      <output_column_list> matches 1:1 with the <query>'s column_list and the
-                           <column_definition_list>, and identifies the names
-                           and types of the columns output from the select
-                           statement.
-      <query> is the select statement.
+      <query> is the select statement. It can be only set when <is_remote> is
+        false and both <input_column_definition_list>,
+        <output_column_definition_list> are empty.
+      <output_column_list> matches 1:1 with the <query>'s column_list and
+        identifies the names and types of the columns output from the select
+        statement. Set only when <query> is present.
+      <input_column_definition_list> contains names and types of model's input
+        columns. Cannot be set when <query> and <output_column_list> are
+        present. Might be absent when <is_remote> is true, meaning schema is
+        read from the remote model itself.
+      <output_column_definition_list> contains names and types of model's output
+        columns. Cannot be set when <query> and <output_column_list> are
+        present. Might be absent when <is_remote> is true, meaning schema is
+        read from the remote model itself.
+      <is_remote> is true if this is a remote model. Cannot be set when <query>
+        is present.
+      <connection> is the identifier path of the connection object. It can be
+        only set when <is_remote> is true.
+      <transform_list> is the list of ResolvedComputedColumn in TRANSFORM
+        clause. It can be only set when <query> is present.
       <transform_input_column_list> introduces new ResolvedColumns that have the
         same names and types of the columns in the <output_column_list>. The
         transform expressions resolve against these ResolvedColumns. It's only
         set when <transform_list> is non-empty.
-      <transform_list> is the list of ResolvedComputedColumn in TRANSFORM
-        clause.
       <transform_output_column_list> matches 1:1 with <transform_list> output.
         It records the names of the output columns from TRANSFORM clause.
       <transform_analytic_function_group_list> is the list of
@@ -3935,7 +3997,8 @@ right.
               'output_column_list',
               'ResolvedOutputColumn',
               tag_id=3,
-              vector=True),
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
           Field('query', 'ResolvedScan', tag_id=4),
           Field(
               'transform_input_column_list',
@@ -3960,7 +4023,29 @@ right.
               'ResolvedAnalyticFunctionGroup',
               tag_id=7,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'input_column_definition_list',
+              'ResolvedColumnDefinition',
+              tag_id=9,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'output_column_definition_list',
+              'ResolvedColumnDefinition',
+              tag_id=10,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'is_remote',
+              SCALAR_BOOL,
+              tag_id=11,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'connection',
+              'ResolvedConnection',
+              tag_id=12,
+              ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(

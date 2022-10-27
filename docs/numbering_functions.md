@@ -5,7 +5,7 @@
 The following sections describe the numbering functions that ZetaSQL
 supports. Numbering functions are a subset of window functions. To create a
 window function call and learn about the syntax for window functions,
-see [Window function_calls][window-function-calls].
+see [Window function calls][window-function-calls].
 
 Numbering functions assign integer values to each row based on their position
 within the specified window. The `OVER` clause syntax varies across

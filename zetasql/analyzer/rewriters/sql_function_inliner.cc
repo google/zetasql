@@ -39,6 +39,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/cleanup/cleanup.h"
@@ -453,9 +454,24 @@ class SqlTableFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
       column_map.insert({query->column_list()[scan->column_index_list()[i]],
                          scan->column_list()[i]});
     }
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<ResolvedScan> body_scan,
-        CopyResolvedASTAndRemapColumns(*query, *column_factory_, column_map));
+
+    std::unique_ptr<ResolvedScan> body_scan;
+    if (scan->tvf()->sql_security() ==
+        ResolvedCreateStatementEnums::SQL_SECURITY_DEFINER) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          body_scan,
+          ReplaceScanColumns(
+              *column_factory_, *query, scan->column_index_list(),
+              CreateReplacementColumns(*column_factory_, scan->column_list())));
+      body_scan = MakeResolvedExecuteAsRoleScan(scan->column_list(),
+                                                std::move(body_scan));
+    } else {
+      // TODO We should decide what to do in the case of
+      // UNSPECIFIED, to be consistent with VIEWs and the desired behavior.
+      ZETASQL_ASSIGN_OR_RETURN(body_scan, ReplaceScanColumns(*column_factory_, *query,
+                                                     scan->column_index_list(),
+                                                     scan->column_list()));
+    }
 
     // Nullary functions get special treatment because we don't have to do any
     // special argument processing.

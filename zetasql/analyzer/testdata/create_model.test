@@ -1,44 +1,141 @@
 # NOTE: CREATE MODEL tests are derived from those for CREATE TABLE AS SELECT and
 # CREATE VIEW tests.
-[default language_features=V_1_3_REMOTE_FUNCTION]
+[default language_features=V_1_4_REMOTE_MODEL,V_1_3_REMOTE_FUNCTION]
 
+[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
 # Bare statement
 create model t1
+--
+ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+--
+ERROR: Local model requires INPUT OUTPUT or AS SELECT clause [at 2:1]
+create model t1
+^
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: The AS SELECT clause is required for CREATE MODEL [at 2:1]
 create model t1
 ^
 ==
 
+[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
 create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
+--
+ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+--
+CreateModelStmt
++-name_path=t1
++-input_column_definition_list=
+| +-ColumnDefinition(name="i1", type=INT64, column=t1.i1#1)
+| +-ColumnDefinition(name="i2", type=DOUBLE, column=t1.i2#2)
++-output_column_definition_list=
+  +-ColumnDefinition(name="o1", type=BOOL, column=t1.o1#3)
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: INPUT and OUTPUT clause is not supported [at 1:17]
 create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
                 ^
 ==
 
-create model t1 remote
+[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
+transform (a + b as t)
 --
-ERROR: REMOTE is not supported [at 1:1]
-create model t1 remote
-^
-==
 
-create model t1 with connection conn_1
+ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+
 --
-ERROR: WITH CONNECTION is not supported [at 1:17]
-create model t1 with connection conn_1
+ERROR: The TRANSFORM clause cannot be used with INPUT and OUTPUT [at 2:1]
+transform (a + b as t)
+^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: INPUT and OUTPUT clause is not supported [at 1:17]
+create model t1 input (i1 INT64, i2 FLOAT64) output (o1 BOOL)
                 ^
 ==
 
-create model t1 remote with connection conn_1
+[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+create model t1 transform (a + b as t)
 --
-ERROR: REMOTE is not supported [at 1:1]
-create model t1 remote with connection conn_1
+ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+--
+ERROR: Local model requires INPUT OUTPUT or AS SELECT clause [at 1:1]
+create model t1 transform (a + b as t)
+^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: The AS SELECT clause is required for CREATE MODEL [at 1:1]
+create model t1 transform (a + b as t)
 ^
 ==
 
+[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+create model t1 remote
+--
+ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+--
+CreateModelStmt(name_path=t1, is_remote=TRUE)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: REMOTE is not supported [at 1:1]
+create model t1 remote
+^
+==
+
+# TODO: Enable Java once it supports connection.
+[no_java]
+[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+create model t1 with connection connection1 as select 1 a
+--
+ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+--
+ERROR: WITH CONNECTION clause can be specified only for remote models [at 1:17]
+create model t1 with connection connection1 as select 1 a
+                ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: WITH CONNECTION is not supported [at 1:17]
+create model t1 with connection connection1 as select 1 a
+                ^
+==
+
+# TODO: Enable Java once it supports connection.
+[no_java]
+[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+create model t1 remote with connection connection1
+--
+ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+--
+CreateModelStmt
++-name_path=t1
++-is_remote=TRUE
++-connection=
+  +-Connection(connection=connection1)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: REMOTE is not supported [at 1:1]
+create model t1 remote with connection connection1
+^
+==
+
+[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
 create model t1 options (abc = def)
+--
+ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
+--
+ERROR: Local model requires INPUT OUTPUT or AS SELECT clause [at 1:1]
+create model t1 options (abc = def)
+^
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: The AS SELECT clause is required for CREATE MODEL [at 1:1]
 create model t1 options (abc = def)
@@ -59,6 +156,33 @@ CreateModelStmt
     | +-a#1 := Literal(type=INT64, value=1)
     +-input_scan=
       +-SingleRowScan
+==
+
+create model tt
+input (a INT64) output (b BOOL)
+as select 1 a, TRUE b
+--
+ERROR: The AS SELECT clause cannot be used with INPUT and OUTPUT [at 3:4]
+as select 1 a, TRUE b
+   ^
+==
+
+create model tt
+transform (a + b as t)
+remote
+--
+ERROR: The TRANSFORM clause cannot be used with REMOTE [at 2:1]
+transform (a + b as t)
+^
+==
+
+create model tt
+remote
+as select 1 a
+--
+ERROR: The AS SELECT clause cannot be used with REMOTE [at 3:4]
+as select 1 a
+   ^
 ==
 
 # The two columns from SELECT statement reference the same column. b/140028539
@@ -214,6 +338,16 @@ CreateModelStmt
   +-$dummy_table.d#5 AS d [INT64]
   +-Z.c#7 AS c [INT64]
   +-Z.b#8 AS b [INT64]
+==
+
+create model Z
+transform (c as A, c+B as d, *)
+remote
+as select 1 c, 2 b;
+--
+ERROR: The AS SELECT clause cannot be used with REMOTE [at 4:4]
+as select 1 c, 2 b;
+   ^
 ==
 
 [language_features=ANALYTIC_FUNCTIONS]
@@ -764,35 +898,48 @@ CreateModelStmt
 # Create model without AS SELECT.
 create temp model T
 --
-ERROR: The AS SELECT clause is required for CREATE MODEL [at 1:1]
+ERROR: Local model requires INPUT OUTPUT or AS SELECT clause [at 1:1]
 create temp model T
 ^
 ==
 
+# TODO: Enable Java once it supports connection.
+[no_java]
 # All remote model clauses
 create model t1
 input (i1 INT64, i2 FLOAT64)
 output (o1 BOOL)
-remote with connection conn_1
+remote with connection connection1
 options (abc = def)
 --
-ERROR: INPUT and OUTPUT clause is not supported [at 2:1]
-input (i1 INT64, i2 FLOAT64)
-^
+CreateModelStmt
++-name_path=t1
++-option_list=
+| +-abc := Literal(type=STRING, value="def")
++-input_column_definition_list=
+| +-ColumnDefinition(name="i1", type=INT64, column=t1.i1#1)
+| +-ColumnDefinition(name="i2", type=DOUBLE, column=t1.i2#2)
++-output_column_definition_list=
+| +-ColumnDefinition(name="o1", type=BOOL, column=t1.o1#3)
++-is_remote=TRUE
++-connection=
+  +-Connection(connection=connection1)
 ==
 
+# TODO: Enable Java once it supports connection.
+[no_java]
 # All clauses
 create model t1
 input (i1 INT64, i2 FLOAT64)
 output (o1 BOOL)
 transform(a, 2 as b)
-remote with connection conn_1
+remote with connection connection1
 options (abc = def)
 as select * from t2;
 --
-ERROR: INPUT and OUTPUT clause is not supported [at 2:1]
-input (i1 INT64, i2 FLOAT64)
-^
+ERROR: The AS SELECT clause cannot be used with REMOTE [at 8:4]
+as select * from t2;
+   ^
 ==
 
 # Create model with transform and collation in the output column. Annotations should be accessed.

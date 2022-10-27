@@ -1113,6 +1113,7 @@ cc_library(
         "//zetasql/proto:options_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -2086,6 +2087,9 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:formatter_options",
         "//zetasql/public:lenient_formatter",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@icu//:headers",
     ],
 )
 

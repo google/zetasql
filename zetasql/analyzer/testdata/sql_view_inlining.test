@@ -1948,25 +1948,47 @@ QueryStmt
               +-WithRefScan(column_list=tvf_templated_select_relation_arg_using_select_star.[a#3, b#4], with_query_name="t")
 ==
 
+[no_run_unparser]
 SELECT * FROM DefinerRightsView;
 --
-[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-DefinerRightsView.a#1 AS a [INT64]
+| +-DefinerRightsView.b#2 AS b [STRING]
+| +-DefinerRightsView.c#3 AS c [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=[DefinerRightsView.a#1]
+    +-column_list=DefinerRightsView.[a#1, b#2, c#3]
     +-input_scan=
-      +-TableScan(column_list=[DefinerRightsView.a#1], table=DefinerRightsView, column_index_list=[0])
+      +-TableScan(column_list=DefinerRightsView.[a#1, b#2, c#3], table=DefinerRightsView, column_index_list=[0, 1, 2])
 
-Rewrite ERROR: View inlining is only supported for SQL_SECURITY_INVOKER views. View DefinerRightsView has SQL_SECURITY_DEFINER, and the catalog should not report it as inlineable.
 
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-DefinerRightsView.a#1 AS a [INT64]
+| +-DefinerRightsView.b#2 AS b [STRING]
+| +-DefinerRightsView.c#3 AS c [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=DefinerRightsView.[a#1, b#2, c#3]
+    +-input_scan=
+      +-ExecuteAsRoleScan
+        +-column_list=DefinerRightsView.[a#1, b#2, c#3]
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=DefinerRightsView.[a#4, b#5, c#6]
+            +-expr_list=
+            | +-a#4 := Literal(type=INT64, value=1)
+            | +-b#5 := Literal(type=STRING, value="x")
+            | +-c#6 := Literal(type=BOOL, value=false)
+            +-input_scan=
+              +-SingleRowScan
 ==
 
+[no_run_unparser]
 SELECT * FROM UnspecifiedRightsView;
 --
-[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-UnspecifiedRightsView.a#1 AS a [INT64]
@@ -1976,8 +1998,24 @@ QueryStmt
     +-input_scan=
       +-TableScan(column_list=[UnspecifiedRightsView.a#1], table=UnspecifiedRightsView, column_index_list=[0])
 
-Rewrite ERROR: View inlining is only supported for SQL_SECURITY_INVOKER views. View UnspecifiedRightsView has SQL_SECURITY_DEFINER, and the catalog should not report it as inlineable.
 
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnspecifiedRightsView.a#1 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnspecifiedRightsView.a#1]
+    +-input_scan=
+      +-ExecuteAsRoleScan
+        +-column_list=[UnspecifiedRightsView.a#1]
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[UnspecifiedRightsView.a#2]
+            +-expr_list=
+            | +-a#2 := Literal(type=INT64, value=1)
+            +-input_scan=
+              +-SingleRowScan
 ==
 
 SELECT * FROM TwoIntsView@{scan_hint=whatever} v;

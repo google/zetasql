@@ -2446,6 +2446,7 @@ TEST_F(ValueTest, Proto) {
   EXPECT_FALSE(Value::Proto(proto_type, bytes).is_null());
   Value proto = TestGetSQL(Proto(proto_type, bytes));
   EXPECT_EQ(bytes, proto.ToCord());
+  EXPECT_EQ(bytes, proto.proto_value());
   EXPECT_EQ("Proto<zetasql_test__.KitchenSinkPB>{}", proto.FullDebugString());
   EXPECT_EQ("{}", proto.ShortDebugString());
   // Non-empty proto.

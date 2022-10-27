@@ -10060,4 +10060,263 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeBucket() {
   return v;
 }
 
+// Helper function for constructing simple DATE_BUCKET tests.
+FunctionTestCall DateBucketTest(absl::string_view date_string,
+                                absl::string_view interval_string,
+                                absl::string_view origin_string,
+                                absl::string_view expected_result) {
+  int32_t date;
+  ZETASQL_CHECK_OK(functions::ConvertStringToDate(date_string, &date)) << date_string;
+  IntervalValue interval = *IntervalValue::ParseFromString(interval_string);
+  int32_t origin;
+  ZETASQL_CHECK_OK(functions::ConvertStringToDate(origin_string, &origin))
+      << origin_string;
+  int32_t expected_date;
+  ZETASQL_CHECK_OK(functions::ConvertStringToDate(expected_result, &expected_date))
+      << expected_result;
+
+  FunctionTestCall call{
+      "date_bucket",
+      {Value::Date(date), Value::Interval(interval), Value::Date(origin)},
+      {Value::Date(expected_date)}};
+  call.params = call.params.WrapWithFeatureSet(
+      {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE});
+  return call;
+}
+
+// Helper function for constructing DATE_BUCKET tests for error cases.
+FunctionTestCall DateBucketErrorTest(absl::string_view date_string,
+                                     absl::string_view interval_string,
+                                     absl::string_view origin_string,
+                                     absl::string_view expected_error) {
+  int32_t date;
+  ZETASQL_CHECK_OK(functions::ConvertStringToDate(date_string, &date)) << date_string;
+  IntervalValue interval = *IntervalValue::ParseFromString(interval_string);
+  int32_t origin;
+  ZETASQL_CHECK_OK(functions::ConvertStringToDate(origin_string, &origin))
+      << origin_string;
+
+  FunctionTestCall call{
+      "date_bucket",
+      {Value::Date(date), Value::Interval(interval), Value::Date(origin)},
+      NullDate(),
+      absl::OutOfRangeError(expected_error)};
+  call.params = call.params.WrapWithFeatureSet(
+      {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE});
+  return call;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsDateBucket() {
+  std::vector<FunctionTestCall> v = {
+      // Default origin and different intervals
+      DateBucketTest("2020-03-15",
+                     "0-0 7",  // INTERVAL 7 DAY
+                     "1950-01-01", "2020-03-15"),
+      DateBucketTest("2020-03-15",
+                     "0-2",  // INTERVAL 2 MONTH
+                     "1950-01-01", "2020-03-01"),
+      // Non-default origin and different intervals
+      DateBucketTest("2020-03-15",
+                     "0-0 7",  // INTERVAL 7 DAY
+                     "1950-01-02", "2020-03-09"),
+      DateBucketTest("2020-03-15",
+                     "0-2",  // INTERVAL 2 MONTH
+                     "1950-12-07", "2020-02-07"),
+      // input < origin
+      DateBucketTest("2020-03-15",
+                     "0-0 7",  // INTERVAL 7 DAY
+                     "1950-01-01", "2020-03-15"),
+      DateBucketTest("2020-03-15",
+                     "0-2",  // INTERVAL 2 MONTH
+                     "2051-01-01", "2020-03-01"),
+      // Input aligns with a bucket, but an offset may shift it to a previous
+      // bucket
+      DateBucketTest("2020-03-15",
+                     "0-0 7",       // INTERVAL 7 DAY
+                     "1950-01-02",  // day offset
+                     "2020-03-09"),
+      DateBucketTest("2020-03-15",
+                     "0-0 7",       // INTERVAL 7 DAY
+                     "2051-01-02",  // day offset
+                     "2020-03-09"),
+      DateBucketTest("2020-09-01",
+                     "0-4",         // INTERVAL 4 MONTH
+                     "1950-02-01",  // month offset
+                     "2020-06-01"),
+      DateBucketTest("2020-09-01",
+                     "0-4",         // INTERVAL 4 MONTH
+                     "2051-02-01",  // month offset
+                     "2020-06-01"),
+      DateBucketTest("2020-09-01",
+                     "0-4",         // INTERVAL 4 MONTH
+                     "1950-01-02",  // day offset
+                     "2020-05-02"),
+      DateBucketTest("2020-09-01",
+                     "0-4",         // INTERVAL 4 MONTH
+                     "2051-01-02",  // day offset
+                     "2020-05-02"),
+      // input == origin
+
+      DateBucketTest("2020-03-15", "0-0 7", "2020-03-15", "2020-03-15"),
+      DateBucketTest("0001-01-01", "0-0 7", "0001-01-01", "0001-01-01"),
+      DateBucketTest("9999-12-31", "0-0 7", "9999-12-31", "9999-12-31"),
+      // input is in the bucket right before origin
+      DateBucketTest("1949-12-31", "0-1", "1950-01-01", "1949-12-01"),
+      DateBucketTest("1949-12-01", "0-1", "1950-01-01", "1949-12-01"),
+      // input is in the origin bucket
+      DateBucketTest("1950-01-17", "0-1", "1950-01-01", "1950-01-01"),
+      // input is in the bucket right after origin
+      DateBucketTest("1950-01-02", "0-0 1", "1950-01-01", "1950-01-02"),
+      DateBucketTest("1950-02-28", "0-1", "1950-01-01", "1950-02-01"),
+      DateBucketTest("1950-02-01", "0-1", "1950-01-01", "1950-02-01"),
+      // input is on the boundaries
+      DateBucketTest("0001-01-01", "0-0 1", "1950-01-01", "0001-01-01"),
+      DateBucketTest("9999-12-31", "0-0 1", "1950-01-01", "9999-12-31"),
+      DateBucketTest("0001-01-01", "0-1", "1950-01-01", "0001-01-01"),
+      DateBucketTest("9999-12-31", "0-1", "1950-01-01", "9999-12-01"),
+      // origin is on the boundaries
+      DateBucketTest("2020-03-15" /* Sunday */, "0-0 7",
+                     "0001-01-01", /* Monday */
+                     "2020-03-09" /* Monday */),
+      DateBucketTest("2020-03-15" /* Sunday */, "0-0 7",
+                     "9999-12-31", /* Friday */
+                     "2020-03-13" /* Friday */),
+      DateBucketTest("2020-03-15", "0-1", "0001-01-01", "2020-03-01"),
+      DateBucketTest("2020-03-15", "0-1", "9999-12-31", "2020-02-29"),
+      // input and origin are on the boundaries
+      DateBucketTest("0001-01-01", "0-0 1", "0001-01-01", "0001-01-01"),
+      DateBucketTest("9999-12-31", "0-0 1", "9999-12-31", "9999-12-31"),
+      DateBucketTest("9999-12-31", "0-0 1", "0001-01-01", "9999-12-31"),
+      DateBucketTest("0001-01-01", "0-0 1", "9999-12-31", "0001-01-01"),
+      DateBucketTest("0001-01-01", "0-1", "0001-01-01", "0001-01-01"),
+      DateBucketTest("9999-12-31", "0-1", "9999-12-31", "9999-12-31"),
+      DateBucketTest("9999-12-31", "0-1", "0001-01-01", "9999-12-01"),
+      DateBucketErrorTest("0001-01-01", "0-1", "9999-12-31",
+                          "Bucket for 0001-01-01 is outside of date range"),
+      DateBucketErrorTest("2020-03-15", "0-0", "1950-01-01",
+                          "DATE_BUCKET requires exactly one non-zero "
+                          "INTERVAL part in bucket width"),
+      // NANOSECOND part is not supported
+      DateBucketErrorTest("2020-03-15", "00:00:00.0000001", "1950-01-01",
+                          "DATE_BUCKET only supports bucket width INTERVAL "
+                          "with MONTH and DAY parts"),
+      // MICROSECOND part is not supported
+      DateBucketErrorTest("2020-03-15", "24:00:00", "1950-01-01",
+                          "DATE_BUCKET only supports bucket width INTERVAL "
+                          "with MONTH and DAY parts"),
+      // Negative DAY part is not supported
+      DateBucketErrorTest("2020-03-15", "0-0 -1", "1950-01-01",
+                          "DATE_BUCKET doesn't support negative "
+                          "bucket width INTERVAL"),
+      // Negative MONTH part is not supported
+      DateBucketErrorTest("2020-03-15", "-0-1", "1950-01-01",
+                          "DATE_BUCKET doesn't support negative "
+                          "bucket width INTERVAL"),
+      // Mixing MONTH and DAY parts is not supported
+      DateBucketErrorTest("2020-03-15", "0-1 1", "1950-01-01",
+                          "DATE_BUCKET requires exactly one non-zero "
+                          "INTERVAL part in bucket width"),
+      // Bucket is outside of DATE range. Output needs to be at 0000-12-31
+      DateBucketErrorTest("0001-01-01", "0-0 2", "0001-01-02",
+                          "Bucket for 0001-01-01 is outside of date range"),
+      // Bucket is outside of DATE range. Output needs to be at 0000-12-01
+      DateBucketErrorTest("0001-01-01", "0-2", "0001-02-01",
+                          "Bucket for 0001-01-01 is outside of date range"),
+      // Max number of days (10000 * 366)
+      DateBucketTest("2020-03-15", "0-0 3660000", "1950-01-01", "1950-01-01"),
+      // Max number of months (10000 * 12)
+      DateBucketTest("2020-03-15", "10000-0", "1950-01-01", "1950-01-01"),
+      // Max number of days (10000 * 366), bucket is outside of DATE range.
+      // Output needs to be at -7970-04-06
+      DateBucketErrorTest("2020-03-15", "0-0 3660000", "2051-01-01",
+                          "Bucket for 2020-03-15 is outside of date range"),
+      // Max number of months (10000 * 12), bucket is outside of DATE range.
+      // Output needs to be at -7949-01-01
+      DateBucketErrorTest("2020-03-15", "10000-0", "2051-01-01",
+                          "Bucket for 2020-03-15 is outside of date range"),
+      // Interesting MONTH part cases.
+      // Origin is on the first day of the month:
+      DateBucketTest("2020-09-01",
+                     "0-3",  // INTERVAL 3 MONTH
+                     "1950-01-01", "2020-07-01"),
+      DateBucketTest("2020-09-30",
+                     "0-4",  // INTERVAL 4 MONTH
+                     "1950-01-01", "2020-09-01"),
+      // Origin is on the last day of the month (31 day origin, 31 day output):
+      DateBucketTest("2020-08-31",
+                     "0-3",  // INTERVAL 3 MONTH
+                     "1950-01-31", "2020-07-31"),
+      DateBucketTest("2020-09-29",
+                     "0-4",  // INTERVAL 4 MONTH
+                     "1950-01-31", "2020-05-31"),
+      // Origin is on the last day of the month (31 day origin, 30 day output):
+      DateBucketTest("2020-06-15",
+                     "0-3",  // INTERVAL 3 MONTH
+                     "1950-01-31", "2020-04-30"),
+      // Origin is on the last day of the month (30 day origin, 30 day output):
+      DateBucketTest("2020-07-31",
+                     "0-2",  // INTERVAL 2 MONTH
+                     "1950-04-30", "2020-06-30"),
+      DateBucketTest("2020-09-30",
+                     "0-2",  // INTERVAL 2 MONTH
+                     "1950-04-30", "2020-08-30"),
+      // Origin and input are on the last day of the month (31 day origin,
+      // 30 day input):
+      DateBucketTest("2020-04-30",
+                     "0-1",  // INTERVAL 1 MONTH
+                     "1950-03-31", "2020-04-30"),
+      DateBucketTest("2020-04-30",
+                     "0-1",  // INTERVAL 1 MONTH
+                     "2050-03-31", "2020-04-30"),
+      // Origin and input are on the last day of the month (30 day origin,
+      // 31 day input):
+      DateBucketTest("2020-05-31",
+                     "0-1",  // INTERVAL 1 MONTH
+                     "1950-04-30", "2020-05-30"),
+      DateBucketTest("2020-05-31",
+                     "0-1",  // INTERVAL 1 MONTH
+                     "2050-04-30", "2020-05-30"),
+      // Origin and input are on the last day of the month (28 day origin,
+      // 31 day input):
+      DateBucketTest("2020-03-31",
+                     "0-1",  // INTERVAL 1 MONTH
+                     "1950-02-28", "2020-03-28"),
+      // February edge cases:
+      DateBucketTest("2021-02-28",  // last day of the month
+                     "0-1",         // INTERVAL 1 MONTH
+                     "1950-01-31", "2021-02-28"),
+      DateBucketTest("2021-02-28",  // last day of the month
+                     "0-1",         // INTERVAL 1 MONTH
+                     "2051-01-31", "2021-02-28"),
+      DateBucketTest("2020-02-28",  // last day of the month - 1
+                     "0-1",         // INTERVAL 1 MONTH
+                     "1950-01-31", "2020-01-31"),
+      DateBucketTest("2020-02-28",  // last day of the month - 1
+                     "0-1",         // INTERVAL 1 MONTH
+                     "2051-01-31", "2020-01-31"),
+      DateBucketTest("2020-02-29",
+                     "0-1",  // INTERVAL 1 MONTH
+                     "1950-01-31", "2020-02-29"),
+      DateBucketTest("2020-02-29",
+                     "0-1",  // INTERVAL 1 MONTH
+                     "2051-01-31", "2020-02-29"),
+      DateBucketTest("2021-03-30",  // day before 31
+                     "0-1",         // INTERVAL 1 MONTH
+                     "1950-01-31", "2021-02-28"),
+      DateBucketTest("2021-03-30",  // day before 31
+                     "0-1",         // INTERVAL 1 MONTH
+                     "2051-01-31", "2021-02-28"),
+      DateBucketTest("2020-03-30",
+                     "1-0",  // INTERVAL 1 YEAR
+                     "1950-02-28", "2020-02-28"),
+      DateBucketTest("2020-03-30",
+                     "1-0",  // INTERVAL 1 YEAR
+                     "2052-02-29", "2020-02-29"),
+      DateBucketTest("2021-03-30",
+                     "1-0",  // INTERVAL 1 YEAR
+                     "2052-02-29", "2021-02-28"),
+  };
+  return v;
+}
+
 }  // namespace zetasql

@@ -16,12 +16,17 @@
 
 #include "zetasql/public/lenient_formatter.h"
 
+#include <algorithm>
 #include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/formatter_options.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
+#include "unicode/uchar.h"
+#include "unicode/unistr.h"
 
 namespace zetasql {
 

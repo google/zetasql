@@ -126,8 +126,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArrayLast(bool is_safe);
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayMin(bool is_safe);
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayMax(bool is_safe);
 
-// Test function for ARRAY_SUM
+// Test function for ARRAY_SUM and ARRAY_AVG
 std::vector<QueryParamsWithResult> GetFunctionTestsArraySum(bool is_safe);
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayAvg(bool is_safe);
 
 // Test function for ARRAY_SLICE
 std::vector<QueryParamsWithResult> GetFunctionTestsArraySlice(bool is_safe);
@@ -159,6 +160,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampTrunc();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeBucket();
+std::vector<FunctionTestCall> GetFunctionTestsDateBucket();
 std::vector<FunctionTestCall> GetFunctionTestsExtractFrom();
 std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp();
 std::vector<FunctionTestCall> GetFunctionTestsFormatDatetime();

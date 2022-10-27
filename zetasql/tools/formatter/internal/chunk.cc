@@ -1364,15 +1364,19 @@ void MarkAllMacroAndTableDefinitions(const TokensView& tokens_view) {
     if (tokens[t - 2]->GetKeyword() == "DEFINE" &&
         tokens[t]->MayBeIdentifier()) {
       const absl::string_view define_type = tokens[t - 1]->GetKeyword();
+      Token::Type type = Token::Type::UNKNOWN;
       if (define_type == "TABLE") {
-        tokens[t]->SetType(Token::Type::TABLE_NAME_IN_DEFINE_STMT);
+        type = Token::Type::TABLE_NAME_IN_DEFINE_STMT;
+      } else if (define_type == "MACRO") {
+        type = Token::Type::MACRO_NAME_IN_DEFINE_STMT;
+      }
+      if (type != Token::Type::UNKNOWN) {
+        tokens[t]->SetType(type);
         while (++t < tokens.size() &&
                tokens[t]->MayBeIdentifierContinuation(*tokens[t - 1]) &&
                !SpaceBetweenTokensInInput(*tokens[t - 1], *tokens[t])) {
-          tokens[t]->SetType(Token::Type::TABLE_NAME_IN_DEFINE_STMT);
+          tokens[t]->SetType(type);
         }
-      } else if (define_type == "MACRO") {
-        tokens[t]->SetType(Token::Type::MACRO_NAME_IN_DEFINE_STMT);
       }
       t += 2;
     }
@@ -1405,7 +1409,7 @@ int FindNextParamList(const std::vector<Token*>& tokens, int index) {
     if (index >= 3 &&
         tokens[index - 1]->Is(Token::Type::TABLE_NAME_IN_DEFINE_STMT)) {
       // We've already consumed 'DEFINE TABLE'; now, we need to consume all
-      // tokens in <identifier> (which may be dot-delimited e.g 'foo.bar').
+      // tokens in <identifier> (which may be dot-delimited e.g. 'foo.bar').
       while (tokens[index]->MayBeIdentifierContinuation(*tokens[index - 1])) {
         if (++index >= tokens.size()) {
           return index;
@@ -1494,7 +1498,7 @@ void MarkAllProtoExtensionParentheses(const TokensView& tokens_view) {
     absl::string_view current_kwd = tokens[i]->GetKeyword();
     if (previous_kwd != "." || current_kwd != "(") continue;
     // We've found a ".(" sequence which potentially introduces an inline proto
-    // extension.  Only mark the "(" as an proto extension opening parenthesis
+    // extension.  Only mark the "(" as a proto extension opening parenthesis
     // if we can find the corresponding closing parenthesis.
     for (int j = i + 1; j < tokens.size(); ++j) {
       current_kwd = tokens[j]->GetKeyword();

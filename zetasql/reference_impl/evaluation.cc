@@ -85,7 +85,8 @@ absl::Status ValidateFirstColumnPrimaryKey(
 
 EvaluationContext::EvaluationContext(const EvaluationOptions& options)
     : options_(options),
-      memory_accountant_(options.max_intermediate_byte_size),
+      memory_accountant_(options.max_intermediate_byte_size,
+                         "max_intermediate_byte_size"),
       deterministic_output_(true) {}
 
 absl::Status EvaluationContext::AddTableAsArray(

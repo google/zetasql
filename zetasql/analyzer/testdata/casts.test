@@ -5522,6 +5522,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 [no_java]
 select CAST(CAST(1 as ROUNDING_MODE) as `zetasql.functions.RoundingMode`);
 --
@@ -5530,6 +5531,7 @@ select CAST(CAST(1 as ROUNDING_MODE) as `zetasql.functions.RoundingMode`);
             ^
 ==
 
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 [no_java]
 select CAST(CAST(1 as `zetasql.functions.RoundingMode`) as ROUNDING_MODE);
 --

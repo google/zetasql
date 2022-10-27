@@ -1381,7 +1381,7 @@ absl::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
   }
 
   const ProtoType* default_return_type = nullptr;
-  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+  ZETASQL_RETURN_IF_ERROR(type_factory->MakeProtoType(
       google::protobuf::EnumValueDescriptorProto::descriptor(), &default_return_type));
   return default_return_type;
 }
@@ -1795,13 +1795,14 @@ static bool FunctionSignatureIsDisabled(
   return false;
 }
 
-static void InsertCheckedFunction(NameToFunctionMap* functions,
-                                  std::unique_ptr<Function> function) {
+static absl::Status InsertCheckedFunction(NameToFunctionMap* functions,
+                                          std::unique_ptr<Function> function) {
   // Not using IdentifierPathToString to avoid escaping things like '$add' and
   // 'if'.
   std::string name = absl::StrJoin(function->FunctionNamePath(), ".");
-  ZETASQL_CHECK(functions->emplace(name, std::move(function)).second)
+  ZETASQL_RET_CHECK(functions->emplace(name, std::move(function)).second)
       << name << "already exists";
+  return absl::OkStatus();
 }
 
 void InsertCreatedFunction(NameToFunctionMap* functions,
@@ -1844,18 +1845,19 @@ void InsertCreatedFunction(NameToFunctionMap* functions,
     }
     function->ResetSignatures(new_signatures);
   }
-  InsertCheckedFunction(functions, std::move(function));
+  ZETASQL_CHECK_OK(InsertCheckedFunction(functions, std::move(function)));
 }
 
+// Returns true if the function was actually inserted.
 template <typename FunctionSignatureListT>
-static void InsertFunctionImpl(NameToFunctionMap* functions,
-                               const ZetaSQLBuiltinFunctionOptions& options,
-                               std::vector<std::string> name,
-                               Function::Mode mode,
-                               const FunctionSignatureListT& signature_list,
-                               FunctionOptions function_options) {
+static absl::StatusOr<bool> InsertFunctionImpl(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options,
+    std::vector<std::string> name, Function::Mode mode,
+    const FunctionSignatureListT& signature_list,
+    FunctionOptions function_options) {
   if (FunctionIsDisabled(options, function_options)) {
-    return;
+    return false;
   }
   std::vector<FunctionSignature> signatures;
   signatures.reserve(signature_list.size());
@@ -1870,7 +1872,7 @@ static void InsertFunctionImpl(NameToFunctionMap* functions,
     // then we do not insert the function into the map (it is as if the function
     // does not exist).
     if (signatures.empty()) {
-      return;
+      return false;
     }
   } else if (!options.include_function_ids.empty()) {
     // When a function is defined without signatures then we generally include
@@ -1881,13 +1883,15 @@ static void InsertFunctionImpl(NameToFunctionMap* functions,
     //
     // Note, however, that we do not insert the function into the map if the
     // <include_function_ids> list is present.
-    return;
+    return false;
   }
 
-  InsertCheckedFunction(
-      functions, std::make_unique<Function>(
-                     std::move(name), Function::kZetaSQLFunctionGroupName,
-                     mode, std::move(signatures), std::move(function_options)));
+  ZETASQL_RETURN_IF_ERROR(InsertCheckedFunction(
+      functions,
+      std::make_unique<Function>(
+          std::move(name), Function::kZetaSQLFunctionGroupName, mode,
+          std::move(signatures), std::move(function_options))));
+  return true;
 }
 
 void InsertFunction(NameToFunctionMap* functions,
@@ -1899,8 +1903,31 @@ void InsertFunction(NameToFunctionMap* functions,
   names.reserve(1);
   names.emplace_back(name);
 
-  InsertFunctionImpl(functions, options, std::move(names), mode, signatures,
-                     function_options);
+  ZETASQL_CHECK_OK(InsertFunctionImpl(functions, options, std::move(names), mode,
+                              signatures, function_options));
+}
+
+// Inserts the given function and types, if the enabled with the given options.
+// Also inserts the given type, if at least one signature was added.
+absl::Status InsertFunctionAndTypes(
+    NameToFunctionMap* functions, NameToTypeMap* types,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view name,
+    Function::Mode mode, const std::vector<FunctionSignatureOnHeap>& signatures,
+    FunctionOptions function_options,
+    std::vector<const Type*> types_to_insert) {
+  std::vector<std::string> names;
+  names.reserve(1);
+  names.emplace_back(name);
+
+  ZETASQL_ASSIGN_OR_RETURN(bool inserted,
+                   InsertFunctionImpl(functions, options, std::move(names),
+                                      mode, signatures, function_options));
+  if (inserted) {
+    for (const Type* type : types_to_insert) {
+      ZETASQL_RETURN_IF_ERROR(InsertType(types, options, type));
+    }
+  }
+  return absl::OkStatus();
 }
 
 // Note: This function is intentionally overloaded to prevent a default
@@ -1913,8 +1940,9 @@ void InsertFunction(NameToFunctionMap* functions,
   names.reserve(1);
   names.emplace_back(name);
 
-  InsertFunctionImpl(functions, options, std::move(names), mode, signatures,
-                     /* function_options*/ {});
+  ZETASQL_CHECK_OK(InsertFunctionImpl(functions, options, std::move(names), mode,
+                              signatures,
+                              /* function_options=*/{}));
 }
 
 void InsertSimpleFunction(
@@ -1926,9 +1954,9 @@ void InsertSimpleFunction(
   names.reserve(1);
   names.emplace_back(name);
 
-  InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
+  ZETASQL_CHECK_OK(InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
       functions, options, std::move(names), mode, signatures,
-      /* function_options*/ {});
+      /* function_options*/ {}));
 }
 
 void InsertSimpleFunction(
@@ -1941,8 +1969,9 @@ void InsertSimpleFunction(
   names.reserve(1);
   names.emplace_back(name);
 
-  InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
-      functions, options, std::move(names), mode, signatures, function_options);
+  ZETASQL_CHECK_OK(InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
+      functions, options, std::move(names), mode, signatures,
+      function_options));
 }
 
 void InsertNamespaceFunction(
@@ -1955,8 +1984,8 @@ void InsertNamespaceFunction(
   names.reserve(2);
   names.emplace_back(space);
   names.emplace_back(name);
-  InsertFunctionImpl(functions, options, std::move(names), mode, signatures,
-                     std::move(function_options));
+  ZETASQL_CHECK_OK(InsertFunctionImpl(functions, options, std::move(names), mode,
+                              signatures, std::move(function_options)));
 }
 
 void InsertSimpleNamespaceFunction(
@@ -1968,9 +1997,9 @@ void InsertSimpleNamespaceFunction(
   names.reserve(2);
   names.emplace_back(space);
   names.emplace_back(name);
-  InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
+  ZETASQL_CHECK_OK(InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
       functions, options, std::move(names), mode, signatures,
-      /* function_options*/ {});
+      /* function_options*/ {}));
 }
 
 void InsertSimpleNamespaceFunction(
@@ -1983,9 +2012,36 @@ void InsertSimpleNamespaceFunction(
   names.reserve(2);
   names.emplace_back(space);
   names.emplace_back(name);
-  InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
+  ZETASQL_CHECK_OK(InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
       functions, options, std::move(names), mode, signatures,
-      std::move(function_options));
+      std::move(function_options)));
+}
+
+absl::Status InsertType(NameToTypeMap* types,
+                        const ZetaSQLBuiltinFunctionOptions& options,
+                        const Type* type) {
+  if (!type->IsSupportedType(options.language_options)) {
+    return absl::OkStatus();
+  }
+
+  if (options.language_options.product_mode() == PRODUCT_EXTERNAL &&
+      type->IsEnum()) {
+    // We have special enforcement that EnumType should not be added as
+    // named types in external products (for now). IsSupportedType can't be
+    // relied on, because certain enums are considered 'supported' for the
+    // purposes of function signature matching.
+    // In effect, this an exception to an exception.
+    return absl::OkStatus();
+  }
+  auto [it, inserted] = types->try_emplace(
+      type->ShortTypeName(options.language_options.product_mode()), type);
+  if (!inserted) {
+    const Type* existing_type = it->second;
+    // Double insertion could be totally fine, but it must be the an equal
+    // type.
+    ZETASQL_RET_CHECK(existing_type->Equals(type));
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

@@ -47,10 +47,8 @@ known_errors {
 known_errors {
   # TODO: Implement these functions
   mode: ALLOW_UNIMPLEMENTED
-  label: "collation_test:analytic_function_count_distinct_with_collation_binary"
-  label: "collation_test:analytic_function_count_distinct_with_collation_ci"
-  label: "collation_test:analytic_function_min_max_with_collation_binary"
-  label: "collation_test:analytic_function_min_max_with_collation_ci"
+  label: "collation_test:analytic_percentile_disc_with_collation_binary"
+  label: "collation_test:analytic_percentile_disc_with_collation_ci"
   label: "collation_test:string_agg_with_sort_key_with_collation_binary"
   label: "collation_test:string_agg_with_sort_key_with_collation_ci"
 }

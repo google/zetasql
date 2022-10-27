@@ -1,6 +1,6 @@
 
 
-# Protocol buffers
+# Work with protocol buffers
 
 Protocol buffers are a flexible, efficient mechanism for serializing structured
 data. They are easy to create, small in size, and efficient to send over RPCs.
@@ -22,9 +22,10 @@ how they work in languages other than SQL, see the
 
 This section covers how to construct protocol buffers using ZetaSQL.
 
-### NEW ProtocolBuffer {...} {: #using_new_map_constructor }
+### NEW protocol_buffer {...} {: #using_new_map_constructor }
 
-You can create a protocol buffer using the map constructor `NEW` syntax:
+You can create a protocol buffer using the [`NEW`][new-operator]
+operator with a map constructor:
 
 <section class="tabs">
 
@@ -42,7 +43,7 @@ NEW protocol_buffer {
 
 Where:
 
-+ `protocol_buffer`: The full Protocol Buffer name including the package name.
++ `protocol_buffer`: The full protocol buffer name including the package name.
 + `field_name`: The name of a field.
 + `literal_or_expression`: The field value.
 +  `map_field_name`: The name of a map-typed field. The value is a list of
@@ -105,7 +106,7 @@ When using this syntax:
     preceding the extension field (unless it is the first field).
 +   A colon is required between field name and values unless the value is a map
     constructor.
-+   The `NEW ProtocolBuffer` prefix is optional if the protocol buffer type can
++   The `NEW protocol_buffer` prefix is optional if the protocol buffer type can
     be inferred from the context.
 +   The type of submessages inside the map constructor can be inferred.
 
@@ -216,26 +217,21 @@ Examples of the type protocol buffer being inferred from context:
     SET @@proto_system_variable = { rank: 1 chart_name: "2" }
     ```
 
-### NEW ProtocolBuffer (...) 
+### NEW protocol_buffer (...) 
 <a id="using_new"></a>
 
-You can create a protocol buffer using the keyword `NEW` with a parenthesized
-list of arguments, using aliases to specify field names:
+You can create a protocol buffer using the [`NEW`][new-operator] operator with a
+parenthesized list of arguments and aliases to specify field names:
+
+<section class="tabs">
+
+#### Format {.new-tab}
 
 ```sql
-NEW ProtocolBuffer(field_1 [AS alias], ...field_n [AS alias])
+NEW protocol_buffer(field [AS alias], ...)
 ```
 
-When using this syntax:
-
-+ All field expressions must have an [explicit alias][explicit-alias] or end with an identifier.
-  For example, the expression `a.b.c` has the [implicit alias][implicit-alias] `c`.
-+ `NEW` matches fields by alias to the field names of the protocol buffer.
-  Aliases must be unique.
-+ The expressions must be implicitly coercible or literal-coercible to the type
-  of the corresponding protocol buffer field.
-
-Example:
+#### Example {.new-tab}
 
 ```sql
 SELECT
@@ -243,18 +239,32 @@ SELECT
   name,
   NEW zetasql.examples.music.Chart(key AS rank, name AS chart_name)
 FROM
-  (SELECT 1 as key, "2" as name);
+  (SELECT 1 AS key, "2" AS name);
 ```
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+</section>
+
+When using this syntax:
+
++   All field expressions must have an [explicit alias][explicit-alias] or end
+    with an identifier. For example, the expression `a.b.c` has the [implicit
+    alias][implicit-alias] `c`.
++   `NEW` matches fields by alias to the field names of the protocol buffer.
+    Aliases must be unique.
++   The expressions must be implicitly coercible or literal-coercible to the
+    type of the corresponding protocol buffer field.
 
 To create a protocol buffer with an extension, use this syntax:
 
 ```sql
-NEW ProtocolBuffer(expr1 AS (path.to.extension), ...)
+NEW protocol_buffer(expression AS (path.to.extension), ...)
 ```
 
 +   For `path.to.extension`, provide the path to the extension. Place the
     extension path inside parentheses.
-+   `expr1` provides the value to set for the extension. `expr1` must be of the
++   `expression` provides the value to set for the extension. `expression` must be of the
     same type as the extension or [coercible to that type][conversion-rules].
 
     Example:
@@ -300,9 +310,8 @@ NEW ProtocolBuffer(expr1 AS (path.to.extension), ...)
 ### SELECT AS typename 
 <a id="select_as_typename_proto"></a>
 
-A `SELECT AS typename` statement can produce a value table where the
-row type is a specific named protocol buffer type. To learn more, see
-[Query syntax][select-as-typename].
+The [`SELECT AS typename`][select-as-typename] statement can produce a value table where the
+row type is a specific named protocol buffer type.
 
 `SELECT AS` does not support setting protocol buffer extensions. To do so, use
 the [NEW][new-keyword] keyword instead. For example,  to create a
@@ -764,7 +773,7 @@ FROM
 ```
 
 For more information, see
-[Working with Arrays][working-with-arrays].
+[Work with arrays][working-with-arrays].
 
 ### Returning the number of elements in an array
 
@@ -1021,6 +1030,8 @@ FROM
 [correlated-join]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#correlated_join
 
 [unnest-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[new-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#new_operator
 
 [select-as-typename]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_as_typename
 

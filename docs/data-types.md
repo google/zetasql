@@ -256,8 +256,12 @@ the two ARRAYs because ARRAYs cannot hold other ARRAYs directly.</td>
 ### Constructing an ARRAY 
 <a id="constructing_an_array"></a>
 
-You can construct an ARRAY using array literals or array functions. To learn
-how, see [Working with arrays][working-with-arrays].
+You can construct an ARRAY using array literals or array functions, and perform
+other tasks with arrays, such as accessing array elements and
+converting arrays to strings.
+
+To learn more about constructing and using arrays, see [Work with
+arrays][working-with-arrays].
 
 ## Boolean type
 
@@ -833,15 +837,16 @@ presence of optional fields.
 Protocol buffer ENUM types are also available and can be referenced using the
 fully-qualified ENUM type name.
 
-See [Using Protocol Buffers][protocol-buffers]
+See [Work with protocol buffers][protocol-buffers]
 for more information.
 
 ### Constructing a PROTO 
 <a id="constructing_a_proto"></a>
 
-You can construct a PROTO with the `NEW` keyword or with the
-`SELECT AS typename` statement. To learn how, see
-[Using Protocol Buffers][protocol-buffers].
+You can construct a PROTO using the [`NEW`][new-operator] operator or the
+[`SELECT AS typename`][select-as-typename] statement. To learn more about
+constructing, configuring, and using PROTOs in ZetaSQL, see [Work with
+protocol buffers][protocol-buffers].
 
 ### Limited comparisons for PROTO
 
@@ -1383,8 +1388,6 @@ when there is a leap second.
 
 [orderable-nulls]: #orderable_nulls
 
-[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
-
 [lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#literals
 
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#constructing_arrays
@@ -1392,6 +1395,12 @@ when there is a leap second.
 [join-types]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types
 
 [order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
+
+[select-as-typename]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_as_typename
+
+[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
+
+[new-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#new_operator
 
 [geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md
 

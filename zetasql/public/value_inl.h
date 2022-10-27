@@ -475,6 +475,12 @@ inline int32_t Value::enum_value() const {
   return enum_value_;
 }
 
+inline const absl::Cord& Value::proto_value() const {
+  ZETASQL_DCHECK_EQ(TYPE_PROTO, metadata_.type_kind()) << "Not a proto value";
+  ZETASQL_DCHECK(!metadata_.is_null()) << "Null value";
+  return proto_ptr_->value();
+}
+
 inline TimeValue Value::time_value() const {
   return TimeValue::FromPacked32SecondsAndNanos(bit_field_32_value_,
                                                 subsecond_nanos());
@@ -753,25 +759,29 @@ class Value::Metadata::ContentLayout<8> {
       : type_(reinterpret_cast<uint64_t>(type) |
               GetTagValue(/*has_type=*/true, is_null, preserves_order)) {}
 
+  // clang-format off
   constexpr ContentLayout<8>(TypeKind kind, bool is_null, bool preserves_order,
                              int32_t value_extended_content)
 #if defined(ABSL_IS_BIG_ENDIAN)
       : value_extended_content_(value_extended_content),
         kind_(kind),
         tags_placeholder_(
-            GetTagValue(/*has_type=*/false, is_null, preserves_order)) {
-  }
+            GetTagValue(/*has_type=*/false, is_null, preserves_order)){}
 #elif defined(ABSL_IS_LITTLE_ENDIAN)
       : tags_placeholder_(
             GetTagValue(/*has_type=*/false, is_null, preserves_order)),
         kind_(kind),
-        value_extended_content_(value_extended_content) {
-  }
+        value_extended_content_(value_extended_content) {}
 #else
 #error Platform is not supported: neither big nor little endian;
 #endif
 
-  int16_t kind() const { return kind_; }
+  int16_t kind() const {
+    return kind_;
+  }
+  // TODO: wait for fixed clang-format
+  // clang-format on
+
   const Type* type() const {
     return reinterpret_cast<const Type*>(type_ & kTypeMask);
   }
@@ -779,18 +789,19 @@ class Value::Metadata::ContentLayout<8> {
   bool is_null() const { return type_ & kIsNullTag; }
   bool preserves_order() const { return type_ & kPreserverOrderTag; }
   bool has_type_pointer() const { return type_ & kHasTypeTag; }
+
+  friend constexpr Value::Metadata::Metadata(TypeKind kind, bool is_null,
+                                             bool preserves_order,
+                                             int32_t value_extended_content);
 };
 
 constexpr Value::Metadata::Metadata(TypeKind kind, bool is_null,
                                     bool preserves_order,
-                                    int32_t value_extended_content) {
-  *content() = Content(kind, is_null, preserves_order, value_extended_content);
-  ZETASQL_DCHECK(!content()->has_type_pointer());
-  ZETASQL_DCHECK(content()->kind() == kind);
-  ZETASQL_DCHECK(content()->value_extended_content() == value_extended_content);
-  ZETASQL_DCHECK(content()->preserves_order() == preserves_order);
-  ZETASQL_DCHECK(content()->is_null() == is_null);
-}
+                                    int32_t value_extended_content)
+    // To maintain constexpr consistency under C++17 we pass the int64_t from
+    // the union type to the data_ member.
+    : data_(Content(kind, is_null, preserves_order, value_extended_content)
+                .type_) {}
 
 namespace values {
 

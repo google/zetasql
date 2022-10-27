@@ -225,7 +225,7 @@ TEST_F(ConcatTuplesTest, IgnoreExtraSlots) {
 }
 
 TEST(MemoryAccountant, BasicTest) {
-  MemoryAccountant accountant(/*total_num_bytes=*/100);
+  MemoryAccountant accountant(/*total_num_bytes=*/100, "test_limit");
   absl::Status status;
 
   EXPECT_TRUE(accountant.RequestBytes(50, &status));
@@ -245,7 +245,10 @@ TEST(MemoryAccountant, BasicTest) {
   EXPECT_EQ(accountant.remaining_bytes(), 0);
 
   EXPECT_FALSE(accountant.RequestBytes(1, &status));
-  EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
+  EXPECT_THAT(
+      status,
+      StatusIs(absl::StatusCode::kResourceExhausted,
+               HasSubstr("Out of memory for MemoryAccountant(test_limit)")));
   EXPECT_EQ(accountant.remaining_bytes(), 0);
   status = absl::OkStatus();
 
@@ -268,7 +271,7 @@ TEST(MemoryAccountant, BasicTest) {
 }
 
 TEST(TupleDataDeque, PushAndPopTest) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
 
   TupleDataDeque deque(&accountant);
 
@@ -325,7 +328,7 @@ TEST(TupleDataDeque, PushAndPopTest) {
 }
 
 TEST(TupleDataDeque, DestructorTest) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
   {
     TupleDataDeque deque(&accountant);
     TupleData data = CreateTupleDataFromValues({Int64(10)});
@@ -339,7 +342,7 @@ TEST(TupleDataDeque, DestructorTest) {
 }
 
 TEST(TupleDataDeque, SetSlotTest) {
-  MemoryAccountant accountant(/*total_num_bytes=*/10000);
+  MemoryAccountant accountant(/*total_num_bytes=*/10000, "test_limit");
   TupleDataDeque deque(&accountant);
 
   // Build up TupleDatas with unset slots.
@@ -429,7 +432,7 @@ TEST(TupleDataOrderedQueue, InsertAndPopTest) {
       TupleComparator::Create({&key_arg}, /*slots_for_keys=*/{0},
                               /*params=*/{}, &context));
 
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
   TupleDataOrderedQueue q(*comparator, &accountant);
 
   for (const bool pop_back : {false, true}) {
@@ -486,7 +489,7 @@ TEST(TupleDataOrderedQueue, InsertAndPopTest) {
 }
 
 TEST(TupleDataOrderedQueue, DestructorTest) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
   {
     VariableId k1("k1"), k2("k2");
     TupleSchema schema({k1});
@@ -512,7 +515,7 @@ TEST(TupleDataOrderedQueue, DestructorTest) {
 }
 
 TEST(ValueHashSet, BasicTest) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
   ValueHashSet set(&accountant);
 
   int num_tuples = 0;
@@ -548,7 +551,7 @@ TEST(ValueHashSet, BasicTest) {
 }
 
 TEST(ValueHashSet, DestructorTest) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
   {
     ValueHashSet set(&accountant);
     for (int i = 0; i <= 3; ++i) {
@@ -562,7 +565,7 @@ TEST(ValueHashSet, DestructorTest) {
 }
 
 TEST(MemoryReservation, Basic) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
   MemoryReservation res(&accountant);
   absl::Status status;
   ASSERT_TRUE(res.Increase(400, &status));
@@ -577,7 +580,7 @@ TEST(MemoryReservation, Basic) {
 }
 
 TEST(MemoryReservation, Destructor) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
 
   {
     MemoryReservation res(&accountant);
@@ -589,7 +592,7 @@ TEST(MemoryReservation, Destructor) {
 }
 
 TEST(MemoryReservation, Move) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
 
   {
     MemoryReservation res(&accountant);
@@ -608,8 +611,8 @@ TEST(MemoryReservation, Move) {
 
 TEST(MemoryReservation, AccountantDestroyedAfterMove) {
   absl::Status status;
-  auto accountant =
-      std::make_unique<MemoryAccountant>(/*total_num_bytes=*/1000);
+  auto accountant = std::make_unique<MemoryAccountant>(/*total_num_bytes=*/1000,
+                                                       "test_limit");
   auto res1 = std::make_unique<MemoryReservation>(accountant.get());
   ASSERT_TRUE(res1->Increase(400, &status));
   auto res2 = std::make_unique<MemoryReservation>(std::move(*res1));
@@ -622,7 +625,7 @@ TEST(MemoryReservation, AccountantDestroyedAfterMove) {
 }
 
 TEST(ArrayBuilder, Basic) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
   ArrayBuilder builder(&accountant);
 
   absl::Status status;
@@ -647,7 +650,7 @@ TEST(ArrayBuilder, Basic) {
 }
 
 TEST(ArrayBuilder, NoPreserveOrder) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
   ArrayBuilder builder(&accountant);
 
   absl::Status status;
@@ -673,7 +676,7 @@ TEST(ArrayBuilder, NoPreserveOrder) {
 
 TEST(ArrayBuilder, PushBackFails) {
   int64_t int64_value_size = Value::Int64(0).physical_byte_size();
-  MemoryAccountant accountant(int64_value_size * 2);
+  MemoryAccountant accountant(int64_value_size * 2, "test_limit");
   ArrayBuilder builder(&accountant);
 
   absl::Status status;
@@ -692,7 +695,7 @@ TEST(ArrayBuilder, PushBackFails) {
 TEST(ArrayBuilder, VariableSizedElements) {
   // This test uses STRING instead of INT64 to make sure that there are no
   // incorrect assumptions about array elements being the same size.
-  MemoryAccountant accountant(/*total_num_bytes=*/150);
+  MemoryAccountant accountant(/*total_num_bytes=*/150, "test_limit");
   ArrayBuilder builder(&accountant);
   absl::Status status;
   EXPECT_TRUE(builder.PushBackUnsafe(Value::NullString(), &status));
@@ -707,7 +710,7 @@ TEST(ArrayBuilder, VariableSizedElements) {
 }
 
 TEST(ArrayBuilder, Destructor) {
-  MemoryAccountant accountant(/*total_num_bytes=*/1000);
+  MemoryAccountant accountant(/*total_num_bytes=*/1000, "test_limit");
   {
     ArrayBuilder builder(&accountant);
 
@@ -723,7 +726,7 @@ TEST(ArrayBuilder, Destructor) {
 
 TEST(ArrayBuilder, MoveAndCopyValues) {
   // Make sure that moving values actually moves them, rather than copying them
-  MemoryAccountant accountant(1000);
+  MemoryAccountant accountant(1000, "test_limit");
   ArrayBuilder builder(&accountant);
   Value value10 = Value::Int64(10);
   absl::Status status;

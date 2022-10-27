@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 
 #include "google/protobuf/timestamp.pb.h"
 #include "google/type/date.pb.h"
@@ -1026,6 +1027,33 @@ absl::Status TimestampBucket(absl::Time input,
                              absl::Time origin, absl::TimeZone timezone,
                              TimestampScale scale, absl::Time* output);
 
+// This class allows for more efficient implementation of TIMESTAMP_BUCKET
+// function when only the first argument (input timestamp) is non-const.
+class TimestampBucketizer {
+ public:
+  TimestampBucketizer(const TimestampBucketizer& other) = default;
+  TimestampBucketizer& operator=(const TimestampBucketizer& other) = default;
+  TimestampBucketizer(TimestampBucketizer&& other) = default;
+  TimestampBucketizer& operator=(TimestampBucketizer&& other) = default;
+
+  static absl::StatusOr<TimestampBucketizer> Create(
+      zetasql::IntervalValue bucket_width, absl::Time origin,
+      absl::TimeZone timezone, TimestampScale scale);
+
+  absl::Status Compute(absl::Time input, absl::Time* output) const;
+
+ private:
+  TimestampBucketizer(absl::Duration bucket_width, absl::Time origin,
+                      absl::TimeZone timezone)
+      : bucket_width_(std::move(bucket_width)),
+        origin_(std::move(origin)),
+        timezone_(std::move(timezone)) {}
+
+  const absl::Duration bucket_width_;
+  const absl::Time origin_;
+  const absl::TimeZone timezone_;
+};
+
 // Assigns <input> datetime to a specific bucket using the specified
 // <bucket_width> INTERVAL and returns the bucket start datetime.
 //
@@ -1052,6 +1080,32 @@ absl::Status DatetimeBucket(const DatetimeValue& input,
                             zetasql::IntervalValue bucket_width,
                             const DatetimeValue& origin, TimestampScale scale,
                             DatetimeValue* output);
+
+// Assigns <input_date> to a specific bucket using the specified
+// <bucket_width> INTERVAL and returns the bucket start date.
+//
+// <origin_date> controls the alignment of the buckets. It can be less than,
+// equal to or greater than <input_date>.
+//
+// For example: DATE_BUCKET(
+//                  DATE "2022-02-19",
+//                  INTERVAL 2 MONTH,
+//                  DATE "1950-01-01")
+//                  --> "2022-01-01"
+//
+// In the above example:
+// - <bucket_width> INTERVAL 2 MONTH indicates that the function divides
+// - date values into 2-month buckets
+// - <origin_date> "1950-01-01" indicates that starting from this date we divid
+//   the range of all date values (forwards and backwards) into <bucket_width>
+//   subranges.
+// - <input_date> "2022-02-19" gets assigned to bucket
+//   ["2022-01-01", "2022-02-28") and the start of the bucket ("2022-01-01") is
+//   returned.
+//
+absl::Status DateBucket(int32_t input_date,
+                        zetasql::IntervalValue bucket_width,
+                        int32_t origin_date, int32_t* output_date);
 
 // The namespace 'internal_functions' includes the internal implementation
 // details and is not part of the public api.

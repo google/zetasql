@@ -326,7 +326,8 @@ class UnpivotRewriter : public Rewriter {
     UnpivotRewriterVisitor visitor(&options, &catalog, &type_factory);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&visitor));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
-                     visitor.ConsumeRootNode<ResolvedStatement>());
+                     visitor.ConsumeRootNode<ResolvedNode>());
+    ZETASQL_RET_CHECK(result != nullptr);
     return result;
   }
   std::string Name() const override { return "UnpivotRewriter"; }

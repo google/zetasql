@@ -1904,6 +1904,73 @@ SELECT 1 IS NOT DISTINCT FROM 2
 SELECT 1 IS NOT DISTINCT FROM NULL
 ```
 
+### NEW operator 
+<a id="new_operator"></a>
+
+The `NEW` operator supports only protocol buffers and uses the following syntax:
+
++ Create a protocol buffer using a map constructor:
+
+  ```sql
+  NEW protocol_buffer {
+    field_name: literal_or_expression
+    field_name { ... }
+    repeated_field_name: [literal_or_expression, ... ]
+    map_field_name: [{key: literal_or_expression value: literal_or_expression}, ...],
+    (extension_name): literal_or_expression
+  }
+  ```
++ Create a protocol buffer using a parenthesized list of arguments:
+
+  ```sql
+  NEW protocol_buffer(field [AS alias], ...field [AS alias])
+  ```
+
+**Examples**
+
+Example with a map constructor:
+
+```sql
+NEW Universe {
+  name: "Sol"
+  closest_planets: ["Mercury", "Venus", "Earth" ]
+  star {
+    radius_miles: 432,690
+    age: 4,603,000,000
+  }
+  constellations [{
+    name: "Libra"
+    index: 0
+  }, {
+    name: "Scorpio"
+    index: 1
+  }]
+  planet_distances: [{
+    key: "Mercury"
+    distance: 46,507,000
+  }, {
+    key: "Venus"
+    distance: 107,480,000
+  }],
+  (UniverseExtraInfo.extension) {
+    ...
+  }
+  all_planets: (SELECT planets FROM SolTable)
+}
+```
+
+Example with a parenthesized list of arguments:
+
+```sql
+SELECT
+  key,
+  name,
+  NEW zetasql.examples.music.Chart { rank: 1 chart_name: "2" }
+```
+
+To learn more about constructing, configuring, and using protocol buffers in
+ZetaSQL, see [Work with protocol buffers][protocol-buffers].
+
 ### Concatenation operator
 
 The concatenation operator combines multiple values into one.
@@ -2050,6 +2117,8 @@ FROM UNNEST([
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
 
 [operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
 
 [operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
 

@@ -71,7 +71,7 @@ select 1 < > 2
 --
 ALTERNATION GROUP: ! =
 --
-ERROR: Syntax error: Illegal input character "!" [at 1:10]
+ERROR: Syntax error: Expected end of input but got "!" [at 1:10]
 select 1 ! = 2
          ^
 ==

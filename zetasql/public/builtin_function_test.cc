@@ -28,6 +28,7 @@
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
@@ -43,6 +44,7 @@ using testing::IsNull;
 using testing::NotNull;
 
 using NameToFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+using NameToTypeMap = absl::flat_hash_map<std::string, const Type*>;
 
 TEST(SimpleBuiltinFunctionTests, ConstructWithProtoTest) {
   ZetaSQLBuiltinFunctionOptionsProto proto =
@@ -100,6 +102,59 @@ TEST(SimpleBuiltinFunctionTests, ClassAndProtoSize) {
       3, ZetaSQLBuiltinFunctionOptionsProto::descriptor()->field_count())
       << "The number of fields in ZetaSQLBuiltinFunctionOptionsProto has "
       << "changed, please also update the serialization code accordingly.";
+}
+
+void GetConcreteTypesFromInputArgumentTypeList(
+    const FunctionArgumentTypeList& argument_types,
+    absl::flat_hash_set<const Type*>& types_out);
+
+void GetConcreteTypesFromInputArgumentType(
+    const FunctionArgumentType& argument_type,
+    absl::flat_hash_set<const Type*>& types_out) {
+  switch (argument_type.kind()) {
+    case ARG_TYPE_FIXED: {
+      const Type* type = argument_type.type();
+      ASSERT_NE(type, nullptr);
+      types_out.insert(type);
+      break;
+    }
+    case ARG_TYPE_LAMBDA: {
+      GetConcreteTypesFromInputArgumentTypeList(
+          argument_type.lambda().argument_types(), types_out);
+      GetConcreteTypesFromInputArgumentType(argument_type.lambda().body_type(),
+                                            types_out);
+      break;
+    }
+    default:
+      break;
+  }
+  if (argument_type.options().has_relation_input_schema()) {
+    const TVFRelation& relation =
+        argument_type.options().relation_input_schema();
+
+    for (const TVFSchemaColumn& column : relation.columns()) {
+      if (column.type != nullptr) {
+        types_out.insert(column.type);
+      }
+    }
+  }
+}
+
+void GetConcreteTypesFromInputArgumentTypeList(
+    const FunctionArgumentTypeList& argument_types,
+    absl::flat_hash_set<const Type*>& types_out) {
+  for (const FunctionArgumentType& argument : argument_types) {
+    GetConcreteTypesFromInputArgumentType(argument, types_out);
+  }
+}
+
+// This tries to find all the types in a given function signature. It is
+// best effort, failing pretty bad for templated functions, for instance.
+void GetConcreteTypesFromSignature(
+    const FunctionSignature& signature,
+    absl::flat_hash_set<const Type*>& types_out) {
+  GetConcreteTypesFromInputArgumentTypeList(signature.arguments(), types_out);
+  GetConcreteTypesFromInputArgumentType(signature.result_type(), types_out);
 }
 
 void ValidateFunction(const LanguageOptions& language_options,
@@ -656,6 +711,66 @@ TEST(SimpleFunctionTests, HideFunctionsForExternalMode) {
               zetasql_base::FindOrNull(functions, "net.make_net") == nullptr);
     EXPECT_NE(nullptr, zetasql_base::FindOrNull(functions, "array_length"));
   }
+}
+
+TEST(SimpleFunctionTests, TestNoOpaqueTypesInProductExternl) {
+  TypeFactory type_factory;
+  ZetaSQLBuiltinFunctionOptions options;
+  options.language_options.set_product_mode(PRODUCT_EXTERNAL);
+  options.language_options.EnableMaximumLanguageFeaturesForDevelopment();
+  NameToFunctionMap functions;
+  NameToTypeMap types;
+  ZETASQL_ASSERT_OK(GetZetaSQLFunctionsAndTypes(&type_factory, options, &functions,
+                                          &types));
+  EXPECT_THAT(types, testing::IsEmpty());
+}
+
+TEST(SimpleFunctionTests, TestOpaqueTypeConsistency) {
+  // Note, we test only for 'internal' mode (for now), since external mode
+  // should _not_ include opaque types (for now).
+  // See TestNoOpaqueTypesInProductExternl
+
+  TypeFactory type_factory;
+  // Builtin functions that include an opaque type transitively in their
+  // signature should also add that type with several exceptions.
+  // Conversly, all added types should appear in some function signature.
+  ZetaSQLBuiltinFunctionOptions options;
+  options.language_options.EnableMaximumLanguageFeaturesForDevelopment();
+  NameToFunctionMap functions;
+  NameToTypeMap types;
+  ZETASQL_ASSERT_OK(GetZetaSQLFunctionsAndTypes(&type_factory, options, &functions,
+                                          &types));
+  absl::flat_hash_set<const Type*> types_in_catalog;
+  for (const auto& [_, type] : types) {
+    types_in_catalog.insert(type);
+  }
+
+  // Don't add an entry for every opaque type, this is just a one-of to make
+  // sure _something_ is being returned as expected.  This type of testing
+  // should be added to compliance tests.
+  EXPECT_THAT(types_in_catalog,
+              testing::Contains(types::RoundingModeEnumType()));
+
+  absl::flat_hash_set<const Type*> all_referenced_types;
+  for (const auto& [name, function] : functions) {
+    for (const FunctionSignature& sig : function->signatures()) {
+      absl::flat_hash_set<const Type*> types_in_signature;
+      GetConcreteTypesFromSignature(sig, types_in_signature);
+      for (const Type* type : types_in_signature) {
+        if (type->IsEnum() && type->AsEnum()->IsOpaque()) {
+          EXPECT_THAT(types_in_catalog, testing::Contains(type))
+              << "function " << name << " with signature " << sig.DebugString()
+              << " references opaque enum type " << type->DebugString()
+              << " which is not returned by GetZetaSQLFunctionsAndTypes";
+        }
+      }
+      all_referenced_types.insert(types_in_signature.begin(),
+                                  types_in_signature.end());
+    }
+  }
+
+  // Make sure that every type in the catalog is referenced at least once.
+  EXPECT_THAT(types_in_catalog, testing::IsSubsetOf(all_referenced_types));
 }
 
 TEST(SimpleFunctionTests, TestFunctionSignaturesForUnintendedCoercion) {

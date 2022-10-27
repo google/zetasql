@@ -30,6 +30,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 
@@ -45,6 +46,12 @@ const std::string FunctionSignatureIdToName(FunctionSignatureId id);
 //
 // It's guaranteed that none of the built-in function names/aliases starts with
 // "[a-zA-Z]_", which is reserved for user-defined objects.
+absl::Status GetZetaSQLFunctionsAndTypes(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    std::map<std::string, std::unique_ptr<Function>>* functions,
+    absl::flat_hash_map<std::string, const Type*>* types);
+
+ABSL_DEPRECATED("Inline me!")
 void GetZetaSQLFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     std::map<std::string, std::unique_ptr<Function>>* functions);

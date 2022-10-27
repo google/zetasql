@@ -1348,6 +1348,21 @@ from TestTable
 ARRAY<STRUCT<STRING, STRING>>[{"A", "b"}, {"A", "b"}, {"A", "b"}]
 ==
 
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[name=analytic_function_min_max_with_collation_empty]
+with TestTable as (
+select 'A' col union all
+select 'b' union all
+select 'C'
+)
+select
+  min(collate(col, '')) over (),
+  max(collate(col, '')) over ()
+from TestTable
+--
+ARRAY<STRUCT<STRING, STRING>>[{"A", "b"}, {"A", "b"}, {"A", "b"}]
+==
+
 [name=like_with_collation_ci]
 select
   collate(NULL, 'und:ci') like 'abc',
@@ -1369,4 +1384,43 @@ select
   'defA\u070FbCdef' like COLLATE('%abc%', 'binary'),
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, true, false, false, false}]
+==
+
+# TODO: Add PERCENTILE_DISC collation support for reference implementation.
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[name=analytic_percentile_disc_with_collation_ci]
+WITH TestTable AS (
+SELECT 'Alpha' col UNION ALL
+SELECT 'Bravo' UNION ALL
+SELECT 'Charlie' UNION ALL
+SELECT 'Delta' UNION ALL
+SELECT 'alpha' UNION ALL
+SELECT 'bravo' UNION ALL
+SELECT 'charlie' UNION ALL
+SELECT 'delta'
+)
+SELECT
+  PERCENTILE_DISC(collate(col, 'und:ci'), 0.5) OVER ()
+FROM TestTable
+--
+ARRAY<STRUCT<STRING>>[{"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[name=analytic_percentile_disc_with_collation_binary]
+WITH TestTable AS (
+SELECT 'Alpha' col UNION ALL
+SELECT 'Bravo' UNION ALL
+SELECT 'Charlie' UNION ALL
+SELECT 'Delta' UNION ALL
+SELECT 'alpha' UNION ALL
+SELECT 'bravo' UNION ALL
+SELECT 'charlie' UNION ALL
+SELECT 'delta'
+)
+SELECT
+  PERCENTILE_DISC(collate(col, 'binary'), 0.5) OVER ()
+FROM TestTable
+--
+ARRAY<STRUCT<STRING>>[{"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}]
 ==

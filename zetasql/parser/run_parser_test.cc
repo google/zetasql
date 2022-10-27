@@ -769,8 +769,9 @@ class RunParserTest : public ::testing::Test {
       std::vector<ParseToken> parse_tokens;
       ParseResumeLocation location =
           ParseResumeLocation::FromStringView(test_case);
-      const absl::Status token_status =
-          GetParseTokens(ParseTokenOptions(), &location, &parse_tokens);
+      const absl::Status token_status = GetParseTokens(
+          ParseTokenOptions{.language_options = *language_options_}, &location,
+          &parse_tokens);
       if (!token_status.ok()) {
         EXPECT_FALSE(status.ok())
             << "Parse succeeded, but GetParseTokens failed with: "

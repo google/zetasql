@@ -39,16 +39,17 @@ class InternalAnalyzerOptions {
   static void SetLookupExpressionCallback(
       AnalyzerOptions& options,
       AnalyzerOptions::LookupExpressionCallback lookup_expression_callback) {
-    options.lookup_expression_callback_ = std::move(lookup_expression_callback);
+    options.data_->lookup_expression_callback =
+        std::move(lookup_expression_callback);
   }
 
   static const AnalyzerOptions::LookupExpressionCallback&
   GetLookupExpressionCallback(const AnalyzerOptions& options) {
-    return options.lookup_expression_callback_;
+    return options.data_->lookup_expression_callback;
   }
 
   static void ClearExpressionColumns(AnalyzerOptions& options) {
-    options.expression_columns_.clear();
+    options.data_->expression_columns.clear();
   }
 
   // AnalyzerOptions::validate_resolved_ast_ is used by internal components
@@ -56,11 +57,11 @@ class InternalAnalyzerOptions {
   // complete tree and thus could lookup AnalyzerOptions instead of the global
   // flag value to decide whether or not validator is triggered.
   static void SetValidateResolvedAST(AnalyzerOptions& options, bool validate) {
-    options.validate_resolved_ast_ = validate;
+    options.data_->validate_resolved_ast = validate;
   }
 
   static bool GetValidateResolvedAST(const AnalyzerOptions& options) {
-    return options.validate_resolved_ast_;
+    return options.data_->validate_resolved_ast;
   }
 };
 

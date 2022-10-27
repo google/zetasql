@@ -23,6 +23,7 @@
 #include <cstring>
 #include <deque>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -104,7 +105,6 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -135,6 +135,12 @@ STATIC_IDSTRING(kAggregateId, "$aggregate");
 STATIC_IDSTRING(kExprSubqueryId, "$expr_subquery");
 STATIC_IDSTRING(kOrderById, "$orderby");
 STATIC_IDSTRING(kInSubqueryCastId, "$in_subquery_cast");
+STATIC_IDSTRING(kKey, "KEY");
+STATIC_IDSTRING(kOffset, "OFFSET");
+STATIC_IDSTRING(kOrdinal, "ORDINAL");
+STATIC_IDSTRING(kSafeKey, "SAFE_KEY");
+STATIC_IDSTRING(kSafeOffset, "SAFE_OFFSET");
+STATIC_IDSTRING(kSafeOrdinal, "SAFE_ORDINAL");
 
 namespace {
 
@@ -4373,7 +4379,8 @@ static bool IsLetterO(char c) { return c == 'o' || c == 'O'; }
 // Returns function_name without a leading "SAFE_" prefix. If no safe prefix
 // is present, returns function_name.
 absl::string_view StripSafeCaseInsensitive(absl::string_view function_name) {
-  if ((function_name[0] == 's' || function_name[0] == 'S') &&
+  if (!function_name.empty() &&
+      (function_name[0] == 's' || function_name[0] == 'S') &&
       zetasql_base::CaseCompare(function_name.substr(0, 5),
                                            "SAFE_") == 0) {
     return function_name.substr(5);
@@ -4383,7 +4390,7 @@ absl::string_view StripSafeCaseInsensitive(absl::string_view function_name) {
 
 static bool IsSpecialArrayContextFunction(absl::string_view function_name) {
   // We try to avoid doing the zetasql_base::StringCaseEqual calls as much as possible.
-  if (IsLetterO(function_name[0]) &&
+  if (!function_name.empty() && IsLetterO(function_name[0]) &&
       (zetasql_base::CaseCompare(function_name, "OFFSET") == 0 ||
        zetasql_base::CaseCompare(function_name, "ORDINAL") == 0)) {
     return true;
@@ -4392,6 +4399,9 @@ static bool IsSpecialArrayContextFunction(absl::string_view function_name) {
 }
 
 static bool IsSpecialMapContextFunction(absl::string_view function_name) {
+  if (function_name.empty()) {
+    return false;
+  }
   // We try to avoid doing the zetasql_base::StringCaseEqual calls as much as possible.
   char first_letter = function_name[0];
   return (first_letter == 'k' || first_letter == 'K') &&
@@ -5270,6 +5280,14 @@ absl::Status Resolver::ResolveArrayElement(
                                             expr_resolution_info, &args));
   const ResolvedExpr* resolved_lhs = args.back().get();
 
+  if (resolved_lhs->type()->IsStruct() &&
+      language().LanguageFeatureEnabled(
+          LanguageFeature::FEATURE_V_1_4_STRUCT_POSITIONAL_ACCESSOR)) {
+    return ResolveStructSubscriptElementAccess(
+        std::move(args.back()), array_element->position(), expr_resolution_info,
+        resolved_expr_out);
+  }
+
   // An array element access during a flattened path refers to the preceding
   // element, not to the output of flatten. As such, if we're in the middle of
   // a flatten, we have to apply the array access to the Get*Field.
@@ -5360,6 +5378,85 @@ absl::Status Resolver::ResolveArrayElement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveStructSubscriptElementAccess(
+    std::unique_ptr<const ResolvedExpr> resolved_struct,
+    const ASTExpression* field_position,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  const ASTFunctionCall* ast_function_call =
+      field_position->GetAsOrNull<ASTFunctionCall>();
+  IdString field_expr_wrapper = kOffset;
+  int starting_position = 0;
+  absl::string_view position_name = "offset";
+  std::unique_ptr<const ResolvedExpr> resolved_position;
+
+  if (!ast_function_call &&
+      language().LanguageFeatureEnabled(
+          LanguageFeature::FEATURE_V_1_4_BARE_ARRAY_ACCESS)) {
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveExpr(field_position, expr_resolution_info, &resolved_position));
+  } else if (!ast_function_call ||
+             ast_function_call->function()->num_names() != 1 ||
+             ast_function_call->HasModifiers()) {
+    return MakeSqlErrorAt(field_position)
+           << "Field access must be OFFSET, SAFE_OFFSET, ORDINAL or "
+              "SAFE_ORDINAL.";
+  }
+  if (ast_function_call) {
+    field_expr_wrapper =
+        ast_function_call->function()->first_name()->GetAsIdString();
+
+    if (ast_function_call->arguments().size() != 1) {
+      return MakeSqlErrorAt(field_position)
+             << "Subscript access using [" << field_expr_wrapper.ToStringView()
+             << "()] on structs only supports one argument";
+    }
+    ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_function_call->arguments()[0],
+                                expr_resolution_info, &resolved_position));
+  }
+
+  if (field_expr_wrapper.CaseEquals(kOrdinal) ||
+      field_expr_wrapper.CaseEquals(kSafeOrdinal)) {
+    starting_position = 1;
+    position_name = "ordinal";
+  } else if (!field_expr_wrapper.CaseEquals(kOffset) &&
+             !field_expr_wrapper.CaseEquals(kSafeOffset)) {
+    return MakeSqlErrorAt(field_position)
+           << "Field access must be OFFSET, SAFE_OFFSET, ORDINAL or "
+              "SAFE_ORDINAL.";
+  }
+
+  int64_t field_idx;
+  int64_t position;
+
+  if (!resolved_position->Is<ResolvedLiteral>()) {
+    return MakeSqlErrorAt(field_position)
+           << "Field element access is only supported for literal integer "
+              "positions";
+  }
+  auto* literal = resolved_position->GetAs<ResolvedLiteral>();
+  const_cast<ResolvedLiteral*>(literal)->set_preserve_in_literal_remover(true);
+  position = literal->value().ToInt64();
+  field_idx = position - starting_position;
+
+  if (field_idx < 0 ||
+      field_idx >= resolved_struct->type()->AsStruct()->num_fields()) {
+    return MakeSqlErrorAt(field_position)
+           << "Field " << position_name << " " << position
+           << " is out of bounds in " << resolved_struct->type()->DebugString();
+  }
+  ZETASQL_RET_CHECK_LE(field_idx, std::numeric_limits<int>::max());
+  int field_idx_int = static_cast<int>(field_idx);
+  auto* field_type =
+      resolved_struct->type()->AsStruct()->field(field_idx_int).type;
+  auto resolved_get_field = MakeResolvedGetStructField(
+      field_type, std::move(resolved_struct), field_idx_int,
+      /*field_expr_is_positional=*/true);
+  MaybeRecordParseLocation(field_position, resolved_get_field.get());
+  *resolved_expr_out = std::move(resolved_get_field);
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveNonArraySubscriptElementAccess(
     const ResolvedExpr* resolved_lhs, const ASTExpression* ast_position,
     ExprResolutionInfo* expr_resolution_info,
@@ -5379,14 +5476,12 @@ absl::Status Resolver::ResolveNonArraySubscriptElementAccess(
       *original_wrapper_name = name.ToString();
       static const IdStringHashMapCase<std::vector<std::string>>*
           kNameToSubscript = new IdStringHashMapCase<std::vector<std::string>>{
-              {IdString::MakeGlobal("KEY"), {kSubscriptWithKey}},
-              {IdString::MakeGlobal("OFFSET"), {kSubscriptWithOffset}},
-              {IdString::MakeGlobal("ORDINAL"), {kSubscriptWithOrdinal}},
-              {IdString::MakeGlobal("SAFE_KEY"), {"SAFE", kSubscriptWithKey}},
-              {IdString::MakeGlobal("SAFE_OFFSET"),
-               {"SAFE", kSubscriptWithOffset}},
-              {IdString::MakeGlobal("SAFE_ORDINAL"),
-               {"SAFE", kSubscriptWithOrdinal}}};
+              {kKey, {kSubscriptWithKey}},
+              {kOffset, {kSubscriptWithOffset}},
+              {kOrdinal, {kSubscriptWithOrdinal}},
+              {kSafeKey, {"SAFE", kSubscriptWithKey}},
+              {kSafeOffset, {"SAFE", kSubscriptWithOffset}},
+              {kSafeOrdinal, {"SAFE", kSubscriptWithOrdinal}}};
 
       // The function name is correctly resolved, then proceed to resolve the
       // argument.
@@ -5441,13 +5536,13 @@ absl::Status Resolver::ResolveArrayElementAccess(
       *original_wrapper_name = name.ToString();
       static const IdStringHashMapCase<std::string>* name_to_function =
           new IdStringHashMapCase<std::string>{
-              {IdString::MakeGlobal("KEY"), kProtoMapAtKey},
-              {IdString::MakeGlobal("OFFSET"), kArrayAtOffset},
-              {IdString::MakeGlobal("ORDINAL"), kArrayAtOrdinal},
-              {IdString::MakeGlobal("SAFE_KEY"), kSafeProtoMapAtKey},
+              {kKey, kProtoMapAtKey},
+              {kOffset, kArrayAtOffset},
+              {kOrdinal, kArrayAtOrdinal},
+              {kSafeKey, kSafeProtoMapAtKey},
 
-              {IdString::MakeGlobal("SAFE_OFFSET"), kSafeArrayAtOffset},
-              {IdString::MakeGlobal("SAFE_ORDINAL"), kSafeArrayAtOrdinal}};
+              {kSafeOffset, kSafeArrayAtOffset},
+              {kSafeOrdinal, kSafeArrayAtOrdinal}};
       const std::string* function_name_str =
           zetasql_base::FindOrNull(*name_to_function, name);
       if (function_name_str != nullptr) {
@@ -5463,10 +5558,9 @@ absl::Status Resolver::ResolveArrayElementAccess(
              << "Array element access with array[position] is not supported. "
                 "Use array[OFFSET(zero_based_offset)] or "
                 "array[ORDINAL(one_based_ordinal)]";
-    } else {
-      *function_name = kArrayAtOffset;
-      *unwrapped_ast_position_expr = ast_position;
     }
+    *function_name = kArrayAtOffset;
+    *unwrapped_ast_position_expr = ast_position;
   }
 
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(*unwrapped_ast_position_expr,

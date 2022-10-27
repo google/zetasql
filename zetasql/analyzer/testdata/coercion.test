@@ -2680,10 +2680,15 @@ select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
 
 ==
 
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[product_mode={{internal|external}}]
 [no_java]
+
 # TODO: Fix java
 select 1 = CAST(1 as ROUNDING_MODE),
        'ROUND_HALF_EVEN' = CAST(1 as ROUNDING_MODE)
+--
+ALTERNATION GROUP: internal
 --
 QueryStmt
 +-output_column_list=
@@ -2705,8 +2710,16 @@ QueryStmt
     |       +-Literal(type=INT64, value=1)
     +-input_scan=
       +-SingleRowScan
+--
+ALTERNATION GROUP: external
+--
+ERROR: Type not found: ROUNDING_MODE [at 2:22]
+select 1 = CAST(1 as ROUNDING_MODE),
+                     ^
+
 ==
 
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 [no_java]
 # TODO: Fix java
 # Types are not coercible with each other
@@ -2717,6 +2730,7 @@ select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
        ^
 ==
 
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 [no_java]
 # TODO: Fix java
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
@@ -2727,6 +2741,7 @@ select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
        ^
 ==
 
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 [no_java]
 # TODO: Fix java
 # ROUNDING_MODE_UNSPECIFIED is marked invalid in ROUNDING_MODE (but not
@@ -2738,6 +2753,7 @@ select 'ROUNDING_MODE_UNSPECIFIED' = CAST(1 as ROUNDING_MODE)
        ^
 ==
 
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 [no_java]
 # TODO: Fix java
 # 0 (ROUNDING_MODE_UNSPECIFIED) is marked invalid in ROUNDING_MODE.

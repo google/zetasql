@@ -154,7 +154,8 @@ class RewriteUnaryFunctionVisitor : public ResolvedASTDeepCopyVisitor {
                IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_FLOAT) ||
                IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_DOUBLE) ||
                IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_NUMERIC) ||
-               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_BIGNUMERIC)) {
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_BIGNUMERIC) ||
+               IsBuiltInFunctionIdEq(node, FN_ARRAY_AVG_INTERVAL)) {
       return Rewrite(node, kArrayAvgTemplate);
     } else if (IsBuiltInFunctionIdEq(node, FN_ARRAY_MIN)) {
       return Rewrite(node, kArrayMinTemplate);

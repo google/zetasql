@@ -151,6 +151,7 @@ class Value {
   int32_t date_value() const;               // REQUIRES: date type
   int32_t enum_value() const;               // REQUIRES: enum type
   const std::string& enum_name() const;     // REQUIRES: enum type
+  const absl::Cord& proto_value() const;    // REQUIRES: proto type
 
   // Returns timestamp value as absl::Time at nanoseconds precision.
   absl::Time ToTime() const;  // REQUIRES: timestamp type

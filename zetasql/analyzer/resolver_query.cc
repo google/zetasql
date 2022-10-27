@@ -6534,6 +6534,45 @@ absl::Status CheckTVFArgumentHasNoCollation(
   return absl::OkStatus();
 }
 
+absl::StatusOr<const TableValuedFunction*> FindTVFOrMakeNiceError(
+    absl::string_view tvf_name_string, const ASTTVF* ast_tvf,
+    const AnalyzerOptions& analyzer_options, Catalog* catalog) {
+  const TableValuedFunction* tvf_catalog_entry = nullptr;
+  const absl::Status find_status = catalog->FindTableValuedFunction(
+      ast_tvf->name()->ToIdentifierVector(), &tvf_catalog_entry,
+      analyzer_options.find_options());
+  if (find_status.code() == absl::StatusCode::kNotFound) {
+    std::string error_message;
+    absl::StrAppend(&error_message,
+                    "Table-valued function not found: ", tvf_name_string);
+
+    const std::string tvf_suggestion = catalog->SuggestTableValuedFunction(
+        ast_tvf->name()->ToIdentifierVector());
+    if (!tvf_suggestion.empty()) {
+      absl::StrAppend(&error_message, "; Did you mean ", tvf_suggestion, "?");
+    }
+
+    return MakeSqlErrorAt(ast_tvf) << error_message;
+  } else if (!find_status.ok()) {
+    // The FindTableValuedFunction() call can return an invalid argument error,
+    // for example, when looking up LazyResolutionTableFunctions (which are
+    // resolved upon lookup).
+    //
+    // Rather than directly return the <find_status>, we update the location
+    // of the error to indicate the function call in this statement.  We also
+    // preserve the ErrorSource payload from <find_status>, since that
+    // indicates source errors for this error.
+    return WrapNestedErrorStatus(
+        ast_tvf,
+        absl::StrCat("Invalid table-valued function ", tvf_name_string),
+        find_status, analyzer_options.error_message_mode());
+  }
+  ZETASQL_RET_CHECK_EQ(1, tvf_catalog_entry->NumSignatures())
+      << "Each TVF has exactly one signature; overloading is not currently "
+      << "allowed.";
+  return tvf_catalog_entry;
+}
+
 }  // namespace
 
 absl::Status Resolver::ResolveTVF(
@@ -6561,162 +6600,41 @@ absl::Status Resolver::ResolveTVF(
   // Lookup into the catalog to get the TVF definition.
   const std::string tvf_name_string = ast_tvf->name()->ToIdentifierPathString();
   const IdString tvf_name_idstring = MakeIdString(tvf_name_string);
-  const TableValuedFunction* tvf_catalog_entry = nullptr;
-  const absl::Status find_status = catalog_->FindTableValuedFunction(
-      ast_tvf->name()->ToIdentifierVector(), &tvf_catalog_entry,
-      analyzer_options_.find_options());
-  if (find_status.code() == absl::StatusCode::kNotFound) {
-    std::string error_message;
-    absl::StrAppend(&error_message,
-                    "Table-valued function not found: ", tvf_name_string);
+  ZETASQL_ASSIGN_OR_RETURN(const TableValuedFunction* tvf_catalog_entry,
+                   FindTVFOrMakeNiceError(tvf_name_string, ast_tvf,
+                                          analyzer_options_, catalog_));
 
-    const std::string tvf_suggestion = catalog_->SuggestTableValuedFunction(
-        ast_tvf->name()->ToIdentifierVector());
-    if (!tvf_suggestion.empty()) {
-      absl::StrAppend(&error_message, "; Did you mean ", tvf_suggestion, "?");
-    }
-
-    return MakeSqlErrorAt(ast_tvf) << error_message;
-  } else if (!find_status.ok()) {
-    // The FindTableValuedFunction() call can return an invalid argument error,
-    // for example, when looking up LazyResolutionTableFunctions (which are
-    // resolved upon lookup).
-    //
-    // Rather than directly return the <find_status>, we update the location
-    // of the error to indicate the function call in this statement.  We also
-    // preserve the ErrorSource payload from <find_status>, since that
-    // indicates source errors for this error.
-    return WrapNestedErrorStatus(
-        ast_tvf,
-        absl::StrCat("Invalid table-valued function ", tvf_name_string),
-        find_status, analyzer_options_.error_message_mode());
-  }
-  ZETASQL_RETURN_IF_ERROR(find_status);
-  // Get the TVF signature. Each TVF has exactly one signature; overloading is
-  // not currently allowed.
-  ZETASQL_RET_CHECK_EQ(1, tvf_catalog_entry->NumSignatures());
-  std::unique_ptr<FunctionSignature> result_signature;
-  // <arg_locations> and <resolved_tvf_args> reflect the concrete function call
-  // arguments in <result_signature> and match 1:1 to them.
-  std::vector<const ASTNode*> arg_locations;
   std::vector<ResolvedTVFArg> resolved_tvf_args;
-  SignatureMatchResult signature_match_result;
-
-  FunctionResolver function_resolver(catalog_, type_factory_, this);
-  ZETASQL_ASSIGN_OR_RETURN(
-      const int matching_signature_idx,
-      MatchTVFSignature(ast_tvf, tvf_catalog_entry, external_scope, local_scope,
-                        function_resolver, &result_signature, &arg_locations,
-                        &resolved_tvf_args, &signature_match_result));
-  ZETASQL_RET_CHECK_EQ(arg_locations.size(), resolved_tvf_args.size());
-  const FunctionSignature* function_signature =
-      tvf_catalog_entry->GetSignature(matching_signature_idx);
-  ZETASQL_RETURN_IF_ERROR(AddAdditionalDeprecationWarningsForCalledFunction(
-      ast_tvf, *function_signature, tvf_catalog_entry->FullName(),
-      /*is_tvf=*/true));
-
-  ZETASQL_RETURN_IF_ERROR(
-      CheckTVFArgumentHasNoCollation(resolved_tvf_args, arg_locations));
-  // Add casts or coerce literals for TVF arguments.
-  ZETASQL_RET_CHECK(result_signature->IsConcrete()) << ast_tvf->DebugString();
-  for (int arg_idx = 0; arg_idx < resolved_tvf_args.size(); ++arg_idx) {
-    if (resolved_tvf_args[arg_idx].IsExpr()) {
-      ZETASQL_RET_CHECK_LT(arg_idx, result_signature->NumConcreteArguments());
-      const Type* target_type = result_signature->ConcreteArgumentType(arg_idx);
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> expr,
-                       resolved_tvf_args[arg_idx].MoveExpr());
-      const ASTNode* ast = arg_locations[arg_idx];
-      if (ast->node_kind() == AST_NAMED_ARGUMENT) {
-        ast = ast->GetAs<ASTNamedArgument>()->expr();
-        ZETASQL_RET_CHECK(ast != nullptr);
-      }
-      ZETASQL_RETURN_IF_ERROR(
-          CoerceExprToType(ast, target_type, kExplicitCoercion, &expr));
-      resolved_tvf_args[arg_idx].SetExpr(std::move(expr));
-    } else {
-      bool must_add_projection = false;
-      ZETASQL_RETURN_IF_ERROR(CheckIfMustCoerceOrRearrangeTVFRelationArgColumns(
-          function_signature->argument(arg_idx), arg_idx,
-          signature_match_result, resolved_tvf_args[arg_idx],
-          &must_add_projection));
-      if (must_add_projection) {
-        ZETASQL_RETURN_IF_ERROR(CoerceOrRearrangeTVFRelationArgColumns(
-            function_signature->argument(arg_idx), arg_idx,
-            signature_match_result, ast_tvf, &resolved_tvf_args[arg_idx]));
-      }
-    }
-  }
-
-  // Prepare the list of TVF input arguments for calling the
-  // TableValuedFunction::Resolve method.
+  std::unique_ptr<FunctionSignature> result_signature;
   std::vector<TVFInputArgumentType> tvf_input_arguments;
-  tvf_input_arguments.reserve(resolved_tvf_args.size());
-  for (int i = 0; i < resolved_tvf_args.size(); ++i) {
-    if (resolved_tvf_args[i].IsExpr()) {
-      ZETASQL_ASSIGN_OR_RETURN(const ResolvedExpr* const expr,
-                       resolved_tvf_args[i].GetExpr());
-      if (expr->node_kind() == RESOLVED_LITERAL) {
-        const Value& value = expr->GetAs<ResolvedLiteral>()->value();
-        tvf_input_arguments.push_back(
-            TVFInputArgumentType(InputArgumentType(value)));
-      } else {
-        tvf_input_arguments.push_back(
-            TVFInputArgumentType(InputArgumentType(expr->type())));
-      }
-      tvf_input_arguments.back().set_scalar_expr(expr);
-    } else if (resolved_tvf_args[i].IsDescriptor()) {
-      ZETASQL_ASSIGN_OR_RETURN(const ResolvedDescriptor* const descriptor,
-                       resolved_tvf_args[i].GetDescriptor());
-      tvf_input_arguments.push_back(TVFInputArgumentType(
-          TVFDescriptorArgument(descriptor->descriptor_column_name_list())));
-    } else if (resolved_tvf_args[i].IsConnection()) {
-      ZETASQL_ASSIGN_OR_RETURN(const ResolvedConnection* const connection,
-                       resolved_tvf_args[i].GetConnection());
-      tvf_input_arguments.push_back(TVFInputArgumentType(
-          TVFConnectionArgument(connection->connection())));
-    } else if (resolved_tvf_args[i].IsModel()) {
-      ZETASQL_ASSIGN_OR_RETURN(const ResolvedModel* const model,
-                       resolved_tvf_args[i].GetModel());
-      tvf_input_arguments.push_back(
-          TVFInputArgumentType(TVFModelArgument(model->model())));
-    } else {
-      ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
-                       resolved_tvf_args[i].GetNameList());
-      const std::vector<ResolvedColumn> column_list =
-          name_list->GetResolvedColumns();
-      if (name_list->is_value_table()) {
-        ZETASQL_RET_CHECK_EQ(1, name_list->num_columns()) << ast_tvf->DebugString();
-        ZETASQL_RET_CHECK_EQ(1, column_list.size()) << ast_tvf->DebugString();
-        tvf_input_arguments.push_back(TVFInputArgumentType(
-            TVFRelation::ValueTable(column_list[0].type())));
-      } else {
-        TVFRelation::ColumnList tvf_relation_columns;
-        tvf_relation_columns.reserve(column_list.size());
-        ZETASQL_RET_CHECK_GE(column_list.size(), name_list->num_columns())
-            << ast_tvf->DebugString();
-        for (int j = 0; j < name_list->num_columns(); ++j) {
-          tvf_relation_columns.emplace_back(
-              name_list->column(j).name.ToString(), column_list[j].type());
-        }
-        tvf_input_arguments.push_back(
-            TVFInputArgumentType(TVFRelation(tvf_relation_columns)));
-      }
-    }
-  }
+  ZETASQL_RETURN_IF_ERROR(PrepareTVFInputArguments(
+      tvf_name_string, ast_tvf, tvf_catalog_entry, external_scope, local_scope,
+      &result_signature, &resolved_tvf_args, &tvf_input_arguments));
 
   // Call the TableValuedFunction::Resolve method to get the output schema.
   // Use a new empty cycle detector, or the cycle detector from an enclosing
   // Resolver if we are analyzing one or more templated function calls.
   std::shared_ptr<TVFSignature> tvf_signature;
-  CycleDetector owned_cycle_detector;
-  AnalyzerOptions analyzer_options = analyzer_options_;
-  if (analyzer_options.find_options().cycle_detector() == nullptr) {
-    analyzer_options.mutable_find_options()->set_cycle_detector(
-        &owned_cycle_detector);
+  absl::Status resolve_status;
+  if (analyzer_options_.find_options().cycle_detector() == nullptr) {
+    // AnalyzerOptions is a very large object, and this stack frame is already
+    // huge. Allocate it on the heap to save some stack space.
+    struct AnalyzerAndCycleDetector {
+      CycleDetector owned_cycle_detector;
+      AnalyzerOptions analyzer_options;
+    };
+    auto cycle = std::make_unique<AnalyzerAndCycleDetector>(
+        AnalyzerAndCycleDetector{.analyzer_options = analyzer_options_});
+    cycle->analyzer_options.mutable_find_options()->set_cycle_detector(
+        &cycle->owned_cycle_detector);
+    resolve_status = tvf_catalog_entry->Resolve(
+        &cycle->analyzer_options, tvf_input_arguments, *result_signature,
+        catalog_, type_factory_, &tvf_signature);
+  } else {
+    resolve_status = tvf_catalog_entry->Resolve(
+        &analyzer_options_, tvf_input_arguments, *result_signature, catalog_,
+        type_factory_, &tvf_signature);
   }
-  const absl::Status resolve_status = tvf_catalog_entry->Resolve(
-      &analyzer_options, tvf_input_arguments, *result_signature, catalog_,
-      type_factory_, &tvf_signature);
 
   if (!resolve_status.ok()) {
     // The Resolve method returned an error status that is already updated
@@ -6729,7 +6647,6 @@ absl::Status Resolver::ResolveTVF(
         absl::StrCat("Invalid table-valued function ", tvf_name_string),
         resolve_status, analyzer_options_.error_message_mode());
   }
-  RETURN_SQL_ERROR_AT_IF_ERROR(ast_tvf, resolve_status);
 
   bool is_value_table = tvf_signature->result_schema().is_value_table();
   if (is_value_table) {
@@ -7096,6 +7013,122 @@ absl::StatusOr<int> Resolver::MatchTVFSignature(
       resolved_tvf_args));
 
   return signature_idx;
+}
+
+absl::Status Resolver::PrepareTVFInputArguments(
+    absl::string_view tvf_name_string, const ASTTVF* ast_tvf,
+    const TableValuedFunction* tvf_catalog_entry,
+    const NameScope* external_scope, const NameScope* local_scope,
+    std::unique_ptr<FunctionSignature>* result_signature,
+    std::vector<ResolvedTVFArg>* resolved_tvf_args,
+    std::vector<TVFInputArgumentType>* tvf_input_arguments) {
+  // <arg_locations> and <resolved_tvf_args> reflect the concrete function call
+  // arguments in <result_signature> and match 1:1 to them.
+  std::vector<const ASTNode*> arg_locations;
+  SignatureMatchResult signature_match_result;
+
+  FunctionResolver function_resolver(catalog_, type_factory_, this);
+  ZETASQL_ASSIGN_OR_RETURN(
+      const int matching_signature_idx,
+      MatchTVFSignature(ast_tvf, tvf_catalog_entry, external_scope, local_scope,
+                        function_resolver, result_signature, &arg_locations,
+                        resolved_tvf_args, &signature_match_result));
+  ZETASQL_RET_CHECK_EQ(arg_locations.size(), resolved_tvf_args->size());
+  const FunctionSignature* function_signature =
+      tvf_catalog_entry->GetSignature(matching_signature_idx);
+  ZETASQL_RETURN_IF_ERROR(AddAdditionalDeprecationWarningsForCalledFunction(
+      ast_tvf, *function_signature, tvf_catalog_entry->FullName(),
+      /*is_tvf=*/true));
+
+  ZETASQL_RETURN_IF_ERROR(
+      CheckTVFArgumentHasNoCollation(*resolved_tvf_args, arg_locations));
+  // Add casts or coerce literals for TVF arguments.
+  ZETASQL_RET_CHECK((*result_signature)->IsConcrete()) << ast_tvf->DebugString();
+  for (int arg_idx = 0; arg_idx < resolved_tvf_args->size(); ++arg_idx) {
+    if ((*resolved_tvf_args)[arg_idx].IsExpr()) {
+      ZETASQL_RET_CHECK_LT(arg_idx, (*result_signature)->NumConcreteArguments());
+      const Type* target_type =
+          (*result_signature)->ConcreteArgumentType(arg_idx);
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> expr,
+                       (*resolved_tvf_args)[arg_idx].MoveExpr());
+      const ASTNode* ast = arg_locations[arg_idx];
+      if (ast->node_kind() == AST_NAMED_ARGUMENT) {
+        ast = ast->GetAs<ASTNamedArgument>()->expr();
+        ZETASQL_RET_CHECK(ast != nullptr);
+      }
+      ZETASQL_RETURN_IF_ERROR(
+          CoerceExprToType(ast, target_type, kExplicitCoercion, &expr));
+      (*resolved_tvf_args)[arg_idx].SetExpr(std::move(expr));
+    } else {
+      bool must_add_projection = false;
+      ZETASQL_RETURN_IF_ERROR(CheckIfMustCoerceOrRearrangeTVFRelationArgColumns(
+          function_signature->argument(arg_idx), arg_idx,
+          signature_match_result, (*resolved_tvf_args)[arg_idx],
+          &must_add_projection));
+      if (must_add_projection) {
+        ZETASQL_RETURN_IF_ERROR(CoerceOrRearrangeTVFRelationArgColumns(
+            function_signature->argument(arg_idx), arg_idx,
+            signature_match_result, ast_tvf, &(*resolved_tvf_args)[arg_idx]));
+      }
+    }
+  }
+
+  // Prepare the list of TVF input arguments for calling the
+  // TableValuedFunction::Resolve method.
+  tvf_input_arguments->reserve(resolved_tvf_args->size());
+  for (int i = 0; i < resolved_tvf_args->size(); ++i) {
+    if ((*resolved_tvf_args)[i].IsExpr()) {
+      ZETASQL_ASSIGN_OR_RETURN(const ResolvedExpr* const expr,
+                       (*resolved_tvf_args)[i].GetExpr());
+      if (expr->node_kind() == RESOLVED_LITERAL) {
+        const Value& value = expr->GetAs<ResolvedLiteral>()->value();
+        tvf_input_arguments->push_back(
+            TVFInputArgumentType(InputArgumentType(value)));
+      } else {
+        tvf_input_arguments->push_back(
+            TVFInputArgumentType(InputArgumentType(expr->type())));
+      }
+      tvf_input_arguments->back().set_scalar_expr(expr);
+    } else if ((*resolved_tvf_args)[i].IsDescriptor()) {
+      ZETASQL_ASSIGN_OR_RETURN(const ResolvedDescriptor* const descriptor,
+                       (*resolved_tvf_args)[i].GetDescriptor());
+      tvf_input_arguments->push_back(TVFInputArgumentType(
+          TVFDescriptorArgument(descriptor->descriptor_column_name_list())));
+    } else if ((*resolved_tvf_args)[i].IsConnection()) {
+      ZETASQL_ASSIGN_OR_RETURN(const ResolvedConnection* const connection,
+                       (*resolved_tvf_args)[i].GetConnection());
+      tvf_input_arguments->push_back(TVFInputArgumentType(
+          TVFConnectionArgument(connection->connection())));
+    } else if ((*resolved_tvf_args)[i].IsModel()) {
+      ZETASQL_ASSIGN_OR_RETURN(const ResolvedModel* const model,
+                       (*resolved_tvf_args)[i].GetModel());
+      tvf_input_arguments->push_back(
+          TVFInputArgumentType(TVFModelArgument(model->model())));
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
+                       (*resolved_tvf_args)[i].GetNameList());
+      const std::vector<ResolvedColumn> column_list =
+          name_list->GetResolvedColumns();
+      if (name_list->is_value_table()) {
+        ZETASQL_RET_CHECK_EQ(1, name_list->num_columns()) << ast_tvf->DebugString();
+        ZETASQL_RET_CHECK_EQ(1, column_list.size()) << ast_tvf->DebugString();
+        tvf_input_arguments->push_back(TVFInputArgumentType(
+            TVFRelation::ValueTable(column_list[0].type())));
+      } else {
+        TVFRelation::ColumnList tvf_relation_columns;
+        tvf_relation_columns.reserve(column_list.size());
+        ZETASQL_RET_CHECK_GE(column_list.size(), name_list->num_columns())
+            << ast_tvf->DebugString();
+        for (int j = 0; j < name_list->num_columns(); ++j) {
+          tvf_relation_columns.emplace_back(
+              name_list->column(j).name.ToString(), column_list[j].type());
+        }
+        tvf_input_arguments->push_back(
+            TVFInputArgumentType(TVFRelation(tvf_relation_columns)));
+      }
+    }
+  }
+  return absl::OkStatus();
 }
 
 absl::Status Resolver::GenerateTVFNotMatchError(
