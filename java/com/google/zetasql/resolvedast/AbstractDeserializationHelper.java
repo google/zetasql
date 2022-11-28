@@ -40,6 +40,7 @@ import com.google.zetasql.FunctionSignature;
 import com.google.zetasql.ZetaSQLAnnotation.AnnotationMapProto;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeProto;
+import com.google.zetasql.ZetaSQLTypeModifiers.TypeModifiersProto;
 import com.google.zetasql.ZetaSQLTypeParameters.TypeParametersProto;
 import com.google.zetasql.Model;
 import com.google.zetasql.ModelRefProto;
@@ -139,6 +140,10 @@ public abstract class AbstractDeserializationHelper {
 
   ResolvedCollation deserialize(ResolvedCollationProto proto) {
     return ResolvedCollation.deserialize(proto);
+  }
+
+  TypeModifiers deserialize(TypeModifiersProto proto) {
+    return TypeModifiers.deserialize(proto);
   }
 
   TypeParameters deserialize(TypeParametersProto proto) {

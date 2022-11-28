@@ -75,12 +75,12 @@ bool ProtoToMultilineString(const google::protobuf::Message* value, absl::Cord* 
 
 bool StringToProto(const absl::string_view value, google::protobuf::Message* out,
                    absl::Status* error) {
-  class Proto2ErrorCollector : public google::protobuf::io::ErrorCollector {
+  class Proto2ErrorCollector final : public google::protobuf::io::ErrorCollector {
    public:
     explicit Proto2ErrorCollector(absl::Status* error) : error_(error) {}
     Proto2ErrorCollector(const Proto2ErrorCollector&) = delete;
     Proto2ErrorCollector& operator=(const Proto2ErrorCollector&) = delete;
-    ~Proto2ErrorCollector() final {}
+    ~Proto2ErrorCollector() final = default;
 
     void AddError(int line, int column, const std::string& message) final {
       *error_ = ::zetasql_base::OutOfRangeErrorBuilder()

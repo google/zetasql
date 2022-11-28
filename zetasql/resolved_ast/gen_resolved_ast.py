@@ -108,6 +108,11 @@ SCALAR_TYPE_PARAMETERS = ScalarType(
     'TypeParametersProto',
     java_default='null',
     passed_by_reference=True)
+SCALAR_TYPE_MODIFIERS = ScalarType(
+    'TypeModifiers',
+    'TypeModifiersProto',
+    java_default='null',
+    passed_by_reference=True)
 SCALAR_ANNOTATION_MAP = ScalarType(
     'const AnnotationMap*',
     'AnnotationMapProto',
@@ -524,7 +529,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 208
+          Next tag_id: 210
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1631,29 +1636,56 @@ def main(unused_argv):
               is nullptr when the clause does not exist.
                       """),
           Field(
-              'type_parameters',
-              SCALAR_TYPE_PARAMETERS,
-              tag_id=7,
+              'type_modifiers',
+              SCALAR_TYPE_MODIFIERS,
+              tag_id=8,
               ignorable=IGNORABLE_DEFAULT,
               is_optional_constructor_arg=True,
               comment="""
-              Contains the TypeParametersProto, which stores the type parameters
-              if specified in a cast. If there are no type parameters, this
-              proto will be empty.
+              Contains the TypeModifiers object which wraps all modifiers
+              following the type name in a type string (e.g. type parameters,
+              collation) in a cast. If there are no type modifiers specified,
+              this object will be empty.
 
-              If type parameters are specified, the result of the cast should
-              conform to the type parameters. Engines are expected to enforce
-              type parameter constraints by erroring out or truncating the cast
-              result, depending on the output type.
+              Type parameters can be specified inside parentheses following the
+              type name (e.g. STRING(2)). If specified, the result of the cast
+              should conform to the type parameters. Engines are expected to
+              enforce type parameter constraints by erroring out or truncating
+              the cast result, depending on the output type. See
+              (broken link) for more details.
 
               For example:
                 CAST("ABC" as STRING(2)) should error out
                 CAST(1234 as NUMERIC(2)) should error out
                 CAST(1.234 as NUMERIC(2,1)) should return a NumericValue of 1.2
 
-              See (broken link) for more details.
+              Collation can be specified with the COLLATE keyword on a string
+              type, e.g. STRING COLLATE 'und:ci'. If specified, the
+              <type_annotation_map> of the ResolvedCast node will have equal
+              collation annotations. See
+              (broken link) for more details.
+
+              For example:
+                CAST("abc" AS STRING COLLATE "und:ci") should return value "abc"
+                  in STRING type with collation "und:ci".
+                CAST(["abc"] AS ARRAY<STRING COLLATE "und:ci">) should return
+                  the array ["abc"] with collation "und:ci" at the element type.
                       """)
-      ])
+      ],
+      extra_defs="""
+        // Helper getter, setter of <type_parameters> field for backward
+        // compatibility.
+        // TODO: We could consider dropping this after we clean up
+        // all references.
+        ABSL_DEPRECATED("use type_modifiers().type_parameters() instead.")
+        const TypeParameters& type_parameters() const {
+          return type_modifiers().type_parameters();
+        }
+
+        ABSL_DEPRECATED("use set_type_modifiers() instead.")
+        void set_type_parameters(const TypeParameters& v);
+      """
+  )
 
   gen.AddNode(
       name='ResolvedMakeStruct',
@@ -2183,11 +2215,17 @@ value.
       tag_id=207,
       parent='ResolvedScan',
       comment="""
-      This node provides the role context for its subtree. The role object is
-      attached to this node and covers the whole subtree underneath it, except
-      subtrees under other nested ResolvedExecuteAsRoleScan nodes.
+      This node provides the role context for its subtree. Currently, it only
+      handles subtrees from inlined TVFs and VIEWs created with DEFINER rights.
+      Due to the lack of a ROLE catalog object, we are using the original
+      catalog object (VIEW or TVF) as a proxy. The engine is expected to extract
+      the target role of these objects.
 
-      This node is useful when inlining definer-rights functions or views.
+      In the future, when we have catalog objects for roles, this node should
+      be updated to attach role object, rather than the original inlined object.
+
+      The node's role context covers the whole subtree underneath it, except
+      subtrees under other nested ResolvedExecuteAsRoleScan nodes.
 
       Always creates new output columns in <column_list>, which map 1:1 with
       the <input_scan>'s output columns. Most rewriters trace their columns all
@@ -2203,6 +2241,23 @@ value.
               comment="""
               The input scan whose subtree is to be encompassed by the current
               role context.
+              """),
+          Field(
+              'original_inlined_view',
+              SCALAR_TABLE,
+              tag_id=3,
+              comment="""
+              The original view that was inlined. If set, then
+              'original_inlined_tvf' is null. The validator checks that this
+              table is indeed a SqlView, not some other subclass of Table.
+              """),
+          Field(
+              'original_inlined_tvf',
+              TABLE_VALUED_FUNCTION,
+              tag_id=4,
+              comment="""
+              The original TVF that was inlined. If set, then
+              'original_inlined_view' is null.
               """),
       ])
 

@@ -476,6 +476,12 @@ absl::Status Resolver::AddAggregateScan(
 absl::Status Resolver::AddAnonymizedAggregateScan(
     const ASTSelect* select, QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedScan>* current_scan) {
+  if (query_resolution_info->HasGroupByRollup()) {
+    return MakeSqlErrorAt(select->group_by()->grouping_items(0)->rollup())
+           << "GROUP BY ROLLUP is not supported in anonymization queries";
+  }
+  ZETASQL_RET_CHECK(query_resolution_info->select_with_mode() ==
+            SelectWithMode::ANONYMIZATION);
   ResolvedColumnList column_list;
   for (const std::unique_ptr<const ResolvedComputedColumn>& group_by_column :
        query_resolution_info->group_by_columns_to_compute()) {
@@ -485,13 +491,13 @@ absl::Status Resolver::AddAnonymizedAggregateScan(
        query_resolution_info->aggregate_columns_to_compute()) {
     column_list.push_back(aggregate_column->column());
   }
-
   ZETASQL_RET_CHECK(!column_list.empty());
   std::vector<std::unique_ptr<const ResolvedOption>>
       resolved_anonymization_options;
-  if (select->anonymization_options() != nullptr) {
+  if (select->select_with() != nullptr &&
+      select->select_with()->options() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveAnonymizationOptionsList(
-        select->anonymization_options(), &resolved_anonymization_options));
+        select->select_with()->options(), &resolved_anonymization_options));
   }
 
   auto anonymized_scan = MakeResolvedAnonymizedAggregateScan(
@@ -597,13 +603,8 @@ absl::Status Resolver::AddRemainingScansForSelect(
       current_scan);
 
   if (query_resolution_info->HasGroupByOrAggregation()) {
-    if (select->anonymization_options() != nullptr ||
-        query_resolution_info->has_anonymized_aggregation()) {
-      if (query_resolution_info->HasGroupByRollup()) {
-        ZETASQL_RET_CHECK_EQ(select->group_by()->grouping_items().size(), 1);
-        return MakeSqlErrorAt(select->group_by()->grouping_items(0)->rollup())
-               << "GROUP BY ROLLUP is not supported in anonymization queries";
-      }
+    if (query_resolution_info->select_with_mode() ==
+        SelectWithMode::ANONYMIZATION) {
       ZETASQL_RETURN_IF_ERROR(AddAnonymizedAggregateScan(select, query_resolution_info,
                                                  current_scan));
     } else {
@@ -1093,25 +1094,33 @@ absl::Status Resolver::ResolveAdditionalExprsSecondPass(
   return absl::OkStatus();
 }
 
-static absl::Status ValidateAnonymizationSetup(const LanguageOptions& language,
-                                               const ASTSelect* select) {
+static absl::StatusOr<SelectWithMode> ExtractSelectWithMode(
+    const LanguageOptions& language, const ASTSelect* select) {
+  if (select->select_with() == nullptr) {
+    return SelectWithMode::NONE;
+  }
+  ZETASQL_RET_CHECK_NE(select->select_with()->identifier(), nullptr);
   if (!language.LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
-    if (select->anonymization_options() != nullptr) {
-      return MakeSqlErrorAt(select)
-             << "Anonymization queries are not supported";
-    }
-  } else {
-    if (select->anonymization_options() != nullptr &&
-        select->from_clause() == nullptr) {
-      return MakeSqlErrorAt(select) << "SELECT without FROM clause cannot "
-                                       "specify WITH ANONYMIZATION";
-    } else if (select->anonymization_options() != nullptr &&
-               select->distinct()) {
+    return MakeSqlErrorAt(select->select_with()) << "Unexpected keyword WITH";
+  }
+  const std::string select_with_identifier =
+      select->select_with()->identifier()->GetAsString();
+  if (zetasql_base::CaseEqual(select_with_identifier, "anonymization")) {
+    if (select->distinct()) {
       return MakeSqlErrorAt(select)
              << "SELECT WITH ANONYMIZATION does not support DISTINCT";
     }
+    if (select->from_clause() == nullptr) {
+      return MakeSqlErrorAt(select)
+             << "SELECT without FROM clause cannot specify WITH ANONYMIZATION";
+    }
+    return SelectWithMode::ANONYMIZATION;
   }
-  return absl::OkStatus();
+
+  return MakeSqlErrorAt(select->select_with()->identifier())
+         << "Invalid identifier after SELECT WITH; expected ANONYMIZATION but "
+            "got: "
+         << select_with_identifier;
 }
 
 // Resolves a SELECT query/subquery, resolving all the expressions and
@@ -1178,7 +1187,8 @@ absl::Status Resolver::ResolveSelect(
     const Type* inferred_type_for_query,
     std::unique_ptr<const ResolvedScan>* output,
     std::shared_ptr<const NameList>* output_name_list) {
-  ZETASQL_RETURN_IF_ERROR(ValidateAnonymizationSetup(language(), select));
+  ZETASQL_ASSIGN_OR_RETURN(SelectWithMode select_with_mode,
+                   ExtractSelectWithMode(language(), select));
 
   std::unique_ptr<const ResolvedScan> scan;
   std::shared_ptr<const NameList> from_clause_name_list;
@@ -1200,6 +1210,7 @@ absl::Status Resolver::ResolveSelect(
 
   std::unique_ptr<QueryResolutionInfo> query_resolution_info(
       new QueryResolutionInfo(this));
+  query_resolution_info->set_select_with_mode(select_with_mode);
   SelectColumnStateList* select_column_state_list =
       query_resolution_info->select_column_state_list();
 
@@ -1230,9 +1241,11 @@ absl::Status Resolver::ResolveSelect(
   // Return an appropriate error for anonymization queries that don't perform
   // aggregation.
   // This check is required because we have to wait until after resolving the
-  // SELECT list (first pass) to know if there are aggregate functions present.
-  if (!query_resolution_info->HasGroupByOrAggregation() &&
-      select->anonymization_options() != nullptr) {
+  // SELECT list (first pass) to know if there are aggregate functions
+  // present.
+  if (query_resolution_info->select_with_mode() ==
+          SelectWithMode::ANONYMIZATION &&
+      !query_resolution_info->HasGroupByOrAggregation()) {
     ZETASQL_RET_CHECK_GT(select->select_list()->columns().size(), 0);
     return MakeSqlErrorAt(select->select_list()->columns(0))
            << "SELECT WITH ANONYMIZATION queries require GROUP BY or "
@@ -6868,7 +6881,7 @@ absl::StatusOr<int> Resolver::MatchTVFSignature(
   // tables in the same FROM clause as the TVF. For this reason, we use
   // 'external_scope' for the ExprResolutionInfo object here when resolving
   // expressions in the TVF call.
-  std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments;
+  std::vector<NamedArgumentInfo> named_arguments;
   std::unordered_map<int, std::unique_ptr<const NameScope>> tvf_table_scope_map;
   arg_locations->reserve(num_tvf_args);
   resolved_tvf_args->reserve(num_tvf_args);
@@ -6887,7 +6900,8 @@ absl::StatusOr<int> Resolver::MatchTVFSignature(
         }
         // Add the named argument to the map.
         const ASTNamedArgument* named_arg = ast_expr->GetAs<ASTNamedArgument>();
-        named_arguments.emplace_back(named_arg, i);
+        named_arguments.emplace_back(named_arg->name()->GetAsIdString(), i,
+                                     named_arg);
         const absl::string_view arg_name =
             named_arg->name()->GetAsIdString().ToStringView();
 

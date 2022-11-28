@@ -31,7 +31,6 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_location_range.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
-#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
@@ -351,13 +350,7 @@ void ResolvedConstant::CollectDebugStringFields(
   ZETASQL_DCHECK_LE(fields->size(), 2);  // type and parse location
 
   fields->emplace(fields->begin(), "", constant_->FullName());
-  if (constant_->Is<SimpleConstant>()) {
-    fields->emplace_back(
-        "value", constant_->GetAs<SimpleConstant>()->value().DebugString());
-  }
-  // TODO: It would be nice if we could also produce the Value
-  // associated with a SQLConstant, but we can't have a dependency from
-  // here to SQLConstant.
+  fields->emplace_back("value", constant_->ConstantValueDebugString());
 }
 
 std::string ResolvedConstant::GetNameForDebugString() const {
@@ -447,8 +440,8 @@ void ResolvedCast::CollectDebugStringFields(
   if (time_zone_ != nullptr) {
     fields->emplace_back("time_zone", time_zone_.get());
   }
-  if (!type_parameters_.IsEmpty()) {
-    fields->emplace_back("type_parameters", type_parameters_.DebugString());
+  if (!type_modifiers_.IsEmpty()) {
+    fields->emplace_back("type_modifiers", type_modifiers_.DebugString());
   }
 }
 
@@ -463,6 +456,11 @@ void ResolvedExtendedCastElement::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
   ZETASQL_DCHECK_LE(fields->size(), 1);  // function
+}
+
+void ResolvedCast::set_type_parameters(const TypeParameters& v) {
+  type_modifiers_ =
+      TypeModifiers::MakeTypeModifiers(v, type_modifiers_.release_collation());
 }
 
 std::string ResolvedExtendedCastElement::GetNameForDebugString() const {

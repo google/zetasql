@@ -207,121 +207,9 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // AMBIGUOUS CASES
 // ===============
 //
-// AMBIGUOUS CASE 1: EXPRESSION SUBQUERY
-// ------------------------------------
-// There is a known ambiguous case causing 2 shift/reduce conflicts:
-//
-//   "((SELECT ...))"
-//
-// This has two different possible interpretations:
-// (a) a parenthesized expression containing an expression subquery.
-// (b) an expression subquery containing a parenthesized query.
-//
-// Sometimes there is a resolution, if there is an expression-only or
-// subquery-only continuation, e.g.:
-//
-//   "((SELECT ...) + ...)" => interpretation (a)
-//   "((SELECT ...) UNION ALL ...)" => interpretation (b)
-//
-// However, this resolution always comes *after* parsing the entire subquery.
-// Even if we assume there is always a resolution of the ambiguity, the only way
-// to parse this in an LALR(1) parser such as Bison is by either having a single
-// parse tree for the entire path, and deciding after the fact, *or* ensuring
-// that the stack contents and states between the two paths are *exactly
-// compatible*. We have chosen to take the second path.
-//
-// Here's how it works. The rules below the "query" rule tree are replicated
-// into "*_maybe_expression". The only difference for most of the rules is that
-// the $1 rule component is also a "_maybe_expression" rule variant, if and only
-// if it could possibly resolve to a "query_primary". The "query_primary" rule's
-// "maybe_expression" variant replaces the parenthesized query "(" query ")" by
-// simply "expression", which itself resolves to "(" query_maybe_expression ")"
-// via the "bare_expression_subquery" rule. The net effect is that the parser's
-// state is compatible with both a parenthesized expression and a parenthesized
-// query, even with multiple levels of parenthesization. For instance, the stack
-// may contain this:
-//
-//   "(" "(" "(" <select> ")"
-//
-// Up until this point there is no reason for the parser to do any reduction
-// that forces the choice. The first two parentheses could be the start of a
-// "parenthesized_expression" or of a "query_maybe_expression". The third
-// level of parentheses has no ambiguity (it can no longer be a
-// "parenthesized_expression"). However, the first expected item in the
-// "query_maybe_expression" rule tree is an "expression", so it gets resolved as
-// a subquery expression anyway:
-//
-//   "(" "(" "(" <select> ")"
-//   ...
-//   "(" "(" <bare_expression_subquery>
-//   "(" "(" <expression>
-//
-// Then assume the lookahead is ")" (i.e., the query is "(((<select>)))"). Then
-// this happens:
-//
-//   "(" "(" <expression> LOOKAHEAD ")"
-//
-// At this point, the choice *is* ambiguous. There are two rules that may be
-// applied:
-//
-//   (1) parenthesized_expression: "(" expression ")"
-//   (2) query_primary_maybe_expression: expression
-//
-// The first rule is active because "(" "(" may be the start of a parenthesized
-// expression. The second rule is active because "(" may be the start of a
-// bare_expression_subquery, which is defined as:
-//
-//   (3) bare_expression_subquery: "(" query_maybe_expression ")"
-//
-// Now here's where the trick happens: only rules (1) and (2) are active, not
-// rule (3) (because the "query_maybe_expression" isn't on the stack yet). And
-// the choice here is between shifting ")" onto the stack (choosing rule (1)) or
-// to reduce (rule (2)). The default resolution for shift/reduce conflicts is to
-// shift, so the parser will choose rule (1) here, removing the ambiguity! So
-// we get these steps:
-//
-//   "(" "(" <expression> ")"
-//   "(" <parenthesized_expression>
-//   "(" <expression>
-//
-// At this point, if the lookahead is again ")", then we get the exact same
-// scenario and resolution:
-//
-//   "(" <expression> LOOKAHEAD ")"
-//   "(" <expression> ")"
-//   <parenthesized_expression>
-//
-// And the whole thing is resolved as two layers of parenthesized_expressions
-// wrapping a bare_expression_subquery inside. This is also how the JavaCC
-// parser resolves this. (Note that "parenthesized_expression" only marks its
-// contained expression as parenthesized, so the resulting AST will have no
-// layers of parentheses.)
-//
-// If, however, the last lookahead was not ")" but "UNION", the following
-// would happen:
-//
-//   "(" <expression> LOOKAHEAD "UNION"
-//
-// Here, rule (1) would not be active, leaving only rule (2). Hence, the
-// <expression> is reduced to a <query_primary_maybe_expression>:
-//
-//   "(" <query_primary_maybe_expression> LOOKAHEAD "UNION"
-//
-// The rule for <query_primary_maybe_expression> then has to backtrack and
-// account for the fact that its input is an expression, not a query! So it
-// checks that its input is a subquery expression, extracts the query, and turns
-// it into a parenthesized query instead. There is a possible input where this
-// would trigger an error:
-//
-//   (((1+2)) UNION ALL ...)
-//
-// Because there is no guarantee that the first parenthesized
-// query_maybe_expression is actually a subquery!
-//
-//
-// AMBIGUOUS CASE 2: INSERT ... VALUES
+// AMBIGUOUS CASE 1: INSERT ... VALUES
 // ----------------------------------
-// The second known ambiguous case is INSERT ... VALUES. Since "values" can be
+// A shift/reduce ambiguous case is INSERT ... VALUES. Since "values" can be
 // used as an identifier, in a query like "INSERT mytable values (...", "values"
 // can be a path expression. Technically this should not be ambiguous because
 // the first element in this example is a table and the second cannot be
@@ -338,7 +226,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // easily solved in any other way.
 //
 //
-// AMBIGUOUS CASE 3: SAFE_CAST(...)
+// AMBIGUOUS CASE 2: SAFE_CAST(...)
 // --------------------------------
 // The SAFE_CAST keyword is non-reserved and can be used as an identifier. This
 // causes one shift/reduce conflict between keyword_as_identifier and the rule
@@ -346,7 +234,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // rule, which is the desired behavior.
 //
 //
-// AMBIGUOUS CASE 4: CREATE TABLE FUNCTION
+// AMBIGUOUS CASE 3: CREATE TABLE FUNCTION
 // ---------------------------------------
 // ZetaSQL now supports statements of type CREATE TABLE FUNCTION <name> to
 // generate new table-valued functions with user-defined names. It also
@@ -365,7 +253,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 //    TABLE FUNCTION encounter a shift/reduce confict.
 //
 //
-// AMBIGUOUS CASE 5: CREATE TABLE CONSTRAINTS
+// AMBIGUOUS CASE 4: CREATE TABLE CONSTRAINTS
 // ------------------------------------------
 // The CREATE TABLE rules for the PRIMARY KEY and FOREIGN KEY constraints have
 // 2 shift/reduce conflicts, one for each constraint. PRIMARY and FOREIGN can
@@ -378,14 +266,14 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // table_column_definition. Note that this grammar reports a syntax error when
 // using PRIMARY KEY or FOREIGN KEY as column definition name and type pairs.
 //
-// AMBIGUOUS CASE 6: REPLACE_FIELDS(...)
+// AMBIGUOUS CASE 5: REPLACE_FIELDS(...)
 // --------------------------------
 // The REPLACE_FIELDS keyword is non-reserved and can be used as an identifier.
 // This causes a shift/reduce conflict between keyword_as_identifier and the
 // rule that starts with "REPLACE_FIELDS" "(". It is resolved in favor of the
 // REPLACE_FIELDS( rule, which is the desired behavior.
 //
-// AMBIGUOUS CASE 7: Procedure parameter list in CREATE PROCEDURE
+// AMBIGUOUS CASE 6: Procedure parameter list in CREATE PROCEDURE
 // -------------------------------------------------------------
 // With rule procedure_parameter being:
 // [<mode>] <identifier> <type>
@@ -399,7 +287,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // In order to use OUT/INOUT as identifier, it needs to be escaped with
 // backticks.
 //
-// AMBIGUOUS CASE 8: CREATE TABLE GENERATED
+// AMBIGUOUS CASE 7: CREATE TABLE GENERATED
 // -------------------------------------------------------------
 // The GENERATED keyword is non-reserved, so when a generated column is defined
 // with "<name> [<type>] GENERATED AS ()", we have a shift/reduce conflict, not
@@ -408,37 +296,37 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // "shift", treating GENERATED as a keyword. To use it as an identifier, it
 // needs to be escaped with backticks.
 //
-// AMBIGUOUS CASE 9: WITH ANONYMIZATION opt_options_list
+// AMBIGUOUS CASE 8: WITH <identifier> opt_options_list
 // -------------------------------------------------------------
-// 'WITH ANONYMIZATION OPTIONS' produces 1 shift-reduce conflict:
-//   SELECT WITH ANONYMIZATION OPTIONS(a=b) x FROM foo;
-//   SELECT WITH ANONYMIZATION OPTIONS FROM foo;
+// 'WITH <identifier> OPTIONS' produces 1 shift-reduce conflict:
+//   SELECT WITH <identifier> OPTIONS(a=b) x FROM foo;
+//   SELECT WITH <identifier> OPTIONS FROM foo;
 // When seeing OPTIONS, it could be shifted to match against the parenthesized
 // options list, or it could be reduced as an identifier (i.e., interpreted
 // as 'foo.OPTIONS') in the SELECT list.  We use the shift in this case.
 //
-// AMBIGUOUS CASE 10: DESCRIPTOR(...)
+// AMBIGUOUS CASE 9: DESCRIPTOR(...)
 // --------------------------------
 // The DESCRIPTOR keyword is non-reserved and can be used as an identifier. This
 // causes one shift/reduce conflict between keyword_as_identifier and the rule
 // that starts with "DESCRIPTOR" "(". It is resolved in favor of DESCRIPTOR(
 // rule, which is the desired behavior.
 //
-// AMBIGUOUS CASE 11: FILTER_FIELDS(...)
+// AMBIGUOUS CASE 10: FILTER_FIELDS(...)
 // --------------------------------
 // The FILTER_FIELDS keyword is non-reserved and can be used as an identifier.
 // This causes a shift/reduce conflict between keyword_as_identifier and the
 // rule that starts with "FILTER_FIELDS" "(". It is resolved in favor of the
 // FILTER_FIELDS( rule, which is the desired behavior.
 //
-// AMBIGUOUS CASE 12: ANALYZE OPTIONS(...)
+// AMBIGUOUS CASE 11: ANALYZE OPTIONS(...)
 // --------------------------------
 // The OPTIONS keyword is non-reserved and can be used as an identifier.
 // This causes a shift/reduce conflict between keyword_as_identifier and the
 // rule that starts with "ANALYZE"  "OPTIONS" "(". It is resolved in favor of
 // the OPTIONS( rule, which is the desired behavior.
 //
-// AMBIGUOUS CASE 13: SELECT * FROM T QUALIFY
+// AMBIGUOUS CASE 12: SELECT * FROM T QUALIFY
 // --------------------------------
 // The QUALIFY keyword is non-reserved and can be used as an identifier.
 // This causes a shift/reduce conflict between keyword_as_identifier and the
@@ -447,7 +335,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // error messages to user when QUALIFY clause is used without
 // WHERE/GROUP BY/HAVING.
 //
-// AMBIGUOUS CASE 14: ALTER COLUMN
+// AMBIGUOUS CASE 13: ALTER COLUMN
 // --------------------------------
 // Spanner DDL compatibility extensions provide support for Spanner flavor of
 // ALTER COLUMN action, which expects full column definition instead of
@@ -461,7 +349,6 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // shift, which is a desired behavior.
 //
 // Total expected shift/reduce conflicts as described above:
-//   2: EXPRESSION SUBQUERY
 //   1: INSERT VALUES
 //   1: SAFE CAST
 //   3: CREATE TABLE FUNCTION
@@ -472,11 +359,11 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: CREATE EXTERNAL TABLE FUNCTION
 //   1: DESCRIPTOR
 //   1: FILTER FIELDS
-//   1: WITH ANONYMIZATION
+//   1: WITH <identifier>
 //   1: ANALYZE
 //   6: QUALIFY
 //   2: ALTER COLUMN
-%expect 27
+%expect 25
 
 %union {
   bool boolean;
@@ -512,6 +399,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTCreateFunctionStmtBase::DeterminismLevel determinism_level;
   zetasql::ASTGeneratedColumnInfo::StoredMode stored_mode;
   zetasql::ASTOrderingExpression::OrderingSpec ordering_spec;
+  zetasql::ASTSelectWith* select_with;
 
   // Not owned. The allocated nodes are all owned by the parser.
   // Nodes should use the most specific type available.
@@ -1091,7 +979,6 @@ using zetasql::ASTDropStatement;
 %type <node> as_query
 %type <node> as_sql_function_body_or_string
 %type <node> assert_statement
-%type <expression_subquery> bare_expression_subquery
 %type <node> begin_statement
 %type <node> aux_load_data_from_files_options_list
 %type <node> aux_load_data_statement
@@ -1129,6 +1016,9 @@ using zetasql::ASTDropStatement;
 %type <node> create_table_statement
 %type <node> create_view_statement
 %type <node> create_entity_statement
+%type <node> column_with_options
+%type <node> column_with_options_list
+%type <node> column_with_options_list_prefix
 %type <expression> date_or_time_literal
 %type <node> define_table_statement
 %type <node> delete_statement
@@ -1140,7 +1030,8 @@ using zetasql::ASTDropStatement;
 %type <node> explain_statement
 %type <node> export_data_statement
 %type <node> export_model_statement
-%type <expression> expression
+%type <expression> expression expression_not_parenthesized
+%type <expression> expression_maybe_parenthesized
 %type <node> generic_entity_type
 %type <node> generic_sub_entity_type
 %type <node> grant_to_clause
@@ -1150,7 +1041,7 @@ using zetasql::ASTDropStatement;
 %type <node> index_storing_expression_list
 %type <expression> interval_expression
 %type <expression> expression_or_default
-%type <expression_subquery> expression_subquery
+%type <expression_subquery> expression_subquery_with_keyword
 %type <expression> extract_expression
 %type <expression> extract_expression_base
 %type <node> field_schema
@@ -1282,11 +1173,13 @@ using zetasql::ASTDropStatement;
 %type <node> opt_as_string_or_integer
 %type <node> opt_as_query
 %type <node> opt_as_query_or_string
+%type <node> opt_as_query_or_aliased_query_list
 %type <node> opt_as_sql_function_body_or_string
 %type <node> opt_as_code
 %type <node> opt_assert_rows_modified
 %type <node> opt_clamped_between_modifier
 %type <node> opt_clone_table
+%type <node> opt_column_with_options_list
 %type <node> opt_copy_table
 %type <node> opt_cluster_by_clause_no_hint
 %type <node> opt_with_report_modifier
@@ -1334,6 +1227,7 @@ using zetasql::ASTDropStatement;
 %type <expression> on_path_expression
 %type <node> opt_options_list
 %type <node> opt_order_by_clause
+%type <node> opt_over_clause
 %type <node> opt_partition_by_clause
 %type <node> opt_partition_by_clause_no_hint
 %type <node> opt_qualify_clause
@@ -1347,7 +1241,6 @@ using zetasql::ASTDropStatement;
 %type <sql_security> opt_sql_security_clause
 %type <sql_security> sql_security_clause_kind
 %type <node> opt_table_and_column_info_list
-%type <node> opt_over_clause
 %type <node> opt_with_report_format
 %type <node> pivot_value
 %type <node> unpivot_in_item
@@ -1382,7 +1275,6 @@ using zetasql::ASTDropStatement;
 %type <node> ordering_expression
 %type <expression> named_parameter_expression
 %type <expression> parameter_expression
-%type <expression> parenthesized_expression
 %type <expression> system_variable_expression
 %type <node> parenthesized_in_rhs
 %type <node> partition_by_clause_prefix
@@ -1406,16 +1298,11 @@ using zetasql::ASTDropStatement;
 %type <node> privilege_list
 %type <node> privilege_name
 %type <node> privileges
-%type <query> query
-%type <node> query_maybe_expression
+%type <query> query parenthesized_query
 %type <node> query_primary
-%type <node> query_primary_maybe_expression
 %type <node> query_primary_or_set_operation
-%type <node> query_primary_or_set_operation_maybe_expression
 %type <node> query_set_operation
-%type <node> query_set_operation_maybe_expression
 %type <query_set_operation> query_set_operation_prefix
-%type <query_set_operation> query_set_operation_prefix_maybe_expression
 %type <node> query_statement
 %type <expression> range_literal
 %type <node> range_type
@@ -1523,9 +1410,10 @@ using zetasql::ASTDropStatement;
 %type <node> window_frame_bound
 %type <node> window_specification
 %type <node> with_clause
-%type <node> with_clause_entry
 %type <node> with_clause_with_trailing_comma
 %type <node> with_connection_clause
+%type <node> aliased_query
+%type <node> aliased_query_list
 %type <node> opt_with_connection_clause
 %type <node> alter_action_list
 %type <node> alter_action
@@ -1565,7 +1453,7 @@ using zetasql::ASTDropStatement;
 %type <boolean> opt_recursive
 %type <boolean> opt_unique
 %type <boolean> opt_search
-%type <node> opt_with_anonymization
+%type <select_with> opt_select_with;
 %type <node> primary_key_column_attribute
 %type <node> hidden_column_attribute
 %type <node> not_null_column_attribute
@@ -1647,7 +1535,7 @@ start_mode:
     ;
 
 
-opt_semicolon: ";" | /* Nothing */ ;
+opt_semicolon: ";" | %empty ;
 
 sql_statement:
     unterminated_sql_statement opt_semicolon
@@ -2176,7 +2064,7 @@ opt_input_output_clause:
         }
         $$ = MAKE_NODE(ASTInputOutputClause, @$, {$2, $4});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_transform_clause:
@@ -2184,7 +2072,7 @@ opt_transform_clause:
       {
         $$ = MAKE_NODE(ASTTransformClause, @$, {$3})
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 assert_statement:
@@ -2199,7 +2087,7 @@ opt_description:
       {
         $$ = $2;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -2214,7 +2102,7 @@ analyze_statement:
 
 opt_table_and_column_info_list:
     table_and_column_info_list
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 table_and_column_info_list:
@@ -2271,7 +2159,7 @@ transaction_mode_list:
 
 opt_transaction_mode_list:
     transaction_mode_list
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -2295,7 +2183,7 @@ transaction_keyword:
 
 opt_transaction_keyword:
     transaction_keyword
-    | /* Nothing */
+    | %empty
     ;
 
 set_statement:
@@ -2451,13 +2339,13 @@ create_function_statement:
 // Returns true if AGGREGATE is present, false otherwise.
 opt_aggregate:
     "AGGREGATE" { $$ = true; }
-    | /* Nothing */ { $$ = false; }
+    | %empty { $$ = false; }
     ;
 
 // Returns true if NOT AGGREGATE is present, false otherwise.
 opt_not_aggregate:
     "NOT" "AGGREGATE" { $$ = true; }
-    | /* Nothing */ { $$ = false; }
+    | %empty { $$ = false; }
     ;
 
 function_declaration:
@@ -2599,7 +2487,7 @@ opt_procedure_parameter_mode:
       {$$ = ::zetasql::ASTFunctionParameter::ProcedureParameterMode::OUT;}
     | "INOUT"
       {$$ = ::zetasql::ASTFunctionParameter::ProcedureParameterMode::INOUT;}
-    | /* nothing */
+    | %empty
       {$$ = ::zetasql::ASTFunctionParameter::ProcedureParameterMode::NOT_SET;}
     ;
 
@@ -2617,7 +2505,7 @@ opt_returns:
         }
         $$ = $2;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -2644,7 +2532,7 @@ opt_determinism_level:
       {$$ = ASTCreateFunctionStmtBase::STABLE;}
     | "VOLATILE"
       {$$ = ASTCreateFunctionStmtBase::VOLATILE;}
-    | /* Nothing */
+    | %empty
       {$$ = ASTCreateFunctionStmtBase::DETERMINISM_UNSPECIFIED;}
     ;
 
@@ -2654,7 +2542,7 @@ opt_language:
       {
         $$ = $2;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -2699,7 +2587,7 @@ opt_remote_with_connection_clause:
       {
         $$ = $1;
       }
-    | /* Nothing */
+    | %empty
       {
         $$.language = nullptr;
         $$.is_remote = false;
@@ -2719,7 +2607,7 @@ opt_language_or_remote_with_connection:
         $$ = $1;
         $$.language = $2;
       }
-    |  /* Nothing */
+    |  %empty
       {
         $$.language = nullptr;
         $$.is_remote = false;
@@ -2730,7 +2618,7 @@ opt_language_or_remote_with_connection:
 
 opt_sql_security_clause:
     "SQL" "SECURITY" sql_security_clause_kind { $$ = $3; }
-    | /* Nothing */
+    | %empty
       {
         $$ = zetasql::ASTCreateStatement::SQL_SECURITY_UNSPECIFIED;
       }
@@ -2753,7 +2641,7 @@ as_sql_function_body_or_string:
 
 opt_as_sql_function_body_or_string:
     as_sql_function_body_or_string
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -2764,7 +2652,7 @@ opt_as_code:
       {
         $$ = $2;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -2813,7 +2701,7 @@ opt_restrict_to_clause:
       {
         $$ = $1;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -2843,7 +2731,7 @@ opt_create_row_access_policy_grant_to_clause:
       {
         $$ = $1;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -2855,7 +2743,7 @@ opt_filter:
       {
         $$ = true;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = false;
       }
@@ -2943,7 +2831,7 @@ opt_external_table_with_clauses:
       $$.with_connection_clause =
           $1->GetAsOrDie<zetasql::ASTWithConnectionClause>();
     }
-    | /* Nothing */ {
+    | %empty {
       $$.with_partition_columns_clause = nullptr;
       $$.with_connection_clause = nullptr;
     }
@@ -2972,7 +2860,7 @@ create_external_table_statement:
     ;
 
 // This rule encounters a shift/reduce conflict with
-// 'create_external_table_statement' as noted in AMBIGUOUS CASE 4 in the
+// 'create_external_table_statement' as noted in AMBIGUOUS CASE 3 in the
 // file-level comment. The syntax of this rule and
 // 'create_external_table_statement' must be kept the same until the "TABLE"
 // keyword, so that parser can choose between these two rules based on the
@@ -3028,7 +2916,7 @@ create_snapshot_table_statement:
     ;
 
 // This rule encounters a shift/reduce conflict with 'create_table_statement'
-// as noted in AMBIGUOUS CASE 4 in the file-level comment. The syntax of this
+// as noted in AMBIGUOUS CASE 3 in the file-level comment. The syntax of this
 // rule and 'create_table_statement' must be kept the same until the "TABLE"
 // keyword, so that parser can choose between these two rules based on the
 // "FUNCTION" keyword conflict.
@@ -3058,7 +2946,7 @@ create_table_function_statement:
     ;
 
 // This rule encounters a shift/reduce conflict with
-// 'create_table_function_statement' as noted in AMBIGUOUS CASE 4 in the
+// 'create_table_function_statement' as noted in AMBIGUOUS CASE 3 in the
 // file-level comment. The syntax of this rule and
 // 'create_table_function_statement' must be kept the same until the "TABLE"
 // keyword, so that parser can choose between these two rules based on the
@@ -3177,7 +3065,7 @@ opt_generic_entity_body:
       {
         $$ = $2;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 create_entity_statement:
@@ -3202,7 +3090,8 @@ create_entity_statement:
 create_model_statement:
     "CREATE" opt_or_replace opt_create_scope "MODEL" opt_if_not_exists
     path_expression opt_input_output_clause opt_transform_clause
-    opt_remote_with_connection_clause opt_options_list opt_as_query
+    opt_remote_with_connection_clause opt_options_list
+    opt_as_query_or_aliased_query_list
       {
         auto* node = MAKE_NODE(
             ASTCreateModelStatement,
@@ -3213,7 +3102,7 @@ create_model_statement:
               $opt_transform_clause,
               $opt_remote_with_connection_clause.with_connection_clause,
               $opt_options_list,
-              $opt_as_query
+              $opt_as_query_or_aliased_query_list,
             });
         node->set_is_or_replace($opt_or_replace);
         node->set_scope($opt_create_scope);
@@ -3225,7 +3114,7 @@ create_model_statement:
 
 opt_table_element_list:
     table_element_list
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 table_element_list:
@@ -3261,7 +3150,7 @@ table_element_list_prefix:
 
 // The table_element grammar includes 2 shift/reduce conflicts in its
 // table_constraint_definition rule. See the file header comment for
-// AMBIGUOUS CASE 5: CREATE TABLE CONSTRAINTS.
+// AMBIGUOUS CASE 4: CREATE TABLE CONSTRAINTS.
 //
 // The table elements for the CREATE TABLE statement include a mix of column
 // definitions and constraint definitions (such as foreign key, primary key,
@@ -3426,7 +3315,7 @@ stored_mode:
     {
       $$ = zetasql::ASTGeneratedColumnInfo::StoredMode::STORED;
     }
-  | /* nothing */
+  | %empty
     {
       $$ = zetasql::ASTGeneratedColumnInfo::StoredMode::NON_STORED;
     }
@@ -3446,7 +3335,7 @@ invalid_generated_column:
     {
       $$ = true;
     }
-  | /* nothing */
+  | %empty
     {
       $$ = false;
     }
@@ -3469,7 +3358,7 @@ invalid_default_column:
     {
       $$ = true;
     }
-  | /* nothing */
+  | %empty
     {
       $$ = false;
     }
@@ -3495,7 +3384,7 @@ opt_column_info:
       $$.generated_column_info = nullptr;
       $$.default_expression = static_cast<zetasql::ASTExpression*>($1);
     }
-  | /* nothing */
+  | %empty
     {
       $$.generated_column_info = nullptr;
       $$.default_expression = nullptr;
@@ -3602,7 +3491,7 @@ column_attributes:
 
 opt_column_attributes:
     column_attributes
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_field_attributes:
@@ -3610,7 +3499,7 @@ opt_field_attributes:
     {
       $$ = MAKE_NODE(ASTColumnAttributeList, @$, {$1});
     }
-  | /* Nothing */ { $$ = nullptr; }
+  | %empty { $$ = nullptr; }
   ;
 
 column_position:
@@ -3630,7 +3519,7 @@ column_position:
 
 opt_column_position:
     column_position
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 fill_using_expression:
@@ -3642,7 +3531,7 @@ fill_using_expression:
 
 opt_fill_using_expression:
     fill_using_expression
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 table_constraint_spec:
@@ -3758,7 +3647,7 @@ foreign_key_reference:
 
 opt_foreign_key_match:
     "MATCH" foreign_key_match_mode { $$ = $2; }
-    | /* Nothing */ { $$ = zetasql::ASTForeignKeyReference::SIMPLE; }
+    | %empty { $$ = zetasql::ASTForeignKeyReference::SIMPLE; }
     ;
 
 foreign_key_match_mode:
@@ -3784,7 +3673,7 @@ opt_foreign_key_actions:
         actions->set_update_action($2);
         $$ = actions;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = MAKE_NODE(ASTForeignKeyActions, @$, {});
       }
@@ -3792,12 +3681,12 @@ opt_foreign_key_actions:
 
 opt_foreign_key_on_update:
     foreign_key_on_update
-    | /* Nothing */ { $$ = zetasql::ASTForeignKeyActions::NO_ACTION; }
+    | %empty { $$ = zetasql::ASTForeignKeyActions::NO_ACTION; }
     ;
 
 opt_foreign_key_on_delete:
     foreign_key_on_delete
-    | /* Nothing */ { $$ = zetasql::ASTForeignKeyActions::NO_ACTION; }
+    | %empty { $$ = zetasql::ASTForeignKeyActions::NO_ACTION; }
     ;
 
 foreign_key_on_update:
@@ -3817,12 +3706,12 @@ foreign_key_action:
 
 opt_constraint_identity:
     "CONSTRAINT" identifier { $$ = $2; }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_constraint_enforcement:
     constraint_enforcement
-    | /* Nothing */ { $$ = true; }
+    | %empty { $$ = true; }
     ;
 
 constraint_enforcement:
@@ -3831,7 +3720,7 @@ constraint_enforcement:
     ;
 
 // Matches either "TABLE" or "TABLE FUNCTION'. This encounters a shift/reduce
-// conflict as noted in AMBIGUOUS CASE 4 in the file-level comment.
+// conflict as noted in AMBIGUOUS CASE 3 in the file-level comment.
 table_or_table_function:
     "TABLE" "FUNCTION"
       {
@@ -3874,17 +3763,17 @@ tvf_schema:
     ;
 
 opt_recursive: "RECURSIVE" { $$ = true; }
-  | /* Nothing */ { $$ = false; }
+  | %empty { $$ = false; }
   ;
 
 create_view_statement:
     "CREATE" opt_or_replace opt_create_scope opt_recursive "VIEW"
-    opt_if_not_exists maybe_dashed_path_expression opt_column_list
+    opt_if_not_exists maybe_dashed_path_expression opt_column_with_options_list
     opt_sql_security_clause
     opt_options_list as_query
       {
         auto* create =
-            MAKE_NODE(ASTCreateViewStatement, @$, {$7, $8, $10, $11});
+            MAKE_NODE(ASTCreateViewStatement, @$, {$7, $8, $8, $10, $11});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_recursive($4);
@@ -3894,12 +3783,12 @@ create_view_statement:
       }
     |
     "CREATE" opt_or_replace "MATERIALIZED" opt_recursive "VIEW"
-    opt_if_not_exists maybe_dashed_path_expression opt_column_list
+    opt_if_not_exists maybe_dashed_path_expression opt_column_with_options_list
     opt_sql_security_clause opt_partition_by_clause_no_hint
     opt_cluster_by_clause_no_hint opt_options_list as_query
       {
         auto* create = MAKE_NODE(
-          ASTCreateMaterializedViewStatement, @$, {$7, $8, $10, $11, $12, $13});
+          ASTCreateMaterializedViewStatement, @$, {$7, $8, $8, $10, $11, $12, $13});
         create->set_is_or_replace($2);
         create->set_recursive($4);
         create->set_scope(zetasql::ASTCreateStatement::DEFAULT_SCOPE);
@@ -3914,18 +3803,24 @@ as_query:
 
 opt_as_query:
     as_query { $$ = $1; }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_as_query_or_string :
     as_query { $$ = $1; }
     | "AS" string_literal { $$ = $2; }
+    | %empty { $$ = nullptr; }
+    ;
+
+opt_as_query_or_aliased_query_list:
+    as_query { $$ = $1; }
+    | "AS" "(" aliased_query_list ")" { $$ = $3; }
     | /* Nothing */ { $$ = nullptr; }
     ;
 
 opt_if_not_exists:
     "IF" "NOT" "EXISTS" { $$ = true; }
-    | /* Nothing */ { $$ = false; }
+    | %empty { $$ = false; }
     ;
 
 describe_statement:
@@ -3951,7 +3846,7 @@ opt_from_path_expression:
       {
         $$ = $2;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 explain_statement:
@@ -4010,7 +3905,7 @@ privileges:
 
 opt_privileges_keyword:
     KW_PRIVILEGES
-    | /* Nothing */
+    | %empty
     ;
 
 privilege_list:
@@ -4123,7 +4018,7 @@ index_unnest_expression_list:
 
 opt_index_unnest_expression_list:
    index_unnest_expression_list
-   |  /* Nothing */ { $$ = nullptr; }
+   |  %empty { $$ = nullptr; }
    ;
 
 index_storing_expression_list_prefix:
@@ -4152,7 +4047,7 @@ index_storing_list:
 
 opt_index_storing_list:
    index_storing_list
-   | /* Nothing */ { $$ = nullptr; }
+   | %empty { $$ = nullptr; }
    ;
 
 column_list_prefix:
@@ -4175,6 +4070,36 @@ column_list:
 
 opt_column_list:
     column_list
+    | %empty { $$ = nullptr; }
+    ;
+
+column_with_options:
+    identifier opt_options_list
+      {
+        $$ = MAKE_NODE(ASTColumnWithOptions, @$, {$1, $2});
+      }
+    ;
+
+column_with_options_list_prefix:
+    "(" column_with_options
+      {
+        $$ = MAKE_NODE(ASTColumnWithOptionsList, @$, {$2});
+      }
+    | column_with_options_list_prefix "," column_with_options
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+column_with_options_list:
+    column_with_options_list_prefix ")"
+      {
+        $$ = parser->WithEndLocation($1, @$);
+      }
+    ;
+
+opt_column_with_options_list:
+    column_with_options_list
     | /* Nothing */ { $$ = nullptr; }
     ;
 
@@ -4234,7 +4159,7 @@ opt_like_string_literal:
       {
         $$ = $2;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_like_path_expression:
@@ -4242,7 +4167,7 @@ opt_like_path_expression:
       {
         $$ = $2;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_clone_table:
@@ -4250,7 +4175,7 @@ opt_clone_table:
       {
         $$ = $2;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_copy_table:
@@ -4258,7 +4183,7 @@ opt_copy_table:
       {
         $$ = $2;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 // Returns AllOrDistinctKeyword::kDistinct for DISTINCT, kAllKeyword for ALL.
@@ -4284,33 +4209,31 @@ query_set_operation_type:
       }
     ;
 
-// Careful: Keep in sync with "query_primary_or_set_operation_maybe_expression"!
 query_primary_or_set_operation:
     query_primary
     | query_set_operation
     ;
 
-// "query_primary_or_set_operation" variant to resolve AMBIGUOUS CASE described
-// above. Keep in sync with "query_primary_or_set_operation".
-// Difference from query_primary_or_set_operation: where the other rule allows
-// prefix (query), this rule uses "expression" to parse the same thing instead,
-// and then errors out if the parsed entity is not an expression subquery.
-//
-// Careful: Keep in sync with "query_primary_or_set_operation"!
-query_primary_or_set_operation_maybe_expression:
-    query_primary_maybe_expression
-    | query_set_operation_maybe_expression
-    ;
+parenthesized_query:
+    "(" query ")"
+      {
+        // We do not call $query->set_parenthesized(true) because typically the
+        // calling rule expects parentheses and will already insert one pair
+        // when unparsing.
+        $$ = $query;
+      }
+  ;
 
 // We don't use an opt_with_clause for the first element because it causes
 // shift/reduce conflicts.
 //
-// Careful: Keep in sync with "query_maybe_expression"!
 query:
-    with_clause query_primary_or_set_operation opt_order_by_clause
-    opt_limit_offset_clause
+    with_clause query_primary_or_set_operation[query_primary]
+      opt_order_by_clause[order_by]
+      opt_limit_offset_clause[offset]
       {
-        $$ = MAKE_NODE(ASTQuery, @$, {$1, $2, $3, $4});
+        $$ = MAKE_NODE(ASTQuery, @$,
+           {$with_clause, $query_primary, $order_by, $offset});
       }
     | with_clause_with_trailing_comma "SELECT"
       {
@@ -4320,37 +4243,19 @@ query:
                              "Syntax error: Trailing comma after the WITH "
                              "clause before the SELECT clause is not allowed");
       }
-    | query_primary_or_set_operation opt_order_by_clause
-      opt_limit_offset_clause
+    | query_primary_or_set_operation[query_primary]
+      opt_order_by_clause[order_by]
+      opt_limit_offset_clause[offset]
       {
-        $$ = MAKE_NODE(ASTQuery, @$, {$1, $2, $3});
-      }
-    ;
-
-// "query" variant to resolve AMBIGUOUS CASE above.
-// Difference from "query": where the other rule allows prefix (query), this
-// rule uses "expression" to parse the same thing instead, and then errors out
-// if the parsed entity is not an expression subquery.
-//
-// Careful: keep in sync with "query"!
-query_maybe_expression:
-    with_clause query_primary_or_set_operation_maybe_expression
-    opt_order_by_clause opt_limit_offset_clause
-      {
-        $$ = MAKE_NODE(ASTQuery, @$, {$1, $2, $3, $4});
-      }
-    | with_clause_with_trailing_comma "SELECT"
-      {
-        // TODO: Consider pointing the error location at the comma
-        // instead of at the SELECT.
-        YYERROR_AND_ABORT_AT(@2,
-                             "Syntax error: Trailing comma after the WITH "
-                             "clause before the SELECT clause is not allowed");
-      }
-    | query_primary_or_set_operation_maybe_expression opt_order_by_clause
-      opt_limit_offset_clause
-      {
-        $$ = MAKE_NODE(ASTQuery, @$, {$1, $2, $3});
+        zetasql::ASTQuery* query = $query_primary->GetAsOrNull<
+          zetasql::ASTQuery>();
+        // We could further reduce wrapping ASTQueries in each other but do not
+        // because it affects customary output and tests.
+        if (query && !query->parenthesized()) {
+          $$ = WithExtraChildren(query, {$order_by, $offset});
+        } else {
+          $$ = MAKE_NODE(ASTQuery, @$, {$query_primary, $order_by, $offset});
+        }
       }
     ;
 
@@ -4361,7 +4266,6 @@ query_maybe_expression:
 // We have no precedence rules for associativity between different set
 // operations but parentheses are supported to disambiguate.
 //
-// Careful: keep in sync with "query_set_operation_prefix_maybe_expression"!
 query_set_operation_prefix:
     query_primary query_set_operation_type opt_hint all_or_distinct
     query_primary
@@ -4392,7 +4296,6 @@ query_set_operation_prefix:
       }
     ;
 
-// Careful: keep in sync with "query_set_operation_maybe_expression"!
 query_set_operation:
    query_set_operation_prefix
      {
@@ -4400,102 +4303,18 @@ query_set_operation:
      }
    ;
 
-// "query_set_operation_prefix" variant to resolve AMBIGUOUS CASE described
-// above.
-// Difference from query_set_operation_prefix: where the other rule allows
-// prefix (query), this rule uses "expression" to parse the same thing instead,
-// and then errors out if the parsed entity is not an expression subquery.
-//
-// Careful: keep in sync with "query_set_operation_prefix"!
-query_set_operation_prefix_maybe_expression:
-    query_primary_maybe_expression query_set_operation_type all_or_distinct
-    query_primary
-      {
-        auto* set_op = MAKE_NODE(ASTSetOperation, @$, {$1, $4});
-        set_op->set_op_type($2);
-        set_op->set_distinct($3 == AllOrDistinctKeyword::kDistinct);
-        $$ = set_op;
-      }
-    | query_set_operation_prefix_maybe_expression query_set_operation_type
-    all_or_distinct query_primary
-      {
-        zetasql::ASTSetOperation* set_op = $1;
-        if (set_op->op_type() != $2 ||
-            set_op->distinct() != ($3 == AllOrDistinctKeyword::kDistinct)) {
-          YYERROR_AND_ABORT_AT(
-              @2,
-              "Syntax error: Different set operations cannot be used in the "
-              "same query without using parentheses for grouping");
-        }
-        $$ = WithExtraChildren(set_op, {$4});
-      }
-    ;
-
-// "query_set_operation" variant to resolve AMBIGUOUS CASE described above.
-// Difference from query_set_operation: where the other rule allows prefix
-// (query), this rule uses "expression" to parse the same thing instead, and
-// then errors out if the parsed entity is not an expression subquery.
-//
-// Careful: keep in sync with "query_set_operation"!
-query_set_operation_maybe_expression:
-   query_set_operation_prefix_maybe_expression
-     {
-       $$ = parser->WithEndLocation($1, @$);
-     }
-   ;
-
-// Careful: keep in sync with "query_primary_maybe_expression"!
 query_primary:
     select
-    | "(" query ")"
-      {
-        zetasql::ASTQuery* query = $2;
-        query->set_parenthesized(true);
-        $$ = query;
-      }
-    ;
-
-// "query_primary" variant to resolve AMBIGUOUS CASE described above.
-//
-// This uses "expression" instead of "(" query ")", and then errors out if it
-// does not return an expression subquery. See AMBIGUOUS CASE above for an
-// explanation of what this does.
-//
-// Careful: keep in sync with "query_primary"!
-query_primary_maybe_expression:
-    select
-    | expression
-      {
-        if ($1->node_kind() != zetasql::AST_EXPRESSION_SUBQUERY) {
-          // We could give an error at the end of the expression, because that's
-          // where the context turns the expression into an argument of a
-          // relational set operator. However, there are cases where this is
-          // triggered where the following token really can't be recognized by
-          // the user as a relational operator, even though it does force the
-          // interpretation to be "query". So we point at the beginning of the
-          // expression instead, to be on the safe side.
-          // TODO: This is not ideal. Make a better error message.
-          YYERROR_AND_ABORT_AT(
-              @$,
-              "Syntax error: Parenthesized expression cannot be parsed as an "
-              "expression, struct constructor, or subquery");
-        }
-        zetasql::ASTQuery* query =
-            $1->GetAsOrDie<zetasql::ASTExpressionSubquery>()
-              ->GetMutableQueryChildInternal();
-        if (query == nullptr) {
-          YYERROR_AND_ABORT_AT(
-              @1,
-              "Internal error: expected query as child of subquery");
-        }
-        query->set_parenthesized(true);
-        $$ = query;
-      }
+    | parenthesized_query[query]
+     {
+       $query->set_parenthesized(true);
+       $$ = $query;
+     }
     ;
 
 select:
     "SELECT" opt_hint
-    opt_with_anonymization
+    opt_select_with
     opt_all_or_distinct
     opt_select_as_clause select_list opt_from_clause opt_clauses_following_from
       {
@@ -4506,7 +4325,7 @@ select:
         $$ = select;
       }
     | "SELECT" opt_hint
-      opt_with_anonymization
+      opt_select_with
       opt_all_or_distinct
       opt_select_as_clause "FROM"
       {
@@ -4516,18 +4335,12 @@ select:
       }
     ;
 
-opt_with_anonymization:
-    "WITH" "ANONYMIZATION" opt_options_list
+opt_select_with:
+    "WITH" identifier opt_options_list
     {
-      $$ = $3;
-      if ($$ == nullptr ) {
-        // Since WITH ANONYMIZATION is present but there was no options list
-        // specified, we indicate the presence of WITH ANONYMIZATION by
-        // returning an empty options list.
-        $$ = MAKE_NODE(ASTOptionsList, @$);
-      }
+      $$ = MAKE_NODE(ASTSelectWith, @$, {$2, $3});
     }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 // AS STRUCT, AS VALUE, or AS <path expression>. This needs some special
@@ -4560,7 +4373,7 @@ opt_select_as_clause:
           $$ = select_as;
         }
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 extra_identifier_in_hints_name:
@@ -4625,7 +4438,7 @@ hint:
 opt_all_or_distinct:
     "ALL" { $$ = AllOrDistinctKeyword::kAll; }
     | "DISTINCT" { $$ = AllOrDistinctKeyword::kDistinct; }
-    | /* Nothing */ { $$ = AllOrDistinctKeyword::kNone; }
+    | %empty { $$ = AllOrDistinctKeyword::kNone; }
     ;
 
 select_list_prefix:
@@ -4746,7 +4559,7 @@ opt_as_alias:
       {
         $$ = MAKE_NODE(ASTAlias, FirstNonEmptyLocation({@1, @2}), @2, {$2});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_as_alias_with_required_as:
@@ -4754,7 +4567,7 @@ opt_as_alias_with_required_as:
       {
         $$ = MAKE_NODE(ASTAlias, @$, {$2});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_as_or_into_alias:
@@ -4766,21 +4579,21 @@ opt_as_or_into_alias:
       {
         $$ = MAKE_NODE(ASTIntoAlias, @$, {$2});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_as:
     KW_AS
-    | /* Nothing */
+    | %empty
     ;
 
 // Returns true for "NATURAL", false for not-natural.
 opt_natural:
     "NATURAL" { $$ = true; }
-    | /* Nothing */ { $$ = false; }
+    | %empty { $$ = false; }
     ;
 
-opt_outer: "OUTER" | /* Nothing */ ;
+opt_outer: "OUTER" | %empty ;
 
 int_literal_or_parameter:
     integer_literal
@@ -4830,7 +4643,7 @@ sample_size:
 
 opt_repeatable_clause:
     repeatable_clause
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 // It doesn't appear to be possible to consolidate the rules without introducing
@@ -4857,7 +4670,7 @@ opt_sample_clause_suffix:
         auto* with_weight = MAKE_NODE(ASTWithWeight, @$, {alias});
         $$ = MAKE_NODE(ASTSampleSuffix, @$, {with_weight, $5});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 sample_clause:
@@ -4869,7 +4682,7 @@ sample_clause:
 
 opt_sample_clause:
     sample_clause
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 pivot_expression:
@@ -4917,7 +4730,7 @@ opt_as_string_or_integer:
   | opt_as integer_literal{
     $$ = MAKE_NODE(ASTUnpivotInItemLabel, @$, {$2})
   }
-  | /* Nothing */ { $$ = nullptr; };
+  | %empty { $$ = nullptr; };
 
 path_expression_list:
     path_expression
@@ -4958,7 +4771,7 @@ path_expression_list_with_parens:
 
 opt_path_expression_list_with_parens:
     path_expression_list_with_parens
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 unpivot_in_item:
@@ -4982,7 +4795,7 @@ unpivot_in_item_list:
 opt_unpivot_nulls_filter:
     "EXCLUDE" "NULLS" { $$ = zetasql::ASTUnpivotClause::kExclude; }
     | "INCLUDE" "NULLS" { $$ = zetasql::ASTUnpivotClause::kInclude; }
-    | /* Nothing */ { $$ = zetasql::ASTUnpivotClause::kUnspecified; }
+    | %empty { $$ = zetasql::ASTUnpivotClause::kUnspecified; }
     ;
 
 unpivot_clause:
@@ -5073,7 +4886,7 @@ opt_pivot_or_unpivot_clause_and_alias:
         "QUALIFY clause must be used in conjunction with WHERE or GROUP BY "
         "or HAVING clause");
   }
-  | /* Nothing */ {
+  | %empty {
     $$.alias = nullptr;
     $$.pivot_clause = nullptr;
     $$.unpivot_clause = nullptr;
@@ -5081,15 +4894,15 @@ opt_pivot_or_unpivot_clause_and_alias:
   ;
 
 table_subquery:
-    "(" query ")" opt_pivot_or_unpivot_clause_and_alias opt_sample_clause
+  parenthesized_query[query] opt_pivot_or_unpivot_clause_and_alias[clauses] opt_sample_clause[sample]
       {
-        zetasql::ASTQuery* query = $2;
-        if ($4.pivot_clause != nullptr) {
+        zetasql::ASTQuery* query = $query;
+        if ($clauses.pivot_clause != nullptr) {
           query->set_is_pivot_input(true);
         }
         query->set_is_nested(true);
         $$ = MAKE_NODE(ASTTableSubquery, @$, {
-            $2, $4.alias, $4.pivot_clause, $4.unpivot_clause, $5});
+            $query, $clauses.alias, $clauses.pivot_clause, $clauses.unpivot_clause, $sample});
       }
     ;
 
@@ -5366,7 +5179,7 @@ opt_at_system_time:
         $$ = MAKE_NODE(ASTForSystemTime, @$, {$5})
       }
 
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 on_clause:
@@ -5396,7 +5209,7 @@ using_clause:
 
 opt_on_or_using_clause_list:
     on_or_using_clause_list
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -5434,14 +5247,14 @@ join_type:
     | "INNER" { $$ = zetasql::ASTJoin::INNER; }
     | "LEFT" opt_outer { $$ = zetasql::ASTJoin::LEFT; }
     | "RIGHT" opt_outer { $$ = zetasql::ASTJoin::RIGHT; }
-    | /* Nothing */  { $$ = zetasql::ASTJoin::DEFAULT_JOIN_TYPE; }
+    | %empty  { $$ = zetasql::ASTJoin::DEFAULT_JOIN_TYPE; }
     ;
 
 // Return the join hint token as expected by ASTJoin::set_join_hint().
 join_hint:
     "HASH" { $$ = zetasql::ASTJoin::HASH; }
     | "LOOKUP" { $$ = zetasql::ASTJoin::LOOKUP; }
-    | /* Nothing */ { $$ = zetasql::ASTJoin::NO_JOIN_HINT; }
+    | %empty { $$ = zetasql::ASTJoin::NO_JOIN_HINT; }
     ;
 
 join_input: join | table_primary ;
@@ -5561,7 +5374,7 @@ opt_from_clause:
 
         $$ = MAKE_NODE(ASTFromClause, @$, {node});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 // The rules opt_clauses_following_from, opt_clauses_following_where and
@@ -5612,7 +5425,7 @@ where_clause:
 
 opt_where_clause:
     where_clause
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 rollup_list:
@@ -5656,7 +5469,7 @@ group_by_clause:
 
 opt_group_by_clause:
     group_by_clause
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 having_clause:
@@ -5667,7 +5480,7 @@ having_clause:
 
 opt_having_clause:
     having_clause
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 window_definition:
@@ -5693,13 +5506,13 @@ opt_window_clause:
       {
         $$ = parser->WithEndLocation($1, @$);
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_qualify_clause:
       qualify_clause_reserved { $$ = $1; }
     | qualify_clause_nonreserved { $$ = $1; }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 qualify_clause_reserved:
@@ -5715,7 +5528,7 @@ qualify_clause_reserved:
 
 opt_qualify_clause_reserved:
    qualify_clause_reserved { $$ = $1; }
-   | /* Nothing */ { $$ = nullptr; }
+   | %empty { $$ = nullptr; }
 
 qualify_clause_nonreserved:
     KW_QUALIFY_NONRESERVED expression
@@ -5738,7 +5551,7 @@ opt_limit_offset_clause:
       {
         $$ = MAKE_NODE(ASTLimitOffset, @$, {$2});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_having_modifier:
@@ -5756,7 +5569,7 @@ opt_having_modifier:
             zetasql::ASTHavingModifier::ModifierKind::MIN);
         $$ = modifier;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_clamped_between_modifier:
@@ -5764,7 +5577,7 @@ opt_clamped_between_modifier:
       {
         $$ = MAKE_NODE(ASTClampedBetweenModifier, @$, {$3, $5})
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_with_report_modifier:
@@ -5772,12 +5585,12 @@ opt_with_report_modifier:
       {
         $$ = MAKE_NODE(ASTWithReportModifier, @$, {$3});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_with_report_format:
     options_list { $$ = $1; }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_null_handling_modifier:
@@ -5789,26 +5602,34 @@ opt_null_handling_modifier:
       {
         $$ = zetasql::ASTFunctionCall::RESPECT_NULLS;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = zetasql::ASTFunctionCall::DEFAULT_NULL_HANDLING;
       }
     ;
 
-with_clause_entry:
-    identifier "AS" "(" query ")"
+aliased_query:
+    identifier "AS" parenthesized_query[query]
       {
-        $$ = MAKE_NODE(ASTWithClauseEntry, @$, {$1, $4});
+        $$ = MAKE_NODE(ASTWithClauseEntry, @$, {$1, $query});
+      }
+    ;
+
+aliased_query_list:
+    aliased_query { $$ = MAKE_NODE(ASTAliasedQueryList, @$, {$1}); }
+    | aliased_query_list "," aliased_query
+      {
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
     ;
 
 with_clause:
-    "WITH" with_clause_entry
+    "WITH" aliased_query
       {
         $$ = MAKE_NODE(ASTWithClause, @$, {$2});
         $$ = parser->WithEndLocation($$, @$);
       }
-    | "WITH" "RECURSIVE" with_clause_entry
+    | "WITH" "RECURSIVE" aliased_query
       {
         zetasql::ASTWithClause* with_clause =
             MAKE_NODE(ASTWithClause, @$, {$3})
@@ -5816,7 +5637,7 @@ with_clause:
         with_clause->set_recursive(true);
         $$ = with_clause;
       }
-    | with_clause "," with_clause_entry
+    | with_clause "," aliased_query
       {
         $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
@@ -5824,7 +5645,7 @@ with_clause:
 
 opt_with_connection_clause:
     with_connection_clause
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 with_clause_with_trailing_comma:
@@ -5838,7 +5659,7 @@ with_clause_with_trailing_comma:
 opt_asc_or_desc:
     "ASC" { $$ = zetasql::ASTOrderingExpression::ASC; }
     | "DESC" { $$ = zetasql::ASTOrderingExpression::DESC; }
-    | /* Nothing */ { $$ = zetasql::ASTOrderingExpression::UNSPECIFIED; }
+    | %empty { $$ = zetasql::ASTOrderingExpression::UNSPECIFIED; }
     ;
 
 opt_null_order:
@@ -5854,7 +5675,7 @@ opt_null_order:
         null_order->set_nulls_first(false);
         $$ = null_order;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 string_literal_or_parameter:
@@ -5870,7 +5691,7 @@ collate_clause:
 
 opt_collate_clause:
     collate_clause
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_default_collate_clause:
@@ -5878,7 +5699,7 @@ opt_default_collate_clause:
       {
         $$ = $2;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 ordering_expression:
@@ -5907,62 +5728,19 @@ opt_order_by_clause:
       {
         $$ = parser->WithEndLocation($1, @$);
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
-// This rule contains a hack to work around the fact that (query) and
-// (expression) are ambiguous. The reason they are ambiguous is that
-// all ZetaSQL queries can be parenthesized. So you can write something like
-// IN ((SELECT 1)), which could be an IN subquery that happens to be
-// parenthesized, or it could be a subquery expression.
-// See also http://b/29441587#comment3.
 parenthesized_in_rhs:
-    bare_expression_subquery
+    parenthesized_query[query]
       {
-        zetasql::ASTExpressionSubquery* subquery = $1;
-        zetasql::ASTQuery* query =
-            subquery->GetMutableQueryChildInternal();
-        if (query == nullptr) {
-          YYERROR_AND_ABORT_AT(
-              @1,
-              "Internal error: expected query child of subquery");
-        }
-        $$ = query;
+        $$ = $query;
       }
-    | "(" expression ")"
+  // We use expression_maybe_parenthesized here because it's an optionally
+  // parenthesized expression which is NOT a query.
+    | "(" expression_maybe_parenthesized[e] ")"
       {
-        if ($2->node_kind() == zetasql::AST_EXPRESSION_SUBQUERY) {
-          auto* subquery = $2->GetAsOrDie<zetasql::ASTExpressionSubquery>();
-          if (subquery->modifier() ==
-                  zetasql::ASTExpressionSubquery::Modifier::NONE) {
-            // To match the JavaCC parser, we prefer interpretating IN ((query))
-            // as IN (query) with a parenthesized query, not a value IN list
-            // containing a scalar expression query.
-            // Return the contained ASTQuery, wrapped in another ASTQuery to
-            // replace the parentheses.
-            zetasql::ASTQuery* query =
-                subquery->GetMutableQueryChildInternal();
-            if (query == nullptr) {
-              YYERROR_AND_ABORT_AT(
-                  @2,
-                  "Internal error: expected query child of parenthesized"
-                  " subquery");
-            }
-            query->set_parenthesized(true);
-            $$ = MAKE_NODE(ASTQuery, @2, {query});
-          } else {
-            // The expression subquery is an EXISTS or ARRAY subquery, which
-            // is a scalar expression and is not interpreted as a Query.  Treat
-            // this as an InList with a single element.
-            // Don't include the parentheses in the location, to match the
-            // JavaCC parser.
-            $$ = MAKE_NODE(ASTInList, @2, {$2});
-          }
-        } else {
-          // Don't include the parentheses in the location, to match the JavaCC
-          // parser.
-          $$ = MAKE_NODE(ASTInList, @2, {$2});
-        }
+        $$ = MAKE_NODE(ASTInList, @e, {$e});
       }
     | in_list_two_or_more_prefix ")"
       {
@@ -6169,9 +5947,56 @@ with_expression:
     }
   ;
 
-// TODO: Consider inlining the most common of these productions.
-// Inlining saves significant resources while parsing.
+// This top level rule and the special segregation of expressions into certainly
+// unparenthesized ones (expression_not_parenthesized) and ones potentially with
+// parentheses (expression_maybe_parenthesized) is designed to make it possible
+// to use one token of lookahead to decide whether to turn a parenthesized query
+// query into an expression.
+// The lookahead is used to disambiguate between
+// - the expression case like ((SELECT 1)) + 1
+// - and the set operation query case like ((SELECT 1)) UNION ALL (SELECT 2).
 expression:
+  expression_maybe_parenthesized[e]
+    { $$ = $e; }
+  | parenthesized_query[query]
+    {
+      // Unwrap a stack of meaningless empty queries
+      zetasql::ASTQuery* query = $query;
+      while (query->IsTrivialWrapperQuery()) {
+        zetasql::ASTQuery* child = query->mutable_child(0)
+          ->GetAsOrNull<zetasql::ASTQuery>();
+        if (child) {
+          query = child;
+        } else {
+          break;
+        }
+      }
+      query->set_parenthesized(false);
+      $$ = MAKE_NODE(ASTExpressionSubquery, @query, {query});
+    }
+  ;
+
+// An expression, which may or may not have parens around it.
+// This must NOT reduce to parenthesized_query or query.  A query can only
+// reduce to an expression via the top-level expression rule.
+// The separation is to control when a query is coerced to an expression, which
+// we only want to do after collecting all query set operations (like UNION
+// ALL).
+expression_maybe_parenthesized:
+    expression_not_parenthesized[e]
+      { $$ = $e; }
+    | "(" expression_maybe_parenthesized[e] ")"
+      {
+        $e->set_parenthesized(true);
+        // Don't include the location in the parentheses. Semantic error
+        // messages about this expression should point at the start of the
+        // expression, not at the opening parentheses.
+        $$ = $e;
+      }
+    ;
+
+// Expressions which are not parenthesized queries or parenthesized expressions.
+expression_not_parenthesized:
     null_literal
     | boolean_literal
     | string_literal
@@ -6222,9 +6047,8 @@ expression:
           }
         }
       }
-    | parenthesized_expression
     | struct_constructor
-    | expression_subquery
+    | expression_subquery_with_keyword
       {
         $$ = $1;
       }
@@ -7217,7 +7041,7 @@ opt_type_parameters:
                              "Syntax error: Trailing comma in type parameter "
                              "list is not allowed.");
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 type: raw_type opt_type_parameters opt_collate_clause
@@ -7444,7 +7268,7 @@ opt_at_time_zone:
       {
         $$ = $4;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 
@@ -7453,7 +7277,7 @@ opt_format:
        {
          $$ = MAKE_NODE(ASTFormatClause, @$, {$2, $3});
        }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 cast_expression:
@@ -7774,7 +7598,7 @@ function_call_expression:
 
 opt_identifier:
     identifier
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 partition_by_clause_prefix:
@@ -7790,7 +7614,7 @@ partition_by_clause_prefix:
 
 opt_partition_by_clause:
     partition_by_clause_prefix { $$ = parser->WithEndLocation($1, @$); }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 partition_by_clause_prefix_no_hint:
@@ -7806,7 +7630,7 @@ partition_by_clause_prefix_no_hint:
 
 opt_partition_by_clause_no_hint:
     partition_by_clause_prefix_no_hint { $$ = parser->WithEndLocation($1, @$); }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 cluster_by_clause_prefix_no_hint:
@@ -7822,7 +7646,7 @@ cluster_by_clause_prefix_no_hint:
 
 opt_cluster_by_clause_no_hint:
     cluster_by_clause_prefix_no_hint { $$ = parser->WithEndLocation($1, @$); }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_ttl_clause:
@@ -7834,7 +7658,7 @@ opt_ttl_clause:
     }
     $$ = MAKE_NODE(ASTTtlClause, @$, {$5});
   }
-  | /* Nothing */ { $$ = nullptr; }
+  | %empty { $$ = nullptr; }
   ;
 
 // Returns PrecedingOrFollowingKeyword to indicate which keyword was present.
@@ -7889,7 +7713,7 @@ opt_window_frame_clause:
         frame->set_unit($1);
         $$ = frame;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
 
 window_specification:
     identifier
@@ -7926,9 +7750,9 @@ function_call_expression_with_clauses:
       }
 
 opt_with_group_rows:
-    "WITH" "GROUP_ROWS" "(" query ")"
+    "WITH" "GROUP_ROWS" parenthesized_query[query]
       {
-        $$ = $4;
+        $$ = $query;
       }
     |
     KW_WITH_STARTING_WITH_EXPRESSION
@@ -7939,7 +7763,7 @@ opt_with_group_rows:
           "Did you forget to put a comma before the WITH, or did you mean "
           "\"WITH GROUP_ROWS\"?");
     }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_over_clause:
@@ -7947,18 +7771,7 @@ opt_over_clause:
       {
         $$ = $2;
       }
-    | /* Nothing */ { $$ = nullptr; }
-    ;
-
-parenthesized_expression:
-    "(" expression ")"
-      {
-        $2->set_parenthesized(true);
-        // Don't include the location in the parentheses. Semantic error
-        // messages about this expression should point at the start of the
-        // expression, not at the opening parentheses.
-        $$ = $2;
-      }
+    | %empty { $$ = nullptr; }
     ;
 
 struct_constructor_prefix_with_keyword_no_arg:
@@ -8018,26 +7831,18 @@ struct_constructor:
       }
     ;
 
-expression_subquery:
-    "ARRAY" "(" query ")"
+expression_subquery_with_keyword:
+    "ARRAY" parenthesized_query[query]
       {
-        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$3});
+        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$query});
         subquery->set_modifier(zetasql::ASTExpressionSubquery::ARRAY);
         $$ = subquery;
       }
-    | "EXISTS" opt_hint "(" query ")"
+    | "EXISTS" opt_hint parenthesized_query[query]
       {
-        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$2, $4});
+        auto* subquery = MAKE_NODE(ASTExpressionSubquery, @$, {$2, $query});
         subquery->set_modifier(zetasql::ASTExpressionSubquery::EXISTS);
         $$ = subquery;
-      }
-    | bare_expression_subquery
-    ;
-
-bare_expression_subquery:
-    "(" query_maybe_expression ")"
-      {
-        $$ = MAKE_NODE(ASTExpressionSubquery, @$, {$2});
       }
     ;
 
@@ -8563,25 +8368,25 @@ keyword_as_identifier:
     // END_KEYWORD_AS_IDENTIFIER -- Do not remove this!
     ;
 
-opt_or_replace: "OR" "REPLACE" { $$ = true; } | /* Nothing */ { $$ = false; } ;
+opt_or_replace: "OR" "REPLACE" { $$ = true; } | %empty { $$ = false; } ;
 
 opt_create_scope:
     "TEMP" { $$ = zetasql::ASTCreateStatement::TEMPORARY; }
     | "TEMPORARY" { $$ = zetasql::ASTCreateStatement::TEMPORARY; }
     | "PUBLIC" { $$ = zetasql::ASTCreateStatement::PUBLIC; }
     | "PRIVATE" { $$ = zetasql::ASTCreateStatement::PRIVATE; }
-    | /* Nothing */ { $$ = zetasql::ASTCreateStatement::DEFAULT_SCOPE; }
+    | %empty { $$ = zetasql::ASTCreateStatement::DEFAULT_SCOPE; }
     ;
 
-opt_unique: "UNIQUE" { $$ = true; } | /* Nothing */ { $$ = false; } ;
+opt_unique: "UNIQUE" { $$ = true; } | %empty { $$ = false; } ;
 
-opt_search: "SEARCH" { $$ = true; } | /* Nothing */ { $$ = false; } ;
+opt_search: "SEARCH" { $$ = true; } | %empty { $$ = false; } ;
 
 describe_keyword: "DESCRIBE" | "DESC" ;
 
 opt_hint:
     hint
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 options_entry:
@@ -8625,7 +8430,7 @@ options_list:
 
 opt_options_list:
     "OPTIONS" options_list { $$ = $2; }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 define_table_statement:
@@ -8641,14 +8446,14 @@ dml_statement:
     | update_statement
     ;
 
-opt_from_keyword: "FROM" | /* Nothing */ ;
+opt_from_keyword: "FROM" | %empty ;
 
 opt_where_expression:
     "WHERE" expression
       {
         $$ = $2;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -8659,7 +8464,7 @@ opt_assert_rows_modified:
       {
         $$ = MAKE_NODE(ASTAssertRowsModified, @$, {$2});
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -8682,7 +8487,7 @@ opt_returning_clause:
         auto* action_alias = MAKE_NODE(ASTAlias, @$, {$6});
         $$ = MAKE_NODE(ASTReturningClause, @$, {$7, action_alias});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 // Returns the JavaCC token code for IGNORE, REPLACE or UPDATE.
@@ -9035,7 +8840,7 @@ opt_with_offset_and_alias:
       {
         $$ = MAKE_NODE(ASTWithOffset, @$, {$3});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 update_statement:
@@ -9172,12 +8977,12 @@ update_item_list:
 
 opt_into:
     "INTO"
-    | /* Nothing */
+    | %empty
     ;
 
 opt_by_target:
     "BY" "TARGET"
-    | /* Nothing */
+    | %empty
     ;
 
 opt_and_expression:
@@ -9185,7 +8990,7 @@ opt_and_expression:
       {
         $$ = $2;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -9305,7 +9110,7 @@ call_statement:
 
 opt_function_parameters:
     function_parameters
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -9317,7 +9122,7 @@ opt_if_exists:
       {
         $$ = true;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = false;
       }
@@ -9329,7 +9134,7 @@ opt_access:
       {
         $$ = true;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = false;
       }
@@ -9358,7 +9163,7 @@ opt_on_path_expression:
       {
         $$ = $2;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -9367,7 +9172,7 @@ opt_on_path_expression:
 opt_drop_mode:
     "RESTRICT" { $$ = zetasql::ASTDropStatement::DropMode::RESTRICT; }
     | "CASCADE" { $$ = zetasql::ASTDropStatement::DropMode::CASCADE; }
-    | /* Nothing */
+    | %empty
     { $$ = zetasql::ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED; }
     ;
 
@@ -9519,7 +9324,7 @@ opt_execute_into_clause:
     {
       $$ = MAKE_NODE(ASTExecuteIntoClause, @$, {$2});
     }
-  | /* Nothing */
+  | %empty
     {
       $$ = nullptr;
     }
@@ -9555,7 +9360,7 @@ opt_execute_using_clause:
     {
       $$ = $2;
     }
-  | /* Nothing */
+  | %empty
     {
       $$ = nullptr;
     }
@@ -9580,7 +9385,7 @@ script:
     $1->set_variable_declarations_allowed(true);
     $$ = MAKE_NODE(ASTScript, @$, {$1});
   }
-  | /* Nothing */
+  | %empty
     {
       // Resolve to an empty script.
       zetasql::ASTStatementList* empty_stmt_list = MAKE_NODE(
@@ -9594,7 +9399,7 @@ statement_list:
     {
       $$ = $1;
     }
-  | /* Nothing */
+  | %empty
     {
       // Resolve to an empty statement list.
       $$ = MAKE_NODE(ASTStatementList, @$, {});
@@ -9606,7 +9411,7 @@ opt_else:
       {
         $$ = $2;
       }
-    | /* Nothing */
+    | %empty
       {
         $$ = nullptr;
       }
@@ -9632,7 +9437,7 @@ opt_elseif_clauses:
     {
       $$ = $1;
     }
-  | /*nothing*/
+  | %empty
     {
       $$ = nullptr;
     }
@@ -9681,7 +9486,7 @@ opt_expression:
     {
       $$ = $1;
     }
-    | /* Nothing */
+    | %empty
     {
       $$ = nullptr;
     }
@@ -9724,7 +9529,7 @@ opt_exception_handler:
           ASTExceptionHandler, @2, {$5});
       $$ = MAKE_NODE(ASTExceptionHandlerList, @1, {handler});
     }
-    | /* Nothing */
+    | %empty
     {
       $$ = nullptr;
     }
@@ -9735,7 +9540,7 @@ opt_default_expression:
     {
       $$ = $2;
     }
-    | /* Nothing */
+    | %empty
     {
       $$ = nullptr;
     }
@@ -9836,13 +9641,15 @@ repeat_statement:
     ;
 
 unlabeled_for_in_statement:
-    "FOR" identifier "IN" "(" query ")" "DO" statement_list "END" "FOR"
+    "FOR" identifier "IN" parenthesized_query[query]
+    "DO" statement_list "END" "FOR"
     {
      if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_3_FOR_IN)) {
         YYERROR_AND_ABORT_AT(@1, "FOR...IN is not supported");
       }
-      $$ = MAKE_NODE(ASTForInStatement, @$, {$2, $5, $8});
+      $$ = MAKE_NODE(ASTForInStatement, @$,
+        {$identifier, $query, $statement_list});
     }
     ;
 
@@ -9968,7 +9775,7 @@ next_statement_kind_table:
 next_statement_kind_create_table_opt_as_or_semicolon:
     "AS" { ast_statement_properties->is_create_table_as_select = true; }
     | ";"
-    | /* nothing */
+    | %empty
     ;
 
 next_statement_kind_create_modifiers:
@@ -10216,7 +10023,7 @@ opt_spanner_index_interleave_clause:
         clause->set_type(zetasql::ASTSpannerInterleaveClause::IN);
         $$ = clause;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_spanner_interleave_in_parent_clause:
@@ -10234,7 +10041,7 @@ opt_spanner_interleave_in_parent_clause:
         clause->set_type(zetasql::ASTSpannerInterleaveClause::IN_PARENT);
         $$ = clause;
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_spanner_table_options:
@@ -10248,7 +10055,7 @@ opt_spanner_table_options:
 
         $$ = MAKE_NODE(ASTSpannerTableOptions, @$, {$1, $2});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_spanner_null_filtered:
@@ -10261,7 +10068,7 @@ opt_spanner_null_filtered:
         }
         $$ = true;
       }
-    | /* Nothing */ { $$ = false; }
+    | %empty { $$ = false; }
     ;
 
 // Feature-checking in this rule would make parser reduce and error out
@@ -10278,7 +10085,7 @@ spanner_generated_or_default:
 
 opt_spanner_generated_or_default:
     spanner_generated_or_default
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 opt_spanner_not_null_attribute:
@@ -10288,7 +10095,7 @@ opt_spanner_not_null_attribute:
         // too early, so we rely on the check in spanner_alter_column_action.
         $$ = MAKE_NODE(ASTColumnAttributeList, @$, {$1});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    | %empty { $$ = nullptr; }
     ;
 
 spanner_alter_column_action:
@@ -10339,3 +10146,4 @@ void zetasql_bison_parser::BisonParserImpl::error(
   *error_location = zetasql::ParseLocationPoint::FromByteOffset(
       parser->filename().ToStringView(), loc.begin.column);
 }
+

@@ -34,6 +34,7 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/case.h"
 #include "unicode/utf.h"
 #include "unicode/utf8.h"
@@ -1010,14 +1011,17 @@ absl::Status ParseIdentifierPath(absl::string_view str,
         // Path identifiers can only be alphanumeric or '_'. Backquotes indicate
         // the beginning of an escape sequence and are therefore allowed.
         if (!isalnum(*p) && *p != '_' && *p != '`') {
-          return MakeSqlError() << "Path contains an invalid character";
+          return MakeSqlError()
+                 << "Path contains an invalid character '" << *p << "'";
         }
         // Skip over dots within backquoted sections (e.g. 'table.`name.dot`).
         if (*p == '`') {
           // Fail if the unescaped backquote is not the first piece of the
           // component (e.g. abc.`def` is allowed,  abc.d`ef` is not).
           if (p != segment_start) {
-            return MakeSqlError() << "Path contains an invalid character";
+            return MakeSqlError()
+                   << "Path contains an invalid character '`' "
+                   << "not at the start of a dotted path segment";
           }
           // Skip the opening backquote.
           ++p;
@@ -1055,7 +1059,7 @@ absl::Status ParseIdentifierPath(absl::string_view str,
   return absl::OkStatus();
 }
 
-bool IsInternalAlias(const std::string& alias) {
+bool IsInternalAlias(absl::string_view alias) {
   return !alias.empty() && alias[0] == '$';
 }
 

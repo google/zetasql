@@ -1436,7 +1436,7 @@ public class ValueTest {
     assertThat(hello.getStringValue()).isEqualTo("hello");
     assertThat(world.getStringValue()).isEqualTo("world");
     assertThat(greeting.getStringValue()).isEqualTo("hello");
-    assertThat(empty.getStringValue()).isEqualTo("");
+    assertThat(empty.getStringValue()).isEmpty();
     assertThat(invalidUtf8.getStringValue()).isEqualTo("�");
 
     assertThat(hello.getStringValueBytes()).isEqualTo(ByteString.copyFromUtf8("hello"));

@@ -1,0 +1,178 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+// resolved_ast_zero_copy_visitor.h GENERATED FROM resolved_ast_zero_copy_visitor.h.template
+
+#ifndef ZETASQL_RESOLVED_AST_RESOLVED_AST_ZERO_COPY_VISITOR_H_
+#define ZETASQL_RESOLVED_AST_RESOLVED_AST_ZERO_COPY_VISITOR_H_
+
+#include <algorithm>
+#include <memory>
+#include <stack>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "zetasql/base/ret_check.h"
+
+namespace zetasql {
+
+// A visitor used to perform a deep transform of a resolved AST in place.
+//
+// The key feature of this visitor is that it operates on
+// unique_ptr<const ResolvedNode>. So, each operatation is given ownership of
+// the input object, and require to return ownership of another object. The
+// "no-op" case is therefore to just return the input.
+//
+// Each concrete node ResolvedNodeX has an associated PreVisit and PostVisit
+// virtual function:
+//
+//   Status PreVisitResolvedX(const ResolvedNodeX& node);
+//   StatusOr<unique_ptr<const ResolvedX>>
+//       PostVisitResolvedX(unique_ptr<const ResolvedNodeX*> node);
+//
+// PreVisitX is called before a node or its children are copied, it
+//   is useful in cases where you need to keep some state about an object
+//   before it is modified, or whether to know if you are in a particular
+//   subtree. However, it is rarely needed in practice.
+//
+// PostVisitX is the main mechanism for transforming a node. It is called after
+//   all children have been visit/copied.
+//
+// THERE IS NO NEED TO PROCESS CHILD NODES!
+//
+// In general a Builder should be used to transform the node "in place".
+//
+// A typical usage will have the form:
+//
+// class MyVisitor : public ResolvedASTZeroCopyVisitor {
+//   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+//   VisitResolvedX(std::unique_ptr<const ResolvedNodeX> node) override {
+//     ResolvedXBuilder builder = ToBuilder(std::move(node));
+//     // Take ownership of a child ...
+//     ResolvedChildBuilder child_a = ToBuilder(builder.release_child_a());
+//     // ... modify the child ...
+//     child_a.set_x(...);
+//     ...
+//     // ... put it back.
+//     builder.set_child_a(std::move(child_a).Build());
+//     ...
+//     return std::move(builder).Build();
+//   }
+// };
+//
+// Pointer Stability:
+//   The zero copy visitor does not change the underlying objects, including
+//   the pointers. However, subclasses may not make this guarantee, they
+//   may delete or add new nodes etc. So, while pointers may look stable, this
+//   should not be relied on.
+//
+// Differences with ResolvedASTDeepCopyVisitor:
+//   The ZeroCopyVisitor is currently not quite as general purpose as
+//   DeepCopyVisitor. In particular, there is no way to override or prevent
+//   the actual copying of children, this is baked into the interface.
+//
+class ResolvedASTZeroCopyVisitor {
+ public:
+  virtual ~ResolvedASTZeroCopyVisitor() = default;
+
+  // Invoke the visitor on the given node. This will transform the input
+  // node in place. In the case of an error, the state of the input resolved
+  // AST is undefined.
+  template <typename ExpectedReturnT = ResolvedNode>
+  absl::StatusOr<std::unique_ptr<const ExpectedReturnT>> VisitAll(
+      std::unique_ptr<const ResolvedNode> node) {
+    return Dispatch<ExpectedReturnT>(std::move(node));
+  }
+
+ protected:
+# for node in nodes if not node.is_abstract
+  virtual absl::Status PreVisit{{node.name}}(
+      const {{node.name}}&) {
+    return absl::OkStatus();
+  }
+
+  virtual absl::StatusOr<std::unique_ptr<const ResolvedNode>>
+  PostVisit{{node.name}} (
+      std::unique_ptr<const {{node.name}}> node) {
+    return node;
+  }
+
+# endfor
+
+ private:
+  template <typename ExpectedReturnT>
+  static absl::StatusOr<std::unique_ptr<const ExpectedReturnT>> VerifyType(
+    absl::StatusOr<std::unique_ptr<const ResolvedNode>> input) {
+      if constexpr (std::is_same<ExpectedReturnT, ResolvedNode>()) {
+        return input;
+      } else {
+        if (!input.ok()) {
+          return std::move(input).status();
+        }
+        const ResolvedNode* input_node = (*input).get();
+        ZETASQL_RET_CHECK(input_node != nullptr);
+        ZETASQL_RET_CHECK(input_node->template Is<ExpectedReturnT>());
+        return absl::WrapUnique<ExpectedReturnT>(
+            (*std::move(input)).release()->template GetAs<ExpectedReturnT>());
+      }
+    }
+
+  // Helper function to dispatch a vector of nodes.
+  template<typename ResolvedNodeT>
+  absl::StatusOr<std::vector<std::unique_ptr<const ResolvedNodeT>>>
+  DispatchNodeList(std::vector<std::unique_ptr<const ResolvedNodeT>> nodes);
+
+# for node in nodes if not node.is_abstract
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> DefaultVisit(
+      std::unique_ptr<const {{node.name}}> node);
+# endfor
+
+  template <typename ExpectedReturnT>
+  absl::StatusOr<std::unique_ptr<const ExpectedReturnT>> Dispatch(
+      std::unique_ptr<const ResolvedNode> node) {
+    ZETASQL_RET_CHECK(node != nullptr);
+    switch(node->node_kind()) {
+# for node in nodes if not node.is_abstract
+      case {{node.name}}::TYPE: {
+        if constexpr (std::is_base_of_v<ResolvedNode,
+                                        {{node.name}}>) {
+          {# This is the only branch that should happen in practice, but the
+           # compiler doesn't know this.
+           #}
+          auto in = absl::WrapUnique(
+              static_cast<const {{node.name}}*>(node.release()));
+          return VerifyType<ExpectedReturnT>(DefaultVisit(std::move(in)));
+        }
+        break;
+      }
+# endfor
+      default:
+        break;
+    }
+    ZETASQL_RET_CHECK_FAIL() << "could not dispatch node of type "
+                     << node->node_kind_string();
+  }
+};
+
+}  // namespace zetasql
+
+#endif  // ZETASQL_RESOLVED_AST_RESOLVED_AST_ZERO_COPY_VISITOR_H_

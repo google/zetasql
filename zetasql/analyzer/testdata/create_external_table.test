@@ -412,7 +412,7 @@ create external table t(a int64)
 with partition columns(a int64, z string)
 options (x = 5)
 --
-ERROR: Duplicate column name a in CREATE TABLE [at 2:24]
+ERROR: Duplicate column name a in CREATE EXTERNAL TABLE [at 2:24]
 with partition columns(a int64, z string)
                        ^
 ==

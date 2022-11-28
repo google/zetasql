@@ -17,6 +17,7 @@
 #include <ctype.h>
 
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -1812,8 +1813,6 @@ void InsertCreatedFunction(NameToFunctionMap* functions,
   if (FunctionIsDisabled(options, function->function_options())) {
     return;
   }
-
-  const LanguageOptions& language_options = options.language_options;
 
   // Identify each signature that is unsupported via options checks.
   absl::flat_hash_set<int> signatures_to_remove;

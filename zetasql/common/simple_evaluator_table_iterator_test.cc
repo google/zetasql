@@ -17,9 +17,11 @@
 #include "zetasql/common/simple_evaluator_table_iterator.h"
 
 #include <algorithm>
+#include <memory>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/simple_catalog.h"

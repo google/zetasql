@@ -287,7 +287,9 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_STRING_AS_ENUM_ARGUMENT]
+[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_ARRAY_FIND_FUNCTIONS]
+[no_java]
+# TODO: Enable this test when enum debug string is fixed in Java
 SELECT {{|SAFE.}}ARRAY_OFFSET([], 'hello')
 --
 ALTERNATION GROUP: <empty>
@@ -300,10 +302,10 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRING>, STRING, optional(1) STRING) -> INT64)
+    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRING>, STRING, optional(1) ENUM<ARRAY_FIND_MODE>) -> INT64)
     |     +-Literal(type=ARRAY<STRING>, value=[])
     |     +-Literal(type=STRING, value="hello")
-    |     +-Literal(type=STRING, value="FIRST")
+    |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     +-input_scan=
       +-SingleRowScan
 
@@ -330,12 +332,12 @@ QueryStmt
     |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
     |         |     | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
     |         |     | | +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
-    |         |     | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
-    |         |     |   +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
+    |         |     | +-FunctionCall(ZetaSQL:$is_null(ENUM<ARRAY_FIND_MODE>) -> BOOL)
+    |         |     |   +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
     |         |     +-Literal(type=INT64, value=NULL)
-    |         |     +-FunctionCall(ZetaSQL:$case_with_value(STRING, repeated(2) STRING, repeated(2) INT64, INT64) -> INT64)
-    |         |       +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
-    |         |       +-Literal(type=STRING, value="FIRST")
+    |         |     +-FunctionCall(ZetaSQL:$case_with_value(ENUM<ARRAY_FIND_MODE>, repeated(2) ENUM<ARRAY_FIND_MODE>, repeated(2) INT64, INT64) -> INT64)
+    |         |       +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
+    |         |       +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     |         |       +-SubqueryExpr
     |         |       | +-type=INT64
     |         |       | +-subquery_type=SCALAR
@@ -370,7 +372,7 @@ QueryStmt
     |         |       |     |         +-ColumnRef(type=INT64, column=$array_offset.offset#6)
     |         |       |     +-limit=
     |         |       |       +-Literal(type=INT64, value=1)
-    |         |       +-Literal(type=STRING, value="LAST")
+    |         |       +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=LAST)
     |         |       +-SubqueryExpr
     |         |       | +-type=INT64
     |         |       | +-subquery_type=SCALAR
@@ -409,7 +411,8 @@ QueryStmt
     |         |       +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
     |         |         +-FunctionCall(ZetaSQL:concat(STRING, repeated(2) STRING) -> STRING)
     |         |           +-Literal(type=STRING, value="ARRAY_FIND_MODE ")
-    |         |           +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
+    |         |           +-Cast(ENUM<ARRAY_FIND_MODE> -> STRING)
+    |         |           | +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
     |         |           +-Literal(type=STRING, value=" in ARRAY_OFFSET is unsupported.")
     |         +-input_scan=
     |           +-ProjectScan
@@ -417,7 +420,7 @@ QueryStmt
     |             +-expr_list=
     |             | +-first_input#2 := Literal(type=ARRAY<STRING>, value=[])
     |             | +-second_input#3 := Literal(type=STRING, value="hello")
-    |             | +-third_input#4 := Literal(type=STRING, value="FIRST")
+    |             | +-third_input#4 := Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -433,10 +436,10 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_offset(ARRAY<STRING>, STRING, optional(1) STRING) -> INT64)
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_offset(ARRAY<STRING>, STRING, optional(1) ENUM<ARRAY_FIND_MODE>) -> INT64)
     |     +-Literal(type=ARRAY<STRING>, value=[])
     |     +-Literal(type=STRING, value="hello")
-    |     +-Literal(type=STRING, value="FIRST")
+    |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     +-input_scan=
       +-SingleRowScan
 
@@ -464,12 +467,12 @@ QueryStmt
     |         |     | | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
     |         |     | | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
     |         |     | | | +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
-    |         |     | | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
-    |         |     | |   +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
+    |         |     | | +-FunctionCall(ZetaSQL:$is_null(ENUM<ARRAY_FIND_MODE>) -> BOOL)
+    |         |     | |   +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
     |         |     | +-Literal(type=INT64, value=NULL)
-    |         |     | +-FunctionCall(ZetaSQL:$case_with_value(STRING, repeated(2) STRING, repeated(2) INT64, INT64) -> INT64)
-    |         |     |   +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
-    |         |     |   +-Literal(type=STRING, value="FIRST")
+    |         |     | +-FunctionCall(ZetaSQL:$case_with_value(ENUM<ARRAY_FIND_MODE>, repeated(2) ENUM<ARRAY_FIND_MODE>, repeated(2) INT64, INT64) -> INT64)
+    |         |     |   +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
+    |         |     |   +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     |         |     |   +-SubqueryExpr
     |         |     |   | +-type=INT64
     |         |     |   | +-subquery_type=SCALAR
@@ -504,7 +507,7 @@ QueryStmt
     |         |     |   |     |         +-ColumnRef(type=INT64, column=$array_offset.offset#6)
     |         |     |   |     +-limit=
     |         |     |   |       +-Literal(type=INT64, value=1)
-    |         |     |   +-Literal(type=STRING, value="LAST")
+    |         |     |   +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=LAST)
     |         |     |   +-SubqueryExpr
     |         |     |   | +-type=INT64
     |         |     |   | +-subquery_type=SCALAR
@@ -543,7 +546,8 @@ QueryStmt
     |         |     |   +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
     |         |     |     +-FunctionCall(ZetaSQL:concat(STRING, repeated(2) STRING) -> STRING)
     |         |     |       +-Literal(type=STRING, value="ARRAY_FIND_MODE ")
-    |         |     |       +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
+    |         |     |       +-Cast(ENUM<ARRAY_FIND_MODE> -> STRING)
+    |         |     |       | +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
     |         |     |       +-Literal(type=STRING, value=" in ARRAY_OFFSET is unsupported.")
     |         |     +-Literal(type=INT64, value=NULL, has_explicit_type=TRUE)
     |         +-input_scan=
@@ -552,14 +556,16 @@ QueryStmt
     |             +-expr_list=
     |             | +-first_input#2 := Literal(type=ARRAY<STRING>, value=[])
     |             | +-second_input#3 := Literal(type=STRING, value="hello")
-    |             | +-third_input#4 := Literal(type=STRING, value="FIRST")
+    |             | +-third_input#4 := Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_STRING_AS_ENUM_ARGUMENT]
+[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_ARRAY_FIND_FUNCTIONS]
+[no_java]
+# TODO: Enable this test when enum debug string is fixed in Java
 SELECT {{|SAFE.}}ARRAY_FIND([], 'hello')
 --
 ALTERNATION GROUP: <empty>
@@ -572,10 +578,10 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_find(ARRAY<STRING>, STRING, optional(1) STRING) -> STRING)
+    |   +-FunctionCall(ZetaSQL:array_find(ARRAY<STRING>, STRING, optional(1) ENUM<ARRAY_FIND_MODE>) -> STRING)
     |     +-Literal(type=ARRAY<STRING>, value=[])
     |     +-Literal(type=STRING, value="hello")
-    |     +-Literal(type=STRING, value="FIRST")
+    |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     +-input_scan=
       +-SingleRowScan
 
@@ -602,12 +608,12 @@ QueryStmt
     |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
     |         |     | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
     |         |     | | +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
-    |         |     | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
-    |         |     |   +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
+    |         |     | +-FunctionCall(ZetaSQL:$is_null(ENUM<ARRAY_FIND_MODE>) -> BOOL)
+    |         |     |   +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
     |         |     +-Literal(type=STRING, value=NULL)
-    |         |     +-FunctionCall(ZetaSQL:$case_with_value(STRING, repeated(2) STRING, repeated(2) STRING, STRING) -> STRING)
-    |         |       +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
-    |         |       +-Literal(type=STRING, value="FIRST")
+    |         |     +-FunctionCall(ZetaSQL:$case_with_value(ENUM<ARRAY_FIND_MODE>, repeated(2) ENUM<ARRAY_FIND_MODE>, repeated(2) STRING, STRING) -> STRING)
+    |         |       +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
+    |         |       +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     |         |       +-SubqueryExpr
     |         |       | +-type=STRING
     |         |       | +-subquery_type=SCALAR
@@ -642,7 +648,7 @@ QueryStmt
     |         |       |     |         +-ColumnRef(type=INT64, column=$array_offset.offset#6)
     |         |       |     +-limit=
     |         |       |       +-Literal(type=INT64, value=1)
-    |         |       +-Literal(type=STRING, value="LAST")
+    |         |       +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=LAST)
     |         |       +-SubqueryExpr
     |         |       | +-type=STRING
     |         |       | +-subquery_type=SCALAR
@@ -682,7 +688,8 @@ QueryStmt
     |         |         +-FunctionCall(ZetaSQL:error(STRING) -> STRING)
     |         |           +-FunctionCall(ZetaSQL:concat(STRING, repeated(2) STRING) -> STRING)
     |         |             +-Literal(type=STRING, value="ARRAY_FIND_MODE ")
-    |         |             +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
+    |         |             +-Cast(ENUM<ARRAY_FIND_MODE> -> STRING)
+    |         |             | +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
     |         |             +-Literal(type=STRING, value=" ARRAY_FIND_MODE in ARRAY_FIND is unsupported.")
     |         +-input_scan=
     |           +-ProjectScan
@@ -690,7 +697,7 @@ QueryStmt
     |             +-expr_list=
     |             | +-first_input#2 := Literal(type=ARRAY<STRING>, value=[])
     |             | +-second_input#3 := Literal(type=STRING, value="hello")
-    |             | +-third_input#4 := Literal(type=STRING, value="FIRST")
+    |             | +-third_input#4 := Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -706,10 +713,10 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_find(ARRAY<STRING>, STRING, optional(1) STRING) -> STRING)
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_find(ARRAY<STRING>, STRING, optional(1) ENUM<ARRAY_FIND_MODE>) -> STRING)
     |     +-Literal(type=ARRAY<STRING>, value=[])
     |     +-Literal(type=STRING, value="hello")
-    |     +-Literal(type=STRING, value="FIRST")
+    |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     +-input_scan=
       +-SingleRowScan
 
@@ -737,12 +744,12 @@ QueryStmt
     |         |     | | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.first_input#2)
     |         |     | | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
     |         |     | | | +-ColumnRef(type=STRING, column=$subquery1.second_input#3)
-    |         |     | | +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
-    |         |     | |   +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
+    |         |     | | +-FunctionCall(ZetaSQL:$is_null(ENUM<ARRAY_FIND_MODE>) -> BOOL)
+    |         |     | |   +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
     |         |     | +-Literal(type=STRING, value=NULL)
-    |         |     | +-FunctionCall(ZetaSQL:$case_with_value(STRING, repeated(2) STRING, repeated(2) STRING, STRING) -> STRING)
-    |         |     |   +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
-    |         |     |   +-Literal(type=STRING, value="FIRST")
+    |         |     | +-FunctionCall(ZetaSQL:$case_with_value(ENUM<ARRAY_FIND_MODE>, repeated(2) ENUM<ARRAY_FIND_MODE>, repeated(2) STRING, STRING) -> STRING)
+    |         |     |   +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
+    |         |     |   +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     |         |     |   +-SubqueryExpr
     |         |     |   | +-type=STRING
     |         |     |   | +-subquery_type=SCALAR
@@ -777,7 +784,7 @@ QueryStmt
     |         |     |   |     |         +-ColumnRef(type=INT64, column=$array_offset.offset#6)
     |         |     |   |     +-limit=
     |         |     |   |       +-Literal(type=INT64, value=1)
-    |         |     |   +-Literal(type=STRING, value="LAST")
+    |         |     |   +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=LAST)
     |         |     |   +-SubqueryExpr
     |         |     |   | +-type=STRING
     |         |     |   | +-subquery_type=SCALAR
@@ -817,7 +824,8 @@ QueryStmt
     |         |     |     +-FunctionCall(ZetaSQL:error(STRING) -> STRING)
     |         |     |       +-FunctionCall(ZetaSQL:concat(STRING, repeated(2) STRING) -> STRING)
     |         |     |         +-Literal(type=STRING, value="ARRAY_FIND_MODE ")
-    |         |     |         +-ColumnRef(type=STRING, column=$subquery1.third_input#4)
+    |         |     |         +-Cast(ENUM<ARRAY_FIND_MODE> -> STRING)
+    |         |     |         | +-ColumnRef(type=ENUM<ARRAY_FIND_MODE>, column=$subquery1.third_input#4)
     |         |     |         +-Literal(type=STRING, value=" ARRAY_FIND_MODE in ARRAY_FIND is unsupported.")
     |         |     +-Literal(type=STRING, value=NULL, has_explicit_type=TRUE)
     |         +-input_scan=
@@ -826,9 +834,8 @@ QueryStmt
     |             +-expr_list=
     |             | +-first_input#2 := Literal(type=ARRAY<STRING>, value=[])
     |             | +-second_input#3 := Literal(type=STRING, value="hello")
-    |             | +-third_input#4 := Literal(type=STRING, value="FIRST")
+    |             | +-third_input#4 := Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
-==

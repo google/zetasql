@@ -199,20 +199,18 @@ py_library(
         if not native.existing_rule("com_google_differential_privacy"):
             http_archive(
                 name = "com_google_differential_privacy",
-                # Release from 2022-06-02
-                url = "https://github.com/google/differential-privacy/archive/5e7cf28bf55ebac52fc65419364388c33ebc01a4.tar.gz",
-                sha256 = "fcdbbafe7aa86415b7b8db654a86595ad894b7d264611f7262b804a193a82adc",
-                strip_prefix = "differential-privacy-5e7cf28bf55ebac52fc65419364388c33ebc01a4",
+                url = "https://github.com/google/differential-privacy/archive/refs/tags/v2.0.0.tar.gz",
+                sha256 = "db54f30a4176a07543c54932690afa5932097203cb4be357e9310f99f624886c",
+                strip_prefix = "differential-privacy-2.0.0",
             )
 
         # Differential Privacy - cc
         if not native.existing_rule("com_google_cc_differential_privacy"):
             http_archive(
                 name = "com_google_cc_differential_privacy",
-                # Release from 2022-06-02
-                url = "https://github.com/google/differential-privacy/archive/5e7cf28bf55ebac52fc65419364388c33ebc01a4.tar.gz",
-                sha256 = "fcdbbafe7aa86415b7b8db654a86595ad894b7d264611f7262b804a193a82adc",
-                strip_prefix = "differential-privacy-5e7cf28bf55ebac52fc65419364388c33ebc01a4/cc",
+                url = "https://github.com/google/differential-privacy/archive/refs/tags/v2.0.0.tar.gz",
+                sha256 = "db54f30a4176a07543c54932690afa5932097203cb4be357e9310f99f624886c",
+                strip_prefix = "differential-privacy-2.0.0/cc",
             )
 
         # Boringssl
@@ -290,7 +288,7 @@ py_library(
             # Googletest generally just does daily (or even subdaily) releases along
             # with occasional numbered releases.
             #
-            #  https://github.com/google/googletest/commits/master
+            #  https://github.com/google/googletest/commits/main
             #  pick a recent release.
             #  Hit the 'clipboard with a left arrow' icon to copy the commit hex
             #    COMMIT=<paste commit hex>
@@ -307,10 +305,10 @@ py_library(
             #
             http_archive(
                 name = "com_google_googletest",
-                # Commit from 2022-01-12
-                url = "https://github.com/google/googletest/archive//2d07f12b607c528b21795ab672cff3afaf64f7a1.tar.gz",
-                sha256 = "219132fd586a870ebde5df6007d7f81dbd4b4a411466569301b3a0f55a207b37",
-                strip_prefix = "googletest-2d07f12b607c528b21795ab672cff3afaf64f7a1",
+                # Commit from 2022-11-15
+                url = "https://github.com/google/googletest/archive/0e6aac2571eb1753b8855d8d1f592df64d1a4828.tar.gz",
+                sha256 = "d1407f647bd6300b3434f7156fbf206100f8080b1661d8d56c57876c4173ddcd",
+                strip_prefix = "googletest-0e6aac2571eb1753b8855d8d1f592df64d1a4828",
             )
 
     if testing_deps:
@@ -413,6 +411,7 @@ alias(
 """,
             )
 
+    if analyzer_deps:
         m4_register_toolchains(version = "1.4.18")
         flex_register_toolchains(version = "2.6.4")
         bison_register_toolchains(version = "3.3.2")

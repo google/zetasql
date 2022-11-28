@@ -29,10 +29,10 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/evaluator_test_table.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/testing/testing_proto_util.h"
+#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"

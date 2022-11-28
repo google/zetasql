@@ -117,6 +117,11 @@ class Token : public ParseToken {
     DDL_KEYWORD,
     // Marks keywords inside CASE operator (WHEN, THEN, ELSE, END).
     CASE_KEYWORD,
+    // Curly brace that starts a braced constructor. Braced constructors
+    // allow textproto-like syntax inside, with pairs "field_name: value".
+    STARTS_BRACED_CONSTR,
+    // Marks colons in braced constructors.
+    BRACED_CONSTR_COLON,
   };
 
   explicit Token(ParseToken t)

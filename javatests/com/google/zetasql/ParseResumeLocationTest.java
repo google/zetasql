@@ -36,7 +36,7 @@ public class ParseResumeLocationTest {
   public void testGettersAndSetters() {
     ParseResumeLocation aParseResumeLocation = new ParseResumeLocation("12345678900*0000");
     assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(0);
-    assertThat(aParseResumeLocation.getAllowResume()).isEqualTo(true);
+    assertThat(aParseResumeLocation.getAllowResume()).isTrue();
 
     String filename = "filename";
     aParseResumeLocation.setFilename(filename);
@@ -47,7 +47,7 @@ public class ParseResumeLocationTest {
     assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(bytePosition);
 
     aParseResumeLocation.disallowResume();
-    assertThat(aParseResumeLocation.getAllowResume()).isEqualTo(false);
+    assertThat(aParseResumeLocation.getAllowResume()).isFalse();
   }
 
   @Test
@@ -64,7 +64,7 @@ public class ParseResumeLocationTest {
     assertThat(proto.getFilename()).isEqualTo(filename);
     assertThat(proto.getInput()).isEqualTo(input);
     assertThat(proto.getBytePosition()).isEqualTo(bytePosition);
-    assertThat(proto.getAllowResume()).isEqualTo(false);
+    assertThat(proto.getAllowResume()).isFalse();
 
     ParseResumeLocation parseResumeLocation2 = new ParseResumeLocation(proto);
     new EqualsTester().addEqualityGroup(parseResumeLocation2, aParseResumeLocation).testEquals();

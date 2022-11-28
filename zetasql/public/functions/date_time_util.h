@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <variant>
 
 #include "google/protobuf/timestamp.pb.h"
 #include "google/type/date.pb.h"
@@ -1077,9 +1078,66 @@ class TimestampBucketizer {
 //   ("2022-01-19 12:00:00") is returned.
 //
 absl::Status DatetimeBucket(const DatetimeValue& input,
-                            zetasql::IntervalValue bucket_width,
+                            IntervalValue bucket_width,
                             const DatetimeValue& origin, TimestampScale scale,
                             DatetimeValue* output);
+
+// This class allows for more efficient implementation of DATETIME_BUCKET
+// function when only the first argument (input datetime) is non-const.
+class DatetimeBucketizer {
+ public:
+  DatetimeBucketizer(const DatetimeBucketizer& other) = default;
+  DatetimeBucketizer& operator=(const DatetimeBucketizer& other) = default;
+  DatetimeBucketizer(DatetimeBucketizer&& other) = default;
+  DatetimeBucketizer& operator=(DatetimeBucketizer&& other) = default;
+
+  static absl::StatusOr<DatetimeBucketizer> Create(IntervalValue bucket_width,
+                                                   DatetimeValue origin,
+                                                   TimestampScale scale);
+
+  absl::Status Compute(const DatetimeValue& input, DatetimeValue* output) const;
+
+ private:
+  // Contains precomputed parts of bucket width and origin for MONTH interval.
+  struct MonthBucketState {
+    int64_t bucket_width_months;
+    absl::CivilSecond origin;
+    int origin_nanos_part;
+    bool origin_last_day_of_month;
+  };
+
+  // Contains precomputed parts of bucket width and origin for DAY and
+  // MICROS/NANOS interval.
+  struct NanosBucketState {
+    absl::int128 bucket_width_nanos;
+    absl::int128 origin_nanos;
+  };
+
+  // We use year -10,000 as an epoch to avoid handling negative number of
+  // nanoseconds in the calculations.
+  static constexpr absl::CivilSecond kEpochCivil{-10000, 0, 0, 0, 0, 0};
+
+  explicit DatetimeBucketizer(
+      std::variant<MonthBucketState, NanosBucketState> state)
+      : state_(std::move(state)) {}
+
+  static DatetimeValue ComputeForMonthsBucket(const MonthBucketState& state,
+                                              const DatetimeValue& input);
+
+  static DatetimeValue ComputeForNanosBucket(const NanosBucketState& state,
+                                             const DatetimeValue& input);
+
+  // The following two functions convert DatetimeValue to and from internal
+  // (to the class) nanoseconds representation. The nanaseconds value is
+  // relative to kEpochCivil. Note that this representatio doesn't have any
+  // meaning outside of this class.
+  static absl::int128 DatetimeToNanos(const DatetimeValue& datetime);
+  static DatetimeValue NanosToDatetime(absl::int128 nanos);
+
+  // Holds either MonthBucketState or NanosBucketState, depending on INTERVAL
+  // used in bucket_width.
+  const std::variant<MonthBucketState, NanosBucketState> state_;
+};
 
 // Assigns <input_date> to a specific bucket using the specified
 // <bucket_width> INTERVAL and returns the bucket start date.
@@ -1103,9 +1161,50 @@ absl::Status DatetimeBucket(const DatetimeValue& input,
 //   ["2022-01-01", "2022-02-28") and the start of the bucket ("2022-01-01") is
 //   returned.
 //
-absl::Status DateBucket(int32_t input_date,
-                        zetasql::IntervalValue bucket_width,
+absl::Status DateBucket(int32_t input_date, IntervalValue bucket_width,
                         int32_t origin_date, int32_t* output_date);
+
+// This class allows for more efficient implementation of DATE_BUCKET function
+// when only the first argument (input date) is non-const.
+class DateBucketizer {
+ public:
+  DateBucketizer(const DateBucketizer& other) = default;
+  DateBucketizer& operator=(const DateBucketizer& other) = default;
+  DateBucketizer(DateBucketizer&& other) = default;
+  DateBucketizer& operator=(DateBucketizer&& other) = default;
+
+  static absl::StatusOr<DateBucketizer> Create(IntervalValue bucket_width,
+                                               int32_t origin_date);
+
+  absl::Status Compute(int32_t input_date, int32_t* output_date) const;
+
+ private:
+  // Contains precomputed parts of bucket width and origin for MONTH interval.
+  struct MonthBucketState {
+    int64_t bucket_width_months;
+    absl::CivilDay origin;
+    bool origin_last_day_of_month;
+  };
+
+  // Contains precomputed parts of bucket width and origin for DAY interval.
+  struct DaysBucketState {
+    int64_t bucket_width_days;
+    int32_t origin_date;
+  };
+
+  explicit DateBucketizer(std::variant<MonthBucketState, DaysBucketState> state)
+      : state_(std::move(state)) {}
+
+  static int32_t ComputeForMonthsBucket(const MonthBucketState& state,
+                                        int32_t input_date);
+
+  static int32_t ComputeForDaysBucket(const DaysBucketState& state,
+                                      int32_t input_date);
+
+  // Holds either MonthBucketState or DaysBucketState, depending on INTERVAL
+  // used in bucket_width.
+  const std::variant<MonthBucketState, DaysBucketState> state_;
+};
 
 // The namespace 'internal_functions' includes the internal implementation
 // details and is not part of the public api.

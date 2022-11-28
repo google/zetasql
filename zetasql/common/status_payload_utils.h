@@ -19,6 +19,7 @@
 
 // Utilities to abstract zetasql_base::Status payload interactions.
 
+#include <optional>
 #include <string>
 
 #include "zetasql/base/logging.h"

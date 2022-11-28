@@ -15,11 +15,22 @@
 
 #include "zetasql/common/thread_stack.h"
 
+#include <pthread.h>
+#include <string.h>
+#include <unistd.h>
+
 #include <algorithm>
+#include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <memory>
+#include <ostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace zetasql {
@@ -27,4 +38,5 @@ namespace zetasql {
 std::string CurrentStackTrace() {
   return "";  // TODO: Implement CurrentStackTrace()
 }
+
 }  // namespace zetasql

@@ -15,12 +15,15 @@
 //
 
 #include <memory>
+#include <set>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -29,7 +32,11 @@
 
 namespace zetasql {
 
+using ::testing::ContainerEq;
+using ::testing::ElementsAre;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::UnorderedElementsAre;
 using ::zetasql_base::testing::StatusIs;
 
 // Note: Most test coverage of TableNameResolver comes through the regular
@@ -155,6 +162,137 @@ TEST(TableNameResolver, UnsupportedAssignmentStatements) {
                 StatusIs(absl::StatusCode::kInvalidArgument,
                          HasSubstr("Statement not supported")));
   }
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromStatement) {
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  std::string sql = R"(SELECT * FROM foo(bar), sometable.x)";
+
+  // Extract table names without extracting tvf info
+  ZETASQL_ASSERT_OK(
+      ExtractTableNamesFromStatement(sql, AnalyzerOptions(), &table_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(
+                               std::vector<std::string>({"sometable", "x"})));
+
+  // Extract table names and tvf info
+  ZETASQL_ASSERT_OK(ExtractTableNamesFromStatement(sql, AnalyzerOptions(), &table_names,
+                                           &tvf_names));
+  EXPECT_THAT(tvf_names, UnorderedElementsAre(
+                             ContainerEq(std::vector<std::string>{"foo"})));
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromStatementMultiple) {
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  std::string sql = R"(SELECT * FROM foo(f(x),y,12), a.b(c))";
+
+  // Extract table names and tvf info in a case with multiple TVF
+  ZETASQL_ASSERT_OK(ExtractTableNamesFromStatement(sql, AnalyzerOptions(), &table_names,
+                                           &tvf_names));
+  EXPECT_THAT(tvf_names,
+              UnorderedElementsAre(ElementsAre("foo"), ElementsAre("a", "b")));
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromNextStatement) {
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  std::string sql =
+      R"(SELECT * FROM foo(bar);
+      SELECT * FROM f(x), g(x); SELECT * FROM a(1), b(2), c(3))";
+
+  // Extract TVF names from multiple statements
+  std::vector<std::set<std::vector<std::string>>> actual;
+  zetasql::ParseResumeLocation parse_location =
+      zetasql::ParseResumeLocation::FromStringView(sql);
+  bool at_end_of_input = false;
+  while (!at_end_of_input) {
+    std::set<std::vector<std::string>> tvf_names;
+    zetasql::TableNamesSet table_names_from_statement;
+    ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromNextStatement(
+        &parse_location, AnalyzerOptions(), &table_names_from_statement,
+        &at_end_of_input, &tvf_names));
+    actual.push_back(tvf_names);
+  }
+  ASSERT_THAT(table_names, IsEmpty());
+  EXPECT_THAT(
+      actual,
+      ElementsAre(UnorderedElementsAre(ElementsAre("foo")),
+                  UnorderedElementsAre(ElementsAre("f"), ElementsAre("g")),
+                  UnorderedElementsAre(ElementsAre("a"), ElementsAre("b"),
+                                       ElementsAre("c"))));
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromASTStatement) {
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  std::string sql =
+      R"(SELECT * FROM foo(bar);
+      SELECT * FROM f(x), g(x); SELECT * FROM a(1), b(2), c(3))";
+
+  // Extract TVF names from AST statement
+  std::unique_ptr<zetasql::ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(zetasql::ParseScript(
+      sql, zetasql::ParserOptions(),
+      zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET, &parser_output));
+
+  std::vector<std::set<std::vector<std::string>>> actual;
+  zetasql::ParseResumeLocation parse_location =
+      zetasql::ParseResumeLocation::FromStringView(sql);
+  for (const zetasql::ASTStatement* stmt :
+       parser_output->script()->statement_list()) {
+    std::set<std::vector<std::string>> tvf_names;
+    ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromASTStatement(
+        *stmt, AnalyzerOptions(), "", &table_names, &tvf_names));
+    actual.push_back(tvf_names);
+  }
+  ASSERT_THAT(table_names, IsEmpty());
+  EXPECT_THAT(
+      actual,
+      ElementsAre(UnorderedElementsAre(ElementsAre("foo")),
+                  UnorderedElementsAre(ElementsAre("f"), ElementsAre("g")),
+                  UnorderedElementsAre(ElementsAre("a"), ElementsAre("b"),
+                                       ElementsAre("c"))));
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromScript) {
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  std::string sql =
+      R"(SELECT * FROM foo(bar);
+      SELECT * FROM f(x), g(x);
+      SELECT a FROM T1.T2(y) as a)";
+
+  // Extract TVF names from a script
+  ZETASQL_ASSERT_OK(ExtractTableNamesFromScript(sql, AnalyzerOptions(), &table_names,
+                                        &tvf_names));
+  ASSERT_THAT(table_names, IsEmpty());
+  EXPECT_THAT(tvf_names,
+              UnorderedElementsAre(ElementsAre("foo"), ElementsAre("f"),
+                                   ElementsAre("g"), ElementsAre("T1", "T2")));
+}
+
+TEST(TableNameResolver, ExtractTableNamesFromASTScript) {
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  std::string sql =
+      R"(SELECT * FROM foo(bar);
+      SELECT * FROM f(x), g(x);
+      SELECT col1 from T;)";
+
+  // Extract TVF names from AST script
+  std::unique_ptr<zetasql::ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(zetasql::ParseScript(
+      sql, zetasql::ParserOptions(),
+      zetasql::ERROR_MESSAGE_MULTI_LINE_WITH_CARET, &parser_output));
+
+  const zetasql::ASTScript* script = parser_output->script();
+  ZETASQL_ASSERT_OK(zetasql::ExtractTableNamesFromASTScript(
+      *script, AnalyzerOptions(), sql, &table_names, &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(ElementsAre("T")));
+  EXPECT_THAT(tvf_names,
+              UnorderedElementsAre(ElementsAre("foo"), ElementsAre("f"),
+                                   ElementsAre("g")));
 }
 
 }  // namespace zetasql

@@ -16,9 +16,9 @@ SELECT e -> e > 0;
 # Call a lambda
 SELECT (e -> e > 0)(1);
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:9]
+ERROR: Syntax error: Unexpected "->" [at 1:11]
 SELECT (e -> e > 0)(1);
-        ^
+          ^
 ==
 
 SELECT LENGTH([1,2], e.e -> e.e > 0) AS a_1;

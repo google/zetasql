@@ -2,6 +2,7 @@
 
 # Mathematical functions
 
+ZetaSQL supports mathematical functions.
 All mathematical functions have the following behaviors:
 
 +  They return `NULL` if any of the input parameters is `NULL`.
@@ -652,7 +653,7 @@ Similar to `LOG`, but computes logarithm to base 10.
     </tr>
     <tr>
       <td><code>+inf</code></td>
-      <td><code>NaN</code></td>
+      <td><code>+inf</code></td>
     </tr>
     <tr>
       <td>X &lt;= 0</td>
@@ -2058,7 +2059,7 @@ ATANH(X)
 **Description**
 
 Computes the inverse hyperbolic tangent of X. Generates an error if X is outside
-of the range [-1, 1].
+of the range (-1, 1).
 
 <table>
   <thead>

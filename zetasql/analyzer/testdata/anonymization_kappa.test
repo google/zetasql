@@ -1,5 +1,8 @@
 # Specify WITH ANONYMIZATION with various values of kappa.
 #
+# TODO Convert all kappa tests to max_groups_contributed tests after
+# the migration to max_groups_contributed.
+#
 # Base case, with kappa set.  We inject a SampleScan to ensure that
 # each user only contributes to one group.
 # We can't run the unparser because the rewrite generates TABLESAMPLE and the
@@ -75,6 +78,84 @@ QueryStmt
         | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#22)
         +-anonymization_option_list=
           +-kappa := Literal(type=INT64, value=1)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10], alias="a")
+}
+==
+
+# max_groups_contributed is a synonym for kappa, so this should behave the same
+# as the corresponding test for kappa.
+[default language_features=ANONYMIZATION,TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+
+select with anonymization options(max_groups_contributed = 1) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+group by int64;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="a")
+        +-group_by_list=
+        | +-int64#14 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=1)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-SampleScan
+        |   +-column_list=[$aggregate.$agg1_partial#17, $groupby.int64_partial#18, $group_by.$uid#19]
+        |   +-input_scan=
+        |   | +-AggregateScan
+        |   |   +-column_list=[$aggregate.$agg1_partial#17, $groupby.int64_partial#18, $group_by.$uid#19]
+        |   |   +-input_scan=
+        |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10], alias="a")
+        |   |   +-group_by_list=
+        |   |   | +-int64_partial#18 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |   |   | +-$uid#19 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#15)
+        |   |   +-aggregate_list=
+        |   |     +-$agg1_partial#17 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=1)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=$group_by.$uid#19)
+        +-group_by_list=
+        | +-int64#14 := ColumnRef(type=INT64, column=$groupby.int64_partial#18)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#17)
+        | +-$k_threshold_col#22 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+        | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#22)
+        +-anonymization_option_list=
+          +-max_groups_contributed := Literal(type=INT64, value=1)
 
 [TableScan Groups]
 {
@@ -298,8 +379,46 @@ QueryStmt
 select with anonymization options(kappa = @_p0_INT64) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
 
-Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647 [at 1:35]
+Rewrite ERROR: Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA) must be an INT64 literal between 1 and 2147483647 [at 1:35]
 select with anonymization options(kappa = 0) anon_count(*)
+                                  ^
+==
+
+# Invalid max_groups_contributed < 1
+#
+# max_groups_contributed is a synonym for kappa, so we let the below tests for
+# invalid values of kappa cover details of validating max_groups_contributed.
+# This test just checks that the same validation code path also covers
+# max_groups_contributed.
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+select with anonymization options(max_groups_contributed = 0) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-114
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(parse_location=81-112, table=SimpleTypesWithAnonymizationUid, alias="a")
+        +-aggregate_list=
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=62-72)
+        +-anonymization_option_list=
+          +-max_groups_contributed=
+            +-parse_location=34-60
+            +-Literal(parse_location=59-60, type=INT64, value=0)
+[REPLACED_LITERALS]
+select with anonymization options(max_groups_contributed = @_p0_INT64) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+
+Rewrite ERROR: Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA) must be an INT64 literal between 1 and 2147483647 [at 1:35]
+select with anonymization options(max_groups_contributed = 0) anon_count(*)
                                   ^
 ==
 
@@ -332,7 +451,7 @@ QueryStmt
 select with anonymization options(kappa = @_p0_INT64) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
 
-Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647 [at 1:35]
+Rewrite ERROR: Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA) must be an INT64 literal between 1 and 2147483647 [at 1:35]
 select with anonymization options(kappa = 2147483648) anon_count(*)
                                   ^
 ==
@@ -344,6 +463,20 @@ from SimpleTypesWithAnonymizationUid a
 ERROR: Anonymization option kappa value has type DOUBLE which cannot be coerced to expected type INT64 [at 1:43]
 select with anonymization options(kappa = 2.0) anon_count(*)
                                           ^
+==
+
+# Invalid max_groups_contributed type
+#
+# max_groups_contributed is a synonym for kappa, so we let the below tests for
+# invalid types of kappa cover details of validating max_groups_contributed.
+# This test just checks that the same validation code path also covers
+# max_groups_contributed.
+select with anonymization options(max_groups_contributed = 2.0) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+ERROR: Anonymization option max_groups_contributed value has type DOUBLE which cannot be coerced to expected type INT64 [at 1:60]
+select with anonymization options(max_groups_contributed = 2.0) anon_count(*)
+                                                           ^
 ==
 
 # Invalid Kappa, non-literal
@@ -376,7 +509,7 @@ QueryStmt
 select with anonymization options(kappa = @_p0_INT64+@_p1_INT64) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
 
-Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647 [at 1:35]
+Rewrite ERROR: Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA) must be an INT64 literal between 1 and 2147483647 [at 1:35]
 select with anonymization options(kappa = 1+2) anon_count(*)
                                   ^
 ==
@@ -409,7 +542,7 @@ QueryStmt
 select with anonymization options(kappa = @test_param_int64) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
 
-Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647 [at 1:35]
+Rewrite ERROR: Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA) must be an INT64 literal between 1 and 2147483647 [at 1:35]
 select with anonymization options(kappa = @test_param_int64) anon_count(*)
                                   ^
 ==
@@ -421,6 +554,16 @@ from SimpleTypesWithAnonymizationUid a
 ERROR: Duplicate anonymization option specified for 'kappa' [at 1:46]
 select with anonymization options(kappa = 1, kappa = 1) anon_count(*)
                                              ^
+==
+
+
+# Both kappa and max_groups_contributed specified
+select with anonymization options(kappa = 1, max_groups_contributed = 1) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+ERROR: The anonymization options specify mutually exclusive options kappa and max_groups_contributed [at 1:34]
+select with anonymization options(kappa = 1, max_groups_contributed = 1) anon...
+                                 ^
 ==
 
 # We run this test case with default kappa set, and with 'kappa=NULL' and

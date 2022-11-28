@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
@@ -210,7 +211,8 @@ typedef std::set<std::vector<std::string>> TableNamesSet;
 // Parameter table_names must not be null.
 absl::Status ExtractTableNamesFromStatement(absl::string_view sql,
                                             const AnalyzerOptions& options_in,
-                                            TableNamesSet* table_names);
+                                            TableNamesSet* table_names,
+                                            TableNamesSet* tvf_names = nullptr);
 
 // Same as ExtractTableNamesFromStatement(), but extracts table names from one
 // SQL statement from a string. The string may contain multiple statements, so
@@ -229,7 +231,8 @@ absl::Status ExtractTableNamesFromStatement(absl::string_view sql,
 // statements is not supported.
 absl::Status ExtractTableNamesFromNextStatement(
     ParseResumeLocation* resume_location, const AnalyzerOptions& options_in,
-    TableNamesSet* table_names, bool* at_end_of_input);
+    TableNamesSet* table_names, bool* at_end_of_input,
+    TableNamesSet* tvf_names = nullptr);
 
 // Same as ExtractTableNamesFromStatement(), but extracts table names from the
 // parsed AST instead of a raw SQL string. For projects which are allowed to use
@@ -239,7 +242,8 @@ absl::Status ExtractTableNamesFromNextStatement(
 // <*table_names> contains table names referenced in the AST statement.
 absl::Status ExtractTableNamesFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
-    absl::string_view sql, TableNamesSet* table_names);
+    absl::string_view sql, TableNamesSet* table_names,
+    TableNamesSet* tvf_names = nullptr);
 
 // Extract the set of referenced table names from a script.
 //
@@ -257,7 +261,8 @@ absl::Status ExtractTableNamesFromASTStatement(
 // Parameter table_names must not be null.
 absl::Status ExtractTableNamesFromScript(absl::string_view sql,
                                          const AnalyzerOptions& options_in,
-                                         TableNamesSet* table_names);
+                                         TableNamesSet* table_names,
+                                         TableNamesSet* tvf_names = nullptr);
 
 // Same as ExtractTableNamesFromScript(), but extracts table names from
 // the parsed AST script. For projects which are allowed to use the parser
@@ -268,7 +273,8 @@ absl::Status ExtractTableNamesFromScript(absl::string_view sql,
 absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
                                             const AnalyzerOptions& options_in,
                                             absl::string_view sql,
-                                            TableNamesSet* table_names);
+                                            TableNamesSet* table_names,
+                                            TableNamesSet* tvf_names = nullptr);
 
 // Resolved "FOR SYSTEM_TIME AS OF" expression.
 struct TableResolutionTimeExpr {

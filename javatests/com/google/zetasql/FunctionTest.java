@@ -96,7 +96,7 @@ public class FunctionTest {
     assertThat(fn2.getOptions().getIsDeprecated()).isFalse();
     assertThat(fn2.requireWindowOrdering()).isFalse();
     assertThat(fn2.getOptions().getSupportsWindowFraming()).isTrue();
-    assertThat(fn2.getOptions().getAliasName()).isEqualTo("");
+    assertThat(fn2.getOptions().getAliasName()).isEmpty();
     assertThat(fn2.getFullName()).isEqualTo("ZetaSQLTest:test_function_2");
     assertThat(fn2.getFullName(false)).isEqualTo("test_function_2");
     assertThat(fn2.getGroup()).isEqualTo("ZetaSQLTest");

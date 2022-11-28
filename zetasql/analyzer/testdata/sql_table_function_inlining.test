@@ -3726,21 +3726,23 @@ QueryStmt
           +-ExecuteAsRoleScan
             +-column_list=DefinerRightsTvf.[Key#4, Value#5]
             +-input_scan=
-              +-ProjectScan
-                +-column_list=DefinerRightsTvf.[Key#6, Value#7]
-                +-input_scan=
-                  +-FilterScan
-                    +-column_list=DefinerRightsTvf.[Key#6, Value#7]
-                    +-input_scan=
-                    | +-TableScan(column_list=DefinerRightsTvf.[Key#6, Value#7], table=KeyValue, column_index_list=[0, 1])
-                    +-filter_expr=
-                      +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-                        +-ColumnRef(type=INT64, column=DefinerRightsTvf.Key#6)
-                        +-SubqueryExpr
-                          +-type=INT64
-                          +-subquery_type=SCALAR
-                          +-subquery=
-                            +-ProjectScan
-                              +-column_list=[$inlined_DefinerRightsTvf.a#9]
-                              +-input_scan=
-                                +-WithRefScan(column_list=[$inlined_DefinerRightsTvf.a#9], with_query_name="$inlined_DefinerRightsTvf_scalar_args")
+            | +-ProjectScan
+            |   +-column_list=DefinerRightsTvf.[Key#6, Value#7]
+            |   +-input_scan=
+            |     +-FilterScan
+            |       +-column_list=DefinerRightsTvf.[Key#6, Value#7]
+            |       +-input_scan=
+            |       | +-TableScan(column_list=DefinerRightsTvf.[Key#6, Value#7], table=KeyValue, column_index_list=[0, 1])
+            |       +-filter_expr=
+            |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |           +-ColumnRef(type=INT64, column=DefinerRightsTvf.Key#6)
+            |           +-SubqueryExpr
+            |             +-type=INT64
+            |             +-subquery_type=SCALAR
+            |             +-subquery=
+            |               +-ProjectScan
+            |                 +-column_list=[$inlined_DefinerRightsTvf.a#9]
+            |                 +-input_scan=
+            |                   +-WithRefScan(column_list=[$inlined_DefinerRightsTvf.a#9], with_query_name="$inlined_DefinerRightsTvf_scalar_args")
+            +-original_inlined_view=<null>
+            +-original_inlined_tvf=DefinerRightsTvf((INT64 a) -> TABLE<Key INT64, Value STRING>)

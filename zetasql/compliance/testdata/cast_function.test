@@ -614,7 +614,7 @@ ARRAY<STRUCT<BYTES>>[{b"\x08\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01"}]
 [name=enums_are_case_sensitive]
 SELECT CAST(CAST('TestEnum1' as `zetasql_test__.TestEnum`) as STRING)
 --
-ERROR: generic::out_of_range: Out of range cast of string 'TestEnum1' to enum type zetasql_test__.TestEnum
+ERROR: generic::out_of_range: Out of range cast of string 'TestEnum1' to enum type zetasql_test__.TestEnum; Did you mean 'TESTENUM1'? (Note: ENUM values are case sensitive)
 ==
 # This test is more of a recommendation than a requirement, since proto allows
 # ignoring the packed annotation. We should eventually add framework support
@@ -1405,13 +1405,13 @@ ARRAY<STRUCT<ENUM<zetasql_test__.TestEnum>>>[{NULL}]
 [name=cast_string_to_enum_with_different_case]
 select cast('TestEnum0' AS `zetasql_test__.TestEnum`)
 --
-ERROR: generic::out_of_range: Out of range cast of string 'TestEnum0' to enum type zetasql_test__.TestEnum
+ERROR: generic::out_of_range: Out of range cast of string 'TestEnum0' to enum type zetasql_test__.TestEnum; Did you mean 'TESTENUM0'? (Note: ENUM values are case sensitive)
 ==
 
 [name=cast_invalid_string_literal_to_enum]
 select cast('TESTENUM1000' AS `zetasql_test__.TestEnum`)
 --
-ERROR: generic::out_of_range: Out of range cast of string 'TESTENUM1000' to enum type zetasql_test__.TestEnum
+ERROR: generic::out_of_range: Out of range cast of string 'TESTENUM1000' to enum type zetasql_test__.TestEnum; Did you mean 'TESTENUM0'?
 ==
 
 [name=safe_cast_invalid_string_literal_to_enum]

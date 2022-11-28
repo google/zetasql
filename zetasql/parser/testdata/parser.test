@@ -2166,39 +2166,39 @@ SELECT ( foo ) ], foo
 --
 ALTERNATION GROUP: (,},)
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+ERROR: Syntax error: Unexpected "}" [at 1:14]
 SELECT ( foo } ), foo
-         ^
+             ^
 --
 ALTERNATION GROUP: (,},}
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+ERROR: Syntax error: Unexpected "}" [at 1:14]
 SELECT ( foo } }, foo
-         ^
+             ^
 --
 ALTERNATION GROUP: (,},]
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+ERROR: Syntax error: Unexpected "}" [at 1:14]
 SELECT ( foo } ], foo
-         ^
+             ^
 --
 ALTERNATION GROUP: (,],)
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+ERROR: Syntax error: Unexpected "]" [at 1:14]
 SELECT ( foo ] ), foo
-         ^
+             ^
 --
 ALTERNATION GROUP: (,],}
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+ERROR: Syntax error: Unexpected "]" [at 1:14]
 SELECT ( foo ] }, foo
-         ^
+             ^
 --
 ALTERNATION GROUP: (,],]
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+ERROR: Syntax error: Unexpected "]" [at 1:14]
 SELECT ( foo ] ], foo
-         ^
+             ^
 --
 ALTERNATION GROUP: {,),)
 --

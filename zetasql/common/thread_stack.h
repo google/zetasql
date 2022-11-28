@@ -12,12 +12,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
 
 #ifndef ZETASQL_COMMON_THREAD_STACK_H_
 #define ZETASQL_COMMON_THREAD_STACK_H_
 
+#include <algorithm>
+#include <cstddef>
+#include <limits>
+#include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 namespace zetasql {
 

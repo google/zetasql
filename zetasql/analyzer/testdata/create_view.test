@@ -845,6 +845,25 @@ create  view tt(a, b)
                ^
 ==
 
+# Create view with explicit column list with column options is unsupported.
+# TODO: Add test when creating views with column options is
+# supported.
+create {{materialized|}} view tt(a OPTIONS(description="test view"), b)
+as select 1, 2
+--
+ALTERNATION GROUP: materialized
+--
+ERROR: CREATE MATERIALIZED VIEW with column options not supported [at 1:38]
+create materialized view tt(a OPTIONS(description="test view"), b)
+                                     ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CREATE VIEW with column options not supported [at 1:26]
+create  view tt(a OPTIONS(description="test view"), b)
+                         ^
+==
+
 # Create view with or without explicit column.
 # Results for the alternations should be the same except has_explicit_columns.
 [default language_features=CREATE_VIEW_WITH_COLUMN_LIST]

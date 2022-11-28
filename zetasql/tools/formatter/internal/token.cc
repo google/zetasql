@@ -17,23 +17,23 @@
 #include "zetasql/tools/formatter/internal/token.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
-#include <algorithm>
 #include <initializer_list>
-#include <iterator>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include "zetasql/common/utf_util.h"
+
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
-#include "zetasql/public/strings.h"
+#include "zetasql/public/value.h"
+#include <cstdint>  
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"

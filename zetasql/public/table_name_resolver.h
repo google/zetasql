@@ -48,11 +48,16 @@ namespace table_name_resolver {
 //
 // If <table_resolution_time_info_map> is null, <type_factory> and <catalog> are
 // ignored.
+
+// If <tvf_names> is not null, then <tvf_names> will be cleared first.
+// Then each TVF node path expression encountered during analysis will
+// be collected in <tvf_names>
 absl::Status FindTableNamesAndResolutionTime(
     absl::string_view sql, const ASTStatement& statement,
     const AnalyzerOptions& analyzer_options, TypeFactory* type_factory,
     Catalog* catalog, TableNamesSet* table_names,
-    TableResolutionTimeInfoMap* table_resolution_time_info_map);
+    TableResolutionTimeInfoMap* table_resolution_time_info_map,
+    TableNamesSet* tvf_names = nullptr);
 
 // Traverses a script, computing a list of names of all tables referenced by
 // any statement or expression within the script.
@@ -62,16 +67,18 @@ absl::Status FindTableNamesAndResolutionTime(
 absl::Status FindTableNamesInScript(absl::string_view sql,
                                     const ASTScript& script,
                                     const AnalyzerOptions& analyzer_options,
-                                    TableNamesSet* table_names);
+                                    TableNamesSet* table_names,
+                                    TableNamesSet* tvf_names = nullptr);
 
 inline absl::Status FindTables(absl::string_view sql,
                                const ASTStatement& statement,
                                const AnalyzerOptions& analyzer_options,
-                               TableNamesSet* table_names) {
+                               TableNamesSet* table_names,
+                               TableNamesSet* tvf_names = nullptr) {
   return FindTableNamesAndResolutionTime(
       sql, statement, analyzer_options, /* type_factory = */ nullptr,
       /* catalog = */ nullptr, table_names,
-      /* table_resolution_time_info_map = */ nullptr);
+      /* table_resolution_time_info_map = */ nullptr, tvf_names);
 }
 
 }  // namespace table_name_resolver

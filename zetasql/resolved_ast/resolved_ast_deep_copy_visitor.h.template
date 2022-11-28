@@ -205,6 +205,14 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
     return ConsumeTopOfStack<ResolvedNodeType>();
   }
 
+  template <typename ResolvedNodeType>
+  static absl::StatusOr<std::unique_ptr<ResolvedNodeType>> Copy(
+      const ResolvedNodeType* node) {
+    ResolvedASTDeepCopyVisitor visitor;
+    ZETASQL_RETURN_IF_ERROR(node->Accept(&visitor));
+    return visitor.ConsumeRootNode<ResolvedNodeType>();
+  }
+
  protected:
   // Pushes a node onto the top of the stack. Used as an easy way to pass the
   // copied or modified node from the producer to the consumer. This should

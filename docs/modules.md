@@ -2,6 +2,8 @@
 
 # Modules
 
+ZetaSQL supports modules.
+
 ## What are modules?
 
 Modules are a set of ZetaSQL DDL statements that do not have

@@ -247,9 +247,9 @@ public abstract class Catalog implements Serializable {
   }
 
   /**
-   * Given an identifier path, return the type name that results when combining
-   * that path into a single protocol buffer type name, if applicable.
-   * Returns empty string if {@code path} cannot form a valid proto-style type name.
+   * Given an identifier path, return the type name that results when combining that path into a
+   * single protocol buffer type name, if applicable. Returns empty string if {@code path} cannot
+   * form a valid proto-style type name.
    *
    * @return type name if applicable, empty string if not
    */
@@ -355,8 +355,7 @@ public abstract class Catalog implements Serializable {
   }
 
   /**
-   * Get an object of Type from this Catalog, without
-   * looking at any nested Catalogs.
+   * Get an object of Type from this Catalog, without looking at any nested Catalogs.
    *
    * <p>A NULL pointer should be returned if the object doesn't exist.
    *

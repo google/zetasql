@@ -74,6 +74,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ADD_SUB_ENTITY_ACTION] = "AddSubEntityAction";
   map[AST_ADD_TO_RESTRICTEE_LIST_CLAUSE] = "AddToRestricteeListClause";
   map[AST_ADD_TTL_ACTION] = "AddTtlAction";
+  map[AST_ALIASED_QUERY_LIST] = "AliasedQueryList";
   map[AST_ALIAS] = "Alias";
   map[AST_ALTER_ACTION_LIST] = "AlterActionList";
   map[AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT] =
@@ -141,6 +142,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_COLUMN_DEFINITION] = "ColumnDefinition";
   map[AST_COLUMN_LIST] = "ColumnList";
   map[AST_COLUMN_POSITION] = "ColumnPosition";
+  map[AST_COLUMN_WITH_OPTIONS] = "ColumnWithOptions";
+  map[AST_COLUMN_WITH_OPTIONS_LIST] = "ColumnWithOptionsList";
   map[AST_COMMIT_STATEMENT] = "CommitStatement";
   map[AST_CONNECTION_CLAUSE] = "ConnectionClause";
   map[AST_CONTINUE_STATEMENT] = "Continue";
@@ -331,6 +334,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_SELECT_AS] = "SelectAs";
   map[AST_SELECT_COLUMN] = "SelectColumn";
   map[AST_SELECT_LIST] = "SelectList";
+  map[AST_SELECT_WITH] = "SelectWith";
   map[AST_SET_AS_ACTION] = "SetAsOperation";
   map[AST_SET_COLLATE_CLAUSE] = "SetCollateClause";
   map[AST_SET_OPERATION] = "SetOperation";

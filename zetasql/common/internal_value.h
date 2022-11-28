@@ -19,6 +19,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/type.h"

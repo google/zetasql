@@ -2,7 +2,7 @@
 
 # Procedural language
 
-The ZetaSQL  procedural language lets you execute multiple statements
+The ZetaSQL procedural language lets you execute multiple statements
 in one query as a multi-statement query. You can use
 a multi-statement query to:
 

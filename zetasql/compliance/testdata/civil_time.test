@@ -1903,4 +1903,143 @@ WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
 ARRAY<STRUCT<STRING, STRING, STRING>>[
   {"02/03/01 04:05:06", "02/03/01 07:05:06", "02/03/01 20:05:06"}
 ]
+==
 
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[name=datetime_bucket]
+select
+  datetime_bucket(dt, INTERVAL '0.0005' SECOND),
+  datetime_bucket(dt, INTERVAL '0.1' SECOND),
+  datetime_bucket(dt, INTERVAL 15 SECOND),
+  datetime_bucket(dt, INTERVAL 20 MINUTE),
+  datetime_bucket(dt, INTERVAL 3 HOUR),
+  datetime_bucket(dt, INTERVAL 7 DAY)
+from (select datetime '2020-02-15 14:57:39.646565' dt)
+--
+WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
+WITH FEATURES: INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
+ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
+  {
+    2020-02-15 14:57:39.646500,
+    2020-02-15 14:57:39.600,
+    2020-02-15 14:57:30,
+    2020-02-15 14:40:00,
+    2020-02-15 12:00:00,
+    2020-02-09 00:00:00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[name=datetime_bucket_custom_origin]
+select
+  datetime_bucket(dt, INTERVAL '0.0005' SECOND, origin),
+  datetime_bucket(dt, INTERVAL '0.1' SECOND, origin),
+  datetime_bucket(dt, INTERVAL 15 SECOND, origin),
+  datetime_bucket(dt, INTERVAL 20 MINUTE, origin),
+  datetime_bucket(dt, INTERVAL 3 HOUR, origin),
+  datetime_bucket(dt, INTERVAL 7 DAY, origin)
+from (select datetime '2020-02-15 14:57:39.646565' dt,
+             datetime '2150-12-11 07:00:00' origin)
+--
+WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
+WITH FEATURES: INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
+ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
+  {
+    2020-02-15 14:57:39.646500,
+    2020-02-15 14:57:39.600,
+    2020-02-15 14:57:30,
+    2020-02-15 14:40:00,
+    2020-02-15 13:00:00,
+    2020-02-14 07:00:00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
+[name=datetime_bucket_nanos]
+select
+  datetime_bucket('2020-02-15 14:57:39.123456789',
+                   INTERVAL '0.000000005' SECOND),
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 7 DAY,
+                   '2100-01-12 07:31:55.123456789')
+--
+ARRAY<STRUCT<DATETIME, DATETIME>>[
+  {
+    2020-02-15 14:57:39.123456785,
+    2020-02-11 07:31:55.123456789
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[name=datetime_bucket_null_inputs]
+select
+  datetime_bucket(NULL, INTERVAL 3 HOUR),
+  datetime_bucket(NULL, INTERVAL 3 HOUR, '2150-12-11 07:00:00'),
+  datetime_bucket('2020-02-15 14:57:39', NULL),
+  datetime_bucket('2020-02-15 14:57:39', NULL, '2150-12-11 07:00:00'),
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 3 HOUR, NULL)
+--
+WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
+WITH FEATURES: INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
+ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
+  {NULL, NULL, NULL, NULL, NULL}
+]
+==
+
+[test_features1=INTERVAL_TYPE]
+[test_features2=V_1_2_CIVIL_TIME]
+[name=datetime_bucket_feature_disabled]
+select
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+--
+WITH FEATURES: <none>
+WITH FEATURES: INTERVAL_TYPE
+ERROR: generic::invalid_argument: Function not found: datetime_bucket [at 2:3]
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+  ^
+--
+WITH FEATURES: INTERVAL_TYPE,V_1_2_CIVIL_TIME
+WITH FEATURES: V_1_2_CIVIL_TIME
+ERROR: generic::invalid_argument: Function not found: datetime_bucket; Did you mean datetime_sub? [at 2:3]
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+  ^
+==
+
+[test_features1=TIME_BUCKET_FUNCTIONS]
+[test_features2=V_1_2_CIVIL_TIME]
+[name=datetime_bucket_no_interval_type]
+select
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+--
+WITH FEATURES: <none>
+WITH FEATURES: TIME_BUCKET_FUNCTIONS
+ERROR: generic::invalid_argument: Function not found: datetime_bucket [at 2:3]
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+  ^
+--
+WITH FEATURES: TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
+WITH FEATURES: V_1_2_CIVIL_TIME
+ERROR: generic::invalid_argument: Function not found: datetime_bucket; Did you mean datetime_sub? [at 2:3]
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+  ^
+==
+
+[test_features1=INTERVAL_TYPE]
+[test_features2=TIME_BUCKET_FUNCTIONS]
+[name=datetime_bucket_no_civil_time]
+select
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+--
+WITH FEATURES: <none>
+WITH FEATURES: INTERVAL_TYPE
+WITH FEATURES: TIME_BUCKET_FUNCTIONS
+ERROR: generic::invalid_argument: Function not found: datetime_bucket [at 2:3]
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+  ^
+--
+WITH FEATURES: INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS
+ERROR: generic::invalid_argument: Function not found: datetime_bucket; Did you mean date_bucket? [at 2:3]
+  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+  ^

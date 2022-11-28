@@ -547,10 +547,6 @@ bool ProtoType::GetIsStructAnnotation(const google::protobuf::Descriptor* messag
   return message->options().GetExtension(zetasql::is_struct);
 }
 
-bool ProtoType::GetIsRangeAnnotation(const google::protobuf::Descriptor* message) {
-  return message->options().GetExtension(zetasql::is_range);
-}
-
 bool ProtoType::HasStructFieldName(const google::protobuf::FieldDescriptor* field) {
   return field->options().HasExtension(zetasql::struct_field_name);
 }

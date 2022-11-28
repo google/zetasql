@@ -234,6 +234,10 @@ enum class FunctionKind {
   kDouble,
   kBool,
   kJsonType,
+  kLaxBool,
+  kLaxInt64,
+  kLaxDouble,
+  kLaxString,
   // Proto functions
   kFromProto,
   kToProto,
@@ -1873,6 +1877,15 @@ void MaybeSetNonDeterministicArrayOutput(const Value& array,
 class ConvertJsonFunction : public SimpleBuiltinScalarFunction {
  public:
   ConvertJsonFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class ConvertJsonLaxFunction : public SimpleBuiltinScalarFunction {
+ public:
+  ConvertJsonLaxFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {}
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,

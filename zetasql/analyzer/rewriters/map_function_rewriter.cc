@@ -135,45 +135,69 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
 
   absl::Status GenerateModifyMapSql(const ResolvedFunctionCall* node) {
     constexpr absl::string_view kTemplate = R"sql(
-    (SELECT CASE
-        -- Error case: multiple keys are not allowed in the rewrite args.
-        WHEN EXISTS(
-            SELECT ERROR(
-                FORMAT("MODIFY_MAP: Only one instance of each key is allowed. Found multiple instances of key: %T", key))
-            FROM (SELECT mod.key, count(*) AS num_dups
-                  FROM UNNEST(modifications) mod GROUP BY mod.key
-                  HAVING num_dups > 1)) THEN NULL
-        -- Error case: NULL keys are not allowed.
-        WHEN EXISTS(
-            SELECT ERROR(
-                FORMAT("MODIFY_MAP: All key arguments must be non-NULL, but found NULL at argument %d",
-                       -- Note that the MODIFY_MAP arg index is not the same
-                       -- as the offset in the modifications array.
-                       offset * 2 + 1))
-            FROM (SELECT offset
-                  FROM UNNEST(modifications) mod WITH OFFSET offset
-                  WHERE mod.key IS NULL)) THEN NULL
-        WHEN original_map IS NULL THEN NULL
-        ELSE ARRAY(
-          -- Select all the entries from orig that haven't been replaced.
-          -- We retain the offset in the subquery to allow us to keep everything
-          -- in the same order we originally saw it.
-          SELECT AS `$1` key, value FROM (
-            (SELECT orig.key, orig.value value, offset
-             FROM UNNEST(original_map) orig WITH OFFSET offset
-             LEFT JOIN UNNEST(modifications) mod
-             ON orig.key = mod.key
-             WHERE mod.key IS NULL)
-             UNION ALL
-             -- Union those with each entry from the modifications where the
-             -- value isn't NULL. We use an offset that starts past the end of
-             -- the original map to ensure a deterministic output order.
-            (SELECT mod.key, mod.value, ARRAY_LENGTH(original_map) + offset
-             FROM UNNEST(modifications) mod WITH OFFSET offset
-             WHERE mod.value IS NOT NULL))
-          ORDER BY offset ASC)
-        END
-     FROM (SELECT AS VALUE $0) modifications)
+    (
+      SELECT
+        IF(
+          original_map IS NULL,
+          NULL,
+          -- Generate the output map by joining the modifications with the
+          -- existing map.
+          ARRAY(
+            SELECT AS `$1`
+              -- We take the key and value from the mod map if they exist, else
+              -- from the original map (indicating an unmodified kv pair).
+              IF(chosen_mods.key IS NULL, orig.key, chosen_mods.key) AS key,
+              IF(chosen_mods.value IS NULL, orig.value, chosen_mods.value)
+                  AS value,
+            FROM UNNEST(original_map) AS orig WITH OFFSET orig_offset
+            FULL JOIN
+              (
+                -- Generate the chosen modification or an error.
+                SELECT
+                  IF(
+                    agg_mods.key IS NOT NULL,
+                    agg_mods.key,
+                    ERROR(
+                      FORMAT(
+                        'MODIFY_MAP: All key arguments must be non-NULL, but found NULL at argument %d',
+                        -- Note that the MODIFY_MAP arg index is not the same
+                        -- as the offset in the modifications array.
+                        agg_mods.offset * 2 + 1))) AS key,
+                  IF(
+                    ARRAY_LENGTH(agg_mods.values) <= 1,
+                    -- Length will never be zero, since there is always at least
+                    -- one kv in the grouping.
+                    agg_mods.values[OFFSET(0)],
+                    ERROR(
+                      FORMAT(
+                        'MODIFY_MAP: Only one instance of each key is allowed. Found multiple instances of key: %T',
+                        key))) AS value,
+                  -- We use an offset that starts past the end of the original
+                  -- map to ensure a deterministic output order when adding new
+                  -- keys.
+                  ARRAY_LENGTH(original_map) + agg_mods.offset AS offset
+                FROM
+                  (
+                    -- Generate the modifications list, grouped by key.
+                    SELECT mod.key, ARRAY_AGG(mod.value) AS values, MIN(offset)
+                        AS offset
+                    FROM UNNEST(modifications) mod WITH OFFSET offset
+                    GROUP BY mod.key
+                  ) AS agg_mods
+              ) AS chosen_mods
+              ON orig.key = chosen_mods.key
+            WHERE
+              -- This key is not in the modifications.
+              chosen_mods.key IS NULL
+              OR
+                -- This key is in the modifications and the value is set.
+                (chosen_mods.key IS NOT NULL AND chosen_mods.value IS NOT NULL)
+            -- If the key is in the mods and the value is NULL then erase.
+            ORDER BY GREATEST(IFNULL(orig_offset, -1),
+                              IFNULL(chosen_mods.offset, -1)) ASC
+          ))
+      FROM (SELECT AS VALUE $0) AS modifications
+    )
     )sql";
 
     ZETASQL_RET_CHECK_LE(3, node->argument_list_size())

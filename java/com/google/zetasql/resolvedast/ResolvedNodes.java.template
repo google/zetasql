@@ -50,6 +50,7 @@ import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
 import com.google.zetasql.ZetaSQLStrings;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeProto;
+import com.google.zetasql.ZetaSQLTypeModifiers.TypeModifiersProto;
 import com.google.zetasql.ZetaSQLTypeParameters.TypeParametersProto;
 import com.google.zetasql.Model;
 import com.google.zetasql.ModelRefProto;
@@ -122,6 +123,48 @@ final class ResolvedCollation {
 
   public String debugString() {
     return "";
+  }
+}
+
+/**
+ * This is a dummy implementation of TypeModifiers and currently only support
+ * type_parameters.
+ * TODO: implement TypeModifiers in
+ *   package com.google.zetasql
+ */
+final class TypeModifiers{
+  private TypeParameters type_parameters;
+
+  public TypeModifiers() {
+    type_parameters = new TypeParameters();
+  }
+
+  public TypeModifiers(TypeParameters type_parameters) {
+    this.type_parameters = type_parameters;
+  }
+
+  public boolean isEmpty() {
+    return type_parameters.isEmpty();
+  }
+
+  public TypeModifiersProto serialize() {
+    TypeModifiersProto.Builder builder = TypeModifiersProto.newBuilder();
+    builder.setTypeParameters(this.type_parameters.serialize());
+    return builder.build();
+  }
+
+  public static TypeModifiers deserialize(TypeModifiersProto proto) {
+    if (proto.hasTypeParameters()) {
+      return new TypeModifiers(TypeParameters.deserialize(proto.getTypeParameters()));
+    }
+    return new TypeModifiers();
+  }
+
+  public String debugString() {
+    if (isEmpty()) {
+      return "null";
+    }
+    return "type_parameters:" + this.type_parameters.debugString();
   }
 }
 
@@ -263,6 +306,12 @@ public final class ResolvedNodes {
       ResolvedCollation resolvedCollation,
       FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     return resolvedCollation.serialize();
+  }
+
+  static TypeModifiersProto serialize(
+      TypeModifiers typeModifiers,
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    return typeModifiers.serialize();
   }
 
   static TypeParametersProto serialize(

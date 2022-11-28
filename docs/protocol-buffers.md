@@ -22,14 +22,15 @@ how they work in languages other than SQL, see the
 
 This section covers how to construct protocol buffers using ZetaSQL.
 
-### NEW protocol_buffer {...} {: #using_new_map_constructor }
+### NEW protocol_buffer &#123;...&#125; 
+<a id="using_new_map_constructor"></a>
 
 You can create a protocol buffer using the [`NEW`][new-operator]
 operator with a map constructor:
 
 <section class="tabs">
 
-#### Format {.new-tab}
+#### Format
 
 ```sql
 NEW protocol_buffer {
@@ -51,7 +52,7 @@ Where:
 +  `extension_name`: The name of the proto extension, including the package
    name.
 
-#### Example {.new-tab}
+#### Example
 
 ```sql
 NEW Universe {
@@ -225,13 +226,13 @@ parenthesized list of arguments and aliases to specify field names:
 
 <section class="tabs">
 
-#### Format {.new-tab}
+#### Format
 
 ```sql
 NEW protocol_buffer(field [AS alias], ...)
 ```
 
-#### Example {.new-tab}
+#### Example
 
 ```sql
 SELECT
@@ -885,13 +886,31 @@ WHERE
   foo_field.(some.package.bar) = 5;
 ```
 
-Note that you can also put back quotes around the components in the extension
-path name in case they need to be escaped to avoid collisions with reserved
-keywords. For example:
+You can also use backticks to escape the components in the extension path name
+to avoid collisions with reserved keywords. However, you must use backticks
+around individual components, not around multiple components or the entire path.
+
+Correct example:
 
 ```sql
 SELECT
+  foo_field.(`some`.`package`.`bar`).value = 5
+FROM
+  Test;
+```
+
+Incorrect examples:
+
+```sql {.bad}
+SELECT
   foo_field.(`some.package`.`bar`).value = 5
+FROM
+  Test;
+```
+
+```sql {.bad}
+SELECT
+  foo_field.(`some.package.bar`).value = 5
 FROM
   Test;
 ```

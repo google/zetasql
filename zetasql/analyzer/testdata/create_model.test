@@ -8,9 +8,7 @@ create model t1
 --
 ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
 --
-ERROR: Local model requires INPUT OUTPUT or AS SELECT clause [at 2:1]
-create model t1
-^
+CreateModelStmt(name_path=t1)
 --
 ALTERNATION GROUP: <empty>
 --
@@ -63,9 +61,9 @@ create model t1 transform (a + b as t)
 --
 ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
 --
-ERROR: Local model requires INPUT OUTPUT or AS SELECT clause [at 1:1]
+ERROR: The TRANSFORM clause cannot be used with INPUT and OUTPUT [at 1:17]
 create model t1 transform (a + b as t)
-^
+                ^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -131,9 +129,10 @@ create model t1 options (abc = def)
 --
 ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
 --
-ERROR: Local model requires INPUT OUTPUT or AS SELECT clause [at 1:1]
-create model t1 options (abc = def)
-^
+CreateModelStmt
++-name_path=t1
++-option_list=
+  +-abc := Literal(type=STRING, value="def")
 --
 ALTERNATION GROUP: <empty>
 --
@@ -898,9 +897,7 @@ CreateModelStmt
 # Create model without AS SELECT.
 create temp model T
 --
-ERROR: Local model requires INPUT OUTPUT or AS SELECT clause [at 1:1]
-create temp model T
-^
+CreateModelStmt(name_path=T, create_scope=CREATE_TEMP)
 ==
 
 # TODO: Enable Java once it supports connection.
@@ -984,3 +981,14 @@ CreateModelStmt
   +-$dummy_table.k#3 AS k [INT64]
 
 ==
+
+# Create model with aliased query list is not supported yet.
+create model m
+as
+(
+  a1 as (select * from t1)
+)
+--
+ERROR: Aliased query list is not supported yet [at 4:3]
+  a1 as (select * from t1)
+  ^

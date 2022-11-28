@@ -2,9 +2,10 @@
 
 # User-defined functions
 
-ZetaSQL
-supports user-defined functions (UDFs). A UDF enables you to create a function
-using another SQL expression or another programming
+ZetaSQL supports user-defined functions (UDFs).
+
+A UDF enables you to
+create a function using another SQL expression or another programming
 language, such as JavaScript or Lua. These functions accept columns of input
 and perform actions, returning the result of those actions as a value.
 
@@ -809,7 +810,7 @@ You must enclose LUA in quotes. There are a few options:
 
 ### Call a LUA UDF
 
-You can call a JavaScript UDF in the same way that you call a built-in
+You can call a LUA UDF in the same way that you call a built-in
 function. For details, see [Function calls][function-calls].
 
 ### LUA UDF examples

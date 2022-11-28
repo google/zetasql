@@ -2,8 +2,8 @@
 
 # Statistical aggregate functions
 
-The following statistical aggregate functions are available in
-ZetaSQL. To learn about the syntax for aggregate function calls, see
+ZetaSQL supports statistical aggregate functions.
+To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
 ### CORR
@@ -245,9 +245,14 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`STDDEV_POP` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Return Data Type**
 
 `DOUBLE`
+
+[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 ### STDDEV_SAMP
 
@@ -331,6 +336,8 @@ window_specification:
 
 An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
+[stat-agg-link-to-stddev-samp]: #stddev_samp
+
 ### VAR_POP
 
 ```sql
@@ -377,11 +384,14 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`VAR_POP` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Return Data Type**
 
 `DOUBLE`
 
-[stat-agg-link-to-stddev-samp]: #stddev_samp
+[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 ### VAR_SAMP
 

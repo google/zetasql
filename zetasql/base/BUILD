@@ -542,17 +542,17 @@ cc_test(
 )
 
 cc_library(
-    name = "refcount",
+    name = "compact_reference_counted",
     hdrs = [
-        "simple_reference_counted.h",
+        "compact_reference_counted.h",
     ],
 )
 
 cc_test(
-    name = "simple_reference_counted_test",
-    srcs = ["simple_reference_counted_test.cc"],
+    name = "compact_reference_counted_test",
+    srcs = ["compact_reference_counted_test.cc"],
     deps = [
-        ":refcount",
+        ":compact_reference_counted",
         "//zetasql/base/testing:zetasql_gtest_main",
     ],
 )

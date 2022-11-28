@@ -154,7 +154,10 @@ struct AllowedHintsAndOptions {
       {"delta", types::DoubleType()},
       {"epsilon", types::DoubleType()},
       {"k_threshold", types::Int64Type()},
-      {"kappa", types::Int64Type()}};
+      // TODO deprecate kappa
+      {"kappa", types::Int64Type()},
+      // Synonym for kappa:
+      {"max_groups_contributed", types::Int64Type()}};
 
  private:
   absl::Status AddHintImpl(const std::string& qualifier,
@@ -703,9 +706,10 @@ class AnalyzerOptions {
     // allow a default report format to be used if the option is not provided.
     std::string default_anon_function_report_format;
 
-    // Anonymized functions take an optional kappa value, and allow a default
-    // kappa value to be used if the option is not provided. If it is unset, we
-    // initialize it as 0, which is not a valid kappa.
+    // Anonymized functions take an optional max_groups_contributed (aka kappa)
+    // value, and allow a default kappa value to be used if the option is not
+    // provided. If it is unset, we initialize it as 0, which is not a valid
+    // kappa.
     int64_t default_anon_kappa_value = 0;
 
     // This identifies the ZetaSQL resolution context - whether we are in

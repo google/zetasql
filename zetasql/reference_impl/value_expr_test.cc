@@ -29,7 +29,6 @@
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
-#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -75,6 +74,7 @@
 #include "absl/types/span.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
+#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -170,7 +170,7 @@ std::ostream& operator<<(std::ostream& out, const NaryFunctionTemplate& t) {
                     std::move(arguments))
                     .value();
   out << fct_op->DebugString() << " == ";
-  if (t.params.HasEmptyFeatureSetAndNothingElse()) {
+  if (t.params.required_features().empty()) {
     out << t.params.result().DebugString(/*verbose=*/true);
   } else {
     out << "(";

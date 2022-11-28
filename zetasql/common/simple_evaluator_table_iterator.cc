@@ -17,6 +17,7 @@
 #include "zetasql/common/simple_evaluator_table_iterator.h"
 
 #include <cstdint>
+#include <memory>
 
 #include "absl/flags/flag.h"
 

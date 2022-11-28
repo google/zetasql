@@ -26,6 +26,7 @@
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/function_signature_matcher.h"
 #include "zetasql/analyzer/name_scope.h"
+#include "zetasql/analyzer/named_argument_info.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
@@ -83,7 +84,7 @@ class FunctionResolver {
       const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
       bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
-      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+      std::vector<NamedArgumentInfo> named_arguments,
       const Type* expected_result_type, const NameScope* name_scope,
       std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out);
 
@@ -95,7 +96,7 @@ class FunctionResolver {
       const std::vector<const ASTNode*>& arg_locations,
       const std::string& function_name, bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
-      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+      std::vector<NamedArgumentInfo> named_arguments,
       const Type* expected_result_type,
       std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out);
   absl::Status ResolveGeneralFunctionCall(
@@ -103,7 +104,7 @@ class FunctionResolver {
       const std::vector<const ASTNode*>& arg_locations,
       const std::vector<std::string>& function_name_path, bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
-      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+      std::vector<NamedArgumentInfo> named_arguments,
       const Type* expected_result_type,
       std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out);
 
@@ -285,8 +286,7 @@ class FunctionResolver {
       const std::string& function_name, const FunctionSignature& signature,
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
-      const std::vector<std::pair<const ASTNamedArgument*, int>>&
-          named_arguments,
+      const std::vector<NamedArgumentInfo>& named_arguments,
       int num_repeated_args_repetitions,
       bool always_include_omitted_named_arguments_in_index_mapping,
       std::vector<ArgIndexPair>* index_mapping) const;
@@ -377,11 +377,9 @@ class FunctionResolver {
   // so that the caller can reorder the input argument list representations
   // accordingly.
   absl::StatusOr<const FunctionSignature*> FindMatchingSignature(
-      const Function* function,
-      const ASTNode* ast_location,
+      const Function* function, const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
-      const std::vector<std::pair<const ASTNamedArgument*, int>>&
-          named_arguments,
+      const std::vector<NamedArgumentInfo>& named_arguments,
       const NameScope* name_scope,
       std::vector<InputArgumentType>* input_arguments,
       std::vector<FunctionArgumentOverride>* arg_overrides,

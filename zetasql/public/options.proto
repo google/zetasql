@@ -509,6 +509,26 @@ enum LanguageFeature {
   FEATURE_STRICT_FUNCTION_DEFAULT_ARG_TYPE_COERCION = 80
       [(language_feature_options) = { ideally_enabled: false }];
 
+  // Enables LAX_BOOL(JSON), LAX_INT64(JSON), LAX_FLOAT64(JSON), and
+  // LAX_STRING(JSON) functions. See (broken link)
+  // for details.
+  FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS = 81
+      [(language_feature_options).in_development = true];
+
+  // Enable proto type and basic proto operations for PRODUCT_EXTERNAL.
+  // Currently a set of proto feature is enabled by default for
+  // PRODUCT_INTERNAL. A subset of these internal features is selected by
+  // (broken link) for PRODUCT_EXTERNAL. The supported
+  // features includes:
+  //   1. Proto field access.
+  //   2. Proto message construction.
+  //   3. Proto CAST and Coercion.
+  //   4. Accessing fields with unsupported external types (for example UINT64)
+  //   via Cast.
+  //   5. Extensions.
+  //   6. Proto functions.
+  FEATURE_PROTO_BASE = 82 [(language_feature_options).in_development = true];
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.
@@ -868,11 +888,14 @@ enum LanguageFeature {
   FEATURE_V_1_4_ARRAY_AGGREGATION_FUNCTIONS = 14005
       [(language_feature_options).in_development = true];
 
-  // Using string type argument as a placeholder for enum type argument.
-  // Related functions include ARRAY_OFFSET(S), ARRAY_FIND, and ARRAY_FIND_ALL.
+  // Enable builtin array find functions, including ARRAY_OFFSET(S), ARRAY_FIND,
+  // and ARRAY_FIND_ALL. These functions have both non-lambda and lambda
+  // signatures.
   // This language feature guard is added temporarily to unblock related
-  // functions development from enum development. This feature will be removed.
-  FEATURE_V_1_4_STRING_AS_ENUM_ARGUMENT = 14006
+  // functions development from enum development as well as collation
+  // propagation in lambda resolution.
+  // This feature will be removed.
+  FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS = 14006
       [(language_feature_options).in_development = true];
 
   // Enable SAFE mode for function calls with lambda arguments,

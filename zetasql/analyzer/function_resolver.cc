@@ -320,14 +320,14 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     const std::string& function_name, const FunctionSignature& signature,
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations,
-    const std::vector<std::pair<const ASTNamedArgument*, int>>& named_arguments,
+    const std::vector<NamedArgumentInfo>& named_arguments,
     int num_repeated_args_repetitions,
     bool always_include_omitted_named_arguments_in_index_mapping,
     std::vector<FunctionResolver::ArgIndexPair>* index_mapping) const {
   // Make sure the language feature is enabled.
   if (!named_arguments.empty() &&
       !resolver_->language().LanguageFeatureEnabled(FEATURE_NAMED_ARGUMENTS)) {
-    return MakeSqlErrorAt(named_arguments[0].first)
+    return named_arguments[0].MakeSQLError()
            << "Named arguments are not supported";
   }
 
@@ -363,33 +363,30 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       argument_names_to_indexes;
   int first_named_arg_index_in_call = std::numeric_limits<int>::max();
   int last_named_arg_index_in_call = -1;
-  for (int i = 0; i < named_arguments.size(); ++i) {
-    const std::pair<const ASTNamedArgument*, int>& named_arg =
-        named_arguments[i];
+  for (const auto& named_argument : named_arguments) {
     // Map the argument name to the index in which it appears in the function
     // call. If the name already exists in the map, this is a duplicate named
     // argument which is not allowed.
-    const std::string provided_arg_name =
-        named_arg.first->name()->GetAsString();
+    const std::string provided_arg_name = named_argument.name().ToString();
     if (!zetasql_base::InsertIfNotPresent(&argument_names_to_indexes, provided_arg_name,
-                                 named_arg.second)) {
-      return MakeSqlErrorAt(named_arg.first)
+                                 named_argument.index())) {
+      return named_argument.MakeSQLError()
              << "Duplicate named argument " << provided_arg_name
              << " found in call to function " << function_name;
     }
     // Make sure the provided argument name exists in the function signature.
     if (!zetasql_base::ContainsKey(argument_names_from_signature_options,
                           provided_arg_name)) {
-      return MakeSqlErrorAt(named_arg.first)
+      return named_argument.MakeSQLError()
              << "Named argument " << provided_arg_name
              << " not found in signature for call to function "
              << function_name;
     }
     // Keep track of the first and last named argument index.
     first_named_arg_index_in_call =
-        std::min(first_named_arg_index_in_call, named_arg.second);
+        std::min(first_named_arg_index_in_call, named_argument.index());
     last_named_arg_index_in_call =
-        std::max(last_named_arg_index_in_call, named_arg.second);
+        std::max(last_named_arg_index_in_call, named_argument.index());
   }
 
   // Check that named arguments are not followed by positional arguments.
@@ -399,7 +396,7 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
       (last_named_arg_index_in_call - first_named_arg_index_in_call >=
            named_arguments.size() ||
        last_named_arg_index_in_call + 1 < num_provided_args)) {
-    return MakeSqlErrorAt(named_arguments.back().first)
+    return named_arguments.back().MakeSQLError()
            << "Call to function " << function_name << " must not specify "
            << "positional arguments after named arguments; named arguments "
            << "must be specified last in the argument list";
@@ -424,7 +421,7 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     // For positional arguments that appear before any named arguments appear,
     // simply retain their locations and argument types.
     if ((named_arguments.empty() ||
-         call_arg_index < named_arguments[0].second) &&
+         call_arg_index < named_arguments[0].index()) &&
         (call_arg_index < arg_locations.size() || signature_arg_name.empty())) {
       // Make sure that the function signature does not specify an optional name
       // for this positional argument that also appears later as a named
@@ -692,10 +689,9 @@ std::string FunctionResolver::GenerateErrorMessageWithSupportedSignatures(
 // was, nor does it keep track of the best non-matching signature.
 absl::StatusOr<const FunctionSignature*>
 FunctionResolver::FindMatchingSignature(
-    const Function* function,
-    const ASTNode* ast_location,
+    const Function* function, const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations_in,
-    const std::vector<std::pair<const ASTNamedArgument*, int>>& named_arguments,
+    const std::vector<NamedArgumentInfo>& named_arguments,
     const NameScope* name_scope,
     std::vector<InputArgumentType>* input_arguments,
     std::vector<FunctionArgumentOverride>* arg_overrides,
@@ -1272,6 +1268,19 @@ absl::Status FunctionResolver::ConvertLiteralToType(
       if ((argument_type->IsString() || argument_type->IsBytes()) &&
           target_type->IsProto() && !error_message.empty()) {
         builder << " (" << error_message << ")";
+      } else if (target_type->IsEnum() && argument_type->IsString() &&
+                 !argument_value->is_null()) {
+        std::string suggestion = catalog_->SuggestEnumValue(
+            target_type->AsEnum(), argument_value->string_value());
+
+        if (!suggestion.empty()) {
+          builder << "; Did you mean '" << suggestion << "'?";
+          if (zetasql_base::CaseEqual(suggestion,
+                                     argument_value->string_value())) {
+            // If the actual value only differs by case, add a reminder.
+            builder << " (Note: ENUM values are case sensitive)";
+          }
+        }
       }
       return builder;
     }
@@ -1307,7 +1316,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const std::vector<const ASTNode*>& arg_locations,
     const std::vector<std::string>& function_name_path, bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
-    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+    std::vector<NamedArgumentInfo> named_arguments,
     const Type* expected_result_type,
     std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out) {
   const Function* function;
@@ -1327,7 +1336,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const std::vector<const ASTNode*>& arg_locations,
     const std::string& function_name, bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
-    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+    std::vector<NamedArgumentInfo> named_arguments,
     const Type* expected_result_type,
     std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out) {
   const std::vector<std::string> function_name_path = {function_name};
@@ -1382,7 +1391,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
     bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
-    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+    std::vector<NamedArgumentInfo> named_arguments,
     const Type* expected_result_type, const NameScope* name_scope,
     std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out) {
 
@@ -1462,7 +1471,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       // Check whether function call was using named argument or positional
       // argument, and if it was named - use the name in the error message.
       for (const auto& named_arg : named_arguments) {
-        if (zetasql_base::CaseEqual(named_arg.first->name()->GetAsString(),
+        if (zetasql_base::CaseEqual(named_arg.name().ToString(),
                                    argument.argument_name())) {
           return absl::StrCat("Argument '", argument.argument_name(), "' to ",
                               function->SQLName());

@@ -99,7 +99,8 @@ class SampleCatalog {
   // function statement.
   void AddSqlDefinedTableFunctionFromCreate(
       absl::string_view create_table_function,
-      const LanguageOptions& language_options);
+      const LanguageOptions& language_options,
+      const std::string& user_id_column = "");
   void LoadNonTemplatedSqlTableValuedFunctions(
       const LanguageOptions& language_options);
   void LoadTemplatedSQLTableValuedFunctions();

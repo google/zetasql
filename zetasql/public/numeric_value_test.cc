@@ -1586,21 +1586,6 @@ TEST_F(NumericValueTest, Sign) {
   }
 }
 
-TEST_F(NumericValueTest, UnalignedReadWrite) {
-  std::unique_ptr<char[]> buffer(new char[100]);
-  char* buffer_ptr = buffer.get() + 3;
-  NumericValue* value = new (buffer_ptr) NumericValue;
-  buffer_ptr += 20;
-  NumericValue* max_value =
-      new (buffer_ptr) NumericValue(NumericValue::MaxValue());
-
-  EXPECT_EQ(NumericValue(static_cast<int64_t>(0)), *value);
-  EXPECT_EQ(NumericValue(NumericValue::MaxValue()), *max_value);
-
-  *value = NumericValue(static_cast<int64_t>(10));
-  EXPECT_EQ(NumericValue(static_cast<int64_t>(10)), *value);
-}
-
 TEST_F(NumericValueTest, IsTriviallyDestructible) {
   // Verify that NumericValue has a trivial destructor and hence can have static
   // storage duration per (broken link).

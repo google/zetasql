@@ -2,7 +2,7 @@
 
 # Date functions
 
-ZetaSQL supports the following `DATE` functions.
+ZetaSQL supports the following date functions.
 
 ### CURRENT_DATE
 
@@ -191,8 +191,8 @@ DATE
 ```sql
 SELECT
   DATE(2016, 12, 25) AS date_ymd,
-  DATE(DATETIME "2016-12-25 23:59:59") AS date_dt,
-  DATE(TIMESTAMP "2016-12-25 05:30:00+07", "America/Los_Angeles") AS date_tstz;
+  DATE(DATETIME '2016-12-25 23:59:59') AS date_dt,
+  DATE(TIMESTAMP '2016-12-25 05:30:00+07', 'America/Los_Angeles') AS date_tstz;
 
 +------------+------------+------------+
 | date_ymd   | date_dt    | date_tstz  |
@@ -231,7 +231,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_ADD(DATE "2008-12-25", INTERVAL 5 DAY) AS five_days_later;
+SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 
 +--------------------+
 | five_days_later    |
@@ -270,7 +270,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_SUB(DATE "2008-12-25", INTERVAL 5 DAY) AS five_days_ago;
+SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 
 +---------------+
 | five_days_ago |
@@ -523,7 +523,7 @@ STRING
 **Examples**
 
 ```sql
-SELECT FORMAT_DATE("%x", DATE "2008-12-25") AS US_format;
+SELECT FORMAT_DATE('%x', DATE '2008-12-25') AS US_format;
 
 +------------+
 | US_format  |
@@ -533,7 +533,7 @@ SELECT FORMAT_DATE("%x", DATE "2008-12-25") AS US_format;
 ```
 
 ```sql
-SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
+SELECT FORMAT_DATE('%b-%d-%Y', DATE '2008-12-25') AS formatted;
 
 +-------------+
 | formatted   |
@@ -543,7 +543,7 @@ SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
 ```
 
 ```sql
-SELECT FORMAT_DATE("%b %Y", DATE "2008-12-25") AS formatted;
+SELECT FORMAT_DATE('%b %Y', DATE '2008-12-25') AS formatted;
 
 +-------------+
 | formatted   |
@@ -663,16 +663,16 @@ each element in `date_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_DATE("%A %b %e %Y", "Thursday Dec 25 2008")
+SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008')
 
 -- This doesn't work because the year element is in different locations.
-SELECT PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")
+SELECT PARSE_DATE('%Y %A %b %e', 'Thursday Dec 25 2008')
 
 -- This doesn't work because one of the year elements is missing.
-SELECT PARSE_DATE("%A %b %e", "Thursday Dec 25 2008")
+SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008')
 
 -- This works because %F can find all matching elements in date_string.
-SELECT PARSE_DATE("%F", "2000-12-30")
+SELECT PARSE_DATE('%F', '2000-12-30')
 ```
 
 The format string fully supports most format elements except for
@@ -700,7 +700,7 @@ DATE
 This example converts a `MM/DD/YY` formatted string to a `DATE` object:
 
 ```sql
-SELECT PARSE_DATE("%x", "12/25/08") AS parsed;
+SELECT PARSE_DATE('%x', '12/25/08') AS parsed;
 
 +------------+
 | parsed     |
@@ -712,7 +712,7 @@ SELECT PARSE_DATE("%x", "12/25/08") AS parsed;
 This example converts a `YYYYMMDD` formatted string to a `DATE` object:
 
 ```sql
-SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed;
+SELECT PARSE_DATE('%Y%m%d', '20081225') AS parsed;
 
 +------------+
 | parsed     |
@@ -738,7 +738,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_DATE(DATE "2008-12-25") AS days_from_epoch;
+SELECT UNIX_DATE(DATE '2008-12-25') AS days_from_epoch;
 
 +-----------------+
 | days_from_epoch |

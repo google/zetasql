@@ -2,13 +2,14 @@
 
 # String functions
 
+ZetaSQL supports string functions.
 These string functions work on two different values:
 `STRING` and `BYTES` data types. `STRING` values must be well-formed UTF-8.
 
 Functions that return position values, such as [STRPOS][string-link-to-strpos],
 encode those positions as `INT64`. The value `1`
 refers to the first character (or byte), `2` refers to the second, and so on.
-The value `0` indicates an invalid index. When working on `STRING` types, the
+The value `0` indicates an invalid position. When working on `STRING` types, the
 returned positions refer to character positions.
 
 All string comparisons are done byte-by-byte, without regard to Unicode
@@ -194,7 +195,7 @@ CODE_POINTS_TO_BYTES(ascii_code_points)
 
 Takes an array of extended ASCII
 [code points][string-link-to-code-points-wikipedia]
-(`ARRAY` of `INT64`) and returns `BYTES`.
+as `ARRAY<INT64>` and returns `BYTES`.
 
 To convert from `BYTES` to an array of code points, see
 [TO_CODE_POINTS][string-link-to-code-points].
@@ -253,7 +254,7 @@ CODE_POINTS_TO_STRING(unicode_code_points)
 **Description**
 
 Takes an array of Unicode [code points][string-link-to-code-points-wikipedia]
-(`ARRAY` of `INT64`) and returns a `STRING`.
+as `ARRAY<INT64>` and returns a `STRING`.
 
 To convert from a string to an array of code points, see
 [TO_CODE_POINTS][string-link-to-code-points].
@@ -1461,26 +1462,40 @@ INSTR(source_value, search_value[, position[, occurrence]])
 
 **Description**
 
-Returns the lowest 1-based index of `search_value` in `source_value`. 0 is
-returned when no match is found. `source_value` and `search_value` must be the
-same type, either `STRING` or `BYTES`.
+Returns the lowest 1-based position of `search_value` in `source_value`.
+`source_value` and `search_value` must be the same type, either
+`STRING` or `BYTES`.
 
 If `position` is specified, the search starts at this position in
-`source_value`, otherwise it starts at the beginning of `source_value`. If
-`position` is negative, the function searches backwards from the end of
-`source_value`, with -1 indicating the last character. `position` cannot be 0.
+`source_value`, otherwise it starts at `1`, which is the beginning of
+`source_value`. If `position` is negative, the function searches backwards
+from the end of `source_value`, with `-1` indicating the last character.
+`position` is of type `INT64` and cannot be `0`.
 
 If `occurrence` is specified, the search returns the position of a specific
-instance of `search_value` in `source_value`, otherwise it returns the index of
-the first occurrence. If `occurrence` is greater than the number of matches
-found, 0 is returned. For `occurrence` > 1, the function searches for
-overlapping occurrences, in other words, the function searches for additional
-occurrences beginning with the second character in the previous occurrence.
-`occurrence` cannot be 0 or negative.
+instance of `search_value` in `source_value`. If not specified, `occurrence`
+defaults to `1` and returns the position of the first occurrence.
+For `occurrence` > `1`, the function includes overlapping occurrences.
+`occurrence` is of type `INT64` and must be positive.
 
 This function supports specifying [collation][collation].
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+
+Returns `0` if:
+
++ No match is found.
++ If `occurrence` is greater than the number of matches found.
++ If `position` is greater than the length of `source_value`.
+
+Returns `NULL` if:
+
++ Any input argument is `NULL`.
+
+Returns an error if:
+
++ `position` is `0`.
++ `occurrence` is `0` or negative.
 
 **Return type**
 
@@ -2178,7 +2193,7 @@ regular expression syntax.
 
 **Return type**
 
-An `ARRAY` of either `STRING`s or `BYTES`
+An `ARRAY<STRING>` or `ARRAY<BYTES>`
 
 **Examples**
 
@@ -2205,30 +2220,47 @@ REGEXP_INSTR(source_value, regexp [, position[, occurrence, [occurrence_position
 
 **Description**
 
-Returns the lowest 1-based index of a regular expression, `regexp`, in
-`source_value`. Returns `0` when no match is found or the regular expression
-is empty. Returns an error if the regular expression is invalid or has more than
-one capturing group. `source_value` and `regexp` must be the same type, either
+Returns the lowest 1-based position of a regular expression, `regexp`, in
+`source_value`. `source_value` and `regexp` must be the same type, either
 `STRING` or `BYTES`.
 
 If `position` is specified, the search starts at this position in
-`source_value`, otherwise it starts at the beginning of `source_value`.
-`position` cannot be 0 or negative.
+`source_value`, otherwise it starts at `1`, which is the beginning of
+`source_value`. `position` is of type `INT64` and must be positive.
 
 If `occurrence` is specified, the search returns the position of a specific
-instance of `regexp` in `source_value`, otherwise it returns the index of
-the first occurrence. If `occurrence` is greater than the number of matches
-found, 0 is returned. For `occurrence` > 1, the function searches for
-overlapping occurrences, in other words, the function searches for additional
-occurrences beginning with the second character in the previous occurrence.
-`occurrence` cannot be 0 or negative.
+instance of `regexp` in `source_value`. If not specified, `occurrence` defaults
+to `1` and returns the position of the first occurrence.  For `occurrence` > 1,
+the function searches for the next, non-overlapping occurrence.
+`occurrence` is of type `INT64` and must be positive.
 
 You can optionally use `occurrence_position` to specify where a position
 in relation to an `occurrence` starts. Your choices are:
-+  `0`: Returns the beginning position of the occurrence.
-+  `1`: Returns the first position following the end of the occurrence. If the
-   end of the occurrence is also the end of the input, one off the
-   end of the occurrence is returned. For example, length of a string + 1.
+
++  `0`: Returns the start position of `occurrence`.
++  `1`: Returns the end position of `occurrence` + `1`. If the
+   end of the occurrence is at the end of `source_value `,
+   `LENGTH(source_value) + 1` is returned.
+
+Returns `0` if:
+
++ No match is found.
++ If `occurrence` is greater than the number of matches found.
++ If `position` is greater than the length of `source_value`.
++ The regular expression is empty.
+
+Returns `NULL` if:
+
++ `position` is `NULL`.
++ `occurrence` is `NULL`.
+
+Returns an error if:
+
++ `position` is `0` or negative.
++ `occurrence` is `0` or negative.
++ `occurrence_position` is neither `0` nor `1`.
++ The regular expression is invalid.
++ The regular expression has more than one capturing group.
 
 **Return type**
 
@@ -2872,8 +2904,7 @@ This function supports specifying [collation][collation].
 
 **Return type**
 
-`ARRAY` of type `STRING` or
-`ARRAY` of type `BYTES`
+`ARRAY<STRING>` or `ARRAY<BYTES>`
 
 **Examples**
 
@@ -2947,7 +2978,7 @@ STRPOS(value1, value2)
 
 **Description**
 
-Takes two `STRING` or `BYTES` values. Returns the 1-based index of the first
+Takes two `STRING` or `BYTES` values. Returns the 1-based position of the first
 occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
 
 This function supports specifying [collation][collation].
@@ -3258,7 +3289,7 @@ To convert from an array of code points to a `STRING` or `BYTES`, see
 
 **Return type**
 
-`ARRAY` of `INT64`
+`ARRAY<INT64>`
 
 **Examples**
 

@@ -55,12 +55,20 @@ absl::StatusOr<TypeModifiers> TypeModifiers::Deserialize(
   return type_modifiers;
 }
 
-std::string TypeModifiers::DebugString(absl::string_view indent) const {
+std::string TypeModifiers::DebugString() const {
+  if (IsEmpty()) {
+    return absl::StrCat("null");
+  }
   std::string debug_string;
-  absl::StrAppend(&debug_string, indent,
-                  "type_parameters: ", type_parameters_.DebugString(), "\n");
-  absl::StrAppend(&debug_string, indent,
-                  "collation: ", collation_.DebugString());
+
+  if (!type_parameters_.IsEmpty()) {
+    absl::StrAppend(&debug_string,
+                    "type_parameters:", type_parameters_.DebugString());
+  }
+  if (!collation_.Empty()) {
+    absl::StrAppend(&debug_string, debug_string.empty() ? "" : ", ",
+                    "collation:", collation_.DebugString());
+  }
   return debug_string;
 }
 

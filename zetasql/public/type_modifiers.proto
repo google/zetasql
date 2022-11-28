@@ -22,7 +22,7 @@ import "zetasql/public/collation.proto";
 import "zetasql/public/type_parameters.proto";
 
 option java_package = "com.google.zetasql";
-option java_outer_classname = "TypeModifiers";
+option java_outer_classname = "ZetaSQLTypeModifiers";
 
 // Proto representation of zetasql::TypeModifiers.
 message TypeModifiersProto {

@@ -687,6 +687,12 @@ void Unparser::visitASTCreateModelStatement(const ASTCreateModelStatement* node,
     println("AS");
     node->query()->Accept(this, data);
   }
+  if (node->aliased_query_list() != nullptr) {
+    println("AS");
+    println("(");
+    node->aliased_query_list()->Accept(this, data);
+    println(")");
+  }
 }
 
 void Unparser::visitASTTableElementList(const ASTTableElementList* node,
@@ -746,8 +752,8 @@ void Unparser::visitASTCreateViewStatement(
     const ASTCreateViewStatement* node, void* data) {
   print(GetCreateStatementPrefix(node, "VIEW"));
   node->name()->Accept(this, data);
-  if (node->column_list() != nullptr) {
-    node->column_list()->Accept(this, data);
+  if (node->column_with_options_list() != nullptr) {
+    node->column_with_options_list()->Accept(this, data);
   }
   if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
     print(node->GetSqlForSqlSecurity());
@@ -774,8 +780,8 @@ void Unparser::visitASTCreateMaterializedViewStatement(
     print("IF NOT EXISTS");
   }
   node->name()->Accept(this, data);
-  if (node->column_list() != nullptr) {
-    node->column_list()->Accept(this, data);
+  if (node->column_with_options_list() != nullptr) {
+    node->column_with_options_list()->Accept(this, data);
   }
   if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
     print(node->GetSqlForSqlSecurity());
@@ -792,6 +798,25 @@ void Unparser::visitASTCreateMaterializedViewStatement(
   }
   println("AS");
   node->query()->Accept(this, data);
+}
+
+void Unparser::visitASTColumnWithOptions(const ASTColumnWithOptions* node,
+                                         void* data) {
+  node->name()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTColumnWithOptionsList(
+    const ASTColumnWithOptionsList* node, void* data) {
+  print("(");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    UnparseChildrenWithSeparator(node, data, ",");
+  }
+  print(")");
 }
 
 void Unparser::visitASTWithPartitionColumnsClause(
@@ -1357,21 +1382,20 @@ void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
   }
-  if (node->anonymization_options() != nullptr) {
-    print("WITH ANONYMIZATION OPTIONS");
-    node->anonymization_options()->Accept(this, data);
+  if (node->select_with() != nullptr) {
+    node->select_with()->Accept(this, data);
   }
   if (node->distinct()) {
     print("DISTINCT");
   }
 
-  // Visit all children except hint() and anonymization_options, which we
-  // processed above.  We can't just use visitASTChildren(node, data) because
-  // we need to insert the DISTINCT modifier after the hint and anonymization
-  // nodes and before everything else.
+  // Visit all children except `hint`, `select_with_clause_identifier` and
+  // `select_with_clause_options`, which we processed above.  We can't just use
+  // visitASTChildren(node, data) because we need to insert the DISTINCT
+  // modifier after the hint and anonymization nodes and before everything else.
   for (int i = 0; i < node->num_children(); ++i) {
     const ASTNode* child = node->child(i);
-    if (child != node->hint() && child != node->anonymization_options()) {
+    if (child != node->hint() && child != node->select_with()) {
       child->Accept(this, data);
     }
   }
@@ -1398,6 +1422,17 @@ void Unparser::visitASTSelectList(const ASTSelectList* node, void* data) {
   }
 }
 
+void Unparser::visitASTSelectWith(const ASTSelectWith* node, void* data) {
+  print("WITH");
+  if (node->identifier() != nullptr) {
+    node->identifier()->Accept(this, data);
+    if (node->options() != nullptr) {
+      print("OPTIONS");
+      node->options()->Accept(this, data);
+    }
+  }
+}
+
 void Unparser::visitASTSelectColumn(const ASTSelectColumn* node, void* data) {
   visitASTChildren(node, data);
 }
@@ -1405,6 +1440,11 @@ void Unparser::visitASTSelectColumn(const ASTSelectColumn* node, void* data) {
 void Unparser::visitASTAlias(const ASTAlias* node, void* data) {
   print(absl::StrCat("AS ",
                      ToIdentifierLiteral(node->identifier()->GetAsIdString())));
+}
+
+void Unparser::visitASTAliasedQueryList(const ASTAliasedQueryList* node,
+                                        void* data) {
+  UnparseVectorWithSeparator(node->aliased_query_list(), data, ",");
 }
 
 void Unparser::visitASTIntoAlias(const ASTIntoAlias* node, void* data) {

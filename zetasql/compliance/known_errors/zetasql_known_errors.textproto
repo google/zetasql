@@ -197,4 +197,5 @@ known_errors {
 known_errors {
   mode: ALLOW_UNIMPLEMENTED
   label: "range_constructors_test:.*"
+  label: "code:RangeComparisons*"
 }

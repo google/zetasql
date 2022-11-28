@@ -20,11 +20,16 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/base/case.h"
 #include "absl/flags/flag.h"
+#include "absl/functional/function_ref.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/edit_distance.h"
 
 ABSL_FLAG(int64_t, zetasql_min_length_required_for_edit_distance, 3,
@@ -33,11 +38,15 @@ ABSL_FLAG(int64_t, zetasql_min_length_required_for_edit_distance, 3,
 
 namespace zetasql {
 
-std::string ClosestName(const std::string& mistyped_name,
-                        const std::vector<std::string>& possible_names) {
+template <typename NameListT>
+typename NameListT::value_type ClosestNameImpl(
+    std::string_view mistyped_name, const NameListT& possible_names,
+    absl::FunctionRef<bool(char, char)> char_equal_fn,
+    absl::FunctionRef<int(std::string_view, std::string_view)>
+        string_compare_fn) {
   if (mistyped_name.size() <
       absl::GetFlag(FLAGS_zetasql_min_length_required_for_edit_distance)) {
-    return "";
+    return {};
   }
 
   // Allow ~20% edit distance for suggestions.
@@ -53,13 +62,13 @@ std::string ClosestName(const std::string& mistyped_name,
 
     const int edit_distance = zetasql_base::CappedLevenshteinDistance(
         mistyped_name.begin(), mistyped_name.end(), possible_names[i].begin(),
-        possible_names[i].end(), std::equal_to<char>(), distance_threshold + 1);
+        possible_names[i].end(), char_equal_fn, distance_threshold + 1);
     if (edit_distance < min_edit_distance) {
       min_edit_distance = edit_distance;
       closest_name_index = i;
     } else if (edit_distance == min_edit_distance && closest_name_index != -1 &&
-               possible_names[i].compare(possible_names[closest_name_index]) <
-                   0) {
+               string_compare_fn(possible_names[i],
+                                 possible_names[closest_name_index]) < 0) {
       // As a tie-breaker we chose the string which occurs lexicographically
       // first.
       closest_name_index = i;
@@ -68,12 +77,49 @@ std::string ClosestName(const std::string& mistyped_name,
 
   if (closest_name_index == -1) {
     // No match found within the allowed ~20% edit distance.
-    return "";
+    return {};
   }
 
   ZETASQL_DCHECK_GE(closest_name_index, 0);
   ZETASQL_DCHECK_LT(closest_name_index, possible_names.size());
   return possible_names[closest_name_index];
+}
+
+std::string ClosestName(absl::string_view mistyped_name,
+                        const std::vector<std::string>& possible_names) {
+  // TODO: Should this be case insensitive like SuggestEnumValue?
+  return ClosestNameImpl(
+      mistyped_name, possible_names, std::equal_to<char>(),
+      [](std::string_view a, std::string_view b) { return a.compare(b); });
+}
+
+std::string SuggestEnumValue(const EnumType* type,
+                             absl::string_view mistyped_value) {
+  if (type == nullptr || mistyped_value.empty()) {
+    // Nothing to suggest here.
+    return {};
+  }
+  std::vector<absl::string_view> suggest_strings;
+  const google::protobuf::EnumDescriptor* type_descriptor = type->enum_descriptor();
+  for (int i = 0; i < type_descriptor->value_count(); ++i) {
+    const google::protobuf::EnumValueDescriptor* value_descriptor =
+        type_descriptor->value(i);
+    if (type->IsValidEnumValue(value_descriptor)) {
+      suggest_strings.emplace_back(value_descriptor->name());
+    }
+  }
+
+  // We implement a case-insensitive matching for purposes of suggesting enums.
+  return std::string(ClosestNameImpl(
+      mistyped_value, suggest_strings,
+      // Case insensitive single character equals lambda.
+      [](char a, char b) {
+        return absl::ascii_toupper(a) == absl::ascii_toupper(b);
+      },
+      // Case insensitive string comparison.
+      [](std::string_view a, std::string_view b) {
+        return zetasql_base::CaseCompare(a, b);
+      }));
 }
 
 }  // namespace zetasql

@@ -7,7 +7,8 @@ select with anonymization sum() from table;
 QueryStatement [0-42]
   Query [0-42]
     Select [0-42]
-      OptionsList [7-25]
+      SelectWith [7-25]
+        Identifier(anonymization) [12-25]
       SelectList [26-31]
         SelectColumn [26-31]
           FunctionCall [26-31]
@@ -18,7 +19,7 @@ QueryStatement [0-42]
           PathExpression [37-42]
             Identifier(table) [37-42]
 --
-SELECT WITH ANONYMIZATION OPTIONS()
+SELECT WITH anonymization
   sum()
 FROM
   table
@@ -30,7 +31,9 @@ select with anonymization options() sum() from table;
 QueryStatement [0-52]
   Query [0-52]
     Select [0-52]
-      OptionsList [33-35]
+      SelectWith [7-35]
+        Identifier(anonymization) [12-25]
+        OptionsList [33-35]
       SelectList [36-41]
         SelectColumn [36-41]
           FunctionCall [36-41]
@@ -41,7 +44,7 @@ QueryStatement [0-52]
           PathExpression [47-52]
             Identifier(table) [47-52]
 --
-SELECT WITH ANONYMIZATION OPTIONS()
+SELECT WITH anonymization OPTIONS()
   sum()
 FROM
   table
@@ -53,10 +56,12 @@ select with anonymization options(epsilon = 1) sum() from table;
 QueryStatement [0-63]
   Query [0-63]
     Select [0-63]
-      OptionsList [33-46]
-        OptionsEntry [34-45]
-          Identifier(epsilon) [34-41]
-          IntLiteral(1) [44-45]
+      SelectWith [7-46]
+        Identifier(anonymization) [12-25]
+        OptionsList [33-46]
+          OptionsEntry [34-45]
+            Identifier(epsilon) [34-41]
+            IntLiteral(1) [44-45]
       SelectList [47-52]
         SelectColumn [47-52]
           FunctionCall [47-52]
@@ -67,7 +72,7 @@ QueryStatement [0-63]
           PathExpression [58-63]
             Identifier(table) [58-63]
 --
-SELECT WITH ANONYMIZATION OPTIONS(epsilon = 1)
+SELECT WITH anonymization OPTIONS(epsilon = 1)
   sum()
 FROM
   table
@@ -80,13 +85,15 @@ from table;
 QueryStatement [0-81]
   Query [0-81]
     Select [0-81]
-      OptionsList [33-64]
-        OptionsEntry [34-45]
-          Identifier(epsilon) [34-41]
-          IntLiteral(1) [44-45]
-        OptionsEntry [47-63]
-          Identifier(k_threshold) [47-58]
-          IntLiteral(50) [61-63]
+      SelectWith [7-64]
+        Identifier(anonymization) [12-25]
+        OptionsList [33-64]
+          OptionsEntry [34-45]
+            Identifier(epsilon) [34-41]
+            IntLiteral(1) [44-45]
+          OptionsEntry [47-63]
+            Identifier(k_threshold) [47-58]
+            IntLiteral(50) [61-63]
       SelectList [65-70]
         SelectColumn [65-70]
           FunctionCall [65-70]
@@ -97,7 +104,7 @@ QueryStatement [0-81]
           PathExpression [76-81]
             Identifier(table) [76-81]
 --
-SELECT WITH ANONYMIZATION OPTIONS(epsilon = 1, k_threshold = 50)
+SELECT WITH anonymization OPTIONS(epsilon = 1, k_threshold = 50)
   sum()
 FROM
   table
@@ -116,7 +123,8 @@ QueryStatement [0-58]
         TableSubquery [14-58]
           Query [15-57]
             Select [15-57]
-              OptionsList [22-40]
+              SelectWith [22-40]
+                Identifier(anonymization) [27-40]
               SelectList [41-46]
                 SelectColumn [41-46]
                   FunctionCall [41-46]
@@ -131,7 +139,7 @@ SELECT
   *
 FROM
   (
-    SELECT WITH ANONYMIZATION OPTIONS()
+    SELECT WITH anonymization
       sum()
     FROM
       table
@@ -153,7 +161,8 @@ QueryStatement [0-115]
         HintEntry [9-15]
           Identifier(hint) [9-13]
           IntLiteral(1) [14-15]
-      OptionsList [17-35]
+      SelectWith [17-35]
+        Identifier(anonymization) [22-35]
       SelectList [45-50]
         SelectColumn [45-50]
           FunctionCall [45-50]
@@ -176,7 +185,7 @@ QueryStatement [0-115]
           Identifier(name) [105-109]
           WindowSpecification [113-115]
 --
-SELECT @{ hint = 1 } WITH ANONYMIZATION OPTIONS() DISTINCT
+SELECT @{ hint = 1 } WITH anonymization DISTINCT
   sum()
 FROM
   table
@@ -193,14 +202,15 @@ select with anonymization sum();
 QueryStatement [0-31]
   Query [0-31]
     Select [0-31]
-      OptionsList [7-25]
+      SelectWith [7-25]
+        Identifier(anonymization) [12-25]
       SelectList [26-31]
         SelectColumn [26-31]
           FunctionCall [26-31]
             PathExpression [26-29]
               Identifier(sum) [26-29]
 --
-SELECT WITH ANONYMIZATION OPTIONS()
+SELECT WITH anonymization
   sum()
 ==
 
@@ -210,7 +220,8 @@ select with anonymization sum(), from table;
 QueryStatement [0-43]
   Query [0-43]
     Select [0-43]
-      OptionsList [7-25]
+      SelectWith [7-25]
+        Identifier(anonymization) [12-25]
       SelectList [26-32]
         SelectColumn [26-31]
           FunctionCall [26-31]
@@ -221,7 +232,7 @@ QueryStatement [0-43]
           PathExpression [38-43]
             Identifier(table) [38-43]
 --
-SELECT WITH ANONYMIZATION OPTIONS()
+SELECT WITH anonymization
   sum()
 FROM
   table
@@ -236,7 +247,8 @@ CreateTableStatement [0-63]
     Identifier(name) [13-17]
   Query [21-63]
     Select [21-63]
-      OptionsList [28-46]
+      SelectWith [28-46]
+        Identifier(anonymization) [33-46]
       SelectList [47-52]
         SelectColumn [47-52]
           FunctionCall [47-52]
@@ -248,7 +260,7 @@ CreateTableStatement [0-63]
             Identifier(table) [58-63]
 --
 CREATE TABLE name AS
-SELECT WITH ANONYMIZATION OPTIONS()
+SELECT WITH anonymization
   sum()
 FROM
   table
@@ -261,7 +273,8 @@ select with anonymization sum() from table;
 ExportDataStatement [0-57]
   Query [15-57]
     Select [15-57]
-      OptionsList [22-40]
+      SelectWith [22-40]
+        Identifier(anonymization) [27-40]
       SelectList [41-46]
         SelectColumn [41-46]
           FunctionCall [41-46]
@@ -273,7 +286,7 @@ ExportDataStatement [0-57]
             Identifier(table) [52-57]
 --
 EXPORT DATA AS
-SELECT WITH ANONYMIZATION OPTIONS()
+SELECT WITH anonymization
   sum()
 FROM
   table
@@ -289,7 +302,8 @@ InsertStatement [0-56]
     Identifier(t) [12-13]
   Query [14-56]
     Select [14-56]
-      OptionsList [21-39]
+      SelectWith [21-39]
+        Identifier(anonymization) [26-39]
       SelectList [40-45]
         SelectColumn [40-45]
           FunctionCall [40-45]
@@ -301,7 +315,7 @@ InsertStatement [0-56]
             Identifier(table) [51-56]
 --
 INSERT INTO t
-SELECT WITH ANONYMIZATION OPTIONS()
+SELECT WITH anonymization
   sum()
 FROM
   table
@@ -324,3 +338,57 @@ QueryStatement [0-26]
 --
 SELECT
   ANON_COUNT(*, 0, 1)
+==
+
+# SELECT WITH custom identifier should parse
+select with custom_identifier count(*);
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectWith [7-29]
+        Identifier(custom_identifier) [12-29]
+      SelectList [30-38]
+        SelectColumn [30-38]
+          FunctionCall [30-38]
+            PathExpression [30-35]
+              Identifier(count) [30-35]
+            Star(*) [36-37]
+--
+SELECT WITH custom_identifier
+  count(*)
+==
+
+# SELECT WITH an expression after identifier should parse
+select with sum(x);
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectWith [7-15]
+        Identifier(sum) [12-15]
+      SelectList [15-18]
+        SelectColumn [15-18]
+          PathExpression [16-17]
+            Identifier(x) [16-17]
+--
+SELECT WITH sum
+  (x)
+
+==
+
+# SELECT WITH invalid expression after identifier should not parse
+select with count(*);
+--
+ERROR: Syntax error: Unexpected "*" [at 1:19]
+select with count(*);
+                  ^
+
+==
+
+# SELECT with no identifier after WITH should not parse
+select with 1;
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:13]
+select with 1;
+            ^

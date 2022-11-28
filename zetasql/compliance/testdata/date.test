@@ -150,3 +150,61 @@ ERROR: generic::out_of_range: Invalid date: 'xxx'
 select cast(cast("xxx" as string) as DATE);
 --
 ERROR: generic::out_of_range: Invalid date: 'xxx'
+
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE]
+[name=date_bucket]
+select
+  date_bucket(dt, INTERVAL 7 DAY),
+  date_bucket(dt, INTERVAL 1 MONTH)
+from (select date '2020-02-15' dt)
+--
+ARRAY<STRUCT<DATE, DATE>>[{2020-02-09, 2020-02-01}]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE]
+[name=date_bucket_custom_origin]
+select
+  date_bucket(dt, INTERVAL 7 DAY, origin),
+  date_bucket(dt, INTERVAL 1 MONTH)
+from (select date '2020-02-15' dt,
+             date '2150-12-11' origin)
+--
+ARRAY<STRUCT<DATE, DATE>>[{2020-02-14, 2020-02-01}]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE]
+[name=date_bucket_null_inputs]
+select
+  date_bucket(NULL, INTERVAL 3 DAY),
+  date_bucket('2020-02-15', NULL),
+  date_bucket('2020-02-15', INTERVAL 3 DAY, NULL),
+  date_bucket(NULL, NULL),
+  date_bucket(NULL, NULL, NULL),
+--
+ARRAY<STRUCT<DATE, DATE, DATE, DATE, DATE>>[{NULL, NULL, NULL, NULL, NULL}]
+==
+
+[test_features1=INTERVAL_TYPE]
+[name=date_bucket_feature_disabled]
+select
+  date_bucket('2020-02-15', INTERVAL 1 DAY)
+--
+WITH FEATURES: <none>
+WITH FEATURES: INTERVAL_TYPE
+ERROR: generic::invalid_argument: Function not found: date_bucket; Did you mean range_bucket? [at 2:3]
+  date_bucket('2020-02-15', INTERVAL 1 DAY)
+  ^
+==
+
+[test_features1=TIME_BUCKET_FUNCTIONS]
+[name=date_bucket_no_interval_type]
+select
+  date_bucket('2020-02-15', INTERVAL 1 DAY)
+--
+WITH FEATURES: <none>
+WITH FEATURES: TIME_BUCKET_FUNCTIONS
+ERROR: generic::invalid_argument: Function not found: date_bucket; Did you mean range_bucket? [at 2:3]
+  date_bucket('2020-02-15', INTERVAL 1 DAY)
+  ^

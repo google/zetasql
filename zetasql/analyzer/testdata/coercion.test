@@ -2683,6 +2683,43 @@ select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 [product_mode={{internal|external}}]
 [no_java]
+# TODO: Fix java
+# Integers should coerce to opaque enums - it's not likely to
+# be used much in practice, but it is part of the spec.  However
+# this should _not_ be the case for product mode external, which
+# doesn't have access to the underlying proto to determine the
+# meaning of the integer.
+#
+SELECT ROUND(NUMERIC "1", 1, 1);
+--
+ALTERNATION GROUP: internal
+
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:round(NUMERIC, INT64, ENUM<ROUNDING_MODE>) -> NUMERIC)
+    |     +-Literal(type=NUMERIC, value=1, has_explicit_type=TRUE)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<ROUNDING_MODE>, value=ROUND_HALF_AWAY_FROM_ZERO)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: external
+--
+ERROR: No matching signature for function ROUND for argument types: NUMERIC, INT64, INT64. Supported signatures: ROUND(FLOAT64); ROUND(NUMERIC); ROUND(FLOAT64, INT64); ROUND(NUMERIC, INT64); ROUND(NUMERIC, INT64, ROUNDING_MODE) [at 8:8]
+SELECT ROUND(NUMERIC "1", 1, 1);
+       ^
+==
+
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[product_mode={{internal|external}}]
+[no_java]
 
 # TODO: Fix java
 select 1 = CAST(1 as ROUNDING_MODE),
@@ -2716,6 +2753,69 @@ ALTERNATION GROUP: external
 ERROR: Type not found: ROUNDING_MODE [at 2:22]
 select 1 = CAST(1 as ROUNDING_MODE),
                      ^
+==
+
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[product_mode={{internal|external}}]
+[no_java]
+# TODO: Fix java
+select STRUCT( nested_catalog.constant_rounding_mode) = struct(1)
+--
+ALTERNATION GROUP: internal
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$equal(STRUCT<constant_rounding_mode ENUM<ROUNDING_MODE>>, STRUCT<constant_rounding_mode ENUM<ROUNDING_MODE>>) -> BOOL)
+    |     +-MakeStruct
+    |     | +-type=STRUCT<constant_rounding_mode ENUM<ROUNDING_MODE>>
+    |     | +-field_list=
+    |     |   +-Constant(nested_catalog.constant_rounding_mode, type=ENUM<ROUNDING_MODE>, value=ROUND_HALF_EVEN)
+    |     +-Literal(type=STRUCT<constant_rounding_mode ENUM<ROUNDING_MODE>>, value={constant_rounding_mode:ROUND_HALF_AWAY_FROM_ZERO})
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: external
+--
+ERROR: No matching signature for operator = for argument types: STRUCT<constant_rounding_mode ROUNDING_MODE>, STRUCT<INT64>. Supported signature: ANY = ANY [at 2:8]
+select STRUCT( nested_catalog.constant_rounding_mode) = struct(1)
+       ^
+
+==
+
+[language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
+[product_mode={{internal|external}}]
+[no_java]
+# TODO: Fix java
+select nested_catalog.constant_rounding_mode in (1, 2)
+--
+ALTERNATION GROUP: internal
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$in(ENUM<ROUNDING_MODE>, repeated(2) ENUM<ROUNDING_MODE>) -> BOOL)
+    |     +-Constant(nested_catalog.constant_rounding_mode, type=ENUM<ROUNDING_MODE>, value=ROUND_HALF_EVEN)
+    |     +-Literal(type=ENUM<ROUNDING_MODE>, value=ROUND_HALF_AWAY_FROM_ZERO)
+    |     +-Literal(type=ENUM<ROUNDING_MODE>, value=ROUND_HALF_EVEN)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: external
+--
+ERROR: No matching signature for operator IN for argument types ENUM<ROUNDING_MODE> and {INT64} [at 2:46]
+select nested_catalog.constant_rounding_mode in (1, 2)
+                                             ^
 
 ==
 

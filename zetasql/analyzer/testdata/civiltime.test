@@ -3920,13 +3920,20 @@ QueryStmt
 
 # Make sure that the resolver doesn't coerce string literals/parameters to
 # unexpected types due to extended signatures aliases.
-# TODO: add equivalent tests for datetime_bucket and date_bucket.
 [language_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
 select
   timestamp_bucket('1999-12-31', INTERVAL 1 DAY),
   timestamp_bucket(timestamp '1999-12-31', INTERVAL 1 DAY, '2000-01-01'),
   timestamp_bucket(@test_param_string, INTERVAL 1 DAY),
   timestamp_bucket(@test_param_string, INTERVAL 1 DAY, @test_param_string),
+  datetime_bucket('1999-12-31', INTERVAL 1 DAY),
+  datetime_bucket(datetime '1999-12-31', INTERVAL 1 DAY, '2000-01-01'),
+  datetime_bucket(@test_param_string, INTERVAL 1 DAY),
+  datetime_bucket(@test_param_string, INTERVAL 1 DAY, @test_param_string),
+  date_bucket('1999-12-31', INTERVAL 1 DAY),
+  date_bucket(date '1999-12-31', INTERVAL 1 DAY, '2000-01-01'),
+  date_bucket(@test_param_string, INTERVAL 1 DAY),
+  date_bucket(@test_param_string, INTERVAL 1 DAY, @test_param_string),
 --
 QueryStmt
 +-output_column_list=
@@ -3934,9 +3941,17 @@ QueryStmt
 | +-$query.$col2#2 AS `$col2` [TIMESTAMP]
 | +-$query.$col3#3 AS `$col3` [TIMESTAMP]
 | +-$query.$col4#4 AS `$col4` [TIMESTAMP]
+| +-$query.$col5#5 AS `$col5` [DATETIME]
+| +-$query.$col6#6 AS `$col6` [DATETIME]
+| +-$query.$col7#7 AS `$col7` [DATETIME]
+| +-$query.$col8#8 AS `$col8` [DATETIME]
+| +-$query.$col9#9 AS `$col9` [DATE]
+| +-$query.$col10#10 AS `$col10` [DATE]
+| +-$query.$col11#11 AS `$col11` [DATE]
+| +-$query.$col12#12 AS `$col12` [DATE]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4]
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7, $col8#8, $col9#9, $col10#10, $col11#11, $col12#12]
     +-expr_list=
     | +-$col1#1 :=
     | | +-FunctionCall(ZetaSQL:timestamp_bucket(TIMESTAMP, INTERVAL, optional(0) TIMESTAMP) -> TIMESTAMP)
@@ -3959,13 +3974,71 @@ QueryStmt
     | |     +-Literal(type=INT64, value=1)
     | |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
     | +-$col4#4 :=
-    |   +-FunctionCall(ZetaSQL:timestamp_bucket(TIMESTAMP, INTERVAL, optional(1) TIMESTAMP) -> TIMESTAMP)
-    |     +-Cast(STRING -> TIMESTAMP)
+    | | +-FunctionCall(ZetaSQL:timestamp_bucket(TIMESTAMP, INTERVAL, optional(1) TIMESTAMP) -> TIMESTAMP)
+    | |   +-Cast(STRING -> TIMESTAMP)
+    | |   | +-Parameter(type=STRING, name="test_param_string")
+    | |   +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    | |   | +-Literal(type=INT64, value=1)
+    | |   | +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    | |   +-Cast(STRING -> TIMESTAMP)
+    | |     +-Parameter(type=STRING, name="test_param_string")
+    | +-$col5#5 :=
+    | | +-FunctionCall(ZetaSQL:datetime_bucket(DATETIME, INTERVAL, optional(0) DATETIME) -> DATETIME)
+    | |   +-Literal(type=DATETIME, value=1999-12-31 00:00:00)
+    | |   +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    | |     +-Literal(type=INT64, value=1)
+    | |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    | +-$col6#6 :=
+    | | +-FunctionCall(ZetaSQL:datetime_bucket(DATETIME, INTERVAL, optional(1) DATETIME) -> DATETIME)
+    | |   +-Literal(type=DATETIME, value=1999-12-31 00:00:00, has_explicit_type=TRUE)
+    | |   +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    | |   | +-Literal(type=INT64, value=1)
+    | |   | +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    | |   +-Literal(type=DATETIME, value=2000-01-01 00:00:00)
+    | +-$col7#7 :=
+    | | +-FunctionCall(ZetaSQL:datetime_bucket(DATETIME, INTERVAL, optional(0) DATETIME) -> DATETIME)
+    | |   +-Cast(STRING -> DATETIME)
+    | |   | +-Parameter(type=STRING, name="test_param_string")
+    | |   +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    | |     +-Literal(type=INT64, value=1)
+    | |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    | +-$col8#8 :=
+    | | +-FunctionCall(ZetaSQL:datetime_bucket(DATETIME, INTERVAL, optional(1) DATETIME) -> DATETIME)
+    | |   +-Cast(STRING -> DATETIME)
+    | |   | +-Parameter(type=STRING, name="test_param_string")
+    | |   +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    | |   | +-Literal(type=INT64, value=1)
+    | |   | +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    | |   +-Cast(STRING -> DATETIME)
+    | |     +-Parameter(type=STRING, name="test_param_string")
+    | +-$col9#9 :=
+    | | +-FunctionCall(ZetaSQL:date_bucket(DATE, INTERVAL, optional(0) DATE) -> DATE)
+    | |   +-Literal(type=DATE, value=1999-12-31)
+    | |   +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    | |     +-Literal(type=INT64, value=1)
+    | |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    | +-$col10#10 :=
+    | | +-FunctionCall(ZetaSQL:date_bucket(DATE, INTERVAL, optional(1) DATE) -> DATE)
+    | |   +-Literal(type=DATE, value=1999-12-31, has_explicit_type=TRUE)
+    | |   +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    | |   | +-Literal(type=INT64, value=1)
+    | |   | +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    | |   +-Literal(type=DATE, value=2000-01-01)
+    | +-$col11#11 :=
+    | | +-FunctionCall(ZetaSQL:date_bucket(DATE, INTERVAL, optional(0) DATE) -> DATE)
+    | |   +-Cast(STRING -> DATE)
+    | |   | +-Parameter(type=STRING, name="test_param_string")
+    | |   +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    | |     +-Literal(type=INT64, value=1)
+    | |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    | +-$col12#12 :=
+    |   +-FunctionCall(ZetaSQL:date_bucket(DATE, INTERVAL, optional(1) DATE) -> DATE)
+    |     +-Cast(STRING -> DATE)
     |     | +-Parameter(type=STRING, name="test_param_string")
     |     +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
     |     | +-Literal(type=INT64, value=1)
     |     | +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
-    |     +-Cast(STRING -> TIMESTAMP)
+    |     +-Cast(STRING -> DATE)
     |       +-Parameter(type=STRING, name="test_param_string")
     +-input_scan=
       +-SingleRowScan

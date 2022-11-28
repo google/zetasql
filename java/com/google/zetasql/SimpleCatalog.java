@@ -17,9 +17,11 @@
 
 package com.google.zetasql;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.DescriptorPool.ZetaSQLDescriptor;
 import com.google.zetasql.DescriptorPool.ZetaSQLEnumDescriptor;
 import com.google.zetasql.FunctionProtos.FunctionProto;
@@ -37,10 +39,13 @@ import com.google.zetasql.SimpleConstantProtos.SimpleConstantProto;
 import com.google.zetasql.SimpleTableProtos.SimpleTableProto;
 import io.grpc.StatusRuntimeException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
  * SimpleCatalog is a concrete implementation of the Catalog interface. It acts as a simple
@@ -74,6 +79,10 @@ public class SimpleCatalog extends Catalog {
   private final Map<String, TableValuedFunction> tvfs = new HashMap<>();
   private final Map<String, Function> functionsByFullName = new HashMap<>();
   private final Map<String, Procedure> procedures = new HashMap<>();
+  // globalNames is used to avoid naming conflict of top tier objects including
+  // tables.
+  // When inserting into tables, insert the name into global_names as well.
+  private final Set<String> globalNames = new HashSet<>();
   private DescriptorPool descriptorPool;
   ZetaSQLBuiltinFunctionOptionsProto builtinFunctionOptions;
 
@@ -100,6 +109,7 @@ public class SimpleCatalog extends Catalog {
    * @return An AutoCloseable object that can be used to unregister the catalog in
    *     try-with-resources structure.
    */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public AutoUnregister register() {
     return register(ImmutableMap.of());
   }
@@ -113,6 +123,7 @@ public class SimpleCatalog extends Catalog {
    * @return An AutoCloseable object that can be used to unregister the catalog in
    *     try-with-resources structure.
    */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public AutoUnregister register(Map<String, TableContent> tablesContents) {
     Preconditions.checkState(!registered);
     try {
@@ -205,6 +216,7 @@ public class SimpleCatalog extends Catalog {
   /**
    * Serialize this catalog into protobuf, with FileDescriptors emitted to the builder as needed.
    */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public SimpleCatalogProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     SimpleCatalogProto.Builder builder = SimpleCatalogProto.newBuilder();
     builder.setName(name);
@@ -273,9 +285,12 @@ public class SimpleCatalog extends Catalog {
   }
 
   public void addSimpleTable(String name, SimpleTable table) {
+    String nameInLowerCase = Ascii.toLowerCase(name);
     Preconditions.checkState(!registered);
-    Preconditions.checkArgument(!tables.containsKey(name.toLowerCase()), "duplicate key: %s", name);
-    tables.put(name.toLowerCase(), table);
+    Preconditions.checkArgument(!tables.containsKey(nameInLowerCase), "duplicate key: %s", name);
+    Preconditions.checkArgument(!globalNames.contains(nameInLowerCase), "duplicate key: %s", name);
+    tables.put(nameInLowerCase, table);
+    globalNames.add(nameInLowerCase);
     tablesById.put(table.getId(), table);
   }
 
@@ -290,10 +305,13 @@ public class SimpleCatalog extends Catalog {
    * Removes a simple table from this catalog. Table names are case insensitive.
    */
   public void removeSimpleTable(String name) {
+    String nameInLowerCase = Ascii.toLowerCase(name);
     Preconditions.checkState(!registered);
-    Preconditions.checkArgument(tables.containsKey(name.toLowerCase()), "missing key: %s", name);
-    SimpleTable table = tables.remove(name.toLowerCase());
+    Preconditions.checkArgument(tables.containsKey(nameInLowerCase), "missing key: %s", name);
+    Preconditions.checkArgument(globalNames.contains(nameInLowerCase), "missing key: %s", name);
+    SimpleTable table = tables.remove(nameInLowerCase);
     tablesById.remove(table.getId());
+    globalNames.remove(nameInLowerCase);
   }
 
   /**
@@ -338,6 +356,7 @@ public class SimpleCatalog extends Catalog {
    * @param name
    * @return the created new sub catalog
    */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public SimpleCatalog addNewSimpleCatalog(String name) {
     Preconditions.checkState(!registered);
     SimpleCatalog newCatalog = new SimpleCatalog(name, getTypeFactory());
@@ -556,6 +575,7 @@ public class SimpleCatalog extends Catalog {
   }
 
   @Override
+  @Nullable
   public Type getType(String name, FindOptions options) {
     if (types.containsKey(name.toLowerCase())) {
       return types.get(name.toLowerCase());

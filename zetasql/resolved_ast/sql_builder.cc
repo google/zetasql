@@ -86,6 +86,7 @@
 #include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
+#include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -467,11 +468,11 @@ absl::StatusOr<std::string> SQLBuilder::GetFunctionCallSQL(
       ResolvedNonScalarFunctionCallBase::SAFE_ERROR_MODE) {
     absl::string_view function_name = function_call->function()->Name();
     if (function_name == "$subscript_with_offset") {
-      sql = absl::StrReplaceAll(sql, {{"OFFSET", "SAFE_OFFSET"}});
+      RE2::Replace(&sql, R"re(\[\s*OFFSET\s*\()re", "[SAFE_OFFSET(");
     } else if (function_name == "$subscript_with_key") {
-      sql = absl::StrReplaceAll(sql, {{"KEY", "SAFE_KEY"}});
+      RE2::Replace(&sql, R"re(\[\s*KEY\s*\()re", "[SAFE_KEY(");
     } else if (function_name == "$subscript_with_ordinal") {
-      sql = absl::StrReplaceAll(sql, {{"ORDINAL", "SAFE_ORDINAL"}});
+      RE2::Replace(&sql, R"re(\[\s*ORDINAL\s*\()re", "[SAFE_ORDINAL(");
     } else if (function_name == "$safe_proto_map_at_key") {
       // Intentionally empty -- this function already renders itself correctly
       // in GetSQL.
@@ -1147,11 +1148,14 @@ absl::Status SQLBuilder::VisitResolvedCast(const ResolvedCast* node) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                    ProcessNode(node->expr()));
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::string type_name,
-      node->type()->TypeNameWithParameters(
-          node->type_parameters(), options_.language_options.product_mode()));
-
+  // We do not use collation inside <type_modifiers> for reparsing for now since
+  // explicit cast with collated type is not supported.
+  // TODO: Make use of collation in reparsing when explicit cast with
+  // collated target type is supported.
+  ZETASQL_ASSIGN_OR_RETURN(std::string type_name,
+                   node->type()->TypeNameWithParameters(
+                       node->type_modifiers().type_parameters(),
+                       options_.language_options.product_mode()));
   std::string format_clause;
   if (node->format() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> format,
@@ -4055,10 +4059,24 @@ absl::Status SQLBuilder::VisitResolvedCreateViewStmt(
   return GetCreateViewStatement(node, node->is_value_table(), "VIEW");
 }
 
+// Dummy access all the collation_name fields on a ResolvedColumnAnnotations.
+void MarkCollationFieldsAccessed(const ResolvedColumnAnnotations* annotations) {
+  if (annotations != nullptr) {
+    if (annotations->collation_name() != nullptr) {
+      annotations->collation_name()->MarkFieldsAccessed();
+    }
+    for (int i = 0; i < annotations->child_list_size(); ++i) {
+      const ResolvedColumnAnnotations* child_annotations =
+          annotations->child_list(i);
+      MarkCollationFieldsAccessed(child_annotations);
+    }
+  }
+}
+
 absl::Status SQLBuilder::VisitResolvedCreateMaterializedViewStmt(
     const ResolvedCreateMaterializedViewStmt* node) {
-  // Dummy access on the fields so as to pass the final CheckFieldsAccessed() on
-  // a statement level before building the sql.
+  // Dummy access on the fields so as to pass the final CheckFieldsAccessed()
+  // on a statement level before building the sql.
   for (const auto& output_col : node->output_column_list()) {
     output_col->name();
     output_col->column();
@@ -4066,6 +4084,7 @@ absl::Status SQLBuilder::VisitResolvedCreateMaterializedViewStmt(
   for (const auto& column_def : node->column_definition_list()) {
     column_def->name();
     column_def->type();
+    MarkCollationFieldsAccessed(column_def->annotations());
   }
 
   ZETASQL_RETURN_IF_ERROR(MaybeSetupRecursiveView(node));
@@ -5057,10 +5076,9 @@ absl::Status SQLBuilder::VisitResolvedUpdateStmt(
     // appear in the FROM scan.
     const std::string alias = GetScanAlias(node->table_scan());
     ZETASQL_RETURN_IF_ERROR(SetPathForColumnsInScan(node->table_scan(), alias));
-    absl::StrAppend(
-        &target_sql,
-        TableToIdentifierLiteral(node->table_scan()->table()),
-        " AS ", alias);
+    absl::StrAppend(&target_sql,
+                    TableToIdentifierLiteral(node->table_scan()->table()),
+                    " AS ", alias);
     returning_table_alias_ = alias;
   } else {
     ZETASQL_RET_CHECK(!nested_dml_targets_.empty());
@@ -5233,9 +5251,8 @@ absl::Status SQLBuilder::VisitResolvedMergeStmt(const ResolvedMergeStmt* node) {
   // the source scan.
   std::string alias = GetScanAlias(node->table_scan());
   ZETASQL_RETURN_IF_ERROR(SetPathForColumnsInScan(node->table_scan(), alias));
-  absl::StrAppend(
-      &sql, TableToIdentifierLiteral(node->table_scan()->table()),
-      " AS ", alias);
+  absl::StrAppend(&sql, TableToIdentifierLiteral(node->table_scan()->table()),
+                  " AS ", alias);
 
   ZETASQL_RET_CHECK(node->from_scan() != nullptr) << "Missing data source.";
   absl::StrAppend(&sql, " USING ");

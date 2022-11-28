@@ -2,7 +2,7 @@
 
 # Time functions
 
-ZetaSQL supports the following `TIME` functions.
+ZetaSQL supports the following time functions.
 
 ### CURRENT_TIME
 

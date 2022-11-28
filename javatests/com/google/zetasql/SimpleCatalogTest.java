@@ -19,6 +19,7 @@ package com.google.zetasql;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -395,12 +396,12 @@ public class SimpleCatalogTest {
     SimpleCatalog catalog1 = new SimpleCatalog("foo");
     catalog1.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions());
 
-    assertThat(catalog1.getFunctionList().size() > 100).isTrue();
+    assertThat(catalog1.getFunctionList().size()).isGreaterThan(100);
 
     Function add = catalog1.getFunctionByFullName("ZetaSQL:$add");
     assertThat(add).isNotNull();
     assertThat(add.getFullName()).isEqualTo("ZetaSQL:$add");
-    assertThat(add.getSignatureList().size() > 0).isTrue();
+    assertThat(add.getSignatureList().size()).isGreaterThan(0);
 
     Function ceil = catalog1.getFunctionByFullName("ZetaSQL:ceil");
     assertThat(ceil).isNotNull();
@@ -423,7 +424,7 @@ public class SimpleCatalogTest {
     catalog2.addZetaSQLFunctions(
         new ZetaSQLBuiltinFunctionOptions(builtinFunctionOptionsproto));
 
-    assertThat(catalog2.getFunctionList().size() > 0).isTrue();
+    assertThat(catalog2.getFunctionList().size()).isGreaterThan(0);
 
     // Included
     Function equal = catalog2.getFunctionByFullName("ZetaSQL:$equal");
@@ -769,7 +770,7 @@ public class SimpleCatalogTest {
             "The number of fields in SimpleCatalog class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(SimpleCatalog.class))
-        .isEqualTo(17);
+        .isEqualTo(18);
   }
 
   @Test
@@ -797,5 +798,16 @@ public class SimpleCatalogTest {
             .build();
     SimpleCatalog catalog = SimpleCatalog.deserialize(catalogProto, ImmutableList.of());
     assertThat(catalog.getFunctionByFullName("ZetaSQL:$add")).isNotNull();
+  }
+
+  @Test
+  public void testGlobalNames() {
+    SimpleCatalog catalog = new SimpleCatalog("catalog");
+    catalog.addSimpleTable("table1", new SimpleTable("table1"));
+
+    // insert a table with existing name
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> catalog.addSimpleTable("table1", new SimpleTable("table1")));
   }
 }

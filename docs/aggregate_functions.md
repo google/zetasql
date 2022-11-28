@@ -2,7 +2,7 @@
 
 # Aggregate functions
 
-The following general aggregate functions are available in ZetaSQL.
+ZetaSQL supports the following general aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
@@ -399,6 +399,9 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`AVG` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Supported Argument Types**
 
 Any numeric input type, such as
@@ -462,6 +465,8 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 | 5    | 4.5  |
 +------+------+
 ```
+
+[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 ### BIT_AND
 
@@ -679,6 +684,9 @@ This function with DISTINCT supports specifying [collation][collation].
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
+`COUNT` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Supported Argument Types**
 
 `expression` can be any data type. If
@@ -797,6 +805,8 @@ FROM Events;
 ```
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 ### COUNTIF
 
@@ -1022,7 +1032,7 @@ To learn more about the `OVER` clause and how to use it, see
 less than 3.
 
 ```sql
-SELECT LOGICAL_OR(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
+SELECT LOGICAL_OR(x < 3) AS logical_or FROM UNNEST([1, 2, 4]) AS x;
 
 +------------+
 | logical_or |
@@ -1081,7 +1091,7 @@ This function supports specifying [collation][collation].
 
 **Supported Argument Types**
 
-Any [orderable data type][agg-data-type-properties].
+Any [orderable data type][agg-data-type-properties] except for `ARRAY`.
 
 **Return Data Types**
 
@@ -1168,7 +1178,7 @@ This function supports specifying [collation][collation].
 
 **Supported Argument Types**
 
-Any [orderable data type][agg-data-type-properties].
+Any [orderable data type][agg-data-type-properties] except for `ARRAY`.
 
 **Return Data Types**
 
@@ -1394,6 +1404,9 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`SUM` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Supported Argument Types**
 
 Any supported numeric data types and INTERVAL.
@@ -1503,6 +1516,8 @@ FROM UNNEST([]) AS x;
 | NULL |
 +------+
 ```
+
+[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 

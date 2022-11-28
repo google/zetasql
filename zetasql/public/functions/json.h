@@ -279,6 +279,22 @@ absl::StatusOr<double> ConvertJsonToDouble(JSONValueConstRef input,
 // Returns the type of the outermost JSON value as a text string.
 absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input);
 
+// Converts a json 'input' into a Boolean.
+// Upon success the function returns the converted value, else returns the
+// status failure. For more details on the conversion rules
+// see (broken link).
+absl::StatusOr<bool> LaxConvertJsonToBool(JSONValueConstRef input);
+
+// Similar to the above function except converts json 'input' into INT64.
+// Floating point numbers are rounded when converted to INT64.
+absl::StatusOr<int64_t> LaxConvertJsonToInt64(JSONValueConstRef input);
+
+// Similar to the above function except converts json 'input' into Float.
+absl::StatusOr<double> LaxConvertJsonToFloat64(JSONValueConstRef input);
+
+// Similar to the above function except converts json 'input' into String.
+absl::StatusOr<std::string> LaxConvertJsonToString(JSONValueConstRef input);
+
 }  // namespace functions
 }  // namespace zetasql
 #endif  // ZETASQL_PUBLIC_FUNCTIONS_JSON_H_

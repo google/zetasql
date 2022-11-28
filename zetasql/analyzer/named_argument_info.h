@@ -1,0 +1,72 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#ifndef ZETASQL_ANALYZER_NAMED_ARGUMENT_INFO_H_
+#define ZETASQL_ANALYZER_NAMED_ARGUMENT_INFO_H_
+
+#include <functional>
+#include <string>
+#include <utility>
+
+#include "zetasql/common/errors.h"
+#include "zetasql/parser/ast_node.h"
+#include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/base/status_builder.h"
+
+namespace zetasql {
+
+// Contains necessary named argument information for resolving function call.
+// NamedArgumentInfo uses a constructor that takes the following parameters:
+//   name - argument name
+//   index - concrete signature index
+//   argument_node - AST node from which we parse location to generate an error.
+class NamedArgumentInfo {
+ public:
+  NamedArgumentInfo() = delete;
+  NamedArgumentInfo(const NamedArgumentInfo &) = default;
+  NamedArgumentInfo(NamedArgumentInfo &&) = default;
+  NamedArgumentInfo &operator=(const NamedArgumentInfo &) = default;
+  NamedArgumentInfo &operator=(NamedArgumentInfo &&) = default;
+  ~NamedArgumentInfo() = default;
+
+  NamedArgumentInfo(IdString name, int index, const ASTNode *argument_node)
+      : name_(std::move(name)),
+        index_(index),
+        argument_error_location_(GetErrorLocationPoint(
+            argument_node, /*include_leftmost_child=*/false)) {}
+
+  const IdString &name() const { return name_; }
+  int index() const { return index_; }
+
+  // Creates an error at the argument's parse location. Used if an error with
+  // the provided named argument is encountered.
+  zetasql_base::StatusBuilder MakeSQLError() const {
+    return MakeSqlError().Attach(
+        argument_error_location_.ToInternalErrorLocation());
+  }
+
+ private:
+  // Argument name.
+  IdString name_;
+  // Index of the named argument in the concrete signature - starts at 0.
+  int index_ = 0;
+  // Argument parse location used to create an error message.
+  ParseLocationPoint argument_error_location_;
+};
+}  // namespace zetasql
+
+#endif  // ZETASQL_ANALYZER_NAMED_ARGUMENT_INFO_H_

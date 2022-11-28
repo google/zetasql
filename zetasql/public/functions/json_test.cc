@@ -39,6 +39,7 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/public/functions/json_internal.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
@@ -2490,6 +2491,263 @@ TEST(JsonConversionTest, GetJsonType) {
     EXPECT_EQ(output.ok(), expected_output.has_value());
     if (output.ok() && expected_output.has_value()) {
       EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonLaxConversionTest, Bool) {
+  std::vector<std::pair<JSONValue, absl::StatusOr<bool>>>
+      inputs_and_expected_outputs;
+  // Bools
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), true);
+  inputs_and_expected_outputs.emplace_back(JSONValue(false), false);
+  // Strings
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"true"}),
+                                           true);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"false"}),
+                                           false);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"TRue"}),
+                                           true);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"FaLse"}),
+                                           false);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
+                                           absl::OutOfRangeError(""));
+  // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), false);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{10}), true);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::min()}), true);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}), true);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{0.0}), false);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), true);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{-1.1}), true);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::min()}), true);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::lowest()}), true);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::max()}), true);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("-0").value(), false);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("-0.0").value(), false);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("-0.0e2").value(), false);
+  // Object/Array/Null
+  inputs_and_expected_outputs.emplace_back(JSONValue(),
+                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(),
+      absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("[true]").value(), absl::OutOfRangeError(""));
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("LAX_BOOL($0)", input.GetConstRef().ToString()));
+    absl::StatusOr<bool> result = LaxConvertJsonToBool(input.GetConstRef());
+    EXPECT_EQ(result.status().code(), expected_output.status().code());
+    if (result.ok() && expected_output.ok()) {
+      EXPECT_EQ(*result, *expected_output);
+    }
+  }
+}
+
+TEST(JsonLaxConversionTest, Int64) {
+  std::vector<std::pair<JSONValue, absl::StatusOr<int64_t>>>
+      inputs_and_expected_outputs;
+  // Bools
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(false), 0);
+  // Strings
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}), 10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1"}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1e2"}),
+                                           110);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"+1.5"}), 2);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"123456789012345678.0"}), 123456789012345678);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1e100"}),
+                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
+                                           absl::OutOfRangeError(""));
+  // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{10}), 10);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::min()}),
+      std::numeric_limits<int64_t>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::max()}),
+      std::numeric_limits<int64_t>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}),
+      absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{3.5}), 4);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1e2}), 110);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{123456789012345678.0}), 123456789012345680);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::min()}), 0);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::lowest()}),
+      absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::max()}),
+      absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("1e100").value(), absl::OutOfRangeError(""));
+  // Object/Array/Null
+  inputs_and_expected_outputs.emplace_back(JSONValue(),
+                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(),
+      absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("[1]").value(), absl::OutOfRangeError(""));
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("LAX_INT64('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<int64_t> result = LaxConvertJsonToInt64(input.GetConstRef());
+    EXPECT_EQ(result.status().code(), expected_output.status().code());
+    if (result.ok() && expected_output.ok()) {
+      EXPECT_EQ(*result, *expected_output);
+    }
+  }
+}
+
+TEST(JsonLaxConversionTest, Float) {
+  std::vector<std::pair<JSONValue, absl::StatusOr<double>>>
+      inputs_and_expected_outputs;
+  // Bools
+  inputs_and_expected_outputs.emplace_back(JSONValue(true),
+                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(JSONValue(false),
+                                           absl::OutOfRangeError(""));
+  // Strings
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}), 10.0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"-10"}),
+                                           -10.0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1"}), 1.1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1.1e2"}),
+                                           110.0);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"9007199254740993"}), 9007199254740992.0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"+1.5"}), 1.5);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
+                                           absl::OutOfRangeError(""));
+  // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-10}), -10);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{9007199254740993}),
+                                           9007199254740992);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::min()}),
+      static_cast<double>(std::numeric_limits<int64_t>::min()));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::max()}),
+      static_cast<double>(std::numeric_limits<int64_t>::max()));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}),
+      static_cast<double>((std::numeric_limits<uint64_t>::max())));
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), 1.1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{3.5}), 3.5);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("1.1e2").value(), 110);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::min()}),
+      std::numeric_limits<double>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::lowest()}),
+      std::numeric_limits<double>::lowest());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::max()}),
+      std::numeric_limits<double>::max());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("1e100").value(), 1e+100);
+  // Object/Array/Null
+  inputs_and_expected_outputs.emplace_back(JSONValue(),
+                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(),
+      absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("[1]").value(), absl::OutOfRangeError(""));
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("LAX_FLOAT64('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<double> result =
+        LaxConvertJsonToFloat64(input.GetConstRef());
+    EXPECT_EQ(result.status().code(), expected_output.status().code());
+    if (result.ok() && expected_output.ok()) {
+      EXPECT_EQ(*result, *expected_output);
+    }
+  }
+
+  // Special cases.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      double result,
+      LaxConvertJsonToFloat64(JSONValue(std::string{"NaN"}).GetConstRef()));
+  EXPECT_TRUE(std::isnan(result));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      result,
+      LaxConvertJsonToFloat64(JSONValue(std::string{"Inf"}).GetConstRef()));
+  EXPECT_TRUE(std::isinf(result));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(result,
+                       LaxConvertJsonToFloat64(
+                           JSONValue(std::string{"-InfiNiTY"}).GetConstRef()));
+  EXPECT_TRUE(std::isinf(result));
+}
+
+TEST(JsonLaxConversionTest, String) {
+  std::vector<std::pair<JSONValue, absl::StatusOr<std::string>>>
+      inputs_and_expected_outputs;
+  // Bools
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), "true");
+  inputs_and_expected_outputs.emplace_back(JSONValue(false), "false");
+  // Strings
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
+                                           "foo");
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}), "10");
+  // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-10}), "-10");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::min()}),
+      absl::StrCat(std::numeric_limits<std::int64_t>::min()));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{std::numeric_limits<int64_t>::max()}),
+      absl::StrCat(std::numeric_limits<int64_t>::max()));
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{10}), "10");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}),
+      absl::StrCat(std::numeric_limits<std::uint64_t>::max()));
+  inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), "1.1");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::min()}),
+      "2.2250738585072014e-308");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::lowest()}),
+      "-1.7976931348623157e+308");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(double{std::numeric_limits<double>::max()}),
+      "1.7976931348623157e+308");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("1e100").value(), "1e+100");
+  // Object/Array/Null
+  inputs_and_expected_outputs.emplace_back(JSONValue(),
+                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(),
+      absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("[1]").value(), absl::OutOfRangeError(""));
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("LAX_STRING('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<std::string> result =
+        LaxConvertJsonToString(input.GetConstRef());
+    EXPECT_EQ(result.status().code(), expected_output.status().code());
+    if (result.ok() && expected_output.ok()) {
+      EXPECT_EQ(*result, *expected_output);
     }
   }
 }

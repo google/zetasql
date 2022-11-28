@@ -36,6 +36,7 @@
 #include "zetasql/analyzer/container_hash_equals.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
+#include "zetasql/analyzer/named_argument_info.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -778,9 +779,11 @@ class Resolver {
       bool skip_type_match_check,
       std::unique_ptr<ResolvedColumnDefaultValue>* default_value);
 
-  // Resolve the column definition list from a CREATE TABLE statement.
+  // Resolve the column definition list from a CREATE TABLE, LOAD DATA or CREATE
+  // MODEL statement.
+  // - <statement_type>: the type of statement, used for error messages only.
   absl::Status ResolveColumnDefinitionList(
-      IdString table_name_id_string,
+      IdString table_name_id_string, absl::string_view statement_type,
       const absl::Span<const ASTColumnDefinition* const> ast_column_definitions,
       std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
           column_definition_list,
@@ -838,8 +841,9 @@ class Resolver {
   //   be null.
   // - <internal_table_name> should be a static IdString such as
   //   kCreateAsId and kViewId; it's used as an alias of the SELECT query.
-  // - <explicit_column_list> the list of columns in the formal DDL declaration,
-  //   currently for CREATE VIEW v(c1, c2) and CREATE MATERIALIZED VIEW v(...).
+  // - <explicit_column_list> the list of columns with optional column options
+  //   in the formal DDL declaration, currently for CREATE VIEW v(c1
+  //   OPTIONS(...), c2) and CREATE MATERIALIZED VIEW v(...).
   // - <is_recursive_view> is true only for views which are actually recursive.
   //   This affects the resolved tree respresentation.
   // - If <column_definition_list> is not null, then <column_definition_list>
@@ -850,9 +854,9 @@ class Resolver {
   //   TABLE/MATERIALIZED_VIEW/MODEL the <column_definition_list> is non-null.
   absl::Status ResolveQueryAndOutputColumns(
       const ASTQuery* query, absl::string_view object_type,
-      bool is_recursive_view,
-      const std::vector<IdString>& table_name_id_string,
-      IdString internal_table_name, const ASTColumnList* explicit_column_list,
+      bool is_recursive_view, const std::vector<IdString>& table_name_id_string,
+      IdString internal_table_name,
+      const ASTColumnWithOptionsList* explicit_column_list,
       std::unique_ptr<const ResolvedScan>* query_scan, bool* is_value_table,
       std::vector<std::unique_ptr<const ResolvedOutputColumn>>*
           output_column_list,
@@ -3643,7 +3647,7 @@ class Resolver {
       const std::vector<const ASTNode*>& arg_locations,
       const Function* function, ResolvedFunctionCallBase::ErrorMode error_mode,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
-      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+      std::vector<NamedArgumentInfo> named_arguments,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedScan> with_group_rows_subquery,
       std::vector<std::unique_ptr<const ResolvedColumnRef>>
@@ -3657,7 +3661,7 @@ class Resolver {
       const std::vector<const ASTNode*>& arg_locations,
       const std::vector<std::string>& function_name_path,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
-      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+      std::vector<NamedArgumentInfo> named_arguments,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -3688,7 +3692,7 @@ class Resolver {
       const std::vector<const ASTNode*>& arg_locations,
       absl::string_view function_name,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
-      std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+      std::vector<NamedArgumentInfo> named_arguments,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -3763,6 +3767,16 @@ class Resolver {
       std::vector<std::string>* function_name_path,
       std::vector<const ASTExpression*>* function_arguments,
       std::map<int, SpecialArgumentType>* argument_option_map,
+      QueryResolutionInfo* query_resolution_info);
+
+  // Returns the function name, arguments and options. It handles the special
+  // cases for ANON functions. If FEATURE_ANONYMIZATION is disabled the function
+  // does nothing and returns OkStatus. It updates <query_resolution_info> to
+  // indicate the presence of anonymization.
+  absl::Status GetFunctionNameAndArgumentsForAnonFunctions(
+      const ASTFunctionCall* function_call, bool is_binary_anon_function,
+      std::vector<std::string>* function_name_path,
+      std::vector<const ASTExpression*>* function_arguments,
       QueryResolutionInfo* query_resolution_info);
 
   // Resolve the value part of a hint or option key/value pair.
@@ -4191,7 +4205,8 @@ class Resolver {
   // the resolved columns from WithPartitionColumnsClause.
   absl::Status ResolveWithPartitionColumns(
       const ASTWithPartitionColumnsClause* with_partition_columns_clause,
-      const IdString table_name_id_string, ColumnIndexMap* column_indexes,
+      const IdString table_name_id_string, absl::string_view statement_type,
+      ColumnIndexMap* column_indexes,
       std::unique_ptr<const ResolvedWithPartitionColumns>*
           resolved_with_partition_columns);
 

@@ -2,6 +2,7 @@
 
 # Conversion rules
 
+ZetaSQL supports conversion.
 Conversion includes, but is not limited to, casting, coercion, and
 supertyping.
 
@@ -472,6 +473,13 @@ or more supertypes, including itself, which defines its set of supertypes.
       </td>
     </tr>
     
+    
+    <tr>
+      <td>GEOGRAPHY</td>
+      <td>
+        GEOGRAPHY
+      </td>
+    </tr>
     
   </tbody>
 </table>

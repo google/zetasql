@@ -851,6 +851,22 @@ java_proto_library(
     deps = [":rounding_mode_proto"],
 )
 
+proto_library(
+    name = "array_find_mode_proto",
+    srcs = ["array_find_mode.proto"],
+    deps = ["//zetasql/public:type_proto"],
+)
+
+java_proto_library(
+    name = "array_find_mode_java_proto",
+    deps = [":array_find_mode_proto"],
+)
+
+cc_proto_library(
+    name = "array_find_mode_cc_proto",
+    deps = [":array_find_mode_proto"],
+)
+
 cc_library(
     name = "json_internal",
     srcs = ["json_internal.cc"],
@@ -875,6 +891,8 @@ cc_library(
     srcs = ["json.cc"],
     hdrs = ["json.h"],
     deps = [
+        ":convert",
+        ":convert_string",
         ":json_format",
         ":json_internal",
         "//zetasql/base:status",
@@ -902,6 +920,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:json_value",
         "//zetasql/public:value",
         "//zetasql/public/types",
         "//zetasql/testing:test_function",

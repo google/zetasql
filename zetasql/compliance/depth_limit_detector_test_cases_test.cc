@@ -29,7 +29,9 @@
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_tokens.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/reference_driver.h"
 #include "zetasql/testing/type_util.h"
 #include "gmock/gmock.h"
@@ -66,6 +68,33 @@ class FlagSetInScope {
 
 template <typename Flag, typename Value>
 FlagSetInScope(Flag& flag, const Value& value) -> FlagSetInScope<Flag>;
+
+class ReferenceDriverStatementRunner {
+  ReferenceDriver driver_;
+  TestDatabase test_db_;
+
+ public:
+  explicit ReferenceDriverStatementRunner(const LanguageOptions& options)
+      : driver_(options) {
+    for (const std::string& proto_file :
+         testing::ZetaSqlTestProtoFilepaths()) {
+      test_db_.proto_files.insert(proto_file);
+    }
+    for (const std::string& proto_name : testing::ZetaSqlTestProtoNames()) {
+      test_db_.proto_names.insert(proto_name);
+    }
+    for (const std::string& enum_name : testing::ZetaSqlTestEnumNames()) {
+      test_db_.enum_names.insert(enum_name);
+    }
+    ZETASQL_EXPECT_OK(driver_.CreateDatabase(test_db_));
+  }
+
+  absl::Status operator()(std::string_view sql) {
+    zetasql::TypeFactory type_factory;
+    return driver_.ExecuteStatement(std::string(sql), {}, &type_factory)
+        .status();
+  }
+};
 
 TEST(DepthLimitDetectorTest, DepthLimitDetectorSqrtTest) {
   // As the testcase just generates a number, 8 bytes corresponds
@@ -188,25 +217,13 @@ TEST_P(DepthLimitDetectorTemplateTest, ParserAcceptsInstantiation) {
 
 TEST_P(DepthLimitDetectorTemplateTest, ReferenceImplAcceptsInstantiation) {
   const DepthLimitDetectorTestCase& test_case = GetParam();
-  zetasql::TypeFactory type_factory;
-  ReferenceDriver driver(DepthLimitDetectorTestCaseLanguageOptions(test_case));
-  TestDatabase test_db;
-  for (const std::string& proto_file : testing::ZetaSqlTestProtoFilepaths()) {
-    test_db.proto_files.insert(proto_file);
-  }
-  for (const std::string& proto_name : testing::ZetaSqlTestProtoNames()) {
-    test_db.proto_names.insert(proto_name);
-  }
-  for (const std::string& enum_name : testing::ZetaSqlTestEnumNames()) {
-    test_db.enum_names.insert(enum_name);
-  }
-  ZETASQL_ASSERT_OK(driver.CreateDatabase(test_db));
+  ReferenceDriverStatementRunner driver(
+      DepthLimitDetectorTestCaseLanguageOptions(test_case));
 
   for (int i = 1; i <= 5; ++i) {
     std::string sql = DepthLimitDetectorTemplateToString(test_case, i);
-    ZETASQL_ASSERT_OK(driver.ExecuteStatement(sql, {}, &type_factory))
-        << "Reference driver failed at depth " << i << "\n"
-        << sql;
+    ZETASQL_ASSERT_OK(driver(sql)) << "Reference driver failed at depth " << i << "\n"
+                           << sql;
   }
 
   FlagSetInScope restore(FLAGS_depth_limit_detector_max_sql_bytes,
@@ -218,11 +235,8 @@ TEST_P(DepthLimitDetectorTemplateTest, ReferenceImplAcceptsInstantiation) {
             << absl::GetFlag(FLAGS_depth_limit_detector_max_sql_bytes)
             << " bytes";
 
-    results =
-        RunDepthLimitDetectorTestCase(test_case, [&](std::string_view sql) {
-          return driver.ExecuteStatement(std::string(sql), {}, &type_factory)
-              .status();
-        });
+    results = RunDepthLimitDetectorTestCase(
+        test_case, [&](std::string_view sql) { return driver(sql); });
 
   ZETASQL_LOG(INFO) << "Disection finished " << results;
   EXPECT_THAT(results.depth_limit_detector_return_conditions[0].return_status,
@@ -240,9 +254,8 @@ TEST_P(DepthLimitDetectorTemplateTest, ReferenceImplAcceptsInstantiation) {
   std::vector<ParseToken> parse_tokens;
   ZETASQL_ASSERT_OK(GetParseTokens(options, &resume_location, &parse_tokens));
 
-  RecordProperty("max_successful_tokens", absl::StrCat(parse_tokens.size()));
-  RecordProperty("max_successful_bytes",
-                 absl::StrCat(last_successful_sql.size()));
+  RecordProperty("max_successful_tokens", parse_tokens.size());
+  RecordProperty("max_successful_bytes", last_successful_sql.size());
 
   for (int64_t i = 1; i < results.depth_limit_detector_return_conditions.size();
        ++i) {
@@ -252,8 +265,25 @@ TEST_P(DepthLimitDetectorTemplateTest, ReferenceImplAcceptsInstantiation) {
   }
 }
 
+TEST_P(DepthLimitDetectorTemplateTest, LanguageOptionsAllNeeded) {
+  const DepthLimitDetectorTestCase& test_case = GetParam();
+  const LanguageOptions options =
+      DepthLimitDetectorTestCaseLanguageOptions(test_case);
+  std::string sql = DepthLimitDetectorTemplateToString(test_case, 5);
+  for (LanguageFeature f : options.GetEnabledLanguageFeatures()) {
+    LanguageOptions without = options;
+    without.DisableLanguageFeature(f);
+    ReferenceDriverStatementRunner driver(without);
+    absl::Status status = driver(sql);
+    EXPECT_FALSE(status.ok())
+        << "Language option " << LanguageFeature_Name(f)
+        << " is not needed to run " << test_case << " example " << sql;
+  }
+}
+
 INSTANTIATE_TEST_CASE_P(DepthLimitDetectorTest, DepthLimitDetectorTemplateTest,
-                        ::testing::ValuesIn(AllDepthLimitDetectorTestCases()));
+                        ::testing::ValuesIn(AllDepthLimitDetectorTestCases()),
+                        ::testing::PrintToStringParamName());
 
 // Validate repeated template output.
 TEST(DepthLimitDetectorTest, SimpleTestCaseToString) {

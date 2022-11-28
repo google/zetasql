@@ -958,6 +958,10 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
       AddBlockForChainableOperator(chunk_block, &chunk);
     } else if (previous_chunk.OpensParenOrBracketBlock()) {
       AddBlockFollowingOpeningBracket(&previous_chunk, &chunk);
+    } else if (chunk.LastToken().Is(Token::Type::BRACED_CONSTR_COLON)) {
+      // In braced constructors commas are optional, but otherwise, fields
+      // behave as in the list.
+      AddBlockFollowingAComma(&previous_chunk, &chunk);
     } else if (chunk.MayBeFunctionSignatureModifier()) {
       AddBlockForFunctionSignatureModifier(chunk_block, &chunk);
     } else if (ClosesQueryHintOrOptionsClause(previous_chunk)) {

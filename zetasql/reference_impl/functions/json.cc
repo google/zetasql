@@ -193,8 +193,7 @@ absl::StatusOr<Value> JsonSubscriptFunction::Eval(
         input_json,
         JSONValue::ParseJSONString(
             args[0].json_value_unparsed(),
-            JSONParsingOptions{.legacy_mode = false,
-                               .strict_number_parsing =
+            JSONParsingOptions{.strict_number_parsing =
                                    language_options.LanguageFeatureEnabled(
                                        FEATURE_JSON_STRICT_NUMBER_PARSING)}));
     json_value_const_ref = input_json.GetConstRef();
@@ -249,10 +248,9 @@ absl::StatusOr<Value> JsonFunction::Eval(
     const auto& language_options = context->GetLanguageOptions();
     return JsonExtractJson(
         *evaluator, args[0], output_type(), scalar,
-        JSONParsingOptions{
-            .legacy_mode = false,
-            .strict_number_parsing = language_options.LanguageFeatureEnabled(
-                FEATURE_JSON_STRICT_NUMBER_PARSING)});
+        JSONParsingOptions{.strict_number_parsing =
+                               language_options.LanguageFeatureEnabled(
+                                   FEATURE_JSON_STRICT_NUMBER_PARSING)});
   }
 }
 
@@ -382,7 +380,6 @@ absl::StatusOr<Value> JsonArrayFunction::Eval(
   } else {
     const auto& language_options = context->GetLanguageOptions();
     JSONParsingOptions parsing_options{
-        .legacy_mode = false,
         .strict_number_parsing = language_options.LanguageFeatureEnabled(
             FEATURE_JSON_STRICT_NUMBER_PARSING)};
 
@@ -424,7 +421,6 @@ absl::StatusOr<Value> ToJsonStringFunction::Eval(
   ZETASQL_RETURN_IF_ERROR(functions::JsonFromValue(
       args[0], &pretty_printer, &output,
       JSONParsingOptions{
-          .legacy_mode = false,
           .strict_number_parsing =
               context->GetLanguageOptions().LanguageFeatureEnabled(
                   FEATURE_JSON_STRICT_NUMBER_PARSING),
@@ -447,9 +443,8 @@ absl::StatusOr<Value> ParseJsonFunction::Eval(
            << args[1].string_value();
   }
 
-  JSONParsingOptions options{
-      .legacy_mode = false,
-      .strict_number_parsing = (args[1].string_value() == "exact")};
+  JSONParsingOptions options{.strict_number_parsing =
+                                 (args[1].string_value() == "exact")};
   auto result = JSONValue::ParseJSONString(args[0].string_value(), options);
   if (!result.ok()) {
     return MakeEvalError() << "Invalid input to PARSE_JSON: "

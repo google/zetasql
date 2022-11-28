@@ -20,6 +20,7 @@ package com.google.zetasql;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
 import com.google.zetasql.ZetaSQLOptions.ParameterMode;
 import com.google.zetasql.ZetaSQLOptions.ParseLocationRecordType;
@@ -64,6 +65,7 @@ public class AnalyzerOptions implements Serializable {
         null);
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public AnalyzerOptionsProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     // Ensure serialization thread safety, by merging all options in a local builder.
     // Note: This only ensures that multiple concurrent calls to serialize are safe. If there is

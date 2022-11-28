@@ -47,13 +47,19 @@ class TypeModifiers {
 
   Collation&& release_collation() { return std::move(collation_); }
 
+  // Returns true if all modifier classes are empty.
+  bool IsEmpty() const {
+    return type_parameters_.IsEmpty() && collation_.Empty();
+  }
+
   bool Equals(const TypeModifiers& that) const;
+  bool operator==(const TypeModifiers& that) const { return Equals(that); }
 
   absl::Status Serialize(TypeModifiersProto* proto) const;
   static absl::StatusOr<TypeModifiers> Deserialize(
       const TypeModifiersProto& proto);
 
-  std::string DebugString(absl::string_view indent = "") const;
+  std::string DebugString() const;
 
  private:
   TypeModifiers(TypeParameters type_parameters, Collation collation)

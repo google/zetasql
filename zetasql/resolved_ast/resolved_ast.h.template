@@ -31,6 +31,7 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type_annotation.pb.h"
+#include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.pb.h"
@@ -507,6 +508,28 @@ inline std::unique_ptr<ResolvedTVFArgument> MakeResolvedTVFArgument(
         std::move(descriptor_arg),
         argument_column_list,
         /*inline_lambda=*/nullptr);
+}
+
+// This is here for backward compatibility because we removed
+// <type_parameters> and added <type_modifiers> inside ResolvedCast.
+ABSL_DEPRECATED("use MakeResolvedCast with <type_modifiers> as input argument.")
+inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
+    const Type* type,
+    std::unique_ptr<const ResolvedExpr> expr,
+    bool return_null_on_error,
+    std::unique_ptr<const ResolvedExtendedCast> extended_cast,
+    std::unique_ptr<const ResolvedExpr> format,
+    std::unique_ptr<const ResolvedExpr> time_zone,
+    const TypeParameters& type_parameters) {
+  return MakeResolvedCast(
+      type,
+      std::move(expr),
+      return_null_on_error,
+      std::move(extended_cast),
+      std::move(format),
+      std::move(time_zone),
+      TypeModifiers::MakeTypeModifiers(
+          type_parameters, zetasql::Collation()));
 }
 
 }  // namespace zetasql

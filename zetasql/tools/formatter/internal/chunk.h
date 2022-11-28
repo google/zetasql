@@ -24,7 +24,6 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/tools/formatter/internal/token.h"

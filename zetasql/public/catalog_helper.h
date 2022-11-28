@@ -20,6 +20,9 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/public/types/enum_type.h"
+#include "absl/strings/string_view.h"
+
 namespace zetasql {
 
 // Returns an entry from <possible_names> with the least edit-distance from
@@ -29,8 +32,18 @@ namespace zetasql {
 //
 // Returns an empty string if none of the entries in <possible_names> are
 // within the allowed edit-distance.
-std::string ClosestName(const std::string& mistyped_name,
+std::string ClosestName(absl::string_view mistyped_name,
                         const std::vector<std::string>& possible_names);
+
+// Returns a string that matches a value in `type` the is a near match
+// to `mistyped_value`. If no close match is found, returns empty string.
+//
+// Uses case insensitive comparison, although enums are usually all
+// upper-case.
+//
+// Note: this is a reasonable implementation of Catalog::SuggestEnumValue.
+std::string SuggestEnumValue(const EnumType* type,
+                             absl::string_view mistyped_value);
 
 }  // namespace zetasql
 

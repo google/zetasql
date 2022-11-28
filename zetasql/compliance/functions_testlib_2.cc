@@ -822,7 +822,7 @@ static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
 // Wraps any test cases that use NUMERIC with FEATURE_NUMERIC_TYPE.
 static void WrapNumericTestCases(std::vector<QueryParamsWithResult>* tests) {
   for (auto& test_case : *tests) {
-    if (test_case.HasEmptyFeatureSetAndNothingElse() &&
+    if (test_case.required_features().empty() &&
         test_case.result().type()->IsNumericType()) {
       test_case = test_case.WrapWithFeature(FEATURE_NUMERIC_TYPE);
     }
@@ -832,7 +832,7 @@ static void WrapNumericTestCases(std::vector<QueryParamsWithResult>* tests) {
 // Wraps any test cases that use BIGNUMERIC with FEATURE_BIGNUMERIC_TYPE.
 static void WrapBigNumericTestCases(std::vector<QueryParamsWithResult>* tests) {
   for (auto& test_case : *tests) {
-    if (test_case.HasEmptyFeatureSetAndNothingElse() &&
+    if (test_case.required_features().empty() &&
         test_case.result().type()->IsBigNumericType()) {
       test_case = test_case.WrapWithFeature(FEATURE_BIGNUMERIC_TYPE);
     }

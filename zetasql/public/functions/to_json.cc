@@ -211,10 +211,9 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
       }
       auto input_json = JSONValue::ParseJSONString(
           value.json_value_unparsed(),
-          JSONParsingOptions{
-              .legacy_mode = false,
-              .strict_number_parsing = language_options.LanguageFeatureEnabled(
-                  FEATURE_JSON_STRICT_NUMBER_PARSING)});
+          JSONParsingOptions{.strict_number_parsing =
+                                 language_options.LanguageFeatureEnabled(
+                                     FEATURE_JSON_STRICT_NUMBER_PARSING)});
       if (!input_json.ok()) {
         return MakeEvalError() << input_json.status().message();
       }

@@ -73,7 +73,7 @@ public class PreparedExpressionTest {
     try (PreparedExpression exp = new PreparedExpression("true")) {
       Value value = exp.execute();
       assertThat(value.getType().getKind()).isEqualTo(TypeKind.TYPE_BOOL);
-      assertThat(value.getBoolValue()).isEqualTo(true);
+      assertThat(value.getBoolValue()).isTrue();
     }
 
     try (PreparedExpression exp = new PreparedExpression("1.25")) {

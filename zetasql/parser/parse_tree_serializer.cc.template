@@ -53,7 +53,8 @@ absl::StatusOr<std::unique_ptr<ParserOutput>> ParseTreeSerializer::Deserialize(
 
   return std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
-      std::move(allocated_ast_nodes), std::move(statement_ptr));
+      std::move(allocated_ast_nodes), std::move(statement_ptr),
+      /*warnings=*/std::make_unique<std::vector<absl::Status>>());
 }
 
 absl::StatusOr<std::unique_ptr<ParserOutput>> ParseTreeSerializer::Deserialize(
@@ -81,7 +82,8 @@ absl::StatusOr<std::unique_ptr<ParserOutput>> ParseTreeSerializer::Deserialize(
 
   return std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
-      std::move(allocated_ast_nodes), std::move(expression_ptr));
+      std::move(allocated_ast_nodes), std::move(expression_ptr),
+      /*warnings=*/std::make_unique<std::vector<absl::Status>>());
 }
 
 absl::Status ParseTreeSerializer::DeserializeAbstract(

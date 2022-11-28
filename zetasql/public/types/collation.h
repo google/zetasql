@@ -88,6 +88,15 @@ class Collation {
   //   has a compatible structure with the array's element type.
   bool HasCompatibleStructure(const Type* type) const;
 
+  // Returns true if this Collation object semantically equals the collation
+  // annotations inside <annotation_map>. These are equal when these two
+  // conditions are met:
+  // * <annotation_map> is a nullptr and the Collation object is empty.
+  // * The Collation object equals the collation created by calling
+  //   MakeCollation with <annotation_map>.
+  absl::StatusOr<bool> EqualsCollationAnnotation(
+      const AnnotationMap* annotation_map) const;
+
   // Collation on current type (STRING), not on subfields.
   bool HasCollation() const { return collation_name_.has_string_value(); }
 

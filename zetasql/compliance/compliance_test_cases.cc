@@ -1108,6 +1108,19 @@ std::vector<FunctionTestCall> ConvertDateTimePartBindingsToString(
   return tests;
 }
 
+// Wraps test cases with FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS.
+// If a test case already has a feature set, do not wrap it.
+std::vector<FunctionTestCall> EnableJsonLaxValueExtractionFunctionsForTest(
+    std::vector<FunctionTestCall> tests) {
+  for (auto& test_case : tests) {
+    if (test_case.params.required_features().empty()) {
+      test_case.params = test_case.params.WrapWithFeatureSet(
+          {FEATURE_JSON_TYPE, FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS});
+    }
+  }
+  return tests;
+}
+
 }  // namespace
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestGenerateDateArray, 1) {
@@ -1204,7 +1217,7 @@ std::vector<FunctionTestCall> EnableJsonFeatureForTest(
 std::vector<FunctionTestCall> EnableJsonValueExtractionFunctionsForTest(
     std::vector<FunctionTestCall> tests) {
   for (auto& test_case : tests) {
-    if (test_case.params.HasEmptyFeatureSetAndNothingElse()) {
+    if (test_case.params.required_features().empty()) {
       test_case.params = test_case.params.WrapWithFeatureSet(
           {FEATURE_JSON_TYPE, FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS});
     }
@@ -1307,6 +1320,30 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJson, 1) {
   RunFunctionTestsCustom(Shard(EnableJsonValueExtractionFunctionsForTest(
                              GetFunctionTestsConvertJsonIncompatibleTypes())),
                          convert_json_fn_expr);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxBool, 1) {
+  SetNamePrefix("ConvertJsonLaxBool");
+  RunFunctionCalls(Shard(EnableJsonLaxValueExtractionFunctionsForTest(
+      GetFunctionTestConvertJsonLaxBool())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxInt64, 1) {
+  SetNamePrefix("ConvertJsonLaxInt64");
+  RunFunctionCalls(Shard(EnableJsonLaxValueExtractionFunctionsForTest(
+      GetFunctionTestConvertJsonLaxInt64())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxDouble, 1) {
+  SetNamePrefix("ConvertJsonLaxDouble");
+  RunFunctionCalls(Shard(EnableJsonLaxValueExtractionFunctionsForTest(
+      GetFunctionTestConvertJsonLaxDouble())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJsonLaxString, 1) {
+  SetNamePrefix("ConvertJsonLaxString");
+  RunFunctionCalls(Shard(EnableJsonLaxValueExtractionFunctionsForTest(
+      GetFunctionTestConvertJsonLaxString())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
@@ -1985,6 +2022,14 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestTimestampBucketFunctions, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsTimestampBucket()));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestDatetimeBucketFunctions, 1) {
+  RunFunctionCalls(Shard(GetFunctionTestsDatetimeBucket()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestDateBucketFunctions, 1) {
+  RunFunctionCalls(Shard(GetFunctionTestsDateBucket()));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestOctetLengthFunctions, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsOctetLength()));
 }
@@ -2113,6 +2158,24 @@ SHARDED_TEST_F(ComplianceCodebasedTests, IntervalComparisons, 1) {
     }
   };
   RunFunctionTestsCustom(Shard(GetFunctionTestsIntervalComparisons()), cmp);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, RangeComparisons, 1) {
+  SetNamePrefix("RangeComparisons");
+  auto cmp = [](const FunctionTestCall& f) {
+    // Test cases only use "=" and "<", but we test all comparison operators
+    // for given pair of values.
+    if (f.function_name == "=") {
+      return "@p0 = @p1 AND @p1 = @p0 AND @p0 <= @p1 AND @p0 >= @p1 AND "
+             "NOT(@p0 != @p1) AND NOT(@p0 < @p1) AND NOT(@p0 > @p1)";
+    } else if (f.function_name == "<") {
+      return "@p0 < @p1 AND @p1 > @p0 AND @p0 <= @p1 AND @p0 != @p1 AND "
+             "NOT(@p0 > @p1) AND NOT(@p0 >= @p1) AND NOT(@p0 = @p1)";
+    } else {
+      ZETASQL_LOG(FATAL) << f.function_name;
+    }
+  };
+  RunFunctionTestsCustom(Shard(GetFunctionTestsRangeComparisons()), cmp);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalUnaryMinus, 1) {

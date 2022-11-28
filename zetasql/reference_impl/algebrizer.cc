@@ -3099,15 +3099,11 @@ absl::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
   AnonymizationOptions anonymization_options;
   for (const auto& option : aggregate_scan->anonymization_option_list()) {
     if (absl::AsciiStrToLower(option->name()) == "k_threshold") {
-      if (anonymization_options.delta.has_value()) {
-        return zetasql_base::InvalidArgumentErrorBuilder()
-               << "Only one of anonymization options DELTA or K_THRESHOLD can "
-               << "be set";
-      }
-      if (anonymization_options.k_threshold.has_value()) {
-        return zetasql_base::InvalidArgumentErrorBuilder()
-               << "Anonymization option K_THRESHOLD can only be set once";
-      }
+      ZETASQL_RET_CHECK(!anonymization_options.delta.has_value())
+          << "Only one of anonymization options DELTA or K_THRESHOLD can "
+          << "be set";
+      ZETASQL_RET_CHECK(!anonymization_options.k_threshold.has_value())
+          << "Anonymization option K_THRESHOLD can only be set once";
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
       anonymization_options.k_threshold =
           option->value()->GetAs<ResolvedLiteral>()->value();
@@ -3116,23 +3112,20 @@ absl::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
       anonymization_options.epsilon =
           option->value()->GetAs<ResolvedLiteral>()->value();
     } else if (absl::AsciiStrToLower(option->name()) == "delta") {
-      if (anonymization_options.k_threshold.has_value()) {
-        return zetasql_base::InvalidArgumentErrorBuilder()
-               << "Only one of anonymization options DELTA or K_THRESHOLD can "
-               << "be set";
-      }
-      if (anonymization_options.delta.has_value()) {
-        return zetasql_base::InvalidArgumentErrorBuilder()
-               << "Anonymization option DELTA can only be set once";
-      }
+      ZETASQL_RET_CHECK(!anonymization_options.k_threshold.has_value())
+          << "Only one of anonymization options DELTA or K_THRESHOLD can "
+          << "be set";
+      ZETASQL_RET_CHECK(!anonymization_options.delta.has_value())
+          << "Anonymization option DELTA can only be set once";
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
       anonymization_options.delta =
           option->value()->GetAs<ResolvedLiteral>()->value();
-    } else if (absl::AsciiStrToLower(option->name()) == "kappa") {
-      if (anonymization_options.kappa.has_value()) {
-        return zetasql_base::InvalidArgumentErrorBuilder()
-               << "Anonymization option KAPPA can only be set once";
-      }
+    } else if (absl::AsciiStrToLower(option->name()) == "kappa" ||
+               absl::AsciiStrToLower(option->name()) ==
+                   "max_groups_contributed") {
+      ZETASQL_RET_CHECK(!anonymization_options.kappa.has_value())
+          << "Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA) can "
+             "only be set once";
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
       anonymization_options.kappa =
           option->value()->GetAs<ResolvedLiteral>()->value();

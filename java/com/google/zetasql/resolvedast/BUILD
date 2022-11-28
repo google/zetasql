@@ -52,6 +52,7 @@ java_library(
         "//java/com/google/zetasql:types",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:annotation_java_proto",
+        "//zetasql/public:type_modifiers_java_proto",
         "//zetasql/public:type_parameters_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
@@ -67,7 +68,7 @@ java_library(
 )
 
 java_library(
-    name = "resolvedast_no_catalog",
+    name = "resolvedast_no_simple_catalog",
     srcs = [
         "AbstractDeserializationHelper.java",
         "DebugStrings.java",
@@ -82,6 +83,7 @@ java_library(
         "//java/com/google/zetasql:types",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:annotation_java_proto",
+        "//zetasql/public:type_modifiers_java_proto",
         "//zetasql/public:type_parameters_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",

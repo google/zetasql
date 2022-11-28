@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.LocalService.EvaluateRequest;
 import com.google.zetasql.LocalService.EvaluateRequestBatch;
 import com.google.zetasql.LocalService.EvaluateResponse;
@@ -200,6 +201,7 @@ public class PreparedExpression implements AutoCloseable {
    *
    * @return The evaluation result.
    */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public Value execute() {
     return execute(Collections.<String, Value>emptyMap(), Collections.<String, Value>emptyMap());
   }
@@ -211,6 +213,7 @@ public class PreparedExpression implements AutoCloseable {
    * @param parameters Map of parameter name:value pairs.
    * @return The evaluation result.
    */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public Value execute(Map<String, Value> columns, Map<String, Value> parameters) {
     return execute(buildRequest(columns, parameters));
   }

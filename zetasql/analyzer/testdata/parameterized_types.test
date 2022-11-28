@@ -425,7 +425,7 @@ QueryStmt
     |   +-Cast(NUMERIC -> NUMERIC)
     |     +-Literal(type=NUMERIC, value=1.2, has_explicit_type=TRUE)
     |     +-return_null_on_error=TRUE
-    |     +-type_parameters=(precision=8,scale=2)
+    |     +-type_modifiers=type_parameters:(precision=8,scale=2)
     +-input_scan=
       +-SingleRowScan
 --
@@ -441,7 +441,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-Cast(NUMERIC -> NUMERIC)
     |     +-Literal(type=NUMERIC, value=1.2, has_explicit_type=TRUE)
-    |     +-type_parameters=(precision=8,scale=2)
+    |     +-type_modifiers=type_parameters:(precision=8,scale=2)
     +-input_scan=
       +-SingleRowScan
 --
@@ -471,7 +471,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
     |     +-Literal(type=ARRAY<STRING>, value=["hi", "hello", "hola"], has_explicit_type=TRUE)
-    |     +-type_parameters=[(max_length=12)]
+    |     +-type_modifiers=type_parameters:[(max_length=12)]
     +-input_scan=
       +-SingleRowScan
 ==
@@ -498,7 +498,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
     |     +-Literal(type=ARRAY<STRING>, value=["0", "1", "2"], has_explicit_type=TRUE)
-    |     +-type_parameters=[(max_length=12)]
+    |     +-type_modifiers=type_parameters:[(max_length=12)]
     +-input_scan=
       +-SingleRowScan
 ==
@@ -526,7 +526,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-Cast(STRUCT<BOOL, NUMERIC, STRUCT<BIGNUMERIC, ARRAY<STRING>, STRUCT<BOOL, NUMERIC>>, BYTES, ARRAY<STRING>> -> STRUCT<BOOL, NUMERIC, STRUCT<BIGNUMERIC, ARRAY<STRING>, STRUCT<BOOL, NUMERIC>>, BYTES, ARRAY<STRING>>)
     |     +-Literal(type=STRUCT<BOOL, NUMERIC, STRUCT<BIGNUMERIC, ARRAY<STRING>, STRUCT<BOOL, NUMERIC>>, BYTES, ARRAY<STRING>>, value={false, 2, {123, ["5"], {true, 1000}}, b"hello", ["123", "123456", "1"]}, has_explicit_type=TRUE)
-    |     +-type_parameters=[null,(precision=8,scale=0),[(precision=MAX,scale=2),[(max_length=2)],[null,(precision=6,scale=1)]],(max_length=10),[(max_length=5)]]
+    |     +-type_modifiers=type_parameters:[null,(precision=8,scale=0),[(precision=MAX,scale=2),[(max_length=2)],[null,(precision=6,scale=1)]],(max_length=10),[(max_length=5)]]
     +-input_scan=
       +-SingleRowScan
 ==
@@ -554,7 +554,7 @@ QueryStmt
     |           +-Literal(type=DOUBLE, value=1.23, float_literal_id=1)
     |           +-Literal(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, value=[{}], has_explicit_type=TRUE)
     |           +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
-    |     +-type_parameters=[null,(max_length=MAX),null,null]
+    |     +-type_modifiers=type_parameters:[null,(max_length=MAX),null,null]
     +-input_scan=
       +-SingleRowScan
 ==
@@ -575,7 +575,7 @@ QueryStmt
     |     +-field_list=
     |       +-Cast(NUMERIC -> NUMERIC)
     |       | +-Literal(type=NUMERIC, value=2, has_explicit_type=TRUE)
-    |       | +-type_parameters=(precision=5,scale=0)
+    |       | +-type_modifiers=type_parameters:(precision=5,scale=0)
     |       +-Cast(ARRAY<STRUCT<STRING, INT64, STRUCT<NUMERIC, NUMERIC>>> -> ARRAY<STRUCT<STRING, INT64, STRUCT<NUMERIC, NUMERIC>>>)
     |         +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<STRING, INT64, STRUCT<NUMERIC, NUMERIC>>) -> ARRAY<STRUCT<STRING, INT64, STRUCT<NUMERIC, NUMERIC>>>)
     |           +-MakeStruct
@@ -584,7 +584,7 @@ QueryStmt
     |               +-Literal(type=STRING, value="hello")
     |               +-Literal(type=INT64, value=3)
     |               +-Literal(type=STRUCT<NUMERIC, NUMERIC>, value={121, 4}, has_explicit_type=TRUE)
-    |         +-type_parameters=[[(max_length=5),null,[(precision=5,scale=0),null]]]
+    |         +-type_modifiers=type_parameters:[[(max_length=5),null,[(precision=5,scale=0),null]]]
     +-input_scan=
       +-SingleRowScan
 ==
@@ -606,8 +606,8 @@ QueryStmt
     |       +-Cast(STRING -> STRING)
     |         +-Cast(STRING -> STRING)
     |           +-Literal(type=STRING, value="hello", has_explicit_type=TRUE)
-    |           +-type_parameters=(max_length=5)
-    |         +-type_parameters=(max_length=2)
+    |           +-type_modifiers=type_parameters:(max_length=5)
+    |         +-type_modifiers=type_parameters:(max_length=2)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -666,7 +666,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-Cast(NUMERIC -> NUMERIC)
     |     +-Literal(type=NUMERIC, value=9999999999999999999999999999.999999999, has_explicit_type=TRUE)
-    |     +-type_parameters=(precision=29,scale=1)
+    |     +-type_modifiers=type_parameters:(precision=29,scale=1)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -687,7 +687,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-Cast(STRUCT<NUMERIC, BIGNUMERIC> -> STRUCT<NUMERIC, BIGNUMERIC>)
     |     +-Literal(type=STRUCT<NUMERIC, BIGNUMERIC>, value={100000000000000004764729344, 100000000000000004764729344}, has_explicit_type=TRUE)
-    |     +-type_parameters=[(precision=29,scale=1),(precision=29,scale=1)]
+    |     +-type_modifiers=type_parameters:[(precision=29,scale=1),(precision=29,scale=1)]
     +-input_scan=
       +-SingleRowScan
 ==
@@ -704,6 +704,6 @@ QueryStmt
     | +-$col1#1 :=
     |   +-Cast(ARRAY<NUMERIC> -> ARRAY<NUMERIC>)
     |     +-Literal(type=ARRAY<NUMERIC>, value=[99999999999999999999999999.999999999], has_explicit_type=TRUE)
-    |     +-type_parameters=[(precision=29,scale=1)]
+    |     +-type_modifiers=type_parameters:[(precision=29,scale=1)]
     +-input_scan=
       +-SingleRowScan

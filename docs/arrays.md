@@ -1,6 +1,7 @@
 
 
-# Work with arrays
+# Work with arrays 
+<a id="working_with_arrays"></a>
 
 In ZetaSQL, an array is an ordered list consisting of zero or more
 values of the same data type. You can construct arrays of simple data types,
@@ -155,9 +156,18 @@ FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 ## Accessing array elements 
 <a id="accessing_array_elements"></a>
 
-Consider the following table, `sequences`:
+Consider the following emulated table called `sequences`. This table contains
+the column `some_numbers` of the `ARRAY` data type.
 
 ```sql
+WITH
+  sequences AS (
+    SELECT [0, 1, 1, 2, 3, 5] AS some_numbers UNION ALL
+    SELECT [2, 4, 8, 16, 32] UNION ALL
+    SELECT [5, 10]
+  )
+SELECT * FROM sequences
+
 +---------------------+
 | some_numbers        |
 +---------------------+
@@ -167,23 +177,19 @@ Consider the following table, `sequences`:
 +---------------------+
 ```
 
-This table contains the column `some_numbers` of the `ARRAY` data type.
-To access elements from the arrays in this column, you must specify which type
-of indexing you want to use: either
-[`OFFSET`][array-subscript-operator],
-for zero-based indexes, or
-[`ORDINAL`][array-subscript-operator],
-for one-based indexes.
+To access array elements in the `some_numbers` column, you must specify which
+type of indexing you want to use: either [`OFFSET`][array-subscript-operator],
+for zero-based indexes, or [`ORDINAL`][array-subscript-operator], for one-based
+indexes.
+
+For example:
 
 ```sql
-WITH sequences AS
-  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT [5, 10] AS some_numbers)
-SELECT some_numbers,
-       some_numbers[OFFSET(1)] AS offset_1,
-       some_numbers[ORDINAL(1)] AS ordinal_1
-FROM sequences;
+SELECT
+  some_numbers,
+  some_numbers[OFFSET(1)] AS offset_1,
+  some_numbers[ORDINAL(1)] AS ordinal_1
+FROM sequences
 
 +--------------------+----------+-----------+
 | some_numbers       | offset_1 | ordinal_1 |
@@ -192,36 +198,6 @@ FROM sequences;
 | [2, 4, 8, 16, 32]  | 4        | 2         |
 | [5, 10]            | 10       | 5         |
 +--------------------+----------+-----------+
-```
-
-You can use this DML statement to insert the example data:
-
-```sql
-INSERT sequences
-  (some_numbers, id)
-VALUES
-  ([0, 1, 1, 2, 3, 5], 1),
-  ([2, 4, 8, 16, 32], 2),
-  ([5, 10], 3);
-```
-
-This query shows how to use `OFFSET()` and `ORDINAL()`:
-
-```sql
-SELECT some_numbers,
-       some_numbers[OFFSET(1)] AS offset_1,
-       some_numbers[ORDINAL(1)] AS ordinal_1
-FROM sequences;
-
-+---------------+----------+-----------+
-| some_numbers  | offset_1 | ordinal_1 |
-+---------------+----------+-----------+
-| [0,1,1,2,3,5] |        1 |         0 |
-+---------------+----------+-----------+
-| [2,4,8,16,32] |        4 |         2 |
-+---------------+----------+-----------+
-| [5,10]        |       10 |         5 |
-+---------------+----------+-----------+
 ```
 
 Note: `OFFSET()` and `ORDINAL()` will raise errors if the index is out of
@@ -248,25 +224,6 @@ FROM sequences;
 | [2, 4, 8, 16, 32]  | 5      |
 | [5, 10]            | 2      |
 +--------------------+--------+
-```
-
-Here's an example query, assuming the same definition of the `sequences` table
-as above, with the same sample rows:
-
-```sql
-SELECT some_numbers,
-       ARRAY_LENGTH(some_numbers) AS len
-FROM sequences;
-
-+---------------+------+
-| some_numbers  | len  |
-+---------------+------+
-| [0,1,1,2,3,5] |    6 |
-+---------------+------+
-| [2,4,8,16,32] |    5 |
-+---------------+------+
-| [5,10]        |    2 |
-+---------------+------+
 ```
 
 ## Flattening nested data into an array 
@@ -674,8 +631,8 @@ CROSS JOIN UNNEST(r.participants) AS participant;
 You can find specific information from repeated fields. For example, the
 following query returns the fastest racer in an 800M race.
 
-<p class="note">This example does not involve flattening an array, but does
-represent a common way to get information from a repeated field.</p>
+Note: This example does not involve flattening an array, but does
+represent a common way to get information from a repeated field.
 
 **Example**
 
@@ -1127,23 +1084,6 @@ FROM sequences;
 +--------------------+---------------------+
 ```
 
-```sql
-SELECT some_numbers,
-  ARRAY(SELECT x * 2
-        FROM UNNEST(some_numbers) AS x) AS doubled
-FROM sequences;
-
-+---------------+----------------+
-| some_numbers  | doubled        |
-+---------------+----------------+
-| [0,1,1,2,3,5] | [0,2,2,4,6,10] |
-+---------------+----------------+
-| [2,4,8,16,32] | [4,8,16,32,64] |
-+---------------+----------------+
-| [5,10]        | [10,20]        |
-+---------------+----------------+
-```
-
 This example starts with a table named sequences. This table contains a column,
 `some_numbers`, of type `ARRAY<INT64>`.
 
@@ -1157,8 +1097,8 @@ recombines the rows back into an array using the `ARRAY()` operator.
 The following example uses a `WHERE` clause in the `ARRAY()` operator's subquery
 to filter the returned rows.
 
-<p class='note'><b>Note:</b> In the following examples, the resulting rows are
-not ordered.</p>
+Note: In the following examples, the resulting rows are
+not ordered.
 
 ```sql
 WITH sequences AS
@@ -1176,24 +1116,6 @@ FROM sequences;
 +------------------------+
 | [0, 2, 2, 4, 6]        |
 | [4, 8]                 |
-| []                     |
-+------------------------+
-```
-
-```sql
-SELECT
-  ARRAY(SELECT x * 2
-        FROM UNNEST(some_numbers) AS x
-        WHERE x < 5) AS doubled_less_than_five
-FROM sequences;
-
-+------------------------+
-| doubled_less_than_five |
-+------------------------+
-| [0,2,2,4,6]            |
-+------------------------+
-| [4,8]                  |
-+------------------------+
 | []                     |
 +------------------------+
 ```
@@ -1219,19 +1141,6 @@ FROM sequences;
 +-----------------+
 ```
 
-```sql
-SELECT ARRAY(SELECT DISTINCT x
-             FROM UNNEST(some_numbers) AS x) AS unique_numbers
-FROM sequences
-WHERE id = 1;
-
-+----------------+
-| unique_numbers |
-+----------------+
-| [0,1,2,3,5]    |
-+----------------+
-```
-
 You can also filter rows of arrays by using the
 [`IN`][in-operators] keyword. This
 keyword filters rows containing arrays by determining if a specific
@@ -1255,24 +1164,6 @@ FROM sequences;
 | [2, 4, 8, 16, 32]  |
 | []                 |
 +--------------------+
-```
-
-```sql
-SELECT
-   ARRAY(SELECT x
-         FROM UNNEST(some_numbers) AS x
-         WHERE 2 IN UNNEST(some_numbers)) AS contains_two
-FROM sequences;
-
-+---------------+
-| contains_two  |
-+---------------+
-| [0,1,1,2,3,5] |
-+---------------+
-| [2,4,8,16,32] |
-+---------------+
-| []            |
-+---------------+
 ```
 
 Notice again that the third row contains an empty array, because the array in
@@ -1500,23 +1391,6 @@ FROM sequences s;
 +--------------------+------+
 ```
 
-```sql
-SELECT some_numbers,
-  (SELECT SUM(x)
-   FROM UNNEST(s.some_numbers) x) AS sums
-FROM sequences s;
-
-+---------------+------+
-| some_numbers  | sums |
-+---------------+------+
-| [0,1,1,2,3,5] |   12 |
-+---------------+------+
-| [2,4,8,16,32] |   62 |
-+---------------+------+
-| [5,10]        |   15 |
-+---------------+------+
-```
-
 ZetaSQL also supports an aggregate function, `ARRAY_CONCAT_AGG()`,
 which concatenates the elements of an array column across rows.
 
@@ -1535,7 +1409,7 @@ FROM aggregate_example;
 +--------------------------------------------------+
 ```
 
-**Note:** The array returned by `ARRAY_CONCAT_AGG()` is
+Note: The array returned by `ARRAY_CONCAT_AGG()` is
 non-deterministic, since the order in which the function concatenates values is
 not guaranteed.
 

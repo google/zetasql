@@ -102,11 +102,12 @@ struct WithEntryRewriteState;
 //   d. For each aggregate or group by column in the anon node, the column set
 //      in the per-user scan's column list is the appropriate intermediate
 //      column looked up in the column map
-// 4. If kappa is specified, a partitioned-by-$uid ResolvedSampleScan is
-//    inserted to limit the number of groups that a user can contribute to.
-//    While kappa is optional, for most queries with a GROUP BY clause in the
-//    ResolvedAnonymizedAggregationScan it MUST be specified for the resulting
-//    query to provide correct epsilon-delta differential privacy.
+// 4. If max_groups_contributed (aka kappa) is specified, a partitioned-by-$uid
+//    ResolvedSampleScan is inserted to limit the number of groups that a user
+//    can contribute to. While max_groups_contributed is optional, for most
+//    queries with a GROUP BY clause in the ResolvedAnonymizedAggregationScan it
+//    MUST be specified for the resulting query to provide correct epsilon-delta
+//    differential privacy.
 // 5. The final cross-user ResolvedAnonymizedAggregateScan is created:
 //   a. The input scan is set to the (possibly sampled) per-user scan
 //   b. The first argument for each ANON_* function call in the anon node is
@@ -129,9 +130,9 @@ struct WithEntryRewriteState;
 //        -> per_user_transform
 //
 // Where the new ResolvedAggregateScan is the per-user aggregate scan, and
-// the optional ResolvedSampleScan uses kappa to restrict the number of groups
-// a user can contribute to (for more information on kappa, see
-// (broken link)).
+// the optional ResolvedSampleScan uses max_groups_contributed to restrict the
+// number of groups a user can contribute to (for more information on
+// max_groups_contributed, see (broken link)).
 class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   RewriterVisitor(ColumnFactory* allocator, TypeFactory* type_factory,
@@ -818,6 +819,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
   absl::StatusOr<std::unique_ptr<ResolvedComputedColumn>>
   MakeGetFieldComputedColumn(
+      const ResolvedScan* node,
       absl::Span<const std::string> userid_column_name_path,
       const ResolvedColumn& value_table_value_resolved_column) {
     const std::string& userid_column_name =
@@ -859,7 +861,11 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         const google::protobuf::FieldDescriptor* field =
             ProtoType::FindFieldByNameIgnoreCase(descriptor,
                                                  userid_column_field);
-        ZETASQL_RET_CHECK_NE(field, nullptr) << userid_column_name;
+        if (field == nullptr) {
+          return MakeSqlErrorAtNode(*node)
+                 << "Unable to find anonymization user ID column "
+                 << userid_column_name << " in value table fields";
+        }
         descriptor = field->message_type();
 
         const Type* field_type;
@@ -991,7 +997,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       // value table row value.
       ZETASQL_ASSIGN_OR_RETURN(
           std::unique_ptr<ResolvedComputedColumn> projected_userid_column,
-          MakeGetFieldComputedColumn(copy->table()
+          MakeGetFieldComputedColumn(node,
+                                     copy->table()
                                          ->GetAnonymizationInfo()
                                          .value()
                                          .UserIdColumnNamePath(),
@@ -1071,8 +1078,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       // value table row value.
       ZETASQL_ASSIGN_OR_RETURN(
           std::unique_ptr<ResolvedComputedColumn> projected_userid_column,
-          MakeGetFieldComputedColumn(anonymization_info->UserIdColumnNamePath(),
-                                     value_column));
+          MakeGetFieldComputedColumn(
+              node, anonymization_info->UserIdColumnNamePath(), value_column));
 
       current_uid_.InitFromValueTable(projected_userid_column.get(),
                                       copy->alias());
@@ -1858,11 +1865,11 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
   bool null_kappa = false;
   const Value* kappa_value = nullptr;
   for (const auto& option : node->anonymization_option_list()) {
-    if (zetasql_base::CaseEqual(option->name(), "kappa")) {
-      if (kappa_value != nullptr) {
-        return MakeSqlErrorAtNode(*option)
-               << "Anonymization option kappa must only be set once";
-      }
+    if (zetasql_base::CaseEqual(option->name(), "kappa") ||
+        zetasql_base::CaseEqual(option->name(), "max_groups_contributed")) {
+      ZETASQL_RET_CHECK(kappa_value == nullptr)
+          << "Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA) can "
+             "only be set once";
       if (option->value()->node_kind() == RESOLVED_LITERAL &&
           option->value()->GetAs<ResolvedLiteral>()->type()->IsInt64()) {
         kappa_value = &option->value()->GetAs<ResolvedLiteral>()->value();
@@ -1875,14 +1882,15 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
           // The privacy libraries only support int32_t kappa, so produce an
           // error if the kappa value does not fit in that range.
           return MakeSqlErrorAtNode(*option)
-                 << "Anonymization option kappa must be an INT64 literal "
-                    "between "
-                 << "1 and " << std::numeric_limits<int32_t>::max();
+                 << "Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA) "
+                    "must be an INT64 literal between 1 and "
+                 << std::numeric_limits<int32_t>::max();
         }
       } else {
         return MakeSqlErrorAtNode(*option)
-               << "Anonymization option kappa must be an INT64 literal between "
-               << "1 and " << std::numeric_limits<int32_t>::max();
+               << "Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA) "
+                  "must be an INT64 literal between 1 and "
+               << std::numeric_limits<int32_t>::max();
       }
     }
   }

@@ -66,6 +66,21 @@ TEST(LanguageOptions, TestStatementKindRestrictionWithDefault) {
   EXPECT_FALSE(options.SupportsStatementKind(RESOLVED_EXPLAIN_STMT));
 }
 
+TEST(LanguageOptions, ProtoInProductExternal) {
+  // Create external language options.
+  LanguageOptions options;
+  options.set_product_mode(PRODUCT_EXTERNAL);
+  EXPECT_FALSE(options.SupportsProtoTypes());
+
+  // Disable external proto.
+  options.DisableLanguageFeature(FEATURE_PROTO_BASE);
+  EXPECT_FALSE(options.SupportsProtoTypes());
+
+  // Enable external proto.
+  options.EnableLanguageFeature(FEATURE_PROTO_BASE);
+  EXPECT_TRUE(options.SupportsProtoTypes());
+}
+
 // Get the set of possible enum values for a proto enum type.
 // ENUM is the c++ enum type, and <descriptor> is its EnumDescriptor.
 template <class ENUM>

@@ -1,9 +1,9 @@
 # Anonymization query without the feature flag turned on
 select with anonymization sum() from table;
 --
-ERROR: Anonymization queries are not supported [at 1:1]
+ERROR: Unexpected keyword WITH [at 1:8]
 select with anonymization sum() from table;
-^
+       ^
 ==
 
 # Anonymization query without the feature flag turned on

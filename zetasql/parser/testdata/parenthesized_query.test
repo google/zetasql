@@ -190,14 +190,14 @@ QueryStatement [0-37] [select ((select...select 2))))]
     Select [0-37] [select ((select...select 2))))]
       SelectList [7-37] [((select 1)), ((((select 2))))]
         SelectColumn [7-19] [((select 1))]
-          ExpressionSubquery [8-18] [(select 1)]
+          ExpressionSubquery [7-19] [((select 1))]
             Query [9-17] [select 1]
               Select [9-17] [select 1]
                 SelectList [16-17] [1]
                   SelectColumn [16-17] [1]
                     IntLiteral(1) [16-17] [1]
         SelectColumn [21-37] [((((select 2))))]
-          ExpressionSubquery [24-34] [(select 2)]
+          ExpressionSubquery [21-37] [((((select 2))))]
             Query [25-33] [select 2]
               Select [25-33] [select 2]
                 SelectList [32-33] [2]
@@ -360,11 +360,12 @@ QueryStatement [0-43] [select  ((...select 2))]
           ExpressionSubquery [8-43] [(((select...select 2))]
             Query [9-42] [((select 1...(select 2)]
               SetOperation(UNION ALL) [9-42] [((select 1...(select 2)]
-                Query [11-19] [select 1]
-                  Select [11-19] [select 1]
-                    SelectList [18-19] [1]
-                      SelectColumn [18-19] [1]
-                        IntLiteral(1) [18-19] [1]
+                Query [10-20] [(select 1)]
+                  Query [11-19] [select 1]
+                    Select [11-19] [select 1]
+                      SelectList [18-19] [1]
+                        SelectColumn [18-19] [1]
+                          IntLiteral(1) [18-19] [1]
                 Query [33-41] [select 2]
                   Select [33-41] [select 2]
                     SelectList [40-41] [2]
@@ -372,10 +373,10 @@ QueryStatement [0-43] [select  ((...select 2))]
                         IntLiteral(2) [40-41] [2]
 --
 SELECT
-  ((
+  (((
     SELECT
       1
-    ) UNION ALL(
+    )) UNION ALL(
     SELECT
       2
     ))
@@ -424,9 +425,9 @@ select {{|ARRAY}} (((1+1)) union all (select 2))
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+ERROR: Syntax error: Unexpected keyword UNION [at 1:18]
 select  (((1+1)) union all (select 2))
-         ^
+                 ^
 --
 ALTERNATION GROUP: ARRAY
 --
@@ -492,7 +493,7 @@ QueryStatement [0-25] [select (((SELECT 1)) + 1)]
       SelectList [7-25] [(((SELECT 1)) + 1)]
         SelectColumn [7-25] [(((SELECT 1)) + 1)]
           BinaryExpression(+) [8-24] [((SELECT 1)) + 1]
-            ExpressionSubquery [9-19] [(SELECT 1)]
+            ExpressionSubquery [8-20] [((SELECT 1))]
               Query [10-18] [SELECT 1]
                 Select [10-18] [SELECT 1]
                   SelectList [17-18] [1]
@@ -535,7 +536,7 @@ QueryStatement [0-35] [SELECT ((SELECT...istinct x)))]
     Select [0-35] [SELECT ((SELECT...istinct x)))]
       SelectList [7-35] [((SELECT count(distinct x)))]
         SelectColumn [7-35] [((SELECT count(distinct x)))]
-          ExpressionSubquery [8-34] [(SELECT count(distinct x))]
+          ExpressionSubquery [7-35] [((SELECT count(distinct x)))]
             Query [9-33] [SELECT count(distinct x)]
               Select [9-33] [SELECT count(distinct x)]
                 SelectList [16-33] [count(distinct x)]
@@ -601,9 +602,9 @@ SELECT
 # won't go away when we fix bug 15826703.
 SELECT a, 1+((count(*) x x x))
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:15]
+ERROR: Syntax error: Unexpected identifier "x" [at 1:24]
 SELECT a, 1+((count(*) x x x))
-              ^
+                       ^
 ==
 
 # Another query that failed and crashed because of bugs 15885244 and 15826703.

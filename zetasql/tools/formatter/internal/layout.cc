@@ -20,7 +20,6 @@
 #include <cmath>
 #include <cstddef>
 #include <deque>
-#include <functional>
 #include <iterator>
 #include <memory>
 #include <ostream>
@@ -29,15 +28,12 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/tools/formatter/internal/chunk.h"
 #include "zetasql/tools/formatter/internal/parsed_file.h"
 #include "zetasql/tools/formatter/internal/token.h"
 #include "absl/container/btree_set.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/hash/hash.h"
-#include "absl/memory/memory.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -46,7 +42,6 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/flat_set.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql::formatter::internal {
@@ -1542,7 +1537,10 @@ absl::btree_set<int> StmtLayout::FindSiblingBreakpoints(const Line& line,
               IsExpressionInsideFromOrJoinClause(*previous_chunk))))) ||
           // There is a single line comment at the end of the previous line -
           // we cannot put a closing bracket there.
-          ChunkAt(closing_bracket - 1).EndsWithSingleLineComment()) {
+          ChunkAt(closing_bracket - 1).EndsWithSingleLineComment() ||
+          // Curly braced constructor "NEW Type{ foo: 1 }".
+          first_in_parentheses->LastToken().Is(
+              Token::Type::BRACED_CONSTR_COLON)) {
         // Add a line break before closing parenthesis.
         result.insert(closing_bracket);
       } else {

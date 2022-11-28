@@ -277,6 +277,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
 std::vector<FunctionTestCall> GetFunctionTestsParseJson();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJson();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJsonIncompatibleTypes();
+std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxBool();
+std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxInt64();
+std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxDouble();
+std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxString();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();
@@ -284,6 +288,8 @@ std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();
 std::vector<FunctionTestCall> GetFunctionTestsError();
 
 std::vector<FunctionTestCall> GetFunctionTestsBytesStringConversion();
+
+std::vector<FunctionTestCall> GetFunctionTestsRangeComparisons();
 
 }  // namespace zetasql
 

@@ -2,6 +2,8 @@
 
 # Hash functions
 
+ZetaSQL supports the following hash functions.
+
 ### FARM_FINGERPRINT
 ```
 FARM_FINGERPRINT(value)

@@ -137,7 +137,7 @@ For more information on the data types ZetaSQL supports, see
 Constraints require that any writes to one or more columns, such as inserts or
 updates, conform to certain rules.
 [Data manipulation language (DML)][data-manipulation-language]
-statements enforce constraints. ZetaSQL  supports the
+statements enforce constraints. ZetaSQL supports the
 following constraints:
 
 * **Primary key constraint.** A primary key consists of one or more columns, and
@@ -160,16 +160,16 @@ quickly. You can specify that sort order is ascending or descending. A unique
 or primary key index defines an indexed column that is subject to the uniqueness
 constraint.
 
-## Pseudo-columns 
+## Pseudocolumns 
 <a id="pseudo_columns"></a>
 
-ZetaSQL tables support pseudo-columns. Pseudo-columns contain data elements
+ZetaSQL tables support pseudocolumns. Pseudocolumns contain data elements
 that you can query like regular columns, but are not considered real columns in
-the table. Pseudo-column values may not be physically stored with each row, but
+the table. Pseudocolumn values may not be physically stored with each row, but
 the query engine will materialize a value for the column using some appropriate
 mechanism.
 
-For example, an engine might support a pseudo-column called `ROWNUM`, which
+For example, an engine might support a pseudocolumn called `ROWNUM`, which
 returns a number indicating the order in which a row was returned. You can then
 construct a query like this:
 
@@ -208,29 +208,50 @@ Here's an example of rows returned by this query:
 In this case,the schema for the **Singers** table does not define a column,
 `ROWNUM`. Instead, the engine materializes the data only when requested.
 
-To return a value of a pseudo-column, you must specify it in your query.
-Pseudo-columns do not show up in `SELECT *` statements. For example:
+To return a value of a pseudocolumn, you must specify it in your query.
+Pseudocolumns do not show up in `SELECT *` statements. For example:
 
 ```
 SELECT * FROM singers
 ```
 
 This query will return all named columns in the table, but won't include
-pseudo-columns such as `ROWNUM`.
+pseudocolumns such as `ROWNUM`.
 
 ## Value tables
 
-In addition to standard SQL tables, ZetaSQL supports _value tables_.
+In addition to standard SQL _tables_, ZetaSQL supports _value tables_.
 In a value table, rather than having rows made up of a list of columns, each row
-is a single value of a specific type. These types of tables are common when
-working with protocol buffers that may be stored in files instead of in the
-database. 
+is a single value of 
+a specific type, and there are no column names.
+
+In the following example, a value table for a `STRUCT` is produced with the
+`SELECT AS VALUE` statement:
+
+```sql
+SELECT * FROM (SELECT AS VALUE STRUCT(123 AS a, FALSE AS b))
+
++-----+-------+
+| a   | b     |
++-----+-------+
+| 123 | FALSE |
++-----+-------+
+```
+
+Value tables are often used but not limited for use with compound data types.
+A value table can consist of any supported ZetaSQL data type,
+although value tables consisting of scalar types occur less frequently than
+structs or protocol buffers.
+
+Value tables are common when working with protocol buffers that may be stored in
+files instead of in the database.
 
 <a id="value_table_example"></a>
+
 For example, the following protocol buffer definition, `AlbumReview`, contains
 data about the reviews for an album.
 
-```
+```sql
 message AlbumReview {
   optional string albumtitle = 1;
   optional string reviewer = 2;
@@ -240,100 +261,111 @@ message AlbumReview {
 
 A list of `AlbumReview` protocol buffers is stored in a file, `AlbumReviewData`.
 
-```
+```json
 {albumtitle: "Songs on a Broken Banjo", reviewer: "Dan Starling", review: "Off key"}
 {albumtitle: "Six and Seven", reviewer: "Alice Wayfarer", review: "Hurt my ears!"}
 {albumtitle: "Go! Go! Go!", reviewer: "Eustace Millson", review: "My kids loved it!"}
 ```
 
 The following query returns a stream of rows, with each row a value of type
-AlbumReview.
+`AlbumReview`.
 
-```
-SELECT a FROM AlbumReviewsData a
+```sql
+SELECT a FROM AlbumReviewsData AS a
 ```
 
 To get specific data, such as all album titles in
 the table, you have two options. You can specify `albumtitle` as a protocol
 buffer field:
 
-```
-SELECT a.albumtitle FROM AlbumReviewsData a
+```sql
+SELECT a.albumtitle FROM AlbumReviewsData AS a
 ```
 
-You can also access the top-level fields inside the value (if there
-are any) like columns in a regular SQL table:
+You can also access the top-level fields inside the value like columns in a
+table:
 
-```
+```sql
 SELECT albumtitle FROM AlbumReviewsData
 ```
 
-Value tables are not limited for use with compound data types.
-A value table can consist of any supported ZetaSQL data type,
-although value tables consisting of scalar types occur less frequently than
-structs or protocol buffers.
-
-### Returning query results as value tables
+### Return query results as a value table
 
 You can use ZetaSQL to return query results as a value table. This
-is useful when you want to create a compound value, such as a protocol buffer,
-from a query result and store it as a table that acts like a value table.
-To return a query result as a value table, use the `SELECT AS` statement. See
-[Query Syntax][query-syntax-value-tables] for more information and examples.
+is useful when you want to store a query result with a
+`PROTO` or  type as a
+table. To return a query result as a value table, use one of the following
+statements:
 
-#### Example: Copying protocol buffers using value tables
++ [`SELECT AS typename`][query-syntax-select]
++ [`SELECT AS STRUCT`][query-syntax-select]
++ [`SELECT AS VALUE`][query-syntax-select]
+
+Value tables can also occur as the output of the [`UNNEST`][unnest-operator]
+operator or a [subquery][subquery-concepts]. The [`WITH` clause][with-clause]
+introduces a value table if the subquery used produces a value table.
+
+In contexts where a query with exactly one column is expected, a value table
+query can be used instead. For example, scalar and
+array [subqueries][subquery-concepts] normally require a single-column query,
+but in ZetaSQL, they also allow using a value table query.
+
+Most commonly, value tables are used for protocol buffer value tables, where the
+table contains a stream of protocol buffer values. In this case, the top-level
+protocol buffer fields can be used in the same way that column names are used
+when querying a regular table.
+
+### Copy a protocol buffers using a value table
 
 In some cases you might not want to work with the data within a protocol buffer,
-but with the protocol buffer itself. 
+but with the protocol buffer itself.
 
 Using `SELECT AS VALUE` can help you keep your ZetaSQL statements as
 simple as possible. To illustrate this, consider the
 [AlbumReview][value-table-example] example specified earlier. To create a new
 table from this data, you could write:
 
-```
+```sql
 CREATE TABLE Reviews AS
-SELECT albumreviews FROM AlbumReviewData albumreviews;
+SELECT albumreviews FROM AlbumReviewData AS albumreviews;
 ```
 
-This statement creates a standard SQL table that has a single column,
+This statement creates a table that has a single column,
 `albumreviews`, which has a protocol buffer value of type
 `AlbumReviewData`. To retrieve all album titles from this table, you'd need to
 write a query similar to:
 
-```
+```sql
 SELECT r.albumreviews.albumtitle
-FROM Reviews r;
+FROM Reviews AS r;
 ```
 
 Now, consider the same initial `CREATE TABLE` statement, this time modified to
 use `SELECT AS VALUE`:
 
-```
+```sql
 CREATE TABLE Reviews AS
-SELECT AS VALUE albumreviews FROM AlbumReview albumreviews;
+SELECT AS VALUE albumreviews FROM AlbumReview AS albumreviews;
 ```
 
-This statement creates a value table, instead of a standard SQL table. As a
-result, you can query any protocol buffer field as if it was a column. Now, if
+This statement creates a value table, instead of table. As a result, you can
+query any protocol buffer field as if it was a column. Now, if
 you want to retrieve all album titles from this table, you can write a much
 simpler query:
 
-```
+```sql
 SELECT albumtitle
 FROM Reviews;
 ```
 
-### Set operations on value tables
+### Use a set operation on a value table
 
-Normally, a `SET` operation like `UNION ALL` expects all tables to be either
-standard SQL tables or value tables. However, ZetaSQL allows you to
-combine standard SQL tables with value tables&mdash;provided that the
-standard SQL table consists of a single column with a type that matches the
+In `SET` operations like `UNION ALL` you can combine tables with value tables,
+provided that the table consists of a single column with a type that matches the
 value table's type. The result of these operations is always a value table.
 
 For example, consider the following definition for a table,
-**SingersAndAlbums**.
+`SingersAndAlbums`.
 
 <table>
 <thead>
@@ -361,78 +393,68 @@ For example, consider the following definition for a table,
 Next, we have a file, `AlbumReviewData` that contains a list of `AlbumReview`
 protocol buffers.
 
-```
+```sql
 {albumtitle: "Songs on a Broken Banjo", reviewer: "Dan Starling", review: "Off key"}
 {albumtitle: "Six and Seven", reviewer: "Alice Wayfarer", review: "Hurt my ears!"}
 {albumtitle: "Go! Go! Go!", reviewer: "Eustace Millson", review: "My kids loved it!"}
 ```
 
 The following query combines the `AlbumReview` data from the
-**SingersAndAlbums** with the data stored in the `AlbumReviewData` file and
-stores it in a new value table, **AllAlbumReviews**.
+`SingersAndAlbums` table with the data stored in the `AlbumReviewData` file and
+stores it in a new value table, `AllAlbumReviews`.
 
-```
-SELECT AS VALUE sa.AlbumReview FROM SingersAndAlbums sa
+```sql
+SELECT AS VALUE sa.AlbumReview FROM SingersAndAlbums AS sa
 UNION ALL
-SELECT a FROM AlbumReviewData a
+SELECT a FROM AlbumReviewData AS a
 ```
 
-### Pseudo-columns and value tables
+### Pseudocolumns and value tables
 
-The [Pseudo-columns][pseudo-columns] section  describes how pseudo-columns
-work with standard SQL tables. In most cases, pseudo-columns work the same with
-value tables. For example, consider this query:
+In most cases, [pseudocolumns][pseudocolumns] work the same with
+value tables as they do with tables.
 
-```
-SELECT a.ROWNUM, a.albumtitle AS title FROM AlbumReviewData a
-```
+For example, consider the following query and its results. This example works
+because `a` is an alias of the table `AlbumReviewData`, and this table has a
+`ROWNUM` pseudocolumn. As a result, `AlbumReviewData AS a` represents the
+scanned rows, not the value.
 
-The following table demonstrates the result of this query:
+```sql
+-- This works
+SELECT a.ROWNUM, a.albumtitle AS title FROM AlbumReviewData AS a
 
-<table>
-<thead>
-<tr>
-<th>ROWNUM</th>
-<th>title</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>"Songs on a Broken Banjo"</td>
-</tr>
-<tr>
-<td>2</td>
-<td>"Six and Seven"</td>
-</tr>
-<tr>
-<td>3</td>
-<td>"Go! Go! Go!"</td>
-</tr>
-</tbody>
-</table>
-
-This example works because `a` is an alias of the table `AlbumReviewData`, and
-this table has a `ROWNUM` pseudo-column. As a result, `AlbumReviewData a`
-represents the scanned rows, not the value.
-
-However, if you tried to construct the query like this:
-
-```
-SELECT a.ROWNUM, a.albumtitle AS title FROM (SELECT a FROM AlbumReviewData a)
++--------+---------------------------+
+| ROWNUM | title                     |
++--------+---------------------------+
+| 1      | "Songs on a Broken Banjo" |
+| 2      | "Six and Seven"           |
+| 3      | "Go! Go! Go!"             |
++--------+---------------------------+
 ```
 
-This query does not work. The reason it fails is because the subquery, `SELECT
-a FROM AlbumReviewData a`, returns an `AlbumReviewData` value only, and this
-value does not have a field called `ROWNUM`.
+However, if you try to construct the query as follows, the query does not work.
+The reason it fails is because the subquery,
+`SELECT a FROM AlbumReviewData AS a`, returns the `AlbumReviewData` value only,
+and this value does not have a field called `ROWNUM`.
+
+```sql
+-- This fails
+SELECT a.ROWNUM, a.albumtitle AS title FROM (SELECT a FROM AlbumReviewData AS a)
+```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
+[subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
+
 [value-table-example]: #value_table_example
 
-[pseudo-columns]: #pseudo_columns
+[pseudocolumns]: #pseudo_columns
 
-[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#value_tables
+[unnest-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[with-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#with_clause
+
+[query-syntax-select]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_list
 
 <!-- mdlint on -->
 

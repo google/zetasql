@@ -32,6 +32,7 @@
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
@@ -98,7 +99,6 @@ struct QueryGroupByAndAggregateInfo {
   // (sub)query.
   bool has_group_by = false;
   bool has_aggregation = false;
-  bool has_anonymized_aggregation = false;
 
   // Map from an aggregate function ASTNode to the related
   // ResolvedComputedColumn.  Populated during the first pass resolution of
@@ -578,12 +578,11 @@ class QueryResolutionInfo {
   }
   bool has_group_by() const { return group_by_info_.has_group_by; }
 
-  void set_has_anonymized_aggregation(bool has_anonymized_aggregation) {
-    group_by_info_.has_anonymized_aggregation = has_anonymized_aggregation;
+  void set_select_with_mode(SelectWithMode select_with_mode) {
+    select_with_mode_ = select_with_mode;
   }
-  bool has_anonymized_aggregation() const {
-    return group_by_info_.has_anonymized_aggregation;
-  }
+
+  SelectWithMode select_with_mode() const { return select_with_mode_; }
 
   void set_has_having(bool has_having) { has_having_ = has_having; }
   bool has_having() const { return has_having_; }
@@ -688,6 +687,9 @@ class QueryResolutionInfo {
   // SELECT DISTINCT.
 
   QueryGroupByAndAggregateInfo group_by_info_;
+
+  // Select mode defined by SELECT WITH <identifier> clause.
+  SelectWithMode select_with_mode_ = SelectWithMode::NONE;
 
   // HAVING information.
 

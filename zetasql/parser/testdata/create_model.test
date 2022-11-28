@@ -1182,3 +1182,357 @@ SELECT
   *
 FROM
   t2
+==
+
+# Create model with one query in aliased query list
+create model m
+as
+(
+  a1 as (select * from t1)
+)
+--
+CreateModelStatement [0-48] [create model...from t1) )]
+  PathExpression [13-14] [m]
+    Identifier(m) [13-14] [m]
+  AliasedQueryList [22-46] [a1 as (select * from t1)]
+    WithClauseEntry [22-46] [a1 as (select * from t1)]
+      Identifier(a1) [22-24] [a1]
+      Query [29-45] [select * from t1]
+        Select [29-45] [select * from t1]
+          SelectList [36-37] [*]
+            SelectColumn [36-37] [*]
+              Star(*) [36-37] [*]
+          FromClause [38-45] [from t1]
+            TablePathExpression [43-45] [t1]
+              PathExpression [43-45] [t1]
+                Identifier(t1) [43-45] [t1]
+--
+CREATE MODEL m AS
+(
+a1 AS (
+  SELECT
+    *
+  FROM
+    t1
+))
+==
+
+# Create model with multiple queries in aliased query list
+create model m
+as
+(
+  a1 as (select * from t1),
+  a2 as (select * from t2)
+)
+--
+CreateModelStatement [0-76] [create model...from t2) )]
+  PathExpression [13-14] [m]
+    Identifier(m) [13-14] [m]
+  AliasedQueryList [22-74] [a1 as (select...* from t2)]
+    WithClauseEntry [22-46] [a1 as (select * from t1)]
+      Identifier(a1) [22-24] [a1]
+      Query [29-45] [select * from t1]
+        Select [29-45] [select * from t1]
+          SelectList [36-37] [*]
+            SelectColumn [36-37] [*]
+              Star(*) [36-37] [*]
+          FromClause [38-45] [from t1]
+            TablePathExpression [43-45] [t1]
+              PathExpression [43-45] [t1]
+                Identifier(t1) [43-45] [t1]
+    WithClauseEntry [50-74] [a2 as (select * from t2)]
+      Identifier(a2) [50-52] [a2]
+      Query [57-73] [select * from t2]
+        Select [57-73] [select * from t2]
+          SelectList [64-65] [*]
+            SelectColumn [64-65] [*]
+              Star(*) [64-65] [*]
+          FromClause [66-73] [from t2]
+            TablePathExpression [71-73] [t2]
+              PathExpression [71-73] [t2]
+                Identifier(t2) [71-73] [t2]
+--
+CREATE MODEL m AS
+(
+a1 AS (
+  SELECT
+    *
+  FROM
+    t1
+),
+a2 AS (
+  SELECT
+    *
+  FROM
+    t2
+))
+==
+
+# Create model with select query within parenthesis. It should be treated as
+# ASTQuery.
+create model m
+as
+(select * from t1)
+--
+CreateModelStatement [0-36] [create model...* from t1)]
+  PathExpression [13-14] [m]
+    Identifier(m) [13-14] [m]
+  Query [18-36] [(select * from t1)]
+    Query [19-35] [select * from t1]
+      Select [19-35] [select * from t1]
+        SelectList [26-27] [*]
+          SelectColumn [26-27] [*]
+            Star(*) [26-27] [*]
+        FromClause [28-35] [from t1]
+          TablePathExpression [33-35] [t1]
+            PathExpression [33-35] [t1]
+              Identifier(t1) [33-35] [t1]
+--
+CREATE MODEL m AS
+(
+SELECT
+  *
+FROM
+  t1
+)
+==
+
+# Create model with a with clause inside of parenthesis. It should be treated as
+# ASTQuery
+create model m
+as
+(with a1 as (select * from t1) select * from a1)
+--
+CreateModelStatement [0-66] [create model...* from a1)]
+  PathExpression [13-14] [m]
+    Identifier(m) [13-14] [m]
+  Query [18-66] [(with a1 as...* from a1)]
+    Query [19-65] [with a1 as...* from a1]
+      WithClause [19-48] [with a1 as (select * from t1)]
+        WithClauseEntry [24-48] [a1 as (select * from t1)]
+          Identifier(a1) [24-26] [a1]
+          Query [31-47] [select * from t1]
+            Select [31-47] [select * from t1]
+              SelectList [38-39] [*]
+                SelectColumn [38-39] [*]
+                  Star(*) [38-39] [*]
+              FromClause [40-47] [from t1]
+                TablePathExpression [45-47] [t1]
+                  PathExpression [45-47] [t1]
+                    Identifier(t1) [45-47] [t1]
+      Select [49-65] [select * from a1]
+        SelectList [56-57] [*]
+          SelectColumn [56-57] [*]
+            Star(*) [56-57] [*]
+        FromClause [58-65] [from a1]
+          TablePathExpression [63-65] [a1]
+            PathExpression [63-65] [a1]
+              Identifier(a1) [63-65] [a1]
+--
+CREATE MODEL m AS
+(WITH
+  a1 AS (
+    SELECT
+      *
+    FROM
+      t1
+  )
+SELECT
+  *
+FROM
+  a1
+)
+==
+
+# Create model with aliased query list. Missing parenthesis for the query should
+# throw error.
+create model m
+as
+(
+  a1 as select * from t1
+)
+--
+ERROR: Syntax error: Expected "(" but got keyword SELECT [at 4:9]
+  a1 as select * from t1
+        ^
+==
+
+# Create model with aliased query list. Missing comma among different queries
+# should throw error.
+create model m
+as
+(
+  a1 as (select * from t1)
+  a2 as (select * from t2)
+)
+--
+ERROR: Syntax error: Expected ")" or "," but got identifier "a2" [at 5:3]
+  a2 as (select * from t2)
+  ^
+==
+
+# Create model with aliased query list without surrounding parenthsis should
+# fail.
+create model m
+as
+  a1 as (select * from t1)
+  a2 as (select * from t2)
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "a1" [at 3:3]
+  a1 as (select * from t1)
+  ^
+==
+
+# Create model with aliased query list. Each aliased query should not be
+# surrounded by parenthesis.
+create model m
+as
+(
+  (a1 as (select * from t1)),
+  (a2 as (select * from t2))
+)
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "a1" [at 4:4]
+  (a1 as (select * from t1)),
+   ^
+==
+
+# Create model with aliased query list. Trailing comma for the last query should
+# fail.
+create model m
+as
+(
+  a1 as (select * from t1),
+  a2 as (select * from t2),
+)
+--
+ERROR: Syntax error: Unexpected ")" [at 6:1]
+)
+^
+==
+
+# Create model with aliased query list. Nested outer parenthesis should fail.
+create model m
+as
+(
+  (
+    a1 as (select * from t1),
+    a2 as (select * from t2)
+  )
+)
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "a1" [at 5:5]
+    a1 as (select * from t1),
+    ^
+==
+
+# Create model with aliased query list. Multiple with clauses should fail.
+create model m
+as
+(
+  with a1 as (select * from t1),
+  with a2 as (select * from t2)
+)
+--
+ERROR: Syntax error: Expected keyword SELECT but got keyword WITH [at 5:3]
+  with a2 as (select * from t2)
+  ^
+==
+
+# Create model with empty aliased query list should fail.
+create model m
+as ()
+--
+ERROR: Syntax error: Unexpected ")" [at 2:5]
+as ()
+    ^
+==
+
+# Create model with aliased query list with WITH clause in the subquery is
+# permitted.
+create model m
+as
+(
+  a1 as (with aa1 as (select * from tt1) select * from aa1),
+  a2 as (with aa2 as (select * from tt2) select * from aa2)
+)
+--
+CreateModelStatement [0-142] [create model...from aa2) )]
+  PathExpression [13-14] [m]
+    Identifier(m) [13-14] [m]
+  AliasedQueryList [22-140] [a1 as (with...from aa2)]
+    WithClauseEntry [22-79] [a1 as (with...from aa1)]
+      Identifier(a1) [22-24] [a1]
+      Query [29-78] [with aa1 as...* from aa1]
+        WithClause [29-60] [with aa1 as...from tt1)]
+          WithClauseEntry [34-60] [aa1 as (select * from tt1)]
+            Identifier(aa1) [34-37] [aa1]
+            Query [42-59] [select * from tt1]
+              Select [42-59] [select * from tt1]
+                SelectList [49-50] [*]
+                  SelectColumn [49-50] [*]
+                    Star(*) [49-50] [*]
+                FromClause [51-59] [from tt1]
+                  TablePathExpression [56-59] [tt1]
+                    PathExpression [56-59] [tt1]
+                      Identifier(tt1) [56-59] [tt1]
+        Select [61-78] [select * from aa1]
+          SelectList [68-69] [*]
+            SelectColumn [68-69] [*]
+              Star(*) [68-69] [*]
+          FromClause [70-78] [from aa1]
+            TablePathExpression [75-78] [aa1]
+              PathExpression [75-78] [aa1]
+                Identifier(aa1) [75-78] [aa1]
+    WithClauseEntry [83-140] [a2 as (with...from aa2)]
+      Identifier(a2) [83-85] [a2]
+      Query [90-139] [with aa2 as...* from aa2]
+        WithClause [90-121] [with aa2 as...from tt2)]
+          WithClauseEntry [95-121] [aa2 as (select * from tt2)]
+            Identifier(aa2) [95-98] [aa2]
+            Query [103-120] [select * from tt2]
+              Select [103-120] [select * from tt2]
+                SelectList [110-111] [*]
+                  SelectColumn [110-111] [*]
+                    Star(*) [110-111] [*]
+                FromClause [112-120] [from tt2]
+                  TablePathExpression [117-120] [tt2]
+                    PathExpression [117-120] [tt2]
+                      Identifier(tt2) [117-120] [tt2]
+        Select [122-139] [select * from aa2]
+          SelectList [129-130] [*]
+            SelectColumn [129-130] [*]
+              Star(*) [129-130] [*]
+          FromClause [131-139] [from aa2]
+            TablePathExpression [136-139] [aa2]
+              PathExpression [136-139] [aa2]
+                Identifier(aa2) [136-139] [aa2]
+--
+CREATE MODEL m AS
+(
+a1 AS (
+  WITH
+    aa1 AS (
+      SELECT
+        *
+      FROM
+        tt1
+    )
+  SELECT
+    *
+  FROM
+    aa1
+),
+a2 AS (
+  WITH
+    aa2 AS (
+      SELECT
+        *
+      FROM
+        tt2
+    )
+  SELECT
+    *
+  FROM
+    aa2
+))

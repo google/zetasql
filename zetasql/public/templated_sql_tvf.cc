@@ -156,7 +156,8 @@ absl::Status TemplatedSQLTVF::Resolve(
   // Create a separate new parser and parse the templated TVFs SQL query body.
   // Use the same ID string pool from the original parser.
   ParserOptions parser_options(analyzer_options->id_string_pool(),
-                               analyzer_options->arena());
+                               analyzer_options->arena(),
+                               analyzer_options->language());
   std::unique_ptr<ParserOutput> parser_output;
   bool at_end_of_input = false;
   ParseResumeLocation this_parse_resume_location(parse_resume_location_);

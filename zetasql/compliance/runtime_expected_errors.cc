@@ -306,8 +306,19 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Timezone is not allowed in (.+)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "TIMESTAMP_BUCKET doesn't support bucket width INTERVAL with nanoseconds "
-      "precision"));
+      "(TIMESTAMP|DATETIME)_BUCKET doesn't support bucket width INTERVAL with "
+      "nanoseconds precision"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "(TIMESTAMP|DATETIME|DATE)_BUCKET doesn't support zero bucket width "
+      "INTERVAL"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "(TIMESTAMP|DATETIME|DATE)_BUCKET doesn't support negative bucket width "
+      "INTERVAL"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Bucket for .* is outside of (timestamp|datetime) range"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "TIMESTAMP_BUCKET doesn't support bucket width INTERVAL with non-zero "
@@ -322,13 +333,15 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "and NANOSECOND parts"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "TIMESTAMP_BUCKET doesn't support zero bucket width INTERVAL"));
+      "(DATETIME|DATE)_BUCKET requires exactly one non-zero INTERVAL part in "
+      "bucket width"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "TIMESTAMP_BUCKET doesn't support negative bucket width INTERVAL"));
+      "DATE_BUCKET requires exactly one non-zero INTERVAL part in bucket "
+      "width"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kOutOfRange,
-      "Bucket for .* is outside of timestamp range"));
+      absl::StatusCode::kInvalidArgument,
+      "No matching signature for function DATETIME_BUCKET"));
 
   // Interval Errors
   //
@@ -448,6 +461,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   //
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument, "Grid gounters overflowed.*"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument, "Invalid weight value.*"));
 
   // GEOGRAPHY related errors
   //

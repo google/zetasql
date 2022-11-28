@@ -2,6 +2,7 @@
 
 # Operators
 
+ZetaSQL supports operators.
 Operators are represented by special characters or keywords; they do not use
 function call syntax. An operator manipulates any number of data inputs, also
 called operands, and returns a result.
@@ -802,7 +803,7 @@ WITH
     SELECT
       [
         NEW Album(
-          'OneWay' AS album_name,
+          'One Way' AS album_name,
           ['North', 'South'] AS song,
           'Crossroads' AS band),
         NEW Album(
@@ -820,8 +821,9 @@ SELECT FLATTEN(albums_array.song) AS songs FROM AlbumList
 +------------------------------+
 ```
 
-The following example extracts a flattened array of album names from a
-table called `AlbumList` that contains a proto-typed column called `Album`.
+The following example extracts a flattened array of album names, one album name
+per row. The data comes from a table called `AlbumList` that contains a
+proto-typed column called `Album`.
 
 ```sql
 WITH
@@ -831,7 +833,7 @@ WITH
         (
           SELECT
             NEW Album(
-              'OneWay' AS album_name,
+              'One Way' AS album_name,
               ['North', 'South'] AS song,
               'Crossroads' AS band) AS album_col
         ),
@@ -849,7 +851,8 @@ SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
 +----------------------+
 | names                |
 +----------------------+
-| [OneWay,After Hours] |
+| One Way              |
+| After Hours          |
 +----------------------+
 ```
 

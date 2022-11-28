@@ -1000,6 +1000,10 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
               absl::bind_front(&GenerateDateTimestampArrayFunctionSQL,
                                "GENERATE_TIMESTAMP_ARRAY")));
 
+  // TODO: implement the behavior below
+  // If there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
+  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
+  // resolution of the body of the lambda function.
   InsertFunction(
       functions, options, "array_filter", SCALAR,
       /*signatures=*/
@@ -1015,15 +1019,37 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
           options.language_options.LanguageFeatureEnabled(
               FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
+  // The collation propagation on the signature:
+  // (
+  //   ARRAY_TYPE_ANY_1,
+  //   Lambda(TYPE_ANY_1 [, int64]) -> TYPE_ANY_2)
+  // ) -> ARRAY_TYPE_ANY_2
+  //
+  // 1) on the first argument, setting collation_mode to AFFECTS_NONE so that
+  // the collation on the ARRAY_TYPE_ANY_1 doesn't directly propagate to the
+  // return type.
+  // TODO: implement the behavior in 2)
+  // 2) the lambda resolution is not affected by the collation_mode setting. If
+  // there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
+  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
+  // resolution of the body of the lambda function.
+  // 3) the collation of return type ARRAY_TYPE_ANY_2 is decided by lambda
+  // return type TYPE_ANY_2.
   InsertFunction(
       functions, options, "array_transform", SCALAR,
       /*signatures=*/
-      {{ARG_ARRAY_TYPE_ANY_2,
-        {ARG_ARRAY_TYPE_ANY_1,
+      {{{ARG_ARRAY_TYPE_ANY_2,
+         FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+        {{ARG_ARRAY_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_argument_collation_mode(
+              FunctionEnums::AFFECTS_NONE)},
          FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2)},
         FN_ARRAY_TRANSFORM},
-       {ARG_ARRAY_TYPE_ANY_2,
-        {ARG_ARRAY_TYPE_ANY_1,
+       {{ARG_ARRAY_TYPE_ANY_2,
+         FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+        {{ARG_ARRAY_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_argument_collation_mode(
+              FunctionEnums::AFFECTS_NONE)},
          FunctionArgumentType::Lambda({ARG_TYPE_ANY_1, int64_type},
                                       ARG_TYPE_ANY_2)},
         FN_ARRAY_TRANSFORM_WITH_INDEX}},
@@ -1035,6 +1061,11 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   supports_equality.set_must_support_equality();
   FunctionArgumentTypeOptions element_supports_equality;
   element_supports_equality.set_array_element_must_support_equality();
+
+  // TODO: implement the behavior below
+  // If there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
+  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
+  // resolution of the body of the lambda function.
   InsertFunction(
       functions, options, "array_includes", SCALAR,
       /*signatures=*/
@@ -1090,70 +1121,6 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                  {{ARG_ARRAY_TYPE_ANY_1,
                    {ARG_ARRAY_TYPE_ANY_1, int64_type, int64_type},
                    FN_ARRAY_SLICE}});
-
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_4_STRING_AS_ENUM_ARGUMENT)) {
-    InsertFunction(
-        functions, options, "array_offset", SCALAR,
-        /*signatures=*/
-        {{int64_type,
-          {{ARG_ARRAY_TYPE_ANY_1,
-            FunctionArgumentTypeOptions()
-                .set_array_element_must_support_equality()},
-           {ARG_TYPE_ANY_1,
-            FunctionArgumentTypeOptions().set_must_support_equality()},
-           // TODO: Change 3rd argument of the signature to an ENUM
-           // type when ENUM is productionized.
-           {string_type, FunctionArgumentTypeOptions(OPTIONAL)
-                             .set_must_be_constant()
-                             .set_default(Value::String("FIRST"))}},
-          FN_ARRAY_OFFSET,
-          FunctionSignatureOptions().set_uses_operation_collation()}});
-
-    InsertFunction(
-        functions, options, "array_offsets", SCALAR,
-        /*signatures=*/
-        {{int64_array_type,
-          {{ARG_ARRAY_TYPE_ANY_1,
-            FunctionArgumentTypeOptions()
-                .set_array_element_must_support_equality()},
-           {ARG_TYPE_ANY_1,
-            FunctionArgumentTypeOptions().set_must_support_equality()}},
-          FN_ARRAY_OFFSETS,
-          FunctionSignatureOptions().set_uses_operation_collation()}});
-
-    InsertFunction(
-        functions, options, "array_find", SCALAR,
-        /*signatures=*/
-        {{ARG_TYPE_ANY_1,
-          {{ARG_ARRAY_TYPE_ANY_1,
-            FunctionArgumentTypeOptions()
-                .set_uses_array_element_for_collation()
-                .set_array_element_must_support_equality()},
-           {ARG_TYPE_ANY_1,
-            FunctionArgumentTypeOptions().set_must_support_equality()},
-           // TODO: Change 3rd argument of the signature to an ENUM
-           // type when ENUM is productionized.
-           {string_type, FunctionArgumentTypeOptions(OPTIONAL)
-                             .set_must_be_constant()
-                             .set_default(Value::String("FIRST"))}},
-          FN_ARRAY_FIND,
-          FunctionSignatureOptions().set_uses_operation_collation()}});
-
-    InsertFunction(
-        functions, options, "array_find_all", SCALAR,
-        /*signatures=*/
-        {{{ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
-                                     .set_uses_array_element_for_collation()},
-          {{ARG_ARRAY_TYPE_ANY_1,
-            FunctionArgumentTypeOptions()
-                .set_uses_array_element_for_collation()
-                .set_array_element_must_support_equality()},
-           {ARG_TYPE_ANY_1,
-            FunctionArgumentTypeOptions().set_must_support_equality()}},
-          FN_ARRAY_FIND_ALL,
-          FunctionSignatureOptions().set_uses_operation_collation()}});
-  }
 
   FunctionOptions function_is_volatile;
   function_is_volatile.set_volatility(FunctionEnums::VOLATILE);
@@ -1288,6 +1255,84 @@ void GetArrayAggregationFunctions(
           FN_ARRAY_MAX,
           FunctionSignatureOptions().set_uses_operation_collation()}});
   }
+}
+
+absl::Status GetArrayFindFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions, NameToTypeMap* types) {
+  const Type* int64_type = type_factory->get_int64();
+  const Type* string_type = type_factory->get_string();
+  const Type* bytes_type = type_factory->get_bytes();
+  const ArrayType* array_string_type;
+  ZETASQL_CHECK_OK(type_factory->MakeArrayType(string_type, &array_string_type));
+  const ArrayType* array_bytes_type;
+  ZETASQL_CHECK_OK(type_factory->MakeArrayType(bytes_type, &array_bytes_type));
+  const Type* int64_array_type = types::Int64ArrayType();
+  const Type* array_find_mode_type = types::ArrayFindModeEnumType();
+
+  const Function::Mode SCALAR = Function::SCALAR;
+
+  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
+      FunctionArgumentType::OPTIONAL;
+
+  ZETASQL_RETURN_IF_ERROR(InsertFunctionAndTypes(
+      functions, types, options, "array_offset", SCALAR,
+      /*signatures=*/
+      {{int64_type,
+        {{ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                                    .set_array_element_must_support_equality()},
+         {ARG_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_must_support_equality()},
+         // The default value for optional enum argument is "FIRST".
+         {array_find_mode_type,
+          FunctionArgumentTypeOptions(OPTIONAL).set_default(
+              Value::Enum(array_find_mode_type->AsEnum(), 1))}},
+        FN_ARRAY_OFFSET,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
+      /* function_options=*/{}, {array_find_mode_type}));
+
+  InsertFunction(
+      functions, options, "array_offsets", SCALAR,
+      /*signatures=*/
+      {{int64_array_type,
+        {{ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                                    .set_array_element_must_support_equality()},
+         {ARG_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_must_support_equality()}},
+        FN_ARRAY_OFFSETS,
+        FunctionSignatureOptions().set_uses_operation_collation()}});
+
+  ZETASQL_RETURN_IF_ERROR(InsertFunctionAndTypes(
+      functions, types, options, "array_find", SCALAR,
+      /*signatures=*/
+      {{ARG_TYPE_ANY_1,
+        {{ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                                    .set_uses_array_element_for_collation()
+                                    .set_array_element_must_support_equality()},
+         {ARG_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_must_support_equality()},
+         // The default value for optional enum argument is "FIRST".
+         {array_find_mode_type,
+          FunctionArgumentTypeOptions(OPTIONAL).set_default(
+              Value::Enum(array_find_mode_type->AsEnum(), 1))}},
+        FN_ARRAY_FIND,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
+      /* function_options=*/{}, {array_find_mode_type}));
+
+  InsertFunction(
+      functions, options, "array_find_all", SCALAR,
+      /*signatures=*/
+      {{{ARG_ARRAY_TYPE_ANY_1,
+         FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+        {{ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                                    .set_uses_array_element_for_collation()
+                                    .set_array_element_must_support_equality()},
+         {ARG_TYPE_ANY_1,
+          FunctionArgumentTypeOptions().set_must_support_equality()}},
+        FN_ARRAY_FIND_ALL,
+        FunctionSignatureOptions().set_uses_operation_collation()}});
+
+  return absl::OkStatus();
 }
 
 // This function requires <type_factory>, <functions> to be not nullptr.
@@ -1578,6 +1623,27 @@ void GetJSONFunctions(TypeFactory* type_factory,
                      {{bool_type, {json_type}, FN_JSON_TO_BOOL}});
       InsertFunction(functions, options, "json_type", SCALAR,
                      {{string_type, {json_type}, FN_JSON_TYPE}});
+    }
+
+    if (options.language_options.LanguageFeatureEnabled(
+            FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS)) {
+      InsertFunction(functions, options, "lax_bool", SCALAR,
+                     {{bool_type, {json_type}, FN_JSON_LAX_TO_BOOL}});
+      InsertFunction(functions, options, "lax_int64", SCALAR,
+                     {{int64_type, {json_type}, FN_JSON_LAX_TO_INT64}});
+      zetasql::FunctionOptions function_options;
+      if (options.language_options.product_mode() == PRODUCT_INTERNAL) {
+        function_options.set_alias_name("lax_float64");
+      }
+      InsertFunction(functions, options,
+                     options.language_options.product_mode() == PRODUCT_EXTERNAL
+                         ? "lax_float64"
+                         : "lax_double",
+                     SCALAR,
+                     {{double_type, {json_type}, FN_JSON_LAX_TO_DOUBLE}},
+                     function_options);
+      InsertFunction(functions, options, "lax_string", SCALAR,
+                     {{string_type, {json_type}, FN_JSON_LAX_TO_STRING}});
     }
   }
 

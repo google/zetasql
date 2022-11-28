@@ -32,8 +32,6 @@
 
 
 #include "zetasql/base/logging.h"
-#include "zetasql/common/errors.h"
-#include "zetasql/common/json_parser.h"
 #include "zetasql/public/numeric_parser.h"
 #include <cstdint>  
 #include "absl/base/optimization.h"
@@ -44,7 +42,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "single_include/nlohmann/json.hpp"
-#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -243,62 +240,6 @@ class JSONValueParserBase {
   absl::Status status_;
 };
 
-// The parser implementation that uses proto based legacy ZetaSQL JSON parser.
-class JSONValueLegacyParser : public ::zetasql::JSONParser,
-                              public JSONValueParserBase {
- public:
-  JSONValueLegacyParser(absl::string_view str, JSON& value,
-                        std::optional<int> max_nesting)
-      : zetasql::JSONParser(str), value_builder_(value, max_nesting) {}
-
- protected:
-  bool BeginObject() override {
-    return MaybeUpdateStatus(value_builder_.BeginObject());
-  }
-
-  bool EndObject() override {
-    return MaybeUpdateStatus(value_builder_.EndObject());
-  }
-
-  bool BeginMember(const std::string& key) override {
-    return MaybeUpdateStatus(value_builder_.BeginMember(key));
-  }
-
-  bool BeginArray() override {
-    return MaybeUpdateStatus(value_builder_.BeginArray());
-  }
-
-  bool EndArray() override {
-    return MaybeUpdateStatus(value_builder_.EndArray());
-  }
-
-  bool ParsedString(const std::string& str) override {
-    return MaybeUpdateStatus(value_builder_.ParsedString(str));
-  }
-
-  bool ParsedNumber(absl::string_view str) override {
-    return MaybeUpdateStatus(value_builder_.ParsedNumber(str));
-  }
-
-  bool ParsedBool(bool val) override {
-    return MaybeUpdateStatus(value_builder_.ParsedBool(val));
-  }
-  bool ParsedNull() override {
-    return MaybeUpdateStatus(value_builder_.ParsedNull());
-  }
-
-  bool ReportFailure(const std::string& error_message) override {
-    if (status().ok()) {
-      MaybeUpdateStatus(absl::OutOfRangeError(
-          absl::Substitute("Parsing JSON string failed: $0", error_message)));
-    }
-    return false;
-  }
-
- private:
-  JSONValueBuilder value_builder_;
-};
-
 // The parser implementation that uses nlohmann library implementation based on
 // the JSON RFC.
 //
@@ -475,16 +416,10 @@ class JSONValueStandardValidator : public JSONValueParserBase {
 
 absl::Status IsValidJSON(absl::string_view str,
                          const JSONParsingOptions& parsing_options) {
-  if (parsing_options.legacy_mode) {
-    // TODO: This is inefficient as it builds a JSONValue. Build a
-    // more efficient version.
-    return JSONValue::ParseJSONString(str, parsing_options).status();
-  } else {
-    JSONValueStandardValidator validator(parsing_options.strict_number_parsing,
-                                         parsing_options.max_nesting);
-    JSON::sax_parse(str, &validator);
-    return validator.status();
-  }
+  JSONValueStandardValidator validator(parsing_options.strict_number_parsing,
+                                       parsing_options.max_nesting);
+  JSON::sax_parse(str, &validator);
+  return validator.status();
 }
 
 // NOTE: DO NOT CHANGE THIS STRUCT. The JSONValueRef code assumes that
@@ -496,27 +431,11 @@ struct JSONValue::Impl {
 StatusOr<JSONValue> JSONValue::ParseJSONString(
     absl::string_view str, JSONParsingOptions parsing_options) {
   JSONValue json;
-  if (parsing_options.legacy_mode) {
-    ZETASQL_RET_CHECK(!parsing_options.strict_number_parsing)
-        << "Strict number parsing not supported in legacy mode.";
-    JSONValueLegacyParser parser(str, json.impl_->value,
+  JSONValueStandardParser parser(json.impl_->value,
+                                 parsing_options.strict_number_parsing,
                                  parsing_options.max_nesting);
-    if (!parser.Parse()) {
-      if (parser.status().ok()) {
-        return absl::InternalError(
-            "Parsing JSON failed but didn't return an error");
-      } else {
-        return parser.status();
-      }
-    }
-  } else {
-    JSONValueStandardParser parser(json.impl_->value,
-                                   parsing_options.strict_number_parsing,
-                                   parsing_options.max_nesting);
-    JSON::sax_parse(str, &parser);
-    ZETASQL_RETURN_IF_ERROR(parser.status());
-  }
-
+  JSON::sax_parse(str, &parser);
+  ZETASQL_RETURN_IF_ERROR(parser.status());
   return json;
 }
 

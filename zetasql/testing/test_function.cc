@@ -93,7 +93,7 @@ QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
     : result(result_in.get()), status(status_in) {}
 
 QueryParamsWithResult QueryParamsWithResult::CopyWithInvertedResult() const {
-  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
+  ZETASQL_CHECK(required_features().empty()) << *this;
   const Value& value = result();
   ZETASQL_CHECK_EQ(value.type_kind(), TYPE_BOOL);
   return QueryParamsWithResult(

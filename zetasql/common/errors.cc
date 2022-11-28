@@ -16,6 +16,7 @@
 
 #include "zetasql/common/errors.h"
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>

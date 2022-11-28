@@ -25,6 +25,8 @@
 
 #include "zetasql/common/errors.h"
 #include "zetasql/common/int_ops_util.h"
+#include "zetasql/public/functions/convert.h"
+#include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/json_internal.h"
 #include "zetasql/public/json_value.h"
 #include "absl/memory/memory.h"
@@ -399,6 +401,105 @@ absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input) {
   }
   ZETASQL_RET_CHECK_FAIL()
       << "Invalid JSON value that doesn't belong to any known JSON type";
+}
+
+template <typename FromType, typename ToType>
+static absl::StatusOr<ToType> ConvertNumericToNumeric(FromType val) {
+  absl::Status status;
+  ToType out;
+  if (!Convert(val, &out, &status)) {
+    return status;
+  }
+  return out;
+}
+
+template <typename Type>
+static absl::StatusOr<std::string> ConvertNumericToString(Type val) {
+  absl::Status status;
+  std::string out;
+  if (!NumericToString(val, &out, &status)) {
+    return status;
+  }
+  return out;
+}
+
+template <typename Type>
+static absl::StatusOr<Type> ConvertStringToNumeric(absl::string_view val) {
+  absl::Status status;
+  Type out;
+  if (!StringToNumeric(val, &out, &status)) {
+    return status;
+  }
+  return out;
+}
+
+absl::StatusOr<bool> LaxConvertJsonToBool(JSONValueConstRef input) {
+  if (input.IsBoolean()) {
+    return input.GetBoolean();
+  } else if (input.IsInt64()) {
+    return input.GetInt64() != 0;
+  } else if (input.IsUInt64()) {
+    return input.GetUInt64() != 0;
+  } else if (input.IsDouble()) {
+    return input.GetDouble() != 0;
+  } else if (input.IsString()) {
+    return ConvertStringToNumeric<bool>(input.GetString());
+  } else {
+    return absl::OutOfRangeError("Unable to convert JSON value to bool");
+  }
+}
+
+absl::StatusOr<int64_t> LaxConvertJsonToInt64(JSONValueConstRef input) {
+  if (input.IsBoolean()) {
+    return input.GetBoolean() ? 1 : 0;
+  } else if (input.IsInt64()) {
+    return input.GetInt64();
+  } else if (input.IsUInt64()) {
+    return ConvertNumericToNumeric<uint64_t, int64_t>(input.GetUInt64());
+  } else if (input.IsDouble()) {
+    return ConvertNumericToNumeric<double, int64_t>(input.GetDouble());
+  } else if (input.IsString()) {
+    BigNumericValue big_numeric_value;
+    absl::Status status;
+    int64_t out;
+    if (!StringToNumeric(input.GetString(), &big_numeric_value, &status) ||
+        !Convert(big_numeric_value, &out, &status)) {
+      return status;
+    }
+    return out;
+  } else {
+    return absl::OutOfRangeError("Unable to convert JSON value to Int64");
+  }
+}
+
+absl::StatusOr<double> LaxConvertJsonToFloat64(JSONValueConstRef input) {
+  if (input.IsInt64()) {
+    return ConvertNumericToNumeric<int64_t, double>(input.GetInt64());
+  } else if (input.IsUInt64()) {
+    return ConvertNumericToNumeric<uint64_t, double>(input.GetUInt64());
+  } else if (input.IsDouble()) {
+    return input.GetDouble();
+  } else if (input.IsString()) {
+    return ConvertStringToNumeric<double>(input.GetString());
+  } else {
+    return absl::OutOfRangeError("Unable to convert JSON value to Float64");
+  }
+}
+
+absl::StatusOr<std::string> LaxConvertJsonToString(JSONValueConstRef input) {
+  if (input.IsBoolean()) {
+    return ConvertNumericToString<bool>(input.GetBoolean());
+  } else if (input.IsInt64()) {
+    return ConvertNumericToString<int64_t>(input.GetInt64());
+  } else if (input.IsUInt64()) {
+    return ConvertNumericToString<uint64_t>(input.GetUInt64());
+  } else if (input.IsDouble()) {
+    return ConvertNumericToString<double>(input.GetDouble());
+  } else if (input.IsString()) {
+    return input.GetString();
+  } else {
+    return absl::OutOfRangeError("Unable to convert JSON value to String");
+  }
 }
 
 }  // namespace functions

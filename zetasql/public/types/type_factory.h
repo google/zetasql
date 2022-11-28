@@ -93,7 +93,7 @@ namespace internal {  // For internal use only
 // more granular memory management and avoid checks for cycles between
 // TypeStores.
 // TODO: Should TypeStore have a DescriptorPool?
-class TypeStore {
+class TypeStore final {
  public:
 #ifndef SWIG
   TypeStore(const TypeStore&) = delete;
@@ -110,7 +110,7 @@ class TypeStore {
   void Ref() const;
   void Unref() const;
 
-  // Use our own ref counter because zetasql_base::SimpleReferenceCounted uses int32_t for its
+  // Use our own ref counter because SimpleReferenceCounted uses int32_t for its
   // counter, which could be not enough to count references from all values.
   // Ref count is 1 for type factory that creates it.
   mutable std::atomic<int64_t> ref_count_{1};
@@ -641,6 +641,14 @@ const EnumType* NormalizeModeEnumType();
 // will be rounded.
 // This is an opaque enum type.
 const EnumType* RoundingModeEnumType();
+
+// Accessor for the ZetaSQL enum Type
+// (functions::ArrayFindEnums::ArrayFindMode) that represents the array find
+// mode to be used as the third optional argument of the ARRAY_OFFSET and
+// ARRAY_FIND function. When there are multiple array elements that satisfy the
+// find condition, the enum controls the behavior of which element to return.
+// This is an opaque enum type.
+const EnumType* ArrayFindModeEnumType();
 
 // Return a type of 'type_kind' if 'type_kind' is a simple type, otherwise
 // returns nullptr. This is similar to TypeFactory::MakeSimpleType, but doesn't

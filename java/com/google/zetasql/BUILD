@@ -56,6 +56,7 @@ java_library(
         "//zetasql/public:type_parameters_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public:value_java_proto",
+        "//zetasql/public/functions:array_find_mode_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/public/functions:normalize_mode_java_proto",
         "//zetasql/public/functions:rounding_mode_java_proto",
@@ -463,6 +464,7 @@ java_library(
         "//zetasql/local_service:local_service_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",  # buildcleaner: keep
+        "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
     ],
@@ -475,6 +477,7 @@ java_library(
         ":client",
         "//java/com/google/zetasql/parser",
         "//zetasql/local_service:local_service_java_proto",
+        "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",

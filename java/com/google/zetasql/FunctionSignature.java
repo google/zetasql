@@ -20,6 +20,7 @@ package com.google.zetasql;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeProto;
 import com.google.zetasql.FunctionProtos.FunctionSignatureOptionsProto;
 import com.google.zetasql.FunctionProtos.FunctionSignatureProto;
@@ -91,6 +92,7 @@ public final class FunctionSignature implements Serializable {
     validate();
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public FunctionSignatureProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     FunctionSignatureProto.Builder builder = FunctionSignatureProto.newBuilder();
     builder.setOptions(options);

@@ -2,6 +2,7 @@
 
 # Conditional expressions
 
+ZetaSQL supports conditional expressions.
 Conditional expressions impose constraints on the evaluation order of their
 inputs. In essence, they are evaluated left to right, with short-circuiting, and
 only evaluate the output value that was chosen. In contrast, all inputs to
@@ -22,10 +23,17 @@ CASE expr
 **Description**
 
 Compares `expr` to `expr_to_match` of each successive `WHEN` clause and returns
-the first result where this comparison returns true. The remaining `WHEN`
-clauses and `else_result` are not evaluated. If the `expr = expr_to_match`
-comparison returns false or NULL for all `WHEN` clauses, returns `else_result`
-if present; if not present, returns NULL.
+the first result where this comparison evaluates to `TRUE`. The remaining `WHEN`
+clauses and `else_result` aren't evaluated.
+
+If the `expr = expr_to_match` comparison evaluates to `FALSE` or `NULL` for all
+`WHEN` clauses, returns the evaluation of `else_result` if present; if
+`else_result` isn't present, then returns `NULL`.
+
+Consistent with [equality comparisons][logical-operators] elsewhere, if both
+`expr` and `expr_to_match` are `NULL`, then `expr = expr_to_match` evaluates to
+`NULL`, which returns `else_result`. If a CASE statement needs to distinguish a
+`NULL` value, then the alternate [CASE][case] syntax should be used.
 
 `expr` and `expr_to_match` can be any type. They must be implicitly
 coercible to a common [supertype][cond-exp-supertype]; equality comparisons are
@@ -83,13 +91,18 @@ CASE
 **Description**
 
 Evaluates the condition of each successive `WHEN` clause and returns the
-first result where the condition is true; any remaining `WHEN` clauses
-and `else_result` are not evaluated. If all conditions are false or NULL,
-returns `else_result` if present; if not present, returns NULL.
+first result where the condition evaluates to `TRUE`; any remaining `WHEN`
+clauses and `else_result` aren't evaluated.
+
+If all conditions evaluate to `FALSE` or `NULL`, returns evaluation of
+`else_result` if present; if `else_result` isn't present, then returns `NULL`.
+
+For additional rules on how values are evaluated, see the
+three-valued logic table in [Logical operators][logical-operators].
 
 `condition` must be a boolean expression. There may be multiple `result` types.
-`result` and `else_result` expressions must be implicitly coercible to a
-common [supertype][cond-exp-supertype].
+`result` and `else_result` expressions must be implicitly coercible to a common
+[supertype][cond-exp-supertype].
 
 This expression supports specifying [collation][collation].
 
@@ -112,7 +125,7 @@ SELECT
   B,
   CASE
     WHEN A > 60 THEN 'red'
-    WHEN A > 30 THEN 'blue'
+    WHEN B = 6 THEN 'blue'
     ELSE 'green'
     END
     AS result
@@ -135,8 +148,8 @@ COALESCE(expr[, ...])
 
 **Description**
 
-Returns the value of the first non-null expression. The remaining
-expressions are not evaluated. An input expression can be any type.
+Returns the value of the first non-`NULL` expression. The remaining
+expressions aren't evaluated. An input expression can be any type.
 There may be multiple input expression types.
 All input expressions must be implicitly coercible to a common
 [supertype][cond-exp-supertype].
@@ -175,9 +188,10 @@ IF(expr, true_result, else_result)
 
 **Description**
 
-If `expr` is true, returns `true_result`, else returns `else_result`.
-`else_result` is not evaluated if `expr` is true. `true_result` is not
-evaluated if `expr` is false or NULL.
+If `expr` evaluates to `TRUE`, returns `true_result`, else returns the
+evaluation for `else_result`. `else_result` isn't evaluated if `expr` evaluates
+to `TRUE`. `true_result` isn't evaluated if `expr` evaluates to `FALSE` or
+`NULL`.
 
 `expr` must be a boolean expression. `true_result` and `else_result`
 must be coercible to a common [supertype][cond-exp-supertype].
@@ -217,8 +231,8 @@ IFNULL(expr, null_result)
 
 **Description**
 
-If `expr` is NULL, return `null_result`. Otherwise, return `expr`. If `expr`
-is not NULL, `null_result` is not evaluated.
+If `expr` evaluates to `NULL`, returns `null_result`. Otherwise, returns
+`expr`. If `expr` doesn't evaluate to `NULL`, `null_result` isn't evaluated.
 
 `expr` and `null_result` can be any type and must be implicitly coercible to
 a common [supertype][cond-exp-supertype]. Synonym for
@@ -258,7 +272,7 @@ NULLIF(expr, expr_to_match)
 
 **Description**
 
-Returns NULL if `expr = expr_to_match` is true, otherwise
+Returns `NULL` if `expr = expr_to_match` evaluates to `TRUE`, otherwise
 returns `expr`.
 
 `expr` and `expr_to_match` must be implicitly coercible to a
@@ -297,6 +311,10 @@ SELECT NULLIF(10, 0) as result
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+[logical-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#logical_operators
+
+[case]: #case
 
 <!-- mdlint on -->
 

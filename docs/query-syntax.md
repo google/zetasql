@@ -20,7 +20,7 @@ ZetaSQL.
 
 <span class="var">select</span>:
     <a href="#select_list">SELECT</a>
-        [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
+        [ <a href="#anon_clause">WITH</a> <a href="#anon_clause"><span class="var">differential_privacy_clause</span></a> ]
         [ { ALL | DISTINCT } ]
         [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
         <a href="#select_list"><span class="var">select_list</span></a>
@@ -142,7 +142,7 @@ SELECT * FROM TeamMascot
 
 <pre>
 SELECT
-    [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
+    [ <a href="#anon_clause">WITH</a> <a href="#anon_clause"><span class="var">differential_privacy_clause</span></a> ]
     [ { ALL | DISTINCT } ]
     [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
    <span class="var">select_list</span>
@@ -628,14 +628,21 @@ Example:
 
 ```sql
 SELECT *
-FROM UNNEST(ARRAY<STRUCT<x INT64, y STRING>>[(1, 'foo'), (3, 'bar')]);
+FROM UNNEST(
+  ARRAY<
+    STRUCT<
+      x INT64,
+      y STRING,
+      z STRUCT<a INT64, b INT64>>>[
+        (1, 'foo', (10, 11)),
+        (3, 'bar', (20, 21))]);
 
-+---+-----+
-| x | y   |
-+---+-----+
-| 3 | bar |
-| 1 | foo |
-+---+-----+
++---+-----+----------+
+| x | y   | z        |
++---+-----+----------+
+| 1 | foo | {10, 11} |
+| 3 | bar | {20, 21} |
++---+-----+----------+
 ```
 
 Because the `UNNEST` operator returns a
@@ -649,8 +656,13 @@ Example:
 
 ```sql
 SELECT *, struct_value
-FROM UNNEST(ARRAY<STRUCT<x INT64, y STRING>>[(1, 'foo'), (3, 'bar')])
-       AS struct_value;
+FROM UNNEST(
+  ARRAY<
+    STRUCT<
+    x INT64,
+    y STRING>>[
+      (1, 'foo'),
+      (3, 'bar')]) AS struct_value;
 
 +---+-----+--------------+
 | x | y   | struct_value |
@@ -3514,19 +3526,16 @@ SELECT * FROM B
 -- Error
 ```
 
-## WITH ANONYMIZATION clause 
+## Differential privacy clause 
 <a id="anon_clause"></a>
 
 <pre class="lang-sql prettyprint">
 WITH ANONYMIZATION OPTIONS( privacy_parameters )
 </pre>
 
-This clause lets you anonymize the results of a query with differentially
+This clause lets you transform the results of a query with differentially
 private aggregations. To learn more about this clause, see
-[Anonymization and Differential Privacy][anon-concepts].
-
-Note: the `WITH ANONYMIZATION` clause cannot be used with the `WITH` clause.
-Support for this clause in query patterns is limited.
+[Differential privacy][anon-concepts].
 
 ## Using aliases 
 <a id="using_aliases"></a>
@@ -3619,7 +3628,7 @@ following rules apply:
 
 After you introduce an explicit alias in a query, there are restrictions on
 where else in the query you can reference that alias. These restrictions on
-alias visibility are the result of ZetaSQL's name scoping rules.
+alias visibility are the result of ZetaSQL name scoping rules.
 
 #### Visibility in the FROM clause 
 <a id="from_clause_aliases"></a>
@@ -4205,7 +4214,7 @@ Results:
 
 [tvf-arguments]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvf_arguments
 
-[anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
+[anon-concepts]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
 

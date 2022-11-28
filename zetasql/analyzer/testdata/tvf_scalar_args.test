@@ -2878,9 +2878,9 @@ select * from (tvf_exactly_1_int64_arg((select key from keyvalue)))
 # Parenthesized joins are not supported as TVF arguments.
 select * from tvf_exactly_1_int64_arg((keyvalue join keyvalue on true))
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:40]
+ERROR: Syntax error: Unexpected keyword JOIN [at 1:49]
 select * from tvf_exactly_1_int64_arg((keyvalue join keyvalue on true))
-                                       ^
+                                                ^
 ==
 
 # TVF names may not start with numerals.

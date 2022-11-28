@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 364
+NEXT_NODE_TAG_ID = 368
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -820,8 +820,19 @@ def main(argv):
                 True if this query represents the input to a pivot clause.
                 """)
       ],
-      use_custom_debug_string=True
-      )
+      extra_public_defs="""
+  bool IsTrivialWrapperQuery() const {
+    return !is_nested() &&
+      !is_pivot_input() &&
+      !with_clause() && // Clauses will never be set while in the parser.
+      !order_by() &&
+      !limit_offset() &&
+      ((query_expr() && query_expr()->node_kind() == AST_QUERY) ||
+       (num_children() == 1 && // While parsing, clauses are in the children.
+        child(0)->node_kind() == AST_QUERY));
+  }
+  """,
+      use_custom_debug_string=True)
 
   gen.AddNode(
       name='ASTSelect',
@@ -834,8 +845,8 @@ def main(argv):
               'ASTHint',
               tag_id=2),
           Field(
-              'anonymization_options',
-              'ASTOptionsList',
+              'select_with',
+              'ASTSelectWith',
               tag_id=3),
           Field(
               'distinct',
@@ -4566,6 +4577,18 @@ def main(argv):
       """)
 
   gen.AddNode(
+      name='ASTAliasedQueryList',
+      tag_id=365,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'aliased_query_list',
+              'ASTWithClauseEntry',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
       name='ASTTransformClause',
       tag_id=169,
       parent='ASTNode',
@@ -4581,6 +4604,17 @@ def main(argv):
       name='ASTCreateModelStatement',
       tag_id=170,
       parent='ASTCreateStatement',
+      comment="""
+      This represents a CREATE MODEL statement, i.e.,
+      CREATE OR REPLACE MODEL model
+      TRANSFORM(...)
+      OPTIONS(...)
+      AS
+      <query> | (<identifier> AS (<query>) [, ...]).
+
+      Note that at most one of `query` and `aliased_query_list` will be
+      populated, and if so the other will be null.
+      """,
       fields=[
           Field(
               'name',
@@ -4593,6 +4627,10 @@ def main(argv):
           Field('with_connection_clause', 'ASTWithConnectionClause', tag_id=8),
           Field('options_list', 'ASTOptionsList', tag_id=4),
           Field('query', 'ASTQuery', tag_id=5),
+          Field(
+              'aliased_query_list',
+              'ASTAliasedQueryList',
+              tag_id=9),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
@@ -7741,9 +7779,20 @@ def main(argv):
               field_loader=FieldLoaderMethod.REQUIRED,
               visibility=Visibility.PROTECTED),
           Field(
-              'column_list',
-              'ASTColumnList',
+              'column_with_options_list',
+              'ASTColumnWithOptionsList',
               tag_id=3,
+              visibility=Visibility.PROTECTED),
+          Field(
+              'column_list',
+              'ASTColumnWithOptionsList',
+              tag_id=8,
+              comment="""
+                TODO: Remove this field (is duplicate of
+                column_with_options_list field) once Spanner mainline uses
+                column_with_options_list.
+              """,
+              field_loader=FieldLoaderMethod.OPTIONAL,
               visibility=Visibility.PROTECTED),
           Field(
               'options_list',
@@ -7783,6 +7832,7 @@ def main(argv):
       init_fields_order=[
           'name',
           'column_list',
+          'column_with_options_list',
           'options_list',
           'query',
       ])
@@ -7804,6 +7854,7 @@ def main(argv):
       init_fields_order=[
           'name',
           'column_list',
+          'column_with_options_list',
           'partition_by',
           'cluster_by',
           'options_list',
@@ -8476,6 +8527,51 @@ def main(argv):
               tag_id=4,
               getter_is_override=True,
               field_loader=FieldLoaderMethod.OPTIONAL),
+      ])
+
+  gen.AddNode(
+      name='ASTSelectWith',
+      tag_id=364,
+      parent='ASTNode',
+      comment="""
+      Represents SELECT WITH clause.
+      """,
+      fields=[
+          Field(
+              'identifier',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'options',
+              'ASTOptionsList',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+      ])
+
+  gen.AddNode(
+      name='ASTColumnWithOptions',
+      tag_id=366,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field('options_list', 'ASTOptionsList', tag_id=3)
+      ])
+
+  gen.AddNode(
+      name='ASTColumnWithOptionsList',
+      tag_id=367,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'column_with_options',
+              'ASTColumnWithOptions',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
       ])
 
   gen.Generate(output_path, template_path=template_path)

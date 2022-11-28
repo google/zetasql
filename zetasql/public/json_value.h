@@ -40,15 +40,9 @@ class JSONValueRef;
 
 // Options for parsing an input JSON-formatted string.
 struct JSONParsingOptions {
-  // If 'legacy_mode' is set to true, the parsing will be done using the legacy
-  // proto JSON parser. The legacy parser supports strings that are not
-  // valid JSON documents according to JSON RFC (such as single quote strings).
-  bool legacy_mode = false;
   // If 'strict_number_parsing' is set to true, parsing will fail if there is at
   // least one number value in 'str' that does not round-trip from
-  // string -> number -> string. 'strict_number_parsing' only affects non-legacy
-  // parsing (i.e. 'legacy_mode' = true and 'strict_number_parsing' = true
-  // returns an error).
+  // string -> number -> string.
   bool strict_number_parsing = false;
   // If 'max_nesting' is set to a non-negative number, parsing will fail if the
   // JSON document has more than 'max_nesting' levels of nesting. If it is set
@@ -71,7 +65,6 @@ struct JSONParsingOptions {
 // JSONValueParserBase (but this can be moved too).
 absl::Status IsValidJSON(absl::string_view json_str,
                          const JSONParsingOptions& parsing_options = {
-                             .legacy_mode = false,
                              .strict_number_parsing = false,
                              .max_nesting = std::nullopt});
 
@@ -108,8 +101,7 @@ class JSONValue final {
   // Parses a given JSON document string and returns a JSON value.
   static absl::StatusOr<JSONValue> ParseJSONString(
       absl::string_view str,
-      JSONParsingOptions parsing_options = {.legacy_mode = false,
-                                            .strict_number_parsing = false,
+      JSONParsingOptions parsing_options = {.strict_number_parsing = false,
                                             .max_nesting = std::nullopt});
 
   // Decodes a binary representation of a JSON value produced by

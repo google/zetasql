@@ -1,6 +1,6 @@
 [default enabled_ast_rewrites=DEFAULTS]
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_STRING_AS_ENUM_ARGUMENT]
+[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_ARRAY_FIND_FUNCTIONS]
 SELECT {{|SAFE.}}ARRAY_OFFSETS([], 'hello')
 --
 ALTERNATION GROUP: <empty>
@@ -166,7 +166,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_STRING_AS_ENUM_ARGUMENT]
+[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_4_ARRAY_FIND_FUNCTIONS]
 SELECT {{|SAFE.}}ARRAY_FIND_ALL([], 'hello')
 --
 ALTERNATION GROUP: <empty>

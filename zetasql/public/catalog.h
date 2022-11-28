@@ -222,6 +222,22 @@ class Catalog {
                                  const Table** table,
                                  const FindOptions& options = FindOptions());
 
+  // Variant of FindTable() that allows for trailing field references in
+  // <path>.
+  //
+  // Finds the longest prefix of <path> that references a Table in this
+  // Catalog (or a nested Catalog, if <path> has more than one name in it).
+  // Returns the result in the output parameters <table> and
+  // <num_names_consumed>:
+  // - If a prefix of <path> references a Table, binds <table> to that
+  //   table and returns the length of the path prefix in
+  //   <num_names_consumed>.
+  // - If no such path prefix exists, sets <table> to null and
+  //   <num_names_consumed> to 0, and returns absl::StatusCode::kNotFound.
+  virtual absl::Status FindTableWithPathPrefix(
+      const absl::Span<const std::string> path, const FindOptions& options,
+      int* num_names_consumed, const Table** table);
+
   virtual absl::Status FindModel(const absl::Span<const std::string>& path,
                                  const Model** model,
                                  const FindOptions& options = FindOptions());
@@ -391,6 +407,8 @@ class Catalog {
       const absl::Span<const std::string>& mistyped_path);
   virtual std::string SuggestConstant(
       const absl::Span<const std::string>& mistyped_path);
+  virtual std::string SuggestEnumValue(const EnumType* type,
+                                       absl::string_view mistyped_value);
 
   // Returns whether or not this Catalog is a specific catalog interface or
   // implementation.
@@ -549,6 +567,22 @@ class Catalog {
       return EmptyNamePathInternalError("Procedure");
     }
   }
+
+  // Recursive implementation of FindTableWithPathPrefixImpl().
+  //
+  // <path> is the given identifier path where we search for the longest prefix
+  // that represents a valid table. This path does not include <root_name>.
+  // <root_name> is the FullName() of the root catalog.
+  // <current_index> represents the 0-based index of the <path> being processed
+  // in current recursion layer.
+  // <result_index> represents the index of the <path> where we find the table
+  // with a longest prefix.
+  // If no table is found, sets *table to nullptr, <result_index> to -1, and
+  // returns StatusCode::kNotFound status.
+  absl::Status FindTableWithPathPrefixImpl(
+      const absl::Span<const std::string> path, const std::string& root_name,
+      const FindOptions& options, int current_index, int* result_index,
+      const Table** table);
 
   // Recursive implementation of FindConstantWithPathPrefix().
   //

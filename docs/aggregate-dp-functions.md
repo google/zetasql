@@ -1,36 +1,32 @@
 
 
-# Anonymization aggregate functions 
-<a id="aggregate_anonymization_functions"></a>
+# Differentially private aggregate functions 
+<a id="aggregate_dp_functions"></a>
 
-The following anonymization aggregate functions are available in
-ZetaSQL. For an explanation of how aggregate functions work, see
+ZetaSQL supports differentially private aggregate functions.
+For an explanation of how aggregate functions work, see
 [Aggregate function calls][agg-function-calls].
 
-Anonymization aggregate functions can transform user data into anonymous
-information. This is done in such a way that it is not reasonably likely that
-anyone with access to the data can identify or re-identify an individual user
-from the anonymized data. Anonymization aggregate functions can only be used
-with [anonymization-enabled queries][anon-syntax].
+Differentially private aggregate functions can only be
+used with [differentially private queries][anon-syntax].
 
 ### ANON_AVG
 
 ```sql
-ANON_AVG(expression [CLAMPED BETWEEN lower AND upper])
+ANON_AVG(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Returns the average of non-`NULL`, non-`NaN` values in the expression.
-This function first computes the average per anonymization ID, and then computes
-the final result by averaging these averages.
+This function first computes the average per privacy unit ID, and then
+computes the final result by averaging these averages.
 
 You can [clamp the input values explicitly][anon-clamp], otherwise
 input values are clamped implicitly. Clamping is done to the
-per-anonymization ID averages.
+per-privacy unit ID averages.
 
-`expression` can be any numeric input type, such as
-INT64.
+`expression` can be any numeric input type, such as `INT64`.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -47,9 +43,9 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Examples**
 
-The following anonymized query gets the average number of each item requested
-per professor. Smaller aggregations may not be included. This query references
-a view called [`view_on_professors`][anon-example-views].
+The following differentially private query gets the average number of each item
+requested per professor. Smaller aggregations may not be included. This query
+references a view called [`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -92,9 +88,9 @@ noise [here][anon-noise].
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
 ### ANON_COUNT
 
@@ -110,10 +106,11 @@ ANON_COUNT(*)
 
 **Description**
 
-Returns the number of rows in the [anonymization-enabled][anon-from-clause]
-`FROM` clause. The final result is an aggregation across anonymization IDs.
+Returns the number of rows in the
+[differentially private][anon-from-clause] `FROM` clause. The final result
+is an aggregation across privacy unit IDs.
 [Input values are clamped implicitly][anon-clamp]. Clamping is performed per
-anonymization ID.
+privacy unit ID.
 
 **Return type**
 
@@ -121,8 +118,9 @@ anonymization ID.
 
 **Examples**
 
-The following anonymized query counts the number of requests for each item.
-This query references a view called [`view_on_professors`][anon-example-views].
+The following differentially private query counts the number of requests for
+each item. This query references a view called
+[`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -167,16 +165,17 @@ noise [here][anon-noise].
 <a id="anon_count_signature2"></a>
 
 ```sql
-ANON_COUNT(expression [CLAMPED BETWEEN lower AND upper])
+ANON_COUNT(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Returns the number of non-`NULL` expression values. The final result is an
-aggregation across anonymization IDs.
+aggregation across privacy unit IDs.
 
 You can [clamp the input values explicitly][anon-clamp], otherwise
-input values are clamped implicitly. Clamping is performed per anonymization ID.
+input values are clamped implicitly. Clamping is performed per
+privacy unit ID.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -193,8 +192,8 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Examples**
 
-The following anonymized query counts the number of requests made for each
-type of item. This query references a view called
+The following differentially private query counts the number of requests made
+for each type of item. This query references a view called
 [`view_on_professors`][anon-example-views].
 
 ```sql
@@ -236,27 +235,27 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
 
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
+[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_from
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
 ### ANON_PERCENTILE_CONT
 
 ```sql
-ANON_PERCENTILE_CONT(expression, percentile [CLAMPED BETWEEN lower AND upper])
+ANON_PERCENTILE_CONT(expression, percentile [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Takes an expression and computes a percentile for it. The final result is an
-aggregation across anonymization IDs. The percentile must be a literal in the
-range [0, 1]. You can [clamp the input values][anon-clamp] explicitly,
+aggregation across privacy unit IDs. The percentile must be a literal in
+the range [0, 1]. You can [clamp the input values][anon-clamp] explicitly,
 otherwise input values are clamped implicitly. Clamping is performed per
-anonymization ID.
+privacy unit ID.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -282,9 +281,9 @@ Caveats:
 
 **Examples**
 
-The following anonymized query gets the percentile of items requested. Smaller
-aggregations may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+The following differentially private query gets the percentile of items
+requested. Smaller aggregations may not be included. This query references a
+view called [`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -307,23 +306,23 @@ GROUP BY item;
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
 ### ANON_QUANTILES
 
 ```sql
-ANON_QUANTILES(expression, number CLAMPED BETWEEN lower AND upper)
+ANON_QUANTILES(expression, number CLAMPED BETWEEN lower_bound AND upper_bound)
 ```
 
 **Description**
 
-Returns an array of anonymized quantile boundaries for values in `expression`.
-`number` represents the number of quantiles to create and must be an
-`INT64`. The first element in the return value is the
+Returns an array of differentially private quantile boundaries for values in
+`expression`. `number` represents the number of quantiles to create and must be
+an `INT64`. The first element in the return value is the
 minimum quantile boundary and the last element is the maximum quantile boundary.
-`lower` and `upper` are the explicit bounds wherein the
+`lower_bound` and `upper_bound` are the explicit bounds wherein the
 [input values are clamped][anon-clamp]. The returned results are aggregations
-across anonymization IDs.
+across privacy unit IDs.
 
 Caveats:
 
@@ -340,9 +339,9 @@ Caveats:
 
 **Examples**
 
-The following anonymized query gets the five quantile boundaries of the four
-quartiles of the number of items requested. Smaller aggregations may not be
-included. This query references a view called
+The following differentially private query gets the five quantile boundaries of
+the four quartiles of the number of items requested. Smaller aggregations
+may not be included. This query references a view called
 [`view_on_professors`][anon-example-views].
 
 ```sql
@@ -365,19 +364,19 @@ GROUP BY item;
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
 ### ANON_STDDEV_POP
 
 ```sql
-ANON_STDDEV_POP(expression [CLAMPED BETWEEN lower AND upper])
+ANON_STDDEV_POP(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Takes an expression and computes the population (biased) standard deviation of
 the values in the expression. The final result is an aggregation across
-anonymization IDs between `0` and `+Inf`. You can
+privacy unit IDs between `0` and `+Inf`. You can
 [clamp the input values][anon-clamp] explicitly, otherwise input values are
 clamped implicitly. Clamping is performed per individual user values.
 
@@ -405,9 +404,10 @@ Caveats:
 
 **Examples**
 
-The following anonymized query gets the population (biased) standard deviation
-of items requested. Smaller aggregations may not be included. This query
-references a view called [`view_on_professors`][anon-example-views].
+The following differentially private query gets the
+population (biased) standard deviation of items requested. Smaller aggregations
+may not be included. This query references a view called
+[`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -430,23 +430,22 @@ GROUP BY item;
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
 ### ANON_SUM
 
 ```sql
-ANON_SUM(expression [CLAMPED BETWEEN lower AND upper])
+ANON_SUM(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Returns the sum of non-`NULL`, non-`NaN` values in the expression. The final
-result is an aggregation across anonymization IDs. You can optionally
+result is an aggregation across privacy unit IDs. You can optionally
 [clamp the input values][anon-clamp]. Clamping is performed per
-anonymization ID.
+privacy unit ID.
 
-The expression can be any numeric input type, such as
-`INT64`.
+The expression can be any numeric input type, such as `INT64`.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -467,8 +466,8 @@ One of the following [supertypes][anon-supertype]:
 
 **Examples**
 
-The following anonymized query gets the sum of items requested. Smaller
-aggregations may not be included. This query references a view called
+The following differentially private query gets the sum of items requested.
+Smaller aggregations may not be included. This query references a view called
 [`view_on_professors`][anon-example-views].
 
 ```sql
@@ -512,23 +511,23 @@ noise [here][anon-noise].
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
 [anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
 ### ANON_VAR_POP
 
 ```sql
-ANON_VAR_POP(expression [CLAMPED BETWEEN lower AND upper])
+ANON_VAR_POP(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Takes an expression and computes the population (biased) variance of the values
 in the expression. The final result is an aggregation across
-anonymization IDs between `0` and `+Inf`. You can
+privacy unit IDs between `0` and `+Inf`. You can
 [clamp the input values][anon-clamp] explicitly, otherwise input values are
 clamped implicitly. Clamping is performed per individual user values.
 
@@ -556,9 +555,10 @@ Caveats:
 
 **Examples**
 
-The following anonymized query gets the population (biased) variance
-of items requested. Smaller aggregations may not be included. This query
-references a view called [`view_on_professors`][anon-example-views].
+The following differentially private query gets the
+population (biased) variance of items requested. Smaller aggregations may not
+be included. This query references a view called
+[`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -581,9 +581,9 @@ GROUP BY item;
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
-[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
+[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 

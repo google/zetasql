@@ -2,11 +2,7 @@
 
 # Transactions
 
-ZetaSQL specifies the syntax for transaction statements, such as
-`BEGIN`.
-
-Where possible, this topic provides a link to the engine-specific documentation
-for each statement.
+ZetaSQL supports the following transaction statements.
 
 ## BEGIN
 

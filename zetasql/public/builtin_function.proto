@@ -48,13 +48,13 @@ enum FunctionSignatureId {
   // 1500-1599 Analytic functions             (NextId: 1513)
   // 1600-1699 Misc functions                 (Fully used)
   // 1700-1799 Net functions                  (NextId: 1716)
-  // 1800-1899 More time functions            (NextId: 1862)
+  // 1800-1899 More time functions            (NextId: 1864)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
   // 2000-2199 Geography functions            (NextId: 2088)
   // 2200-2231 Anonymization functions        (NextId: 2232)
   // 2300-2499 Numeric & more math functions  (NextId: 2325)
   // 2500-2599 Array and proto map functions  (NextId: 2542)
-  // 2600-2699 More misc functions.           (NextId: 2606)
+  // 2600-2699 More misc functions.           (NextId: 2610)
   // 2700-2799 Aggregate functions II         (NextId: 2701)
 
   // enum value                       // Related function name
@@ -425,6 +425,8 @@ enum FunctionSignatureId {
   FN_JUSTIFY_INTERVAL = 1860;      // justify_interval
 
   FN_TIMESTAMP_BUCKET = 1861;  // timestamp_bucket
+  FN_DATETIME_BUCKET = 1862;   // datetime_bucket
+  FN_DATE_BUCKET = 1863;       // date_bucket
 
   // Math functions
   FN_ABS_INT32 = 1300;        // abs
@@ -1151,6 +1153,11 @@ enum FunctionSignatureId {
   FN_JSON_TO_STRING = 2602;  // string(json) -> string
   FN_JSON_TYPE = 2603;       // json_type(json) -> type
   FN_JSON_TO_DOUBLE = 2604;  // double(json[, string]) -> double
+
+  FN_JSON_LAX_TO_INT64 = 2606;   // lax_int64(json) -> int64
+  FN_JSON_LAX_TO_BOOL = 2607;    // lax_bool(json) -> bool
+  FN_JSON_LAX_TO_STRING = 2608;  // lax_string(json) -> string
+  FN_JSON_LAX_TO_DOUBLE = 2609;  // lax_double(json) -> double
 
   // Range functions
   FN_RANGE = 2605;  // RANGE(T start, T end) -> range

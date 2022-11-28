@@ -150,14 +150,19 @@ CollationAnnotation::GetCollationFromFunctionArguments(
     // 'generic_argument_list' populated.  Usually 'argument_list' is used,
     // but the 'generic_argument_list' is used when there is a non-expression
     // argument (such as a lambda).  Only expressions can have collation, so
-    // we only look for arguments that are expressions.
+    // we only look for arguments that are expression or lambda function body.
     if (function_call.argument_list_size() > 0) {
       arg_i = function_call.argument_list(i);
-    } else if (function_call.generic_argument_list(i)->expr() != nullptr) {
-      arg_i = function_call.generic_argument_list(i)->expr();
     } else {
-      continue;
+      const auto* generic_argument_i = function_call.generic_argument_list(i);
+      if (generic_argument_i->expr() != nullptr) {
+        arg_i = generic_argument_i->expr();
+      } else if (generic_argument_i->inline_lambda() != nullptr) {
+        arg_i = generic_argument_i->inline_lambda()->body();
+      }
     }
+    if (arg_i == nullptr) continue;
+
     const AnnotationMap* argi_annotation_map = arg_i->type_annotation_map();
     const bool mode_matches =
         (signature.ConcreteArgument(i).options().argument_collation_mode() &
@@ -179,8 +184,8 @@ CollationAnnotation::GetCollationFromFunctionArguments(
       } else {
         if (!candidate_collation->HasEqualAnnotations(*argi_annotation_map,
                                                       GetId())) {
-          // TODO: Add function to zetasql::Type class to output
-          // collation within type like ARRAY<STRING COLLATE 'und:ci'>.
+          // TODO: Add function to zetasql::Type class to
+          // output collation within type like ARRAY<STRING COLLATE 'und:ci'>.
           ::zetasql_base::StatusBuilder error =
               MakeSqlError() << absl::Substitute(
                   "Collation for $0 is different on argument $1 ($2) and "

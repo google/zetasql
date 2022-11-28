@@ -26,7 +26,7 @@ import directive. Example:
 {# Generates field methods common to both node and builder templates.
  Arguments:
    field: the Field object representing the target field
-   is_from_builder: True if the caller is the buidler template, False if it is
+   is_from_builder: True if the caller is the builder template, False if it is
                     the node template
    inner_node_member_name: used only when is_from_builder is True.
 #}

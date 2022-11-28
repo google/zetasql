@@ -32,12 +32,14 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/filter_fields_path_validator.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/constant.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/sql_view.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
@@ -203,10 +205,34 @@ absl::Status Validator::ValidateResolvedCast(
                                          resolved_cast->time_zone()));
     VALIDATOR_RET_CHECK(resolved_cast->time_zone()->type()->IsString());
   }
-  if (!resolved_cast->type_parameters().IsEmpty()) {
+  const TypeParameters& type_params =
+      resolved_cast->type_modifiers().type_parameters();
+  const Collation& collation = resolved_cast->type_modifiers().collation();
+  if (!type_params.IsEmpty()) {
     ZETASQL_RETURN_IF_ERROR(resolved_cast->type()->ValidateResolvedTypeParameters(
-        resolved_cast->type_parameters(), language_options_.product_mode()));
+        type_params, language_options_.product_mode()));
   }
+
+  if (language_options_.LanguageFeatureEnabled(
+          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+    VALIDATOR_RET_CHECK(collation.HasCompatibleStructure(resolved_cast->type()))
+        << "collation must have compatible structure with the target type";
+    ZETASQL_ASSIGN_OR_RETURN(bool equals_to_annotation,
+                     collation.EqualsCollationAnnotation(
+                         resolved_cast->type_annotation_map()));
+    std::string collation_annotations_debug_string =
+        resolved_cast->type_annotation_map() == nullptr
+            ? "null"
+            : resolved_cast->type_annotation_map()->DebugString(
+                  CollationAnnotation::GetId());
+    VALIDATOR_RET_CHECK(equals_to_annotation)
+        << "Collation must be semantically equal to collation annotations: "
+        << collation.DebugString() << " vs. "
+        << collation_annotations_debug_string;
+  } else {
+    VALIDATOR_RET_CHECK(collation.Empty());
+  }
+
   resolved_cast->return_null_on_error();  // Mark field as visited.
   return absl::OkStatus();
 }
@@ -424,6 +450,12 @@ absl::Status Validator::ValidateResolvedExpr(
   if (expr->type_annotation_map() != nullptr) {
     VALIDATOR_RET_CHECK(
         expr->type_annotation_map()->HasCompatibleStructure(expr->type()));
+  }
+
+  if (!language_options_.LanguageFeatureEnabled(
+          FEATURE_V_1_3_COLLATION_SUPPORT)) {
+    VALIDATOR_RET_CHECK(
+        !CollationAnnotation::ExistsIn(expr->type_annotation_map()));
   }
 
   // Do not add new checks inline here because they increase stack space used in
@@ -1267,11 +1299,8 @@ absl::Status Validator::ValidateResolvedFilterScan(
   ZETASQL_RETURN_IF_ERROR(
       AddColumnList(scan->input_scan()->column_list(), &visible_columns));
   VALIDATOR_RET_CHECK(nullptr != scan->filter_expr());
-  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
-                                       scan->filter_expr()));
-  VALIDATOR_RET_CHECK(scan->filter_expr()->type()->IsBool())
-      << "FilterScan has expression with non-BOOL type: "
-      << scan->filter_expr()->type()->DebugString();
+  ZETASQL_RETURN_IF_ERROR(ValidateBoolExpr(visible_columns, visible_parameters,
+                                   scan->filter_expr()));
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
   return absl::OkStatus();
@@ -1900,6 +1929,14 @@ absl::Status Validator::ValidateArgumentIsInt64Constant(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateTableValuedFunction(
+    const TableValuedFunction* tvf) {
+  // We currently expect table valued function to have only one signature
+  // since function overloading is not supported.
+  VALIDATOR_RET_CHECK_EQ(tvf->NumSignatures(), 1);
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedLimitOffsetScan(
     const ResolvedLimitOffsetScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
@@ -1984,9 +2021,7 @@ absl::Status Validator::ValidateResolvedTVFScan(
     // from the scan.
     if (resolved_arg->scan() != nullptr) {
       const TableValuedFunction* tvf = resolved_tvf_scan->tvf();
-      // We currently expect table valued function to have only one signature
-      // since function overloading is not supported.
-      VALIDATOR_RET_CHECK_EQ(tvf->NumSignatures(), 1);
+      ZETASQL_RETURN_IF_ERROR(ValidateTableValuedFunction(tvf));
       // This check is only done if the argument is a fixed relation where the
       // relation input schema is available. Table valued functions can have
       // templated argument types (e.g. ANY_TABLE) but those will not be
@@ -2017,10 +2052,7 @@ absl::Status Validator::ValidateResolvedTVFScan(
       if (concrete_arg != nullptr) {
         VALIDATOR_RET_CHECK(concrete_arg->IsModel());
       }
-      const TableValuedFunction* tvf = resolved_tvf_scan->tvf();
-      // We currently expect table valued function to have only one signature
-      // since function overloading is not supported.
-      VALIDATOR_RET_CHECK_EQ(tvf->NumSignatures(), 1);
+      ZETASQL_RETURN_IF_ERROR(ValidateTableValuedFunction(resolved_tvf_scan->tvf()));
     } else if (resolved_arg->expr() != nullptr) {
       VALIDATOR_RET_CHECK(resolved_arg->expr()->type() != nullptr);
       if (concrete_arg != nullptr) {
@@ -2171,6 +2203,19 @@ absl::Status Validator::ValidateResolvedExecuteAsRoleScan(
   }
 
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(scan->hint_list()));
+
+  VALIDATOR_RET_CHECK_NE(scan->original_inlined_view() == nullptr,
+                         scan->original_inlined_tvf() == nullptr)
+      << "Exactly one of original_inlined_view and original_inlined_tvf must "
+         "be not null";
+
+  if (scan->original_inlined_view() != nullptr) {
+    VALIDATOR_RET_CHECK(scan->original_inlined_view()->Is<SQLView>());
+  }
+
+  if (scan->original_inlined_tvf() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ValidateTableValuedFunction(scan->original_inlined_tvf()));
+  }
   return absl::OkStatus();
 }
 
@@ -3056,9 +3101,7 @@ absl::Status Validator::ValidateResolvedCreateModelStmt(
     if (stmt->query() == nullptr) {
       // Imported model.
 
-      // Input & output are required.
-      VALIDATOR_RET_CHECK(!stmt->input_column_definition_list().empty());
-      VALIDATOR_RET_CHECK(!stmt->output_column_definition_list().empty());
+      // Input & output are optional.
       ZETASQL_RETURN_IF_ERROR(validate_input_output_columns());
 
       // The rest must be empty.
@@ -5404,6 +5447,17 @@ std::string Validator::RecordContext() {
     error_context_ = context_stack_.back();
   }
   return "";
+}
+
+absl::Status Validator::ValidateBoolExpr(
+    const std::set<ResolvedColumn>& visible_columns,
+    const std::set<ResolvedColumn>& visible_parameters,
+    const ResolvedExpr* expr) {
+  ZETASQL_RETURN_IF_ERROR(
+      ValidateResolvedExpr(visible_columns, visible_parameters, expr));
+  VALIDATOR_RET_CHECK(expr->type()->IsBool())
+      << "Expects BOOL found: " << expr->type()->DebugString();
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

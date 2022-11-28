@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/analyzer_options.h"

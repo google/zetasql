@@ -206,53 +206,6 @@ extend google.protobuf.MessageOptions {
   // file can be identified as a ZetaSQL table.  At read time, that annotation
   // should be stripped to get back to the user's original proto.
   optional TableType table_type = 86830980;
-
-  // Indicate that this proto message should be treated as an RANGE type when
-  // imported into ZetaSQL.
-  //
-  // If message is marked with is_range = true, then:
-  //  * It should contain exactly two fields
-  //  * The first (in order of appearance) field must be named "start"
-  //  * The second (in order of appearance) field must be named "end"
-  //  * "start" and "end" must resolve to the same ZetaSQL type
-  //
-  // This can be used when a ZetaSQL RANGE type is exported as a protocol
-  // buffer, using a generated protocol buffer descriptor. When that type
-  // is imported back into ZetaSQL, it should become a RANGE type again,
-  // rather than a PROTO type with the name of the generated proto.
-  //
-  // Marking a message with is_range = true does not imply
-  // use_field_defaults = false.  The default is still to materialize
-  // protocol buffer defaults before converting the value to RANGE.
-  //
-  // Example:
-  //
-  //   message TheRange {
-  //     option (zetasql.is_range) = true;
-  //     optional int32 start = 1 [(.zetasql.format) = DATE];
-  //     optional int32 end = 2 [(.zetasql.format) = DATE];
-  //   }
-  //   // ZetaSQL will interpret this field as ARRAY<RANGE<DATE>>.
-  //   repeated TheRange ranges;
-  //
-  // The Range type allows start or end to be NULL to represent unboundedness.
-  // To represent it in proto, the "start" and "end" fields must be of a
-  // wrapper type:
-  //
-  //   message TheRange {
-  //     option (zetasql.is_range) = true;
-  //     optional NullableRangeValue start = 1;
-  //     optional NullableRangeValue end = 2;
-  //   }
-  //   message NullableRangeValue {
-  //     option (zetasql.is_wrapper) = true;
-  //     optional int32 value = 1 [(.zetasql.format) = DATE];
-  //   }
-  //   // ZetaSQL will interpret this field as ARRAY<RANGE<DATE>>.
-  //   repeated TheRange ranges;
-  //
-  // NOTE: This is NOT interpreted at query time by zetasql.
-  optional bool is_range = 480742190;
 }
 
 // This is a hack so that the generated module has at least one Descriptor in

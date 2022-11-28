@@ -21,6 +21,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -49,7 +50,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
-#include "zetasql/base/simple_reference_counted.h"
+#include "zetasql/base/compact_reference_counted.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -381,12 +382,12 @@ bool StructType::EqualsImpl(const StructType* const type1,
 
 void StructType::CopyValueContent(const ValueContent& from,
                                   ValueContent* to) const {
-  from.GetAs<zetasql_base::SimpleReferenceCounted*>()->Ref();
+  from.GetAs<internal::ValueContentContainerRef*>()->Ref();
   *to = from;
 }
 
 void StructType::ClearValueContent(const ValueContent& value) const {
-  value.GetAs<zetasql_base::SimpleReferenceCounted*>()->Unref();
+  value.GetAs<internal::ValueContentContainerRef*>()->Unref();
 }
 
 absl::HashState StructType::HashTypeParameter(absl::HashState state) const {

@@ -240,7 +240,7 @@ public class AnalyzerOptionsTest {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
     AnalyzerOptions options = new AnalyzerOptions();
-    assertThat(options.getQueryParameters()).hasSize(0);
+    assertThat(options.getQueryParameters()).isEmpty();
     options.addQueryParameter("foo", TypeFactory.createSimpleType(TypeKind.TYPE_STRING));
     assertThat(options.getQueryParameters()).hasSize(1);
     assertThat(options.getQueryParameters().get("foo").getKind()).isEqualTo(TypeKind.TYPE_STRING);
@@ -301,7 +301,7 @@ public class AnalyzerOptionsTest {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
     AnalyzerOptions options = new AnalyzerOptions();
-    assertThat(options.getExpressionColumns()).hasSize(0);
+    assertThat(options.getExpressionColumns()).isEmpty();
     options.addExpressionColumn("foo", TypeFactory.createSimpleType(TypeKind.TYPE_STRING));
     assertThat(options.getExpressionColumns()).hasSize(1);
     assertThat(options.getExpressionColumns().get("foo").getKind()).isEqualTo(TypeKind.TYPE_STRING);

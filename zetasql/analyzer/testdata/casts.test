@@ -339,7 +339,7 @@ QueryStmt
     |     +-format=
     |       +-Cast(STRING -> STRING)
     |         +-Literal(type=STRING, value="123", has_explicit_type=TRUE)
-    |         +-type_parameters=(max_length=MAX)
+    |         +-type_modifiers=type_parameters:(max_length=MAX)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
@@ -360,7 +360,7 @@ QueryStmt
     |     +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
     |     +-format=
     |     | +-Literal(type=STRING, value="hex")
-    |     +-type_parameters=(max_length=10)
+    |     +-type_modifiers=type_parameters:(max_length=10)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
@@ -4471,6 +4471,24 @@ QueryStmt
     | +-$col1#1 :=
     |   +-Cast(STRING -> NUMERIC)
     |     +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=NUMERIC_TYPE,PARAMETERIZED_TYPES]
+select cast("abc" as NUMERIC(2))
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> NUMERIC)
+    |     +-Literal(type=STRING, value="abc")
+    |     +-type_modifiers=type_parameters:(precision=2,scale=0)
     +-input_scan=
       +-SingleRowScan
 ==

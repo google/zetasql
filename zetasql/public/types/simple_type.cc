@@ -381,28 +381,30 @@ bool SimpleType::SupportsGroupingImpl(const LanguageOptions& language_options,
   return supports_grouping;
 }
 
-// TODO: create a template to parameterize the type of simple type
-// value's content and use this template to split SimpleType into subclasses to
-// avoid TypeKind switch statements.
-static bool DoesValueContentUseSimpleReferenceCounted(TypeKind kind) {
+void SimpleType::CopyValueContent(TypeKind kind, const ValueContent& from,
+                                  ValueContent* to) {
   switch (kind) {
     case TYPE_STRING:
     case TYPE_BYTES:
+      from.GetAs<internal::StringRef*>()->Ref();
+      break;
     case TYPE_GEOGRAPHY:
+      from.GetAs<internal::GeographyRef*>()->Ref();
+      break;
     case TYPE_NUMERIC:
+      from.GetAs<internal::NumericRef*>()->Ref();
+      break;
     case TYPE_BIGNUMERIC:
+      from.GetAs<internal::BigNumericRef*>()->Ref();
+      break;
     case TYPE_INTERVAL:
+      from.GetAs<internal::IntervalRef*>()->Ref();
+      break;
     case TYPE_JSON:
-      return true;
+      from.GetAs<internal::JSONRef*>()->Ref();
+      break;
     default:
-      return false;
-  }
-}
-
-void SimpleType::CopyValueContent(TypeKind kind, const ValueContent& from,
-                                  ValueContent* to) {
-  if (DoesValueContentUseSimpleReferenceCounted(kind)) {
-    from.GetAs<zetasql_base::SimpleReferenceCounted*>()->Ref();
+      break;
   }
 
   *to = from;
@@ -414,8 +416,28 @@ void SimpleType::CopyValueContent(const ValueContent& from,
 }
 
 void SimpleType::ClearValueContent(TypeKind kind, const ValueContent& value) {
-  if (DoesValueContentUseSimpleReferenceCounted(kind)) {
-    value.GetAs<zetasql_base::SimpleReferenceCounted*>()->Unref();
+  switch (kind) {
+    case TYPE_STRING:
+    case TYPE_BYTES:
+      value.GetAs<internal::StringRef*>()->Unref();
+      return;
+    case TYPE_GEOGRAPHY:
+      value.GetAs<internal::GeographyRef*>()->Unref();
+      return;
+    case TYPE_NUMERIC:
+      value.GetAs<internal::NumericRef*>()->Unref();
+      return;
+    case TYPE_BIGNUMERIC:
+      value.GetAs<internal::BigNumericRef*>()->Unref();
+      return;
+    case TYPE_INTERVAL:
+      value.GetAs<internal::IntervalRef*>()->Unref();
+      return;
+    case TYPE_JSON:
+      value.GetAs<internal::JSONRef*>()->Unref();
+      return;
+    default:
+      return;
   }
 }
 

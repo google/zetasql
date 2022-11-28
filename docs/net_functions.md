@@ -2,6 +2,8 @@
 
 # Net functions
 
+ZetaSQL supports the following Net functions.
+
 ### NET.IP_FROM_STRING
 
 ```

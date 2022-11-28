@@ -113,6 +113,13 @@ struct TestIsDefaultValue<ResolvedCollation> {
   }
 };
 
+template <>
+struct TestIsDefaultValue<TypeModifiers> {
+  static bool IsDefaultValue(const TypeModifiers& type_modifiers) {
+    return type_modifiers.IsEmpty();
+  }
+};
+
 // Return true if <value> is equal to the default value for its type.
 // e.g. for pointers, return true if <value> is nullptr.
 // TODO This provides no way to distinguish an unset value from a
@@ -260,11 +267,13 @@ static std::string ToStringImpl(const Connection* connection) {
   return connection->FullName();
 }
 static std::string ToStringImpl(const TableValuedFunction* tvf) {
-  return absl::StrCat(absl::StrJoin(tvf->function_name_path(), "."), "(",
-                FunctionSignature::SignaturesToString(
-                    tvf->signatures(), /*verbose=*/true, /*prefix=*/"",
-                    /*separator=*/"; "),
-                ")");
+  return tvf == nullptr
+    ? "<null>"
+    : absl::StrCat(absl::StrJoin(tvf->function_name_path(), "."), "(",
+                   FunctionSignature::SignaturesToString(
+                       tvf->signatures(), /*verbose=*/true, /*prefix=*/"",
+                       /*separator=*/"; "),
+                   ")");
 }
 static std::string ToStringImpl(const Procedure* procedure) {
   return procedure->FullName();
@@ -1021,6 +1030,28 @@ absl::StatusOr<TypeParameters>
         const TypeParametersProto& proto,
         const ResolvedNode::RestoreParams& params) {
   return TypeParameters::Deserialize(proto);
+}
+
+static std::string ToStringImpl(const TypeModifiers& type_modifiers) {
+  return type_modifiers.DebugString();
+}
+
+static absl::Status SaveToImpl(
+    const TypeModifiers& type_modifiers,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    TypeModifiersProto* proto) {
+  if (!type_modifiers.IsEmpty()) {
+    ZETASQL_RETURN_IF_ERROR(type_modifiers.Serialize(proto));
+  }
+  return absl::OkStatus();
+}
+
+template<>
+absl::StatusOr<TypeModifiers>
+    RestoreFromImpl(
+        const TypeModifiersProto& proto,
+        const ResolvedNode::RestoreParams& params) {
+  return TypeModifiers::Deserialize(proto);
 }
 
 }  // anonymous namespace

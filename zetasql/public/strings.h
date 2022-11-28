@@ -224,7 +224,7 @@ const absl::flat_hash_set<std::string>& GetReservedKeywords();
 // These names are not meant to be user-visible.
 // Currently, internal names start with '$'.
 // TODO Consider removing this.
-bool IsInternalAlias(const std::string& alias);
+bool IsInternalAlias(absl::string_view alias);
 bool IsInternalAlias(IdString alias);
 
 }  // namespace zetasql

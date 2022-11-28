@@ -407,16 +407,14 @@ class PreparedExpressionBase {
       ExpressionOptions options = ExpressionOptions());
 
   // Shorthand for calling Execute, filling the options using maps.
-  absl::StatusOr<Value> Execute(
-      const ParameterValueMap& columns,
-      const ParameterValueMap& parameters = {},
-      const SystemVariableValuesMap& system_variables = {});
+  absl::StatusOr<Value> Execute(ParameterValueMap columns,
+                                ParameterValueMap parameters = {},
+                                SystemVariableValuesMap system_variables = {});
 
   // Shorthand for calling Execute, filling the options positionally.
   absl::StatusOr<Value> ExecuteWithPositionalParams(
-      const ParameterValueMap& columns,
-      const ParameterValueList& positional_parameters,
-      const SystemVariableValuesMap& system_variables = {});
+      ParameterValueMap columns, ParameterValueList positional_parameters,
+      SystemVariableValuesMap system_variables = {});
 
   // This is the same as Execute, but is a const method, and requires that
   // Prepare has already been called. See the description of Execute for details
@@ -429,22 +427,20 @@ class PreparedExpressionBase {
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options using maps.
   absl::StatusOr<Value> ExecuteAfterPrepare(
-      const ParameterValueMap& columns,
-      const ParameterValueMap& parameters = {},
-      const SystemVariableValuesMap& system_variables = {}) const;
+      ParameterValueMap columns, ParameterValueMap parameters = {},
+      SystemVariableValuesMap system_variables = {}) const;
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options
   // positionally.
   absl::StatusOr<Value> ExecuteAfterPrepareWithPositionalParams(
-      const ParameterValueMap& columns,
-      const ParameterValueList& positional_parameters,
-      const SystemVariableValuesMap& system_variables = {}) const;
+      ParameterValueMap columns, ParameterValueList positional_parameters,
+      SystemVariableValuesMap system_variables = {}) const;
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options
   // positionally.
   absl::StatusOr<Value> ExecuteAfterPrepareWithOrderedParams(
-      const ParameterValueList& columns, const ParameterValueList& parameters,
-      const SystemVariableValuesMap& system_variables = {}) const;
+      ParameterValueList columns, ParameterValueList parameters,
+      SystemVariableValuesMap system_variables = {}) const;
 
   // Returns a human-readable representation of how this expression would
   // actually be executed. Do not try to interpret this string with code, as the
@@ -546,18 +542,17 @@ class PreparedQueryBase {
   // This method is thread safe. Multiple executions can proceed in parallel,
   // each using a different iterator.
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
-      const QueryOptions& options = QueryOptions());
+      QueryOptions options = QueryOptions());
 
   // Shorthand for calling Execute, filling the options using maps.
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
-      const ParameterValueMap& parameters,
-      const SystemVariableValuesMap& system_variables = {});
+      ParameterValueMap parameters,
+      SystemVariableValuesMap system_variables = {});
 
   // Shorthand for calling Execute, filling the options positionally.
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
-  ExecuteWithPositionalParams(
-      const ParameterValueList& positional_parameters,
-      const SystemVariableValuesMap& system_variables = {});
+  ExecuteWithPositionalParams(ParameterValueList positional_parameters,
+                              SystemVariableValuesMap system_variables = {});
 
   // This is the same as Execute, but is a const method, and requires that
   // Prepare has already been called. See the description of Execute for details
@@ -569,13 +564,13 @@ class PreparedQueryBase {
   // Thread safe. Multiple evaluations can proceed in parallel.
   // REQUIRES: Prepare() has been called successfully.
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> ExecuteAfterPrepare(
-      const QueryOptions& options = QueryOptions()) const;
+      QueryOptions options = QueryOptions()) const;
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options
   // positionally.
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> ExecuteAfterPrepare(
-      const ParameterValueList& parameters,
-      const SystemVariableValuesMap& system_variables = {}) const;
+      ParameterValueList parameters,
+      SystemVariableValuesMap system_variables = {}) const;
 
   // Returns a human-readable representation of how this query would actually
   // be executed. Do not try to interpret this string with code, as the
@@ -750,15 +745,15 @@ class PreparedModifyBase {
   // ignored. Note that results are fully buffered before Execute returns, so
   // the iterators can be consumed in arbitrary order.
   absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>> Execute(
-      const ParameterValueMap& parameters = {},
-      const SystemVariableValuesMap& system_variables = {},
+      ParameterValueMap parameters = {},
+      SystemVariableValuesMap system_variables = {},
       std::unique_ptr<EvaluatorTableIterator>* returning_iterator = nullptr);
 
   // Same as 'Execute', but uses positional instead of named parameters.
   absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
   ExecuteWithPositionalParams(
-      const ParameterValueList& positional_parameters,
-      const SystemVariableValuesMap& system_variables = {},
+      ParameterValueList positional_parameters,
+      SystemVariableValuesMap system_variables = {},
       std::unique_ptr<EvaluatorTableIterator>* returning_iterator = nullptr);
 
   // More efficient form of Execute that requires parameter values to be passed
@@ -769,8 +764,8 @@ class PreparedModifyBase {
   // REQUIRES: Prepare() has been called successfully.
   absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
   ExecuteAfterPrepareWithOrderedParams(
-      const ParameterValueList& parameters,
-      const SystemVariableValuesMap& system_variables = {},
+      ParameterValueList parameters,
+      SystemVariableValuesMap system_variables = {},
       std::unique_ptr<EvaluatorTableIterator>* returning_iterator =
           nullptr) const;
 
@@ -778,8 +773,8 @@ class PreparedModifyBase {
   // Prepare has already been called. See the description of Execute for details
   // about the arguments and return value.
   absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
-  ExecuteAfterPrepare(const ParameterValueMap& parameters,
-                      const SystemVariableValuesMap& system_variables = {},
+  ExecuteAfterPrepare(ParameterValueMap parameters,
+                      SystemVariableValuesMap system_variables = {},
                       std::unique_ptr<EvaluatorTableIterator>*
                           returning_iterator = nullptr) const;
 

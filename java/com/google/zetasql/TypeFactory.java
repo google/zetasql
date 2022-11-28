@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.EnumDescriptor;
@@ -214,12 +215,14 @@ public abstract class TypeFactory implements Serializable {
   public abstract EnumType createEnumType(Class<? extends ProtocolMessageEnum> generatedEnumClass);
 
   /** Deserialize a self-contained {@link TypeProto} into a {@link Type}. */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public abstract Type deserialize(TypeProto proto);
 
   /**
    * Deserialize a {@link TypeProto} into a {@link Type} using the given {@link DescriptorPool
    * DescriptorPools}.
    */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public abstract Type deserialize(TypeProto proto, List<? extends DescriptorPool> pools);
 
   /**

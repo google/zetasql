@@ -1118,31 +1118,5 @@ TEST(ValidatorTest, ValidCreateModelStatement_EmptyV13_Invalid) {
                        HasSubstr("stmt->query() != nullptr")));
 }
 
-TEST(ValidatorTest, ValidCreateModelStatement_EmptyV14_Invalid) {
-  auto statement = MakeResolvedCreateModelStmt(
-      /*name_path=*/{"m"},
-      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
-      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
-      /*option_list=*/{},
-      /*output_column_list=*/{},
-      /*query=*/{},
-      /*transform_input_column_list=*/{},
-      /*transform_list=*/{},
-      /*transform_output_column_list=*/{},
-      /*transform_analytic_function_group_list=*/{},
-      /*input_column_definition_list=*/{},
-      /*output_column_definition_list=*/{},
-      /*is_remote=*/false,
-      /*connection=*/{});
-
-  LanguageOptions language_options;
-  language_options.EnableLanguageFeature(FEATURE_V_1_4_REMOTE_MODEL);
-  Validator validator(language_options);
-  EXPECT_THAT(
-      validator.ValidateResolvedStatement(statement.get()),
-      StatusIs(absl::StatusCode::kInternal,
-               HasSubstr("!stmt->input_column_definition_list().empty()")));
-}
-
 }  // namespace testing
 }  // namespace zetasql

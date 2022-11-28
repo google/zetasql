@@ -17,18 +17,15 @@
 #ifndef ZETASQL_TOOLS_FORMATTER_INTERNAL_LAYOUT_H_
 #define ZETASQL_TOOLS_FORMATTER_INTERNAL_LAYOUT_H_
 
-#include <iosfwd>
 #include <memory>
 #include <ostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/tools/formatter/internal/chunk.h"
 #include "zetasql/tools/formatter/internal/parsed_file.h"
 #include "absl/container/btree_set.h"
-#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"

@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/base/simple_reference_counted.h"
+#include "zetasql/base/compact_reference_counted.h"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -22,25 +22,28 @@
 using ::testing::Eq;
 
 namespace zetasql_base {
+namespace refcount {
 
 // Test class that counts dtor and OnRefCountIsZero() invocations and exposes
 // ref_count().
-class TestRefCounted : public SimpleReferenceCounted {
+class TestRefCounted final : public CompactReferenceCounted<TestRefCounted> {
  public:
   TestRefCounted(int* destructor_counter, int* final_unref_count)
       : destruct_count_(destructor_counter),
         final_unref_count_(final_unref_count) {}
 
-  ~TestRefCounted() override {
+  ~TestRefCounted() {
     if (destruct_count_) ++*destruct_count_;
   }
 
-  void OnRefCountIsZero() const override {
+  void OnRefCountIsZero() const {
     if (final_unref_count_) ++*final_unref_count_;
-    SimpleReferenceCounted::OnRefCountIsZero();
+    CompactReferenceCounted<TestRefCounted>::OnRefCountIsZero();
   }
 
-  size_t ref_count() const { return SimpleReferenceCounted::ref_count(); }
+  size_t ref_count() const {
+    return CompactReferenceCounted<TestRefCounted>::ref_count();
+  }
 
  private:
   int* const destruct_count_;
@@ -48,15 +51,17 @@ class TestRefCounted : public SimpleReferenceCounted {
 };
 
 // Tests simple creation, Unref() and public observable state.
-TEST(SimpleReferenceCounted, Create) {
-  SimpleReferenceCounted* rc = new SimpleReferenceCounted();
+TEST(CompactReferenceCounted, Create) {
+  int destruct_count = 0;
+  int finalize_count = 0;
+  TestRefCounted* rc = new TestRefCounted(&destruct_count, &finalize_count);
   EXPECT_TRUE(rc->RefCountIsOne());
   rc->Unref();
 }
 
 // Tests Ref(), Unref(), reference counts and OnRefCountIsZero / Dtor
 // invocations.
-TEST(SimpleReferenceCounted, RefUnrefAndRefCount) {
+TEST(CompactReferenceCounted, RefUnrefAndRefCount) {
   int destruct_count = 0;
   int finalize_count = 0;
   TestRefCounted* rc = new TestRefCounted(&destruct_count, &finalize_count);
@@ -82,24 +87,24 @@ TEST(SimpleReferenceCounted, RefUnrefAndRefCount) {
 // Test class that counts dtor and OnRefCountIsZero invocations, exposes
 // ref_count(), and consumes the first 8 OnRefCountIsZero() calls before calling
 // the default OnRefCountIsZero() on the 9th call.
-class NineLives : public SimpleReferenceCounted {
+class NineLives final : public CompactReferenceCounted<NineLives> {
  public:
   NineLives(int* destructor_counter, int* final_unref_count)
       : destruct_count_(destructor_counter),
         final_unref_count_(final_unref_count) {}
 
-  ~NineLives() override {
+  ~NineLives() {
     if (destruct_count_) ++*destruct_count_;
   }
 
-  void OnRefCountIsZero() const override {
+  void OnRefCountIsZero() const {
     if (final_unref_count_) ++*final_unref_count_;
     if (--const_cast<NineLives*>(this)->lives_ == 0) {
-      SimpleReferenceCounted::OnRefCountIsZero();
+      CompactReferenceCounted<NineLives>::OnRefCountIsZero();
     }
   }
 
-  size_t ref_count() const { return SimpleReferenceCounted::ref_count(); }
+  size_t ref_count() const { return CompactReferenceCounted::ref_count(); }
 
  private:
   int* const destruct_count_;
@@ -108,7 +113,7 @@ class NineLives : public SimpleReferenceCounted {
 };
 
 // Tests OnRefCountIsZero() overrides and overrules finalization behavior.
-TEST(SimpleReferenceCounted, NineLives) {
+TEST(CompactReferenceCounted, NineLives) {
   int destruct_count = 0;
   int finalize_count = 0;
   NineLives* rc = new NineLives(&destruct_count, &finalize_count);
@@ -126,4 +131,5 @@ TEST(SimpleReferenceCounted, NineLives) {
   EXPECT_THAT(finalize_count, Eq(9));
 }
 
+}  // namespace refcount
 }  // namespace zetasql_base

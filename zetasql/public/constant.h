@@ -62,7 +62,7 @@ class Constant {
     ZETASQL_CHECK(!name_path_.empty()) << FullName();
   }
 
-  virtual ~Constant() {}
+  virtual ~Constant() = default;
 
   // This class is neither copyable nor assignable.
   Constant(const Constant& other_constant) = delete;
@@ -98,6 +98,11 @@ class Constant {
 
   // Returns a string describing this Constant for debugging purposes.
   virtual std::string DebugString() const = 0;
+
+  // Returns a debug string for this constant's value, even if the value is
+  // invalid (e.g. because this is a SQLConstant and it has not been evaluated
+  // yet).
+  virtual std::string ConstantValueDebugString() const = 0;
 
  private:
   // The name path of this Constant, top-down in the Catalog hierarchy and

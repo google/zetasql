@@ -1134,9 +1134,9 @@ select * from (mytvf((select * from keyvalue)))
 # Parenthesized joins are not supported as TVF arguments.
 select * from mytvf((keyvalue join keyvalue on true))
 --
-ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:22]
+ERROR: Syntax error: Unexpected keyword JOIN [at 1:31]
 select * from mytvf((keyvalue join keyvalue on true))
-                     ^
+                              ^
 ==
 
 # Multiple levels of parentheses in various TVF arguments.
@@ -1183,7 +1183,7 @@ QueryStatement [0-34] [select * from...select 1)))]
           PathExpression [14-19] [mytvf]
             Identifier(mytvf) [14-19] [mytvf]
           TVFArgument [21-33] [((select 1))]
-            ExpressionSubquery [22-32] [(select 1)]
+            ExpressionSubquery [21-33] [((select 1))]
               Query [23-31] [select 1]
                 Select [23-31] [select 1]
                   SelectList [30-31] [1]
@@ -1387,7 +1387,7 @@ QueryStatement [0-47] [select * from...mytvf())))]
           PathExpression [14-19] [mytvf]
             Identifier(mytvf) [14-19] [mytvf]
           TVFArgument [21-46] [((select 1 from mytvf()))]
-            ExpressionSubquery [22-45] [(select 1 from mytvf())]
+            ExpressionSubquery [21-46] [((select 1 from mytvf()))]
               Query [23-44] [select 1 from mytvf()]
                 Select [23-44] [select 1 from mytvf()]
                   SelectList [30-31] [1]

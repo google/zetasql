@@ -268,6 +268,12 @@ class BisonParser {
   absl::string_view GetFirstTokenOfNode(
       const zetasql_bison_parser::location& bison_location) const;
 
+  void AddWarning(const absl::Status& status) { warnings_->push_back(status); }
+
+  std::unique_ptr<std::vector<absl::Status>> release_warnings() {
+    return std::move(warnings_);
+  }
+
  private:
   // Identifiers and literal values are allocated from this arena. Not owned.
   // Only valid during Parse().
@@ -299,6 +305,11 @@ class BisonParser {
 
   // 1-based position of the previous generated positional parameter.
   int previous_positional_parameter_position_ = 0;
+
+  // Warnings found during parsing. Useful when monitoring usage of particular
+  // syntax usage (e.g., to assess the impact of reserving a keyword)
+  std::unique_ptr<std::vector<absl::Status>> warnings_ =
+      std::make_unique<std::vector<absl::Status>>();
 };
 
 }  // namespace parser

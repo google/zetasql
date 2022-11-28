@@ -95,8 +95,9 @@ struct AlgebrizerOptions {
 };
 
 struct AnonymizationOptions {
-  std::optional<Value> epsilon;      // double Value
-  std::optional<Value> delta;        // double Value
+  std::optional<Value> epsilon;  // double Value
+  std::optional<Value> delta;    // double Value
+  // TODO Rename to max_groups_contributed
   std::optional<Value> kappa;        // int64_t Value
   std::optional<Value> k_threshold;  // int64_t Value
 };

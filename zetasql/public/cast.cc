@@ -304,38 +304,6 @@ absl::StatusOr<Value> NumericValueCast(const FromType& in) {
   }
 }
 
-absl::Status CheckLegacyRanges(int64_t timestamp,
-                               functions::TimestampScale precision,
-                               const std::string& from_type_name,
-                               const std::string& from_type_value) {
-  int64_t min, max;
-  switch (precision) {
-    case functions::kNanoseconds:
-      min = types::kTimestampNanosMin;
-      max = types::kTimestampNanosMax;
-      break;
-    case functions::kMicroseconds:
-      min = types::kTimestampMicrosMin;
-      max = types::kTimestampMicrosMax;
-      break;
-    case functions::kMilliseconds:
-      min = types::kTimestampMillisMin;
-      max = types::kTimestampMillisMax;
-      break;
-    case functions::kSeconds:
-      min = types::kTimestampSecondsMin;
-      max = types::kTimestampSecondsMax;
-      break;
-  }
-  if (timestamp < min || timestamp > max) {
-    return MakeEvalError() << "Cast from " << from_type_name << " "
-                           << from_type_value << " to "
-                           << TimestampScale_Name(precision)
-                           << " out of bounds";
-  }
-  return absl::OkStatus();
-}
-
 // Conversion function from a numeric Value to a string Value that
 // handles NULL Values but otherwise just wraps the ZetaSQL function
 // library function (which does not handle NULL values).

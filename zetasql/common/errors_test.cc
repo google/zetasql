@@ -17,6 +17,7 @@
 #include "zetasql/common/errors.h"
 
 #include <string>
+#include <vector>
 
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/proto_matchers.h"

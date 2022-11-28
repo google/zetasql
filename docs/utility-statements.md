@@ -2,8 +2,7 @@
 
 # Utility statements
 
-ZetaSQL specifies the syntax for utility statements, such as
-`DESCRIBE`.
+ZetaSQL supports the following utility statements.
 
 ## EXPLAIN
 

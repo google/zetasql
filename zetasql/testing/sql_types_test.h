@@ -76,6 +76,7 @@ class ZetaSQLTypesTest : public ::testing::Test {
 #define TIMESTAMP (*timestamp_arg)
 #define GEOGRAPHY (*geography_arg)
 #define ENUM (*enum_arg)
+#define OPAQUE_ENUM (*opaque_enum_arg)
 #define PROTO (*proto_arg)
 #define ARRAY_INT32 (*array_int32_arg)
 #define ARRAY_INT64 (*array_int64_arg)
@@ -102,6 +103,7 @@ class ZetaSQLTypesTest : public ::testing::Test {
 #define MILLIS_PARAMETER (*millis_parameter_arg)
 #define MICROS_PARAMETER (*micros_parameter_arg)
 #define ENUM_PARAMETER (*enum_parameter_arg)
+#define OPAQUE_ENUM_PARAMETER (*opaque_enum_parameter_arg)
 #define PROTO_PARAMETER (*proto_parameter_arg)
 #define ARRAY_INT32_PARAMETER (*array_int32_parameter_arg)
 #define ARRAY_INT64_PARAMETER (*array_int64_parameter_arg)
@@ -125,6 +127,7 @@ class ZetaSQLTypesTest : public ::testing::Test {
 #define DATETIME_LITERAL (*datetime_literal_arg)
 #define TIMESTAMP_LITERAL (*timestamp_literal_arg)
 #define ENUM_LITERAL (*enum_literal_arg)
+#define OPAQUE_ENUM_LITERAL (*opaque_enum_literal_arg)
 #define PROTO_LITERAL (*proto_literal_arg)
 #define ARRAY_INT32_LITERAL (*array_int32_literal_arg)
 #define ARRAY_INT64_LITERAL (*array_int64_literal_arg)
@@ -150,6 +153,7 @@ class ZetaSQLTypesTest : public ::testing::Test {
 #define MICROS_NULL (*micros_null_arg)
 #define GEOGRAPHY_NULL (*geography_null_arg)
 #define ENUM_NULL (*enum_null_arg)
+#define OPAQUE_ENUM_NULL (*opaque_enum_null_arg)
 #define PROTO_NULL (*proto_null_arg)
 #define ARRAY_INT32_NULL (*array_int32_null_arg)
 #define ARRAY_INT64_NULL (*array_int64_null_arg)
@@ -163,6 +167,7 @@ class ZetaSQLTypesTest : public ::testing::Test {
   const ArrayType* GetInt64ArrayType();
   const ArrayType* GetStructArrayType();
   const EnumType* GetTestEnumType();
+  const EnumType* GetTestEnumAsOpaqueType();
   const EnumType* GetAnotherTestEnumType();
   const ProtoType* GetKitchenSinkNestedProtoType();
   const ProtoType* GetKitchenSinkNestedDatesProtoType();
@@ -228,6 +233,7 @@ class ZetaSQLTypesTest : public ::testing::Test {
   // Enum, Proto, Array, and Struct must be handled separately since they
   // require TypeFactory use.  They get initialized in SetUp().
   DEFINE_VARIABLES(enum);
+  DEFINE_VARIABLES(opaque_enum);
   DEFINE_VARIABLES(proto);
   DEFINE_VARIABLES(array_int32);
   DEFINE_VARIABLES(array_int64);
@@ -256,6 +262,7 @@ class ZetaSQLTypesTest : public ::testing::Test {
   const ArrayType*  int64_array_type_ = nullptr;
   const ArrayType* struct_array_type_ = nullptr;
   const EnumType*   enum_type_ = nullptr;
+  const EnumType* enum_as_opaque_type_ = nullptr;
   const EnumType*   another_enum_type_ = nullptr;
   const ProtoType* kitchen_sink_nested_proto_type_ = nullptr;
   const ProtoType* kitchen_sink_nested_dates_proto_type_ = nullptr;

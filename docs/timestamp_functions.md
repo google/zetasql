@@ -2,7 +2,7 @@
 
 # Timestamp functions
 
-ZetaSQL supports several `TIMESTAMP` functions.
+ZetaSQL supports the following timestamp functions.
 
 IMPORTANT: Before working with these functions, you need to understand
 the difference between the formats in which timestamps are stored and displayed,

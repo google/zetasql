@@ -103,6 +103,16 @@ class MultiCatalog : public Catalog {
       const Constant** constant,
       const FindOptions& options = FindOptions()) override;
 
+  // Finds the longest prefix of <path> that represents a table among all
+  // catalogs in this multi-catalog. Only when all catalog lookups fail will
+  // this function return a NOT_FOUND status and a nullptr <table>.
+  // TODO: Update MultiCatalog::FindConstantWithPathPrefix to find the
+  // longest prefix among all catalogs and fix its debug string.
+  absl::Status FindTableWithPathPrefix(const absl::Span<const std::string> path,
+                                       const FindOptions& options,
+                                       int* num_names_consumed,
+                                       const Table** table) override;
+
   // The Suggest*() functions look for suggestions in order based on the
   // catalog_list_, and return the first non-empty suggestion found.
   std::string SuggestTable(

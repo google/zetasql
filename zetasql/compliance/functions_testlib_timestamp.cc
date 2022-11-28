@@ -3330,7 +3330,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampTrunc() {
   for (const FunctionTestCall& test :
        GetFunctionTestsTimestampTruncInternal()) {
     result.push_back(test);
-    if (test.params.HasEmptyFeatureSetAndNothingElse()) {
+    if (test.params.required_features().empty()) {
       result.push_back(FunctionTestCall(
           "date_trunc", test.params.WrapWithFeature(
                             FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)));
@@ -9271,9 +9271,10 @@ FunctionTestCall DatetimeBucketTest(
   QueryParamsWithResult::FeatureSet feature_set;
   if (scale == kNanoseconds) {
     feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
-                   FEATURE_TIMESTAMP_NANOS};
+                   FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
   } else {
-    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE};
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
+                   FEATURE_V_1_2_CIVIL_TIME};
   }
   call.params = call.params.WrapWithFeatureSet(feature_set);
   return call;
@@ -9301,9 +9302,10 @@ FunctionTestCall DatetimeBucketErrorTest(
   QueryParamsWithResult::FeatureSet feature_set;
   if (scale == kNanoseconds) {
     feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
-                   FEATURE_TIMESTAMP_NANOS};
+                   FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS};
   } else {
-    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE};
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
+                   FEATURE_V_1_2_CIVIL_TIME};
   }
   call.params = call.params.WrapWithFeatureSet(feature_set);
   return call;
@@ -9629,11 +9631,27 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeBucket() {
                          "2020-05-02 00:00:00"),
       DatetimeBucketTest("2020-09-01 00:00:00",
                          "0-4",                  // INTERVAL 4 MONTH
-                         "1950-01-01 00:00:01",  // minute offset
+                         "1950-01-01 01:00:00",  // hour offset
+                         "2020-05-01 01:00:00"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "2051-01-01 01:00:00",  // hour offset
+                         "2020-05-01 01:00:00"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "1950-01-01 00:01:00",  // minute offset
+                         "2020-05-01 00:01:00"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "2051-01-01 00:01:00",  // minute offset
+                         "2020-05-01 00:01:00"),
+      DatetimeBucketTest("2020-09-01 00:00:00",
+                         "0-4",                  // INTERVAL 4 MONTH
+                         "1950-01-01 00:00:01",  // second offset
                          "2020-05-01 00:00:01"),
       DatetimeBucketTest("2020-09-01 00:00:00",
                          "0-4",                  // INTERVAL 4 MONTH
-                         "2051-01-01 00:00:01",  // minute offset
+                         "2051-01-01 00:00:01",  // second offset
                          "2020-05-01 00:00:01"),
       DatetimeBucketTest("2020-09-01 00:00:00",
                          "0-4",                         // INTERVAL 4 MONTH
@@ -9808,12 +9826,6 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeBucket() {
                               "9999-12-31 23:59:59.999999",
                               "Bucket for 0001-01-01 00:00:00 "
                               "is outside of datetime range"),
-      // Nanoseconds precision is not supported with kMicroseconds scale.
-      DatetimeBucketErrorTest("2020-03-15 14:57:39.123456",
-                              "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
-                              "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET doesn't support bucket width "
-                              "INTERVAL with nanoseconds precision"),
       // Zero INTERVAL is not supported
       DatetimeBucketErrorTest("2020-03-15 14:57:39", "0:0:0",
                               "1950-01-01 00:00:00",
@@ -10196,10 +10208,6 @@ std::vector<FunctionTestCall> GetFunctionTestsDateBucket() {
       DateBucketErrorTest("2020-03-15", "0-0", "1950-01-01",
                           "DATE_BUCKET requires exactly one non-zero "
                           "INTERVAL part in bucket width"),
-      // NANOSECOND part is not supported
-      DateBucketErrorTest("2020-03-15", "00:00:00.0000001", "1950-01-01",
-                          "DATE_BUCKET only supports bucket width INTERVAL "
-                          "with MONTH and DAY parts"),
       // MICROSECOND part is not supported
       DateBucketErrorTest("2020-03-15", "24:00:00", "1950-01-01",
                           "DATE_BUCKET only supports bucket width INTERVAL "
@@ -10224,8 +10232,18 @@ std::vector<FunctionTestCall> GetFunctionTestsDateBucket() {
                           "Bucket for 0001-01-01 is outside of date range"),
       // Max number of days (10000 * 366)
       DateBucketTest("2020-03-15", "0-0 3660000", "1950-01-01", "1950-01-01"),
+      DateBucketErrorTest("0001-01-01", "0-0 3660000", "9999-12-31",
+                          "Bucket for 0001-01-01 is outside of date range"),
+      DateBucketTest("9999-12-31", "0-0 3660000", "0001-01-01", "0001-01-01"),
+      DateBucketTest("0001-01-02", "0-0 3660000", "0001-01-01", "0001-01-01"),
+      DateBucketTest("9999-12-31", "0-0 3660000", "9999-12-30", "9999-12-30"),
       // Max number of months (10000 * 12)
       DateBucketTest("2020-03-15", "10000-0", "1950-01-01", "1950-01-01"),
+      DateBucketErrorTest("0001-01-01", "10000-0", "9999-12-31",
+                          "Bucket for 0001-01-01 is outside of date range"),
+      DateBucketTest("9999-12-31", "10000-0", "0001-01-01", "0001-01-01"),
+      DateBucketTest("0001-02-01", "10000-0", "0001-01-01", "0001-01-01"),
+      DateBucketTest("9999-12-31", "10000-0", "9999-11-30", "9999-11-30"),
       // Max number of days (10000 * 366), bucket is outside of DATE range.
       // Output needs to be at -7970-04-06
       DateBucketErrorTest("2020-03-15", "0-0 3660000", "2051-01-01",

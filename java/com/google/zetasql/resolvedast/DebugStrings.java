@@ -119,6 +119,10 @@ class DebugStrings {
     return resolvedCollation == null || resolvedCollation.debugString().isEmpty();
   }
 
+  static boolean isDefaultValue(TypeModifiers typeModifiers) {
+    return typeModifiers == null || typeModifiers.isEmpty();
+  }
+
   static boolean isDefaultValue(TypeParameters typeParameters) {
     // TODO: Modify once type parameters are made non-optional in the resolved AST and
     // the default value is an empty type parameters object.
@@ -238,6 +242,10 @@ class DebugStrings {
 
   static String toStringImpl(ResolvedCollation resolvedCollation) {
     return resolvedCollation.debugString();
+  }
+
+  static String toStringImpl(TypeModifiers typeModifiers) {
+    return typeModifiers.debugString();
   }
 
   static String toStringImpl(TypeParameters typeParameters) {
@@ -364,8 +372,8 @@ class DebugStrings {
     if (node.getTimeZone() != null) {
       fields.add(new DebugStringField("time_zone", node.getTimeZone()));
     }
-    if (node.getTypeParameters() != null && !node.getTypeParameters().isEmpty()) {
-      fields.add(new DebugStringField("type_parameters", node.getTypeParameters().debugString()));
+    if (node.getTypeModifiers() != null && !node.getTypeModifiers().isEmpty()) {
+      fields.add(new DebugStringField("type_modifiers", node.getTypeModifiers().debugString()));
     }
   }
 

@@ -20,6 +20,7 @@
 #include <string>
 #include <utility>
 
+#include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/strings.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
@@ -57,6 +58,88 @@ absl::Status Catalog::FindTable(const absl::Span<const std::string>& path,
     }
     return absl::OkStatus();
   }
+}
+
+namespace {
+
+absl::Status TableNotFoundErrorWithPathPrefix(
+    const std::string& root_name, absl::Span<const std::string> table_path) {
+  const std::string& name = table_path.back();
+  const int length = static_cast<int>(table_path.size());
+  if (length > 1) {
+    return ::zetasql_base::NotFoundErrorBuilder()
+           << "Table not found: " << ToIdentifierLiteral(name)
+           << " not found in catalog " << ToIdentifierLiteral(root_name) << "."
+           << IdentifierPathToString(table_path.first(length - 1));
+  }
+  return ::zetasql_base::NotFoundErrorBuilder()
+         << "Table not found: " << ToIdentifierLiteral(name)
+         << " not found in catalog " << root_name;
+}
+
+}  // namespace
+
+absl::Status Catalog::FindTableWithPathPrefixImpl(
+    const absl::Span<const std::string> path, const std::string& root_name,
+    const FindOptions& options, int current_index, int* result_index,
+    const Table** table) {
+  if (current_index == path.size() - 1) {
+    // We have already validated in FindTable that the last element in path is
+    // not a table. So the base case here returns error directly.
+    return TableNotFoundErrorWithPathPrefix(root_name, path);
+  }
+
+  // In each recursion layer, we first try to find sub-catalog using the current
+  // identifier. If the sub-catalog exists, we traverse to the next layer.
+  // Otherwise, we try to find table under current catalog using the current
+  // identifier. If the table also doesn't exist, it's a NOT_FOUND error.
+  Catalog* next_catalog = nullptr;
+  ZETASQL_RETURN_IF_ERROR(GetCatalog(path[current_index], &next_catalog, options));
+  if (next_catalog != nullptr) {
+    return next_catalog->FindTableWithPathPrefixImpl(
+        path, root_name, options, current_index + 1, result_index, table);
+  }
+
+  // Note that, there is complexity behind FindTable that GetTable is not paired
+  // with here, for example, potential multi-catalog lookups, different engines
+  // might have different implementation for the look up process too.
+  // We also need to diregard the original error messages and overwrite a new
+  // one when table is not found.
+  absl::Status status = FindTable({path[current_index]}, table, options);
+  if (absl::IsNotFound(status)) {
+    return TableNotFoundErrorWithPathPrefix(root_name,
+                                            path.first(current_index + 1));
+  }
+  if (*table != nullptr) {
+    ZETASQL_RET_CHECK(status.ok());
+    *result_index = current_index;
+  }
+  return status;
+}
+
+absl::Status Catalog::FindTableWithPathPrefix(
+    const absl::Span<const std::string> path, const FindOptions& options,
+    int* num_names_consumed, const Table** table) {
+  // First of all, try to find table with the full identifier path. In case
+  // there are engine code that overrides FindTable with a different
+  // implementation.
+  absl::Status find_full_path_status = FindTable(path, table, options);
+  if (!absl::IsNotFound(find_full_path_status)) {
+    ZETASQL_RET_CHECK_EQ(find_full_path_status.ok(), *table != nullptr);
+    *num_names_consumed = static_cast<int>(path.size());
+    return find_full_path_status;
+  }
+
+  int result_index = -1;
+  *num_names_consumed = 0;
+  *table = nullptr;
+  // Start recursion to find table from the first index of the path expression.
+  // Any error encountered would mean a failed table name path prefix lookup.
+  ZETASQL_RETURN_IF_ERROR(FindTableWithPathPrefixImpl(path, FullName(), options, 0,
+                                              &result_index, table));
+  ZETASQL_RET_CHECK(*table != nullptr);
+  *num_names_consumed = result_index + 1;
+  return absl::OkStatus();
 }
 
 absl::Status Catalog::FindModel(const absl::Span<const std::string>& path,
@@ -408,6 +491,11 @@ std::string Catalog::SuggestTableValuedFunction(
 std::string Catalog::SuggestConstant(
     const absl::Span<const std::string>& mistyped_path) {
   return "";
+}
+
+std::string Catalog::SuggestEnumValue(const EnumType* type,
+                                      absl::string_view mistyped_value) {
+  return ::zetasql::SuggestEnumValue(type, mistyped_value);
 }
 
 absl::Status Catalog::GetTable(const std::string& name, const Table** table,

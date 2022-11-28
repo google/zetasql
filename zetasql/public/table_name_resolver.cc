@@ -57,17 +57,22 @@ class TableNameResolver {
   // If 'type_factory' and 'catalog' are not null, their contents must
   // outlive the created TableNameResolver as well.
   //
-  TableNameResolver(
-      absl::string_view sql, const AnalyzerOptions* analyzer_options,
-      TypeFactory* type_factory, Catalog* catalog, TableNamesSet* table_names,
-      TableResolutionTimeInfoMap* table_resolution_time_info_map)
-    : sql_(sql), analyzer_options_(analyzer_options),
-      for_system_time_as_of_feature_enabled_(
-          analyzer_options->language().LanguageFeatureEnabled(
-              FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF)),
-      type_factory_(type_factory), catalog_(catalog),
-      table_names_(table_names),
-      table_resolution_time_info_map_(table_resolution_time_info_map) {
+  TableNameResolver(absl::string_view sql,
+                    const AnalyzerOptions* analyzer_options,
+                    TypeFactory* type_factory, Catalog* catalog,
+                    TableNamesSet* table_names,
+                    TableResolutionTimeInfoMap* table_resolution_time_info_map,
+                    TableNamesSet* tvf_names)
+      : sql_(sql),
+        analyzer_options_(analyzer_options),
+        for_system_time_as_of_feature_enabled_(
+            analyzer_options->language().LanguageFeatureEnabled(
+                FEATURE_V_1_1_FOR_SYSTEM_TIME_AS_OF)),
+        type_factory_(type_factory),
+        catalog_(catalog),
+        table_names_(table_names),
+        tvf_names_(tvf_names),
+        table_resolution_time_info_map_(table_resolution_time_info_map) {
     ZETASQL_DCHECK(analyzer_options_->AllArenasAreInitialized());
   }
 
@@ -198,6 +203,13 @@ class TableNameResolver {
   // across recursive calls.
   TableNamesSet* table_names_ = nullptr;
 
+  // The set of TVF names we are building up in this call to FindTables.
+  // NOTE: This is also a borrowed reference. The raw pointer is not owned.
+  // We just cache the output parameter to FindTables/
+  // FindTableNamesAndTemporalReferences to simplify sharing
+  // across recursive calls.
+  TableNamesSet* tvf_names_ = nullptr;
+
   // The set of temporal table references we are building up
   // in this call to FindTemporalTableReferencess.
   // NOTE: The raw pointer is not owned.  We just cache the output parameter
@@ -218,6 +230,7 @@ class TableNameResolver {
 absl::Status TableNameResolver::FindTableNamesAndTemporalReferences(
     const ASTStatement& statement) {
   table_names_->clear();
+  if (tvf_names_ != nullptr) tvf_names_->clear();
   if (table_resolution_time_info_map_ != nullptr) {
     ZETASQL_RET_CHECK_EQ((type_factory_ == nullptr), (catalog_ == nullptr));
     table_resolution_time_info_map_->clear();
@@ -231,6 +244,9 @@ absl::Status TableNameResolver::FindTableNamesAndTemporalReferences(
 
 absl::Status TableNameResolver::FindTableNames(const ASTScript& script) {
   table_names_->clear();
+  if (tvf_names_ != nullptr) {
+    tvf_names_->clear();
+  }
   ZETASQL_RETURN_IF_ERROR(FindInScriptNode(&script));
   // Sanity check - these should get popped.
   ZETASQL_RET_CHECK(local_table_aliases_.empty());
@@ -1266,8 +1282,8 @@ absl::Status TableNameResolver::FindInParenthesizedJoin(
 }
 
 absl::Status TableNameResolver::FindInTVF(
-    const ASTTVF* tvf,
-    const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
+    const ASTTVF* tvf, const AliasSet& external_visible_aliases,
+    AliasSet* local_visible_aliases) {
   // The 'tvf' here is the TVF parse node. Each TVF argument may be a scalar, a
   // relation, or a TABLE clause. We've parsed all of the TVF arguments as
   // expressions by this point, so the FindInExpressionsUnder call will descend
@@ -1281,6 +1297,13 @@ absl::Status TableNameResolver::FindInTVF(
   // and so those aliases should not be visible. Because we don't know whether
   // the argument should be a scalar or a relation yet, we allow correlation
   // here and examine the arguments again during resolving.
+
+  // On encountering an ASTTVF node, add the name of the TVF represented by
+  // an identifier path to the optional tvf_names parameter if it has been set.
+  if (tvf_names_ != nullptr) {
+    zetasql_base::InsertIfNotPresent(tvf_names_, tvf->name()->ToIdentifierVector());
+  }
+
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(tvf, *local_visible_aliases));
   for (const ASTTVFArgument* arg : tvf->argument_entries()) {
     if (arg->table_clause() != nullptr) {
@@ -1326,6 +1349,7 @@ absl::Status TableNameResolver::FindInTVF(
     local_visible_aliases->insert(
         absl::AsciiStrToLower(tvf->alias()->GetAsString()));
   }
+
   return absl::OkStatus();
 }
 
@@ -1490,19 +1514,23 @@ absl::Status FindTableNamesAndResolutionTime(
     absl::string_view sql, const ASTStatement& statement,
     const AnalyzerOptions& analyzer_options, TypeFactory* type_factory,
     Catalog* catalog, TableNamesSet* table_names,
-    TableResolutionTimeInfoMap* table_resolution_time_info_map) {
+    TableResolutionTimeInfoMap* table_resolution_time_info_map,
+    TableNamesSet* tvf_names) {
   return TableNameResolver(sql, &analyzer_options, type_factory, catalog,
-                           table_names, table_resolution_time_info_map)
+                           table_names, table_resolution_time_info_map,
+                           tvf_names)
       .FindTableNamesAndTemporalReferences(statement);
 }
 
 absl::Status FindTableNamesInScript(absl::string_view sql,
                                     const ASTScript& script,
                                     const AnalyzerOptions& analyzer_options,
-                                    TableNamesSet* table_names) {
+                                    TableNamesSet* table_names,
+                                    TableNamesSet* tvf_names) {
   return TableNameResolver(sql, &analyzer_options, /*type_factory=*/nullptr,
                            /*catalog=*/nullptr, table_names,
-                           /*table_resolution_time_info_map=*/nullptr)
+                           /*table_resolution_time_info_map=*/nullptr,
+                           tvf_names)
       .FindTableNames(script);
 }
 

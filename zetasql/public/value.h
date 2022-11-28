@@ -1005,6 +1005,7 @@ Value Bytes(const absl::Cord& v);
 template <size_t N>
 Value Bytes(const char (&str)[N]);
 Value Date(int32_t v);
+Value Date(absl::CivilDay d);
 Value Timestamp(absl::Time t);
 Value TimestampFromUnixMicros(int64_t v);
 

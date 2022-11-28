@@ -17,7 +17,6 @@
 #ifndef ZETASQL_TOOLS_FORMATTER_INTERNAL_FUSIBLE_TOKENS_H_
 #define ZETASQL_TOOLS_FORMATTER_INTERNAL_FUSIBLE_TOKENS_H_
 
-#include <iosfwd>
 #include <ostream>
 #include <vector>
 

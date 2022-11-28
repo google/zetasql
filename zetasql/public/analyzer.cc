@@ -418,7 +418,7 @@ absl::Status AnalyzeType(const std::string& type_name,
 
 static absl::Status ExtractTableNamesFromStatementImpl(
     absl::string_view sql, const AnalyzerOptions& options,
-    TableNamesSet* table_names) {
+    TableNamesSet* table_names, TableNamesSet* tvf_names) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
   ZETASQL_VLOG(3) << "Extracting table names from statement:\n" << sql;
   std::unique_ptr<ParserOutput> parser_output;
@@ -427,7 +427,7 @@ static absl::Status ExtractTableNamesFromStatementImpl(
   ZETASQL_VLOG(5) << "Parsed AST:\n" << parser_output->statement()->DebugString();
 
   return table_name_resolver::FindTables(sql, *parser_output->statement(),
-                                         options, table_names);
+                                         options, table_names, tvf_names);
 }
 
 static absl::Status ExtractTableResolutionTimeFromStatementImpl(
@@ -455,11 +455,13 @@ static absl::Status ExtractTableResolutionTimeFromStatementImpl(
 
 absl::Status ExtractTableNamesFromStatement(absl::string_view sql,
                                             const AnalyzerOptions& options_in,
-                                            TableNamesSet* table_names) {
+                                            TableNamesSet* table_names,
+                                            TableNamesSet* tvf_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
+
   const absl::Status status =
-      ExtractTableNamesFromStatementImpl(sql, options, table_names);
+      ExtractTableNamesFromStatementImpl(sql, options, table_names, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
@@ -480,7 +482,8 @@ absl::Status ExtractTableResolutionTimeFromStatement(
 
 static absl::Status ExtractTableNamesFromNextStatementImpl(
     ParseResumeLocation* resume_location, const AnalyzerOptions& options,
-    TableNamesSet* table_names, bool* at_end_of_input) {
+    TableNamesSet* table_names, bool* at_end_of_input,
+    TableNamesSet* tvf_names) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
 
   ZETASQL_VLOG(2) << "Extracting table names from next statement at position "
@@ -492,28 +495,30 @@ static absl::Status ExtractTableNamesFromNextStatementImpl(
   ZETASQL_VLOG(5) << "Parsed AST:\n" << parser_output->statement()->DebugString();
 
   return table_name_resolver::FindTables(resume_location->input(),
-                                         *parser_output->statement(),
-                                         options, table_names);
+                                         *parser_output->statement(), options,
+                                         table_names, tvf_names);
 }
 
 absl::Status ExtractTableNamesFromNextStatement(
     ParseResumeLocation* resume_location, const AnalyzerOptions& options_in,
-    TableNamesSet* table_names, bool* at_end_of_input) {
+    TableNamesSet* table_names, bool* at_end_of_input,
+    TableNamesSet* tvf_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = ExtractTableNamesFromNextStatementImpl(
-      resume_location, options, table_names, at_end_of_input);
+      resume_location, options, table_names, at_end_of_input, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), resume_location->input(), status);
 }
 
 absl::Status ExtractTableNamesFromASTStatement(
     const ASTStatement& ast_statement, const AnalyzerOptions& options_in,
-    absl::string_view sql, TableNamesSet* table_names) {
+    absl::string_view sql, TableNamesSet* table_names,
+    TableNamesSet* tvf_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = table_name_resolver::FindTables(
-      sql, ast_statement, options, table_names);
+      sql, ast_statement, options, table_names, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
@@ -555,7 +560,8 @@ absl::Status ExtractTableResolutionTimeFromASTStatement(
 
 absl::Status ExtractTableNamesFromScript(absl::string_view sql,
                                          const AnalyzerOptions& options_in,
-                                         TableNamesSet* table_names) {
+                                         TableNamesSet* table_names,
+                                         TableNamesSet* tvf_names) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options_in));
   ZETASQL_VLOG(3) << "Extracting table names from script:\n" << sql;
   std::unique_ptr<AnalyzerOptions> copy;
@@ -566,7 +572,7 @@ absl::Status ExtractTableNamesFromScript(absl::string_view sql,
   ZETASQL_VLOG(5) << "Parsed AST:\n" << parser_output->script()->DebugString();
 
   absl::Status status = table_name_resolver::FindTableNamesInScript(
-      sql, *(parser_output->script()), options, table_names);
+      sql, *(parser_output->script()), options, table_names, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
@@ -574,11 +580,12 @@ absl::Status ExtractTableNamesFromScript(absl::string_view sql,
 absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
                                             const AnalyzerOptions& options_in,
                                             absl::string_view sql,
-                                            TableNamesSet* table_names) {
+                                            TableNamesSet* table_names,
+                                            TableNamesSet* tvf_names) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = table_name_resolver::FindTableNamesInScript(
-      sql, ast_script, options, table_names);
+      sql, ast_script, options, table_names, tvf_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }

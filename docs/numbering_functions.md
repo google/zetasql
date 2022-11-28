@@ -2,8 +2,8 @@
 
 # Numbering functions
 
-The following sections describe the numbering functions that ZetaSQL
-supports. Numbering functions are a subset of window functions. To create a
+ZetaSQL supports numbering functions.
+Numbering functions are a subset of window functions. To create a
 window function call and learn about the syntax for window functions,
 see [Window function calls][window-function-calls].
 

@@ -14,27 +14,29 @@
 // limitations under the License.
 //
 
-#ifndef THIRD_PARTY_ZETASQL_ZETASQL_BASE_SIMPLE_REFERENCE_COUNTED_H_
-#define THIRD_PARTY_ZETASQL_ZETASQL_BASE_SIMPLE_REFERENCE_COUNTED_H_
+#ifndef THIRD_PARTY_ZETASQL_ZETASQL_BASE_COMPACT_REFERENCE_COUNTED_H_
+#define THIRD_PARTY_ZETASQL_ZETASQL_BASE_COMPACT_REFERENCE_COUNTED_H_
 
 #include <stddef.h>
 #include <atomic>
 
 namespace zetasql_base {
+namespace refcount {
 
 // Classes that wish to have thread-safe reference counting can simply inherit
-// from this SimpleReferenceCounted class.
+// from this CompactReferenceCounted class, templated on their own type.
 //
-// SimpleReferenceCounted additionally provides some functions that are more
-// 'Subtle' than 'Simple':  RefCountIsOne() and OnRefCountIsZero().
+// CompactReferenceCounted additionally provides some functions:
+// RefCountIsOne() and OnRefCountIsZero().
 // These functions should be used with great care and only by classes that have
 // very strict reference count contracts.
 // See the documentation on these functions for usage and details.
-class SimpleReferenceCounted {
+template <typename Derived, typename RefcountT = int32_t>
+class CompactReferenceCounted {
  public:
   // It is important that the ref_count_ is initialized to 1, so the caller
   // owns a reference.  The caller must eventually call Unref() to release it.
-  SimpleReferenceCounted() : ref_count_(1) {}
+  CompactReferenceCounted() : ref_count_(1) {}
 
   // We delete both the move constructor and copy constructor.
   // A move constructor or any function accepting an rvalue reference to a
@@ -50,14 +52,14 @@ class SimpleReferenceCounted {
   // constructor either.
   // Derived classes can still create their own copy constructors if they desire
   // one. Such a custom constructor should simply invoke the default constructor
-  // of SimpleReferenceCounted which will initialize the ref count of the new
+  // of CompactReferenceCounted which will initialize the ref count of the new
   // instance to 1. Creating a move constructor is strongly discouraged.
-  SimpleReferenceCounted(const SimpleReferenceCounted&) = delete;
-  SimpleReferenceCounted(SimpleReferenceCounted&&) = delete;
+  CompactReferenceCounted(const CompactReferenceCounted&) = delete;
+  CompactReferenceCounted(CompactReferenceCounted&&) = delete;
 
   // Like ctors, we have no use for default assignment operators.
-  SimpleReferenceCounted& operator=(const SimpleReferenceCounted&) = delete;
-  SimpleReferenceCounted& operator=(SimpleReferenceCounted&&) = delete;
+  CompactReferenceCounted& operator=(const CompactReferenceCounted&) = delete;
+  CompactReferenceCounted& operator=(CompactReferenceCounted&&) = delete;
 
   // Take possession of a reference on this, which must eventually be released
   // with Unref().
@@ -68,7 +70,7 @@ class SimpleReferenceCounted {
   // a reference is no longer held.
   void Unref() const {
     if (ref_count_.fetch_sub(1, std::memory_order_acq_rel) - 1 == 0) {
-      OnRefCountIsZero();
+      AsDerived()->OnRefCountIsZero();
     }
   }
 
@@ -92,11 +94,11 @@ class SimpleReferenceCounted {
 
  protected:
   // This is protected to prevent its direct invocation from outside of a
-  // SimpleReferenceCounted object.  Unfortunately, there is still a risk that
+  // CompactReferenceCounted object.  Unfortunately, there is still a risk that
   // a subclass will invoke its destructor directly, rather than through
   // Unref().  Apparently, gcc doesn't permit inheritance from a class with a
   // private destructor, so this has to be protected.
-  virtual ~SimpleReferenceCounted() {}
+  ~CompactReferenceCounted() {}
 
   // The OnRefCountIsZero() function is invoked by Unref() once the reference
   // count reaches 0, i.e., when the final reference on this instance has been
@@ -129,7 +131,7 @@ class SimpleReferenceCounted {
   //
   // Example: (assuming an imaginary MyFreeList class with push / pop semantics)
   //
-  //   class MyHeavyBlob : public SimpleReferenceCounted {
+  //   class MyHeavyBlob : public CompactReferenceCounted<MyHeavyBlob> {
   //    public:
   //     static MyHeavyBlob* New() {
   //        MyHeavyBlob* blob = m_freelist.Pop();
@@ -154,19 +156,27 @@ class SimpleReferenceCounted {
   //
   //     std::vector<BigStruct> items_;
   //   };
-  virtual void OnRefCountIsZero() const {
-    delete this;
-  }
+  void OnRefCountIsZero() const { delete AsDerived(); }
 
   // Protected accessor for testing/debugging purposes in base classes.
-  const int32_t ref_count() const {
+  RefcountT ref_count() const {
     return ref_count_.load(std::memory_order_acquire);
   }
 
  private:
-  mutable std::atomic<int32_t> ref_count_;
+  const Derived* AsDerived() const {
+    static_assert(
+        std::is_final_v<Derived>,
+        "Please mark the derived class as final to avoid deleting only "
+        "part of the object. If your object provides a vtable, "
+        "use `SimpleReferenceCounted` instead.");
+    return static_cast<const Derived*>(this);
+  }
+
+  mutable std::atomic<RefcountT> ref_count_;
 };
 
+}  // namespace refcount
 }  // namespace zetasql_base
 
-#endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_SIMPLE_REFERENCE_COUNTED_H_
+#endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_COMPACT_REFERENCE_COUNTED_H_

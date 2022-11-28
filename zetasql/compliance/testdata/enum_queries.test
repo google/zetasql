@@ -59,7 +59,7 @@ ARRAY<STRUCT<enum_value ENUM<zetasql_test__.TestEnum>>>[{TESTENUM0}]
 [name=enum_from_string_case_sensitive]
 SELECT CAST("TeStEnUm0" AS `zetasql_test__.TestEnum`) enum_value
 --
-ERROR: generic::out_of_range: Out of range cast of string 'TeStEnUm0' to enum type zetasql_test__.TestEnum
+ERROR: generic::out_of_range: Out of range cast of string 'TeStEnUm0' to enum type zetasql_test__.TestEnum; Did you mean 'TESTENUM0'? (Note: ENUM values are case sensitive)
 ==
 [name=enum_from_string_invalid]
 SELECT CAST("invalid_enum_name" AS `zetasql_test__.TestEnum`) enum_value

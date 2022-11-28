@@ -1382,6 +1382,15 @@ void SampleCatalog::LoadNestedCatalogs() {
                           Function::SCALAR, {signature});
   nested_nested_catalog->AddOwnedFunction(function);
 
+  // Add table "nested" to the nested catalog and doubly nested catalog
+  // with the same name "nested":
+  //   nested_catalog.nested
+  //   nested_catalog.nested.nested
+  nested_catalog->AddTable("nested", key_value_table_);
+  SimpleCatalog* duplicate_name_nested_catalog =
+      nested_catalog->MakeOwnedSimpleCatalog("nested");
+  duplicate_name_nested_catalog->AddTable("nested", key_value_table_);
+
   // Add a struct-typed constant to the doubly nested catalog.
   const StructType* nested_constant_struct_type;
   ZETASQL_CHECK_OK(types_->MakeStructType(
@@ -1534,6 +1543,15 @@ void SampleCatalog::LoadNestedCatalogs() {
       &at_at_nested_catalog_constant));
   at_at_nested_catalog->AddOwnedConstant(
       at_at_nested_catalog_constant.release());
+
+  {
+    std::unique_ptr<SimpleConstant> rounding_mode_constant;
+    ZETASQL_CHECK_OK(SimpleConstant::Create(
+        std::vector<std::string>{"nested_catalog", "constant_rounding_mode"},
+        Value::Enum(types::RoundingModeEnumType(), "ROUND_HALF_EVEN"),
+        &rounding_mode_constant));
+    nested_catalog->AddOwnedConstant(std::move(rounding_mode_constant));
+  }
 }
 
 static FreestandingDeprecationWarning CreateDeprecationWarning(
@@ -4500,7 +4518,8 @@ void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {
 // function statement.
 void SampleCatalog::AddSqlDefinedTableFunctionFromCreate(
     absl::string_view create_table_function,
-    const LanguageOptions& language_options) {
+    const LanguageOptions& language_options,
+    const std::string& user_id_column) {
   // Ensure the language options used allow CREATE FUNCTION
   LanguageOptions language = language_options;
   language.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_FUNCTION_STMT);
@@ -4522,21 +4541,33 @@ void SampleCatalog::AddSqlDefinedTableFunctionFromCreate(
   ZETASQL_CHECK(resolved->Is<ResolvedCreateTableFunctionStmt>());
   const auto* resolved_create =
       resolved->GetAs<ResolvedCreateTableFunctionStmt>();
+
+  std::unique_ptr<TableValuedFunction> function;
   if (resolved_create->query() != nullptr) {
-    std::unique_ptr<SQLTableValuedFunction> function;
-    ZETASQL_CHECK_OK(SQLTableValuedFunction::Create(resolved_create, &function));
-    catalog_->AddOwnedTableValuedFunction(std::move(function));
+    std::unique_ptr<SQLTableValuedFunction> sql_tvf;
+    ZETASQL_CHECK_OK(SQLTableValuedFunction::Create(resolved_create, &sql_tvf));
+    function = std::move(sql_tvf);
   } else {
-    catalog_->AddOwnedTableValuedFunction(std::make_unique<TemplatedSQLTVF>(
+    function = std::make_unique<TemplatedSQLTVF>(
         resolved_create->name_path(), resolved_create->signature(),
         resolved_create->argument_name_list(),
-        ParseResumeLocation::FromString(resolved_create->code())));
+        ParseResumeLocation::FromString(resolved_create->code()));
   }
+
+  if (!user_id_column.empty()) {
+    ZETASQL_CHECK_OK(function->SetUserIdColumnNamePath({user_id_column}));
+  }
+  catalog_->AddOwnedTableValuedFunction(std::move(function));
   sql_object_artifacts_.emplace_back(std::move(analyzer_output));
 }
 
 void SampleCatalog::LoadNonTemplatedSqlTableValuedFunctions(
     const LanguageOptions& language_options) {
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION NullarySelectWithUserId()
+         AS SELECT 1 AS a, 2 AS b;)",
+      language_options, "a");
+
   AddSqlDefinedTableFunctionFromCreate(
       R"(CREATE TABLE FUNCTION NullarySelect()
          AS SELECT 1 AS a, 2 AS b;)",
@@ -5198,6 +5229,19 @@ void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {
       ResolvedCreateStatementEnums::SQL_SECURITY_DEFINER);
   catalog_->AddOwnedTableValuedFunction(
       std::move(templated_definer_rights_tvf));
+
+  // b/259000660: Add a templated SQL TVF whose code has a braced proto
+  // constructor.
+  auto templated_braced_ctor_tvf = std::make_unique<TemplatedSQLTVF>(
+      std::vector<std::string>{"templated_braced_ctor_tvf"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(ARG_TYPE_RELATION)},
+                        context_id++),
+      /*arg_name_list=*/std::vector<std::string>{"T"},
+      ParseResumeLocation::FromString(R"sql(
+  SELECT NEW zetasql_test__.TestExtraPB {int32_val1 : v} AS dice_roll
+  FROM T)sql"));
+  catalog_->AddOwnedTableValuedFunction(std::move(templated_braced_ctor_tvf));
 }
 
 void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
@@ -5278,6 +5322,18 @@ void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
                             /*extra_relation_input_columns_allowed=*/false),
                         FunctionArgumentTypeList(), context_id++),
       AnonymizationInfo::Create({"nested_value", "nested_int64"})
+          .value_or(nullptr),
+      output_schema_proto_value_table_with_nested_int));
+
+  // Repro for unvalidated AnonymizationInfo::UserIdColumnNamePath() seen in
+  // b/254939522
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_no_args_value_table_with_invalid_nested_anonymization_uid"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            output_schema_proto_value_table_with_nested_int,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        FunctionArgumentTypeList(), context_id++),
+      AnonymizationInfo::Create({"nested_value.nested_int64"})
           .value_or(nullptr),
       output_schema_proto_value_table_with_nested_int));
 }

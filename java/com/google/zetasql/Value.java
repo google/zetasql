@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.primitives.Bytes;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DynamicMessage;
@@ -272,6 +273,7 @@ public class Value implements Serializable {
   }
 
   /** Returns the String value if the type is string. */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public String getStringValue() {
     checkValueHasKind(TypeKind.TYPE_STRING);
     checkValueNotNull();
@@ -1060,6 +1062,7 @@ public class Value implements Serializable {
     return decimalValue;
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public static Value deserialize(Type type, ValueProto proto) {
     Preconditions.checkNotNull(type);
     Preconditions.checkNotNull(proto);

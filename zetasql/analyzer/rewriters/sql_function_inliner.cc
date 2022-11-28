@@ -463,8 +463,9 @@ class SqlTableFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
           ReplaceScanColumns(
               *column_factory_, *query, scan->column_index_list(),
               CreateReplacementColumns(*column_factory_, scan->column_list())));
-      body_scan = MakeResolvedExecuteAsRoleScan(scan->column_list(),
-                                                std::move(body_scan));
+      body_scan = MakeResolvedExecuteAsRoleScan(
+          scan->column_list(), std::move(body_scan),
+          /*original_inlined_view=*/nullptr, scan->tvf());
     } else {
       // TODO We should decide what to do in the case of
       // UNSPECIFIED, to be consistent with VIEWs and the desired behavior.

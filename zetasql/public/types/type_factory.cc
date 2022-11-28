@@ -33,10 +33,12 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/annotation.pb.h"
+#include "zetasql/public/functions/array_find_mode.pb.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
@@ -669,58 +671,6 @@ absl::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
       struct_fields.emplace_back(name, field_type);
     }
     return_status = MakeStructType(struct_fields, result_type);
-  } else if (ProtoType::GetIsRangeAnnotation(message)) {
-    // If we have zetasql.is_range, convert this proto to a range type.
-    // Check that the message has exactly two fields
-    if (message->field_count() != 2) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Proto " << message->full_name()
-             << " is invalid because it has zetasql.is_range annotation"
-                " but does not have exactly two fields";
-    }
-    const google::protobuf::FieldDescriptor* start_field = message->field(0);
-    // Check that the first field is named "start"
-    if (start_field->name() != "start") {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Proto " << message->full_name()
-             << " is invalid because it has zetasql.is_range annotation"
-                " but the first field is not named 'start'";
-    }
-    const google::protobuf::FieldDescriptor* end_field = message->field(1);
-    // Check that the second field is named "end"
-    if (end_field->name() != "end") {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Proto " << message->full_name()
-             << " is invalid because it has zetasql.is_range annotation"
-                " but the second field is not named 'end'";
-    }
-    const Type* start_field_type;
-    ZETASQL_RETURN_IF_ERROR(GetProtoFieldType(start_field, use_obsolete_timestamp,
-                                      /*catalog_name_path=*/{},
-                                      &start_field_type));
-    const Type* unwrapped_start_field_type;
-    ZETASQL_RETURN_IF_ERROR(UnwrapTypeIfAnnotatedProtoImpl(
-        start_field_type, use_obsolete_timestamp, &unwrapped_start_field_type,
-        ancestor_messages));
-    start_field_type = unwrapped_start_field_type;
-    const Type* end_field_type;
-    ZETASQL_RETURN_IF_ERROR(GetProtoFieldType(end_field, use_obsolete_timestamp,
-                                      /*catalog_name_path=*/{},
-                                      &end_field_type));
-    const Type* unwrapped_end_field_type;
-    ZETASQL_RETURN_IF_ERROR(UnwrapTypeIfAnnotatedProtoImpl(
-        end_field_type, use_obsolete_timestamp, &unwrapped_end_field_type,
-        ancestor_messages));
-    end_field_type = unwrapped_end_field_type;
-    // Check that start type matches end type
-    if (start_field_type != end_field_type) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Proto " << message->full_name()
-             << " is invalid because it has zetasql.is_range annotation"
-                " but the type of 'start' field is not the same as type of "
-                "'end' field";
-    }
-    return_status = MakeRangeType(start_field_type, result_type);
   } else if (existing_message_type != nullptr) {
     // Use the message_type we already have allocated.
     ZETASQL_DCHECK(existing_message_type->IsProto());
@@ -1019,6 +969,17 @@ static const EnumType* s_rounding_mode_enum_type() {
   return s_rounding_mode_enum_type;
 }
 
+static const EnumType* GetArrayFindModeEnumType() {
+  static const EnumType* s_array_find_mode_enum_type = [] {
+    const EnumType* enum_type;
+    ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
+        s_type_factory(), functions::ArrayFindEnums::ArrayFindMode_descriptor(),
+        &enum_type, {}));
+    return enum_type;
+  }();
+  return s_array_find_mode_enum_type;
+}
+
 static const StructType* s_empty_struct_type() {
   static const StructType* s_empty_struct_type = [] {
     const StructType* type;
@@ -1168,6 +1129,7 @@ const StructType* EmptyStructType() { return s_empty_struct_type(); }
 const EnumType* DatePartEnumType() { return s_date_part_enum_type(); }
 const EnumType* NormalizeModeEnumType() { return s_normalize_mode_enum_type(); }
 const EnumType* RoundingModeEnumType() { return s_rounding_mode_enum_type(); }
+const EnumType* ArrayFindModeEnumType() { return GetArrayFindModeEnumType(); }
 
 const ArrayType* Int32ArrayType() { return s_int32_array_type(); }
 const ArrayType* Int64ArrayType() { return s_int64_array_type(); }

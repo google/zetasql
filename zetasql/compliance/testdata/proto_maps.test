@@ -1,6 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.MessageWithMapField, zetasql_test__.MessageWithMapField.StringInt32MapEntry]
-[default required_features=V_1_3_PROTO_MAPS]
 [prepare_database]
 
 CREATE TABLE Table0 AS
@@ -26,7 +25,6 @@ ARRAY<STRUCT<
   }}]
 ==
 
-[default required_features=]
 [name=map_entry]
 SELECT NEW zetasql_test__.MessageWithMapField(
   [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value)] AS string_int32_map
@@ -272,9 +270,9 @@ ARRAY<STRUCT<
 
 [name=modify_map_and_braced_constructors]
 [required_features=V_1_3_PROTO_MAPS,V_1_3_BRACED_PROTO_CONSTRUCTORS]
-SELECT AS VALUE NEW zetasql_test__.MessageWithMapField {
+SELECT NEW zetasql_test__.MessageWithMapField {
   string_int32_map: MODIFY_MAP(input.string_int32_map, "to_be_replaced", 5)
-}
+} AS result
 FROM (
   SELECT AS VALUE NEW zetasql_test__.MessageWithMapField {
     string_int32_map: [
@@ -290,15 +288,15 @@ FROM (
   }
 ) AS input;
 --
-ARRAY<PROTO<zetasql_test__.MessageWithMapField>>[
-  {
-    string_int32_map {
-      key: "key"
-      value: 123
-    }
-    string_int32_map {
-      key: "to_be_replaced"
-      value: 5
-    }
-  }
+ARRAY<STRUCT<result PROTO<zetasql_test__.MessageWithMapField>>>[
+  {{
+     string_int32_map {
+       key: "key"
+       value: 123
+     }
+     string_int32_map {
+       key: "to_be_replaced"
+       value: 5
+     }
+   }}
 ]

@@ -203,11 +203,11 @@ inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
     const Type* type, std::unique_ptr<const ResolvedExpr> expr,
     std::unique_ptr<const ResolvedExpr> format,
     std::unique_ptr<const ResolvedExpr> time_zone,
-    const TypeParameters& type_params, bool return_null_on_error,
+    const TypeModifiers& type_modifiers, bool return_null_on_error,
     const ExtendedCompositeCastEvaluator& extended_conversion_evaluator) {
   auto result = MakeResolvedCast(type, std::move(expr), return_null_on_error,
                                  /*extended_cast=*/nullptr, std::move(format),
-                                 std::move(time_zone), type_params);
+                                 std::move(time_zone), type_modifiers);
 
   if (extended_conversion_evaluator.is_valid()) {
     std::vector<std::unique_ptr<const ResolvedExtendedCastElement>>
@@ -709,9 +709,9 @@ Resolver::ResolveJsonLiteral(const ASTJSONLiteral* json_literal) {
   ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(json_literal->image(), &unquoted_image));
   auto status_or_value = JSONValue::ParseJSONString(
       unquoted_image,
-      JSONParsingOptions{/*legacy_mode=*/false,
-                         language().LanguageFeatureEnabled(
-                             FEATURE_JSON_STRICT_NUMBER_PARSING)});
+      JSONParsingOptions{.strict_number_parsing =
+                             language().LanguageFeatureEnabled(
+                                 FEATURE_JSON_STRICT_NUMBER_PARSING)});
   if (!status_or_value.ok()) {
     return MakeSqlErrorAt(json_literal)
            << "Invalid JSON literal: " << status_or_value.status().message();
@@ -2610,6 +2610,7 @@ class SystemVariableConstant final : public Constant {
 
   const Type* type() const override { return type_; }
   std::string DebugString() const override { return FullName(); }
+  std::string ConstantValueDebugString() const override { return "<N/A>"; }
 
  private:
   const Type* const type_;
@@ -4076,6 +4077,7 @@ absl::Status Resolver::ResolveIntervalArgument(
   return absl::OkStatus();
 }
 
+namespace {
 // This is used to make a map from function name to a SpecialFunctionFamily
 // enum that is used inside GetFunctionNameAndArguments to pick out functions
 // that need special-case handling based on name.  Using the map avoids
@@ -4166,6 +4168,144 @@ static SpecialFunctionFamily GetSpecialFunctionFamily(
                               FAMILY_NONE);
 }
 
+}  // namespace
+
+absl::Status Resolver::GetFunctionNameAndArgumentsForAnonFunctions(
+    const ASTFunctionCall* function_call, bool is_binary_anon_function,
+    std::vector<std::string>* function_name_path,
+    std::vector<const ASTExpression*>* function_arguments,
+    QueryResolutionInfo* query_resolution_info) {
+  if (!language().LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
+    return absl::OkStatus();
+  }
+  const ASTPathExpression* function = function_call->function();
+  // The currently supported anonymous aggregate functions each require
+  // exactly one 'normal argument' (two for ANON_PERCENTILE_CONT or
+  // ANON_QUANTILES), along with an optional CLAMPED clause.  We
+  // transform the CLAMPED clause into normal function call arguments
+  // here. Note that after this transformation we cannot tell if the
+  // function call arguments were originally derived from the CLAMPED
+  // clause or not, so we won't be able to tell the following apart:
+  //   ANON_SUM(x CLAMPED BETWEEN 1 AND 10)
+  //   ANON_SUM(x, 1, 10)
+  // Since the latter is invalid, we must detect that case here and
+  // provide an error.
+  const std::string upper_case_function_name =
+      absl::AsciiStrToUpper(function->last_name()->GetAsString());
+  if (is_binary_anon_function) {
+    if (function_call->arguments().size() != 2) {
+      size_t arg_size = function_call->arguments().size();
+      return MakeSqlErrorAt(function_call)
+             << "Anonymized aggregate function " << upper_case_function_name
+             << " expects exactly 2 arguments but found " << arg_size
+             << (arg_size == 1 ? " argument" : " arguments");
+    }
+  } else if (function_call->arguments().size() != 1) {
+    return MakeSqlErrorAt(function_call)
+           << "Anonymized aggregate function " << upper_case_function_name
+           << " expects exactly 1 argument but found "
+           << function_call->arguments().size() << " arguments";
+  }
+  // Convert the CLAMPED BETWEEN lower and upper bound to
+  // normal function call arguments, appended after the first
+  // argument.
+  if (function_call->clamped_between_modifier() != nullptr) {
+    function_arguments->emplace_back(
+        function_call->clamped_between_modifier()->low());
+    function_arguments->emplace_back(
+        function_call->clamped_between_modifier()->high());
+  }
+  std::string function_name_lower = absl::AsciiStrToLower(
+      function->last_name()->GetAsIdString().ToStringView());
+  if (function_call->with_report_modifier() != nullptr) {
+    if (function_name_lower == "anon_sum" ||
+        function_name_lower == "anon_avg" ||
+        function_name_lower == "anon_count" ||
+        function_name_lower == "anon_quantiles") {
+      // The catalog functions with report in different formats have the
+      // names as follows:
+      //   ANON_AVG, JSON        - "$anon_avg_with_report_json"
+      //   ANON_AVG, PROTO       - "$anon_avg_with_report_proto"
+      //   ANON_SUM, JSON        - "$anon_sum_with_report_json"
+      //   ANON_SUM, PROTO       - "$anon_sum_with_report_proto"
+      //   ANON_COUNT, JSON      - "$anon_count_with_report_json"
+      //   ANON_COUNT, PROTO     - "$anon_count_with_report_proto"
+      //   ANON_COUNT(*), JSON   - "$anon_count_star_with_report_json"
+      //   ANON_COUNT(*), PROTO  - "$anon_count_star_with_report_proto"
+      //   ANON_QUANTILES, JSON  - "$anon_quantiles_with_report_json"
+      //   ANON_QUANTILES, PROTO - "$anon_quantiles_with_report_proto"
+      std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+      std::string anon_function_report_format;
+      ZETASQL_RETURN_IF_ERROR(ResolveAnonWithReportOptionsList(
+          function_call->with_report_modifier()->options_list(),
+          default_anon_function_report_format(), &resolved_options,
+          &anon_function_report_format));
+
+      if (anon_function_report_format.empty()) {
+        return MakeSqlErrorAt(function_call)
+               << "The anon function report format must be specified "
+                  "in the function call in the WITH REPORT clause";
+      }
+
+      if (!function_call->arguments().empty() &&
+          function_call->arguments()[0]->node_kind() == AST_STAR &&
+          function_name_lower == "anon_count") {
+        function_name_lower = "anon_count_star";
+        function_arguments->erase(function_arguments->begin());
+      }
+
+      if (anon_function_report_format == "json") {
+        function_name_path->back() =
+            absl::StrCat("$", function_name_lower, "_with_report_json");
+      } else if (anon_function_report_format == "proto") {
+        function_name_path->back() =
+            absl::StrCat("$", function_name_lower, "_with_report_proto");
+      } else {
+        // Verification of report format happens in
+        // ResolveAnonWithReportOptionsList, so invalid formats are
+        // unexpected here
+        ZETASQL_RET_CHECK_FAIL() << "Invalid anon function report format "
+                         << anon_function_report_format;
+      }
+    } else {
+      return MakeUnimplementedErrorAtPoint(GetErrorLocationPoint(
+                 function_call->with_report_modifier(), true))
+             << "WITH REPORT is not supported yet for function "
+             << absl::AsciiStrToUpper(function->name(0)->GetAsString());
+    }
+  } else if (function_name_lower == "anon_count" &&
+             !function_call->arguments().empty() &&
+             function_call->arguments()[0]->node_kind() == AST_STAR) {
+    // Special case to look for ANON_COUNT(*).
+    // The catalog function for ANON_COUNT(*) has the name
+    // "$anon_count_star", and the signature is without the *
+    // argument.
+    function_name_path->back() = "$anon_count_star";
+    function_arguments->erase(function_arguments->begin());
+  }
+
+  if (query_resolution_info != nullptr) {
+    switch (query_resolution_info->select_with_mode()) {
+      case SelectWithMode::ANONYMIZATION:
+        break;
+
+      case SelectWithMode::NONE:
+        query_resolution_info->set_select_with_mode(
+            SelectWithMode::ANONYMIZATION);
+        break;
+    }
+  }
+
+  // We normally record that anonymization is present when an
+  // AnonymizedAggregateScan is created, which is appropriate when
+  // resolving queries.  However, when resolving expressions, we
+  // also need to record that anonymization is present here since
+  // the expression might include an anonymized aggregate function
+  // call but no related resolved scan is created for it.
+  analyzer_output_properties_.MarkRelevant(REWRITE_ANONYMIZATION);
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::GetFunctionNameAndArguments(
     const ASTFunctionCall* function_call,
     std::vector<std::string>* function_name_path,
@@ -4177,198 +4317,80 @@ absl::Status Resolver::GetFunctionNameAndArguments(
   function_arguments->assign(function_call->arguments().begin(),
                              function_call->arguments().end());
 
-  if (function->num_names() == 1 ||
+  if (function->num_names() != 1 &&
       (function_name_path->size() == 2 &&
-       zetasql_base::CaseEqual((*function_name_path)[0], "SAFE"))) {
-    const auto& function_family =
-        GetSpecialFunctionFamily(function->last_name()->GetAsIdString());
-    switch (function_family) {
-      // A normal function with no special handling.
-      case FAMILY_NONE:
-        break;
+       !zetasql_base::CaseEqual((*function_name_path)[0], "SAFE"))) {
+    return absl::OkStatus();
+  }
+  const auto& function_family =
+      GetSpecialFunctionFamily(function->last_name()->GetAsIdString());
+  switch (function_family) {
+    // A normal function with no special handling.
+    case FAMILY_NONE:
+      break;
 
-      // Special case to look for COUNT(*).
-      case FAMILY_COUNT:
-        if (function_call->arguments().size() == 1 &&
-            function_call->arguments()[0]->node_kind() == AST_STAR) {
-          if (function_call->distinct()) {
-            return MakeSqlErrorAt(function_call)
-                   << "COUNT(*) cannot be used with DISTINCT";
-          }
-
-          // The catalog function for COUNT(*) has the name "$count_star" with
-          // no arguments.
-          function_name_path->back() = "$count_star";
-          function_arguments->clear();
-        }
-        break;
-
-      // Special case handling for differential privacy functions due to
-      // CLAMPED BETWEEN syntax.
-      // TODO: refactor so that the function name is first looked up
-      // from the catalog, and then perform the special handling for special
-      // functions. then change this code to also check
-      // function->Is<AnonFunction>(), instead of checking for an 'anon_' prefix
-      // in the function name.
-      case FAMILY_ANON:
-      case FAMILY_ANON_BINARY:
-        if (language().LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
-          // The currently supported anonymous aggregate functions each require
-          // exactly one 'normal argument' (two for ANON_PERCENTILE_CONT or
-          // ANON_QUANTILES), along with an optional CLAMPED clause.  We
-          // transform the CLAMPED clause into normal function call arguments
-          // here. Note that after this transformation we cannot tell if the
-          // function call arguments were originally derived from the CLAMPED
-          // clause or not, so we won't be able to tell the following apart:
-          //   ANON_SUM(x CLAMPED BETWEEN 1 AND 10)
-          //   ANON_SUM(x, 1, 10)
-          // Since the latter is invalid, we must detect that case here and
-          // provide an error.
-          const std::string upper_case_function_name =
-              absl::AsciiStrToUpper(function->last_name()->GetAsString());
-          if (function_family == FAMILY_ANON_BINARY) {
-            if (function_call->arguments().size() != 2) {
-              size_t arg_size = function_call->arguments().size();
-              return MakeSqlErrorAt(function_call)
-                     << "Anonymized aggregate function "
-                     << upper_case_function_name
-                     << " expects exactly 2 arguments but found " << arg_size
-                     << (arg_size == 1 ? " argument" : " arguments");
-            }
-          } else if (function_call->arguments().size() != 1) {
-            ZETASQL_RET_CHECK_EQ(function_family, FAMILY_ANON);
-            return MakeSqlErrorAt(function_call)
-                   << "Anonymized aggregate function "
-                   << upper_case_function_name
-                   << " expects exactly 1 argument but found "
-                   << function_call->arguments().size() << " arguments";
-          }
-          // Convert the CLAMPED BETWEEN lower and upper bound to
-          // normal function call arguments, appended after the first
-          // argument.
-          if (function_call->clamped_between_modifier() != nullptr) {
-            function_arguments->emplace_back(
-                function_call->clamped_between_modifier()->low());
-            function_arguments->emplace_back(
-                function_call->clamped_between_modifier()->high());
-          }
-          if (function_call->with_report_modifier() != nullptr) {
-            std::string function_name_lower = absl::AsciiStrToLower(
-                function->last_name()->GetAsIdString().ToStringView());
-            if (function_name_lower == "anon_sum" ||
-                function_name_lower == "anon_avg" ||
-                function_name_lower == "anon_count" ||
-                function_name_lower == "anon_quantiles") {
-              // The catalog functions with report in different formats have the
-              // names as follows:
-              //   ANON_AVG, JSON        - "$anon_avg_with_report_json"
-              //   ANON_AVG, PROTO       - "$anon_avg_with_report_proto"
-              //   ANON_SUM, JSON        - "$anon_sum_with_report_json"
-              //   ANON_SUM, PROTO       - "$anon_sum_with_report_proto"
-              //   ANON_COUNT, JSON      - "$anon_count_with_report_json"
-              //   ANON_COUNT, PROTO     - "$anon_count_with_report_proto"
-              //   ANON_COUNT(*), JSON   - "$anon_count_star_with_report_json"
-              //   ANON_COUNT(*), PROTO  - "$anon_count_star_with_report_proto"
-              //   ANON_QUANTILES, JSON  - "$anon_quantiles_with_report_json"
-              //   ANON_QUANTILES, PROTO - "$anon_quantiles_with_report_proto"
-              std::vector<std::unique_ptr<const ResolvedOption>>
-                  resolved_options;
-              std::string anon_function_report_format;
-              ZETASQL_RETURN_IF_ERROR(ResolveAnonWithReportOptionsList(
-                  function_call->with_report_modifier()->options_list(),
-                  default_anon_function_report_format(), &resolved_options,
-                  &anon_function_report_format));
-
-              if (anon_function_report_format.empty()) {
-                return MakeSqlErrorAt(function_call)
-                       << "The anon function report format must be specified "
-                          "in the function call in the WITH REPORT clause";
-              }
-
-              if (!function_call->arguments().empty() &&
-                  function_call->arguments()[0]->node_kind() == AST_STAR &&
-                  function_name_lower == "anon_count") {
-                function_name_lower = "anon_count_star";
-                function_arguments->erase(function_arguments->begin());
-              }
-
-              if (anon_function_report_format == "json") {
-                function_name_path->back() =
-                    absl::StrCat("$", function_name_lower, "_with_report_json");
-              } else if (anon_function_report_format == "proto") {
-                function_name_path->back() = absl::StrCat(
-                    "$", function_name_lower, "_with_report_proto");
-              } else {
-                // Verification of report format happens in
-                // ResolveAnonWithReportOptionsList, so invalid formats are
-                // unexpected here
-                ZETASQL_RET_CHECK_FAIL() << "Invalid anon function report format "
-                                 << anon_function_report_format;
-              }
-            } else {
-              return MakeUnimplementedErrorAtPoint(GetErrorLocationPoint(
-                         function_call->with_report_modifier(), true))
-                     << "WITH REPORT is not supported yet for function "
-                     << absl::AsciiStrToUpper(function->name(0)->GetAsString());
-            }
-          } else if (function->last_name()->GetAsIdString().CaseEquals(
-                         MakeIdString("anon_count")) &&
-                     !function_call->arguments().empty() &&
-                     function_call->arguments()[0]->node_kind() == AST_STAR) {
-            // Special case to look for ANON_COUNT(*).
-            // The catalog function for ANON_COUNT(*) has the name
-            // "$anon_count_star", and the signature is without the *
-            // argument.
-            function_name_path->back() = "$anon_count_star";
-            function_arguments->erase(function_arguments->begin());
-          }
-          if (query_resolution_info != nullptr) {
-            query_resolution_info->set_has_anonymized_aggregation(true);
-          }
-        }
-        // We normally record that anonymization is present when an
-        // AnonymizedAggregateScan is created, which is appropriate when
-        // resolving queries.  However, when resolving expressions, we
-        // also need to record that anonymization is present here since
-        // the expression might include an anonymized aggregate function
-        // call but no related resolved scan is created for it.
-        analyzer_output_properties_.MarkRelevant(REWRITE_ANONYMIZATION);
-        break;
-
-      // Special case handling for DATE_ADD, DATE_SUB, DATE_TRUNC, and
-      // DATE_DIFF due to the INTERVAL and AT TIME ZONE syntax, and date parts
-      // represented as identifiers.  In these cases, we massage the element
-      // list to conform to the defined function signatures.
-      case FAMILY_DATE_ADD:
-        zetasql_base::InsertOrDie(argument_option_map, 1, SpecialArgumentType::INTERVAL);
-        break;
-      case FAMILY_DATE_DIFF:
-        zetasql_base::InsertOrDie(argument_option_map, 2, SpecialArgumentType::DATEPART);
-        break;
-      case FAMILY_DATE_TRUNC:
-        zetasql_base::InsertOrDie(argument_option_map, 1, SpecialArgumentType::DATEPART);
-        break;
-      case FAMILY_STRING_NORMALIZE:
-        zetasql_base::InsertOrDie(argument_option_map, 1,
-                         SpecialArgumentType::NORMALIZE_MODE);
-        break;
-      case FAMILY_GENERATE_CHRONO_ARRAY:
-        zetasql_base::InsertOrDie(argument_option_map, 2, SpecialArgumentType::INTERVAL);
-        break;
-
-      // Special case to disallow DISTINCT with binary stats.
-      case FAMILY_BINARY_STATS:
+    // Special case to look for COUNT(*).
+    case FAMILY_COUNT:
+      if (function_call->arguments().size() == 1 &&
+          function_call->arguments()[0]->node_kind() == AST_STAR) {
         if (function_call->distinct()) {
-          // TODO: function->name(0) probably does not work right
-          // if this is a SAFE function call.  This should probably be
-          // function->last_name() or function_name_path->back() instead.
           return MakeSqlErrorAt(function_call)
-                 << "DISTINCT is not allowed for function "
-                 << absl::AsciiStrToUpper(function->name(0)->GetAsString());
+                 << "COUNT(*) cannot be used with DISTINCT";
         }
 
-        break;
-    }
+        // The catalog function for COUNT(*) has the name "$count_star" with
+        // no arguments.
+        function_name_path->back() = "$count_star";
+        function_arguments->clear();
+      }
+      break;
+
+    // Special case handling for differential privacy functions due to
+    // CLAMPED BETWEEN syntax.
+    // TODO: refactor so that the function name is first looked up
+    // from the catalog, and then perform the special handling for special
+    // functions. then change this code to also check
+    // function->Is<AnonFunction>(), instead of checking for an 'anon_' prefix
+    // in the function name.
+    case FAMILY_ANON:
+    case FAMILY_ANON_BINARY:
+      return GetFunctionNameAndArgumentsForAnonFunctions(
+          function_call, function_family == FAMILY_ANON_BINARY,
+          function_name_path, function_arguments, query_resolution_info);
+
+    // Special case handling for DATE_ADD, DATE_SUB, DATE_TRUNC, and
+    // DATE_DIFF due to the INTERVAL and AT TIME ZONE syntax, and date parts
+    // represented as identifiers.  In these cases, we massage the element
+    // list to conform to the defined function signatures.
+    case FAMILY_DATE_ADD:
+      zetasql_base::InsertOrDie(argument_option_map, 1, SpecialArgumentType::INTERVAL);
+      break;
+    case FAMILY_DATE_DIFF:
+      zetasql_base::InsertOrDie(argument_option_map, 2, SpecialArgumentType::DATEPART);
+      break;
+    case FAMILY_DATE_TRUNC:
+      zetasql_base::InsertOrDie(argument_option_map, 1, SpecialArgumentType::DATEPART);
+      break;
+    case FAMILY_STRING_NORMALIZE:
+      zetasql_base::InsertOrDie(argument_option_map, 1,
+                       SpecialArgumentType::NORMALIZE_MODE);
+      break;
+    case FAMILY_GENERATE_CHRONO_ARRAY:
+      zetasql_base::InsertOrDie(argument_option_map, 2, SpecialArgumentType::INTERVAL);
+      break;
+
+    // Special case to disallow DISTINCT with binary stats.
+    case FAMILY_BINARY_STATS:
+      if (function_call->distinct()) {
+        // TODO: function->name(0) probably does not work right
+        // if this is a SAFE function call.  This should probably be
+        // function->last_name() or function_name_path->back() instead.
+        return MakeSqlErrorAt(function_call)
+               << "DISTINCT is not allowed for function "
+               << absl::AsciiStrToUpper(function->name(0)->GetAsString());
+      }
+
+      break;
   }
 
   return absl::OkStatus();
@@ -5077,8 +5099,9 @@ absl::Status Resolver::ResolveExplicitCast(
   // If we reach this point, either we decided not to attempt constant folding
   // the cast or we attempted and decided to defer the cast until runtime.
   ZETASQL_RETURN_IF_ERROR(ResolveCastWithResolvedArgument(
-      cast->expr(), resolved_cast_type, return_null_on_error,
-      &resolved_argument));
+      cast->expr(), {resolved_cast_type, /*annotation_map=*/nullptr},
+      std::move(resolved_format), std::move(resolved_time_zone),
+      resolved_type_params, return_null_on_error, &resolved_argument));
   // The result is not always a RESOLVED_CAST: if it turns out to be a NOOP
   // (e.d. input and output types and collations are the same), we end up
   // removing that cast and just return the argument, which itself could be a
@@ -5233,15 +5256,18 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
   }
 
   // Add EXPLICIT cast.
-  auto resolved_cast =
-      MakeResolvedCast(to_type, std::move(*resolved_argument),
-                       std::move(format), std::move(time_zone), type_params,
-                       return_null_on_error, extended_conversion_evaluator);
+  Collation collation;
+  if (to_type_annotation_map != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(collation,
+                     Collation::MakeCollation(*to_type_annotation_map));
+  }
+  auto resolved_cast = MakeResolvedCast(
+      to_type, std::move(*resolved_argument), std::move(format),
+      std::move(time_zone),
+      TypeModifiers::MakeTypeModifiers(type_params, std::move(collation)),
+      return_null_on_error, extended_conversion_evaluator);
   if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT) &&
       to_type_annotation_map != nullptr) {
-    // TODO: Add a field inside ResolvedCast to indicate collation
-    // of target type after introducing CAST(... AS STRING COLLATE '...')
-    // syntax.
     resolved_cast->set_type_annotation_map(to_type_annotation_map);
   }
 
@@ -5429,7 +5455,8 @@ absl::Status Resolver::ResolveStructSubscriptElementAccess(
   int64_t field_idx;
   int64_t position;
 
-  if (!resolved_position->Is<ResolvedLiteral>()) {
+  if (!resolved_position->Is<ResolvedLiteral>() ||
+      !resolved_position->type()->IsInteger()) {
     return MakeSqlErrorAt(field_position)
            << "Field element access is only supported for literal integer "
               "positions";
@@ -6997,7 +7024,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const std::vector<const ASTNode*>& arg_locations,
     const std::vector<std::string>& function_name_path,
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
-    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+    std::vector<NamedArgumentInfo> named_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const Function* function;
@@ -7017,7 +7044,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const std::vector<const ASTNode*>& arg_locations,
     absl::string_view function_name,
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
-    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+    std::vector<NamedArgumentInfo> named_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const std::vector<std::string> function_name_path = {
@@ -7114,7 +7141,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const std::vector<const ASTNode*>& arg_locations, const Function* function,
     ResolvedFunctionCallBase::ErrorMode error_mode,
     std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
-    std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
+    std::vector<NamedArgumentInfo> named_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedScan> with_group_rows_subquery,
     std::vector<std::unique_ptr<const ResolvedColumnRef>>
@@ -7507,11 +7534,13 @@ absl::Status Resolver::ResolveFunctionCallImpl(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
 
   // Check if the function call contains any named arguments.
-  std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments;
+  std::vector<NamedArgumentInfo> named_arguments;
   for (int i = 0; i < arguments.size(); ++i) {
     const ASTExpression* arg = arguments[i];
     if (arg->node_kind() == AST_NAMED_ARGUMENT) {
-      named_arguments.emplace_back(arg->GetAs<ASTNamedArgument>(), i);
+      const ASTNamedArgument* named_arg = arg->GetAs<ASTNamedArgument>();
+      named_arguments.emplace_back(named_arg->name()->GetAsIdString(), i,
+                                   named_arg);
     }
   }
 

@@ -163,12 +163,6 @@ class QueryParamsWithResult {
   // return correct results.
   const FeatureSet& prohibited_features() const { return prohibited_features_; }
 
-  // Returns true if there is only one feature set and it is empty.
-  ABSL_DEPRECATED("Inline me!")
-  bool HasEmptyFeatureSetAndNothingElse() const {
-    return required_features_.empty();
-  }
-
  private:
   std::vector<Value> params_;
   Result result_;

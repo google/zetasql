@@ -17,6 +17,7 @@
 
 package com.google.zetasql;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.LocalService.AnalyzeRequest;
 import com.google.zetasql.LocalService.AnalyzeResponse;
 import com.google.zetasql.LocalService.BuildSqlRequest;
@@ -45,10 +46,12 @@ public class Analyzer implements Serializable {
     this.catalog = catalog;
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public ResolvedStatement analyzeStatement(String sql) {
     return analyzeStatement(sql, options, catalog);
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public static ResolvedStatement analyzeStatement(
       String sql, AnalyzerOptions options, SimpleCatalog catalog) {
     AnalyzeRequest.Builder request = AnalyzeRequest.newBuilder().setSqlStatement(sql);
@@ -158,6 +161,7 @@ public class Analyzer implements Serializable {
     return extractTableNamesFromStatementInternal(sql, options, /*allowScript=*/ false);
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public static List<List<String>> extractTableNamesFromStatement(String sql) {
     return extractTableNamesFromStatement(sql, new AnalyzerOptions());
   }

@@ -32,7 +32,7 @@
 #include "absl/strings/cord.h"
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
-#include "zetasql/base/simple_reference_counted.h"
+#include "zetasql/base/compact_reference_counted.h"
 
 // This file contains classes that are used to represent values of ZetaSQL
 // types. They are intended for internal use only and shouldn't be referenced
@@ -92,7 +92,9 @@ class ValueContentContainer {
 // ValueContentContainerRef is a ref count wrapper around a pointer to
 // ValueContentContainer.
 // -------------------------------------------------------
-class ValueContentContainerRef final : public zetasql_base::SimpleReferenceCounted {
+class ValueContentContainerRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<ValueContentContainerRef,
+                                               int64_t> {
  public:
   explicit ValueContentContainerRef(
       std::unique_ptr<ValueContentContainer> container, bool preserves_order)
@@ -120,7 +122,8 @@ class ValueContentContainerRef final : public zetasql_base::SimpleReferenceCount
 // Even though Cord is internally reference counted, ProtoRep is reference
 // counted so that the internal representation can keep track of state
 // associated with a ProtoRep (specifically, already deserialized fields).
-class ProtoRep : public zetasql_base::SimpleReferenceCounted {
+class ProtoRep final
+    : public zetasql_base::refcount::CompactReferenceCounted<ProtoRep, int64_t> {
  public:
   ProtoRep(const ProtoType* type, absl::Cord value) : value_(std::move(value)) {
     ZETASQL_CHECK(type != nullptr);
@@ -138,7 +141,8 @@ class ProtoRep : public zetasql_base::SimpleReferenceCounted {
   const absl::Cord value_;
 };
 
-class GeographyRef final : public zetasql_base::SimpleReferenceCounted {
+class GeographyRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<GeographyRef, int64_t> {
  public:
   GeographyRef() {}
   GeographyRef(const GeographyRef&) = delete;
@@ -152,7 +156,8 @@ class GeographyRef final : public zetasql_base::SimpleReferenceCounted {
 // -------------------------------------------------------
 // NumericRef is ref count wrapper around NumericValue.
 // -------------------------------------------------------
-class NumericRef : public zetasql_base::SimpleReferenceCounted {
+class NumericRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<NumericRef, int64_t> {
  public:
   NumericRef() {}
   explicit NumericRef(const NumericValue& value) : value_(value) {}
@@ -169,7 +174,8 @@ class NumericRef : public zetasql_base::SimpleReferenceCounted {
 // -------------------------------------------------------------
 // BigNumericRef is ref count wrapper around BigNumericValue.
 // -------------------------------------------------------------
-class BigNumericRef : public zetasql_base::SimpleReferenceCounted {
+class BigNumericRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<BigNumericRef, int64_t> {
  public:
   BigNumericRef() {}
   explicit BigNumericRef(const BigNumericValue& value) : value_(value) {}
@@ -186,7 +192,8 @@ class BigNumericRef : public zetasql_base::SimpleReferenceCounted {
 // -------------------------------------------------------------
 // IntervalRef is ref count wrapper around IntervalValue.
 // -------------------------------------------------------------
-class IntervalRef : public zetasql_base::SimpleReferenceCounted {
+class IntervalRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<IntervalRef, int64_t> {
  public:
   IntervalRef() {}
   explicit IntervalRef(const IntervalValue& value) : value_(value) {}
@@ -203,9 +210,10 @@ class IntervalRef : public zetasql_base::SimpleReferenceCounted {
 // -------------------------------------------------------
 // StringRef is ref count wrapper around string.
 // -------------------------------------------------------
-class StringRef : public zetasql_base::SimpleReferenceCounted {
+class StringRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<StringRef, int64_t> {
  public:
-  StringRef() {}
+  StringRef() = default;
   explicit StringRef(std::string value) : value_(std::move(value)) {}
 
   StringRef(const StringRef&) = delete;
@@ -228,7 +236,8 @@ class StringRef : public zetasql_base::SimpleReferenceCounted {
 // string is a valid JSON document. An instance of JSONValue can only store one
 // of the two and not both.
 // -------------------------------------------------------
-class JSONRef : public zetasql_base::SimpleReferenceCounted {
+class JSONRef final
+    : public zetasql_base::refcount::CompactReferenceCounted<JSONRef, int64_t> {
  public:
   // Constructs a JSON value holding a null JSON document.
   JSONRef() {}
@@ -251,8 +260,8 @@ class JSONRef : public zetasql_base::SimpleReferenceCounted {
   }
 
   // Returns the unparsed string representation if the value is represented
-  // through an unparsed string. Otherwrise, returns null. There is no guarantee
-  // that the unparsed string is a valid JSON document.
+  // through an unparsed string. Otherwrise, returns null. There is no
+  // guarantee that the unparsed string is a valid JSON document.
   const std::string* unparsed_string() const {
     return std::get_if<std::string>(&value_);
   }

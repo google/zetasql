@@ -133,7 +133,7 @@ class RewriteTernaryFunctionVisitor : public ResolvedASTDeepCopyVisitor {
           WHERE e = second_input
           ORDER BY offset DESC LIMIT 1
         )
-        ELSE ERROR(CONCAT('ARRAY_FIND_MODE ', third_input, ' in ARRAY_OFFSET is unsupported.'))
+        ELSE ERROR(CONCAT('ARRAY_FIND_MODE ', CAST(third_input AS STRING), ' in ARRAY_OFFSET is unsupported.'))
       END
     ))sql";
 
@@ -157,7 +157,7 @@ class RewriteTernaryFunctionVisitor : public ResolvedASTDeepCopyVisitor {
           WHERE e = second_input
           ORDER BY offset DESC LIMIT 1
         )
-        ELSE ERROR(CONCAT('ARRAY_FIND_MODE ', third_input, ' ARRAY_FIND_MODE in ARRAY_FIND is unsupported.'))
+        ELSE ERROR(CONCAT('ARRAY_FIND_MODE ', CAST(third_input AS STRING), ' ARRAY_FIND_MODE in ARRAY_FIND is unsupported.'))
       END
     )
     )sql";

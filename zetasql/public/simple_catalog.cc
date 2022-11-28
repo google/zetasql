@@ -22,6 +22,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -924,8 +925,8 @@ void InsertValuesFromMap(const M& m, ValueContainer* value_container) {
 }  // namespace
 
 absl::Status SimpleCatalog::DeserializeImpl(
-    const SimpleCatalogProto& proto,
-    const TypeDeserializer& type_deserializer) {
+    const SimpleCatalogProto& proto, const TypeDeserializer& type_deserializer,
+    SimpleCatalog* catalog) {
   for (const SimpleTableProto& table_proto : proto.table()) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<SimpleTable> table,
                      SimpleTable::Deserialize(table_proto, type_deserializer));
@@ -952,8 +953,8 @@ absl::Status SimpleCatalog::DeserializeImpl(
   for (const SimpleCatalogProto& catalog_proto : proto.catalog()) {
     std::unique_ptr<SimpleCatalog> sub_catalog(
         new SimpleCatalog(catalog_proto.name(), type_factory()));
-    ZETASQL_RETURN_IF_ERROR(
-        sub_catalog->DeserializeImpl(catalog_proto, type_deserializer));
+    ZETASQL_RETURN_IF_ERROR(sub_catalog->DeserializeImpl(catalog_proto,
+                                                 type_deserializer, catalog));
     if (!AddOwnedCatalogIfNotPresent(catalog_proto.name(),
                                      std::move(sub_catalog))) {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
@@ -1015,7 +1016,6 @@ absl::Status SimpleCatalog::DeserializeImpl(
         type_deserializer
             .descriptor_pools()[proto.file_descriptor_set_index()]);
   }
-
   return absl::OkStatus();
 }
 
@@ -1033,9 +1033,12 @@ absl::StatusOr<std::unique_ptr<SimpleCatalog>> SimpleCatalog::Deserialize(
     const ExtendedTypeDeserializer* extended_type_deserializer) {
   // Create a top level catalog that owns the TypeFactory.
   std::unique_ptr<SimpleCatalog> catalog(new SimpleCatalog(proto.name()));
-  ZETASQL_RETURN_IF_ERROR(catalog->DeserializeImpl(
-      proto, TypeDeserializer(catalog->type_factory(), pools,
-                              extended_type_deserializer)));
+
+  ZETASQL_RETURN_IF_ERROR(
+      catalog->DeserializeImpl(proto,
+                               TypeDeserializer(catalog->type_factory(), pools,
+                                                extended_type_deserializer),
+                               catalog.get()));
   return catalog;
 }
 
@@ -1505,16 +1508,6 @@ absl::Status SimpleTable::Serialize(
   return absl::OkStatus();
 }
 
-absl::Status SimpleTable::Deserialize(
-      const SimpleTableProto& proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      TypeFactory* factory,
-      std::unique_ptr<SimpleTable>* result) {
-  ZETASQL_ASSIGN_OR_RETURN(*result,
-                   Deserialize(proto, TypeDeserializer(factory, pools)));
-  return absl::OkStatus();
-}
-
 absl::StatusOr<std::unique_ptr<SimpleTable>> SimpleTable::Deserialize(
     const SimpleTableProto& proto, const TypeDeserializer& type_deserializer) {
   std::unique_ptr<SimpleTable> table(
@@ -1654,11 +1647,15 @@ absl::Status SimpleConstant::Create(
 }
 
 std::string SimpleConstant::DebugString() const {
-  return absl::StrCat(FullName(), "=", value().DebugString());
+  return absl::StrCat(FullName(), "=", ConstantValueDebugString());
 }
 
 std::string SimpleConstant::VerboseDebugString() const {
   return absl::StrCat(DebugString(), " (", type()->DebugString(), ")");
+}
+
+std::string SimpleConstant::ConstantValueDebugString() const {
+  return value().DebugString();
 }
 
 absl::Status SimpleConstant::Serialize(

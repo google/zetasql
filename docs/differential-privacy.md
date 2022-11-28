@@ -1,23 +1,17 @@
 
 
-# Anonymization and Differential Privacy 
-<a id="anonymization_syntax"></a>
+# Differential privacy 
+<a id="differential-privacy"></a>
 
 <!-- BEGIN CONTENT -->
 
-Anonymization is the process of transforming user data into anonymous
-information. This is done in such a way that it is not reasonably likely that
-anyone with access to the data can identify or re-identify an individual user
-from the anonymized data.
+The goal of [differential privacy][wiki-diff-privacy] is mitigating disclosure
+risk: the risk that an attacker can extract sensitive information of individuals
+from a dataset. Differential privacy balances this need to safeguard privacy
+against the need for statistical accuracy. As privacy increases, statistical
+utility decreases, and vice versa.
 
-The anonymization definition supported by ZetaSQL is
-[differential privacy][wiki-diff-privacy]. The goal of differential privacy
-is mitigating disclosure risk: the risk that an attacker can extract sensitive
-information of individuals from a dataset. Differential privacy balances
-this need to safeguard privacy against the need for statistical accuracy.
-As privacy increases, statistical utility decreases, and vice versa.
-
-With ZetaSQL, you can anonymize the results of a query with
+With ZetaSQL, you can transform the results of a query with
 differentially private aggregations. When the query is executed, it:
 
 1.  Computes per-user aggregations for each group if groups are specified with
@@ -37,7 +31,7 @@ differentially private aggregations. When the query is executed, it:
 The final result is a dataset where each group has noisy aggregate results
 and small groups have been eliminated.
 
-## Anonymization clause syntax 
+## Differential privacy clause syntax 
 <a id="anon_query_syntax"></a>
 
 <pre>
@@ -51,13 +45,13 @@ privacy_parameters:
 
 **Description**
 
-This clause indicates that you want to anonymize the results of a query with
-differentially private aggregations. If you want to use this clause, add it to
+This clause indicates that you want the results of your query to satisfy the
+definition of differential privacy. If you want to use this clause, add it to
 the `SELECT` list with one or more
-[anonymization aggregate functions][anonymization-functions].
+[differentially private aggregate functions][anonymization-functions].
 
 Optionally, you can include privacy parameters to control how the results are
-anonymized.
+transformed.
 
 +  [`epsilon`][anon-epsilon]: Controls the amount of noise added to the results.
    A higher epsilon means less noise. `1e20` is usually large enough to add no
@@ -79,7 +73,7 @@ over `k_threshold`.
 
 ## Privacy parameters
 
-Privacy parameters control how the results of a query are anonymized.
+Privacy parameters control how the results of a query are transformed.
 Appropriate values for these settings can depend on many things such
 as the characteristics of your data, the exposure level, and the
 privacy level.
@@ -92,34 +86,37 @@ The higher the epsilon the less noise is added. More noise corresponding to
 smaller epsilons equals more privacy protection.
 
 Noise can usually be eliminated by setting `epsilon` to `1e20`, which can be
-useful during initial data exploration and experimentation with anonymization.
-Unusually large `epsilon` values, such as `1e308`, cause query
-failure. Start large, and reduce the `epsilon` until the query succeeds, but not
-so much that it returns noisy results.
+useful during initial data exploration and experimentation with
+differential privacy. Unusually large `epsilon` values, such as `1e308`,
+cause query failure. Start large, and reduce the `epsilon` until the query
+succeeds, but not so much that it returns noisy results.
 
-ZetaSQL splits `epsilon` between the anonymization aggregates in the
-query. In addition to the explicit anonymization aggregate functions, the
-anonymization process will also inject an implicit anonymized aggregate into the
-plan for removing small groups that computes a noisy user count per group. If
-you have `n` explicit anonymization aggregate functions in your query, then each
+ZetaSQL splits `epsilon` between the differentially private
+aggregates in the query. In addition to the explicit
+differentially private aggregate functions, the differential privacy process
+will also inject an implicit differentially private aggregate into the plan for
+removing small groups that computes a noisy user count per group. If you have
+`n` explicit differentially private aggregate functions in your query, then each
 aggregate individually gets `epsilon/(n+1)` for its computation. If used with
 `kappa`, the effective `epsilon` per function per groups is further split by
 `kappa`. Additionally, if implicit clamping is used for an aggregate
-anonymization function, then half of the function's epsilon is applied towards
-computing implicit bounds, and half of the function's epsilon is applied towards
-the anonymized aggregation itself.
+differentially private function, then half of the function's epsilon is applied
+towards computing implicit bounds, and half of the function's epsilon is applied
+towards the differentially private aggregation itself.
 
 ### delta 
 <a id="anon_delta"></a>
 
 `delta` represents the probability that any row fails to be
-`epsilon`-differentially private in the result of an anonymized query. If you
-have to choose between `delta` and `k_threshold`, use `delta`.
+`epsilon`-differentially private in the result of a
+differentially private query.
 
+If you have to choose between `delta` and `k_threshold`, use `delta`.
 When supporting `delta`, the specification of `epsilon/delta` must be evaluated
 to determine `k_threshold`, and the specification of `epsilon/k_threshold` must
 be evaluated to determine `delta`. This allows a user to specify either
-(`epsilon`,`delta`) or (`epsilon`, `k_threshold`) in their anonymization query.
+(`epsilon`,`delta`) or (`epsilon`, `k_threshold`) in their differentially private
+query.
 
 While doing testing or initial data exploration, it is often useful to set
 `delta` to a value where all groups, including small groups, are
@@ -134,7 +131,7 @@ for example `0.99999`.
 
 Important: `k_threshold` is discouraged. If possible, use `delta` instead.
 
-Tip: We recommend that engines implementing this specification do not allow
+Tip: We recommend that engines implementing this specification don't allow
 users to specify `k_threshold`.
 
 `k_threshold` computes a noisy user count for each group and eliminates groups
@@ -149,55 +146,59 @@ limits the number of groups that each user can contribute to. If `kappa` is
 unspecified, then there is no limit to the number of groups that each user
 can contribute to.
 
-If `kappa` is unset, the language cannot guarantee that the results will be
+If `kappa` is unset, the language can't guarantee that the results will be
 differentially private. We recommend kappa to be set. Without `kappa` the
 results may still be differentially private if certain preconditions are met.
-For example, if you know that the anonymization ID column in a table or view is
-unique in the `FROM` clause, the user cannot contribute to more than one group
-and therefore the results will be the same regardless of whether `kappa` is set.
+For example, if you know that the privacy unit ID column in a table or
+view is unique in the `FROM` clause, the user can't contribute to more than
+one group and therefore the results will be the same regardless of whether
+`kappa` is set.
 
 Tip: We recommend that engines require kappa to be set.
 
 ## Rules for producing a valid query
 
-The following rules must be met for the anonymized query to be valid.
+The following rules must be met for the differentially private query to be
+valid.
 
-###  Anonymization-enabled table expressions 
+###  Differentially private table expressions 
 <a id="anon_expression"></a>
 
-An anonymization-enabled table expression is a table expression that
-produces a column that has been identified as an anonymization ID. If a query
-contains an anonymization clause, it must also contain at least one
-anonymization-enabled table expression in the `FROM` clause.
+A differentially private table expression is a table expression that
+produces a column that has been identified as a privacy unit ID. If a
+query contains a differential privacy clause, it must also contain at least one
+differentially private table expression in the `FROM` clause.
 
 ### FROM clause rules 
 <a id="anon_from"></a>
 
-The `FROM` clause must have at least one `from_item` that represents an
-[anonymization-enabled table expression][anon-expression]. Not all
+The `FROM` clause must have at least one `from_item` that represents a
+[differentially private table expression][anon-expression]. Not all
 table expressions in the `FROM` clause need to be
-anonymization-enabled table expressions.
+differentially private table expressions.
 
-If a `FROM` subquery contains an anonymization-enabled table expression,
-the subquery must produce an anonymization ID column in its output or
+If a `FROM` subquery contains a differentially private table expression,
+the subquery must produce a privacy unit ID column in its output or
 an error is returned.
 
-If the `FROM` clause contains multiple anonymization-enabled table expressions,
-then all joins between those relations must include the anonymization ID column
-name in the join predicate or an error is returned. Cross joins are disallowed
-between two anonymization-enabled table expressions, since they are not joined
-on the anonymization ID column.
+If the `FROM` clause contains multiple differentially private
+table expressions, then all joins between those relations must include the
+privacy unit ID column name in the join predicate or an error is
+returned. Cross joins are disallowed between two differentially private
+table expressions, since they are not joined on the
+privacy unit ID column.
 
 ### Aggregate function rules 
 <a id="anon_aggregate_functions"></a>
 
-An anonymization query cannot contain non-anonymized aggregate functions.
-Only [anonymization aggregate functions][anonymization-functions] can be used.
+A differentially private query can only contain
+[differentially private aggregate functions][anonymization-functions];
+other types of functions can't be used.
 
-## Performance implications of anonymization
+## Performance implications of differential privacy
 
-Performance of similar anonymized and non-anonymized queries
-cannot be expected to be equivalent. For example, the performance profiles
+Performance of similar differentially private and non-differentially private queries
+can't be expected to be equivalent. For example, the performance profiles
 of the following two queries are not the same:
 
 ```sql
@@ -215,9 +216,9 @@ GROUP BY column_a;
 ```
 
 The reason for the performance difference is that an additional
-finer-granularity level of grouping is performed for anonymized queries,
-since per-user aggregation must also be performed. The performance profiles
-of these queries should be similar:
+finer-granularity level of grouping is performed for
+differentially private queries, since per-user aggregation must also be performed.
+The performance profiles of these queries should be similar:
 
 ```sql
 SELECT
@@ -233,9 +234,9 @@ FROM table_a
 GROUP BY column_a, id;
 ```
 
-This implies that if the data being anonymized has a high number of
-distinct values for the anonymization ID column, anonymized query performance
-can suffer.
+This implies that if the data being transformed has a high number of
+distinct values for the privacy unit ID column, query
+performance can suffer.
 
 ## Examples
 
@@ -278,8 +279,8 @@ AS (SELECT * FROM students);
 Removing noise removes privacy protection. Only remove noise for
 testing queries on non-private data.
 
-The following anonymized query gets the average number of items requested
-per professor. For details on how the averages were computed, see
+The following differentially private query gets the average number of items
+requested per professor. For details on how the averages were computed, see
 [ANON_AVG][anon-avg]. Because `epsilon` is high, noise is removed from the
 results.
 
@@ -301,7 +302,7 @@ GROUP BY item;
 
 ### Add noise
 
-In this example, noise has been added to the anonymized query.
+In this example, noise has been added to the differentially private query.
 Smaller groups may not be included. Smaller epsilons and more noise will
 provide greater privacy protection.
 
@@ -323,12 +324,12 @@ GROUP BY item;
 +----------+------------------+
 ```
 
-### Limit the groups in which an anonymization ID can exist
+### Limit the groups in which a privacy unit ID can exist
 
-An anonymization ID can exist within multiple groups. For example, in the
-`professors` table, the anonymization ID `123` exists in the `pencil` and `pen`
-group. You can set `kappa` to different values to limit how many groups each
-anonymization ID will be included in.
+A privacy unit ID can exist within multiple groups. For example, in the
+`professors` table, the privacy unit ID `123` exists in the `pencil` and
+`pen` group. You can set `kappa` to different values to limit how many groups
+each privacy unit ID will be included in.
 
 ```sql
 SELECT
@@ -337,24 +338,24 @@ SELECT
 FROM view_on_professors
 GROUP BY item;
 
--- Anonymization ID 123 was only included in the pen group in this example.
+-- privacy unit ID 123 was only included in the pen group in this example.
 -- Noise was removed from this query for demonstration purposes only.
 +----------+------------------+
 | item     | average_quantity |
 +----------+------------------+
-| pencil   | 72               |
+| pencil   | 40               |
 | pen      | 18.5             |
 | scissors | 8                |
 +----------+------------------+
 ```
 
-### Invalid query with two anonymization ID columns
+### Invalid query with two privacy unit ID columns
 
-The following query is invalid because `view_on_students` contains an
-anonymization ID column and so does `view_on_professors`.
+The following query is invalid because `view_on_students` contains a
+privacy unit ID column and so does `view_on_professors`.
 When the `FROM` clause contains multiple
-anonymization-enabled table expressions, then those tables must be joined on
-the anonymization ID column or an error is returned.
+differentially private table expressions, then those tables must be joined
+on the privacy unit ID column or an error is returned.
 
 ```sql {.bad}
 SELECT
@@ -388,15 +389,15 @@ GROUP BY item;
 
 [wiki-diff-privacy]: https://en.wikipedia.org/wiki/Differential_privacy
 
-[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md
+[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-[anon-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_clamping
+[anon-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-exp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_explicit_clamping
+[anon-exp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_explicit_clamping
 
-[anon-imp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_implicit_clamping
+[anon-imp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_implicit_clamping
 
-[anon-avg]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_avg
+[anon-avg]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_avg
 
 <!-- mdlint on -->
 

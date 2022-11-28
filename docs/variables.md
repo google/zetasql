@@ -2,8 +2,7 @@
 
 # Variables
 
-ZetaSQL specifies the syntax for the variable statements `SET` and
-`UNSET`.
+ZetaSQL supports variables.
 
 ## VARIABLE TYPES
 

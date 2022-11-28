@@ -2,6 +2,8 @@
 
 # Subqueries
 
+ZetaSQL supports subqueries.
+
 ## About subqueries
 
 A subquery is a [query][subqueries-query-syntax] that appears inside another

@@ -2,8 +2,8 @@
 
 # Approximate aggregate functions
 
-The following approximate aggregate functions are available in
-ZetaSQL. To learn about the syntax for aggregate function calls, see
+ZetaSQL supports approximate aggregate functions.
+To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
 Approximate aggregate functions are scalable in terms of memory usage and time,

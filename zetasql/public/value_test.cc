@@ -36,11 +36,11 @@
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/text_format.h"
-#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/public/civil_time.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
+#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/analyzer.h"
@@ -67,6 +67,7 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -614,6 +615,12 @@ TEST_F(ValueTest, Timestamp) {
           absl::StatusCode::kOutOfRange,
           HasSubstr("Timestamp value in Unix epoch nanoseconds exceeds 64 bit: "
                     "2262-04-11 23:47:16.854775808+00")));
+}
+
+TEST_F(ValueTest, ConvenienceDate) {
+  // 1970-05-04 is 123 days after the Unix epoch. Date values are represented as
+  // the number of days since the Unix epoch.
+  EXPECT_EQ(Value::Date(123), values::Date(absl::CivilDay(1970, 5, 4)));
 }
 
 TEST_F(ValueTest, TimestampFormatting) {
@@ -3873,7 +3880,7 @@ TEST_F(ValueTest, PhysicalByteSize) {
   EXPECT_EQ(sizeof(Value), Value::Float(1.0).physical_byte_size());
   EXPECT_EQ(sizeof(Value), int_value.physical_byte_size());
   EXPECT_EQ(sizeof(Value), Value::Int64(1).physical_byte_size());
-  EXPECT_EQ(48, Value::Numeric(NumericValue::FromDouble(1.0).value())
+  EXPECT_EQ(40, Value::Numeric(NumericValue::FromDouble(1.0).value())
                     .physical_byte_size());
   EXPECT_EQ(sizeof(Value),
             Value::Time(TimeValue::FromPacked64Micros(int64_t{0xD38F1E240}))

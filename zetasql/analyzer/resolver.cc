@@ -1015,6 +1015,18 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
                << "(epsilon, k_threshold)";
       }
     }
+
+    // TODO: Mark kappa as deprecated using
+    // Resolver::AddDeprecationWarning once F1 supports max_groups_contributed.
+
+    // Validate that at most one of the synonyms kappa and
+    // max_groups_contributed are specified.
+    if (zetasql_base::ContainsKey(specified_options, "kappa") &&
+        zetasql_base::ContainsKey(specified_options, "max_groups_contributed")) {
+      return MakeSqlErrorAt(options_list)
+             << "The anonymization options specify mutually exclusive options "
+                "kappa and max_groups_contributed";
+    }
   }
   return absl::OkStatus();
 }

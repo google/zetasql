@@ -1116,7 +1116,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSafeVersion(
       for (const zetasql::Value& param : test.params()) {
         params.emplace_back(param);
       }
-      if (test.HasEmptyFeatureSetAndNothingElse()) {
+      if (test.required_features().empty()) {
         safe_tests.emplace_back(
             QueryParamsWithResult(params, Value::Null(test.result().type())));
       } else {

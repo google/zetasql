@@ -286,6 +286,10 @@ AllDepthLimitDetectorTestCases() {
               .depth_limit_template = {"SELECT ", R({"("}), "(SELECT 1) + 2",
                                        R({")"}), " AS c"},
           },
+          {.depth_limit_test_case_name = "nested_where_in",
+           .depth_limit_template = {"WITH d AS (SELECT 1 AS id) ",
+                                    R({"SELECT * FROM d WHERE id IN ("}), "1",
+                                    R({")"})}},
           {
               .depth_limit_test_case_name = "nested_select_from",
               .depth_limit_template = {R({"SELECT * FROM ("}), "SELECT 1",
@@ -356,10 +360,27 @@ AllDepthLimitDetectorTestCases() {
                                        " u AS (SELECT 1 AS c) SELECT * FROM u",
                                        R({" JOIN t", N(), " ON t", N(),
                                           ".c = u.c"})},
+          },
+          {
+              .depth_limit_test_case_name = "with_joins_consecutive",
+              .depth_limit_template = {"WITH ",
+                                       R({"t", N(), " AS (SELECT 1 AS c),"}),
+                                       " u AS (SELECT 1 AS c) SELECT * FROM u",
+                                       R({" JOIN t", N()}), R({" USING (c)"})},
               .depth_limit_required_features =
                   {
                       LanguageFeature::FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON,
                   },
+          },
+          {
+              .depth_limit_test_case_name = "with_union_all",
+              .depth_limit_template = {"WITH ",
+                                       R({"t", N(), " AS (SELECT 1 AS c),"}),
+                                       " u AS (SELECT 1 AS c) SELECT * FROM u",
+                                       R({" UNION ALL (SELECT * FROM t", N(),
+                                          ")"})},
+              .depth_limit_max_depth =
+                  10000,  // As the reference implementations gets very slow
           },
           {
               .depth_limit_test_case_name = "select_many_columns",

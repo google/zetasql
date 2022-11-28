@@ -28,7 +28,6 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
-#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util.h"
@@ -51,6 +50,7 @@
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "google/protobuf/io/coded_stream.h"
+#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"

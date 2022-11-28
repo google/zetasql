@@ -255,7 +255,7 @@ public class SimpleTableTest {
     assertThat(table1.getPrimaryKey().get()).isEqualTo(ImmutableList.of(1));
 
     table1.setPrimaryKey(ImmutableList.of(1, 2));
-    assertThat(table1.getPrimaryKey().get()).isEqualTo(ImmutableList.of(1, 2));
+    assertThat(table1.getPrimaryKey().get()).containsExactly(1, 2).inOrder();
 
     try {
       table1.setPrimaryKey(ImmutableList.of(1, 5));
@@ -421,7 +421,7 @@ public class SimpleTableTest {
       SimpleTable.tableFromProto(factory.createProtoType(InvalidSQLTable1.class));
       fail();
     } catch (SqlException expected) {
-      assertThat(expected.getMessage().contains("PROTO<zetasql_test__.InvalidSQLTable1>")).isTrue();
+      assertThat(expected).hasMessageThat().contains("PROTO<zetasql_test__.InvalidSQLTable1>");
       assertThat(expected.getMessage().contains("decodes to non-struct type")).isTrue();
     }
 

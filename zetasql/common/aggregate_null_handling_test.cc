@@ -16,6 +16,7 @@
 
 #include "zetasql/common/aggregate_null_handling.h"
 
+#include <memory>
 #include <string>
 
 #include "zetasql/base/testing/status_matchers.h"

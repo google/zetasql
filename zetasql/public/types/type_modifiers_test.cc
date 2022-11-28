@@ -38,8 +38,25 @@ TEST(TypeModifiersTest, Creation) {
                          TypeModifiers::Deserialize(proto));
     ASSERT_TRUE(type_modifiers.Equals(deserialized_type_modifiers));
 
-    EXPECT_EQ(type_modifiers.DebugString(),
-              "type_parameters: null\ncollation: _");
+    EXPECT_EQ(type_modifiers.DebugString(), "null");
+  }
+  // TypeModifiers with empty <type_parameters>.
+  {
+    Collation collation = Collation::MakeScalar("und:ci");
+
+    TypeModifiers type_modifiers =
+        TypeModifiers::MakeTypeModifiers(TypeParameters(), collation);
+    EXPECT_TRUE(type_modifiers.type_parameters().Equals(TypeParameters()));
+    EXPECT_TRUE(type_modifiers.collation().Equals(collation));
+
+    // Test serialization / deserialization.
+    TypeModifiersProto proto;
+    ZETASQL_ASSERT_OK(type_modifiers.Serialize(&proto));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(TypeModifiers deserialized_type_modifiers,
+                         TypeModifiers::Deserialize(proto));
+    ASSERT_TRUE(type_modifiers.Equals(deserialized_type_modifiers));
+
+    EXPECT_EQ(type_modifiers.DebugString(), "collation:und:ci");
   }
   {
     StringTypeParametersProto string_type_param_proto;
@@ -62,7 +79,7 @@ TEST(TypeModifiersTest, Creation) {
     ASSERT_TRUE(type_modifiers.Equals(deserialized_type_modifiers));
 
     EXPECT_EQ(type_modifiers.DebugString(),
-              "type_parameters: (max_length=1000)\ncollation: und:ci");
+              "type_parameters:(max_length=1000), collation:und:ci");
   }
   {
     // TypeModifiers does not require that underlying modifiers must have the
@@ -100,7 +117,7 @@ TEST(TypeModifiersTest, Creation) {
     ASSERT_TRUE(type_modifiers.Equals(deserialized_type_modifiers));
 
     EXPECT_EQ(type_modifiers.DebugString(),
-              "type_parameters: (max_length=1000)\ncollation: [und:ci]");
+              "type_parameters:(max_length=1000), collation:[und:ci]");
   }
 }
 

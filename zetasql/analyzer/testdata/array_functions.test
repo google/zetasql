@@ -1,14 +1,14 @@
 # The langugage feature V_1_4_ARRAY_AGGREGATION_FUNCTIONS and
-# V_1_4_STRING_AS_ENUM_ARGUMENT are added temporarily.
+# V_1_4_ARRAY_FIND_FUNCTIONS are added temporarily.
 # * V_1_4_ARRAY_AGGREGATION_FUNCTIONS will be removed once UDF naming conflicts
 #   are cleaned up.
-# * V_1_4_STRING_AS_ENUM_ARGUMENT will be removed once rollout of ENUM type is
-# mature.
-[default language_features=V_1_4_STRING_AS_ENUM_ARGUMENT,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+# * V_1_4_ARRAY_FIND_FUNCTIONS will be removed once rollout of ENUM type is
+# mature, and lambda signatures are added.
+[default language_features=V_1_4_ARRAY_FIND_FUNCTIONS,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
 
 SELECT ARRAY_OFFSET([1, 2, 3], CAST(3 AS INT32))
 --
-ERROR: No matching signature for function ARRAY_OFFSET for argument types: ARRAY<INT64>, INT32. Supported signature: ARRAY_OFFSET(ARRAY, ANY, [STRING]) [at 1:8]
+ERROR: No matching signature for function ARRAY_OFFSET for argument types: ARRAY<INT64>, INT32. Supported signature: ARRAY_OFFSET(ARRAY, ANY, [ARRAY_FIND_MODE]) [at 1:8]
 SELECT ARRAY_OFFSET([1, 2, 3], CAST(3 AS INT32))
        ^
 ==
@@ -20,16 +20,18 @@ SELECT ARRAY_OFFSET([new zetasql_test__.EmptyMessage()], new zetasql_test__.E...
        ^
 ==
 
-[language_features={{|V_1_4_STRING_AS_ENUM_ARGUMENT}}]
+[language_features={{|V_1_4_ARRAY_FIND_FUNCTIONS}}]
+[no_java]
+# TODO: Enable this test when enum debug string is fixed in Java
 SELECT ARRAY_OFFSET([CAST(1 AS INT32), CAST(2 AS INT32), CAST(3 AS INT32)], 3)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Function not found: ARRAY_OFFSET; Did you mean array_first? [at 1:8]
+ERROR: Function not found: ARRAY_OFFSET; Did you mean array_first? [at 2:8]
 SELECT ARRAY_OFFSET([CAST(1 AS INT32), CAST(2 AS INT32), CAST(3 AS INT32)], 3)
        ^
 --
-ALTERNATION GROUP: V_1_4_STRING_AS_ENUM_ARGUMENT
+ALTERNATION GROUP: V_1_4_ARRAY_FIND_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -39,14 +41,16 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<INT32>, INT32, optional(1) STRING) -> INT64)
+    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<INT32>, INT32, optional(1) ENUM<ARRAY_FIND_MODE>) -> INT64)
     |     +-Literal(type=ARRAY<INT32>, value=[1, 2, 3], has_explicit_type=TRUE)
     |     +-Literal(type=INT32, value=3)
-    |     +-Literal(type=STRING, value="FIRST")
+    |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
     +-input_scan=
       +-SingleRowScan
 ==
 
+[no_java]
+# TODO: Enable this test when enum debug string is fixed in Java
 SELECT ARRAY_OFFSET([STRUCT(1 AS a), STRUCT(2), STRUCT(3)], STRUCT(3 AS a), "LAST")
 --
 QueryStmt
@@ -57,10 +61,10 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRUCT<a INT64>>, STRUCT<a INT64>, optional(1) STRING) -> INT64)
+    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRUCT<a INT64>>, STRUCT<a INT64>, optional(1) ENUM<ARRAY_FIND_MODE>) -> INT64)
     |     +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}, {a:3}])
     |     +-Literal(type=STRUCT<a INT64>, value={a:3})
-    |     +-Literal(type=STRING, value="LAST")
+    |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=LAST)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -72,7 +76,7 @@ SELECT ARRAY_OFFSETS([new zetasql_test__.EmptyMessage()], new zetasql_test__....
        ^
 ==
 
-[language_features={{|V_1_4_STRING_AS_ENUM_ARGUMENT}}]
+[language_features={{|V_1_4_ARRAY_FIND_FUNCTIONS}}]
 SELECT ARRAY_OFFSETS([""], "")
 --
 ALTERNATION GROUP: <empty>
@@ -81,7 +85,7 @@ ERROR: Function not found: ARRAY_OFFSETS [at 1:8]
 SELECT ARRAY_OFFSETS([""], "")
        ^
 --
-ALTERNATION GROUP: V_1_4_STRING_AS_ENUM_ARGUMENT
+ALTERNATION GROUP: V_1_4_ARRAY_FIND_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -100,21 +104,23 @@ QueryStmt
 
 SELECT ARRAY_FIND([4, 5.0], CAST(5 AS FLOAT))
 --
-ERROR: No matching signature for function ARRAY_FIND for argument types: ARRAY<DOUBLE>, FLOAT. Supported signature: ARRAY_FIND(ARRAY, ANY, [STRING]) [at 1:8]
+ERROR: No matching signature for function ARRAY_FIND for argument types: ARRAY<DOUBLE>, FLOAT. Supported signature: ARRAY_FIND(ARRAY, ANY, [ARRAY_FIND_MODE]) [at 1:8]
 SELECT ARRAY_FIND([4, 5.0], CAST(5 AS FLOAT))
        ^
 ==
 
-[language_features={{|V_1_4_STRING_AS_ENUM_ARGUMENT}}]
+[language_features={{|V_1_4_ARRAY_FIND_FUNCTIONS}}]
+[no_java]
+# TODO: Enable this test when enum debug string is fixed in Java
 SELECT ARRAY_FIND([4, 5.0], 5, "LAST")
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Function not found: ARRAY_FIND; Did you mean array_min? [at 1:8]
+ERROR: Function not found: ARRAY_FIND; Did you mean array_min? [at 2:8]
 SELECT ARRAY_FIND([4, 5.0], 5, "LAST")
        ^
 --
-ALTERNATION GROUP: V_1_4_STRING_AS_ENUM_ARGUMENT
+ALTERNATION GROUP: V_1_4_ARRAY_FIND_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -124,15 +130,15 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_find(ARRAY<DOUBLE>, DOUBLE, optional(1) STRING) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:array_find(ARRAY<DOUBLE>, DOUBLE, optional(1) ENUM<ARRAY_FIND_MODE>) -> DOUBLE)
     |     +-Literal(type=ARRAY<DOUBLE>, value=[4, 5])
     |     +-Literal(type=DOUBLE, value=5)
-    |     +-Literal(type=STRING, value="LAST")
+    |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=LAST)
     +-input_scan=
       +-SingleRowScan
 ==
 
-[language_features=GEOGRAPHY,V_1_4_STRING_AS_ENUM_ARGUMENT]
+[language_features=GEOGRAPHY,V_1_4_ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND(ARRAY<GEOGRAPHY>[], st_geogpoint(1.2, 9e100))
 --
 ERROR: ARRAY_FIND cannot be used on argument of type ARRAY<GEOGRAPHY> because the array's element type does not support equality [at 1:8]
@@ -140,7 +146,7 @@ SELECT ARRAY_FIND(ARRAY<GEOGRAPHY>[], st_geogpoint(1.2, 9e100))
        ^
 ==
 
-[language_features={{|V_1_4_STRING_AS_ENUM_ARGUMENT}}]
+[language_features={{|V_1_4_ARRAY_FIND_FUNCTIONS}}]
 SELECT ARRAY_FIND_ALL([4, 5.0], 5)
 --
 ALTERNATION GROUP: <empty>
@@ -149,7 +155,7 @@ ERROR: Function not found: ARRAY_FIND_ALL [at 1:8]
 SELECT ARRAY_FIND_ALL([4, 5.0], 5)
        ^
 --
-ALTERNATION GROUP: V_1_4_STRING_AS_ENUM_ARGUMENT
+ALTERNATION GROUP: V_1_4_ARRAY_FIND_FUNCTIONS
 --
 QueryStmt
 +-output_column_list=
@@ -166,7 +172,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-[language_features=JSON_TYPE,V_1_4_STRING_AS_ENUM_ARGUMENT]
+[language_features=JSON_TYPE,V_1_4_ARRAY_FIND_FUNCTIONS]
 SELECT ARRAY_FIND_ALL(ARRAY<JSON>[], JSON '1')
 --
 ERROR: ARRAY_FIND_ALL cannot be used on argument of type ARRAY<JSON> because the array's element type does not support equality [at 1:8]

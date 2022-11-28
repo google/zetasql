@@ -18,6 +18,7 @@
 package com.google.zetasql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.FormatterOptions.FormatterOptionsProto;
 import com.google.zetasql.FormatterOptions.FormatterRangeProto;
 import com.google.zetasql.LocalService.FormatSqlRequest;
@@ -27,6 +28,7 @@ import java.util.Collection;
 /** Formatter for ZetaSQL. */
 public class SqlFormatter {
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public String formatSql(String sql) {
     try {
       return Client.getStub().formatSql(request(sql)).getSql();

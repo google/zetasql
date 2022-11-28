@@ -260,6 +260,7 @@ class Validator {
   absl::Status ValidateResolvedProjectScan(
       const ResolvedProjectScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
+  absl::Status ValidateTableValuedFunction(const TableValuedFunction* tvf);
   absl::Status ValidateResolvedTVFScan(
       const ResolvedTVFScan* resolved_tvf_scan,
       const std::set<ResolvedColumn>& visible_parameters);
@@ -568,6 +569,12 @@ class Validator {
 
   absl::Status ValidateResolvedAuxLoadDataStmt(
       const ResolvedAuxLoadDataStmt* stmt);
+
+  // Validates that <expr> is a valid expression of bool type.
+  absl::Status ValidateBoolExpr(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedExpr* expr);
 
   // Checks that <expr> contains only ColumnRefs, GetProtoField, GetStructField
   // and GetJsonField expressions. Sets 'ref' to point to the leaf

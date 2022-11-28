@@ -37,7 +37,7 @@ public class CatalogTest {
 
   @Test
   public void testConvertPathToProtoName() {
-    assertThat(Catalog.convertPathToProtoName(new ArrayList<String>())).isEqualTo("");
+    assertThat(Catalog.convertPathToProtoName(new ArrayList<String>())).isEmpty();
     assertThat(Catalog.convertPathToProtoName(null)).isEqualTo("");
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A"))).isEqualTo("A");
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "B"))).isEqualTo("A.B");

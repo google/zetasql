@@ -41,7 +41,6 @@ static const uint64_t kDayMask = 0b11111 << kDayShift;
 static const int kMonthShift = 22;
 static const uint64_t kMonthMask = 0b1111 << kMonthShift;
 static const int kYearShift = 26;
-static const uint64_t kYearMask = 0x3FFFLL << kYearShift;  // 14 bits
 
 static constexpr int64_t kNanosPerSecond = 1000000000;
 

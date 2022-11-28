@@ -81,14 +81,16 @@ ParserOutput::ParserOutput(
     absl::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
                   std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
         node,
+    std::unique_ptr<std::vector<absl::Status>> warnings,
     ParserRuntimeInfo runtime_info)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       other_allocated_ast_nodes_(std::move(other_allocated_ast_nodes)),
       node_(std::move(node)),
+      warnings_(std::move(warnings)),
       runtime_info_(std::move(runtime_info)) {}
 
-ParserOutput::~ParserOutput() {}
+ParserOutput::~ParserOutput() = default;
 
 absl::Status ParseStatement(absl::string_view statement_string,
                             const ParserOptions& parser_options_in,
@@ -122,7 +124,7 @@ absl::Status ParseStatement(absl::string_view statement_string,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement),
-      std::move(info));
+      parser.release_warnings(), std::move(info));
   return absl::OkStatus();
 }
 
@@ -156,7 +158,8 @@ absl::Status ParseScript(absl::string_view script_string,
   info.parser_timed_value().Accumulate(parser_timer);
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
-      std::move(other_allocated_ast_nodes), std::move(script), std::move(info));
+      std::move(other_allocated_ast_nodes), std::move(script),
+      parser.release_warnings(), std::move(info));
   return absl::OkStatus();
 }
 
@@ -208,7 +211,7 @@ absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement),
-      std::move(info));
+      parser.release_warnings(), std::move(info));
   return absl::OkStatus();
 }
 }  // namespace
@@ -259,7 +262,8 @@ absl::Status ParseType(absl::string_view type_string,
 
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
-      std::move(other_allocated_ast_nodes), std::move(type), std::move(info));
+      std::move(other_allocated_ast_nodes), std::move(type),
+      parser.release_warnings(), std::move(info));
   return absl::OkStatus();
 }
 
@@ -293,7 +297,7 @@ absl::Status ParseExpression(absl::string_view expression_string,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(expression),
-      std::move(info));
+      parser.release_warnings(), std::move(info));
   return absl::OkStatus();
 }
 
@@ -326,7 +330,7 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(expression),
-      std::move(info));
+      parser.release_warnings(), std::move(info));
   return absl::OkStatus();
 }
 

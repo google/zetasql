@@ -14,6 +14,7 @@ see [Function calls][function-calls].
 
 ## Operators
 
+ZetaSQL supports operators.
 Operators are represented by special characters or keywords; they do not use
 function call syntax. An operator manipulates any number of data inputs, also
 called operands, and returns a result.
@@ -814,7 +815,7 @@ WITH
     SELECT
       [
         NEW Album(
-          'OneWay' AS album_name,
+          'One Way' AS album_name,
           ['North', 'South'] AS song,
           'Crossroads' AS band),
         NEW Album(
@@ -832,8 +833,9 @@ SELECT FLATTEN(albums_array.song) AS songs FROM AlbumList
 +------------------------------+
 ```
 
-The following example extracts a flattened array of album names from a
-table called `AlbumList` that contains a proto-typed column called `Album`.
+The following example extracts a flattened array of album names, one album name
+per row. The data comes from a table called `AlbumList` that contains a
+proto-typed column called `Album`.
 
 ```sql
 WITH
@@ -843,7 +845,7 @@ WITH
         (
           SELECT
             NEW Album(
-              'OneWay' AS album_name,
+              'One Way' AS album_name,
               ['North', 'South'] AS song,
               'Crossroads' AS band) AS album_col
         ),
@@ -861,7 +863,8 @@ SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
 +----------------------+
 | names                |
 +----------------------+
-| [OneWay,After Hours] |
+| One Way              |
+| After Hours          |
 +----------------------+
 ```
 
@@ -2154,6 +2157,7 @@ FROM UNNEST([
 
 ## Conditional expressions
 
+ZetaSQL supports conditional expressions.
 Conditional expressions impose constraints on the evaluation order of their
 inputs. In essence, they are evaluated left to right, with short-circuiting, and
 only evaluate the output value that was chosen. In contrast, all inputs to
@@ -2174,10 +2178,17 @@ CASE expr
 **Description**
 
 Compares `expr` to `expr_to_match` of each successive `WHEN` clause and returns
-the first result where this comparison returns true. The remaining `WHEN`
-clauses and `else_result` are not evaluated. If the `expr = expr_to_match`
-comparison returns false or NULL for all `WHEN` clauses, returns `else_result`
-if present; if not present, returns NULL.
+the first result where this comparison evaluates to `TRUE`. The remaining `WHEN`
+clauses and `else_result` aren't evaluated.
+
+If the `expr = expr_to_match` comparison evaluates to `FALSE` or `NULL` for all
+`WHEN` clauses, returns the evaluation of `else_result` if present; if
+`else_result` isn't present, then returns `NULL`.
+
+Consistent with [equality comparisons][logical-operators] elsewhere, if both
+`expr` and `expr_to_match` are `NULL`, then `expr = expr_to_match` evaluates to
+`NULL`, which returns `else_result`. If a CASE statement needs to distinguish a
+`NULL` value, then the alternate [CASE][case] syntax should be used.
 
 `expr` and `expr_to_match` can be any type. They must be implicitly
 coercible to a common [supertype][cond-exp-supertype]; equality comparisons are
@@ -2235,13 +2246,18 @@ CASE
 **Description**
 
 Evaluates the condition of each successive `WHEN` clause and returns the
-first result where the condition is true; any remaining `WHEN` clauses
-and `else_result` are not evaluated. If all conditions are false or NULL,
-returns `else_result` if present; if not present, returns NULL.
+first result where the condition evaluates to `TRUE`; any remaining `WHEN`
+clauses and `else_result` aren't evaluated.
+
+If all conditions evaluate to `FALSE` or `NULL`, returns evaluation of
+`else_result` if present; if `else_result` isn't present, then returns `NULL`.
+
+For additional rules on how values are evaluated, see the
+three-valued logic table in [Logical operators][logical-operators].
 
 `condition` must be a boolean expression. There may be multiple `result` types.
-`result` and `else_result` expressions must be implicitly coercible to a
-common [supertype][cond-exp-supertype].
+`result` and `else_result` expressions must be implicitly coercible to a common
+[supertype][cond-exp-supertype].
 
 This expression supports specifying [collation][collation].
 
@@ -2264,7 +2280,7 @@ SELECT
   B,
   CASE
     WHEN A > 60 THEN 'red'
-    WHEN A > 30 THEN 'blue'
+    WHEN B = 6 THEN 'blue'
     ELSE 'green'
     END
     AS result
@@ -2287,8 +2303,8 @@ COALESCE(expr[, ...])
 
 **Description**
 
-Returns the value of the first non-null expression. The remaining
-expressions are not evaluated. An input expression can be any type.
+Returns the value of the first non-`NULL` expression. The remaining
+expressions aren't evaluated. An input expression can be any type.
 There may be multiple input expression types.
 All input expressions must be implicitly coercible to a common
 [supertype][cond-exp-supertype].
@@ -2327,9 +2343,10 @@ IF(expr, true_result, else_result)
 
 **Description**
 
-If `expr` is true, returns `true_result`, else returns `else_result`.
-`else_result` is not evaluated if `expr` is true. `true_result` is not
-evaluated if `expr` is false or NULL.
+If `expr` evaluates to `TRUE`, returns `true_result`, else returns the
+evaluation for `else_result`. `else_result` isn't evaluated if `expr` evaluates
+to `TRUE`. `true_result` isn't evaluated if `expr` evaluates to `FALSE` or
+`NULL`.
 
 `expr` must be a boolean expression. `true_result` and `else_result`
 must be coercible to a common [supertype][cond-exp-supertype].
@@ -2369,8 +2386,8 @@ IFNULL(expr, null_result)
 
 **Description**
 
-If `expr` is NULL, return `null_result`. Otherwise, return `expr`. If `expr`
-is not NULL, `null_result` is not evaluated.
+If `expr` evaluates to `NULL`, returns `null_result`. Otherwise, returns
+`expr`. If `expr` doesn't evaluate to `NULL`, `null_result` isn't evaluated.
 
 `expr` and `null_result` can be any type and must be implicitly coercible to
 a common [supertype][cond-exp-supertype]. Synonym for
@@ -2410,7 +2427,7 @@ NULLIF(expr, expr_to_match)
 
 **Description**
 
-Returns NULL if `expr = expr_to_match` is true, otherwise
+Returns `NULL` if `expr = expr_to_match` evaluates to `TRUE`, otherwise
 returns `expr`.
 
 `expr` and `expr_to_match` must be implicitly coercible to a
@@ -2448,7 +2465,11 @@ SELECT NULLIF(10, 0) as result
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[cond-exp-supertype]: #supertypes
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+[logical-operators]: #logical_operators
+
+[case]: #case
 
 <!-- mdlint on -->
 
@@ -2457,7 +2478,7 @@ SELECT NULLIF(10, 0) as result
 
 ## Aggregate functions
 
-The following general aggregate functions are available in ZetaSQL.
+ZetaSQL supports the following general aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
@@ -2854,6 +2875,9 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`AVG` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Supported Argument Types**
 
 Any numeric input type, such as
@@ -2917,6 +2941,8 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 | 5    | 4.5  |
 +------+------+
 ```
+
+[anonymization-functions]: #aggregate-dp-functions
 
 ### BIT_AND
 
@@ -3134,6 +3160,9 @@ This function with DISTINCT supports specifying [collation][collation].
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
+`COUNT` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Supported Argument Types**
 
 `expression` can be any data type. If
@@ -3252,6 +3281,8 @@ FROM Events;
 ```
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+[anonymization-functions]: #aggregate-dp-functions
 
 ### COUNTIF
 
@@ -3477,7 +3508,7 @@ To learn more about the `OVER` clause and how to use it, see
 less than 3.
 
 ```sql
-SELECT LOGICAL_OR(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
+SELECT LOGICAL_OR(x < 3) AS logical_or FROM UNNEST([1, 2, 4]) AS x;
 
 +------------+
 | logical_or |
@@ -3536,7 +3567,7 @@ This function supports specifying [collation][collation].
 
 **Supported Argument Types**
 
-Any [orderable data type][agg-data-type-properties].
+Any [orderable data type][agg-data-type-properties] except for `ARRAY`.
 
 **Return Data Types**
 
@@ -3623,7 +3654,7 @@ This function supports specifying [collation][collation].
 
 **Supported Argument Types**
 
-Any [orderable data type][agg-data-type-properties].
+Any [orderable data type][agg-data-type-properties] except for `ARRAY`.
 
 **Return Data Types**
 
@@ -3849,6 +3880,9 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`SUM` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Supported Argument Types**
 
 Any supported numeric data types and INTERVAL.
@@ -3959,12 +3993,14 @@ FROM UNNEST([]) AS x;
 +------+
 ```
 
+[anonymization-functions]: #aggregate-dp-functions
+
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 ## Statistical aggregate functions
 
-The following statistical aggregate functions are available in
-ZetaSQL. To learn about the syntax for aggregate function calls, see
+ZetaSQL supports statistical aggregate functions.
+To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
 ### CORR
@@ -4206,9 +4242,14 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`STDDEV_POP` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Return Data Type**
 
 `DOUBLE`
+
+[anonymization-functions]: #aggregate-dp-functions
 
 ### STDDEV_SAMP
 
@@ -4292,6 +4333,8 @@ window_specification:
 
 An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
+[stat-agg-link-to-stddev-samp]: #stddev_samp
+
 ### VAR_POP
 
 ```sql
@@ -4338,11 +4381,14 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`VAR_POP` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Return Data Type**
 
 `DOUBLE`
 
-[stat-agg-link-to-stddev-samp]: #stddev_samp
+[anonymization-functions]: #aggregate-dp-functions
 
 ### VAR_SAMP
 
@@ -4430,37 +4476,33 @@ An alias of [VAR_SAMP][stat-agg-link-to-var-samp].
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-## Anonymization aggregate functions 
-<a id="aggregate_anonymization_functions"></a>
+## Differentially private aggregate functions 
+<a id="aggregate_dp_functions"></a>
 
-The following anonymization aggregate functions are available in
-ZetaSQL. For an explanation of how aggregate functions work, see
+ZetaSQL supports differentially private aggregate functions.
+For an explanation of how aggregate functions work, see
 [Aggregate function calls][agg-function-calls].
 
-Anonymization aggregate functions can transform user data into anonymous
-information. This is done in such a way that it is not reasonably likely that
-anyone with access to the data can identify or re-identify an individual user
-from the anonymized data. Anonymization aggregate functions can only be used
-with [anonymization-enabled queries][anon-syntax].
+Differentially private aggregate functions can only be
+used with [differentially private queries][anon-syntax].
 
 ### ANON_AVG
 
 ```sql
-ANON_AVG(expression [CLAMPED BETWEEN lower AND upper])
+ANON_AVG(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Returns the average of non-`NULL`, non-`NaN` values in the expression.
-This function first computes the average per anonymization ID, and then computes
-the final result by averaging these averages.
+This function first computes the average per privacy unit ID, and then
+computes the final result by averaging these averages.
 
 You can [clamp the input values explicitly][anon-clamp], otherwise
 input values are clamped implicitly. Clamping is done to the
-per-anonymization ID averages.
+per-privacy unit ID averages.
 
-`expression` can be any numeric input type, such as
-INT64.
+`expression` can be any numeric input type, such as `INT64`.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -4477,9 +4519,9 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Examples**
 
-The following anonymized query gets the average number of each item requested
-per professor. Smaller aggregations may not be included. This query references
-a view called [`view_on_professors`][anon-example-views].
+The following differentially private query gets the average number of each item
+requested per professor. Smaller aggregations may not be included. This query
+references a view called [`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -4522,9 +4564,9 @@ noise [here][anon-noise].
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
 ### ANON_COUNT
 
@@ -4540,10 +4582,11 @@ ANON_COUNT(*)
 
 **Description**
 
-Returns the number of rows in the [anonymization-enabled][anon-from-clause]
-`FROM` clause. The final result is an aggregation across anonymization IDs.
+Returns the number of rows in the
+[differentially private][anon-from-clause] `FROM` clause. The final result
+is an aggregation across privacy unit IDs.
 [Input values are clamped implicitly][anon-clamp]. Clamping is performed per
-anonymization ID.
+privacy unit ID.
 
 **Return type**
 
@@ -4551,8 +4594,9 @@ anonymization ID.
 
 **Examples**
 
-The following anonymized query counts the number of requests for each item.
-This query references a view called [`view_on_professors`][anon-example-views].
+The following differentially private query counts the number of requests for
+each item. This query references a view called
+[`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -4597,16 +4641,17 @@ noise [here][anon-noise].
 <a id="anon_count_signature2"></a>
 
 ```sql
-ANON_COUNT(expression [CLAMPED BETWEEN lower AND upper])
+ANON_COUNT(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Returns the number of non-`NULL` expression values. The final result is an
-aggregation across anonymization IDs.
+aggregation across privacy unit IDs.
 
 You can [clamp the input values explicitly][anon-clamp], otherwise
-input values are clamped implicitly. Clamping is performed per anonymization ID.
+input values are clamped implicitly. Clamping is performed per
+privacy unit ID.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -4623,8 +4668,8 @@ see [Aggregate function calls][aggregate-function-calls].
 
 **Examples**
 
-The following anonymized query counts the number of requests made for each
-type of item. This query references a view called
+The following differentially private query counts the number of requests made
+for each type of item. This query references a view called
 [`view_on_professors`][anon-example-views].
 
 ```sql
@@ -4666,27 +4711,27 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
 
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
+[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_from
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
 ### ANON_PERCENTILE_CONT
 
 ```sql
-ANON_PERCENTILE_CONT(expression, percentile [CLAMPED BETWEEN lower AND upper])
+ANON_PERCENTILE_CONT(expression, percentile [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Takes an expression and computes a percentile for it. The final result is an
-aggregation across anonymization IDs. The percentile must be a literal in the
-range [0, 1]. You can [clamp the input values][anon-clamp] explicitly,
+aggregation across privacy unit IDs. The percentile must be a literal in
+the range [0, 1]. You can [clamp the input values][anon-clamp] explicitly,
 otherwise input values are clamped implicitly. Clamping is performed per
-anonymization ID.
+privacy unit ID.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -4712,9 +4757,9 @@ Caveats:
 
 **Examples**
 
-The following anonymized query gets the percentile of items requested. Smaller
-aggregations may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+The following differentially private query gets the percentile of items
+requested. Smaller aggregations may not be included. This query references a
+view called [`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -4737,23 +4782,23 @@ GROUP BY item;
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
 ### ANON_QUANTILES
 
 ```sql
-ANON_QUANTILES(expression, number CLAMPED BETWEEN lower AND upper)
+ANON_QUANTILES(expression, number CLAMPED BETWEEN lower_bound AND upper_bound)
 ```
 
 **Description**
 
-Returns an array of anonymized quantile boundaries for values in `expression`.
-`number` represents the number of quantiles to create and must be an
-`INT64`. The first element in the return value is the
+Returns an array of differentially private quantile boundaries for values in
+`expression`. `number` represents the number of quantiles to create and must be
+an `INT64`. The first element in the return value is the
 minimum quantile boundary and the last element is the maximum quantile boundary.
-`lower` and `upper` are the explicit bounds wherein the
+`lower_bound` and `upper_bound` are the explicit bounds wherein the
 [input values are clamped][anon-clamp]. The returned results are aggregations
-across anonymization IDs.
+across privacy unit IDs.
 
 Caveats:
 
@@ -4770,9 +4815,9 @@ Caveats:
 
 **Examples**
 
-The following anonymized query gets the five quantile boundaries of the four
-quartiles of the number of items requested. Smaller aggregations may not be
-included. This query references a view called
+The following differentially private query gets the five quantile boundaries of
+the four quartiles of the number of items requested. Smaller aggregations
+may not be included. This query references a view called
 [`view_on_professors`][anon-example-views].
 
 ```sql
@@ -4795,19 +4840,19 @@ GROUP BY item;
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
 ### ANON_STDDEV_POP
 
 ```sql
-ANON_STDDEV_POP(expression [CLAMPED BETWEEN lower AND upper])
+ANON_STDDEV_POP(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Takes an expression and computes the population (biased) standard deviation of
 the values in the expression. The final result is an aggregation across
-anonymization IDs between `0` and `+Inf`. You can
+privacy unit IDs between `0` and `+Inf`. You can
 [clamp the input values][anon-clamp] explicitly, otherwise input values are
 clamped implicitly. Clamping is performed per individual user values.
 
@@ -4835,9 +4880,10 @@ Caveats:
 
 **Examples**
 
-The following anonymized query gets the population (biased) standard deviation
-of items requested. Smaller aggregations may not be included. This query
-references a view called [`view_on_professors`][anon-example-views].
+The following differentially private query gets the
+population (biased) standard deviation of items requested. Smaller aggregations
+may not be included. This query references a view called
+[`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -4860,23 +4906,22 @@ GROUP BY item;
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
 ### ANON_SUM
 
 ```sql
-ANON_SUM(expression [CLAMPED BETWEEN lower AND upper])
+ANON_SUM(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Returns the sum of non-`NULL`, non-`NaN` values in the expression. The final
-result is an aggregation across anonymization IDs. You can optionally
+result is an aggregation across privacy unit IDs. You can optionally
 [clamp the input values][anon-clamp]. Clamping is performed per
-anonymization ID.
+privacy unit ID.
 
-The expression can be any numeric input type, such as
-`INT64`.
+The expression can be any numeric input type, such as `INT64`.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -4897,8 +4942,8 @@ One of the following [supertypes][anon-supertype]:
 
 **Examples**
 
-The following anonymized query gets the sum of items requested. Smaller
-aggregations may not be included. This query references a view called
+The following differentially private query gets the sum of items requested.
+Smaller aggregations may not be included. This query references a view called
 [`view_on_professors`][anon-example-views].
 
 ```sql
@@ -4942,23 +4987,23 @@ noise [here][anon-noise].
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
 [anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
 ### ANON_VAR_POP
 
 ```sql
-ANON_VAR_POP(expression [CLAMPED BETWEEN lower AND upper])
+ANON_VAR_POP(expression [CLAMPED BETWEEN lower_bound AND upper_bound])
 ```
 
 **Description**
 
 Takes an expression and computes the population (biased) variance of the values
 in the expression. The final result is an aggregation across
-anonymization IDs between `0` and `+Inf`. You can
+privacy unit IDs between `0` and `+Inf`. You can
 [clamp the input values][anon-clamp] explicitly, otherwise input values are
 clamped implicitly. Clamping is performed per individual user values.
 
@@ -4986,9 +5031,10 @@ Caveats:
 
 **Examples**
 
-The following anonymized query gets the population (biased) variance
-of items requested. Smaller aggregations may not be included. This query
-references a view called [`view_on_professors`][anon-example-views].
+The following differentially private query gets the
+population (biased) variance of items requested. Smaller aggregations may not
+be included. This query references a view called
+[`view_on_professors`][anon-example-views].
 
 ```sql
 -- With noise
@@ -5011,16 +5057,16 @@ GROUP BY item;
 
 [anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
 
-[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
+[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 ## Approximate aggregate functions
 
-The following approximate aggregate functions are available in
-ZetaSQL. To learn about the syntax for aggregate function calls, see
+ZetaSQL supports approximate aggregate functions.
+To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
 Approximate aggregate functions are scalable in terms of memory usage and time,
@@ -5644,6 +5690,8 @@ FROM
 
 ## KLL quantile functions
 
+ZetaSQL supports KLL functions.
+
 The [KLL16 algorithm][kll-sketches] estimates
 quantiles from [sketches][kll-sketches]. If you do not want
 to work with sketches and do not need customized precision, consider
@@ -5660,8 +5708,6 @@ already approximate.
 Note: While `APPROX_QUANTILES` is also returning approximate quantile results,
 the functions from this section allow for partial aggregations and
 re-aggregations.
-
-ZetaSQL supports the following KLL functions:
 
 ### KLL_QUANTILES.INIT_INT64
 
@@ -6302,8 +6348,8 @@ but accepts KLL sketches initialized on data of type
 
 ## Numbering functions
 
-The following sections describe the numbering functions that ZetaSQL
-supports. Numbering functions are a subset of window functions. To create a
+ZetaSQL supports numbering functions.
+Numbering functions are a subset of window functions. To create a
 window function call and learn about the syntax for window functions,
 see [Window function calls][window-function-calls].
 
@@ -6830,7 +6876,7 @@ BIT_CAST_TO_INT32(value)
 
 **Description**
 
-ZetaSQL supports bit casting to INT32. A bit
+ZetaSQL supports bit casting to `INT32`. A bit
 cast is a cast in which the order of bits is preserved instead of the value
 those bytes represent.
 
@@ -6841,7 +6887,7 @@ The `value` parameter can represent:
 
 **Return Data Type**
 
-INT32
+`INT32`
 
 **Examples**
 
@@ -6863,7 +6909,7 @@ BIT_CAST_TO_INT64(value)
 
 **Description**
 
-ZetaSQL supports bit casting to INT64. A bit
+ZetaSQL supports bit casting to `INT64`. A bit
 cast is a cast in which the order of bits is preserved instead of the value
 those bytes represent.
 
@@ -6874,7 +6920,7 @@ The `value` parameter can represent:
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -6896,7 +6942,7 @@ BIT_CAST_TO_UINT32(value)
 
 **Description**
 
-ZetaSQL supports bit casting to UINT32. A bit
+ZetaSQL supports bit casting to `UINT32`. A bit
 cast is a cast in which the order of bits is preserved instead of the value
 those bytes represent.
 
@@ -6907,7 +6953,7 @@ The `value` parameter can represent:
 
 **Return Data Type**
 
-UINT32
+`UINT32`
 
 **Examples**
 
@@ -6929,7 +6975,7 @@ BIT_CAST_TO_UINT64(value)
 
 **Description**
 
-ZetaSQL supports bit casting to UINT64. A bit
+ZetaSQL supports bit casting to `UINT64`. A bit
 cast is a cast in which the order of bits is preserved instead of the value
 those bytes represent.
 
@@ -6940,7 +6986,7 @@ The `value` parameter can represent:
 
 **Return Data Type**
 
-UINT64
+`UINT64`
 
 **Example**
 
@@ -6955,21 +7001,22 @@ SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
 ```
 
 ### BIT_COUNT
-```
+
+```sql
 BIT_COUNT(expression)
 ```
 
 **Description**
 
 The input, `expression`, must be an
-integer or BYTES.
+integer or `BYTES`.
 
 Returns the number of bits that are set in the input `expression`.
 For signed integers, this is the number of bits in two's complement form.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -6996,22 +7043,18 @@ FROM UNNEST([
 +-------+--------+---------------------------------------------+--------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-<!-- mdlint on -->
-
 ## Conversion functions
 
-ZetaSQL supports the following conversion functions. These data type
+ZetaSQL supports conversion functions. These data type
 conversions are explicit, but some conversions can happen implicitly. You can
 learn more about implicit and explicit conversion [here][conversion-rules].
 
-### CAST overview 
+### CAST 
 <a id="cast"></a>
 
-<pre class="lang-sql prettyprint">
-<code>CAST(expression AS typename [<a href="#formatting_syntax">format_clause</a>])</code>
-</pre>
+```sql
+CAST(expression AS typename [format_clause])
+```
 
 **Description**
 
@@ -7024,13 +7067,13 @@ can use [SAFE_CAST][con-func-safecast].
 
 Casts between supported types that do not successfully map from the original
 value to the target domain produce runtime errors. For example, casting
-BYTES to STRING where the byte sequence is not valid UTF-8 results in a runtime
-error.
+`BYTES` to `STRING` where the byte sequence is not valid UTF-8 results in a
+runtime error.
 
 Other examples include:
 
-+ Casting INT64 to INT32 where the value overflows INT32.
-+ Casting STRING to INT32 where the STRING contains non-digit characters.
++ Casting `INT64` to `INT32` where the value overflows `INT32`.
++ Casting `STRING` to `INT32` where the `STRING` contains non-digit characters.
 
 Some casts can include a [format clause][formatting-syntax], which provides
 instructions for how to conduct the
@@ -7058,8 +7101,8 @@ CAST(expression AS ARRAY<element_type>)
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to ARRAY. The `expression`
-parameter can represent an expression for these data types:
+ZetaSQL supports [casting][con-func-cast] to `ARRAY`. The
+`expression` parameter can represent an expression for these data types:
 
 + `ARRAY`
 
@@ -7072,13 +7115,13 @@ parameter can represent an expression for these data types:
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>ARRAY</td>
-    <td>ARRAY</td>
+    <td><code>ARRAY</code></td>
+    <td><code>ARRAY</code></td>
     <td>
       
       The element types of the input
-      <code>ARRAY</code> must be castable to the
-      element types of the target <code>ARRAY</code>.
+      array must be castable to the
+      element types of the target array.
       For example, casting from type
       <code>ARRAY&lt;INT64&gt;</code> to
       <code>ARRAY&lt;DOUBLE&gt;</code> or
@@ -7099,7 +7142,7 @@ CAST(expression AS BIGNUMERIC)
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to BIGNUMERIC. The
+ZetaSQL supports [casting][con-func-cast] to `BIGNUMERIC`. The
 `expression` parameter can represent an expression for these data types:
 
 + `INT32`
@@ -7122,33 +7165,28 @@ ZetaSQL supports [casting][con-func-cast] to BIGNUMERIC. The
   </tr>
   <tr>
     <td>Floating Point</td>
-    <td>BIGNUMERIC</td>
+    <td><code>BIGNUMERIC</code></td>
     <td>
       The floating point number will round
-      <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">
-      half away from zero</a>. Casting a <code>NaN</code>, <code>+inf</code> or
+      <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">half away from zero</a>.
+
+      Casting a <code>NaN</code>, <code>+inf</code> or
       <code>-inf</code> will return an error. Casting a value outside the range
-      of
-      
-      <a href="data-types#bignumeric_type"><code>BIGNUMERIC</code></a>
-      
-      will return an overflow error.
+      of <code>BIGNUMERIC</code></a> returns an overflow error.
     </td>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>BIGNUMERIC</td>
+    <td><code>STRING</code></td>
+    <td><code>BIGNUMERIC</code></td>
     <td>
-      The numeric literal contained in the <code>STRING</code> must not exceed
+      The numeric literal contained in the string must not exceed
       the maximum precision or range of the
-      
-      <a href="data-types#bignumeric_type"><code>BIGNUMERIC</code></a>
-      
-      type, or an error will occur. If the number of digits
-      after the decimal point exceeds 38, then the resulting
+      <code>BIGNUMERIC</code> type, or an error will occur. If the number of
+      digits after the decimal point exceeds 38, then the resulting
       <code>BIGNUMERIC</code> value will round
-      <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">
-      half away from zero</a> to have 38 digits after the decimal point.
+      <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">half away from zero</a>
+
+      to have 38 digits after the decimal point.
     </td>
   </tr>
 </table>
@@ -7161,7 +7199,7 @@ CAST(expression AS BOOL)
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to BOOL. The
+ZetaSQL supports [casting][con-func-cast] to `BOOL`. The
 `expression` parameter can represent an expression for these data types:
 
 + `INT32`
@@ -7181,35 +7219,35 @@ ZetaSQL supports [casting][con-func-cast] to BOOL. The
   </tr>
   <tr>
     <td>Integer</td>
-    <td>BOOL</td>
+    <td><code>BOOL</code></td>
     <td>
       Returns <code>FALSE</code> if <code>x</code> is <code>0</code>,
       <code>TRUE</code> otherwise.
     </td>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>BOOL</td>
+    <td><code>STRING</code></td>
+    <td><code>BOOL</code></td>
     <td>
       Returns <code>TRUE</code> if <code>x</code> is <code>"true"</code> and
       <code>FALSE</code> if <code>x</code> is <code>"false"</code><br />
       All other values of <code>x</code> are invalid and throw an error instead
-      of casting to BOOL.<br />
-      STRINGs are case-insensitive when converting
-      to BOOL.
+      of casting to a boolean.<br />
+      A string is case-insensitive when converting
+      to a boolean.
     </td>
   </tr>
 </table>
 
 ### CAST AS BYTES
 
-<pre class="lang-sql prettyprint">
-<code>CAST(expression AS BYTES [<a href="#formatting_syntax">format_clause</a>])</code>
-</pre>
+```sql
+CAST(expression AS BYTES [format_clause])
+```
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to BYTES. The
+ZetaSQL supports [casting][con-func-cast] to `BYTES`. The
 `expression` parameter can represent an expression for these data types:
 
 + `BYTES`
@@ -7234,22 +7272,21 @@ the cast. You can use the format clause in this section if `expression` is a
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>BYTES</td>
+    <td><code>STRING</code></td>
+    <td><code>BYTES</code></td>
     <td>
-      STRINGs are cast to
-      BYTES using UTF-8 encoding. For example,
-      the STRING "&copy;", when cast to
-      BYTES, would become a 2-byte sequence with the
+      Strings are cast to bytes using UTF-8 encoding. For example,
+      the string "&copy;", when cast to
+      bytes, would become a 2-byte sequence with the
       hex values C2 and A9.
     </td>
   </tr>
   
   <tr>
-    <td>PROTO</td>
-    <td>BYTES</td>
+    <td><code>PROTO</code></td>
+    <td><code>BYTES</code></td>
     <td>
-      Returns the proto2 wire format BYTES
+      Returns the proto2 wire format bytes
       of <code>x</code>.
     </td>
   </tr>
@@ -7258,13 +7295,13 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS DATE
 
-<pre class="lang-sql prettyprint">
-<code>CAST(expression AS DATE [<a href="#formatting_syntax">format_clause</a>])</code>
-</pre>
+```sql
+CAST(expression AS DATE [format_clause])
+```
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to DATE. The `expression`
+ZetaSQL supports [casting][con-func-cast] to `DATE`. The `expression`
 parameter can represent an expression for these data types:
 
 + `STRING`
@@ -7290,8 +7327,8 @@ the cast. You can use the format clause in this section if `expression` is a
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>DATE</td>
+    <td><code>STRING</code></td>
+    <td><code>DATE</code></td>
     <td>
       When casting from string to date, the string must conform to
       the supported date literal format, and is independent of time zone. If the
@@ -7301,8 +7338,8 @@ the cast. You can use the format clause in this section if `expression` is a
   </tr>
   
   <tr>
-    <td>TIMESTAMP</td>
-    <td>DATE</td>
+    <td><code>TIMESTAMP</code></td>
+    <td><code>DATE</code></td>
     <td>
       Casting from a timestamp to date effectively truncates the timestamp as
       of the default time zone.
@@ -7313,13 +7350,13 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS DATETIME
 
-<pre class="lang-sql prettyprint">
-<code>CAST(expression AS DATETIME [<a href="#formatting_syntax">format_clause</a>])</code>
-</pre>
+```sql
+CAST(expression AS DATETIME [format_clause])
+```
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to DATETIME. The
+ZetaSQL supports [casting][con-func-cast] to `DATETIME`. The
 `expression` parameter can represent an expression for these data types:
 
 + `STRING`
@@ -7345,8 +7382,8 @@ the cast. You can use the format clause in this section if `expression` is a
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>DATETIME</td>
+    <td><code>STRING</code></td>
+    <td><code>DATETIME</code></td>
     <td>
       When casting from string to datetime, the string must conform to the
       supported datetime literal format, and is independent of time zone. If
@@ -7356,8 +7393,8 @@ the cast. You can use the format clause in this section if `expression` is a
   </tr>
   
   <tr>
-    <td>TIMESTAMP</td>
-    <td>DATETIME</td>
+    <td><code>TIMESTAMP</code></td>
+    <td><code>DATETIME</code></td>
     <td>
       Casting from a timestamp to datetime effectively truncates the timestamp
       as of the default time zone.
@@ -7374,7 +7411,7 @@ CAST(expression AS ENUM)
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to ENUM. The `expression`
+ZetaSQL supports [casting][con-func-cast] to `ENUM`. The `expression`
 parameter can represent an expression for these data types:
 
 + `INT32`
@@ -7393,9 +7430,9 @@ parameter can represent an expression for these data types:
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>ENUM</td>
-    <td>ENUM</td>
-    <td>Must have the same ENUM name.</td>
+    <td><code>ENUM</code></td>
+    <td><code>ENUM</code></td>
+    <td>Must have the same enum name.</td>
   </tr>
 </table>
 
@@ -7442,26 +7479,26 @@ The `expression` parameter can represent an expression for these data types:
   </tr>
   
   <tr>
-    <td>NUMERIC</td>
+    <td><code>NUMERIC</code></td>
     <td>Floating Point</td>
     <td>
-      NUMERIC will convert to the closest floating point number with a possible
-      loss of precision.
+      <code>NUMERIC</code> will convert to the closest floating point number
+      with a possible loss of precision.
     </td>
   </tr>
   
   
   <tr>
-    <td>BIGNUMERIC</td>
+    <td><code>BIGNUMERIC</code></td>
     <td>Floating Point</td>
     <td>
-      BIGNUMERIC will convert to the closest floating point number with a
-      possible loss of precision.
+      <code>BIGNUMERIC</code> will convert to the closest floating point number
+      with a possible loss of precision.
     </td>
   </tr>
   
   <tr>
-    <td>STRING</td>
+    <td><code>STRING</code></td>
     <td>Floating Point</td>
     <td>
       Returns <code>x</code> as a floating point value, interpreting it as
@@ -7533,7 +7570,7 @@ The `expression` parameter can represent an expression for these data types:
     </td>
   </tr>
   <tr>
-    <td>BOOL</td>
+    <td><code>BOOL</code></td>
     <td>Integer</td>
     <td>
       Returns <code>1</code> if <code>x</code> is <code>TRUE</code>,
@@ -7542,7 +7579,7 @@ The `expression` parameter can represent an expression for these data types:
   </tr>
   
   <tr>
-    <td>STRING</td>
+    <td><code>STRING</code></td>
     <td>Integer</td>
     <td>
       A hex string can be cast to an integer. For example,
@@ -7580,13 +7617,13 @@ SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
 ### CAST AS INTERVAL
 
-<pre class="lang-sql prettyprint">
-<code>CAST(expression AS INTERVAL)</code>
-</pre>
+```sql
+CAST(expression AS INTERVAL)
+```
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to INTERVAL. The
+ZetaSQL supports [casting][con-func-cast] to `INTERVAL`. The
 `expression` parameter can represent an expression for these data types:
 
 + `STRING`
@@ -7600,11 +7637,13 @@ ZetaSQL supports [casting][con-func-cast] to INTERVAL. The
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>INTERVAL</td>
+    <td><code>STRING</code></td>
+    <td><code>INTERVAL</code></td>
     <td>
       When casting from string to interval, the string must conform to either
-      <a href="https://en.wikipedia.org/wiki/ISO_8601#Durations">ISO 8601 Duration</a> standard or to interval literal
+      <a href="https://en.wikipedia.org/wiki/ISO_8601#Durations">ISO 8601 Duration</a>
+
+      standard or to interval literal
       format 'Y-M D H:M:S.F'. Partial interval literal formats are also accepted
       when they are not ambiguous, for example 'H:M:S'.
       If the string expression is invalid or represents an interval that is
@@ -7645,7 +7684,7 @@ CAST(expression AS NUMERIC)
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to NUMERIC. The
+ZetaSQL supports [casting][con-func-cast] to `NUMERIC`. The
 `expression` parameter can represent an expression for these data types:
 
 + `INT32`
@@ -7668,31 +7707,28 @@ ZetaSQL supports [casting][con-func-cast] to NUMERIC. The
   </tr>
   <tr>
     <td>Floating Point</td>
-    <td>NUMERIC</td>
+    <td><code>NUMERIC</code></td>
     <td>
       The floating point number will round
-      <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">
-      half away from zero</a>. Casting a <code>NaN</code>, <code>+inf</code> or
+      <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">half away from zero</a>.
+
+      Casting a <code>NaN</code>, <code>+inf</code> or
       <code>-inf</code> will return an error. Casting a value outside the range
-      of
-      <a href="data-types#numeric_type"><code>NUMERIC</code></a>
-      
-      will return an overflow error.
+      of <code>NUMERIC</code> returns an overflow error.
     </td>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>NUMERIC</td>
+    <td><code>STRING</code></td>
+    <td><code>NUMERIC</code></td>
     <td>
-      The numeric literal contained in the <code>STRING</code> must not exceed
-      the maximum precision or range of the
-      <a href="data-types#numeric_type"><code>NUMERIC</code></a>
-      
+      The numeric literal contained in the string must not exceed
+      the maximum precision or range of the <code>NUMERIC</code>
       type, or an error will occur. If the number of digits
       after the decimal point exceeds nine, then the resulting
       <code>NUMERIC</code> value will round
-      <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">
-      half away from zero</a> to have nine digits after the decimal point.
+      <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">half away from zero</a>.
+
+      to have nine digits after the decimal point.
     </td>
   </tr>
 </table>
@@ -7705,8 +7741,8 @@ CAST(expression AS PROTO)
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to PROTO. The `expression`
-parameter can represent an expression for these data types:
+ZetaSQL supports [casting][con-func-cast] to `PROTO`. The
+`expression` parameter can represent an expression for these data types:
 
 + `STRING`
 + `BYTES`
@@ -7721,27 +7757,27 @@ parameter can represent an expression for these data types:
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>PROTO</td>
+    <td><code>STRING</code></td>
+    <td><code>PROTO</code></td>
     <td>
-      Returns the PROTO that results from parsing
+      Returns the protocol buffer that results from parsing
       from proto2 text format.<br />
       Throws an error if parsing fails, e.g. if not all required fields are set.
     </td>
   </tr>
   <tr>
-    <td>BYTES</td>
-    <td>PROTO</td>
+    <td><code>BYTES</code></td>
+    <td><code>PROTO</code></td>
     <td>
-      Returns the PROTO that results from parsing
+      Returns the protocol buffer that results from parsing
       <code>x</code> from the proto2 wire format.<br />
       Throws an error if parsing fails, e.g. if not all required fields are set.
     </td>
   </tr>
   <tr>
-    <td>PROTO</td>
-    <td>PROTO</td>
-    <td>Must have the same PROTO name.</td>
+    <td><code>PROTO</code></td>
+    <td><code>PROTO</code></td>
+    <td>Must have the same protocol buffer name.</td>
   </tr>
 </table>
 
@@ -7789,13 +7825,13 @@ SELECT
 ### CAST AS STRING 
 <a id="cast_as_string"></a>
 
-<pre class="lang-sql prettyprint">
-<code>CAST(expression AS STRING [<a href="#formatting_syntax">format_clause</a> [AT TIME ZONE timezone_expr]])</code>
-</pre>
+```sql
+CAST(expression AS STRING [format_clause [AT TIME ZONE timezone_expr]])
+```
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to STRING. The
+ZetaSQL supports [casting][con-func-cast] to `STRING`. The
 `expression` parameter can represent an expression for these data types:
 
 + `INT32`
@@ -7820,9 +7856,9 @@ ZetaSQL supports [casting][con-func-cast] to STRING. The
 **Format clause**
 
 When an expression of one type is cast to another type, you can use the
-format clause to provide instructions for how to conduct the cast.
-You can use the format clause in this section if `expression` is one of these
-data types:
+[format clause][formatting-syntax] to provide instructions for how to conduct
+the cast. You can use the format clause in this section if `expression` is one
+of these data types:
 
 + `INT32`
 + `UINT32`
@@ -7859,50 +7895,50 @@ For more information, see the following topics:
   </tr>
   <tr>
     <td>Floating Point</td>
-    <td>STRING</td>
+    <td><code>STRING</code></td>
     <td>Returns an approximate string representation. A returned
     <code>NaN</code> or <code>0</code> will not be signed.<br />
     </td>
   </tr>
   <tr>
-    <td>BOOL</td>
-    <td>STRING</td>
+    <td><code>BOOL</code></td>
+    <td><code>STRING</code></td>
     <td>
       Returns <code>"true"</code> if <code>x</code> is <code>TRUE</code>,
       <code>"false"</code> otherwise.</td>
   </tr>
   <tr>
-    <td>BYTES</td>
-    <td>STRING</td>
+    <td><code>BYTES</code></td>
+    <td><code>STRING</code></td>
     <td>
-      Returns <code>x</code> interpreted as a UTF-8 STRING.<br />
-      For example, the BYTES literal
-      <code>b'\xc2\xa9'</code>, when cast to STRING,
+      Returns <code>x</code> interpreted as a UTF-8 string.<br />
+      For example, the bytes literal
+      <code>b'\xc2\xa9'</code>, when cast to a string,
       is interpreted as UTF-8 and becomes the unicode character "&copy;".<br />
       An error occurs if <code>x</code> is not valid UTF-8.</td>
   </tr>
   
   <tr>
-    <td>ENUM</td>
-    <td>STRING</td>
+    <td><code>ENUM</code></td>
+    <td><code>STRING</code></td>
     <td>
-      Returns the canonical ENUM value name of
+      Returns the canonical enum value name of
       <code>x</code>.<br />
-      If an ENUM value has multiple names (aliases),
+      If an enum value has multiple names (aliases),
       the canonical name/alias for that value is used.</td>
   </tr>
   
   
   <tr>
-    <td>PROTO</td>
-    <td>STRING</td>
+    <td><code>PROTO</code></td>
+    <td><code>STRING</code></td>
     <td>Returns the proto2 text format representation of <code>x</code>.</td>
   </tr>
   
   
   <tr>
-    <td>TIME</td>
-    <td>STRING</td>
+    <td><code>TIME</code></td>
+    <td><code>STRING</code></td>
     <td>
       Casting from a time type to a string is independent of time zone and
       is of the form <code>HH:MM:SS</code>.
@@ -7911,8 +7947,8 @@ For more information, see the following topics:
   
   
   <tr>
-    <td>DATE</td>
-    <td>STRING</td>
+    <td><code>DATE</code></td>
+    <td><code>STRING</code></td>
     <td>
       Casting from a date type to a string is independent of time zone and is
       of the form <code>YYYY-MM-DD</code>.
@@ -7921,8 +7957,8 @@ For more information, see the following topics:
   
   
   <tr>
-    <td>DATETIME</td>
-    <td>STRING</td>
+    <td><code>DATETIME</code></td>
+    <td><code>STRING</code></td>
     <td>
       Casting from a datetime type to a string is independent of time zone and
       is of the form <code>YYYY-MM-DD HH:MM:SS</code>.
@@ -7931,8 +7967,8 @@ For more information, see the following topics:
   
   
   <tr>
-    <td>TIMESTAMP</td>
-    <td>STRING</td>
+    <td><code>TIMESTAMP</code></td>
+    <td><code>STRING</code></td>
     <td>
       When casting from timestamp types to string, the timestamp is interpreted
       using the default time zone, which is implementation defined. The number of
@@ -7943,8 +7979,8 @@ For more information, see the following topics:
   </tr>
   
   <tr>
-    <td>INTERVAL</td>
-    <td>STRING</td>
+    <td><code>INTERVAL</code></td>
+    <td><code>STRING</code></td>
     <td>
       Casting from an interval to a string is of the form
       <code>Y-M D H:M:S</code>.
@@ -8032,8 +8068,8 @@ CAST(expression AS STRUCT)
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to STRUCT. The `expression`
-parameter can represent an expression for these data types:
+ZetaSQL supports [casting][con-func-cast] to `STRUCT`. The
+`expression` parameter can represent an expression for these data types:
 
 + `STRUCT`
 
@@ -8046,19 +8082,19 @@ parameter can represent an expression for these data types:
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>STRUCT</td>
-    <td>STRUCT</td>
+    <td><code>STRUCT</code></td>
+    <td><code>STRUCT</code></td>
     <td>
       Allowed if the following conditions are met:<br />
       <ol>
         <li>
-          The two STRUCTs have the same number of
+          The two structs have the same number of
           fields.
         </li>
         <li>
-          The original STRUCT field types can be
+          The original struct field types can be
           explicitly cast to the corresponding target
-          STRUCT field types (as defined by field
+          struct field types (as defined by field
           order, not field name).
         </li>
       </ol>
@@ -8068,9 +8104,9 @@ parameter can represent an expression for these data types:
 
 ### CAST AS TIME
 
-<pre class="lang-sql prettyprint">
-<code>CAST(expression AS TIME [<a href="#formatting_syntax">format_clause</a>])</code>
-</pre>
+```sql
+CAST(expression AS TIME [format_clause])
+```
 
 **Description**
 
@@ -8100,8 +8136,8 @@ the cast. You can use the format clause in this section if `expression` is a
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>TIME</td>
+    <td><code>STRING</code></td>
+    <td><code>TIME</code></td>
     <td>
       When casting from string to time, the string must conform to
       the supported time literal format, and is independent of time zone. If the
@@ -8113,13 +8149,13 @@ the cast. You can use the format clause in this section if `expression` is a
 
 ### CAST AS TIMESTAMP
 
-<pre class="lang-sql prettyprint">
-<code>CAST(expression AS TIMESTAMP [<a href="#formatting_syntax">format_clause</a> [AT TIME ZONE timezone_expr]])</code>
-</pre>
+```sql
+CAST(expression AS TIMESTAMP [format_clause [AT TIME ZONE timezone_expr]])
+```
 
 **Description**
 
-ZetaSQL supports [casting][con-func-cast] to TIMESTAMP. The
+ZetaSQL supports [casting][con-func-cast] to `TIMESTAMP`. The
 `expression` parameter can represent an expression for these data types:
 
 + `STRING`
@@ -8150,8 +8186,8 @@ current time zone is used.
     <th>Rule(s) when casting <code>x</code></th>
   </tr>
   <tr>
-    <td>STRING</td>
-    <td>TIMESTAMP</td>
+    <td><code>STRING</code></td>
+    <td><code>TIMESTAMP</code></td>
     <td>
       When casting from string to a timestamp, <code>string_expression</code>
       must conform to the supported timestamp literal formats, or else a runtime
@@ -8171,8 +8207,8 @@ current time zone is used.
   </tr>
   
   <tr>
-    <td>DATE</td>
-    <td>TIMESTAMP</td>
+    <td><code>DATE</code></td>
+    <td><code>TIMESTAMP</code></td>
     <td>
       Casting from a date to a timestamp interprets <code>date_expression</code>
       as of midnight (start of the day) in the default time zone,
@@ -8182,8 +8218,8 @@ current time zone is used.
   
   
   <tr>
-    <td>DATETIME</td>
-    <td>TIMESTAMP</td>
+    <td><code>DATETIME</code></td>
+    <td><code>TIMESTAMP</code></td>
     <td>
       Casting from a datetime to a timestamp interprets
       <code>datetime_expression</code> in the default time zone,
@@ -8232,11 +8268,27 @@ SELECT CAST("06/02/2020 17:00:53.110" AS TIMESTAMP FORMAT 'MM/DD/YYYY HH:MI:SS' 
 SELECT CAST('06/02/2020 17:00:53.110 +00' AS TIMESTAMP FORMAT 'YYYY-MM-DD HH:MI:SS TZH') AS as_timestamp
 ```
 
+[formatting-syntax]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#formatting_syntax
+
+[format-string-as-bytes]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_string_as_bytes
+
+[format-bytes-as-string]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_bytes_as_string
+
+[format-date-time-as-string]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_date_time_as_string
+
+[format-string-as-date-time]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_string_as_datetime
+
+[format-numeric-type-as-string]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_numeric_type_as_string
+
+[con-func-cast]: #cast
+
+[con-func-safecast]: #safe_casting
+
 ### SAFE_CAST 
 <a id="safe_casting"></a>
 
 <pre class="lang-sql prettyprint">
-<code>SAFE_CAST(expression AS typename [<a href="#formatting_syntax">format_clause</a>])</code>
+<code>SAFE_CAST(expression AS typename [format_clause])</code>
 </pre>
 
 **Description**
@@ -8262,11 +8314,22 @@ SELECT SAFE_CAST("apple" AS INT64) AS not_a_number;
 +--------------+
 ```
 
+Some casts can include a [format clause][formatting-syntax], which provides
+instructions for how to conduct the
+cast. For example, you could
+instruct a cast to convert a sequence of bytes to a BASE64-encoded string
+instead of a UTF-8-encoded string.
+
+The structure of the format clause is unique to each type of cast and more
+information is available in the section for that cast.
+
 If you are casting from bytes to strings, you can also use the
-function, `SAFE_CONVERT_BYTES_TO_STRING`. Any invalid UTF-8 characters are
-replaced with the unicode replacement character, `U+FFFD`. See
-[SAFE_CONVERT_BYTES_TO_STRING][SC_BTS] for more
-information.
+function, [`SAFE_CONVERT_BYTES_TO_STRING`][SC_BTS]. Any invalid UTF-8 characters
+are replaced with the unicode replacement character, `U+FFFD`.
+
+[SC_BTS]: #safe_convert_bytes_to_string
+
+[formatting-syntax]: #formatting_syntax
 
 ### Other conversion functions 
 <a id="other_conv_functions"></a>
@@ -8311,2672 +8374,9 @@ Conversion function                    | From               | To
 
 <!-- mdlint on -->
 
-## Format clause for CAST 
-<a id="formatting_syntax"></a>
-
-```sql
-format_clause:
-  FORMAT format_model
-
-format_model:
-  format_string_expression
-```
-
-The format clause can be used in some `CAST` functions. You use a format clause
-to provide instructions for how to conduct a
-cast. For example, you could
-instruct a cast to convert a sequence of bytes to a BASE64-encoded string
-instead of a UTF-8-encoded string.
-
-The format clause includes a format model. The format model can contain
-format elements combined together as a format string.
-
-### Format bytes as string 
-<a id="format_bytes_as_string"></a>
-
-```sql
-CAST(bytes_expression AS STRING FORMAT format_string_expression)
-```
-
-You can cast a sequence of bytes to a string with a format element in the
-format string. If the bytes cannot be formatted with a
-format element, an error is returned. If the sequence of bytes is `NULL`, the
-result is `NULL`. Format elements are case-insensitive.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>HEX</td>
-      <td>
-        Converts a sequence of bytes into a hexadecimal string.
-      </td>
-      <td>
-        Input: b'\x00\x01\xEF\xFF'<br />
-        Output: 0001efff
-      </td>
-    </tr>
-    <tr>
-      <td>
-        BASEX
-      </td>
-      <td>
-        Converts a sequence of bytes into a
-        <a href="#about_basex_encoding">BASEX</a> encoded string.
-        X represents one of these numbers: 2, 8, 16, 32, 64.
-      </td>
-      <td>
-        Input as BASE8: b'\x02\x11\x3B'<br />
-        Output: 00410473
-      </td>
-    </tr>
-    <tr>
-      <td>BASE64M</td>
-      <td>
-        Converts a sequence of bytes into a
-        <a href="#about_basex_encoding">BASE64</a>-encoded string based on
-        <a href="https://tools.ietf.org/html/rfc2045#section-6.8">rfc 2045</a>
-        for MIME. Generates a newline character ("\n") every 76 characters.
-      </td>
-      <td>
-        Input: b'\xde\xad\xbe\xef'<br />
-        Output: 3q2+7w==
-      </td>
-    </tr>
-    <tr>
-      <td>ASCII</td>
-      <td>
-        Converts a sequence of bytes that are ASCII values to a string. If the
-        input contains bytes that are not a valid ASCII encoding, an error
-        is returned.
-      </td>
-      <td>
-        Input: b'\x48\x65\x6c\x6c\x6f'<br />
-        Output: Hello
-      </td>
-    </tr>
-    <tr>
-      <td>UTF-8</td>
-      <td>
-        Converts a sequence of bytes that are UTF-8 values to a string.
-        If the input contains bytes that are not a valid UTF-8 encoding,
-        an error is returned.
-      </td>
-      <td>
-        Input: b'\x24'<br />
-        Output: $
-      </td>
-    </tr>
-    <tr>
-      <td>UTF8</td>
-      <td>
-        Same behavior as UTF-8.
-      </td>
-      <td>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT CAST(b'\x48\x65\x6c\x6c\x6f' AS STRING FORMAT 'ASCII') AS bytes_to_string;
-
-+-----------------+
-| bytes_to_string |
-+-----------------+
-| Hello           |
-+-----------------+
-```
-
-### Format string as bytes 
-<a id="format_string_as_bytes"></a>
-
-```sql
-CAST(string_expression AS BYTES FORMAT format_string_expression)
-```
-
-You can cast a string to bytes with a format element in the
-format string. If the string cannot be formatted with the
-format element, an error is returned. Format elements are case-insensitive.
-
-In the string expression, whitespace characters, such as `\n`, are ignored
-if the `BASE64` or `BASE64M` format element is used.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>HEX</td>
-      <td>
-        Converts a hexadecimal-encoded string to bytes. If the input
-        contains characters that are not part of the HEX encoding alphabet
-        (0~9, case-insensitive a~f), an error is returned.
-      </td>
-      <td>
-        Input: '0001efff'<br />
-        Output: b'\x00\x01\xEF\xFF'
-      </td>
-    </tr>
-    <tr>
-      <td>
-        BASEX
-      </td>
-      <td>
-        Converts a <a href="#about_basex_encoding">BASEX</a>-encoded string to
-        bytes.  X represents one of these numbers: 2, 8, 16, 32, 64. An error
-        is returned if the input contains characters that are not part of the
-        BASEX encoding alphabet, except whitespace characters if the
-        format element is BASE64.
-      </td>
-      <td>
-        Input as BASE8: '00410473'<br />
-        Output: b'\x02\x11\x3B'
-      </td>
-    </tr>
-    <tr>
-      <td>BASE64M</td>
-      <td>
-        Converts a <a href="#about_basex_encoding">BASE64</a>-encoded string to
-        bytes. If the input contains characters that are not whitespace and not
-        part of the BASE64 encoding alphabet defined at
-        <a href="https://tools.ietf.org/html/rfc2045#section-6.8">rfc 2045</a>,
-        an error is returned. BASE64M and BASE64 decoding have the same
-        behavior.
-      </td>
-      <td>
-        Input: '3q2+7w=='<br />
-        Output: b'\xde\xad\xbe\xef'
-      </td>
-    </tr>
-    <tr>
-      <td>ASCII</td>
-      <td>
-        Converts a string with only ASCII characters to bytes. If the input
-        contains characters that are not ASCII characters, an error is
-        returned.
-      </td>
-      <td>
-        Input: 'Hello'<br />
-        Output: b'\x48\x65\x6c\x6c\x6f'
-      </td>
-    </tr>
-    <tr>
-      <td>UTF-8</td>
-      <td>
-        Converts a string to a sequence of UTF-8 bytes.
-      </td>
-      <td>
-        Input: '$'<br />
-        Output: b'\x24'
-      </td>
-    </tr>
-    <tr>
-      <td>UTF8</td>
-      <td>
-        Same behavior as UTF-8.
-      </td>
-      <td>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`BYTES`
-
-**Example**
-
-```sql
-SELECT CAST('Hello' AS BYTES FORMAT 'ASCII') AS string_to_bytes
-
-+-------------------------+
-| string_to_bytes         |
-+-------------------------+
-| b'\x48\x65\x6c\x6c\x6f' |
-+-------------------------+
-```
-
-### Format date and time as string 
-<a id="format_date_time_as_string"></a>
-
-You can format these date and time parts as a string:
-
-+ [Format year part as string][format-year-as-string]
-+ [Format month part as string][format-month-as-string]
-+ [Format day part as string][format-day-as-string]
-+ [Format hour part as string][format-hour-as-string]
-+ [Format minute part as string][format-minute-as-string]
-+ [Format second part as string][format-second-as-string]
-+ [Format meridian indicator as string][format-meridian-as-string]
-+ [Format time zone as string][format-tz-as-string]
-+ [Format literal as string][format-literal-as-string]
-
-Case matching is supported when you format some date or time parts as a string
-and the output contains letters. To learn more,
-see [Case matching][case-matching-date-time].
-
-#### Case matching 
-<a id="case_matching_date_time"></a>
-
-When the output of some format element contains letters, the letter cases of
-the output is matched with the letter cases of the format element,
-meaning the words in the output are capitalized according to how the
-format element is capitalized. This is called case matching. The rules are:
-
-+ If the first two letters of the element are both upper case, the words in
-  the output are capitalized. For example `DAY` = `THURSDAY`.
-+ If the first letter of the element is upper case, and the second letter is
-  lowercase, the first letter of each word in the output is capitalized and
-  other letters are lowercase. For example `Day` = `Thursday`.
-+ If the first letter of the element is lowercase, then all letters in the
-  output are lowercase. For example, `day` = `thursday`.
-
-#### Format year part as string 
-<a id="format_year_as_string"></a>
-
-```sql
-CAST(expression AS STRING FORMAT format_string_expression)
-```
-
-Casts a data type that contains the year part to a string. Includes
-format elements, which provide instructions for how to conduct the cast.
-
-+ `expression`: This expression contains the data type with the year
-  that you need to format.
-+ `format_string_expression`: A string which contains format elements, including
-  the year format element.
-
-These data types include a year part:
-
-+ `DATE`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If `expression` or `format_string_expression` is `NULL` the return value is
-`NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
-contain a value specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>YYYY</td>
-      <td>Year, 4 or more digits.</td>
-      <td>
-        Input: DATE '2018-01-30'<br />
-        Output: 2018
-        <hr />
-        Input: DATE '76-01-30'<br />
-        Output: 0076
-        <hr />
-        Input: DATE '10000-01-30'<br />
-        Output: 10000
-      </td>
-    </tr>
-    <tr>
-      <td>YYY</td>
-      <td>Year, last 3 digits only.</td>
-      <td>
-        Input: DATE '2018-01-30'<br />
-        Output: 018
-        <hr />
-        Input: DATE '98-01-30'<br />
-        Output: 098
-      </td>
-    </tr>
-    <tr>
-      <td>YY</td>
-      <td>Year, last 2 digits only.</td>
-      <td>
-        Input: DATE '2018-01-30'<br />
-        Output: 18
-        <hr />
-        Input: DATE '8-01-30'<br />
-        Output: 08
-      </td>
-    </tr>
-    <tr>
-      <td>Y</td>
-      <td>Year, last digit only.</td>
-      <td>
-        Input: DATE '2018-01-30'<br />
-        Output: 8
-      </td>
-    </tr>
-    <tr>
-      <td>RRRR</td>
-      <td>Same behavior as YYYY.</td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>RR</td>
-      <td>Same behavior as YY.</td>
-      <td></td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'YYYY') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| 2018                |
-+---------------------+
-```
-
-#### Format month part as string 
-<a id="format_month_as_string"></a>
-
-```sql
-CAST(expression AS STRING FORMAT format_string_expression)
-```
-
-Casts a data type that contains the month part to a string. Includes
-format elements, which provide instructions for how to conduct the cast.
-
-+ `expression`: This expression contains the data type with the month
-  that you need to format.
-+ `format_string_expression`: A string which contains format elements, including
-  the month format element.
-
-These data types include a month part:
-
-+ `DATE`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If `expression` or `format_string_expression` is `NULL` the return value is
-`NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
-contain a value specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>MM</td>
-      <td>Month, 2 digits.</td>
-      <td>
-        Input: DATE '2018-01-30'<br />
-        Output: 01
-      </td>
-    </tr>
-    <tr>
-      <td>MON</td>
-      <td>
-        Abbreviated, 3-character name of the month. The abbreviated month names
-        for locale en-US are: JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT,
-        NOV, DEC. <a href="#case_matching_date_time">Case matching</a> is
-        supported.
-      </td>
-      <td>
-        Input: DATE '2018-01-30'<br />
-        Output: JAN
-      </td>
-    </tr>
-    <tr>
-      <td>MONTH</td>
-      <td>
-        Name of the month.
-        <a href="#case_matching_date_time">Case matching</a> is supported.
-      </td>
-      <td>
-        Input: DATE '2018-01-30'<br />
-        Output: JANUARY
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'MONTH') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| JANUARY             |
-+---------------------+
-```
-
-#### Format day part as string 
-<a id="format_day_as_string"></a>
-
-```sql
-CAST(expression AS STRING FORMAT format_string_expression)
-```
-
-Casts a data type that contains the day part to a string. Includes
-format elements, which provide instructions for how to conduct the cast.
-
-+ `expression`: This expression contains the data type with the day
-  that you need to format.
-+ `format_string_expression`: A string which contains format elements, including
-  the day format element.
-
-These data types include a day part:
-
-+ `DATE`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If `expression` or `format_string_expression` is `NULL` the return value is
-`NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
-contain a value specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>DAY</td>
-      <td>
-        Name of the day of the week, localized. Spaces are padded on the right
-        side to make the output size exactly 9.
-        <a href="#case_matching_date_time">Case matching</a> is supported.
-      </td>
-      <td>
-        Input: DATE '2020-12-31'<br />
-        Output: THURSDAY
-      </td>
-    </tr>
-    <tr>
-      <td>DY</td>
-      <td>
-        Abbreviated, 3-character name of the weekday, localized.
-        The abbreviated weekday names for locale en-US are: MON, TUE, WED, THU,
-        FRI, SAT, SUN.
-        <a href="#case_matching_date_time">Case matching</a> is supported.
-      </td>
-      <td>
-        Input: DATE '2020-12-31'<br />
-        Output: THU
-      </td>
-    </tr>
-    <tr>
-      <td>D</td>
-      <td>Day of the week (1 to 7), starting with Sunday as 1.</td>
-      <td>
-        Input: DATE '2020-12-31'<br />
-        Output: 4
-      </td>
-    </tr>
-    <tr>
-      <td>DD</td>
-      <td>2-digit day of the month.</td>
-      <td>
-        Input: DATE '2018-12-02'<br />
-        Output: 02
-      </td>
-    </tr>
-    <tr>
-      <td>DDD</td>
-      <td>3-digit day of the year.</td>
-      <td>
-        Input: DATE '2018-02-03'<br />
-        Output: 034
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT CAST(DATE '2018-02-15' AS STRING FORMAT 'DD') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| 15                  |
-+---------------------+
-```
-
-#### Format hour part as string 
-<a id="format_hour_as_string"></a>
-
-```sql
-CAST(expression AS STRING FORMAT format_string_expression)
-```
-
-Casts a data type that contains the hour part to a string. Includes
-format elements, which provide instructions for how to conduct the cast.
-
-+ `expression`: This expression contains the data type with the hour
-  that you need to format.
-+ `format_string_expression`: A string which contains format elements, including
-  the hour format element.
-
-These data types include a hour part:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If `expression` or `format_string_expression` is `NULL` the return value is
-`NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
-contain a value specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>HH</td>
-      <td>Hour of the day, 12-hour clock, 2 digits.</td>
-      <td>
-        Input: TIME '21:30:00'<br />
-        Output: 09
-      </td>
-    </tr>
-    <tr>
-      <td>HH12</td>
-      <td>
-        Hour of the day, 12-hour clock.
-      </td>
-      <td>
-        Input: TIME '21:30:00'<br />
-        Output: 09
-      </td>
-    </tr>
-    <tr>
-      <td>HH24</td>
-      <td>
-        Hour of the day, 24-hour clock, 2 digits.
-      </td>
-      <td>
-        Input: TIME '21:30:00'<br />
-        Output: 21
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-```sql
-SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH24') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| 21                  |
-+---------------------+
-```
-
-```sql
-SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH12') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| 09                  |
-+---------------------+
-```
-
-#### Format minute part as string 
-<a id="format_minute_as_string"></a>
-
-```sql
-CAST(expression AS STRING FORMAT format_string_expression)
-```
-
-Casts a data type that contains the minute part to a string. Includes
-format elements, which provide instructions for how to conduct the cast.
-
-+ `expression`: This expression contains the data type with the minute
-  that you need to format.
-+ `format_string_expression`: A string which contains format elements, including
-  the minute format element.
-
-These data types include a minute part:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If `expression` or `format_string_expression` is `NULL` the return value is
-`NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
-contain a value specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>MI</td>
-      <td>Minute, 2 digits.</td>
-      <td>
-        Input: TIME '01:02:03'<br />
-        Output: 02
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'MI') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| 30                  |
-+---------------------+
-```
-
-#### Format second part as string 
-<a id="format_second_as_string"></a>
-
-```sql
-CAST(expression AS STRING FORMAT format_string_expression)
-```
-
-Casts a data type that contains the second part to a string. Includes
-format elements, which provide instructions for how to conduct the cast.
-
-+ `expression`: This expression contains the data type with the second
-  that you need to format.
-+ `format_string_expression`: A string which contains format elements, including
-  the second format element.
-
-These data types include a second part:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If `expression` or `format_string_expression` is `NULL` the return value is
-`NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
-contain a value specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>SS</td>
-      <td>Seconds of the minute, 2 digits.</td>
-      <td>
-        Input: TIME '01:02:03'<br />
-        Output: 03
-      </td>
-    </tr>
-    <tr>
-      <td>SSSSS</td>
-      <td>Seconds of the day, 5 digits.</td>
-      <td>
-        Input: TIME '01:02:03'<br />
-        Output: 03723
-      </td>
-    </tr>
-    <tr>
-      <td>FFn</td>
-      <td>
-        Fractional part of the second, <code>n</code> digits long.
-        Replace <code>n</code> with a value from 1 to 9. For example, FF5.
-        The fractional part of the second is rounded
-        to fit the size of the output.
-      </td>
-      <td>
-        Input for FF1: TIME '01:05:07.16'<br />
-        Output: 1
-        <hr />
-        Input for FF2: TIME '01:05:07.16'<br />
-        Output: 16
-        <hr />
-        Input for FF3: TIME '01:05:07.16'<br />
-        Output: 016
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-```sql
-SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'SS') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| 25                  |
-+---------------------+
-```
-
-```sql
-SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'FF2') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| 16                  |
-+---------------------+
-```
-
-#### Format meridian indicator part as string 
-<a id="format_meridian_as_string"></a>
-
-```sql
-CAST(expression AS STRING FORMAT format_string_expression)
-```
-
-Casts a data type that contains the meridian indicator part to a string. Includes
-format elements, which provide instructions for how to conduct the cast.
-
-+ `expression`: This expression contains the data type with the meridian indicator
-  that you need to format.
-+ `format_string_expression`: A string which contains format elements, including
-  the meridian indicator format element.
-
-These data types include a meridian indicator part:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If `expression` or `format_string_expression` is `NULL` the return value is
-`NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
-contain a value specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>A.M.</td>
-      <td>
-        A.M. if the time is less than 12, otherwise P.M.
-        The letter case of the output is determined by the first letter case
-        of the format element.
-      </td>
-      <td>
-        Input for A.M.: TIME '01:02:03'<br />
-        Output: A.M.
-        <hr />
-        Input for A.M.: TIME '16:02:03'<br />
-        Output: P.M.
-        <hr />
-        Input for a.m.: TIME '01:02:03'<br />
-        Output: a.m.
-        <hr />
-        Input for a.M.: TIME '01:02:03'<br />
-        Output: a.m.
-      </td>
-    </tr>
-    <tr>
-      <td>AM</td>
-      <td>
-        AM if the time is less than 12, otherwise PM.
-        The letter case of the output is determined by the first letter case
-        of the format element.
-      </td>
-      <td>
-        Input for AM: TIME '01:02:03'<br />
-        Output: AM
-        <hr />
-        Input for AM: TIME '16:02:03'<br />
-        Output: PM
-        <hr />
-        Input for am: TIME '01:02:03'<br />
-        Output: am
-        <hr />
-        Input for aM: TIME '01:02:03'<br />
-        Output: am
-      </td>
-    </tr>
-    <tr>
-      <td>P.M.</td>
-      <td>Output is the same as A.M. format element.</td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>PM</td>
-      <td>Output is the same as AM format element.</td>
-      <td></td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-```sql
-SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'AM') AS date_time_to_string;
-SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| PM                  |
-+---------------------+
-```
-
-```sql
-SELECT CAST(TIME '01:30:00' AS STRING FORMAT 'AM') AS date_time_to_string;
-SELECT CAST(TIME '01:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
-
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| AM                  |
-+---------------------+
-```
-
-#### Format time zone part as string 
-<a id="format_tz_as_string"></a>
-
-```sql
-CAST(expression AS STRING FORMAT format_string_expression)
-```
-
-Casts a data type that contains the time zone part to a string. Includes
-format elements, which provide instructions for how to conduct the cast.
-
-+ `expression`: This expression contains the data type with the time zone
-  that you need to format.
-+ `format_string_expression`: A string which contains format elements, including
-  the time zone format element.
-
-These data types include a time zone part:
-
-+ `DATE`
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If `expression` or `format_string_expression` is `NULL` the return value is
-`NULL`. If `format_string_expression` is an empty string, the output is an
-empty string. An error is generated if a value that is not a supported
-format element appears in `format_string_expression` or `expression` does not
-contain a value specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>TZH</td>
-      <td>
-        Hour offset for a time zone. This includes the <code>+/-</code> sign and
-        2-digit hour.
-      </td>
-      <td>
-        Inputstamp: TIMESTAMP '2008-12-25 05:30:00+00'
-        Output: −08
-      </td>
-    </tr>
-    <tr>
-      <td>TZM</td>
-      <td>
-        Minute offset for a time zone. This includes only the 2-digit minute.
-      </td>
-      <td>
-        Inputstamp: TIMESTAMP '2008-12-25 05:30:00+00'
-        Output: 00
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-```sql
-SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZH') AS date_time_to_string;
-
--- Results depend upon where this query was executed.
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| -08                 |
-+---------------------+
-```
-
-```sql
-SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZH' AT TIME ZONE 'Asia/Kolkata')
-AS date_time_to_string;
-
--- Because the time zone is specified, the result is always the same.
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| +05                 |
-+---------------------+
-```
-
-```sql
-SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZM') AS date_time_to_string;
-
--- Results depend upon where this query was executed.
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| 00                  |
-+---------------------+
-```
-
-```sql
-SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZM' AT TIME ZONE 'Asia/Kolkata')
-AS date_time_to_string;
-
--- Because the time zone is specified, the result is always the same.
-+---------------------+
-| date_time_to_string |
-+---------------------+
-| 30                  |
-+---------------------+
-```
-
-#### Format literal as string 
-<a id="format_literal_as_string"></a>
-
-```sql
-CAST(expression AS STRING FORMAT format_string_expression)
-```
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>-</td>
-      <td>Output is the same as the input.</td>
-      <td>-</td>
-    </tr>
-    <tr>
-      <td>.</td>
-      <td>Output is the same as the input.</td>
-      <td>.</td>
-    </tr>
-    <tr>
-      <td>/</td>
-      <td>Output is the same as the input.</td>
-      <td>/</td>
-    </tr>
-    <tr>
-      <td>,</td>
-      <td>Output is the same as the input.</td>
-      <td>,</td>
-    </tr>
-    <tr>
-      <td>'</td>
-      <td>Output is the same as the input.</td>
-      <td>'</td>
-    </tr>
-    <tr>
-      <td>;</td>
-      <td>Output is the same as the input.</td>
-      <td>;</td>
-    </tr>
-    <tr>
-      <td>:</td>
-      <td>Output is the same as the input.</td>
-      <td>:</td>
-    </tr>
-    <tr>
-      <td>Whitespace</td>
-      <td>
-        Output is the same as the input.
-        Whitespace means the space character, ASCII 32. It does not mean
-        other types of space like tab or new line. Any whitespace character
-        that is not the ASCII 32 character in the format model generates
-        an error.
-      </td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>"text"</td>
-      <td>
-        Output is the value within the double quotes. To preserve a double
-        quote or backslash character, use the <code>\"</code> or <code>\\</code>
-        escape sequence. Other escape sequences are not supported.
-      </td>
-      <td>
-        Input: "abc"<br />
-        Output: abc
-        <hr />
-        Input: "a\"b\\c"<br />
-        Output: a"b\c
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-### Format string as date and time 
-<a id="format_string_as_datetime"></a>
-
-You can format a string with these date and time parts:
-
-+ [Format string as year part][format-string-as-year]
-+ [Format string as month part][format-string-as-month]
-+ [Format string as day part][format-string-as-day]
-+ [Format string as hour part][format-string-as-hour]
-+ [Format string as minute part][format-string-as-minute]
-+ [Format string as second part][format-string-as-second]
-+ [Format string as meridian indicator part][format-string-as-meridian]
-+ [Format string as time zone part][format-string-as-tz]
-+ [Format string as literal part][format-string-as-literal]
-
-When formatting a string with date and time parts, you must follow the
-[format model rules][format-model-rules-date-time].
-
-#### Format model rules 
-<a id="format_model_rules_date_time"></a>
-
-When casting a string to date and time parts, you must ensure the _format model_
-is valid. The format model represents the elements passed into
-`CAST(string_expression AS type FORMAT format_string_expression)` as the
-`format_string_expression` and is validated according to the following
-rules:
-
-+ It contains at most one of each of the following parts:
-  meridian indicator, year, month, day, hour.
-+ A non-literal, non-whitespace format element cannot appear more than once.
-+ If it contains the day of year format element, `DDD`,  then it cannot contain
-  the month.
-+ If it contains the 24-hour format element, `HH24`,  then it cannot contain the
-  12-hour format element or a meridian indicator.
-+ If it contains the 12-hour format element, `HH12` or `HH`,  then it must also
-  contain a meridian indicator.
-+ If it contains a meridian indicator, then it must also contain a 12-hour
-  format element.
-+ If it contains the second of the day format element, `SSSSS`,  then it cannot
-  contain any of the following: hour, minute, second, or meridian indicator.
-+ It cannot contain a format element such that the value it sets does not exist
-  in the target type. For example, an hour format element such as `HH24` cannot
-  appear in a string you are casting as a `DATE`.
-
-#### Format string as year part 
-<a id="format_string_as_year"></a>
-
-```sql
-CAST(string_expression AS type FORMAT format_string_expression)
-```
-
-Casts a string-formatted year to a data type that contains
-the year part. Includes format elements, which provide instructions for how
-to conduct the cast.
-
-+ `string_expression`: This expression contains the string with the year
-  that you need to format.
-+ `type`: The data type to which you are casting. Must include the year
-  part.
-+ `format_string_expression`: A string which contains format elements, including
-  the year format element. The formats elements in this string are
-  defined collectively as the format model, which must follow
-  [these rules][format-model-rules-date-time].
-
-These data types include a year part:
-
-+ `DATE`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If the `YEAR` part is missing from `string_expression` and the return type
-includes this part, `YEAR` is set to the current year.
-
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
-specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>YYYY</td>
-      <td>
-        If it is delimited, matches 1 to 5 digits. If it is not delimited,
-        matches 4 digits. Sets the year part to the matched number.
-      </td>
-      <td>
-        Input for MM-DD-YYYY: '03-12-2018'<br />
-        Output as DATE: 2018-12-03
-        <hr />
-        Input for YYYY-MMDD: '10000-1203'<br />
-        Output as DATE: 10000-12-03
-        <hr />
-        Input for YYYY: '18'<br />
-        Output as DATE: 2018-03-01 (Assume current date is March 23, 2021)
-      </td>
-    </tr>
-    <tr>
-      <td>YYY</td>
-      <td>
-        Matches 3 digits. Sets the last 3 digits of the year part to the
-        matched number.
-      </td>
-      <td>
-        Input for YYY-MM-DD: '018-12-03'<br />
-        Output as DATE: 2018-12-03
-        <hr />
-        Input for YYY-MM-DD: '038-12-03'<br />
-        Output as DATE: 2038-12-03
-      </td>
-    </tr>
-    <tr>
-      <td>YY</td>
-      <td>
-        Matches 2 digits. Sets the last 2 digits of the year part to the
-        matched number.
-      </td>
-      <td>
-        Input for YY-MM-DD: '18-12-03'<br />
-        Output as DATE: 2018-12-03
-        <hr />
-        Input for YY-MM-DD: '38-12-03'<br />
-        Output as DATE: 2038-12-03
-      </td>
-    </tr>
-    <tr>
-      <td>Y</td>
-      <td>
-        Matches 1 digit. Sets the last digit of the year part to the matched
-        number.
-      </td>
-      <td>
-        Input for Y-MM-DD: '8-12-03'<br />
-        Output as DATE: 2008-12-03
-      </td>
-    </tr>
-    <tr>
-      <td>Y,YYY</td>
-      <td>
-        Matches the pattern of 1 to 2 digits, comma, then exactly 3 digits.
-        Sets the year part to the matched number.
-      </td>
-      <td>
-        Input for Y,YYY-MM-DD: '2,018-12-03'<br />
-        Output as DATE: 2008-12-03
-      </td>
-    </tr>
-    <tr>
-    <tr>
-      <td>RRRR</td>
-      <td>Same behavior as YYYY.</td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>RR</td>
-      <td>
-        <p>
-          Matches 2 digits.
-        </p>
-        <p>
-          If the 2 digits entered are between 00 and 49 and the
-          last 2 digits of the current year are between 00 and 49, the
-          returned year has the same first 2 digits as the current year.
-          If the last 2 digits of the current year are between 50 and 99,
-          the first 2 digits of the returned year is 1 greater than the first 2
-          digits of the current year.
-        </p>
-        <p>
-          If the 2 digits entered are between 50 and 99 and the
-          last 2 digits of the current year are between 00 and 49, the first
-          2 digits of the returned year are 1 less than the first 2 digits of
-          the current year. If the last 2 digits of the current year are
-          between 50 and 99, the returned year has the same first 2 digits
-          as the current year.
-        </p>
-      </td>
-      <td>
-        Input for RR-MM-DD: '18-12-03'<br />
-        Output as DATE: 2018-12-03 (executed in the year 2021)
-        Output as DATE: 2118-12-03 (executed in the year 2050)
-        <hr />
-        Input for RR-MM-DD: '50-12-03'<br />
-        Output as DATE: 2050-12-03 (executed in the year 2021)
-        Output as DATE: 2050-12-03 (executed in the year 2050)
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-The data type to which the string was cast. This can be:
-
-+ `DATE`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-**Examples**
-
-```sql
-SELECT CAST('18-12-03' AS DATE FORMAT 'YY-MM-DD') AS string_to_date
-
-+----------------+
-| string_to_date |
-+----------------+
-| 2018-02-03     |
-+----------------+
-```
-
-#### Format string as month part 
-<a id="format_string_as_month"></a>
-
-```sql
-CAST(string_expression AS type FORMAT format_string_expression)
-```
-
-Casts a string-formatted month to a data type that contains
-the month part. Includes format elements, which provide instructions for how
-to conduct the cast.
-
-+ `string_expression`: This expression contains the string with the month
-  that you need to format.
-+ `type`: The data type to which you are casting. Must include the month
-  part.
-+ `format_string_expression`: A string which contains format elements, including
-  the month format element. The formats elements in this string are
-  defined collectively as the format model, which must follow
-  [these rules][format-model-rules-date-time].
-
-These data types include a month part:
-
-+ `DATE`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If the `MONTH` part is missing from `string_expression` and the return type
-includes this part, `MONTH` is set to the current month.
-
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
-specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>MM</td>
-      <td>
-        Matches 2 digits. Sets the month part to the matched number.
-      </td>
-      <td>
-        Input for MM-DD-YYYY: '03-12-2018'<br />
-        Output as DATE: 2018-12-03
-      </td>
-    </tr>
-    <tr>
-      <td>MON</td>
-      <td>
-        Matches 3 letters. Sets the month part to the matched string interpreted
-        as the abbreviated name of the month.
-      </td>
-      <td>
-        Input for MON DD, YYYY: 'DEC 03, 2018'<br />
-        Output as DATE: 2018-12-03
-      </td>
-    </tr>
-    <tr>
-      <td>MONTH</td>
-      <td>
-        Matches 9 letters. Sets the month part to the matched string interpreted
-        as the name of the month.
-      </td>
-      <td>
-        Input for MONTH DD, YYYY: 'DECEMBER 03, 2018'<br />
-        Output as DATE: 2018-12-03
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-The data type to which the string was cast. This can be:
-
-+ `DATE`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-**Examples**
-
-```sql
-SELECT CAST('DEC 03, 2018' AS DATE FORMAT 'MON DD, YYYY') AS string_to_date
-
-+----------------+
-| string_to_date |
-+----------------+
-| 2018-12-03     |
-+----------------+
-```
-
-#### Format string as day part 
-<a id="format_string_as_day"></a>
-
-```sql
-CAST(string_expression AS type FORMAT format_string_expression)
-```
-
-Casts a string-formatted day to a data type that contains
-the day part. Includes format elements, which provide instructions for how
-to conduct the cast.
-
-+ `string_expression`: This expression contains the string with the day
-  that you need to format.
-+ `type`: The data type to which you are casting. Must include the day
-  part.
-+ `format_string_expression`: A string which contains format elements, including
-  the day format element. The formats elements in this string are
-  defined collectively as the format model, which must follow
-  [these rules][format-model-rules-date-time].
-
-These data types include a day part:
-
-+ `DATE`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If the `DAY` part is missing from `string_expression` and the return type
-includes this part, `DAY` is set to `1`.
-
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
-specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>DD</td>
-      <td>Matches 2 digits. Sets the day part to the matched number.</td>
-      <td>
-        Input for MONTH DD, YYYY: 'DECEMBER 03, 2018'<br />
-        Output as DATE: 2018-12-03
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-The data type to which the string was cast. This can be:
-
-+ `DATE`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-**Examples**
-
-```sql
-SELECT CAST('DECEMBER 03, 2018' AS DATE FORMAT 'MONTH DD, YYYY') AS string_to_date
-
-+----------------+
-| string_to_date |
-+----------------+
-| 2018-12-03     |
-+----------------+
-```
-
-#### Format string as hour part 
-<a id="format_string_as_hour"></a>
-
-```sql
-CAST(string_expression AS type FORMAT format_string_expression)
-```
-
-Casts a string-formatted hour to a data type that contains
-the hour part. Includes format elements, which provide instructions for how
-to conduct the cast.
-
-+ `string_expression`: This expression contains the string with the hour
-  that you need to format.
-+ `type`: The data type to which you are casting. Must include the hour
-  part.
-+ `format_string_expression`: A string which contains format elements, including
-  the hour format element. The formats elements in this string are
-  defined collectively as the format model, which must follow
-  [these rules][format-model-rules-date-time].
-
-These data types include a hour part:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If the `HOUR` part is missing from `string_expression` and the return type
-includes this part, `HOUR` is set to `0`.
-
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
-specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>HH</td>
-      <td>
-        Matches 2 digits. If the matched number <code>n</code> is <code>12</code>,
-        sets <code>temp = 0</code>; otherwise, sets <code>temp = n</code>. If
-        the matched value of the A.M./P.M. format element is P.M., sets
-        <code>temp = n + 12</code>. Sets the hour part to <code>temp</code>.
-        A meridian indicator must be present in the format model, when
-        HH is present.
-      </td>
-      <td>
-        Input for HH:MI P.M.: '03:30 P.M.'<br />
-        Output as TIME: 15:30:00
-      </td>
-    </tr>
-    <tr>
-      <td>HH12</td>
-      <td>
-        Same behavior as HH.
-      </td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>HH24</td>
-      <td>
-        Matches 2 digits. Sets the hour part to the matched number.
-      </td>
-      <td>
-        Input for HH24:MI: '15:30'<br />
-        Output as TIME: 15:30:00
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-The data type to which the string was cast. This can be:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-**Examples**
-
-```sql
-SELECT CAST('15:30' AS TIME FORMAT 'HH24:MI') AS string_to_date_time
-
-+---------------------+
-| string_to_date_time |
-+---------------------+
-| 15:30:00            |
-+---------------------+
-```
-
-#### Format string as minute part 
-<a id="format_string_as_minute"></a>
-
-```sql
-CAST(string_expression AS type FORMAT format_string_expression)
-```
-
-Casts a string-formatted minute to a data type that contains
-the minute part. Includes format elements, which provide instructions for how
-to conduct the cast.
-
-+ `string_expression`: This expression contains the string with the minute
-  that you need to format.
-+ `type`: The data type to which you are casting. Must include the minute
-  part.
-+ `format_string_expression`: A string which contains format elements, including
-  the minute format element. The formats elements in this string are
-  defined collectively as the format model, which must follow
-  [these rules][format-model-rules-date-time].
-
-These data types include a minute part:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If the `MINUTE` part is missing from `string_expression` and the return type
-includes this part, `MINUTE` is set to `0`.
-
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
-specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>MI</td>
-      <td>
-        Matches 2 digits. Sets the minute part to the matched number.
-      </td>
-      <td>
-        Input for HH:MI P.M.: '03:30 P.M.'<br />
-        Output as TIME: 15:30:00
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-The data type to which the string was cast. This can be:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-**Examples**
-
-```sql
-SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI P.M.') AS string_to_date_time
-
-+---------------------+
-| string_to_date_time |
-+---------------------+
-| 15:30:00            |
-+---------------------+
-```
-
-#### Format string as second part 
-<a id="format_string_as_second"></a>
-
-```sql
-CAST(string_expression AS type FORMAT format_string_expression)
-```
-
-Casts a string-formatted second to a data type that contains
-the second part. Includes format elements, which provide instructions for how
-to conduct the cast.
-
-+ `string_expression`: This expression contains the string with the second
-  that you need to format.
-+ `type`: The data type to which you are casting. Must include the second
-  part.
-+ `format_string_expression`: A string which contains format elements, including
-  the second format element. The formats elements in this string are
-  defined collectively as the format model, which must follow
-  [these rules][format-model-rules-date-time].
-
-These data types include a second part:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-If the `SECOND` part is missing from `string_expression` and the return type
-includes this part, `SECOND` is set to `0`.
-
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
-specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>SS</td>
-      <td>
-        Matches 2 digits. Sets the second part to the matched number.
-      </td>
-      <td>
-        Input for HH:MI:SS P.M.: '03:30:02 P.M.'<br />
-        Output as TIME: 15:30:02
-      </td>
-    </tr>
-    <tr>
-      <td>SSSSS</td>
-      <td>
-        Matches 5 digits. Sets the hour, minute and second parts by interpreting
-        the matched number as the number of seconds past midnight.
-      </td>
-      <td>
-        Input for SSSSS: '03723'<br />
-        Output as TIME: 01:02:03
-      </td>
-    </tr>
-    <tr>
-      <td>FFn</td>
-      <td>
-        Matches <code>n</code> digits, where <code>n</code> is the number
-        following FF in the format element. Sets the fractional part of the
-        second part to the matched number.
-      </td>
-      <td>
-        Input for HH24:MI:SS.FF1: '01:05:07.16'<br />
-        Output as TIME: 01:05:07.2
-        <hr />
-        Input for HH24:MI:SS.FF2: '01:05:07.16'<br />
-        Output as TIME: 01:05:07.16
-        <hr />
-        Input for HH24:MI:SS.FF3: 'FF3: 01:05:07.16'<br />
-        Output as TIME: 01:05:07.160
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-The data type to which the string was cast. This can be:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-**Examples**
-
-```sql
-SELECT CAST('01:05:07.16' AS TIME FORMAT 'HH24:MI:SS.FF1') AS string_to_date_time
-
-+---------------------+
-| string_to_date_time |
-+---------------------+
-| 01:05:07.2          |
-+---------------------+
-```
-
-#### Format string as meridian indicator part 
-<a id="format_string_as_meridian"></a>
-
-```sql
-CAST(string_expression AS type FORMAT format_string_expression)
-```
-
-Casts a string-formatted meridian indicator to a data type that contains
-the meridian indicator part. Includes format elements, which provide instructions for how
-to conduct the cast.
-
-+ `string_expression`: This expression contains the string with the meridian indicator
-  that you need to format.
-+ `type`: The data type to which you are casting. Must include the meridian indicator
-  part.
-+ `format_string_expression`: A string which contains format elements, including
-  the meridian indicator format element. The formats elements in this string are
-  defined collectively as the format model, which must follow
-  [these rules][format-model-rules-date-time].
-
-These data types include a meridian indicator part:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
-specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>A.M. or P.M.</td>
-      <td>
-        Matches using the regular expression <code>'(A|P)\.M\.'</code>.
-      </td>
-      <td>
-        Input for HH:MI A.M.: '03:30 A.M.'<br />
-        Output as TIME: 03:30:00
-        <hr />
-        Input for HH:MI P.M.: '03:30 P.M.'<br />
-        Output as TIME: 15:30:00
-        <hr />
-        Input for HH:MI P.M.: '03:30 A.M.'<br />
-        Output as TIME: 03:30:00
-        <hr />
-        Input for HH:MI A.M.: '03:30 P.M.'<br />
-        Output as TIME: 15:30:00
-        <hr />
-        Input for HH:MI a.m.: '03:30 a.m.'<br />
-        Output as TIME: 03:30:00
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-The data type to which the string was cast. This can be:
-
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-**Examples**
-
-```sql
-SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI A.M.') AS string_to_date_time
-
-+---------------------+
-| string_to_date_time |
-+---------------------+
-| 15:30:00            |
-+---------------------+
-```
-
-#### Format string as time zone part 
-<a id="format_string_as_tz"></a>
-
-```sql
-CAST(string_expression AS type FORMAT format_string_expression)
-```
-
-Casts a string-formatted time zone to a data type that contains
-the time zone part. Includes format elements, which provide instructions for how
-to conduct the cast.
-
-+ `string_expression`: This expression contains the string with the time zone
-  that you need to format.
-+ `type`: The data type to which you are casting. Must include the time zone
-  part.
-+ `format_string_expression`: A string which contains format elements, including
-  the time zone format element. The formats elements in this string are
-  defined collectively as the format model, which must follow
-  [these rules][format-model-rules-date-time].
-
-These data types include a time zone part:
-
-+ `DATE`
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-An error is generated if a value that is not a supported format element appears
-in `format_string_expression` or `string_expression` does not contain a value
-specified by a format element.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>TZH</td>
-      <td>
-        Matches using the regular expression <code>'(\+|\-| )[0-9]{2}'</code>.
-        Sets the time zone and hour parts to the matched sign and number.
-        Sets the time zone sign to be the first letter of the matched string.
-        The number 2 means matching up to 2 digits for non-exact matching, and
-        exactly 2 digits for exact matching.
-      </td>
-      <td>
-        Input for YYYY-MM-DD HH:MI:SSTZH: '2008-12-25 05:30:00-08'<br />
-        Output as TIMESTAMP: 2008-12-25 05:30:00-08
-      </td>
-    </tr>
-    <tr>
-      <td>TZM</td>
-      <td>
-        Matches 2 digits. Let <code>n</code> be the matched number. If the
-        time zone sign is the minus sign, sets the time zone minute part to
-        <code>-n</code>. Otherwise, sets the time zone minute part to
-        <code>n</code>.
-      </td>
-      <td>
-        Input for YYYY-MM-DD HH:MI:SSTZH: '2008-12-25 05:30:00+05.30'<br />
-        Output as TIMESTAMP: 2008-12-25 05:30:00+05.30
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-The data type to which the string was cast. This can be:
-
-+ `DATE`
-+ `TIME`
-+ `DATETIME`
-+ `TIMESTAMP`
-
-**Examples**
-
-```sql
-SELECT CAST('2020.06.03 00:00:53+00' AS TIMESTAMP FORMAT 'YYYY.MM.DD HH:MI:SSTZH') AS string_to_date_time
-
-+----------------------------+
-| as_timestamp               |
-+----------------------------+
-| 2020-06-03 00:00:53.110+00 |
-+----------------------------+
-```
-
-#### Format string as literal 
-<a id="format_string_as_literal"></a>
-
-```sql
-CAST(string_expression AS data_type FORMAT format_string_expression)
-```
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>-</td>
-      <td>Output is the same as the input.</td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>.</td>
-      <td>Output is the same as the input.</td>
-      <td>.</td>
-    </tr>
-    <tr>
-      <td>/</td>
-      <td>Output is the same as the input.</td>
-      <td>/</td>
-    </tr>
-    <tr>
-      <td>,</td>
-      <td>Output is the same as the input.</td>
-      <td>,</td>
-    </tr>
-    <tr>
-      <td>'</td>
-      <td>Output is the same as the input.</td>
-      <td>'</td>
-    </tr>
-    <tr>
-      <td>;</td>
-      <td>Output is the same as the input.</td>
-      <td>;</td>
-    </tr>
-    <tr>
-      <td>:</td>
-      <td>Output is the same as the input.</td>
-      <td>:</td>
-    </tr>
-    <tr>
-      <td>Whitespace</td>
-      <td>
-        A consecutive sequence of one or more spaces in the format model
-        is matched with one or more consecutive Unicode whitespace characters
-        in the input. Space means the ASCII 32 space character.
-        It does not mean the general whitespace such as a tab or new line.
-        Any whitespace character that is not the ASCII 32 character in the
-        format model generates an error.
-      </td>
-      <td></td>
-    </tr>
-    <tr>
-      <td>"text"</td>
-      <td>
-        Output generated by the format element in formatting, using this
-        regular expression, with <code>s</code> representing the string input:
-        <code>regex.escape(s)</code>.
-      </td>
-      <td>
-        Input: "abc"<br />
-        Output: abc
-        <hr />
-        Input: "a\"b\\c"<br />
-        Output: a"b\c
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-### Format numeric type as string 
-<a id="format_numeric_type_as_string"></a>
-
-```sql
-CAST(numeric_expression AS STRING FORMAT format_string_expression)
-```
-
-You can cast a [numeric type][numeric-types] to a string by combining the
-following format elements:
-
-- [Digits][format-digits]
-- [Decimal point][format-decimal-point]
-- [Sign][format-sign]
-- [Currency symbol][format-currency-symbol]
-- [Group separator][format-group-separator]
-- [Other format elements][format-other-elements]
-
-Except for the exponent format element (`EEEE`), all of the format elements
-generate a fixed number of characters in the output, and the output is aligned
-by the decimal point. The first character outputs a `-` for negative numbers;
-otherwise a space. To suppress blank characters and trailing zeroes, use the
-`FM` flag.
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT input, CAST(input AS STRING FORMAT '$999,999.999') AS output
-FROM UNNEST([1.2, 12.3, 123.456, 1234.56, -12345.678, 1234567.89]) AS input
-
-+------------+---------------+
-|   input    |    output     |
-+------------+---------------+
-|        1.2 |        $1.200 |
-|       12.3 |       $12.300 |
-|    123.456 |      $123.456 |
-|    1234.56 |    $1,234.560 |
-| -12345.678 |  -$12,345.678 |
-| 1234567.89 |  $###,###.### |
-+------------+---------------+
-```
-
-#### Format digits as string 
-<a id="format_digits"></a>
-
-The following format elements output digits. If there aren't enough
-digit format elements to represent the input, all digit format elements are
-replaced with `#` in the output.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>0</td>
-      <td>A decimal digit. Leading and trailing zeros are included.</td>
-      <td>
-        Input: <code>12</code> <br/>
-        Format: <code>'000'</code> <br/>
-        Output: <code>' 012'</code>
-        <hr/>
-        Input: <code>12</code> <br/>
-        Format: <code>'000.000'</code> <br/>
-        Output: <code>' 012.000'</code>
-        <hr/>
-        Input: <code>-12</code> <br/>
-        Format: <code>'000.000'</code> <br/>
-        Output: <code>'-012.000'</code>
-      </td>
-    </tr>
-    <tr>
-      <td>9</td>
-      <td>A decimal digit. Leading zeros are replaced with spaces. Trailing
-        zeros are included.</td>
-      <td>
-        Input: <code>12</code> <br/>
-        Format: <code>'999'</code> <br/>
-        Output: <code>'&nbsp;&nbsp;12'</code>
-        <hr/>
-        Input: <code>12</code> <br/>
-        Format: <code>'999.999'</code> <br/>
-        Output: <code>'&nbsp;&nbsp;12.000'</code>
-      </td>
-    </tr>
-    <tr>
-      <td>X or x</td>
-      <td><p>A hexadecimal digit. Cannot appear with other format elements
-        except 0, FM, and the sign format elements. The maximum number of
-        hexadecimal digits in the format string is 16.</p>
-        <p>X generates uppercase letters and x generates lowercase letters.
-        </p>
-        <p>When 0 is combined with the hexadecimal format element, the letter
-        generated by 0 matches the case of the next X or x element. If
-        there is no subsequent X or x, then 0 generates an uppercase
-        letter.</p>
-      </td>
-      <td>
-        Input: <code>43981</code> <br/>
-        Format: <code>'XXXX'</code> <br/>
-        Output: <code>' ABCD'</code>
-        <hr />
-        Input: <code>43981</code> <br/>
-        Format: <code>'xxxx'</code> <br/>
-        Output: <code>' abcd'</code>
-        <hr />
-        Input: <code>43981</code> <br/>
-        Format: <code>'0X0x'</code> <br/>
-        Output: <code>' ABcd'</code>
-        <hr />
-        Input: <code>43981</code> <br/>
-        Format: <code>'0000000X'</code> <br/>
-        Output: <code>' 0000ABCD'</code>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT
-  CAST(12 AS STRING FORMAT '999') as a,
-  CAST(-12 AS STRING FORMAT '999') as b;
-
-+------+------+
-|  a   |  b   |
-+------+------+
-|   12 |  -12 |
-+------+------+
-```
-
-#### Format decimal point as string 
-<a id="format_decimal_point"></a>
-
-The following format elements output a decimal point. These format elements are
-mutually exclusive. At most one can appear in the format string.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>. (period)</td>
-      <td>Decimal point.</td>
-      <td>
-        Input: <code>123.58</code> <br/>
-        Format: <code>'999.999'</code> <br/>
-        Output: <code>' 123.580'</code>
-    </tr>
-    <tr>
-      <td>D</td>
-      <td>The decimal point of the current locale.</td>
-      <td>
-        Input: <code>123.58</code> <br/>
-        Format: <code>'999D999'</code> <br/>
-        Output: <code>' 123.580'</code>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT CAST(12.5 AS STRING FORMAT '99.99') as a;
-
-+--------+
-|   a    |
-+--------+
-|  12.50 |
-+--------+
-```
-
-#### Format sign as string 
-<a id="format_sign"></a>
-
-The following format elements output the sign (+/-). These format elements are
-mutually exclusive. At most one can appear in the format string.
-
-If there are no sign format elements, one extra space is reserved for the sign.
-For example, if the input is <code>12</code> and the format string is
-<code>'99'</code>, then the output is <code>' 12'</code>, with a length of three
-characters.
-
-The sign appears before the number. If the format model includes a currency
-symbol element, then the sign appears before the currency symbol.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>S</td>
-      <td>Explicit sign. Outputs <code>+</code> for positive numbers and
-      <code>-</code> for negative numbers. The position in the output is
-      anchored to the number. <code>NaN</code> and <code>0</code>
-      will not be signed.</td>
-      <td>
-        Input: <code>-12</code> <br/>
-        Format: <code>'S9999'</code> <br />
-        Output: <code>'&nbsp;&nbsp;-12'</code>
-        <hr />
-        Input: <code>-12</code> <br/>
-        Format: <code>'9999S'</code> <br />
-        Output: <code>'&nbsp;&nbsp;12-'</code>
-      </td>
-    </tr>
-    <tr>
-      <td>MI</td>
-      <td>Explicit sign. Outputs a space for positive numbers and <code>-</code>
-        for negative numbers. This element can only appear in the last position.
-      </td>
-      <td>
-        Input: <code>12</code> <br/>
-        Format: <code>'9999MI'</code> <br />
-        Output: <code>'&nbsp;&nbsp;12 '</code>
-        <hr />
-        Input: <code>-12</code> <br/>
-        Format: <code>'9999MI'</code> <br />
-        Output: <code>'&nbsp;&nbsp;12-'</code>
-      </td>
-    </tr>
-    <tr>
-      <td>PR</td>
-      <td>For negative numbers, the value is enclosed in angle brackets. For
-        positive numbers, the value is returned with a leading and trailing
-        space. This element can only appear in the last position.
-      </td>
-      <td>
-        Input: <code>12</code> <br/>
-        Format: <code>'9999PR'</code> <br />
-        Output: <code>'&nbsp;&nbsp;&nbsp;12 '</code>
-        <hr />
-        Input: <code>-12</code> <br/>
-        Format: <code>'9999PR'</code> <br />
-        Output: <code>'&nbsp;&nbsp;&lt;12&gt;'</code>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT
-  CAST(12 AS STRING FORMAT 'S99') as a,
-  CAST(-12 AS STRING FORMAT 'S99') as b;
-
-+-----+-----+
-|  a  |  b  |
-+-----+-----+
-| +12 | -12 |
-+-----+-----+
-```
-
-#### Format currency symbol as string 
-<a id="format_currency_symbol"></a>
-
-The following format elements output a currency symbol. These format elements
-are mutually exclusive. At most one can appear in the format string. In the
-output, the currency symbol appears before the first digit or decimal point.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>$</td>
-      <td>Dollar sign ($).</td>
-      <td>
-        Input: <code>-12</code> <br/>
-        Format: <code>'$999'</code> <br/>
-        Output: <code>' -$12'</code>
-      </td>
-    </tr>
-    <tr>
-      <td>C or c</td>
-      <td>The ISO-4217 currency code of the current locale.</td>
-      <td>
-        Input: <code>-12</code> <br/>
-        Format: <code>'C999'</code> <br/>
-        Output: <code>' -USD12'</code>
-        <hr/>
-        Input: <code>-12</code> <br/>
-        Format: <code>'c999'</code> <br/>
-        Output: <code>' -usd12'</code>
-      </td>
-    </tr>
-    <tr>
-      <td>L</td>
-      <td>The currency symbol of the current locale.</td>
-      <td>
-        Input: <code>-12</code> <br/>
-        Format: <code>'L999'</code> <br/>
-        Output: <code>' -$12'</code>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT
-  CAST(12 AS STRING FORMAT '$99') as a,
-  CAST(-12 AS STRING FORMAT '$99') as b;
-
-+------+------+
-|  a   |  b   |
-+------+------+
-|  $12 | -$12 |
-+------+------+
-```
-
-#### Format group separator as string 
-<a id="format_group_separator"></a>
-
-The following format elements output a group separator.
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>, (comma)</td>
-      <td>Group separator.</td>
-      <td>
-        Input: <code>12345</code> <br/>
-        Format: <code>'999,999'</code> <br/>
-        Output: <code>'&nbsp;&nbsp;12,345'</code>
-    </tr>
-    <tr>
-      <td>G</td>
-      <td>The group separator point of the current locale.</td>
-      <td>
-        Input: <code>12345</code> <br/>
-        Format: <code>'999G999'</code> <br/>
-        Output: <code>'&nbsp;&nbsp;12,345'</code>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT CAST(1234 AS STRING FORMAT '999,999') as a;
-
-+----------+
-|    a     |
-+----------+
-|    1,234 |
-+----------+
-```
-
-#### Other numeric format elements 
-<a id="format_other_elements"></a>
-
-<table>
-  <thead>
-    <tr>
-      <th width='100px'>Format element</th>
-      <th width='400px'>Returns</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>B</td>
-      <td>Outputs spaces when the integer part is zero. If the integer part of
-        the number is 0, then the following format elements generate spaces in
-        the output: digits (9, X, 0), decimal point, group separator, currency,
-        sign, and exponent.</td>
-      <td>
-        Input: <code>0.23</code> <br/>
-        Format: <code>'B99.999S'</code> <br/>
-        Output: <code>'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'</code>
-        <hr />
-        Input: <code>1.23</code> <br/>
-        Format: <code>'B99.999S'</code> <br/>
-        Output: <code>' 1.230+'</code>
-    </tr>
-    <tr>
-      <td>EEEE</td>
-      <td>Outputs the exponent part of the value in scientific notation. If
-        the exponent value is between -99 and 99, the output is four characters.
-        Otherwise, the minimum number of digits is used in the output.
-      </td>
-      <td>
-        Input: <code>20</code> <br/>
-        Format: <code>'9.99EEEE'</code> <br/>
-        Output: <code>' 2.0E+01'</code>
-        <hr />
-        Input: <code>299792458</code> <br/>
-        Format: <code>'S9.999EEEE'</code> <br/>
-        Output: <code>'+2.998E+08'</code>
-    </tr>
-    <tr>
-      <td>FM</td>
-      <td>Removes all spaces and trailing zeroes from the output. You can use
-      this element to suppress spaces and trailing zeroes that are generated
-      by other format elements.</td>
-      <td>
-        Input: <code>12.5</code> <br/>
-        Format: <code>'999999.000FM'</code> <br/>
-        Output: <code>'12.5'</code>
-    </tr>
-    <tr>
-      <td>RN</td>
-      <td>Returns the value as Roman numerals, rounded to the nearest integer.
-        The input must be between 1 and 3999. The output is padded with spaces
-        to the left to a length of 15. This element cannot be used with other
-        format elements except <code>FM</code>.
-      </td>
-      <td>
-        Input: <code>2021</code> <br/>
-        Format: <code>'RN'</code> <br/>
-        Output: <code>'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MMXXI'</code>
-      </td>
-    </tr>
-    <tr>
-      <td>V</td>
-      <td>The input value is multiplied by 10^n, where n is the number of 9s
-        after the <code>V</code>. This element cannot be used with a decimal
-        point or exponent format element.
-      </td>
-      <td>
-        Input: <code>23.5</code> <br/>
-        Format: <code>'S000V00'</code> <br/>
-        Output: <code>'+02350'</code>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-**Return type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT CAST(-123456 AS STRING FORMAT '9.999EEEE') as a;"
-
-+------------+
-|     a      |
-+------------+
-| -1.235E+05 |
-+------------+
-```
-
-### About BASE encoding 
-<a id="about_basex_encoding"></a>
-
-BASE encoding translates binary data in string format into a radix-X
-representation.
-
-If X is 2, 8, or 16, Arabic numerals 0–9 and the Latin letters
-a–z are used in the encoded string. So for example, BASE16/Hexadecimal encoding
-results contain 0~9 and a~f.
-
-If X is 32 or 64, the default character tables are defined in
-[rfc 4648][rfc-4648]. When you decode a BASE string where X is 2, 8, or 16,
-the Latin letters in the input string are case-insensitive. For example, both
-"3a" and "3A" are valid input strings for BASE16/Hexadecimal decoding, and
-will output the same result.
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[formatting-syntax]: #formatting_syntax
-
-[rfc-4648]: https://tools.ietf.org/html/rfc4648#section-3.3
-
-[about-basex-encoding]: #about_basex_encoding
-
-[format-string-as-bytes]: #format_string_as_bytes
-
-[format-bytes-as-string]: #format_bytes_as_string
-
-[format-date-time-as-string]: #format_date_time_as_string
-
-[case-matching-date-time]: #case_matching_date_time
-
-[format-year-as-string]: #format_year_as_string
-
-[format-month-as-string]: #format_month_as_string
-
-[format-day-as-string]: #format_day_as_string
-
-[format-hour-as-string]: #format_hour_as_string
-
-[format-minute-as-string]: #format_minute_as_string
-
-[format-second-as-string]: #format_second_as_string
-
-[format-meridian-as-string]: #format_meridian_as_string
-
-[format-tz-as-string]: #format_tz_as_string
-
-[format-literal-as-string]: #format_literal_as_string
-
-[format-string-as-date-time]: #format_string_as_datetime
-
-[format-model-rules-date-time]: #format_model_rules_date_time
-
-[format-string-as-year]: #format_string_as_year
-
-[format-string-as-month]: #format_string_as_month
-
-[format-string-as-day]: #format_string_as_day
-
-[format-string-as-hour]: #format_string_as_hour
-
-[format-string-as-minute]: #format_string_as_minute
-
-[format-string-as-second]: #format_string_as_second
-
-[format-string-as-meridian]: #format_string_as_meridian
-
-[format-string-as-tz]: #format_string_as_tz
-
-[format-string-as-literal]: #format_string_as_literal
-
-[format-numeric-type-as-string]: #format_numeric_type_as_string
-
-[format-digits]: #format_digits
-
-[format-decimal-point]: #format_decimal_point
-
-[format-sign]: #format_sign
-
-[format-currency-symbol]: #format_currency_symbol
-
-[format-group-separator]: #format_group_separator
-
-[format-other-elements]: #format_other_elements
-
-[numeric-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#numeric_types
-
-[con-func-cast]: #cast
-
-[con-func-safecast]: #safe_casting
-
-[cast-bignumeric]: #cast_bignumeric
-
-[cast-numeric]: #cast_numeric
-
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
-
-[bignumeric-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#decimal_types
-
-[numeric-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#decimal_types
-
-[half-from-zero-wikipedia]: https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero
-
-[conversion-rules]: #conversion_rules
 
 [ARRAY_STRING]: #array_to_string
 
@@ -11042,6 +8442,7 @@ will output the same result.
 
 ## Mathematical functions
 
+ZetaSQL supports mathematical functions.
 All mathematical functions have the following behaviors:
 
 +  They return `NULL` if any of the input parameters is `NULL`.
@@ -11692,7 +9093,7 @@ Similar to `LOG`, but computes logarithm to base 10.
     </tr>
     <tr>
       <td><code>+inf</code></td>
-      <td><code>NaN</code></td>
+      <td><code>+inf</code></td>
     </tr>
     <tr>
       <td>X &lt;= 0</td>
@@ -13098,7 +10499,7 @@ ATANH(X)
 **Description**
 
 Computes the inverse hyperbolic tangent of X. Generates an error if X is outside
-of the range [-1, 1].
+of the range (-1, 1).
 
 <table>
   <thead>
@@ -13284,8 +10685,8 @@ SELECT CBRT(27) AS cube_root;
 
 ## Navigation functions
 
-The following sections describe the navigation functions that ZetaSQL
-supports. Navigation functions are a subset window functions. To create a
+ZetaSQL supports navigation functions.
+Navigation functions are a subset window functions. To create a
 window function call and learn about the syntax for window functions,
 see [Window function_calls][window-function-calls].
 
@@ -13947,6 +11348,9 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`PERCENTILE_CONT` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Supported Argument Types**
 
 + `value_expression` and `percentile` must have one of the following types:
@@ -14013,6 +11417,8 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 | NULL | 0           | 1      | 2.6          | 3   |
 +------+-------------+--------+--------------+-----+
 ```
+
+[anonymization-functions]: #aggregate-dp-functions
 
 ### PERCENTILE_DISC
 
@@ -14109,6 +11515,8 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 [window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 ## Hash functions
+
+ZetaSQL supports the following hash functions.
 
 ### FARM_FINGERPRINT
 ```
@@ -14293,13 +11701,14 @@ SELECT SHA512("Hello World") as sha512;
 
 ## String functions
 
+ZetaSQL supports string functions.
 These string functions work on two different values:
 `STRING` and `BYTES` data types. `STRING` values must be well-formed UTF-8.
 
 Functions that return position values, such as [STRPOS][string-link-to-strpos],
 encode those positions as `INT64`. The value `1`
 refers to the first character (or byte), `2` refers to the second, and so on.
-The value `0` indicates an invalid index. When working on `STRING` types, the
+The value `0` indicates an invalid position. When working on `STRING` types, the
 returned positions refer to character positions.
 
 All string comparisons are done byte-by-byte, without regard to Unicode
@@ -14485,7 +11894,7 @@ CODE_POINTS_TO_BYTES(ascii_code_points)
 
 Takes an array of extended ASCII
 [code points][string-link-to-code-points-wikipedia]
-(`ARRAY` of `INT64`) and returns `BYTES`.
+as `ARRAY<INT64>` and returns `BYTES`.
 
 To convert from `BYTES` to an array of code points, see
 [TO_CODE_POINTS][string-link-to-code-points].
@@ -14544,7 +11953,7 @@ CODE_POINTS_TO_STRING(unicode_code_points)
 **Description**
 
 Takes an array of Unicode [code points][string-link-to-code-points-wikipedia]
-(`ARRAY` of `INT64`) and returns a `STRING`.
+as `ARRAY<INT64>` and returns a `STRING`.
 
 To convert from a string to an array of code points, see
 [TO_CODE_POINTS][string-link-to-code-points].
@@ -15752,26 +13161,40 @@ INSTR(source_value, search_value[, position[, occurrence]])
 
 **Description**
 
-Returns the lowest 1-based index of `search_value` in `source_value`. 0 is
-returned when no match is found. `source_value` and `search_value` must be the
-same type, either `STRING` or `BYTES`.
+Returns the lowest 1-based position of `search_value` in `source_value`.
+`source_value` and `search_value` must be the same type, either
+`STRING` or `BYTES`.
 
 If `position` is specified, the search starts at this position in
-`source_value`, otherwise it starts at the beginning of `source_value`. If
-`position` is negative, the function searches backwards from the end of
-`source_value`, with -1 indicating the last character. `position` cannot be 0.
+`source_value`, otherwise it starts at `1`, which is the beginning of
+`source_value`. If `position` is negative, the function searches backwards
+from the end of `source_value`, with `-1` indicating the last character.
+`position` is of type `INT64` and cannot be `0`.
 
 If `occurrence` is specified, the search returns the position of a specific
-instance of `search_value` in `source_value`, otherwise it returns the index of
-the first occurrence. If `occurrence` is greater than the number of matches
-found, 0 is returned. For `occurrence` > 1, the function searches for
-overlapping occurrences, in other words, the function searches for additional
-occurrences beginning with the second character in the previous occurrence.
-`occurrence` cannot be 0 or negative.
+instance of `search_value` in `source_value`. If not specified, `occurrence`
+defaults to `1` and returns the position of the first occurrence.
+For `occurrence` > `1`, the function includes overlapping occurrences.
+`occurrence` is of type `INT64` and must be positive.
 
 This function supports specifying [collation][collation].
 
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+
+Returns `0` if:
+
++ No match is found.
++ If `occurrence` is greater than the number of matches found.
++ If `position` is greater than the length of `source_value`.
+
+Returns `NULL` if:
+
++ Any input argument is `NULL`.
+
+Returns an error if:
+
++ `position` is `0`.
++ `occurrence` is `0` or negative.
 
 **Return type**
 
@@ -16469,7 +13892,7 @@ regular expression syntax.
 
 **Return type**
 
-An `ARRAY` of either `STRING`s or `BYTES`
+An `ARRAY<STRING>` or `ARRAY<BYTES>`
 
 **Examples**
 
@@ -16496,30 +13919,47 @@ REGEXP_INSTR(source_value, regexp [, position[, occurrence, [occurrence_position
 
 **Description**
 
-Returns the lowest 1-based index of a regular expression, `regexp`, in
-`source_value`. Returns `0` when no match is found or the regular expression
-is empty. Returns an error if the regular expression is invalid or has more than
-one capturing group. `source_value` and `regexp` must be the same type, either
+Returns the lowest 1-based position of a regular expression, `regexp`, in
+`source_value`. `source_value` and `regexp` must be the same type, either
 `STRING` or `BYTES`.
 
 If `position` is specified, the search starts at this position in
-`source_value`, otherwise it starts at the beginning of `source_value`.
-`position` cannot be 0 or negative.
+`source_value`, otherwise it starts at `1`, which is the beginning of
+`source_value`. `position` is of type `INT64` and must be positive.
 
 If `occurrence` is specified, the search returns the position of a specific
-instance of `regexp` in `source_value`, otherwise it returns the index of
-the first occurrence. If `occurrence` is greater than the number of matches
-found, 0 is returned. For `occurrence` > 1, the function searches for
-overlapping occurrences, in other words, the function searches for additional
-occurrences beginning with the second character in the previous occurrence.
-`occurrence` cannot be 0 or negative.
+instance of `regexp` in `source_value`. If not specified, `occurrence` defaults
+to `1` and returns the position of the first occurrence.  For `occurrence` > 1,
+the function searches for the next, non-overlapping occurrence.
+`occurrence` is of type `INT64` and must be positive.
 
 You can optionally use `occurrence_position` to specify where a position
 in relation to an `occurrence` starts. Your choices are:
-+  `0`: Returns the beginning position of the occurrence.
-+  `1`: Returns the first position following the end of the occurrence. If the
-   end of the occurrence is also the end of the input, one off the
-   end of the occurrence is returned. For example, length of a string + 1.
+
++  `0`: Returns the start position of `occurrence`.
++  `1`: Returns the end position of `occurrence` + `1`. If the
+   end of the occurrence is at the end of `source_value `,
+   `LENGTH(source_value) + 1` is returned.
+
+Returns `0` if:
+
++ No match is found.
++ If `occurrence` is greater than the number of matches found.
++ If `position` is greater than the length of `source_value`.
++ The regular expression is empty.
+
+Returns `NULL` if:
+
++ `position` is `NULL`.
++ `occurrence` is `NULL`.
+
+Returns an error if:
+
++ `position` is `0` or negative.
++ `occurrence` is `0` or negative.
++ `occurrence_position` is neither `0` nor `1`.
++ The regular expression is invalid.
++ The regular expression has more than one capturing group.
 
 **Return type**
 
@@ -17163,8 +14603,7 @@ This function supports specifying [collation][collation].
 
 **Return type**
 
-`ARRAY` of type `STRING` or
-`ARRAY` of type `BYTES`
+`ARRAY<STRING>` or `ARRAY<BYTES>`
 
 **Examples**
 
@@ -17238,7 +14677,7 @@ STRPOS(value1, value2)
 
 **Description**
 
-Takes two `STRING` or `BYTES` values. Returns the 1-based index of the first
+Takes two `STRING` or `BYTES` values. Returns the 1-based position of the first
 occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
 
 This function supports specifying [collation][collation].
@@ -17549,7 +14988,7 @@ To convert from an array of code points to a `STRING` or `BYTES`, see
 
 **Return type**
 
-`ARRAY` of `INT64`
+`ARRAY<INT64>`
 
 **Examples**
 
@@ -20236,6 +17675,8 @@ JSONPath format is invalid, an error is produced.
 
 ## Array functions
 
+ZetaSQL supports the following array functions.
+
 ### ARRAY
 
 ```sql
@@ -20266,7 +17707,7 @@ an `ARRAY` that honors that clause.
 + If the subquery returns more than one column, the `ARRAY` function returns an
 error.
 + If the subquery returns an `ARRAY` typed column or `ARRAY` typed rows, the
-  `ARRAY` function returns an error: ZetaSQL does not support
+  `ARRAY` function returns an error that ZetaSQL does not support
   `ARRAY`s with elements of type
   [`ARRAY`][array-data-type].
 + If the subquery returns zero rows, the `ARRAY` function returns an empty
@@ -20274,7 +17715,7 @@ error.
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
@@ -20325,6 +17766,14 @@ SELECT ARRAY
 +----------------------------+
 ```
 
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
+
+[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard_sql_tables
+
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
+
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
+
 ### ARRAY_CONCAT
 
 ```sql
@@ -20342,7 +17791,7 @@ to concatenate arrays.
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
@@ -20355,6 +17804,8 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 | [1, 2, 3, 4, 5, 6]                               |
 +--------------------------------------------------+
 ```
+
+[array-link-to-operators]: #operators
 
 ### ARRAY_FILTER
 
@@ -20402,6 +17853,8 @@ SELECT
 +-------+-------+
 ```
 
+[lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
+
 ### ARRAY_FIRST
 
 ```sql
@@ -20434,12 +17887,14 @@ SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 +---------------+
 ```
 
+[array-last]: #array_last
+
 ### ARRAY_INCLUDES
 
-+   [Signature 1](#array_includes_signature1): `ARRAY_INCLUDES(array_to_search,
-    search_value)`
-+   [Signature 2](#array_includes_signature2): `ARRAY_INCLUDES(array_to_search,
-    lambda_expression)`
++   [Signature 1](#array_includes_signature1):
+    `ARRAY_INCLUDES(array_to_search, search_value)`
++   [Signature 2](#array_includes_signature2):
+    `ARRAY_INCLUDES(array_to_search, lambda_expression)`
 
 #### Signature 1 
 <a id="array_includes_signature1"></a>
@@ -20460,7 +17915,7 @@ Returns `NULL` if `array_to_search` or `search_value` is `NULL`.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Example**
 
@@ -20503,7 +17958,7 @@ Returns `NULL` if `array_to_search` is `NULL`.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Example**
 
@@ -20522,6 +17977,8 @@ SELECT
 | false | true |
 +-------+------+
 ```
+
+[lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
 ### ARRAY_INCLUDES_ANY
 
@@ -20542,7 +17999,7 @@ Returns `NULL` if `array_to_search` or `search_values` is
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Example**
 
@@ -20581,7 +18038,7 @@ Returns `NULL` if `array_to_search` or `search_values` is
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Example**
 
@@ -20633,6 +18090,8 @@ SELECT ARRAY_LAST(['a','b','c','d']) as last_element
 +---------------+
 ```
 
+[array-first]: #array_first
+
 ### ARRAY_LENGTH
 
 ```sql
@@ -20646,7 +18105,7 @@ the `array_expression` is `NULL`.
 
 **Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
@@ -20756,7 +18215,8 @@ Additional details:
 
 + The input array can contain `NULL` elements. `NULL` elements are included
   in the resulting array.
-+ Returns `NULL` if `array_to_slice`,  `start_offset`, or `end_offset` is `NULL`.
++ Returns `NULL` if `array_to_slice`,  `start_offset`, or `end_offset` is
+  `NULL`.
 + Returns an empty array if `array_to_slice` is empty.
 + Returns an empty array if the position of the `start_offset` in the array is
   after the position of the `end_offset`.
@@ -20916,15 +18376,19 @@ ARRAY_TO_STRING(array_expression, delimiter[, null_text])
 **Description**
 
 Returns a concatenation of the elements in `array_expression`
-as a STRING. The value for `array_expression`
-can either be an array of STRING or
-BYTES data types.
+as a `STRING`. The value for `array_expression`
+can either be an array of `STRING` or
+`BYTES` data types.
 
 If the `null_text` parameter is used, the function replaces any `NULL` values in
 the array with the value of `null_text`.
 
 If the `null_text` parameter is not used, the function omits the `NULL` value
 and its preceding delimiter.
+
+**Return type**
+
+`STRING`
 
 **Examples**
 
@@ -20992,7 +18456,7 @@ Returns `NULL` if the `array_expression` is `NULL`.
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Example**
 
@@ -21007,6 +18471,8 @@ SELECT
 | [2,3,4] | [1,3,5] |
 +---------+---------+
 ```
+
+[lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
 ### FLATTEN
 
@@ -21098,6 +18564,10 @@ FROM t;
 For more examples, including how to use protocol buffers with `FLATTEN`, see the
 [array elements field access operator][array-el-field-operator].
 
+[flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
+
+[array-el-field-operator]: #array_el_field_operator
+
 ### GENERATE_ARRAY
 
 ```sql
@@ -21127,7 +18597,7 @@ If any argument is `NULL`, the function will return a `NULL` array.
 
 **Return Data Type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
@@ -21233,9 +18703,9 @@ parameters determine the inclusive start and end of the array.
 
 The `GENERATE_DATE_ARRAY` function accepts the following data types as inputs:
 
-+ `start_date` must be a DATE
-+ `end_date` must be a DATE
-+ `INT64_expr` must be an INT64
++ `start_date` must be a `DATE`.
++ `end_date` must be a `DATE`.
++ `INT64_expr` must be an `INT64`.
 + `date_part` must be either DAY, WEEK, MONTH, QUARTER, or YEAR.
 
 The `INT64_expr` parameter determines the increment used to generate dates. The
@@ -21245,7 +18715,7 @@ This function returns an error if `INT64_expr` is set to 0.
 
 **Return Data Type**
 
-An ARRAY containing 0 or more DATE values.
+`ARRAY` containing 0 or more `DATE` values.
 
 **Examples**
 
@@ -21392,8 +18862,7 @@ timestamps.
 
 **Return Data Type**
 
-An `ARRAY` containing 0 or more
-`TIMESTAMP` values.
+An `ARRAY` containing 0 or more `TIMESTAMP` values.
 
 **Examples**
 
@@ -21516,11 +18985,11 @@ ARRAY_REVERSE(value)
 
 **Description**
 
-Returns the input ARRAY with elements in reverse order.
+Returns the input `ARRAY` with elements in reverse order.
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
@@ -21552,12 +19021,12 @@ ARRAY_IS_DISTINCT(value)
 
 **Description**
 
-Returns true if the array contains no repeated elements, using the same equality
-comparison logic as `SELECT DISTINCT`.
+Returns `TRUE` if the array contains no repeated elements, using the same
+equality comparison logic as `SELECT DISTINCT`.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Examples**
 
@@ -21579,12 +19048,12 @@ FROM example;
 +-----------------+-------------+
 | arr             | is_distinct |
 +-----------------+-------------+
-| [1, 2, 3]       | true        |
-| [1, 1, 1]       | false       |
-| [1, 2, NULL]    | true        |
-| [1, 1, NULL]    | false       |
-| [1, NULL, NULL] | false       |
-| []              | true        |
+| [1, 2, 3]       | TRUE        |
+| [1, 1, 1]       | FALSE       |
+| [1, 2, NULL]    | TRUE        |
+| [1, 1, NULL]    | FALSE       |
+| [1, NULL, NULL] | FALSE       |
+| []              | TRUE        |
 | NULL            | NULL        |
 +-----------------+-------------+
 ```
@@ -21601,31 +19070,11 @@ elements][accessing-array-elements].
 
 [accessing-array-elements]: https://github.com/google/zetasql/blob/master/docs/arrays.md#accessing_array_elements
 
-[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
-
-[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard_sql_tables
-
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
-
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
-
-[flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
-
-[array-el-field-operator]: #array_el_field_operator
-
-[array-first]: #array_first
-
-[array-last]: #array_last
-
-[array-link-to-operators]: #operators
-
-[lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
-
 <!-- mdlint on -->
 
 ## Date functions
 
-ZetaSQL supports the following `DATE` functions.
+ZetaSQL supports the following date functions.
 
 ### CURRENT_DATE
 
@@ -21814,8 +19263,8 @@ DATE
 ```sql
 SELECT
   DATE(2016, 12, 25) AS date_ymd,
-  DATE(DATETIME "2016-12-25 23:59:59") AS date_dt,
-  DATE(TIMESTAMP "2016-12-25 05:30:00+07", "America/Los_Angeles") AS date_tstz;
+  DATE(DATETIME '2016-12-25 23:59:59') AS date_dt,
+  DATE(TIMESTAMP '2016-12-25 05:30:00+07', 'America/Los_Angeles') AS date_tstz;
 
 +------------+------------+------------+
 | date_ymd   | date_dt    | date_tstz  |
@@ -21854,7 +19303,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_ADD(DATE "2008-12-25", INTERVAL 5 DAY) AS five_days_later;
+SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 
 +--------------------+
 | five_days_later    |
@@ -21893,7 +19342,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_SUB(DATE "2008-12-25", INTERVAL 5 DAY) AS five_days_ago;
+SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 
 +---------------+
 | five_days_ago |
@@ -22146,7 +19595,7 @@ STRING
 **Examples**
 
 ```sql
-SELECT FORMAT_DATE("%x", DATE "2008-12-25") AS US_format;
+SELECT FORMAT_DATE('%x', DATE '2008-12-25') AS US_format;
 
 +------------+
 | US_format  |
@@ -22156,7 +19605,7 @@ SELECT FORMAT_DATE("%x", DATE "2008-12-25") AS US_format;
 ```
 
 ```sql
-SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
+SELECT FORMAT_DATE('%b-%d-%Y', DATE '2008-12-25') AS formatted;
 
 +-------------+
 | formatted   |
@@ -22166,7 +19615,7 @@ SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
 ```
 
 ```sql
-SELECT FORMAT_DATE("%b %Y", DATE "2008-12-25") AS formatted;
+SELECT FORMAT_DATE('%b %Y', DATE '2008-12-25') AS formatted;
 
 +-------------+
 | formatted   |
@@ -22286,16 +19735,16 @@ each element in `date_string`.
 
 ```sql
 -- This works because elements on both sides match.
-SELECT PARSE_DATE("%A %b %e %Y", "Thursday Dec 25 2008")
+SELECT PARSE_DATE('%A %b %e %Y', 'Thursday Dec 25 2008')
 
 -- This doesn't work because the year element is in different locations.
-SELECT PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")
+SELECT PARSE_DATE('%Y %A %b %e', 'Thursday Dec 25 2008')
 
 -- This doesn't work because one of the year elements is missing.
-SELECT PARSE_DATE("%A %b %e", "Thursday Dec 25 2008")
+SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008')
 
 -- This works because %F can find all matching elements in date_string.
-SELECT PARSE_DATE("%F", "2000-12-30")
+SELECT PARSE_DATE('%F', '2000-12-30')
 ```
 
 The format string fully supports most format elements except for
@@ -22323,7 +19772,7 @@ DATE
 This example converts a `MM/DD/YY` formatted string to a `DATE` object:
 
 ```sql
-SELECT PARSE_DATE("%x", "12/25/08") AS parsed;
+SELECT PARSE_DATE('%x', '12/25/08') AS parsed;
 
 +------------+
 | parsed     |
@@ -22335,7 +19784,7 @@ SELECT PARSE_DATE("%x", "12/25/08") AS parsed;
 This example converts a `YYYYMMDD` formatted string to a `DATE` object:
 
 ```sql
-SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed;
+SELECT PARSE_DATE('%Y%m%d', '20081225') AS parsed;
 
 +------------+
 | parsed     |
@@ -22361,7 +19810,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_DATE(DATE "2008-12-25") AS days_from_epoch;
+SELECT UNIX_DATE(DATE '2008-12-25') AS days_from_epoch;
 
 +-----------------+
 | days_from_epoch |
@@ -22388,7 +19837,7 @@ SELECT UNIX_DATE(DATE "2008-12-25") AS days_from_epoch;
 
 ## Datetime functions
 
-ZetaSQL supports the following `DATETIME` functions.
+ZetaSQL supports the following datetime functions.
 
 ### CURRENT_DATETIME
 
@@ -23183,7 +20632,7 @@ SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
 
 ## Time functions
 
-ZetaSQL supports the following `TIME` functions.
+ZetaSQL supports the following time functions.
 
 ### CURRENT_TIME
 
@@ -23606,7 +21055,7 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 
 ## Timestamp functions
 
-ZetaSQL supports several `TIMESTAMP` functions.
+ZetaSQL supports the following timestamp functions.
 
 IMPORTANT: Before working with these functions, you need to understand
 the difference between the formats in which timestamps are stored and displayed,
@@ -24655,7 +22104,7 @@ To learn more about how time zones work with timestamps, see
 
 ## Interval functions
 
-ZetaSQL supports the following `INTERVAL` functions.
+ZetaSQL supports the following interval functions.
 
 ### MAKE_INTERVAL
 
@@ -24818,6 +22267,2676 @@ SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+<!-- mdlint on -->
+
+## Geography functions
+
+ZetaSQL supports geography functions.
+Geography functions operate on or generate ZetaSQL
+`GEOGRAPHY` values. The signature of any geography
+function starts with `ST_`. ZetaSQL supports the following functions
+that can be used to analyze geographical data, determine spatial relationships
+between geographical features, and construct or manipulate
+`GEOGRAPHY`s.
+
+All ZetaSQL geography functions return `NULL` if any input argument
+is `NULL`.
+
+### Categories
+
+The geography functions are grouped into the following categories based on their
+behavior:
+
+<table>
+  <thead>
+    <tr>
+      <td>Category</td>
+      <td width='300px'>Functions</td>
+      <td>Description</td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Constructors</td>
+      <td>
+        <a href="#st_geogpoint"><code>ST_GEOGPOINT</code></a><br>
+        <a href="#st_makeline"><code>ST_MAKELINE</code></a><br>
+        <a href="#st_makepolygon"><code>ST_MAKEPOLYGON</code></a><br>
+        <a href="#st_makepolygonoriented"><code>ST_MAKEPOLYGONORIENTED</code></a>
+      </td>
+      <td>
+        Functions that build new
+        geography values from coordinates
+        or existing geographies.
+      </td>
+    </tr>
+    <tr>
+      <td>Parsers</td>
+      <td>
+        <a href="#st_geogfrom"><code>ST_GEOGFROM</code></a><br>
+        <a href="#st_geogfromgeojson"><code>ST_GEOGFROMGEOJSON</code></a><br>
+        <a href="#st_geogfromkml"><code>ST_GEOGFROMKML</code></a><br>
+        <a href="#st_geogfromtext"><code>ST_GEOGFROMTEXT</code></a><br>
+        <a href="#st_geogfromwkb"><code>ST_GEOGFROMWKB</code></a><br>
+        <a href="#st_geogpointfromgeohash"><code>ST_GEOGPOINTFROMGEOHASH</code></a><br>
+      </td>
+      <td>
+        Functions that create geographies
+        from an external format such as
+        <a href="https://en.wikipedia.org/wiki/Well-known_text">WKT</a> and
+        <a href="https://en.wikipedia.org/wiki/GeoJSON">GeoJSON</a>.
+      </td>
+    </tr>
+    <tr>
+      <td>Formatters</td>
+      <td>
+        <a href="#st_asbinary"><code>ST_ASBINARY</code></a><br>
+        <a href="#st_asgeojson"><code>ST_ASGEOJSON</code></a><br>
+        <a href="#st_askml"><code>ST_ASKML</code></a><br>
+        <a href="#st_astext"><code>ST_ASTEXT</code></a><br>
+        <a href="#st_geohash"><code>ST_GEOHASH</code></a>
+      </td>
+      <td>
+        Functions that export geographies
+        to an external format such as WKT.
+      </td>
+    </tr>
+    <tr>
+      <td>Transformations</td>
+      <td>
+        <a href="#st_accum"><code>ST_ACCUM</code></a> (Aggregate)<br>
+        <a href="#st_boundary"><code>ST_BOUNDARY</code></a><br>
+        <a href="#st_buffer"><code>ST_BUFFER</code></a><br>
+        <a href="#st_bufferwithtolerance"><code>ST_BUFFERWITHTOLERANCE</code></a><br>
+        <a href="#st_centroid"><code>ST_CENTROID</code></a><br>
+        <a href="#st_centroid_agg"><code>ST_CENTROID_AGG</code></a> (Aggregate)<br>
+        <a href="#st_closestpoint"><code>ST_CLOSESTPOINT</code></a><br>
+        <a href="#st_convexhull"><code>ST_CONVEXHULL</code></a><br>
+        <a href="#st_difference"><code>ST_DIFFERENCE</code></a><br>
+        <a href="#st_exteriorring"><code>ST_EXTERIORRING</code></a><br>
+        <a href="#st_interiorrings"><code>ST_INTERIORRINGS</code></a><br>
+        <a href="#st_intersection"><code>ST_INTERSECTION</code></a><br>
+        <a href="#st_simplify"><code>ST_SIMPLIFY</code></a><br>
+        <a href="#st_snaptogrid"><code>ST_SNAPTOGRID</code></a><br>
+        <a href="#st_union"><code>ST_UNION</code></a><br>
+        <a href="#st_union_agg"><code>ST_UNION_AGG</code></a> (Aggregate)<br>
+      </td>
+      <td>
+        Functions that generate a new
+        geography based on input.
+      </td>
+    </tr>
+    <tr>
+      <td>Accessors</td>
+      <td>
+        <a href="#st_dimension"><code>ST_DIMENSION</code></a><br>
+        <a href="#st_dump"><code>ST_DUMP</code></a><br>
+        <a href="#st_endpoint"><code>ST_ENDPOINT</code></a><br>
+        <a href="#st_geometrytype"><code>ST_GEOMETRYTYPE</code></a><br>
+        <a href="#st_isclosed"><code>ST_ISCLOSED</code></a><br>
+        <a href="#st_iscollection"><code>ST_ISCOLLECTION</code></a><br>
+        <a href="#st_isempty"><code>ST_ISEMPTY</code></a><br>
+        <a href="#st_isring"><code>ST_ISRING</code></a><br>
+        <a href="#st_npoints"><code>ST_NPOINTS</code></a><br>
+        <a href="#st_numgeometries"><code>ST_NUMGEOMETRIES</code></a><br>
+        <a href="#st_numpoints"><code>ST_NUMPOINTS</code></a><br>
+        <a href="#st_pointn"><code>ST_POINTN</code></a><br>
+        <a href="#st_startpoint"><code>ST_STARTPOINT</code></a><br>
+        <a href="#st_x"><code>ST_X</code></a><br>
+        <a href="#st_y"><code>ST_Y</code></a><br>
+      </td>
+      <td>
+        Functions that provide access to
+        properties of a geography without
+        side-effects.
+      </td>
+    </tr>
+    <tr>
+      <td>Predicates</td>
+      <td>
+        <a href="#st_contains"><code>ST_CONTAINS</code></a><br>
+        <a href="#st_coveredby"><code>ST_COVEREDBY</code></a><br>
+        <a href="#st_covers"><code>ST_COVERS</code></a><br>
+        <a href="#st_disjoint"><code>ST_DISJOINT</code></a><br>
+        <a href="#st_dwithin"><code>ST_DWITHIN</code></a><br>
+        <a href="#st_equals"><code>ST_EQUALS</code></a><br>
+        <a href="#st_intersects"><code>ST_INTERSECTS</code></a><br>
+        <a href="#st_intersectsbox"><code>ST_INTERSECTSBOX</code></a><br>
+        <a href="#st_touches"><code>ST_TOUCHES</code></a><br>
+        <a href="#st_within"><code>ST_WITHIN</code></a><br>
+      </td>
+      <td>
+        Functions that return <code>TRUE</code> or
+        <code>FALSE</code> for some spatial
+        relationship between two
+        geographies or some property of
+        a geography. These functions
+        are commonly used in filter
+        clauses.
+      </td>
+    </tr>
+    <tr>
+      <td>Measures</td>
+      <td>
+        <a href="#st_angle"><code>ST_ANGLE</code></a><br>
+        <a href="#st_area"><code>ST_AREA</code></a><br>
+        <a href="#st_azimuth"><code>ST_AZIMUTH</code></a><br>
+        <a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a><br>
+        <a href="#st_distance"><code>ST_DISTANCE</code></a><br>
+        <a href="#st_extent"><code>ST_EXTENT</code></a> (Aggregate)<br>
+        <a href="#st_length"><code>ST_LENGTH</code></a><br>
+        <a href="#st_maxdistance"><code>ST_MAXDISTANCE</code></a><br>
+        <a href="#st_perimeter"><code>ST_PERIMETER</code></a><br>
+      </td>
+      <td>
+        Functions that compute measurements
+        of one or more geographies.
+      </td>
+    </tr>
+    
+    <tr>
+      <td>Clustering</td>
+      <td>
+        <a href="#st_clusterdbscan"><code>ST_CLUSTERDBSCAN</code></a>
+      </td>
+      <td>
+        Functions that perform clustering on geographies.
+      </td>
+    </tr>
+    
+    
+  </tbody>
+</table>
+
+### ST_ACCUM
+
+```sql
+ST_ACCUM(geography)
+```
+
+**Description**
+
+Takes a `GEOGRAPHY` and returns an array of
+`GEOGRAPHY` elements.
+This function is identical to [ARRAY_AGG][geography-link-array-agg],
+but only applies to `GEOGRAPHY` objects.
+
+**Return type**
+
+`ARRAY<GEOGRAPHY>`
+
+### ST_ANGLE
+
+```sql
+ST_ANGLE(point_geography_1, point_geography_2, point_geography_3)
+```
+
+**Description**
+
+Takes three point `GEOGRAPHY` values, which represent two intersecting lines.
+Returns the angle between these lines. Point 2 and point 1 represent the first
+line and point 2 and point 3 represent the second line. The angle between
+these lines is in radians, in the range `[0, 2pi)`. The angle is measured
+clockwise from the first line to the second line.
+
+`ST_ANGLE` has the following edge cases:
+
++ If points 2 and 3 are the same, returns `NULL`.
++ If points 2 and 1 are the same, returns `NULL`.
++ If points 2 and 3 are exactly antipodal, returns `NULL`.
++ If points 2 and 1 are exactly antipodal, returns `NULL`.
++ If any of the input geographies are not single points or are the empty
+  geography, then throws an error.
+
+**Return type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+WITH geos AS (
+  SELECT 1 id, ST_GEOGPOINT(1, 0) geo1, ST_GEOGPOINT(0, 0) geo2, ST_GEOGPOINT(0, 1) geo3 UNION ALL
+  SELECT 2 id, ST_GEOGPOINT(0, 0), ST_GEOGPOINT(1, 0), ST_GEOGPOINT(0, 1) UNION ALL
+  SELECT 3 id, ST_GEOGPOINT(1, 0), ST_GEOGPOINT(0, 0), ST_GEOGPOINT(1, 0) UNION ALL
+  SELECT 4 id, ST_GEOGPOINT(1, 0) geo1, ST_GEOGPOINT(0, 0) geo2, ST_GEOGPOINT(0, 0) geo3 UNION ALL
+  SELECT 5 id, ST_GEOGPOINT(0, 0), ST_GEOGPOINT(-30, 0), ST_GEOGPOINT(150, 0) UNION ALL
+  SELECT 6 id, ST_GEOGPOINT(0, 0), NULL, NULL UNION ALL
+  SELECT 7 id, NULL, ST_GEOGPOINT(0, 0), NULL UNION ALL
+  SELECT 8 id, NULL, NULL, ST_GEOGPOINT(0, 0))
+SELECT ST_ANGLE(geo1,geo2,geo3) AS angle FROM geos ORDER BY id;
+
++---------------------+
+| angle               |
++---------------------+
+| 4.71238898038469    |
+| 0.78547432161873854 |
+| 0                   |
+| NULL                |
+| NULL                |
+| NULL                |
+| NULL                |
+| NULL                |
++---------------------+
+```
+
+### ST_AREA
+
+```sql
+ST_AREA(geography_expression[, use_spheroid])
+```
+
+**Description**
+
+Returns the area in square meters covered by the polygons in the input
+`GEOGRAPHY`.
+
+If `geography_expression` is a point or a line, returns zero. If
+`geography_expression` is a collection, returns the area of the polygons in the
+collection; if the collection does not contain polygons, returns zero.
+
+The optional `use_spheroid` parameter determines how this function measures
+distance. If `use_spheroid` is `FALSE`, the function measures distance on the
+surface of a perfect sphere.
+
+The `use_spheroid` parameter currently only supports
+the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
+
+**Return type**
+
+`DOUBLE`
+
+### ST_ASBINARY
+
+```sql
+ST_ASBINARY(geography_expression)
+```
+
+**Description**
+
+Returns the [WKB][wkb-link] representation of an input
+`GEOGRAPHY`.
+
+See [`ST_GEOGFROMWKB`](#st_geogfromwkb) to construct a
+`GEOGRAPHY` from WKB.
+
+**Return type**
+
+`BYTES`
+
+### ST_ASGEOJSON
+
+```sql
+ST_ASGEOJSON(geography_expression)
+```
+
+**Description**
+
+Returns the [RFC 7946][GeoJSON-spec-link] compliant [GeoJSON][geojson-link]
+representation of the input `GEOGRAPHY`.
+
+A ZetaSQL `GEOGRAPHY` has spherical
+geodesic edges, whereas a GeoJSON `Geometry` object explicitly has planar edges.
+To convert between these two types of edges, ZetaSQL adds additional
+points to the line where necessary so that the resulting sequence of edges
+remains within 10 meters of the original edge.
+
+See [`ST_GEOGFROMGEOJSON`](#st_geogfromgeojson) to construct a
+`GEOGRAPHY` from GeoJSON.
+
+**Return type**
+
+`STRING`
+
+### ST_ASKML
+
+```sql
+ST_ASKML(geography)
+```
+
+**Description**
+
+Takes a `GEOGRAPHY` and returns a `STRING` [KML geometry][kml-geometry-link].
+Coordinates are formatted with as few digits as possible without loss
+of precision.
+
+**Return type**
+
+`STRING`
+
+### ST_ASTEXT
+
+```sql
+ST_ASTEXT(geography_expression)
+```
+
+**Description**
+
+Returns the [WKT][wkt-link] representation of an input
+`GEOGRAPHY`.
+
+See [`ST_GEOGFROMTEXT`](#st_geogfromtext) to construct a
+`GEOGRAPHY` from WKT.
+
+**Return type**
+
+`STRING`
+
+### ST_AZIMUTH
+
+```sql
+ST_AZIMUTH(point_geography_1, point_geography_2)
+```
+
+**Description**
+
+Takes two point `GEOGRAPHY` values, and returns the azimuth of the line segment
+formed by points 1 and 2. The azimuth is the angle in radians measured between
+the line from point 1 facing true North to the line segment from point 1 to
+point 2.
+
+The positive angle is measured clockwise on the surface of a sphere. For
+example, the azimuth for a line segment:
+
++   Pointing North is `0`
++   Pointing East is `PI/2`
++   Pointing South is `PI`
++   Pointing West is `3PI/2`
+
+`ST_AZIMUTH` has the following edge cases:
+
++   If the two input points are the same, returns `NULL`.
++   If the two input points are exactly antipodal, returns `NULL`.
++   If either of the input geographies are not single points or are the empty
+    geography, throws an error.
+
+**Return type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+WITH geos AS (
+  SELECT 1 id, ST_GEOGPOINT(1, 0) AS geo1, ST_GEOGPOINT(0, 0) AS geo2 UNION ALL
+  SELECT 2, ST_GEOGPOINT(0, 0), ST_GEOGPOINT(1, 0) UNION ALL
+  SELECT 3, ST_GEOGPOINT(0, 0), ST_GEOGPOINT(0, 1) UNION ALL
+  -- identical
+  SELECT 4, ST_GEOGPOINT(0, 0), ST_GEOGPOINT(0, 0) UNION ALL
+  -- antipode
+  SELECT 5, ST_GEOGPOINT(-30, 0), ST_GEOGPOINT(150, 0) UNION ALL
+  -- nulls
+  SELECT 6, ST_GEOGPOINT(0, 0), NULL UNION ALL
+  SELECT 7, NULL, ST_GEOGPOINT(0, 0))
+SELECT ST_AZIMUTH(geo1, geo2) AS azimuth FROM geos ORDER BY id;
+
++--------------------+
+| azimuth            |
++--------------------+
+| 4.71238898038469   |
+| 1.5707963267948966 |
+| 0                  |
+| NULL               |
+| NULL               |
+| NULL               |
+| NULL               |
++--------------------+
+```
+
+### ST_BOUNDARY
+
+```sql
+ST_BOUNDARY(geography_expression)
+```
+
+**Description**
+
+Returns a single `GEOGRAPHY` that contains the union
+of the boundaries of each component in the given input
+`GEOGRAPHY`.
+
+The boundary of each component of a `GEOGRAPHY` is
+defined as follows:
+
++   The boundary of a point is empty.
++   The boundary of a linestring consists of the endpoints of the linestring.
++   The boundary of a polygon consists of the linestrings that form the polygon
+    shell and each of the polygon's holes.
+
+**Return type**
+
+`GEOGRAPHY`
+
+### ST_BOUNDINGBOX
+
+```sql
+ST_BOUNDINGBOX(geography_expression)
+```
+
+**Description**
+
+Returns a `STRUCT` that represents the bounding box for the specified geography.
+The bounding box is the minimal rectangle that encloses the geography. The edges
+of the rectangle follow constant lines of longitude and latitude.
+
+Caveats:
+
++ Returns `NULL` if the input is `NULL` or an empty geography.
++ The bounding box might cross the antimeridian if this allows for a smaller
+  rectangle. In this case, the bounding box has one of its longitudinal bounds
+  outside of the [-180, 180] range, so that `xmin` is smaller than the eastmost
+  value `xmax`.
+
+**Return type**
+
+`STRUCT<xmin DOUBLE, ymin DOUBLE, xmax DOUBLE, ymax DOUBLE>`.
+
+Bounding box parts:
+
++ `xmin`: The westmost constant longitude line that bounds the rectangle.
++ `xmax`: The eastmost constant longitude line that bounds the rectangle.
++ `ymin`: The minimum constant latitude line that bounds the rectangle.
++ `ymax`: The maximum constant latitude line that bounds the rectangle.
+
+**Example**
+
+```sql
+WITH data AS (
+  SELECT 1 id, ST_GEOGFROMTEXT('POLYGON((-125 48, -124 46, -117 46, -117 49, -125 48))') g
+  UNION ALL
+  SELECT 2 id, ST_GEOGFROMTEXT('POLYGON((172 53, -130 55, -141 70, 172 53))') g
+  UNION ALL
+  SELECT 3 id, ST_GEOGFROMTEXT('POINT EMPTY') g
+  UNION ALL
+  SELECT 4 id, ST_GEOGFROMTEXT('POLYGON((172 53, -141 70, -130 55, 172 53))', oriented => TRUE)
+)
+SELECT id, ST_BOUNDINGBOX(g) AS box
+FROM data
+
++----+------------------------------------------+
+| id | box                                      |
++----+------------------------------------------+
+| 1  | {xmin:-125, ymin:46, xmax:-117, ymax:49} |
+| 2  | {xmin:172, ymin:53, xmax:230, ymax:70}   |
+| 3  | NULL                                     |
+| 4  | {xmin:-180, ymin:-90, xmax:180, ymax:90} |
++----+------------------------------------------+
+```
+
+See `ST_EXTENT`(#st_extent) for the aggregate version of `ST_BOUNDINGBOX`.
+
+### ST_BUFFER
+
+```sql
+ST_BUFFER(
+    geography,
+    buffer_radius
+    [, num_seg_quarter_circle => num_segments]
+    [, use_spheroid => boolean_expression]
+    [, endcap => endcap_style]
+    [, side => line_side])
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` that represents the buffer around the input `GEOGRAPHY`.
+This function is similar to [`ST_BUFFERWITHTOLERANCE`](#st_bufferwithtolerance),
+but you specify the number of segments instead of providing tolerance to
+determine how much the resulting geography can deviate from the ideal
+buffer radius.
+
++   `geography`: The input `GEOGRAPHY` to encircle with the buffer radius.
++   `buffer_radius`: `DOUBLE` that represents the radius of the buffer
+    around the input geography. The radius is in meters. Note that polygons
+    contract when buffered with a negative `buffer_radius`. Polygon shells and
+    holes that are contracted to a point are discarded.
++   `num_seg_quarter_circle`: (Optional) `DOUBLE` specifies the number of
+    segments that are used to approximate a quarter circle. The default value is
+    `8.0`. Naming this argument is optional.
++   `endcap`: (Optional) `STRING` allows you to specify one of two endcap
+    styles: `ROUND` and `FLAT`. The default value is `ROUND`. This option only
+    affects the endcaps of buffered linestrings.
++   `side`: (Optional) `STRING` allows you to specify one of three possibilities
+    for lines: `BOTH`, `LEFT`, and `RIGHT`. The default is `BOTH`. This option
+    only affects how linestrings are buffered.
++   `use_spheroid`: (Optional) `BOOL` determines how this function measures
+    distance. If `use_spheroid` is `FALSE`, the function measures distance on
+    the surface of a perfect sphere. The `use_spheroid` parameter
+    currently only supports the value `FALSE`. The default value of
+    `use_spheroid` is `FALSE`.
+
+**Return type**
+
+Polygon `GEOGRAPHY`
+
+**Example**
+
+The following example shows the result of `ST_BUFFER` on a point. A buffered
+point is an approximated circle. When `num_seg_quarter_circle = 2`, there are
+two line segments in a quarter circle, and therefore the buffered circle has
+eight sides and [`ST_NUMPOINTS`](#st_numpoints) returns nine vertices. When
+`num_seg_quarter_circle = 8`, there are eight line segments in a quarter circle,
+and therefore the buffered circle has thirty-two sides and
+[`ST_NUMPOINTS`](#st_numpoints) returns thirty-three vertices.
+
+```sql
+SELECT
+  -- num_seg_quarter_circle=2
+  ST_NUMPOINTS(ST_BUFFER(ST_GEOGFROMTEXT('POINT(1 2)'), 50, 2)) AS eight_sides,
+  -- num_seg_quarter_circle=8, since 8 is the default
+  ST_NUMPOINTS(ST_BUFFER(ST_GEOGFROMTEXT('POINT(100 2)'), 50)) AS thirty_two_sides;
+
++-------------+------------------+
+| eight_sides | thirty_two_sides |
++-------------+------------------+
+| 9           | 33               |
++-------------+------------------+
+```
+
+### ST_BUFFERWITHTOLERANCE
+
+```sql
+ST_BUFFERWITHTOLERANCE(
+    geography,
+    buffer_radius,
+    tolerance_meters => tolernace
+    [, use_spheroid => boolean_expression]
+    [, endcap => endcap_style]
+    [, side => line_side])
+```
+
+Returns a `GEOGRAPHY` that represents the buffer around the input `GEOGRAPHY`.
+This function is similar to [`ST_BUFFER`](#st_buffer),
+but you provide tolerance instead of segments to determine how much the
+resulting geography can deviate from the ideal buffer radius.
+
++   `geography`: The input `GEOGRAPHY` to encircle with the buffer radius.
++   `buffer_radius`: `DOUBLE` that represents the radius of the buffer
+    around the input geography. The radius is in meters. Note that polygons
+    contract when buffered with a negative `buffer_radius`. Polygon shells
+    and holes that are contracted to a point are discarded.
++   `tolerance_meters`: `DOUBLE` specifies a tolerance in meters with
+    which the shape is approximated. Tolerance determines how much a polygon can
+    deviate from the ideal radius. Naming this argument is optional.
++   `endcap`: (Optional) `STRING` allows you to specify one of two endcap
+    styles: `ROUND` and `FLAT`. The default value is `ROUND`. This option only
+    affects the endcaps of buffered linestrings.
++   `side`: (Optional) `STRING` allows you to specify one of three possible line
+    styles: `BOTH`, `LEFT`, and `RIGHT`. The default is `BOTH`. This option only
+    affects the endcaps of buffered linestrings.
++   `use_spheroid`: (Optional) `BOOL` determines how this function measures
+    distance. If `use_spheroid` is `FALSE`, the function measures distance on
+    the surface of a perfect sphere. The `use_spheroid` parameter
+    currently only supports the value `FALSE`. The default value of
+    `use_spheroid` is `FALSE`.
+
+**Return type**
+
+Polygon `GEOGRAPHY`
+
+**Example**
+
+The following example shows the results of `ST_BUFFERWITHTOLERANCE` on a point,
+given two different values for tolerance but with the same buffer radius of
+`100`. A buffered point is an approximated circle. When `tolerance_meters=25`,
+the tolerance is a large percentage of the buffer radius, and therefore only
+five segments are used to approximate a circle around the input point. When
+`tolerance_meters=1`, the tolerance is a much smaller percentage of the buffer
+radius, and therefore twenty-four edges are used to approximate a circle around
+the input point.
+
+```sql
+SELECT
+  -- tolerance_meters=25, or 25% of the buffer radius.
+  ST_NumPoints(ST_BUFFERWITHTOLERANCE(ST_GEOGFROMTEXT('POINT(1 2)'), 100, 25)) AS five_sides,
+  -- tolerance_meters=1, or 1% of the buffer radius.
+  st_NumPoints(ST_BUFFERWITHTOLERANCE(ST_GEOGFROMTEXT('POINT(100 2)'), 100, 1)) AS twenty_four_sides;
+
++------------+-------------------+
+| five_sides | twenty_four_sides |
++------------+-------------------+
+| 6          | 24                |
++------------+-------------------+
+```
+
+### ST_CENTROID
+
+```sql
+ST_CENTROID(geography_expression)
+```
+
+**Description**
+
+Returns the _centroid_ of the input `GEOGRAPHY` as a single point `GEOGRAPHY`.
+
+The _centroid_ of a `GEOGRAPHY` is the weighted average of the centroids of the
+highest-dimensional components in the `GEOGRAPHY`. The centroid for components
+in each dimension is defined as follows:
+
++   The centroid of points is the arithmetic mean of the input coordinates.
++   The centroid of linestrings is the centroid of all the edges weighted by
+    length. The centroid of each edge is the geodesic midpoint of the edge.
++   The centroid of a polygon is its center of mass.
+
+If the input `GEOGRAPHY` is empty, an empty `GEOGRAPHY` is returned.
+
+**Constraints**
+
+In the unlikely event that the centroid of a `GEOGRAPHY` cannot be defined by a
+single point on the surface of the Earth, a deterministic but otherwise
+arbitrary point is returned. This can only happen if the centroid is exactly at
+the center of the Earth, such as the centroid for a pair of antipodal points,
+and the likelihood of this happening is vanishingly small.
+
+**Return type**
+
+Point `GEOGRAPHY`
+
+### ST_CLOSESTPOINT
+
+```sql
+ST_CLOSESTPOINT(geography_1, geography_2[, use_spheroid])
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` containing a point on
+`geography_1` with the smallest possible distance to `geography_2`. This implies
+that the distance between the point returned by `ST_CLOSESTPOINT` and
+`geography_2` is less than or equal to the distance between any other point on
+`geography_1` and `geography_2`.
+
+If either of the input `GEOGRAPHY`s is empty, `ST_CLOSESTPOINT` returns `NULL`.
+
+The optional `use_spheroid` parameter determines how this function measures
+distance. If `use_spheroid` is `FALSE`, the function measures distance on the
+surface of a perfect sphere.
+
+The `use_spheroid` parameter currently only supports
+the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
+
+**Return type**
+
+Point `GEOGRAPHY`
+
+### ST_CLUSTERDBSCAN
+
+```sql
+ST_CLUSTERDBSCAN(geography_column, epsilon, minimum_geographies)
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+
+```
+
+Performs [DBSCAN clustering][dbscan-link] on a column of geographies. Returns a
+0-based cluster number.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Input parameters**
+
++   `geography_column`: A column of `GEOGRAPHY`s that
+    is clustered.
++   `epsilon`: The epsilon that specifies the radius, measured in meters, around
+    a core value. Non-negative `DOUBLE` value.
++   `minimum_geographies`: Specifies the minimum number of geographies in a
+    single cluster. Only dense input forms a cluster, otherwise it is classified
+    as noise. Non-negative `INT64` value.
+
+**Geography types and the DBSCAN algorithm**
+
+The DBSCAN algorithm identifies high-density clusters of data and marks outliers
+in low-density areas of noise. Geographies passed in through `geography_column`
+are classified in one of three ways by the DBSCAN algorithm:
+
++   Core value: A geography is a core value if it is within `epsilon` distance
+    of `minimum_geographies` geographies, including itself. The core value
+    starts a new cluster, or is added to the same cluster as a core value within
+    `epsilon` distance. Core values are grouped in a cluster together with all
+    other core and border values that are within `epsilon` distance.
++   Border value: A geography is a border value if it is within epsilon distance
+    of a core value. It is added to the same cluster as a core value within
+    `epsilon` distance. A border value may be within `epsilon` distance of more
+    than one cluster. In this case, it may be arbitrarily assigned to either
+    cluster and the function will produce the same result in subsequent calls.
++   Noise: A geography is noise if it is neither a core nor a border value.
+    Noise values are assigned to a `NULL` cluster. An empty
+    `GEOGRAPHY` is always classified as noise.
+
+**Constraints**
+
++   The argument `minimum_geographies` is a non-negative
+    `INT64`and `epsilon` is a non-negative
+    `DOUBLE`.
++   An empty geography cannot join any cluster.
++   Multiple clustering assignments could be possible for a border value. If a
+    geography is a border value, `ST_CLUSTERDBSCAN` will assign it to an
+    arbitrary valid cluster.
+
+**Return type**
+
+`INT64` for each geography in the geography column.
+
+**Examples**
+
+This example performs DBSCAN clustering with a radius of 100,000 meters with a
+`minimum_geographies` argument of 1. The geographies being analyzed are a
+mixture of points, lines, and polygons.
+
+```sql
+WITH Geos as
+  (SELECT 1 as row_id, ST_GEOGFROMTEXT('POINT EMPTY') as geo UNION ALL
+    SELECT 2, ST_GEOGFROMTEXT('MULTIPOINT(1 1, 2 2, 4 4, 5 2)') UNION ALL
+    SELECT 3, ST_GEOGFROMTEXT('POINT(14 15)') UNION ALL
+    SELECT 4, ST_GEOGFROMTEXT('LINESTRING(40 1, 42 34, 44 39)') UNION ALL
+    SELECT 5, ST_GEOGFROMTEXT('POLYGON((40 2, 40 1, 41 2, 40 2))'))
+SELECT row_id, geo, ST_CLUSTERDBSCAN(geo, 1e5, 1) OVER () AS cluster_num FROM
+Geos ORDER BY row_id
+
++--------+-----------------------------------+-------------+
+| row_id |                geo                | cluster_num |
++--------+-----------------------------------+-------------+
+|1       | GEOMETRYCOLLECTION EMPTY          |NULL         |
+|2       | MULTIPOINT(1 1, 2 2, 5 2, 4 4)    |0            |
+|3       | POINT(14 15)                      |1            |
+|4       | LINESTRING(40 1, 42 34, 44 39)    |2            |
+|5       | POLYGON((40 2, 40 1, 41 2, 40 2)) |2            |
++--------+-----------------------------------+-------------+
+```
+
+### ST_CONTAINS
+
+```sql
+ST_CONTAINS(geography_1, geography_2)
+```
+
+**Description**
+
+Returns `TRUE` if no point of `geography_2` is outside `geography_1`, and
+the interiors intersect; returns `FALSE` otherwise.
+
+NOTE: A `GEOGRAPHY` *does not* contain its own
+boundary. Compare with [`ST_COVERS`](#st_covers).
+
+**Return type**
+
+`BOOL`
+
+**Example**
+
+The following query tests whether the polygon `POLYGON((1 1, 20 1, 10 20, 1 1))`
+contains each of the three points `(0, 0)`, `(1, 1)`, and `(10, 10)`, which lie
+on the exterior, the boundary, and the interior of the polygon respectively.
+
+```sql
+SELECT
+  ST_GEOGPOINT(i, i) AS p,
+  ST_CONTAINS(ST_GEOGFROMTEXT('POLYGON((1 1, 20 1, 10 20, 1 1))'),
+              ST_GEOGPOINT(i, i)) AS `contains`
+FROM UNNEST([0, 1, 10]) AS i;
+
++--------------+----------+
+| p            | contains |
++--------------+----------+
+| POINT(0 0)   | FALSE    |
+| POINT(1 1)   | FALSE    |
+| POINT(10 10) | TRUE     |
++--------------+----------+
+```
+
+### ST_CONVEXHULL
+
+```sql
+ST_CONVEXHULL(geography_expression)
+```
+
+**Description**
+
+Returns the convex hull for the input `GEOGRAPHY`. The convex hull is the
+smallest convex `GEOGRAPHY` that covers the input. A `GEOGRAPHY` is convex if
+for every pair of points in the `GEOGRAPHY`, the geodesic edge connecting the
+points are also contained in the same `GEOGRAPHY`.
+
+In most cases, the convex hull consists of a single polygon. Notable edge cases
+include the following:
+
+*   The convex hull of a single point is also a point.
+*   The convex hull of two or more collinear points is a linestring as long as
+    that linestring is convex.
+*   If the input `GEOGRAPHY` spans more than a
+    hemisphere, the convex hull is the full globe. This includes any input that
+    contains a pair of antipodal points.
+*   `ST_CONVEXHULL` returns `NULL` if the input is either `NULL` or the empty
+    `GEOGRAPHY`.
+
+**Return type**
+
+`GEOGRAPHY`
+
+**Examples**
+
+The convex hull returned by `ST_CONVEXHULL` can be a point, linestring, or a
+polygon, depending on the input.
+
+```sql
+WITH Geographies AS
+ (SELECT ST_GEOGFROMTEXT('POINT(1 1)') AS g UNION ALL
+  SELECT ST_GEOGFROMTEXT('LINESTRING(1 1, 2 2)') AS g UNION ALL
+  SELECT ST_GEOGFROMTEXT('MULTIPOINT(2 11, 4 12, 0 15, 1 9, 1 12)') AS g)
+SELECT
+  g AS input_geography,
+  ST_CONVEXHULL(g) AS convex_hull
+FROM Geographies;
+
++-----------------------------------------+--------------------------------------------------------+
+|             input_geography             |                      convex_hull                       |
++-----------------------------------------+--------------------------------------------------------+
+| POINT(1 1)                              | POINT(0.999999999999943 1)                             |
+| LINESTRING(1 1, 2 2)                    | LINESTRING(2 2, 1.49988573656168 1.5000570914792, 1 1) |
+| MULTIPOINT(1 9, 4 12, 2 11, 1 12, 0 15) | POLYGON((1 9, 4 12, 0 15, 1 9))                        |
++-----------------------------------------+--------------------------------------------------------+
+```
+
+### ST_COVEREDBY
+
+```sql
+ST_COVEREDBY(geography_1, geography_2)
+```
+
+**Description**
+
+Returns `FALSE` if `geography_1` or `geography_2` is empty. Returns `TRUE` if no
+points of `geography_1` lie in the exterior of `geography_2`.
+
+Given two `GEOGRAPHY`s `a` and `b`,
+`ST_COVEREDBY(a, b)` returns the same result as
+[`ST_COVERS`](#st_covers)`(b, a)`. Note the opposite order of arguments.
+
+**Return type**
+
+`BOOL`
+
+### ST_COVERS
+
+```sql
+ST_COVERS(geography_1, geography_2)
+```
+
+**Description**
+
+Returns `FALSE` if `geography_1` or `geography_2` is empty.
+Returns `TRUE` if no points of `geography_2` lie in the exterior of
+`geography_1`.
+
+**Return type**
+
+`BOOL`
+
+**Example**
+
+The following query tests whether the polygon `POLYGON((1 1, 20 1, 10 20, 1 1))`
+covers each of the three points `(0, 0)`, `(1, 1)`, and `(10, 10)`, which lie
+on the exterior, the boundary, and the interior of the polygon respectively.
+
+```sql
+SELECT
+  ST_GEOGPOINT(i, i) AS p,
+  ST_COVERS(ST_GEOGFROMTEXT('POLYGON((1 1, 20 1, 10 20, 1 1))'),
+            ST_GEOGPOINT(i, i)) AS `covers`
+FROM UNNEST([0, 1, 10]) AS i;
+
++--------------+--------+
+| p            | covers |
++--------------+--------+
+| POINT(0 0)   | FALSE  |
+| POINT(1 1)   | TRUE   |
+| POINT(10 10) | TRUE   |
++--------------+--------+
+```
+
+### ST_DIFFERENCE
+
+```sql
+ST_DIFFERENCE(geography_1, geography_2)
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` that represents the point set
+difference of `geography_1` and `geography_2`. Therefore, the result consists of
+the part of `geography_1` that does not intersect with `geography_2`.
+
+If `geometry_1` is completely contained in `geometry_2`, then `ST_DIFFERENCE`
+returns an empty `GEOGRAPHY`.
+
+**Constraints**
+
+The underlying geometric objects that a ZetaSQL
+`GEOGRAPHY` represents correspond to a *closed* point
+set. Therefore, `ST_DIFFERENCE` is the closure of the point set difference of
+`geography_1` and `geography_2`. This implies that if `geography_1` and
+`geography_2` intersect, then a portion of the boundary of `geography_2` could
+be in the difference.
+
+**Return type**
+
+`GEOGRAPHY`
+
+**Example**
+
+The following query illustrates the diffence between `geog1`, a larger polygon
+`POLYGON((0 0, 10 0, 10 10, 0 0))` and `geog1`, a smaller polygon
+`POLYGON((4 2, 6 2, 8 6, 4 2))` that intersects with `geog1`. The result is
+`geog1` with a hole where `geog2` intersects with it.
+
+```sql
+SELECT
+  ST_DIFFERENCE(
+      ST_GEOGFROMTEXT('POLYGON((0 0, 10 0, 10 10, 0 0))'),
+      ST_GEOGFROMTEXT('POLYGON((4 2, 6 2, 8 6, 4 2))')
+  );
+
++--------------------------------------------------------+
+| difference_of_geog1_and_geog2                          |
++--------------------------------------------------------+
+| POLYGON((0 0, 10 0, 10 10, 0 0), (8 6, 6 2, 4 2, 8 6)) |
++--------------------------------------------------------+
+```
+
+### ST_DIMENSION
+
+```sql
+ST_DIMENSION(geography_expression)
+```
+
+**Description**
+
+Returns the dimension of the highest-dimensional element in the input
+`GEOGRAPHY`.
+
+The dimension of each possible element is as follows:
+
++   The dimension of a point is `0`.
++   The dimension of a linestring is `1`.
++   The dimension of a polygon is `2`.
+
+If the input `GEOGRAPHY` is empty, `ST_DIMENSION`
+returns `-1`.
+
+**Return type**
+
+`INT64`
+
+### ST_DISJOINT
+
+```sql
+ST_DISJOINT(geography_1, geography_2)
+```
+
+**Description**
+
+Returns `TRUE` if the intersection of `geography_1` and `geography_2` is empty,
+that is, no point in `geography_1` also appears in `geography_2`.
+
+`ST_DISJOINT` is the logical negation of [`ST_INTERSECTS`](#st_intersects).
+
+**Return type**
+
+`BOOL`
+
+### ST_DISTANCE
+
+```
+ST_DISTANCE(geography_1, geography_2[, use_spheroid])
+```
+
+**Description**
+
+Returns the shortest distance in meters between two non-empty
+`GEOGRAPHY`s.
+
+If either of the input `GEOGRAPHY`s is empty,
+`ST_DISTANCE` returns `NULL`.
+
+The optional `use_spheroid` parameter determines how this function measures
+distance. If `use_spheroid` is `FALSE`, the function measures distance on the
+surface of a perfect sphere.
+
+The `use_spheroid` parameter currently only supports
+the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
+
+**Return type**
+
+`DOUBLE`
+
+### ST_DUMP
+
+```sql
+ST_DUMP(geography[, dimension])
+```
+
+**Description**
+
+Returns an `ARRAY` of simple
+`GEOGRAPHY`s where each element is a component of
+the input `GEOGRAPHY`. A simple
+`GEOGRAPHY` consists of a single point, linestring,
+or polygon. If the input `GEOGRAPHY` is simple, the
+result is a single element. When the input
+`GEOGRAPHY` is a collection, `ST_DUMP` returns an
+`ARRAY` with one simple
+`GEOGRAPHY` for each component in the collection.
+
+If `dimension` is provided, the function only returns
+`GEOGRAPHY`s of the corresponding dimension. A
+dimension of -1 is equivalent to omitting `dimension`.
+
+**Return Type**
+
+`ARRAY<GEOGRAPHY>`
+
+**Examples**
+
+The following example shows how `ST_DUMP` returns the simple geographies within
+a complex geography.
+
+```sql
+WITH example AS (
+  SELECT ST_GEOGFROMTEXT('POINT(0 0)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('MULTIPOINT(0 0, 1 1)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1))'))
+SELECT
+  geography AS original_geography,
+  ST_DUMP(geography) AS dumped_geographies
+FROM example
+
++-------------------------------------+------------------------------------+
+|         original_geographies        |      dumped_geographies            |
++-------------------------------------+------------------------------------+
+| POINT(0 0)                          | [POINT(0 0)]                       |
+| MULTIPOINT(0 0, 1 1)                | [POINT(0 0), POINT(1 1)]           |
+| GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0), LINESTRING(1 2, 2 1)] |
+|   LINESTRING(1 2, 2 1))             |                                    |
++-------------------------------------+------------------------------------+
+```
+
+The following example shows how `ST_DUMP` with the dimension argument only
+returns simple geographies of the given dimension.
+
+```sql
+WITH example AS (
+  SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1))') AS geography)
+SELECT
+  geography AS original_geography,
+  ST_DUMP(geography, 1) AS dumped_geographies
+FROM example
+
++-------------------------------------+------------------------------+
+|         original_geographies        |      dumped_geographies      |
++-------------------------------------+------------------------------+
+| GEOMETRYCOLLECTION(POINT(0 0),      | [LINESTRING(1 2, 2 1)]       |
+|   LINESTRING(1 2, 2 1))             |                              |
++-------------------------------------+------------------------------+
+
+```
+
+### ST_DWITHIN
+
+```sql
+ST_DWITHIN(geography_1, geography_2, distance[, use_spheroid])
+```
+
+**Description**
+
+Returns `TRUE` if the distance between at least one point in `geography_1` and
+one point in `geography_2` is less than or equal to the distance given by the
+`distance` argument; otherwise, returns `FALSE`. If either input
+`GEOGRAPHY` is empty, `ST_DWithin` returns `FALSE`. The
+given `distance` is in meters on the surface of the Earth.
+
+The optional `use_spheroid` parameter determines how this function measures
+distance. If `use_spheroid` is `FALSE`, the function measures distance on the
+surface of a perfect sphere.
+
+The `use_spheroid` parameter currently only supports
+the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
+
+**Return type**
+
+`BOOL`
+
+### ST_ENDPOINT
+
+```sql
+ST_ENDPOINT(linestring_geography)
+```
+
+**Description**
+
+Returns the last point of a linestring geography as a point geography. Returns
+an error if the input is not a linestring or if the input is empty. Use the
+`SAFE` prefix to obtain `NULL` for invalid input instead of an error.
+
+**Return Type**
+
+Point `GEOGRAPHY`
+
+**Example**
+
+```sql
+SELECT ST_ENDPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) last
+
++--------------+
+| last         |
++--------------+
+| POINT(3 3)   |
++--------------+
+```
+
+### ST_EQUALS
+
+```sql
+ST_EQUALS(geography_1, geography_2)
+```
+
+**Description**
+
+Returns `TRUE` if `geography_1` and `geography_2` represent the same
+
+`GEOGRAPHY` value. More precisely, this means that
+one of the following conditions holds:
++   `ST_COVERS(geography_1, geography_2) = TRUE` and `ST_COVERS(geography_2,
+    geography_1) = TRUE`
++   Both `geography_1` and `geography_2` are empty.
+
+Therefore, two `GEOGRAPHY`s may be equal even if the
+ordering of points or vertices differ, as long as they still represent the same
+geometric structure.
+
+**Constraints**
+
+`ST_EQUALS` is not guaranteed to be a transitive function.
+
+**Return type**
+
+`BOOL`
+
+### ST_EXTENT
+
+```sql
+ST_EXTENT(geography_expression)
+```
+
+**Description**
+
+Returns a `STRUCT` that represents the bounding box for the set of input
+`GEOGRAPHY` values. The bounding box is the minimal rectangle that encloses the
+geography. The edges of the rectangle follow constant lines of longitude and
+latitude.
+
+Caveats:
+
++ Returns `NULL` if all the inputs are `NULL` or empty geographies.
++ The bounding box might cross the antimeridian if this allows for a smaller
+  rectangle. In this case, the bounding box has one of its longitudinal bounds
+  outside of the [-180, 180] range, so that `xmin` is smaller than the eastmost
+  value `xmax`.
++ If the longitude span of the bounding box is larger than or equal to 180
+  degrees, the function returns the bounding box with the longitude range of
+  [-180, 180].
+
+**Return type**
+
+`STRUCT<xmin DOUBLE, ymin DOUBLE, xmax DOUBLE, ymax DOUBLE>`.
+
+Bounding box parts:
+
++ `xmin`: The westmost constant longitude line that bounds the rectangle.
++ `xmax`: The eastmost constant longitude line that bounds the rectangle.
++ `ymin`: The minimum constant latitude line that bounds the rectangle.
++ `ymax`: The maximum constant latitude line that bounds the rectangle.
+
+**Example**
+
+```sql
+WITH data AS (
+  SELECT 1 id, ST_GEOGFROMTEXT('POLYGON((-125 48, -124 46, -117 46, -117 49, -125 48))') g
+  UNION ALL
+  SELECT 2 id, ST_GEOGFROMTEXT('POLYGON((172 53, -130 55, -141 70, 172 53))') g
+  UNION ALL
+  SELECT 3 id, ST_GEOGFROMTEXT('POINT EMPTY') g
+)
+SELECT ST_EXTENT(g) AS box
+FROM data
+
++----------------------------------------------+
+| box                                          |
++----------------------------------------------+
+| {xmin:172, ymin:46, xmax:243, ymax:70}       |
++----------------------------------------------+
+```
+
+See <a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a> for the
+non-aggregate version of ST_EXTENT.
+
+### ST_EXTERIORRING
+
+```sql
+ST_EXTERIORRING(polygon_geography)
+```
+
+**Description**
+
+Returns a linestring geography that corresponds to the outermost ring of a
+polygon geography.
+
++   If the input geography is a polygon, gets the outermost ring of the polygon
+    geography and returns the corresponding linestring.
++   If the input is the full `GEOGRAPHY`, returns an empty geography.
++   Returns an error if the input is not a single polygon.
+
+Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
+
+**Return type**
+
++ Linestring `GEOGRAPHY`
++ Empty `GEOGRAPHY`
+
+**Examples**
+
+```sql
+WITH geo as
+ (SELECT ST_GEOGFROMTEXT('POLYGON((0 0, 1 4, 2 2, 0 0))') AS g UNION ALL
+  SELECT ST_GEOGFROMTEXT('''POLYGON((1 1, 1 10, 5 10, 5 1, 1 1),
+                                  (2 2, 3 4, 2 4, 2 2))''') as g)
+SELECT ST_EXTERIORRING(g) AS ring FROM geo;
+
++---------------------------------------+
+| ring                                  |
++---------------------------------------+
+| LINESTRING(2 2, 1 4, 0 0, 2 2)        |
+| LINESTRING(5 1, 5 10, 1 10, 1 1, 5 1) |
++---------------------------------------+
+```
+ 
+
+### ST_GEOGFROM
+
+```sql
+ST_GEOGFROM(expression)
+```
+
+**Description**
+
+Converts an expression for a `STRING` or `BYTES` value into a
+`GEOGRAPHY` value.
+
+If `expression` represents a `STRING` value, it must be a valid
+`GEOGRAPHY` representation in one of the following formats:
+
++ WKT format. To learn more about this format and the requirements to use it,
+  see [ST_GEOGFROMTEXT](#st_geogfromtext).
++ WKB in hexadecimal text format. To learn more about this format and the
+  requirements to use it, see [ST_GEOGFROMWKB](#st_geogfromwkb).
++ GeoJSON format. To learn more about this format and the
+  requirements to use it, see [ST_GEOGFROMGEOJSON](#st_geogfromgeojson).
+
+If `expression` represents a `BYTES` value, it must be a valid `GEOGRAPHY`
+binary expression in WKB format. To learn more about this format and the
+requirements to use it, see [ST_GEOGFROMWKB](#st_geogfromwkb).
+
+If `expression` is `NULL`, the output is `NULL`.
+
+**Return type**
+
+`GEOGRAPHY`
+
+**Examples**
+
+This takes a WKT-formatted string and returns a `GEOGRAPHY` polygon:
+
+```sql
+SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format
+
++------------------------------------+
+| WKT_format                         |
++------------------------------------+
+| POLYGON((2 0, 2 2, 0 2, 0 0, 2 0)) |
++------------------------------------+
+```
+
+This takes a WKB-formatted hexadecimal-encoded string and returns a
+`GEOGRAPHY` point:
+
+```sql
+SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WKB_format
+
++----------------+
+| WKB_format     |
++----------------+
+| POINT(2 4)     |
++----------------+
+```
+
+This takes WKB-formatted bytes and returns a `GEOGRAPHY` point:
+
+```sql
+SELECT ST_GEOGFROM('010100000000000000000000400000000000001040')-AS WKB_format
+
++----------------+
+| WKB_format     |
++----------------+
+| POINT(2 4)     |
++----------------+
+```
+
+This takes a GeoJSON-formatted string and returns a `GEOGRAPHY` polygon:
+
+```sql
+SELECT ST_GEOGFROM(
+  '{ "type": "Polygon", "coordinates": [ [ [2, 0], [2, 2], [1, 2], [0, 2], [0, 0], [2, 0] ] ] }'
+) AS GEOJSON_format
+
++-----------------------------------------+
+| GEOJSON_format                          |
++-----------------------------------------+
+| POLYGON((2 0, 2 2, 1 2, 0 2, 0 0, 2 0)) |
++-----------------------------------------+
+```
+
+### ST_GEOGFROMGEOJSON
+
+```sql
+ST_GEOGFROMGEOJSON(geojson_string [, make_valid => constant_expression])
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` value that corresponds to the
+input [GeoJSON][geojson-link] representation.
+
+`ST_GEOGFROMGEOJSON` accepts input that is [RFC 7946][GeoJSON-spec-link]
+compliant.
+
+If the parameter `make_valid` is set to `TRUE`, the function attempts to repair
+polygons that don't conform to [Open Geospatial Consortium][ogc-link] semantics.
+This parameter uses named argument syntax, and should be specified using
+`make_valid => argument_value` syntax.
+
+A ZetaSQL `GEOGRAPHY` has spherical
+geodesic edges, whereas a GeoJSON `Geometry` object explicitly has planar edges.
+To convert between these two types of edges, ZetaSQL adds additional
+points to the line where necessary so that the resulting sequence of edges
+remains within 10 meters of the original edge.
+
+See [`ST_ASGEOJSON`](#st_asgeojson) to format a
+`GEOGRAPHY` as GeoJSON.
+
+**Constraints**
+
+The JSON input is subject to the following constraints:
+
++   `ST_GEOGFROMGEOJSON` only accepts JSON geometry fragments and cannot be used
+    to ingest a whole JSON document.
++   The input JSON fragment must consist of a GeoJSON geometry type, which
+    includes `Point`, `MultiPoint`, `LineString`, `MultiLineString`, `Polygon`,
+    `MultiPolygon`, and `GeometryCollection`. Any other GeoJSON type such as
+    `Feature` or `FeatureCollection` will result in an error.
++   A position in the `coordinates` member of a GeoJSON geometry type must
+    consist of exactly two elements. The first is the longitude and the second
+    is the latitude. Therefore, `ST_GEOGFROMGEOJSON` does not support the
+    optional third element for a position in the `coordinates` member.
+
+**Return type**
+
+`GEOGRAPHY`
+
+### ST_GEOGFROMKML
+
+```sql
+ST_GEOGFROMKML(kml_geometry)
+```
+
+Takes a `STRING` [KML geometry][kml-geometry-link] and returns a
+`GEOGRAPHY`. The KML geomentry can include:
+
++  Point with coordinates element only
++  Linestring with coordinates element only
++  Polygon with boundary elements only
++  Multigeometry
+
+### ST_GEOGFROMTEXT
+
++ [Signature 1](#st_geogfromtext_signature1)
++ [Signature 2](#st_geogfromtext_signature2)
+
+#### Signature 1 
+<a id="st_geogfromtext_signature1"></a>
+
+```sql
+ST_GEOGFROMTEXT(wkt_string[, oriented])
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` value that corresponds to the
+input [WKT][wkt-link] representation.
+
+This function supports an optional parameter of type
+`BOOL`, `oriented`. If this parameter is set to
+`TRUE`, any polygons in the input are assumed to be oriented as follows:
+if someone walks along the boundary of the polygon in the order of
+the input vertices, the interior of the polygon is on the left. This allows
+WKT to represent polygons larger than a hemisphere. If `oriented` is `FALSE` or
+omitted, this function returns the polygon with the smaller area.
+See also [`ST_MAKEPOLYGONORIENTED`](#st_makepolygonoriented) which is similar
+to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
+
+To format `GEOGRAPHY` as WKT, use
+[`ST_ASTEXT`](#st_astext).
+
+**Constraints**
+
+*   All input edges are assumed to be spherical geodesics, and *not* planar
+    straight lines. For reading data in a planar projection, consider using
+    [`ST_GEOGFROMGEOJSON`](#st_geogfromgeojson).
+*   The function does not support three-dimensional geometries that have a `Z`
+    suffix, nor does it support linear referencing system geometries with an `M`
+    suffix.
+*   The function only supports geometry primitives and multipart geometries. In
+    particular it supports only point, multipoint, linestring, multilinestring,
+    polygon, multipolygon, and geometry collection.
+
+**Return type**
+
+`GEOGRAPHY`
+
+**Example**
+
+The following query reads the WKT string `POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))`
+both as a non-oriented polygon and as an oriented polygon, and checks whether
+each result contains the point `(1, 1)`.
+
+```sql
+WITH polygon AS (SELECT 'POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))' AS p)
+SELECT
+  ST_CONTAINS(ST_GEOGFROMTEXT(p), ST_GEOGPOINT(1, 1)) AS fromtext_default,
+  ST_CONTAINS(ST_GEOGFROMTEXT(p, FALSE), ST_GEOGPOINT(1, 1)) AS non_oriented,
+  ST_CONTAINS(ST_GEOGFROMTEXT(p, TRUE),  ST_GEOGPOINT(1, 1)) AS oriented
+FROM polygon;
+
++-------------------+---------------+-----------+
+| fromtext_default  | non_oriented  | oriented  |
++-------------------+---------------+-----------+
+| TRUE              | TRUE          | FALSE     |
++-------------------+---------------+-----------+
+```
+
+#### Signature 2 
+<a id="st_geogfromtext_signature2"></a>
+
+```sql
+ST_GEOGFROMTEXT(wkt_string[, oriented => boolean_constant_1]
+    [, planar => boolean_constant_2] [, make_valid => boolean_constant_3])
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` value that corresponds to the
+input [WKT][wkt-link] representation.
+
+This function supports three optional parameters  of type
+`BOOL`: `oriented`, `planar`, and `make_valid`.
+This signature uses named arguments syntax, and the parameters should be
+specified using `parameter_name => parameter_value` syntax, in any order.
+
+If the `oriented` parameter is set to
+`TRUE`, any polygons in the input are assumed to be oriented as follows:
+if someone walks along the boundary of the polygon in the order of
+the input vertices, the interior of the polygon is on the left. This allows
+WKT to represent polygons larger than a hemisphere. If `oriented` is `FALSE` or
+omitted, this function returns the polygon with the smaller area.
+See also [`ST_MAKEPOLYGONORIENTED`](#st_makepolygonoriented) which is similar
+to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
+
+If the parameter `planar` is set to `TRUE`, the edges of the line strings and
+polygons are assumed to use planar map semantics, rather than ZetaSQL
+default spherical geodesics semantics.
+
+If the parameter `make_valid` is set to `TRUE`, the function attempts to repair
+polygons that don't conform to [Open Geospatial Consortium][ogc-link] semantics.
+
+To format `GEOGRAPHY` as WKT, use
+[`ST_ASTEXT`](#st_astext).
+
+**Constraints**
+
+*   All input edges are assumed to be spherical geodesics by default, and *not*
+    planar straight lines. For reading data in a planar projection,
+    pass `planar => TRUE` argument, or consider using
+    [`ST_GEOGFROMGEOJSON`](#st_geogfromgeojson).
+*   The function does not support three-dimensional geometries that have a `Z`
+    suffix, nor does it support linear referencing system geometries with an `M`
+    suffix.
+*   The function only supports geometry primitives and multipart geometries. In
+    particular it supports only point, multipoint, linestring, multilinestring,
+    polygon, multipolygon, and geometry collection.
+*   `oriented` and `planar` cannot be equal to `TRUE` at the same time.
+*   `oriented` and `make_valid` cannot be equal to `TRUE` at the same time.
+
+**Example**
+
+The following query reads the WKT string `POLYGON((0 0, 0 2, 2 2, 0 2, 0 0))`
+both as a non-oriented polygon and as an oriented polygon, and checks whether
+each result contains the point `(1, 1)`.
+
+```sql
+WITH polygon AS (SELECT 'POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))' AS p)
+SELECT
+  ST_CONTAINS(ST_GEOGFROMTEXT(p), ST_GEOGPOINT(1, 1)) AS fromtext_default,
+  ST_CONTAINS(ST_GEOGFROMTEXT(p, oriented => FALSE), ST_GEOGPOINT(1, 1)) AS non_oriented,
+  ST_CONTAINS(ST_GEOGFROMTEXT(p, oriented => TRUE),  ST_GEOGPOINT(1, 1)) AS oriented
+FROM polygon;
+
++-------------------+---------------+-----------+
+| fromtext_default  | non_oriented  | oriented  |
++-------------------+---------------+-----------+
+| TRUE              | TRUE          | FALSE     |
++-------------------+---------------+-----------+
+```
+
+The following query converts a WKT string with an invalid polygon to
+`GEOGRAPHY`. The WKT string violates two properties
+of a valid polygon - the loop describing the polygon is not closed, and it
+contains self-intersection. With the `make_valid` option, `ST_GEOGFROMTEXT`
+successfully converts it to a multipolygon shape.
+
+```sql
+WITH data AS (
+  SELECT 'POLYGON((0 -1, 2 1, 2 -1, 0 1))' wkt)
+SELECT
+  SAFE.ST_GEOGFROMTEXT(wkt) as geom,
+  SAFE.ST_GEOGFROMTEXT(wkt, make_valid => TRUE) as valid_geom
+FROM data
+
++------+-----------------------------------------------------------------+
+| geom | valid_geom                                                      |
++------+-----------------------------------------------------------------+
+| NULL | MULTIPOLYGON(((0 -1, 1 0, 0 1, 0 -1)), ((1 0, 2 -1, 2 1, 1 0))) |
++------+-----------------------------------------------------------------+
+```
+
+### ST_GEOGFROMWKB
+
+```sql
+ST_GEOGFROMWKB(wkb_bytes_expression)
+```
+
+```sql
+ST_GEOGFROMWKB(wkb_hex_string_expression)
+```
+
+**Description**
+
+Converts an expression for a hexadecimal-text `STRING` or `BYTES`
+value into a `GEOGRAPHY` value. The expression must be in
+[WKB][wkb-link] format.
+
+To format `GEOGRAPHY` as WKB, use
+[`ST_ASBINARY`](#st_asbinary).
+
+**Constraints**
+
+All input edges are assumed to be spherical geodesics, and *not* planar straight
+lines. For reading data in a planar projection, consider using
+[`ST_GEOGFROMGEOJSON`](#st_geogfromgeojson).
+
+**Return type**
+
+`GEOGRAPHY`
+
+### ST_GEOGPOINT
+
+```sql
+ST_GEOGPOINT(longitude, latitude)
+```
+
+**Description**
+
+Creates a `GEOGRAPHY` with a single point. `ST_GEOGPOINT` creates a point from
+the specified `DOUBLE` longitude (in degrees,
+negative west of the Prime Meridian, positive east) and latitude (in degrees,
+positive north of the Equator, negative south) parameters and returns that point
+in a `GEOGRAPHY` value.
+
+NOTE: Some systems present latitude first; take care with argument order.
+
+**Constraints**
+
++   Longitudes outside the range \[-180, 180\] are allowed; `ST_GEOGPOINT` uses
+    the input longitude modulo 360 to obtain a longitude within \[-180, 180\].
++   Latitudes must be in the range \[-90, 90\]. Latitudes outside this range
+    will result in an error.
+
+**Return type**
+
+Point `GEOGRAPHY`
+
+### ST_GEOGPOINTFROMGEOHASH
+
+```sql
+ST_GEOGPOINTFROMGEOHASH(geohash)
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` value that corresponds to a
+point in the middle of a bounding box defined in the [GeoHash][geohash-link].
+
+**Return type**
+
+Point `GEOGRAPHY`
+
+### ST_GEOHASH
+
+```sql
+ST_GEOHASH(geography_expression[, maxchars])
+```
+
+**Description**
+
+Takes a single-point `GEOGRAPHY` and returns a [GeoHash][geohash-link]
+representation of that `GEOGRAPHY` object.
+
++   `geography_expression`: Represents a `GEOGRAPHY` object. Only a `GEOGRAPHY`
+    object that represents a single point is supported. If `ST_GEOHASH` is used
+    over an empty `GEOGRAPHY` object, returns `NULL`.
++   `maxchars`: This optional `INT64` parameter specifies the maximum number of
+    characters the hash will contain. Fewer characters corresponds to lower
+    precision (or, described differently, to a bigger bounding box). `maxchars`
+    defaults to 20 if not explicitly specified. A valid `maxchars` value is 1
+    to 20. Any value below or above is considered unspecified and the default of
+    20 is used.
+
+**Return type**
+
+`STRING`
+
+**Example**
+
+Returns a GeoHash of the Seattle Center with 10 characters of precision.
+
+```sql
+SELECT ST_GEOHASH(ST_GEOGPOINT(-122.35, 47.62), 10) geohash
+
++--------------+
+| geohash      |
++--------------+
+| c22yzugqw7   |
++--------------+
+```
+
+### ST_GEOMETRYTYPE
+
+```sql
+ST_GEOMETRYTYPE(geography_expression)
+```
+
+**Description**
+
+Returns the [Open Geospatial Consortium][ogc-link] (OGC) geometry type that
+describes the input `GEOGRAPHY` as a `STRING`. The OGC geometry type matches the
+types that are used in [WKT][wkt-link] and [GeoJSON][geojson-link] formats and
+printed for [ST_ASTEXT](#st_astext) and [ST_ASGEOJSON](#st_asgeojson).
+`ST_GEOMETRYTYPE` returns the OGC geometry type with the "ST_" prefix.
+
+`ST_GEOMETRYTYPE` returns the following given the type on the input:
+
++   Single point geography: Returns `ST_Point`.
++   Collection of only points: Returns `ST_MultiPoint`.
++   Single linestring geography: Returns `ST_LineString`.
++   Collection of only linestrings: Returns `ST_MultiLineString`.
++   Single polygon geography: Returns `ST_Polygon`.
++   Collection of only polygons: Returns `ST_MultiPolygon`.
++   Collection with elements of different dimensions, or the input is the empty
+    geography: Returns `ST_GeometryCollection`.
+
+**Return type**
+
+`STRING`
+
+**Example**
+
+The following example shows how `ST_GEOMETRYTYPE` takes geographies and returns
+the names of their OGC geometry types.
+
+```sql
+WITH example AS(
+  SELECT ST_GEOGFROMTEXT('POINT(0 1)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('MULTILINESTRING((2 2, 3 4), (5 6, 7 7))')
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(MULTIPOINT(-1 2, 0 12), LINESTRING(-2 4, 0 6))')
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION EMPTY'))
+SELECT
+  geography AS WKT,
+  ST_GEOMETRYTYPE(geography) AS geometry_type_name
+FROM example;
+
++-------------------------------------------------------------------+-----------------------+
+| WKT                                                               | geometry_type_name    |
++-------------------------------------------------------------------+-----------------------+
+| POINT(0 1)                                                        | ST_Point              |
+| MULTILINESTRING((2 2, 3 4), (5 6, 7 7))                           | ST_MultiLineString    |
+| GEOMETRYCOLLECTION(MULTIPOINT(-1 2, 0 12), LINESTRING(-2 4, 0 6)) | ST_GeometryCollection |
+| GEOMETRYCOLLECTION EMPTY                                          | ST_GeometryCollection |
++-------------------------------------------------------------------+-----------------------+
+```
+
+### ST_INTERIORRINGS
+
+```sql
+ST_INTERIORRINGS(polygon_geography)
+```
+
+**Description**
+
+Returns an array of linestring geographies that corresponds to the interior
+rings of a polygon geography. Each interior ring is the border of a hole within
+the input polygon.
+
++   If the input geography is a polygon, excludes the outermost ring of the
+    polygon geography and returns the linestrings corresponding to the interior
+    rings.
++   If the input is the full `GEOGRAPHY`, returns an empty array.
++   If the input polygon has no holes, returns an empty array.
++   Returns an error if the input is not a single polygon.
+
+Use the `SAFE` prefix to return `NULL` for invalid input instead of an error.
+
+**Return type**
+
+`ARRAY<LineString GEOGRAPHY>`
+
+**Examples**
+
+```sql
+WITH geo AS (
+  SELECT ST_GEOGFROMTEXT('POLYGON((0 0, 1 1, 1 2, 0 0))') AS g UNION ALL
+  SELECT ST_GEOGFROMTEXT('POLYGON((1 1, 1 10, 5 10, 5 1, 1 1), (2 2, 3 4, 2 4, 2 2))') UNION ALL
+  SELECT ST_GEOGFROMTEXT('POLYGON((1 1, 1 10, 5 10, 5 1, 1 1), (2 2.5, 3.5 3, 2.5 2, 2 2.5), (3.5 7, 4 6, 3 3, 3.5 7))') UNION ALL
+  SELECT ST_GEOGFROMTEXT('fullglobe') UNION ALL
+  SELECT NULL)
+SELECT ST_INTERIORRINGS(g) AS rings FROM geo;
+
++----------------------------------------------------------------------------+
+| rings                                                                      |
++----------------------------------------------------------------------------+
+| []                                                                         |
+| [LINESTRING(2 2, 3 4, 2 4, 2 2)]                                           |
+| [LINESTRING(2.5 2, 3.5 3, 2 2.5, 2.5 2), LINESTRING(3 3, 4 6, 3.5 7, 3 3)] |
+| []                                                                         |
+| NULL                                                                       |
++----------------------------------------------------------------------------+
+```
+ 
+
+### ST_INTERSECTION
+
+```sql
+ST_INTERSECTION(geography_1, geography_2)
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` that represents the point set
+intersection of the two input `GEOGRAPHY`s. Thus,
+every point in the intersection appears in both `geography_1` and `geography_2`.
+
+If the two input `GEOGRAPHY`s are disjoint, that is,
+there are no points that appear in both input `geometry_1` and `geometry_2`,
+then an empty `GEOGRAPHY` is returned.
+
+See [ST_INTERSECTS](#st_intersects), [ST_DISJOINT](#st_disjoint) for related
+predicate functions.
+
+**Return type**
+
+`GEOGRAPHY`
+
+### ST_INTERSECTS
+
+```sql
+ST_INTERSECTS(geography_1, geography_2)
+```
+
+**Description**
+
+Returns `TRUE` if the point set intersection of `geography_1` and `geography_2`
+is non-empty. Thus, this function returns `TRUE` if there is at least one point
+that appears in both input `GEOGRAPHY`s.
+
+If `ST_INTERSECTS` returns `TRUE`, it implies that [`ST_DISJOINT`](#st_disjoint)
+returns `FALSE`.
+
+**Return type**
+
+`BOOL`
+
+### ST_INTERSECTSBOX
+
+```sql
+ST_INTERSECTSBOX(geography, lng1, lat1, lng2, lat2)
+```
+
+**Description**
+
+Returns `TRUE` if `geography` intersects the rectangle between `[lng1, lng2]`
+and `[lat1, lat2]`. The edges of the rectangle follow constant lines of
+longitude and latitude. `lng1` and `lng2` specify the westmost and eastmost
+constant longitude lines that bound the rectangle, and `lat1` and `lat2` specify
+the minimum and maximum constant latitude lines that bound the rectangle.
+
+Specify all longitude and latitude arguments in degrees.
+
+**Constraints**
+
+The input arguments are subject to the following constraints:
+
++   Latitudes should be in the `[-90, 90]` degree range.
++   Longitudes should follow either of the following rules:
+    +   Both longitudes are in the `[-180, 180]` degree range.
+    +   One of the longitudes is in the `[-180, 180]` degree range, and
+        `lng2 - lng1` is in the `[0, 360]` interval.
+
+**Return type**
+
+`BOOL`
+
+**Example**
+
+```sql
+SELECT p, ST_INTERSECTSBOX(p, -90, 0, 90, 20) AS box1,
+       ST_INTERSECTSBOX(p, 90, 0, -90, 20) AS box2
+FROM UNNEST([ST_GEOGPOINT(10, 10), ST_GEOGPOINT(170, 10),
+             ST_GEOGPOINT(30, 30)]) p
++----------------+--------------+--------------+
+| p              | box1         | box2         |
++----------------+--------------+--------------+
+| POINT(10 10)   | TRUE         | FALSE        |
+| POINT(170 10)  | FALSE        | TRUE         |
+| POINT(30 30)   | FALSE        | FALSE        |
++----------------+--------------+--------------+
+```
+
+### ST_ISCLOSED
+
+```sql
+ST_ISCLOSED(geography_expression)
+```
+
+**Description**
+
+Returns `TRUE` for a non-empty Geography, where each element in the Geography
+has an empty boundary. The boundary for each element can be defined with
+[`ST_BOUNDARY`][st-boundary].
+
++   A point is closed.
++   A linestring is closed if the start and end points of the linestring are
+    the same.
++   A polygon is closed only if it is a full polygon.
++   A collection is closed if and only if every element in the collection is
+    closed.
+
+An empty `GEOGRAPHY` is not closed.
+
+**Return type**
+
+`BOOL`
+
+### ST_ISCOLLECTION
+
+```sql
+ST_ISCOLLECTION(geography_expression)
+```
+
+**Description**
+
+Returns `TRUE` if the total number of points, linestrings, and polygons is
+greater than one.
+
+An empty `GEOGRAPHY` is not a collection.
+
+**Return type**
+
+`BOOL`
+
+### ST_ISEMPTY
+
+```sql
+ST_ISEMPTY(geography_expression)
+```
+
+**Description**
+
+Returns `TRUE` if the given `GEOGRAPHY` is empty; that is, the `GEOGRAPHY` does
+not contain any points, lines, or polygons.
+
+NOTE: An empty `GEOGRAPHY` is not associated with a particular geometry shape.
+For example, the results of expressions `ST_GEOGFROMTEXT('POINT EMPTY')` and
+`ST_GEOGFROMTEXT('GEOMETRYCOLLECTION EMPTY')` are identical.
+
+**Return type**
+
+`BOOL`
+
+### ST_ISRING
+
+```sql
+ST_ISRING(geography_expression)
+```
+
+**Description**
+
+Returns `TRUE` if the input `GEOGRAPHY` is a linestring and if the
+linestring is both [`ST_ISCLOSED`][st-isclosed] and
+simple. A linestring is considered simple if it does not pass through the
+same point twice (with the exception of the start and endpoint, which may
+overlap to form a ring).
+
+An empty `GEOGRAPHY` is not a ring.
+
+**Return type**
+
+`BOOL`
+
+### ST_LENGTH
+
+```sql
+ST_LENGTH(geography_expression[, use_spheroid])
+```
+
+**Description**
+
+Returns the total length in meters of the lines in the input
+`GEOGRAPHY`.
+
+If `geography_expression` is a point or a polygon, returns zero. If
+`geography_expression` is a collection, returns the length of the lines in the
+collection; if the collection does not contain lines, returns zero.
+
+The optional `use_spheroid` parameter determines how this function measures
+distance. If `use_spheroid` is `FALSE`, the function measures distance on the
+surface of a perfect sphere.
+
+The `use_spheroid` parameter currently only supports
+the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
+
+**Return type**
+
+`DOUBLE`
+
+### ST_MAKELINE
+
+```sql
+ST_MAKELINE(geography_1, geography_2)
+```
+
+```sql
+ST_MAKELINE(array_of_geography)
+```
+
+**Description**
+
+Creates a `GEOGRAPHY` with a single linestring by
+concatenating the point or line vertices of each of the input
+`GEOGRAPHY`s in the order they are given.
+
+`ST_MAKELINE` comes in two variants. For the first variant, input must be two
+`GEOGRAPHY`s. For the second, input must be an `ARRAY` of type `GEOGRAPHY`. In
+either variant, each input `GEOGRAPHY` must consist of one of the following
+values:
+
++   Exactly one point.
++   Exactly one linestring.
+
+For the first variant of `ST_MAKELINE`, if either input `GEOGRAPHY` is `NULL`,
+`ST_MAKELINE` returns `NULL`. For the second variant, if input `ARRAY` or any
+element in the input `ARRAY` is `NULL`, `ST_MAKELINE` returns `NULL`.
+
+**Constraints**
+
+Every edge must span strictly less than 180 degrees.
+
+NOTE: The ZetaSQL snapping process may discard sufficiently short
+edges and snap the two endpoints together. For instance, if two input
+`GEOGRAPHY`s each contain a point and the two points are separated by a distance
+less than the snap radius, the points will be snapped together. In such a case
+the result will be a `GEOGRAPHY` with exactly one point.
+
+**Return type**
+
+LineString `GEOGRAPHY`
+
+### ST_MAKEPOLYGON
+
+```sql
+ST_MAKEPOLYGON(geography_expression[, array_of_geography])
+```
+
+**Description**
+
+Creates a `GEOGRAPHY` containing a single polygon
+from linestring inputs, where each input linestring is used to construct a
+polygon ring.
+
+`ST_MAKEPOLYGON` comes in two variants. For the first variant, the input
+linestring is provided by a single `GEOGRAPHY` containing exactly one
+linestring. For the second variant, the input consists of a single `GEOGRAPHY`
+and an array of `GEOGRAPHY`s, each containing exactly one linestring.
+
+The first `GEOGRAPHY` in either variant is used to construct the polygon shell.
+Additional `GEOGRAPHY`s provided in the input `ARRAY` specify a polygon hole.
+For every input `GEOGRAPHY` containing exactly one linestring, the following
+must be true:
+
++   The linestring must consist of at least three distinct vertices.
++   The linestring must be closed: that is, the first and last vertex have to be
+    the same. If the first and last vertex differ, the function constructs a
+    final edge from the first vertex to the last.
+
+For the first variant of `ST_MAKEPOLYGON`, if either input `GEOGRAPHY` is
+`NULL`, `ST_MAKEPOLYGON` returns `NULL`. For the second variant, if
+input `ARRAY` or any element in the `ARRAY` is `NULL`, `ST_MAKEPOLYGON` returns
+`NULL`.
+
+NOTE: `ST_MAKEPOLYGON` accepts an empty `GEOGRAPHY` as input. `ST_MAKEPOLYGON`
+interprets an empty `GEOGRAPHY` as having an empty linestring, which will
+create a full loop: that is, a polygon that covers the entire Earth.
+
+**Constraints**
+
+Together, the input rings must form a valid polygon:
+
++   The polygon shell must cover each of the polygon holes.
++   There can be only one polygon shell (which has to be the first input ring).
+    This implies that polygon holes cannot be nested.
++   Polygon rings may only intersect in a vertex on the boundary of both rings.
+
+Every edge must span strictly less than 180 degrees.
+
+Each polygon ring divides the sphere into two regions. The first input linesting
+to `ST_MAKEPOLYGON` forms the polygon shell, and the interior is chosen to be
+the smaller of the two regions. Each subsequent input linestring specifies a
+polygon hole, so the interior of the polygon is already well-defined. In order
+to define a polygon shell such that the interior of the polygon is the larger of
+the two regions, see [`ST_MAKEPOLYGONORIENTED`](#st_makepolygonoriented).
+
+NOTE: The ZetaSQL snapping process may discard sufficiently
+short edges and snap the two endpoints together. Hence, when vertices are
+snapped together, it is possible that a polygon hole that is sufficiently small
+may disappear, or the output `GEOGRAPHY` may contain only a line or a
+point.
+
+**Return type**
+
+`GEOGRAPHY`
+
+### ST_MAKEPOLYGONORIENTED
+
+```sql
+ST_MAKEPOLYGONORIENTED(array_of_geography)
+```
+
+**Description**
+
+Like `ST_MAKEPOLYGON`, but the vertex ordering of each input linestring
+determines the orientation of each polygon ring. The orientation of a polygon
+ring defines the interior of the polygon as follows: if someone walks along the
+boundary of the polygon in the order of the input vertices, the interior of the
+polygon is on the left. This applies for each polygon ring provided.
+
+This variant of the polygon constructor is more flexible since
+`ST_MAKEPOLYGONORIENTED` can construct a polygon such that the interior is on
+either side of the polygon ring. However, proper orientation of polygon rings is
+critical in order to construct the desired polygon.
+
+If the input `ARRAY` or any element in the `ARRAY` is `NULL`,
+`ST_MAKEPOLYGONORIENTED` returns `NULL`.
+
+NOTE: The input argument for `ST_MAKEPOLYGONORIENTED` may contain an empty
+`GEOGRAPHY`. `ST_MAKEPOLYGONORIENTED` interprets an empty `GEOGRAPHY` as having
+an empty linestring, which will create a full loop: that is, a polygon that
+covers the entire Earth.
+
+**Constraints**
+
+Together, the input rings must form a valid polygon:
+
++   The polygon shell must cover each of the polygon holes.
++   There must be only one polygon shell, which must to be the first input ring.
+    This implies that polygon holes cannot be nested.
++   Polygon rings may only intersect in a vertex on the boundary of both rings.
+
+Every edge must span strictly less than 180 degrees.
+
+`ST_MAKEPOLYGONORIENTED` relies on the ordering of the input vertices of each
+linestring to determine the orientation of the polygon. This applies to the
+polygon shell and any polygon holes. `ST_MAKEPOLYGONORIENTED` expects all
+polygon holes to have the opposite orientation of the shell. See
+[`ST_MAKEPOLYGON`](#st_makepolygon) for an alternate polygon constructor, and
+other constraints on building a valid polygon.
+
+NOTE: Due to the ZetaSQL snapping process, edges with a sufficiently
+short length will be discarded and the two endpoints will be snapped to a single
+point. Therefore, it is possible that vertices in a linestring may be snapped
+together such that one or more edge disappears. Hence, it is possible that a
+polygon hole that is sufficiently small may disappear, or the resulting
+`GEOGRAPHY` may contain only a line or a point.
+
+**Return type**
+
+`GEOGRAPHY`
+
+### ST_MAXDISTANCE
+
+```sql
+ST_MAXDISTANCE(geography_1, geography_2[, use_spheroid])
+```
+
+Returns the longest distance in meters between two non-empty
+`GEOGRAPHY`s; that is, the distance between two
+vertices where the first vertex is in the first
+`GEOGRAPHY`, and the second vertex is in the second
+`GEOGRAPHY`. If `geography_1` and `geography_2` are the
+same `GEOGRAPHY`, the function returns the distance
+between the two most distant vertices in that
+`GEOGRAPHY`.
+
+If either of the input `GEOGRAPHY`s is empty,
+`ST_MAXDISTANCE` returns `NULL`.
+
+The optional `use_spheroid` parameter determines how this function measures
+distance. If `use_spheroid` is `FALSE`, the function measures distance on the
+surface of a perfect sphere.
+
+The `use_spheroid` parameter currently only supports
+the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
+
+**Return type**
+
+`DOUBLE`
+
+### ST_NPOINTS
+
+```sql
+ST_NPOINTS(geography_expression)
+```
+
+**Description**
+
+An alias of [ST_NUMPOINTS](#st_numpoints).
+
+### ST_NUMGEOMETRIES
+
+```
+ST_NUMGEOMETRIES(geography_expression)
+```
+
+**Description**
+
+Returns the number of geometries in the input `GEOGRAPHY`. For a single point,
+linestring, or polygon, `ST_NUMGEOMETRIES` returns `1`. For any collection of
+geometries, `ST_NUMGEOMETRIES` returns the number of geometries making up the
+collection. `ST_NUMGEOMETRIES` returns `0` if the input is the empty
+`GEOGRAPHY`.
+
+**Return type**
+
+`INT64`
+
+**Example**
+
+The following example computes `ST_NUMGEOMETRIES` for a single point geography,
+two collections, and an empty geography.
+
+```sql
+WITH example AS(
+  SELECT ST_GEOGFROMTEXT('POINT(5 0)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('MULTIPOINT(0 1, 4 3, 2 6)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1))') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION EMPTY'))
+SELECT
+  geography,
+  ST_NUMGEOMETRIES(geography) AS num_geometries,
+FROM example;
+
++------------------------------------------------------+----------------+
+| geography                                            | num_geometries |
++------------------------------------------------------+----------------+
+| POINT(5 0)                                           | 1              |
+| MULTIPOINT(0 1, 4 3, 2 6)                            | 3              |
+| GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | 2              |
+| GEOMETRYCOLLECTION EMPTY                             | 0              |
++------------------------------------------------------+----------------+
+```
+
+### ST_NUMPOINTS
+
+```sql
+ST_NUMPOINTS(geography_expression)
+```
+
+**Description**
+
+Returns the number of vertices in the input
+`GEOGRAPHY`. This includes the number of points, the
+number of linestring vertices, and the number of polygon vertices.
+
+NOTE: The first and last vertex of a polygon ring are counted as distinct
+vertices.
+
+**Return type**
+
+`INT64`
+
+### ST_PERIMETER
+
+```sql
+ST_PERIMETER(geography_expression[, use_spheroid])
+```
+
+**Description**
+
+Returns the length in meters of the boundary of the polygons in the input
+`GEOGRAPHY`.
+
+If `geography_expression` is a point or a line, returns zero. If
+`geography_expression` is a collection, returns the perimeter of the polygons
+in the collection; if the collection does not contain polygons, returns zero.
+
+The optional `use_spheroid` parameter determines how this function measures
+distance. If `use_spheroid` is `FALSE`, the function measures distance on the
+surface of a perfect sphere.
+
+The `use_spheroid` parameter currently only supports
+the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
+
+**Return type**
+
+`DOUBLE`
+
+### ST_POINTN
+
+```sql
+ST_POINTN(linestring_geography, index)
+```
+
+**Description**
+
+Returns the Nth point of a linestring geography as a point geography, where N is
+the index. The index is 1-based. Negative values are counted backwards from the
+end of the linestring, so that -1 is the last point. Returns an error if the
+input is not a linestring, if the input is empty, or if there is no vertex at
+the given index. Use the `SAFE` prefix to obtain `NULL` for invalid input
+instead of an error.
+
+**Return Type**
+
+Point `GEOGRAPHY`
+
+**Example**
+
+The following example uses `ST_POINTN`, [`ST_STARTPOINT`](#st_startpoint) and
+[`ST_ENDPOINT`](#st_endpoint) to extract points from a linestring.
+
+```sql
+WITH linestring AS (
+    SELECT ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)') g
+)
+SELECT ST_POINTN(g, 1) AS first, ST_POINTN(g, -1) AS last,
+    ST_POINTN(g, 2) AS second, ST_POINTN(g, -2) AS second_to_last
+FROM linestring;
+
++--------------+--------------+--------------+----------------+
+| first        | last         | second       | second_to_last |
++--------------+--------------+--------------+----------------+
+| POINT(1 1)   | POINT(3 3)   | POINT(2 1)   | POINT(3 2)     |
++--------------+--------------+--------------+----------------+
+```
+
+### ST_SIMPLIFY
+
+```sql
+ST_SIMPLIFY(geography, tolerance_meters)
+```
+
+**Description**
+
+Returns a simplified version of `geography`, the given input
+`GEOGRAPHY`. The input `GEOGRAPHY` is simplified by replacing nearly straight
+chains of short edges with a single long edge. The input `geography` will not
+change by more than the tolerance specified by `tolerance_meters`. Thus,
+simplified edges are guaranteed to pass within `tolerance_meters` of the
+*original* positions of all vertices that were removed from that edge. The given
+`tolerance_meters` is in meters on the surface of the Earth.
+
+Note that `ST_SIMPLIFY` preserves topological relationships, which means that
+no new crossing edges will be created and the output will be valid. For a large
+enough tolerance, adjacent shapes may collapse into a single object, or a shape
+could be simplified to a shape with a smaller dimension.
+
+**Constraints**
+
+For `ST_SIMPLIFY` to have any effect, `tolerance_meters` must be non-zero.
+
+`ST_SIMPLIFY` returns an error if the tolerance specified by `tolerance_meters`
+is one of the following:
+
++ A negative tolerance.
++ Greater than ~7800 kilometers.
+
+**Return type**
+
+`GEOGRAPHY`
+
+**Examples**
+
+The following example shows how `ST_SIMPLIFY` simplifies the input line
+`GEOGRAPHY` by removing intermediate vertices.
+
+```sql
+WITH example AS
+ (SELECT ST_GEOGFROMTEXT('LINESTRING(0 0, 0.05 0, 0.1 0, 0.15 0, 2 0)') AS line)
+SELECT
+   line AS original_line,
+   ST_SIMPLIFY(line, 1) AS simplified_line
+FROM example;
+
++---------------------------------------------+----------------------+
+|                original_line                |   simplified_line    |
++---------------------------------------------+----------------------+
+| LINESTRING(0 0, 0.05 0, 0.1 0, 0.15 0, 2 0) | LINESTRING(0 0, 2 0) |
++---------------------------------------------+----------------------+
+```
+
+The following example illustrates how the result of `ST_SIMPLIFY` can have a
+lower dimension than the original shape.
+
+```sql
+WITH example AS
+ (SELECT
+    ST_GEOGFROMTEXT('POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0))') AS polygon,
+    t AS tolerance
+  FROM UNNEST([1000, 10000, 100000]) AS t)
+SELECT
+  polygon AS original_triangle,
+  tolerance AS tolerance_meters,
+  ST_SIMPLIFY(polygon, tolerance) AS simplified_result
+FROM example
+
++-------------------------------------+------------------+-------------------------------------+
+|          original_triangle          | tolerance_meters |          simplified_result          |
++-------------------------------------+------------------+-------------------------------------+
+| POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |             1000 | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |
+| POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |            10000 |            LINESTRING(0 0, 0.1 0.1) |
+| POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |           100000 |                          POINT(0 0) |
++-------------------------------------+------------------+-------------------------------------+
+```
+
+### ST_SNAPTOGRID
+
+```sql
+ST_SNAPTOGRID(geography_expression, grid_size)
+```
+
+**Description**
+
+Returns the input `GEOGRAPHY`, where each vertex has
+been snapped to a longitude/latitude grid. The grid size is determined by the
+`grid_size` parameter which is given in degrees.
+
+**Constraints**
+
+Arbitrary grid sizes are not supported. The `grid_size` parameter is rounded so
+that it is of the form `10^n`, where `-10 < n < 0`.
+
+**Return type**
+
+`GEOGRAPHY`
+
+### ST_STARTPOINT
+
+```sql
+ST_STARTPOINT(linestring_geography)
+```
+
+**Description**
+
+Returns the first point of a linestring geography as a point geography. Returns
+an error if the input is not a linestring or if the input is empty. Use the
+`SAFE` prefix to obtain `NULL` for invalid input instead of an error.
+
+**Return Type**
+
+Point `GEOGRAPHY`
+
+**Example**
+
+```sql
+SELECT ST_STARTPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) first
+
++--------------+
+| first        |
++--------------+
+| POINT(1 1)   |
++--------------+
+```
+
+### ST_TOUCHES
+
+```sql
+ST_TOUCHES(geography_1, geography_2)
+```
+
+**Description**
+
+Returns `TRUE` provided the following two conditions are satisfied:
+
+1.  `geography_1` intersects `geography_2`.
+1.  The interior of `geography_1` and the interior of `geography_2` are
+    disjoint.
+
+**Return type**
+
+`BOOL`
+
+### ST_UNION
+
+```sql
+ST_UNION(geography_1, geography_2)
+```
+
+```sql
+ST_UNION(array_of_geography)
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` that represents the point set
+union of all input `GEOGRAPHY`s.
+
+`ST_UNION` comes in two variants. For the first variant, input must be two
+`GEOGRAPHY`s. For the second, the input is an
+`ARRAY` of type `GEOGRAPHY`.
+
+For the first variant of `ST_UNION`, if an input
+`GEOGRAPHY` is `NULL`, `ST_UNION` returns `NULL`.
+For the second variant, if the input `ARRAY` value
+is `NULL`, `ST_UNION` returns `NULL`.
+For a non-`NULL` input `ARRAY`, the union is computed
+and `NULL` elements are ignored so that they do not affect the output.
+
+See [`ST_UNION_AGG`](#st_union_agg) for the aggregate version of `ST_UNION`.
+
+**Return type**
+
+`GEOGRAPHY`
+
+### ST_UNION_AGG
+
+```sql
+ST_UNION_AGG(geography)
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` that represents the point set
+union of all input `GEOGRAPHY`s.
+
+`ST_UNION_AGG` ignores `NULL` input `GEOGRAPHY` values.
+
+See [`ST_UNION`](#st_union) for the non-aggregate version of `ST_UNION_AGG`.
+
+**Return type**
+
+`GEOGRAPHY`
+
+### ST_WITHIN
+
+```sql
+ST_WITHIN(geography_1, geography_2)
+```
+
+**Description**
+
+Returns `TRUE` if no point of `geography_1` is outside of `geography_2` and
+the interiors of `geography_1` and `geography_2` intersect.
+
+Given two geographies `a` and `b`, `ST_WITHIN(a, b)` returns the same result
+as [`ST_CONTAINS`](#st_contains)`(b, a)`. Note the opposite order of arguments.
+
+**Return type**
+
+`BOOL`
+
+### ST_X
+
+```sql
+ST_X(geography_expression)
+```
+
+**Description**
+
+Returns the longitude in degrees of the single-point input
+`GEOGRAPHY`.
+
+For any input `GEOGRAPHY` that is not a single point,
+including an empty `GEOGRAPHY`, `ST_X` returns an
+error. Use the `SAFE.` prefix to obtain `NULL`.
+
+**Return type**
+
+`DOUBLE`
+
+**Example**
+
+The following example uses `ST_X` and `ST_Y` to extract coordinates from
+single-point geographies.
+
+```sql
+WITH points AS
+   (SELECT ST_GEOGPOINT(i, i + 1) AS p FROM UNNEST([0, 5, 12]) AS i)
+ SELECT
+   p,
+   ST_X(p) as longitude,
+   ST_Y(p) as latitude
+FROM points;
+
++--------------+-----------+----------+
+| p            | longitude | latitude |
++--------------+-----------+----------+
+| POINT(0 1)   | 0.0       | 1.0      |
+| POINT(5 6)   | 5.0       | 6.0      |
+| POINT(12 13) | 12.0      | 13.0     |
++--------------+-----------+----------+
+```
+
+### ST_Y
+
+```sql
+ST_Y(geography_expression)
+```
+
+**Description**
+
+Returns the latitude in degrees of the single-point input
+`GEOGRAPHY`.
+
+For any input `GEOGRAPHY` that is not a single point,
+including an empty `GEOGRAPHY`, `ST_Y` returns an
+error. Use the `SAFE.` prefix to return `NULL` instead.
+
+**Return type**
+
+`DOUBLE`
+
+**Example**
+
+See [`ST_X`](#st_x) for example usage.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ogc-link]: https://www.ogc.org/standards/sfa
+
+[wkt-link]: https://en.wikipedia.org/wiki/Well-known_text
+
+[wkb-link]: https://en.wikipedia.org/wiki/Well-known_text#Well-known_binary
+
+[geojson-link]: https://en.wikipedia.org/wiki/GeoJSON
+
+[geojson-spec-link]: https://tools.ietf.org/html/rfc7946
+
+[geohash-link]: https://en.wikipedia.org/wiki/Geohash
+
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+[kml-geometry-link]: https://developers.google.com/kml/documentation/kmlreference#geometry
+
+[dbscan-link]: https://en.wikipedia.org/wiki/DBSCAN
+
+[s2-cells-link]: https://s2geometry.io/devguide/s2cell_hierarchy
+
+[s2-root-link]: https://s2geometry.io/
+
+[st-boundary]: #st_boundary
+
+[st-isclosed]: #st_isclosed
+
+[geography-link-array-agg]: #array_agg
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -25756,6 +25875,8 @@ SELECT SESSION_USER() as user;
 <!-- mdlint on -->
 
 ## Net functions
+
+ZetaSQL supports the following Net functions.
 
 ### NET.IP_FROM_STRING
 

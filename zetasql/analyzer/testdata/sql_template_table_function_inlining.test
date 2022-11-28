@@ -354,21 +354,23 @@ QueryStmt
           +-ExecuteAsRoleScan
             +-column_list=definer_rights_templated_tvf.[Key#2, Value#3]
             +-input_scan=
-              +-ProjectScan
-                +-column_list=definer_rights_templated_tvf.[Key#4, Value#5]
-                +-input_scan=
-                  +-FilterScan
-                    +-column_list=definer_rights_templated_tvf.[Key#4, Value#5]
-                    +-input_scan=
-                    | +-TableScan(column_list=definer_rights_templated_tvf.[Key#4, Value#5], table=KeyValue, column_index_list=[0, 1])
-                    +-filter_expr=
-                      +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-                        +-ColumnRef(type=INT64, column=definer_rights_templated_tvf.Key#4)
-                        +-SubqueryExpr
-                          +-type=INT64
-                          +-subquery_type=SCALAR
-                          +-subquery=
-                            +-ProjectScan
-                              +-column_list=[$inlined_definer_rights_templated_tvf.x#7]
-                              +-input_scan=
-                                +-WithRefScan(column_list=[$inlined_definer_rights_templated_tvf.x#7], with_query_name="$inlined_definer_rights_templated_tvf_scalar_args")
+            | +-ProjectScan
+            |   +-column_list=definer_rights_templated_tvf.[Key#4, Value#5]
+            |   +-input_scan=
+            |     +-FilterScan
+            |       +-column_list=definer_rights_templated_tvf.[Key#4, Value#5]
+            |       +-input_scan=
+            |       | +-TableScan(column_list=definer_rights_templated_tvf.[Key#4, Value#5], table=KeyValue, column_index_list=[0, 1])
+            |       +-filter_expr=
+            |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            |           +-ColumnRef(type=INT64, column=definer_rights_templated_tvf.Key#4)
+            |           +-SubqueryExpr
+            |             +-type=INT64
+            |             +-subquery_type=SCALAR
+            |             +-subquery=
+            |               +-ProjectScan
+            |                 +-column_list=[$inlined_definer_rights_templated_tvf.x#7]
+            |                 +-input_scan=
+            |                   +-WithRefScan(column_list=[$inlined_definer_rights_templated_tvf.x#7], with_query_name="$inlined_definer_rights_templated_tvf_scalar_args")
+            +-original_inlined_view=<null>
+            +-original_inlined_tvf=definer_rights_templated_tvf((ANY TYPE) -> ANY TABLE)

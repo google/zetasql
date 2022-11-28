@@ -66,10 +66,6 @@ public final class ImmutableDescriptorPool implements DescriptorPool {
     return new Builder();
   }
 
-  public Builder toBuilder() {
-    return builder().importFileDescriptors(fileDescriptorsByNameInDependencyOrder.values());
-  }
-
   /**
    * Builder class for {@link ImmutableDescriptorPool}.
    *
@@ -244,6 +240,7 @@ public final class ImmutableDescriptorPool implements DescriptorPool {
     return ImmutableList.copyOf(fileDescriptorsByNameInDependencyOrder.values());
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   static FileDescriptor resolveFileDescriptor(
       String filename,
       Map<String, FileDescriptorProto> fileDescriptorProtosByName,

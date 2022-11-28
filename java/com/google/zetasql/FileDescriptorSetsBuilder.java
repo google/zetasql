@@ -19,6 +19,7 @@ package com.google.zetasql;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.protobuf.Descriptors.FileDescriptor;
@@ -52,6 +53,7 @@ public class FileDescriptorSetsBuilder implements Serializable {
    *
    * @throws IllegalStateException if called more than once.
    */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public ImmutableList<FileDescriptorSet> build() {
     Preconditions.checkState(!isBuilt);
     ImmutableList.Builder<FileDescriptorSet> fileDescriptorSets = ImmutableList.builder();
@@ -62,6 +64,7 @@ public class FileDescriptorSetsBuilder implements Serializable {
     return fileDescriptorSets.build();
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   ImmutableList<DescriptorPool> getDescriptorPools() {
     Map<Integer, DescriptorPool> pools = new TreeMap<>();
     // Sort keys of descriptorPoolIndex map by value.
@@ -71,10 +74,12 @@ public class FileDescriptorSetsBuilder implements Serializable {
     return ImmutableList.copyOf(pools.values());
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public int getFileDescriptorSetCount() {
     return fileDescriptorSetBuilders.size();
   }
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   int addAllFileDescriptors(DescriptorPool pool) {
     Preconditions.checkNotNull(pool);
     for (FileDescriptor descriptor : pool.getAllFileDescriptorsInDependencyOrder()) {
@@ -91,6 +96,7 @@ public class FileDescriptorSetsBuilder implements Serializable {
    * @return Index of the FileDescriptorSet the {@code fileDescriptor} goes into.
    * @throws IllegalStateException if a new fileDescriptor is added after build() is called.
    */
+  @CanIgnoreReturnValue // TODO: consider removing this?
   int addFileDescriptor(FileDescriptor fileDescriptor, DescriptorPool pool) {
     Preconditions.checkState(!isBuilt);
     Integer index = descriptorPoolIndex.get(pool);

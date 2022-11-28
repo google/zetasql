@@ -19,6 +19,7 @@ package com.google.zetasql;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.LocalService.ParseRequest;
 import com.google.zetasql.LocalService.ParseResponse;
 import com.google.zetasql.parser.ASTNodes.ASTStatement;
@@ -27,6 +28,7 @@ import io.grpc.StatusRuntimeException;
 /** The Parser class provides a static method to parse an SQL query into an ASTStatement. */
 public class Parser {
 
+  @CanIgnoreReturnValue // TODO: consider removing this?
   public static ASTStatement parseStatement(String sql, LanguageOptions languageOptions) {
     checkNotNull(sql);
     checkNotNull(languageOptions);

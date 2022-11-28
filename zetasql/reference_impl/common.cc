@@ -51,6 +51,7 @@ absl::Status ValidateTypeSupportsEqualityComparison(const Type* type) {
     case TYPE_PROTO:
     case TYPE_STRUCT:
     case TYPE_ARRAY:
+    case TYPE_RANGE:
       return absl::OkStatus();
     case TYPE_GEOGRAPHY:
     case TYPE_JSON:

@@ -39,7 +39,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/simple_reference_counted.h"
+#include "zetasql/base/compact_reference_counted.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -134,12 +134,12 @@ void RangeType::DebugStringImpl(bool details, TypeOrStringVector* stack,
 
 void RangeType::CopyValueContent(const ValueContent& from,
                                  ValueContent* to) const {
-  from.GetAs<zetasql_base::SimpleReferenceCounted*>()->Ref();
+  from.GetAs<internal::ValueContentContainerRef*>()->Ref();
   *to = from;
 }
 
 void RangeType::ClearValueContent(const ValueContent& value) const {
-  value.GetAs<zetasql_base::SimpleReferenceCounted*>()->Unref();
+  value.GetAs<internal::ValueContentContainerRef*>()->Unref();
 }
 
 absl::HashState RangeType::HashTypeParameter(absl::HashState state) const {

@@ -146,6 +146,11 @@ absl::Status GetZetaSQLFunctionsAndTypes(
   if (options.language_options.LanguageFeatureEnabled(FEATURE_RANGE_TYPE)) {
     GetRangeFunctions(type_factory, options, functions);
   }
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS)) {
+    ZETASQL_RETURN_IF_ERROR(
+        GetArrayFindFunctions(type_factory, options, functions, types));
+  }
   return absl::OkStatus();
 }
 

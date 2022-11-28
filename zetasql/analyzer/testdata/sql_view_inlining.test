@@ -1976,14 +1976,16 @@ QueryStmt
       +-ExecuteAsRoleScan
         +-column_list=DefinerRightsView.[a#1, b#2, c#3]
         +-input_scan=
-          +-ProjectScan
-            +-column_list=DefinerRightsView.[a#4, b#5, c#6]
-            +-expr_list=
-            | +-a#4 := Literal(type=INT64, value=1)
-            | +-b#5 := Literal(type=STRING, value="x")
-            | +-c#6 := Literal(type=BOOL, value=false)
-            +-input_scan=
-              +-SingleRowScan
+        | +-ProjectScan
+        |   +-column_list=DefinerRightsView.[a#4, b#5, c#6]
+        |   +-expr_list=
+        |   | +-a#4 := Literal(type=INT64, value=1)
+        |   | +-b#5 := Literal(type=STRING, value="x")
+        |   | +-c#6 := Literal(type=BOOL, value=false)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-original_inlined_view=DefinerRightsView
+        +-original_inlined_tvf=<null>
 ==
 
 [no_run_unparser]
@@ -2010,12 +2012,14 @@ QueryStmt
       +-ExecuteAsRoleScan
         +-column_list=[UnspecifiedRightsView.a#1]
         +-input_scan=
-          +-ProjectScan
-            +-column_list=[UnspecifiedRightsView.a#2]
-            +-expr_list=
-            | +-a#2 := Literal(type=INT64, value=1)
-            +-input_scan=
-              +-SingleRowScan
+        | +-ProjectScan
+        |   +-column_list=[UnspecifiedRightsView.a#2]
+        |   +-expr_list=
+        |   | +-a#2 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-original_inlined_view=UnspecifiedRightsView
+        +-original_inlined_tvf=<null>
 ==
 
 SELECT * FROM TwoIntsView@{scan_hint=whatever} v;

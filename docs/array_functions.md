@@ -2,6 +2,8 @@
 
 # Array functions
 
+ZetaSQL supports the following array functions.
+
 ### ARRAY
 
 ```sql
@@ -32,7 +34,7 @@ an `ARRAY` that honors that clause.
 + If the subquery returns more than one column, the `ARRAY` function returns an
 error.
 + If the subquery returns an `ARRAY` typed column or `ARRAY` typed rows, the
-  `ARRAY` function returns an error: ZetaSQL does not support
+  `ARRAY` function returns an error that ZetaSQL does not support
   `ARRAY`s with elements of type
   [`ARRAY`][array-data-type].
 + If the subquery returns zero rows, the `ARRAY` function returns an empty
@@ -40,7 +42,7 @@ error.
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
@@ -91,6 +93,14 @@ SELECT ARRAY
 +----------------------------+
 ```
 
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
+
+[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard_sql_tables
+
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
+
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
+
 ### ARRAY_CONCAT
 
 ```sql
@@ -108,7 +118,7 @@ to concatenate arrays.
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
@@ -121,6 +131,8 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 | [1, 2, 3, 4, 5, 6]                               |
 +--------------------------------------------------+
 ```
+
+[array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 
 ### ARRAY_FILTER
 
@@ -168,6 +180,8 @@ SELECT
 +-------+-------+
 ```
 
+[lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
+
 ### ARRAY_FIRST
 
 ```sql
@@ -200,12 +214,14 @@ SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 +---------------+
 ```
 
+[array-last]: #array_last
+
 ### ARRAY_INCLUDES
 
-+   [Signature 1](#array_includes_signature1): `ARRAY_INCLUDES(array_to_search,
-    search_value)`
-+   [Signature 2](#array_includes_signature2): `ARRAY_INCLUDES(array_to_search,
-    lambda_expression)`
++   [Signature 1](#array_includes_signature1):
+    `ARRAY_INCLUDES(array_to_search, search_value)`
++   [Signature 2](#array_includes_signature2):
+    `ARRAY_INCLUDES(array_to_search, lambda_expression)`
 
 #### Signature 1 
 <a id="array_includes_signature1"></a>
@@ -226,7 +242,7 @@ Returns `NULL` if `array_to_search` or `search_value` is `NULL`.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Example**
 
@@ -269,7 +285,7 @@ Returns `NULL` if `array_to_search` is `NULL`.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Example**
 
@@ -288,6 +304,8 @@ SELECT
 | false | true |
 +-------+------+
 ```
+
+[lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
 ### ARRAY_INCLUDES_ANY
 
@@ -308,7 +326,7 @@ Returns `NULL` if `array_to_search` or `search_values` is
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Example**
 
@@ -347,7 +365,7 @@ Returns `NULL` if `array_to_search` or `search_values` is
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Example**
 
@@ -399,6 +417,8 @@ SELECT ARRAY_LAST(['a','b','c','d']) as last_element
 +---------------+
 ```
 
+[array-first]: #array_first
+
 ### ARRAY_LENGTH
 
 ```sql
@@ -412,7 +432,7 @@ the `array_expression` is `NULL`.
 
 **Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
@@ -522,7 +542,8 @@ Additional details:
 
 + The input array can contain `NULL` elements. `NULL` elements are included
   in the resulting array.
-+ Returns `NULL` if `array_to_slice`,  `start_offset`, or `end_offset` is `NULL`.
++ Returns `NULL` if `array_to_slice`,  `start_offset`, or `end_offset` is
+  `NULL`.
 + Returns an empty array if `array_to_slice` is empty.
 + Returns an empty array if the position of the `start_offset` in the array is
   after the position of the `end_offset`.
@@ -682,15 +703,19 @@ ARRAY_TO_STRING(array_expression, delimiter[, null_text])
 **Description**
 
 Returns a concatenation of the elements in `array_expression`
-as a STRING. The value for `array_expression`
-can either be an array of STRING or
-BYTES data types.
+as a `STRING`. The value for `array_expression`
+can either be an array of `STRING` or
+`BYTES` data types.
 
 If the `null_text` parameter is used, the function replaces any `NULL` values in
 the array with the value of `null_text`.
 
 If the `null_text` parameter is not used, the function omits the `NULL` value
 and its preceding delimiter.
+
+**Return type**
+
+`STRING`
 
 **Examples**
 
@@ -758,7 +783,7 @@ Returns `NULL` if the `array_expression` is `NULL`.
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Example**
 
@@ -773,6 +798,8 @@ SELECT
 | [2,3,4] | [1,3,5] |
 +---------+---------+
 ```
+
+[lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
 ### FLATTEN
 
@@ -864,6 +891,10 @@ FROM t;
 For more examples, including how to use protocol buffers with `FLATTEN`, see the
 [array elements field access operator][array-el-field-operator].
 
+[flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
+
+[array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
+
 ### GENERATE_ARRAY
 
 ```sql
@@ -893,7 +924,7 @@ If any argument is `NULL`, the function will return a `NULL` array.
 
 **Return Data Type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
@@ -999,9 +1030,9 @@ parameters determine the inclusive start and end of the array.
 
 The `GENERATE_DATE_ARRAY` function accepts the following data types as inputs:
 
-+ `start_date` must be a DATE
-+ `end_date` must be a DATE
-+ `INT64_expr` must be an INT64
++ `start_date` must be a `DATE`.
++ `end_date` must be a `DATE`.
++ `INT64_expr` must be an `INT64`.
 + `date_part` must be either DAY, WEEK, MONTH, QUARTER, or YEAR.
 
 The `INT64_expr` parameter determines the increment used to generate dates. The
@@ -1011,7 +1042,7 @@ This function returns an error if `INT64_expr` is set to 0.
 
 **Return Data Type**
 
-An ARRAY containing 0 or more DATE values.
+`ARRAY` containing 0 or more `DATE` values.
 
 **Examples**
 
@@ -1158,8 +1189,7 @@ timestamps.
 
 **Return Data Type**
 
-An `ARRAY` containing 0 or more
-`TIMESTAMP` values.
+An `ARRAY` containing 0 or more `TIMESTAMP` values.
 
 **Examples**
 
@@ -1282,11 +1312,11 @@ ARRAY_REVERSE(value)
 
 **Description**
 
-Returns the input ARRAY with elements in reverse order.
+Returns the input `ARRAY` with elements in reverse order.
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
@@ -1318,12 +1348,12 @@ ARRAY_IS_DISTINCT(value)
 
 **Description**
 
-Returns true if the array contains no repeated elements, using the same equality
-comparison logic as `SELECT DISTINCT`.
+Returns `TRUE` if the array contains no repeated elements, using the same
+equality comparison logic as `SELECT DISTINCT`.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Examples**
 
@@ -1345,12 +1375,12 @@ FROM example;
 +-----------------+-------------+
 | arr             | is_distinct |
 +-----------------+-------------+
-| [1, 2, 3]       | true        |
-| [1, 1, 1]       | false       |
-| [1, 2, NULL]    | true        |
-| [1, 1, NULL]    | false       |
-| [1, NULL, NULL] | false       |
-| []              | true        |
+| [1, 2, 3]       | TRUE        |
+| [1, 1, 1]       | FALSE       |
+| [1, 2, NULL]    | TRUE        |
+| [1, 1, NULL]    | FALSE       |
+| [1, NULL, NULL] | FALSE       |
+| []              | TRUE        |
 | NULL            | NULL        |
 +-----------------+-------------+
 ```
@@ -1366,26 +1396,6 @@ elements][accessing-array-elements].
 [array-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_subscript_operator
 
 [accessing-array-elements]: https://github.com/google/zetasql/blob/master/docs/arrays.md#accessing_array_elements
-
-[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
-
-[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard_sql_tables
-
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
-
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
-
-[flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
-
-[array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
-
-[array-first]: #array_first
-
-[array-last]: #array_last
-
-[array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
-
-[lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
 <!-- mdlint on -->
 

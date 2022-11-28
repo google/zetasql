@@ -502,18 +502,10 @@ TEST_P(JSONParserTest, ParseLargeNumbers) {
                 testing::DoubleEq(1.23456789012345678901234567890e+29));
   }
 
-  // Legacy parser parses out of range doubles as inf while standard parser
-  // fails the parse.
   auto result = JSONValue::ParseJSONString("3.14e314", GetParam());
-  if (GetParam().legacy_mode) {
-    auto const_ref = result.value().GetConstRef();
-    ASSERT_TRUE(const_ref.IsDouble());
-    EXPECT_TRUE(std::isinf(const_ref.GetDouble()));
-  } else {
-    EXPECT_FALSE(result.ok());
-    EXPECT_THAT(result.status().message(),
-                ::testing::HasSubstr("number overflow parsing '3.14e314'"));
-  }
+  EXPECT_FALSE(result.ok());
+  EXPECT_THAT(result.status().message(),
+              ::testing::HasSubstr("number overflow parsing '3.14e314'"));
 }
 
 TEST_P(JSONParserTest, ParseBoolean) {
@@ -719,16 +711,11 @@ TEST_P(JSONParserTest, ParseDuplicateKeys) {
 
 INSTANTIATE_TEST_SUITE_P(
     CommonJSONParserTests, JSONParserTest,
-    ::testing::Values(JSONParsingOptions{.legacy_mode = true,
-                                         .strict_number_parsing = false},
-                      JSONParsingOptions{.legacy_mode = false,
-                                         .strict_number_parsing = false},
-                      JSONParsingOptions{.legacy_mode = false,
-                                         .strict_number_parsing = true}));
+    ::testing::Values(JSONParsingOptions{.strict_number_parsing = false},
+                      JSONParsingOptions{.strict_number_parsing = true}));
 
 TEST(JSONStrictNumberParsingTest, NumberParsingSuccess) {
-  JSONParsingOptions options{.legacy_mode = false,
-                             .strict_number_parsing = true};
+  JSONParsingOptions options{.strict_number_parsing = true};
   absl::flat_hash_map<absl::string_view, absl::string_view> test_cases;
   test_cases.try_emplace("1", "1");
   test_cases.try_emplace("1e0", "1.0");
@@ -760,8 +747,7 @@ TEST(JSONStrictNumberParsingTest, NumberParsingFailure) {
   constexpr char overflow_err[] = "number overflow parsing";
   constexpr char failed_to_parse_err[] = "Failed to parse";
   constexpr char roundtrip_err[] = "cannot round-trip through string";
-  JSONParsingOptions options{.legacy_mode = false,
-                             .strict_number_parsing = true};
+  JSONParsingOptions options{.strict_number_parsing = true};
   absl::flat_hash_map<std::string, std::string> test_cases;
   // Number overflow failure test cases
   test_cases.try_emplace("1e1000", overflow_err);
@@ -784,49 +770,6 @@ TEST(JSONStrictNumberParsingTest, NumberParsingFailure) {
         ::testing::HasSubstr(pair.second))
         << "Input: " << pair.first;
   }
-}
-
-TEST(JSONLegacyParserTest, ParseSingleQuotes) {
-  JSONValue value =
-      JSONValue::ParseJSONString(
-          "'abc'", JSONParsingOptions{.legacy_mode = true,
-                                      .strict_number_parsing = false})
-          .value();
-  ASSERT_TRUE(value.GetConstRef().IsString());
-  EXPECT_EQ("abc", value.GetConstRef().GetString());
-
-  constexpr char json_str[] = R"(
-    {
-      "pi": 3.141,
-      "happy": true,
-      "name": "Niels",
-      "nothing": null,
-      'answer': {
-        "everything": 42
-      },
-      "list": [1, 0, 2],
-      "object": {
-        "currency": 'USD',
-        "value": 42.99
-      }
-    }
-  )";
-  value = JSONValue::ParseJSONString(
-              json_str, JSONParsingOptions{.legacy_mode = true,
-                                           .strict_number_parsing = false})
-              .value();
-  ASSERT_TRUE(value.GetConstRef().IsObject());
-  EXPECT_EQ(value.GetConstRef().GetObjectSize(), 7);
-  ASSERT_TRUE(value.GetConstRef().GetMember("pi").IsDouble());
-  EXPECT_EQ(3.141, value.GetConstRef().GetMember("pi").GetDouble());
-  ASSERT_TRUE(value.GetConstRef().GetMember("happy").IsBoolean());
-  EXPECT_TRUE(value.GetConstRef().GetMember("happy").GetBoolean());
-  ASSERT_TRUE(value.GetConstRef().GetMember("name").IsString());
-  EXPECT_EQ("Niels", value.GetConstRef().GetMember("name").GetString());
-  ASSERT_TRUE(value.GetConstRef().GetMember("nothing").IsNull());
-  ASSERT_TRUE(value.GetConstRef().GetMember("list").IsArray());
-  EXPECT_EQ(3, value.GetConstRef().GetMember("list").GetArraySize());
-  ASSERT_TRUE(value.GetConstRef().GetMember("object").IsObject());
 }
 
 TEST(JSONStandardParserTest, ParseErrorStandard) {
@@ -860,43 +803,6 @@ TEST(JSONStandardParserTest, ParseErrorStandard) {
   EXPECT_THAT(result.status().message(),
               ::testing::HasSubstr(
                   "syntax error while parsing value - invalid literal"));
-}
-
-TEST(JSONLegacyParserTest, ParseErrorLegacy) {
-  auto result = JSONValue::ParseJSONString(
-      "[[[",
-      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
-  EXPECT_FALSE(result.ok());
-  EXPECT_THAT(result.status().message(),
-              ::testing::HasSubstr("Unexpected end of string"));
-
-  result = JSONValue::ParseJSONString(
-      "t",
-      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
-  EXPECT_FALSE(result.ok());
-  EXPECT_THAT(result.status().message(),
-              ::testing::HasSubstr("Unexpected token"));
-
-  result = JSONValue::ParseJSONString(
-      "[1, a]",
-      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
-  EXPECT_FALSE(result.ok());
-  EXPECT_THAT(result.status().message(),
-              ::testing::HasSubstr("Unexpected token"));
-
-  result = JSONValue::ParseJSONString(
-      "{a: b}",
-      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
-  EXPECT_FALSE(result.ok());
-  EXPECT_THAT(result.status().message(),
-              ::testing::HasSubstr("Non-string key encountered"));
-
-  result = JSONValue::ParseJSONString(
-      "+",
-      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
-  EXPECT_FALSE(result.ok());
-  EXPECT_THAT(result.status().message(),
-              ::testing::HasSubstr("Unknown token type"));
 }
 
 TEST(JSONValueTest, SerializePrimitiveValueToString) {
@@ -1274,8 +1180,7 @@ TEST(JSONValueTest, NormalizedEqualsArray) {
 }
 
 TEST(JSONValueTest, ParseWithNestingLimit) {
-  JSONParsingOptions options{.legacy_mode = false,
-                             .strict_number_parsing = false,
+  JSONParsingOptions options{.strict_number_parsing = false,
                              .max_nesting = std::nullopt};
   auto result = JSONValue::ParseJSONString("[10, 20]", options);
   ASSERT_TRUE(result.ok());

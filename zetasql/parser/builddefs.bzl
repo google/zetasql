@@ -17,7 +17,7 @@
 """ Macros for the creation of parser test targets """
 
 def gen_parser_test(filename):
-    """ Create an parser_test using queries in testdata/<filename>.  """
+    """ Create a parser_test using queries in testdata/<filename>.  """
     name = "parser_" + filename.replace(".", "_")
     datafile = "testdata/" + filename
     native.cc_test(

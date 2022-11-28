@@ -29,14 +29,19 @@
 
 #include "zetasql/common/multiprecision_int.h"
 
+#include <array>
 #include <cstdint>
 #include <functional>
+#include <ios>
 #include <limits>
 #include <optional>
+#include <ostream>
 #include <random>
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "zetasql/common/multiprecision_int_impl.h"
 #include "gmock/gmock.h"

@@ -2,11 +2,7 @@
 
 # Privileges
 
-ZetaSQL specifies the syntax for the privilege statements `GRANT` and
-`REVOKE`.
-
-Where possible, this topic provides a link to the engine-specific documentation
-for each statement.
+ZetaSQL supports statements for privileges.
 
 ## GRANT and REVOKE
 

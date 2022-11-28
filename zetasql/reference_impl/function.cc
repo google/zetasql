@@ -50,6 +50,7 @@
 #include "zetasql/proto/anon_output_with_report.pb.h"
 #include "zetasql/public/anonymization_utils.h"
 #include "zetasql/public/cast.h"
+#include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/collator.h"
 #include "zetasql/public/function.h"
@@ -590,6 +591,10 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kDouble, "double", "Double");
     RegisterFunction(FunctionKind::kBool, "bool", "Bool");
     RegisterFunction(FunctionKind::kJsonType, "json_type", "JsonType");
+    RegisterFunction(FunctionKind::kLaxBool, "lax_bool", "LaxBool");
+    RegisterFunction(FunctionKind::kLaxInt64, "lax_int64", "LaxInt64");
+    RegisterFunction(FunctionKind::kLaxDouble, "lax_double", "LaxDouble");
+    RegisterFunction(FunctionKind::kLaxString, "lax_string", "LaxString");
     RegisterFunction(FunctionKind::kToJsonString, "to_json_string",
                      "ToJsonString");
     RegisterFunction(FunctionKind::kParseJson, "parse_json", "ParseJson");
@@ -1866,6 +1871,11 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kDouble:
     case FunctionKind::kBool:
       return new ConvertJsonFunction(kind, output_type);
+    case FunctionKind::kLaxBool:
+    case FunctionKind::kLaxInt64:
+    case FunctionKind::kLaxDouble:
+    case FunctionKind::kLaxString:
+      return new ConvertJsonLaxFunction(kind, output_type);
     case FunctionKind::kJsonType:
       return new TypeFunction(kind, output_type);
     case FunctionKind::kArrayConcat:
@@ -3048,6 +3058,7 @@ bool ComparisonFunction::Eval(absl::Span<const TupleData* const> params,
     case FCT2(FunctionKind::kLessOrEqual, TYPE_ENUM, TYPE_ENUM):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_NUMERIC, TYPE_NUMERIC):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+    case FCT2(FunctionKind::kLessOrEqual, TYPE_RANGE, TYPE_RANGE):
       *result = Value::Bool(x.LessThan(y) || x.Equals(y));
       return true;
 
@@ -4373,6 +4384,22 @@ absl::StatusOr<Value> CastFunction::Eval(
         type_params_, context->GetLanguageOptions().product_mode(),
         casted_value));
     return casted_value;
+  }
+  // Provide more helpful error message in the case of cast from string to enum.
+  if (!status_or.ok() && !v.is_null() && output_type()->IsEnum() &&
+      v.type()->IsString()) {
+    std::string suggestion =
+        SuggestEnumValue(output_type()->AsEnum(), v.string_value());
+
+    if (!suggestion.empty()) {
+      zetasql_base::StatusBuilder builder(status_or.status());
+      builder << "Did you mean '" << suggestion << "'?";
+      if (zetasql_base::CaseEqual(suggestion, v.string_value())) {
+        // If the actual value only differs by case, add a reminder.
+        builder << " (Note: ENUM values are case sensitive)";
+      }
+      return builder;
+    }
   }
   return status_or;
 }
@@ -8347,8 +8374,7 @@ absl::StatusOr<Value> StringConversionFunction::Eval(
           JSONValueConstRef json_value_const_ref,
           GetJSONValueConstRef(
               args[0],
-              JSONParsingOptions{.legacy_mode = false,
-                                 .strict_number_parsing =
+              JSONParsingOptions{.strict_number_parsing =
                                      language_options.LanguageFeatureEnabled(
                                          FEATURE_JSON_STRICT_NUMBER_PARSING)},
               json_storage));
@@ -9933,7 +9959,6 @@ absl::StatusOr<Value> TypeFunction::Eval(
   JSONValue json_storage;
   LanguageOptions language_options = context->GetLanguageOptions();
   JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .legacy_mode = false,
       .strict_number_parsing = language_options.LanguageFeatureEnabled(
           FEATURE_JSON_STRICT_NUMBER_PARSING)};
   ZETASQL_ASSIGN_OR_RETURN(
@@ -9954,7 +9979,6 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
   JSONValue json_storage;
   LanguageOptions language_options = context->GetLanguageOptions();
   JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .legacy_mode = false,
       .strict_number_parsing = language_options.LanguageFeatureEnabled(
           FEATURE_JSON_STRICT_NUMBER_PARSING)};
   switch (kind()) {
@@ -10005,6 +10029,47 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
   }
 }
 
+absl::StatusOr<Value> ConvertJsonLaxFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  JSONValue json_storage;
+  JSONParsingOptions json_parsing_options = JSONParsingOptions{
+      .strict_number_parsing =
+          context->GetLanguageOptions().LanguageFeatureEnabled(
+              FEATURE_JSON_STRICT_NUMBER_PARSING)};
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValueConstRef json_value_const_ref,
+      GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+  switch (kind()) {
+    case FunctionKind::kLaxBool: {
+      ZETASQL_ASSIGN_OR_RETURN(bool output,
+                       functions::LaxConvertJsonToBool(json_value_const_ref));
+      return Value::Bool(output);
+    }
+    case FunctionKind::kLaxInt64: {
+      ZETASQL_ASSIGN_OR_RETURN(int64_t output,
+                       functions::LaxConvertJsonToInt64(json_value_const_ref));
+      return Value::Int64(output);
+    }
+    case FunctionKind::kLaxDouble: {
+      ZETASQL_ASSIGN_OR_RETURN(double output, functions::LaxConvertJsonToFloat64(
+                                          json_value_const_ref));
+      return Value::Double(output);
+    }
+    case FunctionKind::kLaxString: {
+      ZETASQL_ASSIGN_OR_RETURN(std::string output,
+                       functions::LaxConvertJsonToString(json_value_const_ref));
+      return Value::String(output);
+    }
+    default:
+      return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
+  }
+}
+
 absl::StatusOr<Value> DateTimeBucketFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
@@ -10014,12 +10079,14 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
     return Value::Null(output_type());
   }
 
-  constexpr absl::CivilSecond kDefaultOrigin(1950, 1, 1, 0, 0, 0);
-  switch (args[0].type_kind()) {
-    case TYPE_TIMESTAMP: {
+  static constexpr absl::CivilSecond kDefaultOrigin(1950, 1, 1, 0, 0, 0);
+  switch (FCT(kind(), args[0].type_kind())) {
+    case FCT(FunctionKind::kTimestampBucket, TYPE_TIMESTAMP):
+    case FCT(FunctionKind::kDateTimeBucket, TYPE_TIMESTAMP):
+    case FCT(FunctionKind::kDateBucket, TYPE_TIMESTAMP): {
       ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
       ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[1], context));
-      absl::Time timestamp;
+      absl::Time result;
       absl::Time origin;
       if (args.size() == 3) {
         ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2], context));
@@ -10030,8 +10097,46 @@ absl::StatusOr<Value> DateTimeBucketFunction::Eval(
       ZETASQL_RETURN_IF_ERROR(functions::TimestampBucket(
           args[0].ToTime(), args[1].interval_value(), origin,
           context->GetDefaultTimeZone(),
-          GetTimestampScale(context->GetLanguageOptions()), &timestamp));
-      return Value::Timestamp(timestamp);
+          GetTimestampScale(context->GetLanguageOptions()), &result));
+      return Value::Timestamp(result);
+    }
+    case FCT(FunctionKind::kTimestampBucket, TYPE_DATETIME):
+    case FCT(FunctionKind::kDateTimeBucket, TYPE_DATETIME):
+    case FCT(FunctionKind::kDateBucket, TYPE_DATETIME): {
+      static constexpr absl::CivilSecond kDefaultOrigin(1950, 1, 1, 0, 0, 0);
+      ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
+      ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[1], context));
+      DatetimeValue result;
+      DatetimeValue origin;
+      if (args.size() == 3) {
+        ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2], context));
+        origin = args[2].datetime_value();
+      } else {
+        origin = DatetimeValue::FromCivilSecondAndMicros(kDefaultOrigin, 0);
+      }
+      ZETASQL_RETURN_IF_ERROR(functions::DatetimeBucket(
+          args[0].datetime_value(), args[1].interval_value(), origin,
+          GetTimestampScale(context->GetLanguageOptions()), &result));
+      return Value::Datetime(result);
+    }
+    case FCT(FunctionKind::kTimestampBucket, TYPE_DATE):
+    case FCT(FunctionKind::kDateTimeBucket, TYPE_DATE):
+    case FCT(FunctionKind::kDateBucket, TYPE_DATE): {
+      static constexpr absl::CivilDay kDefaultOrigin(1950, 1, 1);
+      ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[0], context));
+      ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[1], context));
+      int32_t result;
+      int32_t origin;
+      if (args.size() == 3) {
+        ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(args[2], context));
+        origin = args[2].date_value();
+      } else {
+        ZETASQL_ASSIGN_OR_RETURN(origin,
+                         functions::ConvertCivilDayToDate(kDefaultOrigin));
+      }
+      ZETASQL_RETURN_IF_ERROR(functions::DateBucket(
+          args[0].date_value(), args[1].interval_value(), origin, &result));
+      return Value::Date(result);
     }
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder()

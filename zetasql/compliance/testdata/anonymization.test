@@ -429,7 +429,7 @@ ARRAY<STRUCT<x INT64, INT64>>[{1, 10}, {2, 10}, {3, 10}]
 # Similar to the previous query, each user has data for all of the 3 groups.
 # Kappa is 2, so each user can only contribute to 2 groups.  The groups that
 # the user contributes to can vary from one execution of the query to the
-# next, so to get a determinstic result we perform a total aggregation
+# next, so to get a deterministic result we perform a total aggregation
 # across all groups to verify that each user contributes to exactly 2
 # groups.  So the expected final result is 20 (10 users, 2 groups each).
 [name=anonymization_kappa_group_by_2]
@@ -461,6 +461,21 @@ FROM (
 ARRAY<STRUCT<INT64>>[{10}]
 ==
 
+# Same as the previous query, but using max_groups_contributed as a synonym for
+# kappa.
+[name=anonymization_max_groups_contributed_group_by_1]
+[labels=anonymization]
+SELECT SUM(anon_count_star)
+FROM (
+  SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1, max_groups_contributed=1)
+    x, ANON_COUNT(*) as anon_count_star
+  FROM TestTableWithUid
+    CROSS JOIN
+       UNNEST([1,2,3]) as x
+  GROUP BY x);
+--
+ARRAY<STRUCT<INT64>>[{10}]
+==
 # The number of rows per user is less than 5 in TestTableWithUid2, so the result
 # won't be random.
 [name=anonymization_basic_anon_var_pop_implicit_bounds]
@@ -942,6 +957,21 @@ FROM (
 ARRAY<STRUCT<INT64>>[{10}]
 ==
 
+# Same as the previous query, but using max_groups_contributed as a synonym for
+# kappa.
+[name=anonymization_max_groups_contributed_group_by_1_with_delta]
+[labels=anonymization]
+SELECT SUM(anon_count_star)
+FROM (
+  SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0, max_groups_contributed=1)
+    x, ANON_COUNT(*) as anon_count_star
+  FROM TestTableWithUid
+    CROSS JOIN
+       UNNEST([1,2,3]) as x
+  GROUP BY x);
+--
+ARRAY<STRUCT<INT64>>[{10}]
+==
 # The number of rows per user is less than 5 in TestTableWithUid2, so the result
 # won't be random.
 [name=anonymization_basic_anon_var_pop_implicit_bounds_with_delta]

@@ -167,4 +167,15 @@ bool Collation::HasCompatibleStructure(const Type* type) const {
   return false;
 }
 
+absl::StatusOr<bool> Collation::EqualsCollationAnnotation(
+    const AnnotationMap* annotation_map) const {
+  if (annotation_map == nullptr) {
+    return Empty();
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(Collation collation_from_annotation_map,
+                   Collation::MakeCollation(*annotation_map));
+  return Equals(collation_from_annotation_map);
+}
+
 }  // namespace zetasql

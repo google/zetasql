@@ -41,6 +41,8 @@ void ZetaSQLTypesTest::SetUp() {
 
   enum_value = Value::Enum(GetTestEnumType(), 1);
   enum_null = Value::Null(GetTestEnumType());
+  opaque_enum_value = Value::Enum(GetTestEnumAsOpaqueType(), 1);
+  opaque_enum_null = Value::Null(GetTestEnumAsOpaqueType());
   proto_value = Value::Proto(GetKitchenSinkNestedProtoType(), absl::Cord("1"));
   proto_null = Value::Null(GetKitchenSinkNestedProtoType());
   array_int32_value = Value::EmptyArray(GetInt32ArrayType());
@@ -84,6 +86,16 @@ void ZetaSQLTypesTest::SetUp() {
       GetTestEnumType(), true /* is_parameter */);
   enum_literal_arg = std::make_unique<InputArgumentType>(enum_value);
   enum_null_arg = std::make_unique<InputArgumentType>(enum_null);
+
+  opaque_enum_arg = std::make_unique<InputArgumentType>(
+      GetTestEnumAsOpaqueType(), false /* is_parameter */);
+  opaque_enum_parameter_arg = std::make_unique<InputArgumentType>(
+      GetTestEnumAsOpaqueType(), true /* is_parameter */);
+  opaque_enum_literal_arg =
+      std::make_unique<InputArgumentType>(opaque_enum_value);
+  opaque_enum_null_arg = std::make_unique<InputArgumentType>(opaque_enum_null);
+  opaque_enum_arg = std::make_unique<InputArgumentType>(
+      GetTestEnumAsOpaqueType(), false /* is_parameter */);
 
   proto_arg = std::make_unique<InputArgumentType>(
       GetKitchenSinkNestedProtoType(), false /* is_parameter */);
@@ -151,6 +163,7 @@ void ZetaSQLTypesTest::SetUp() {
   zetasql_base::InsertOrDie(&null_of_type_, TIMESTAMP.type(), &TIMESTAMP_NULL);
   zetasql_base::InsertOrDie(&null_of_type_, GEOGRAPHY.type(), &GEOGRAPHY_NULL);
   zetasql_base::InsertOrDie(&null_of_type_, ENUM.type(), &ENUM_NULL);
+  zetasql_base::InsertOrDie(&null_of_type_, OPAQUE_ENUM.type(), &OPAQUE_ENUM_NULL);
   zetasql_base::InsertOrDie(&null_of_type_, PROTO.type(), &PROTO_NULL);
   zetasql_base::InsertOrDie(&null_of_type_, ARRAY_INT32.type(), &ARRAY_INT32_NULL);
   zetasql_base::InsertOrDie(&null_of_type_, ARRAY_INT64.type(), &ARRAY_INT64_NULL);
@@ -173,6 +186,7 @@ void ZetaSQLTypesTest::SetUp() {
   zetasql_base::InsertOrDie(&literal_of_type_, DATETIME.type(), &DATETIME_LITERAL);
   zetasql_base::InsertOrDie(&literal_of_type_, TIMESTAMP.type(), &TIMESTAMP_LITERAL);
   zetasql_base::InsertOrDie(&literal_of_type_, ENUM.type(), &ENUM_LITERAL);
+  zetasql_base::InsertOrDie(&literal_of_type_, OPAQUE_ENUM.type(), &OPAQUE_ENUM_LITERAL);
   zetasql_base::InsertOrDie(&literal_of_type_, PROTO.type(), &PROTO_LITERAL);
   zetasql_base::InsertOrDie(&literal_of_type_, ARRAY_INT32.type(), &ARRAY_INT32_LITERAL);
   zetasql_base::InsertOrDie(&literal_of_type_, ARRAY_INT64.type(), &ARRAY_INT64_LITERAL);
@@ -197,6 +211,8 @@ void ZetaSQLTypesTest::SetUp() {
   zetasql_base::InsertOrDie(&parameter_of_type_, DATETIME.type(), &DATETIME_PARAMETER);
   zetasql_base::InsertOrDie(&parameter_of_type_, TIMESTAMP.type(), &TIMESTAMP_PARAMETER);
   zetasql_base::InsertOrDie(&parameter_of_type_, ENUM.type(), &ENUM_PARAMETER);
+  zetasql_base::InsertOrDie(&parameter_of_type_, OPAQUE_ENUM.type(),
+                   &OPAQUE_ENUM_PARAMETER);
   zetasql_base::InsertOrDie(&parameter_of_type_, PROTO.type(), &PROTO_PARAMETER);
   zetasql_base::InsertOrDie(&parameter_of_type_, ARRAY_INT32.type(),
                    &ARRAY_INT32_PARAMETER);
@@ -207,36 +223,38 @@ void ZetaSQLTypesTest::SetUp() {
   zetasql_base::InsertOrDie(&parameter_of_type_, STRUCT.type(), &STRUCT_PARAMETER);
 
   all_non_literal_args_ = {
-      &BOOL,        &INT32,        &INT64,      &UINT32, &UINT64, &FLOAT,
-      &DOUBLE,      &NUMERIC,      &BIGNUMERIC, &STRING, &BYTES,  &DATE,
-      &TIME,        &DATETIME,     &TIMESTAMP,  &ENUM,   &PROTO,  &ARRAY_INT32,
-      &ARRAY_INT64, &ARRAY_STRUCT, &STRUCT};
+      &BOOL,        &INT32,       &INT64,        &UINT32, &UINT64,      &FLOAT,
+      &DOUBLE,      &NUMERIC,     &BIGNUMERIC,   &STRING, &BYTES,       &DATE,
+      &TIME,        &DATETIME,    &TIMESTAMP,    &ENUM,   &OPAQUE_ENUM, &PROTO,
+      &ARRAY_INT32, &ARRAY_INT64, &ARRAY_STRUCT, &STRUCT};
 
   all_literal_args_ = {
-      &BOOL_LITERAL,        &INT32_LITERAL,        &INT64_LITERAL,
-      &UINT32_LITERAL,      &UINT64_LITERAL,       &FLOAT_LITERAL,
-      &DOUBLE_LITERAL,      &NUMERIC_LITERAL,      &BIGNUMERIC_LITERAL,
-      &STRING_LITERAL,      &BYTES_LITERAL,        &DATE_LITERAL,
-      &TIME_LITERAL,        &DATETIME_LITERAL,     &TIMESTAMP_LITERAL,
-      &ENUM_LITERAL,        &PROTO_LITERAL,        &ARRAY_INT32_LITERAL,
-      &ARRAY_INT64_LITERAL, &ARRAY_STRUCT_LITERAL, &STRUCT_LITERAL};
+      &BOOL_LITERAL,        &INT32_LITERAL,       &INT64_LITERAL,
+      &UINT32_LITERAL,      &UINT64_LITERAL,      &FLOAT_LITERAL,
+      &DOUBLE_LITERAL,      &NUMERIC_LITERAL,     &BIGNUMERIC_LITERAL,
+      &STRING_LITERAL,      &BYTES_LITERAL,       &DATE_LITERAL,
+      &TIME_LITERAL,        &DATETIME_LITERAL,    &TIMESTAMP_LITERAL,
+      &ENUM_LITERAL,        &OPAQUE_ENUM_LITERAL, &PROTO_LITERAL,
+      &ARRAY_INT32_LITERAL, &ARRAY_INT64_LITERAL, &ARRAY_STRUCT_LITERAL,
+      &STRUCT_LITERAL};
 
   all_parameter_args_ = {
-      &BOOL_PARAMETER,        &INT32_PARAMETER,        &INT64_PARAMETER,
-      &UINT32_PARAMETER,      &UINT64_PARAMETER,       &FLOAT_PARAMETER,
-      &DOUBLE_PARAMETER,      &NUMERIC_PARAMETER,      &BIGNUMERIC_PARAMETER,
-      &STRING_PARAMETER,      &BYTES_PARAMETER,        &DATE_PARAMETER,
-      &TIME_PARAMETER,        &DATETIME_PARAMETER,     &TIMESTAMP_PARAMETER,
-      &ENUM_PARAMETER,        &PROTO_PARAMETER,        &ARRAY_INT32_PARAMETER,
-      &ARRAY_INT64_PARAMETER, &ARRAY_STRUCT_PARAMETER, &STRUCT_PARAMETER};
+      &BOOL_PARAMETER,        &INT32_PARAMETER,       &INT64_PARAMETER,
+      &UINT32_PARAMETER,      &UINT64_PARAMETER,      &FLOAT_PARAMETER,
+      &DOUBLE_PARAMETER,      &NUMERIC_PARAMETER,     &BIGNUMERIC_PARAMETER,
+      &STRING_PARAMETER,      &BYTES_PARAMETER,       &DATE_PARAMETER,
+      &TIME_PARAMETER,        &DATETIME_PARAMETER,    &TIMESTAMP_PARAMETER,
+      &ENUM_PARAMETER,        &OPAQUE_ENUM_PARAMETER, &PROTO_PARAMETER,
+      &ARRAY_INT32_PARAMETER, &ARRAY_INT64_PARAMETER, &ARRAY_STRUCT_PARAMETER,
+      &STRUCT_PARAMETER};
 
   all_null_args_ = {
-      &BOOL_NULL,         &INT32_NULL,    &INT64_NULL,       &UINT32_NULL,
-      &UINT64_NULL,       &FLOAT_NULL,    &DOUBLE_NULL,      &NUMERIC_NULL,
-      &BIGNUMERIC_NULL,   &STRING_NULL,   &BYTES_NULL,       &DATE_NULL,
-      &TIME_NULL,         &DATETIME_NULL, &TIMESTAMP_NULL,   &GEOGRAPHY_NULL,
-      &ENUM_NULL,         &PROTO_NULL,    &ARRAY_INT32_NULL, &ARRAY_INT64_NULL,
-      &ARRAY_STRUCT_NULL, &STRUCT_NULL,   &UNTYPED_NULL};
+      &BOOL_NULL,        &INT32_NULL,        &INT64_NULL,     &UINT32_NULL,
+      &UINT64_NULL,      &FLOAT_NULL,        &DOUBLE_NULL,    &NUMERIC_NULL,
+      &BIGNUMERIC_NULL,  &STRING_NULL,       &BYTES_NULL,     &DATE_NULL,
+      &TIME_NULL,        &DATETIME_NULL,     &TIMESTAMP_NULL, &GEOGRAPHY_NULL,
+      &ENUM_NULL,        &OPAQUE_ENUM_NULL,  &PROTO_NULL,     &ARRAY_INT32_NULL,
+      &ARRAY_INT64_NULL, &ARRAY_STRUCT_NULL, &STRUCT_NULL,    &UNTYPED_NULL};
 
   all_literal_and_null_args_ = all_literal_args_;
   all_literal_and_null_args_.insert(all_literal_and_null_args_.end(),
@@ -263,6 +281,7 @@ void ZetaSQLTypesTest::SetUp() {
                 ARRAY_INT64.type(),
                 ARRAY_STRUCT.type(),
                 GetTestEnumType(),
+                GetTestEnumAsOpaqueType(),
                 GetAnotherTestEnumType(),
                 GetKitchenSinkNestedProtoType(),
                 GetKitchenSinkNestedDatesProtoType(),
@@ -300,6 +319,16 @@ const EnumType* ZetaSQLTypesTest::GetTestEnumType() {
     ZETASQL_CHECK_OK(type_factory_.MakeEnumType(enum_descriptor, &enum_type_));
   }
   return enum_type_;
+}
+
+const EnumType* ZetaSQLTypesTest::GetTestEnumAsOpaqueType() {
+  if (enum_as_opaque_type_ == nullptr) {
+    const google::protobuf::EnumDescriptor* enum_descriptor =
+        zetasql_test__::TestEnum_descriptor();
+    ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(
+        &type_factory_, enum_descriptor, &enum_as_opaque_type_, {}));
+  }
+  return enum_as_opaque_type_;
 }
 
 const EnumType* ZetaSQLTypesTest::GetAnotherTestEnumType() {
@@ -346,6 +375,7 @@ void ZetaSQLTypesTest::GetSampleTestTypes(
   sample_types->push_back(GetInt32ArrayType());
   sample_types->push_back(GetStructArrayType());
   sample_types->push_back(GetTestEnumType());
+  sample_types->push_back(GetTestEnumAsOpaqueType());
   sample_types->push_back(GetAnotherTestEnumType());
   sample_types->push_back(GetKitchenSinkNestedProtoType());
   sample_types->push_back(GetKitchenSinkNestedDatesProtoType());

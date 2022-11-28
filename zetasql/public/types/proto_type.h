@@ -223,9 +223,6 @@ class ProtoType : public Type {
   // Returns true if <message> is annotated with zetasql.is_struct=true.
   static bool GetIsStructAnnotation(const google::protobuf::Descriptor* message);
 
-  // Returns true if <message> is annotated with zetasql.is_range=true.
-  static bool GetIsRangeAnnotation(const google::protobuf::Descriptor* message);
-
   // Get the struct field name from a FieldDescriptor.
   static bool HasStructFieldName(const google::protobuf::FieldDescriptor* field);
   static const std::string& GetStructFieldName(
@@ -480,17 +477,16 @@ absl::Status ProtoType::ValidateTypeAnnotations(
         break;
       case google::protobuf::FieldDescriptor::TYPE_BYTES:
         {
-        if (field_format != FieldFormat::ST_GEOGRAPHY_ENCODED &&
-            field_format != FieldFormat::NUMERIC &&
-            field_format != FieldFormat::BIGNUMERIC &&
-            field_format != FieldFormat::INTERVAL) {
-          return MakeSqlError()
-                 << "Proto " << field->containing_type()->full_name()
-                 << " has invalid zetasql.format for BYTES field: "
-                 << field->DebugString();
-        }
-        }
-        break;
+          if (field_format != FieldFormat::ST_GEOGRAPHY_ENCODED &&
+              field_format != FieldFormat::NUMERIC &&
+              field_format != FieldFormat::BIGNUMERIC &&
+              field_format != FieldFormat::INTERVAL) {
+            return MakeSqlError()
+                   << "Proto " << field->containing_type()->full_name()
+                   << " has invalid zetasql.format for BYTES field: "
+                   << field->DebugString();
+          }
+      } break;
       case google::protobuf::FieldDescriptor::TYPE_STRING:
         {
         if (field_format != FieldFormat::JSON) {

@@ -250,3 +250,27 @@ select nested_function(1) from KeyValue
 ERROR: Function not found: nested_function; Did you mean test_function? [at 1:8]
 select nested_function(1) from KeyValue
        ^
+==
+
+############################
+# Enum Value Suggestions (Only works with coercion)
+#
+select '' = cast('TESTENUM1' as zetasql_test__.TestEnum)
+--
+ERROR: Could not cast literal "" to type zetasql_test__.TestEnum [at 1:8]
+select '' = cast('TESTENUM1' as zetasql_test__.TestEnum)
+       ^
+==
+
+select 'TESTENUM' = cast('TESTENUM1' as zetasql_test__.TestEnum)
+--
+ERROR: Could not cast literal "TESTENUM" to type zetasql_test__.TestEnum; Did you mean 'TESTENUM0'? [at 1:8]
+select 'TESTENUM' = cast('TESTENUM1' as zetasql_test__.TestEnum)
+       ^
+==
+
+select 'testenum0' = cast('TESTENUM1' as zetasql_test__.TestEnum)
+--
+ERROR: Could not cast literal "testenum0" to type zetasql_test__.TestEnum; Did you mean 'TESTENUM0'? (Note: ENUM values are case sensitive) [at 1:8]
+select 'testenum0' = cast('TESTENUM1' as zetasql_test__.TestEnum)
+       ^

@@ -113,8 +113,9 @@ class SqlViewInlineVistor : public ResolvedASTDeepCopyVisitor {
               *column_factory_, *view_def, scan->column_index_list(),
               CreateReplacementColumns(*column_factory_, scan->column_list())));
 
-      PushNodeToStack(MakeResolvedExecuteAsRoleScan(scan->column_list(),
-                                                    std::move(view_query)));
+      PushNodeToStack(MakeResolvedExecuteAsRoleScan(
+          scan->column_list(), std::move(view_query), scan->table(),
+          /*original_inlined_tvf=*/nullptr));
     } else {
       ZETASQL_ASSIGN_OR_RETURN(
           std::unique_ptr<ResolvedScan> view_query,

@@ -17,6 +17,7 @@
 #include "zetasql/public/sql_tvf.h"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "zetasql/common/errors.h"
@@ -66,6 +67,11 @@ absl::Status SQLTableValuedFunction::Resolve(
       concrete_signature.AdditionalDeprecationWarnings();
   tvf_signature->reset(
       new TVFSignature(actual_arguments, tvf_schema_, tvf_signature_options));
+  if (anonymization_info_ != nullptr) {
+    auto anonymization_info =
+        std::make_unique<AnonymizationInfo>(*anonymization_info_);
+    tvf_signature->get()->SetAnonymizationInfo(std::move(anonymization_info));
+  }
   return absl::OkStatus();
 }
 

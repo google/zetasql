@@ -172,8 +172,8 @@ class LanguageOptions {
   ProductMode product_mode() const { return product_mode_; }
 
   bool SupportsProtoTypes() const {
-    // Protos are unsupported in EXTERNAL mode.
-    return product_mode_ != ProductMode::PRODUCT_EXTERNAL;
+    return product_mode_ == ProductMode::PRODUCT_INTERNAL ||
+           LanguageFeatureEnabled(FEATURE_PROTO_BASE);
   }
 
   void set_error_on_deprecated_syntax(bool value) {

@@ -423,7 +423,8 @@ class SimpleCatalog : public EnumerableCatalog {
 
  protected:
   absl::Status DeserializeImpl(const SimpleCatalogProto& proto,
-                               const TypeDeserializer& type_deserializer);
+                               const TypeDeserializer& type_deserializer,
+                               SimpleCatalog* catalog);
 
  private:
   friend class SimpleCatalogTestFriend;
@@ -725,19 +726,6 @@ class SimpleTable : public Table {
   // Deserializes SimpleTable from proto using TypeDeserializer.
   static absl::StatusOr<std::unique_ptr<SimpleTable>> Deserialize(
       const SimpleTableProto& proto, const TypeDeserializer& deserializer);
-
-  // Deserialize SimpleTable from proto. Types will be deserialized using
-  // the given TypeFactory and Descriptors from the given DescriptorPools.
-  // The DescriptorPools should have been created by type serialization for
-  // columns, and all proto type are treated as references into these pools.
-  // The TypeFactory and the DescriptorPools must both outlive the result
-  // SimpleTable.
-  ABSL_DEPRECATED("Inline me!")
-  static absl::Status Deserialize(
-      const SimpleTableProto& proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      TypeFactory* factory,
-      std::unique_ptr<SimpleTable>* result);
 
  protected:
   // Returns the current contents (passed to the last call to SetContents()) in
@@ -1053,7 +1041,7 @@ class SimpleConstant : public Constant {
                              const Value& value,
                              std::unique_ptr<SimpleConstant>* simple_constant);
 
-  ~SimpleConstant() override {}
+  ~SimpleConstant() override = default;
 
   // This class is neither copyable nor assignable.
   SimpleConstant(const SimpleConstant& other_simple_constant) = delete;
@@ -1081,6 +1069,8 @@ class SimpleConstant : public Constant {
   std::string DebugString() const override;
   // Same as the previous, but includes the Type debug string.
   std::string VerboseDebugString() const;
+
+  std::string ConstantValueDebugString() const override;
 
  private:
   SimpleConstant(std::vector<std::string> name_path, Value value)

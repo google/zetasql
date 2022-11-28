@@ -237,10 +237,9 @@ bool EnumType::EqualsImpl(const EnumType* const type1,
 }
 
 bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
-  // Enums are generally unsupported in EXTERNAL mode, except for builtin enums
-  // such as the DateTimestampPart enum that is used in many of the date/time
-  // related functions.
-  //
+  if (language_options.LanguageFeatureEnabled(FEATURE_PROTO_BASE)) {
+    return true;
+  }
   if (language_options.product_mode() == ProductMode::PRODUCT_EXTERNAL &&
       !Equivalent(types::DatePartEnumType()) &&
       !Equivalent(types::NormalizeModeEnumType()) &&

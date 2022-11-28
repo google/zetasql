@@ -64,7 +64,6 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
-#include "zetasql/base/simple_reference_counted.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -721,8 +720,7 @@ Value Value::SqlEquals(const Value& that) const {
       return values::True();
     }
     case TYPE_KIND_PAIR(TYPE_RANGE, TYPE_RANGE):
-      return Value::Bool(start().SqlEquals(that.start()).bool_value() &&
-                         end().SqlEquals(that.end()).bool_value());
+      return Value::Bool(Equals(that));
     default:
       return Value();
   }

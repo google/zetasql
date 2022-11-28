@@ -2,8 +2,8 @@
 
 # Navigation functions
 
-The following sections describe the navigation functions that ZetaSQL
-supports. Navigation functions are a subset window functions. To create a
+ZetaSQL supports navigation functions.
+Navigation functions are a subset window functions. To create a
 window function call and learn about the syntax for window functions,
 see [Window function_calls][window-function-calls].
 
@@ -665,6 +665,9 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`PERCENTILE_CONT` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][anonymization-functions].
+
 **Supported Argument Types**
 
 + `value_expression` and `percentile` must have one of the following types:
@@ -731,6 +734,8 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 | NULL | 0           | 1      | 2.6          | 3   |
 +------+-------------+--------+--------------+-----+
 ```
+
+[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 ### PERCENTILE_DISC
 

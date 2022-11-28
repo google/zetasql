@@ -103,9 +103,12 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
+        "//zetasql/base:strings",
+        "//zetasql/public/types",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
@@ -248,6 +251,11 @@ cc_library(
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/status",
     ],
+)
+
+cc_library(
+    name = "select_with_mode",
+    hdrs = ["select_with_mode.h"],
 )
 
 cc_test(
@@ -463,10 +471,7 @@ cc_library(
     deps = [
         ":numeric_parser",
         "//zetasql/base",
-        "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/common:errors",
-        "//zetasql/common:json_parser",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -567,8 +572,8 @@ cc_library(
         ":value_cc_proto",
         ":value_content",
         "//zetasql/base",
+        "//zetasql/base:compact_reference_counted",
         "//zetasql/base:map_util",
-        "//zetasql/base:refcount",
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
@@ -598,6 +603,7 @@ cc_library(
         "@com_google_absl//absl/types:span",
         "@com_google_absl//absl/types:variant",
         "@com_google_protobuf//:protobuf",
+        "@com_google_protobuf//:protobuf_lite",
     ],
 )
 
@@ -637,6 +643,7 @@ cc_test(
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
+        "@com_google_protobuf//:protobuf_lite",
     ],
 )
 
@@ -1764,7 +1771,6 @@ cc_library(
         ":options_cc_proto",
         ":parse_helpers",
         ":parse_resume_location",
-        ":templated_sql_tvf",
         ":type",
         ":type_cc_proto",
         ":value",
@@ -2112,6 +2118,7 @@ cc_test(
     deps = [
         ":analyzer",
         ":options_cc_proto",
+        ":parse_resume_location",
         ":simple_catalog",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",

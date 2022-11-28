@@ -12,7 +12,7 @@ BIT_CAST_TO_INT32(value)
 
 **Description**
 
-ZetaSQL supports bit casting to INT32. A bit
+ZetaSQL supports bit casting to `INT32`. A bit
 cast is a cast in which the order of bits is preserved instead of the value
 those bytes represent.
 
@@ -23,7 +23,7 @@ The `value` parameter can represent:
 
 **Return Data Type**
 
-INT32
+`INT32`
 
 **Examples**
 
@@ -45,7 +45,7 @@ BIT_CAST_TO_INT64(value)
 
 **Description**
 
-ZetaSQL supports bit casting to INT64. A bit
+ZetaSQL supports bit casting to `INT64`. A bit
 cast is a cast in which the order of bits is preserved instead of the value
 those bytes represent.
 
@@ -56,7 +56,7 @@ The `value` parameter can represent:
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -78,7 +78,7 @@ BIT_CAST_TO_UINT32(value)
 
 **Description**
 
-ZetaSQL supports bit casting to UINT32. A bit
+ZetaSQL supports bit casting to `UINT32`. A bit
 cast is a cast in which the order of bits is preserved instead of the value
 those bytes represent.
 
@@ -89,7 +89,7 @@ The `value` parameter can represent:
 
 **Return Data Type**
 
-UINT32
+`UINT32`
 
 **Examples**
 
@@ -111,7 +111,7 @@ BIT_CAST_TO_UINT64(value)
 
 **Description**
 
-ZetaSQL supports bit casting to UINT64. A bit
+ZetaSQL supports bit casting to `UINT64`. A bit
 cast is a cast in which the order of bits is preserved instead of the value
 those bytes represent.
 
@@ -122,7 +122,7 @@ The `value` parameter can represent:
 
 **Return Data Type**
 
-UINT64
+`UINT64`
 
 **Example**
 
@@ -137,21 +137,22 @@ SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
 ```
 
 ### BIT_COUNT
-```
+
+```sql
 BIT_COUNT(expression)
 ```
 
 **Description**
 
 The input, `expression`, must be an
-integer or BYTES.
+integer or `BYTES`.
 
 Returns the number of bits that are set in the input `expression`.
 For signed integers, this is the number of bits in two's complement form.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -177,8 +178,4 @@ FROM UNNEST([
 | NULL  | NULL   | b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" | 80     |
 +-------+--------+---------------------------------------------+--------+
 ```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-<!-- mdlint on -->
 

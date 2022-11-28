@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_TYPES_CONTAINER_TYPE_H_
 #define ZETASQL_PUBLIC_TYPES_CONTAINER_TYPE_H_
 
+#include <optional>
 #include <string>
 
 #include "zetasql/public/types/type.h"

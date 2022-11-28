@@ -104,9 +104,13 @@ static std::string GetExtractFunctionSignatureString(
     //
     // ZETASQL_DCHECK validated - given the non-standard function call syntax for
     // EXTRACT, the parser enforces 2 or 3 arguments in the language.
-    ZETASQL_DCHECK(arguments.size() == 2 || arguments.size() == 3) << arguments.size();
+    if (arguments.size() != 2 && arguments.size() != 3) {
+      return absl::StrCat("Expected 2 or 3 arguments to EXTRACT, but found ",
+                          arguments.size());
+    }
     // Expected invariant - the 1th argument is the date part argument.
     ZETASQL_DCHECK(arguments[1].type()->Equivalent(types::DatePartEnumType()));
+
     datepart_string = arguments[1].UserFacingName(product_mode);
     if (arguments.size() == 3) {
       timezone_string = arguments[2].UserFacingName(product_mode);
@@ -871,6 +875,8 @@ void GetDatetimeBucketFunctions(TypeFactory* type_factory,
     return;
   }
   const Type* timestamp_type = type_factory->get_timestamp();
+  const Type* datetime_type = type_factory->get_datetime();
+  const Type* date_type = type_factory->get_date();
   const Type* interval_type = type_factory->get_interval();
 
   const Function::Mode SCALAR = Function::SCALAR;
@@ -887,6 +893,13 @@ void GetDatetimeBucketFunctions(TypeFactory* type_factory,
   InsertFunction(
       functions, options, "date_bucket", SCALAR,
       {
+          {date_type,
+           {date_type, interval_type, {date_type, OPTIONAL}},
+           FN_DATE_BUCKET},
+          {datetime_type,
+           {datetime_type, interval_type, {datetime_type, OPTIONAL}},
+           FN_DATETIME_BUCKET,
+           extended_datetime_signatures},
           {timestamp_type,
            {timestamp_type, interval_type, {timestamp_type, OPTIONAL}},
            FN_TIMESTAMP_BUCKET,
@@ -896,6 +909,13 @@ void GetDatetimeBucketFunctions(TypeFactory* type_factory,
   InsertFunction(
       functions, options, "datetime_bucket", SCALAR,
       {
+          {datetime_type,
+           {datetime_type, interval_type, {datetime_type, OPTIONAL}},
+           FN_DATETIME_BUCKET},
+          {date_type,
+           {date_type, interval_type, {date_type, OPTIONAL}},
+           FN_DATE_BUCKET,
+           extended_datetime_signatures},
           {timestamp_type,
            {timestamp_type, interval_type, {timestamp_type, OPTIONAL}},
            FN_TIMESTAMP_BUCKET,

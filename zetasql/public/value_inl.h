@@ -51,7 +51,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
-#include "zetasql/base/simple_reference_counted.h"
+#include "zetasql/base/compact_reference_counted.h"
 
 namespace zetasql {
 
@@ -821,6 +821,10 @@ inline Value Bytes(const absl::Cord& v) { return Value::Bytes(v); }
 template <size_t N>
 inline Value Bytes(const char (&str)[N]) { return Value::Bytes(str); }
 inline Value Date(int32_t v) { return Value::Date(v); }
+inline Value Date(absl::CivilDay day) {
+  static constexpr absl::CivilDay kEpochDay = absl::CivilDay(1970, 1, 1);
+  return Value::Date(static_cast<int32_t>(day - kEpochDay));
+}
 inline Value Timestamp(absl::Time time) { return Value::Timestamp(time); }
 inline Value TimestampFromUnixMicros(int64_t v) {
   return Value::TimestampFromUnixMicros(v);

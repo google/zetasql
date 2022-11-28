@@ -73,6 +73,7 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
@@ -2215,6 +2216,9 @@ std::string SQLTestBase::ValueToSafeString(const Value& value) const {
     case TYPE_STRUCT:
     case TYPE_PROTO:
       return absl::StrCat("_", SignatureOfCompositeValue(value));
+    case TYPE_RANGE:
+      return absl::StrFormat("_%s_%s", ValueToSafeString(value.start()),
+                             ValueToSafeString(value.end()));
     default:
       // TODO: This debugstring needs to be escaped for regex unsafe
       //     characters. And probably spaces too?

@@ -205,7 +205,7 @@ public class LanguageOptionsTest {
         .isTrue();
 
     options.setLanguageVersion(LanguageVersion.VERSION_CURRENT);
-    assertThat(options.serialize().getEnabledLanguageFeaturesCount() > 0).isTrue();
+    assertThat(options.serialize().getEnabledLanguageFeaturesCount()).isGreaterThan(0);
 
     try {
       options.setLanguageVersion(LanguageVersion.__LanguageVersion__switch_must_have_a_default__);

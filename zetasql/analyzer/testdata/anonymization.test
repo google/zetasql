@@ -8349,3 +8349,31 @@ QueryStmt
 {
   TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
 }
+
+==
+
+# SELECT WITH custom identifier should return an error
+select with custom_identifier count(*);
+--
+
+ERROR: Invalid identifier after SELECT WITH; expected ANONYMIZATION but got: custom_identifier [at 1:13]
+select with custom_identifier count(*);
+            ^
+==
+
+# SELECT WITH invalid identifier after WITH should return an error
+select with sum(x);
+--
+ERROR: Invalid identifier after SELECT WITH; expected ANONYMIZATION but got: sum [at 1:13]
+select with sum(x);
+            ^
+==
+
+# SELECT WITH ANONYMIZATION should not work if the feature is disabled.
+[language_features=]
+select with anonymization count(*);
+--
+
+ERROR: Unexpected keyword WITH [at 1:8]
+select with anonymization count(*);
+       ^

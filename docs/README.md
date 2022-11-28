@@ -2,7 +2,8 @@
 
 # Reference
 
-The topics in this section provide the reference information you need to work with ZetaSQL:
+The topics in this section provide the reference information you need to work
+with ZetaSQL:
 
 * [Lexical Structure and Syntax](https://github.com/google/zetasql/blob/master/docs/lexical.md)
 * [Expressions, Functions, and Operators](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md)

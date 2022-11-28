@@ -29,6 +29,7 @@
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/status.h"
@@ -148,6 +149,7 @@ class ParserOutput {
       absl::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
                     std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
           node,
+      std::unique_ptr<std::vector<absl::Status>> warnings,
       ParserRuntimeInfo info = {});
   ParserOutput(const ParserOutput&) = delete;
   ParserOutput& operator=(const ParserOutput&) = delete;
@@ -186,6 +188,8 @@ class ParserOutput {
   // ParserOptions.
   const std::shared_ptr<zetasql_base::UnsafeArena>& arena() const { return arena_; }
 
+  const std::vector<absl::Status>& warnings() const { return *warnings_; }
+
   const ParserRuntimeInfo& runtime_info() const { return runtime_info_; }
 
  private:
@@ -206,6 +210,9 @@ class ParserOutput {
   absl::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
                 std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
       node_;
+
+  std::unique_ptr<std::vector<absl::Status>> warnings_;
+
   ParserRuntimeInfo runtime_info_;
 };
 

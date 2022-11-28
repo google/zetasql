@@ -437,6 +437,9 @@ class Coercer::Context : public Coercer::ContextBase {
   absl::StatusOr<bool> StructCoercesToProtoMapEntry(
       const StructType* from_struct, const ProtoType* to_type,
       SignatureMatchResult* result);
+
+  bool IsIntToOpaqueEnumInProductExternal(const Type* from_type,
+                                          const Type* to_type) const;
 };
 
 int GetLiteralCoercionCost(const Value& literal_value, const Type* to_type) {
@@ -1030,7 +1033,8 @@ absl::StatusOr<bool> Coercer::Context::ParameterCoercesTo(
       (SupportsParameterCoercion(property->type) ||
        (is_explicit() && SupportsExplicitCast(property->type))) &&
       (from_type->IsSimpleType() || to_type->IsSimpleType() ||
-       from_type->Equivalent(to_type))) {
+       from_type->Equivalent(to_type)) &&
+      !IsIntToOpaqueEnumInProductExternal(from_type, to_type)) {
     // Count these the same as literal coercion.  This is because
     // it is a useful property to have the same coercion cost and stability
     // between two queries where one uses literals and the other uses
@@ -1041,6 +1045,15 @@ absl::StatusOr<bool> Coercer::Context::ParameterCoercesTo(
   }
   result->incr_non_matched_arguments();
   return false;
+}
+
+bool Coercer::Context::IsIntToOpaqueEnumInProductExternal(
+    const Type* from_type, const Type* to_type) const {
+  // Note, this logic should probably be based on IsSupportedType, but
+  // there are weird exceptions related to 'legacy' enums, like NormalizeMode.
+  return from_type->IsInteger() && to_type->IsEnum() &&
+         to_type->AsEnum()->IsOpaque() &&
+         language_options().product_mode() == PRODUCT_EXTERNAL;
 }
 
 absl::StatusOr<bool> Coercer::Context::TypeCoercesTo(
@@ -1073,6 +1086,7 @@ absl::StatusOr<bool> Coercer::Context::TypeCoercesTo(
     result->incr_non_matched_arguments();
     return false;
   }
+
   // Enum and proto types can coerce to a (same or different) type if
   // the from/to types are equivalent.
   if (!from_type->IsSimpleType() && !to_type->IsSimpleType()) {
@@ -1277,6 +1291,10 @@ absl::StatusOr<bool> Coercer::Context::LiteralCoercesTo(
     result->incr_literals_distance(local_result.non_literals_distance());
     return true;
   }
+  if (IsIntToOpaqueEnumInProductExternal(literal_value.type(), to_type)) {
+    return false;
+  }
+
   if (literal_value.type()->IsStruct()) {
     // Structs are coerced on a field-by-field basis.
     return StructCoercesTo(InputArgumentType(literal_value), to_type, result);
