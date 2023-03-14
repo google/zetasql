@@ -66,7 +66,8 @@ TEST(JsonFormatTest, Compliance) {
         JSONParsingOptions{.canonicalize_zero = true};
     if (zetasql_base::ContainsKey(test.params.required_features(),
                          FEATURE_JSON_STRICT_NUMBER_PARSING)) {
-      json_parsing_options.strict_number_parsing = true;
+      json_parsing_options.wide_number_mode =
+          JSONParsingOptions::WideNumberMode::kExact;
     }
     std::string actual_output;
     auto actual_status = JsonFromValue(input_value, &pretty_printer,

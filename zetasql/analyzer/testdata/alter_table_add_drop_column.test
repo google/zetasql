@@ -467,3 +467,36 @@ AlterTableStmt
             |             +-ColumnRef(type=STRING, column=$lambda_arg.e#1)
             |             +-Literal(type=STRING, value="a")
             +-sql="ARRAY_FILTER(['a'], e -> e = 'a')"
+
+==
+
+# Add column if not exists with default value existing column.
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN IF NOT EXISTS key STRING DEFAULT 'abc';
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AddColumnAction
+    +-is_if_not_exists=TRUE
+    +-column_definition=
+      +-ColumnDefinition
+        +-name="key"
+        +-type=STRING
+        +-column=KeyValue.key#1
+        +-default_value=
+          +-ColumnDefaultValue
+            +-expression=
+            | +-Literal(type=STRING, value="abc")
+            +-sql="'abc'"
+==
+
+# Add column with default value existing column.
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN key STRING DEFAULT 'abc';
+--
+ERROR: Column already exists: key [at 1:33]
+ALTER TABLE KeyValue ADD COLUMN key STRING DEFAULT 'abc';
+                                ^

@@ -4,7 +4,8 @@
 
 ZetaSQL supports the following hash functions.
 
-### FARM_FINGERPRINT
+### `FARM_FINGERPRINT`
+
 ```
 FARM_FINGERPRINT(value)
 ```
@@ -42,7 +43,9 @@ FROM example;
 +---+-------+-------+----------------------+
 ```
 
-### FINGERPRINT
+[hash-link-to-farmhash-github]: https://github.com/google/farmhash
+
+### `FINGERPRINT`
 
 ```
 FINGERPRINT(input)
@@ -69,7 +72,8 @@ SELECT FINGERPRINT("Hello World") as fingerprint;
 +----------------------+
 ```
 
-### MD5
+### `MD5`
+
 ```
 MD5(input)
 ```
@@ -98,7 +102,10 @@ SELECT MD5("Hello World") as md5;
 +-------------------------------------------------+
 ```
 
-### SHA1
+[hash-link-to-md5-wikipedia]: https://en.wikipedia.org/wiki/MD5
+
+### `SHA1`
+
 ```
 SHA1(input)
 ```
@@ -127,7 +134,10 @@ SELECT SHA1("Hello World") as sha1;
 +-----------------------------------------------------------+
 ```
 
-### SHA256
+[hash-link-to-sha-1-wikipedia]: https://en.wikipedia.org/wiki/SHA-1
+
+### `SHA256`
+
 ```
 SHA256(input)
 ```
@@ -150,7 +160,10 @@ This function returns 32 bytes.
 SELECT SHA256("Hello World") as sha256;
 ```
 
-### SHA512
+[hash-link-to-sha-2-wikipedia]: https://en.wikipedia.org/wiki/SHA-2
+
+### `SHA512`
+
 ```
 SHA512(input)
 ```
@@ -173,15 +186,5 @@ This function returns 64 bytes.
 SELECT SHA512("Hello World") as sha512;
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[hash-link-to-farmhash-github]: https://github.com/google/farmhash
-
-[hash-link-to-md5-wikipedia]: https://en.wikipedia.org/wiki/MD5
-
-[hash-link-to-sha-1-wikipedia]: https://en.wikipedia.org/wiki/SHA-1
-
 [hash-link-to-sha-2-wikipedia]: https://en.wikipedia.org/wiki/SHA-2
-
-<!-- mdlint on -->
 

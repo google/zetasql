@@ -1154,6 +1154,14 @@ static absl::Status ParseTime(absl::string_view format,
             current_element_position;
         continue;
       }
+      case 'P':
+        // For parse_version2, %P behaves the same as %p
+        if (parse_version2) {
+          data = HandleMeridianFormatters(data, end_of_data, afternoon);
+          continue;
+        } else {
+          break;
+        }
       case 'p': {
         data = HandleMeridianFormatters(data, end_of_data, afternoon);
         continue;
@@ -1876,7 +1884,7 @@ absl::Status ParseStringToTime(absl::string_view format_string,
 
   absl::Time base_time;
   ZETASQL_RETURN_IF_ERROR(ParseTime(format_string, time_string, absl::UTCTimeZone(),
-                            scale, /*parse_version2=*/false, &base_time));
+                            scale, /*parse_version2=*/true, &base_time));
   return ConvertTimestampToTime(base_time, absl::UTCTimeZone(), scale, time);
 }
 

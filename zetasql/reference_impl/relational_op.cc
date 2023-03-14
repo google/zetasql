@@ -30,6 +30,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/internal_value.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/type.h"
@@ -1609,7 +1610,7 @@ class LimitTupleIterator : public TupleIterator {
     }
 
     // Don't return more than 'count_' tuples from 'iter_'.
-    if (next_iter_row_number_ >= offset_ + count_) {
+    if (next_iter_row_number_ - offset_ >= count_) {
       Finish(absl::nullopt);
       return nullptr;
     }

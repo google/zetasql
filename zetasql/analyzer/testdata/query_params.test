@@ -27,6 +27,43 @@ QueryStmt
             +-Parameter(type=BOOL, name="test_param_bool")
 ==
 
+# This test is here to document current behavior and notice regressions in case
+# some customer has started doing this. We suspect the authors never intended
+# the `@` token to be separated from the variable name by whitespace.
+SELECT @ test_param_bool;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Parameter(type=BOOL, name="test_param_bool")
+    +-input_scan=
+      +-SingleRowScan
+
+==
+
+# This test is here to document current behavior and notice regressions in case
+# some customer has started doing this. We suspect the authors never intended
+# the `@` token to be separated from the variable name by whitespace.
+SELECT @
+  SELECT
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Parameter(type=BOOL, name="select")
+    +-input_scan=
+      +-SingleRowScan
+
+==
+
 select 1 + @test_param_int32;
 --
 QueryStmt
@@ -1001,4 +1038,3 @@ SELECT ARRAY_FILTER(@lambda, e->e=2)
 ERROR: Query parameter 'lambda' not found [at 1:21]
 SELECT ARRAY_FILTER(@lambda, e->e=2)
                     ^
-==

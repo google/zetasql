@@ -21,6 +21,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -487,7 +488,11 @@ absl::Status JsonFromValue(const Value& value,
       break;
     }
     case TYPE_ENUM:
-      JsonFromString(value.enum_name(), output);
+      if (absl::StatusOr<std::string_view> name = value.EnumName(); name.ok()) {
+        JsonFromString(*name, output);
+      } else {
+        JsonFromNumericOrBool(value.enum_value(), output);
+      }
       break;
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()

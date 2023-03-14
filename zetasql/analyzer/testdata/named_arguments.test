@@ -148,7 +148,7 @@ QueryStmt
 select fn_three_named_args_two_signatures(
     "%X", "12/25/08",  invalid_arg_name => "12/25/08");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, STRING, STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, STRING) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, STRING, invalid_arg_name => STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, format_string => STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, date_string => STRING) [at 1:8]
 select fn_three_named_args_two_signatures(
        ^
 ==
@@ -158,7 +158,7 @@ select fn_three_named_args_two_signatures(
 select fn_three_named_args_two_signatures(
     "%X", format_string => "%X");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, STRING) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_THREE_NAMED_ARGS_TWO_SIGNATURES for argument types: STRING, format_string => STRING. Supported signatures: FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, format_string => STRING); FN_THREE_NAMED_ARGS_TWO_SIGNATURES(STRING, STRING, date_string => STRING) [at 1:8]
 select fn_three_named_args_two_signatures(
        ^
 ==
@@ -686,7 +686,7 @@ select fn_named_args_error_if_positional(
     format_string => 1,
     date_string => "12/25/08");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL for argument types: INT64, STRING. Supported signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_ARGS_ERROR_IF_POSITIONAL for argument types: format_string => INT64, date_string => STRING. Supported signature: FN_NAMED_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, date_string => STRING) [at 1:8]
 select fn_named_args_error_if_positional(
        ^
 ==
@@ -697,7 +697,7 @@ select fn_named_optional_args_error_if_positional(
     format_string => 1,
     date_string => "12/25/08");
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL for argument types: INT64, STRING. Supported signature: FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, [date_string => STRING]) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL for argument types: format_string => INT64, date_string => STRING. Supported signature: FN_NAMED_OPTIONAL_ARGS_ERROR_IF_POSITIONAL(format_string => STRING, [date_string => STRING]) [at 1:8]
 select fn_named_optional_args_error_if_positional(
        ^
 ==
@@ -1123,7 +1123,7 @@ QueryStmt
 # regular argument, and one with named argument of same type.
 select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES for argument types: STRING, STRING, STRING. Supported signatures: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING]); FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING]) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES for argument types: STRING, STRING, date_string => STRING. Supported signatures: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING]); FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING]) [at 1:8]
 select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
        ^
 ==
@@ -1132,7 +1132,7 @@ select fn_regular_and_named_signatures("foo", "bar", date_string => "baz")
 # regular argument, and one with named argument of same type.
 select fn_regular_and_named_signatures("foo", unknown_arg => "baz")
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES for argument types: STRING, STRING. Supported signatures: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING]); FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING]) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_REGULAR_AND_NAMED_SIGNATURES for argument types: STRING, unknown_arg => STRING. Supported signatures: FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [STRING]); FN_REGULAR_AND_NAMED_SIGNATURES(STRING, [date_string => STRING]) [at 1:8]
 select fn_regular_and_named_signatures("foo", unknown_arg => "baz")
        ^
 ==

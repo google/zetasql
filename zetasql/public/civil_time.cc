@@ -222,9 +222,12 @@ TimeValue TimeValue::FromPacked32SecondsAndMicros(
 }
 
 int32_t TimeValue::Packed32TimeSeconds() const {
-  return (hour_ << kHourShift) |
-         (minute_ << kMinuteShift) |
-         (second_ << kSecondShift);
+  // When the Hour-Minute-Second value is incorrect, hour_ is set to -1.
+  // It is undefied behavior to left shift a negative number, hence hour_
+  // is static_cast-ed to uin8t before being left-shifted and packed into
+  // a int32_t value. (b/262060332)
+  return (static_cast<uint8_t>(hour_) << kHourShift) |
+         (minute_ << kMinuteShift) | (second_ << kSecondShift);
 }
 
 int64_t TimeValue::Packed64TimeMicros() const {

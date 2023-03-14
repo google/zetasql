@@ -37,10 +37,15 @@ struct RewriteForAnonymizationOutput {
   using TableScanToAnonAggrScanMap =
       absl::flat_hash_map<const ResolvedTableScan*,
                           const ResolvedAnonymizedAggregateScan*>;
+
+  using TableScanToDPAggrScanMap =
+      absl::flat_hash_map<const ResolvedTableScan*,
+                          const ResolvedDifferentialPrivacyAggregateScan*>;
   // Rewritten input handling anonymization per below.
   std::unique_ptr<const ResolvedNode> node;
   // A map from ResolvedTableScan to ResolvedAnonymizedAggregateScan.
   TableScanToAnonAggrScanMap table_scan_to_anon_aggr_scan_map;
+  TableScanToDPAggrScanMap table_scan_to_dp_aggr_scan_map;
 };
 
 // Given an AST statement resolved by the analyzer, transform the AST to reflect

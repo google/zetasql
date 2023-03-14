@@ -22,8 +22,10 @@
 #include <cstdint>
 #include <iosfwd>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -35,6 +37,7 @@
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/range_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/extended_type.h"
@@ -104,7 +107,7 @@ class Value {
   // SWIG has trouble with constexpr.
   constexpr
 #endif
-  Value();
+      Value();
   Value(const Value& that);
   const Value& operator=(const Value& that);
 #ifndef SWIG
@@ -150,8 +153,13 @@ class Value {
   const std::string& bytes_value() const;   // REQUIRES: bytes type
   int32_t date_value() const;               // REQUIRES: date type
   int32_t enum_value() const;               // REQUIRES: enum type
-  const std::string& enum_name() const;     // REQUIRES: enum type
-  const absl::Cord& proto_value() const;    // REQUIRES: proto type
+  ABSL_DEPRECATED("Unsafe with proto3. Use EnumName or EnumDisplayName")
+  const std::string& enum_name() const;               // REQUIRES: enum type
+  absl::StatusOr<std::string_view> EnumName() const;  // REQUIRES: enum type
+  // Returns the name like "TESTENUM1" or number as string, like "7" if the name
+  // is not known.
+  std::string EnumDisplayName() const;    // REQUIRES: enum type
+  const absl::Cord& proto_value() const;  // REQUIRES: proto type
 
   // Returns timestamp value as absl::Time at nanoseconds precision.
   absl::Time ToTime() const;  // REQUIRES: timestamp type
@@ -176,6 +184,19 @@ class Value {
 
   // REQUIRES: bignumeric type
   const BigNumericValue& bignumeric_value() const;
+
+  // Returns Value of type Range as lightweight RangeValue where
+  // start and end are represented as <start/end>.date_value()
+  // REQUIRES: range type, date element type kind
+  RangeValue<int32_t> ToRangeValueDateValues() const;
+  // Returns Value of type Range as lightweight RangeValue where
+  // start and end are represented as <start/end>.ToPacked64TimeMicros()
+  // REQUIRES: range type, datetime element type kind
+  RangeValue<int64_t> ToRangeValuePacked64DatetimeMicros() const;
+  // Returns Value of type Range as lightweight RangeValue where
+  // start and end are represented as <start/end>.ToUnixMicros()
+  // REQUIRES: range type, timestamp element type kind
+  RangeValue<int64_t> ToRangeValueTimestampUnixMicros() const;
 
   // Checks whether the value belongs to the JSON type, non-NULL and is in
   // validated representation.
@@ -213,7 +234,8 @@ class Value {
   int64_t ToInt64() const;    // For bool, int_, uint32_t, date, enum
   uint64_t ToUint64() const;  // For bool, uint32_t, uint64_t
   // Use of this method for timestamp_ values is DEPRECATED.
-  double ToDouble() const;    // For bool, int_, date, timestamp_, enum types.
+  double ToDouble() const;  // For bool, int_, date, timestamp_, enum, Numeric,
+                            // BigNumeric types.
   absl::Cord ToCord() const;  // For string, bytes, and protos
 
   // Convert this value to a dynamically allocated proto Message.
@@ -436,7 +458,7 @@ class Value {
 
   // Generic factory for numeric PODs.
   // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double,
-  // NumericValue, BigNumericValue, IntervalValue
+  // string, NumericValue, BigNumericValue, IntervalValue,
   template <typename T>
   inline static Value Make(T value) {
     if constexpr (std::is_same_v<T, NumericValue>) {
@@ -451,6 +473,8 @@ class Value {
       return Value::Float(value);
     } else if constexpr (std::is_same_v<T, double>) {
       return Value::Double(value);
+    } else if constexpr (std::is_same_v<T, std::string>) {
+      return Value::String(value);
     } else {
       constexpr int kNumBits = sizeof(T) * CHAR_BIT;
       if constexpr (std::is_signed_v<T>) {
@@ -472,7 +496,8 @@ class Value {
   }
 
   // Generic factory for null values.
-  // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double.
+  // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double,
+  // string.
   template <typename T>
   inline static Value MakeNull() {
     if constexpr (std::is_same_v<T, NumericValue>) {
@@ -485,6 +510,8 @@ class Value {
       return Value::NullFloat();
     } else if constexpr (std::is_same_v<T, double>) {
       return Value::NullDouble();
+    } else if constexpr (std::is_same_v<T, std::string>) {
+      return Value::NullString();
     } else {
       constexpr int kNumBits = sizeof(T) * CHAR_BIT;
       if constexpr (std::is_signed_v<T>) {
@@ -528,11 +555,13 @@ class Value {
   // Returns an empty but non-null Geography value.
   static Value EmptyGeography();
 
-  // Creates an enum value of the specified 'enum_type'. 'value' must be a valid
-  // numeric value declared in 'enum_type', otherwise created Value is invalid.
+  // Creates an enum value of the specified 'enum_type'. Unless
+  // `allow_unknown_enum_values` is set, 'value' must be a valid numeric value
+  // declared in 'enum_type', otherwise created Value is invalid.
   // NOTE: Enum types could only be 4 bytes, so this will always return an
   // invalid value if <value> is out-of-range for int32_t.
-  static Value Enum(const EnumType* type, int64_t value);
+  static Value Enum(const EnumType* type, int64_t value,
+                    bool allow_unknown_enum_values = false);
   // Creates an enum value of the specified 'type'. 'name' must be a valid name
   // declared in 'type', otherwise created Value is invalid. 'name' is case
   // sensitive.
@@ -656,6 +685,13 @@ class Value {
   // null values, then the range is unbounded on that end respectively.
   static absl::StatusOr<Value> MakeRange(const Value& start, const Value& end);
 
+  static absl::StatusOr<Value> MakeRangeDates(
+      const RangeValue<int32_t>& range_value);
+  static absl::StatusOr<Value> MakeRangeDatetimes(
+      const RangeValue<int64_t>& range_value);
+  static absl::StatusOr<Value> MakeRangeTimestamps(
+      const RangeValue<int64_t>& range_value);
+
   // Creates a null of the given 'type'.
   static Value Null(const Type* type);
   // Creates an invalid value.
@@ -760,7 +796,8 @@ class Value {
   explicit Value(internal::JSONRef* json_ptr);
 
   // Constructs an enum.
-  Value(const EnumType* enum_type, int64_t value);
+  Value(const EnumType* enum_type, int64_t value,
+        bool allow_unknown_enum_values);
   Value(const EnumType* enum_type, absl::string_view name);
 
   // Constructs a proto.
@@ -783,8 +820,7 @@ class Value {
 
   static void FillDeepOrderKindSpec(const Value& v, DeepOrderKindSpec* spec);
 
-  static bool EqualsInternal(const Value& x, const Value& y,
-                             const bool allow_bags,
+  static bool EqualsInternal(const Value& x, const Value& y, bool allow_bags,
                              const ValueEqualityCheckOptions& options);
 
   // Creates an array of the given 'array_type' initialized by moving from
@@ -801,11 +837,6 @@ class Value {
   static absl::StatusOr<Value> MakeStructInternal(bool already_validated,
                                                   const StructType* struct_type,
                                                   std::vector<Value> values);
-
-  // Compares arrays as multisets ignoring the order of the elements.
-  // Called from EqualsInternal().
-  static bool EqualElementMultiSet(const Value& x, const Value& y,
-                                   const ValueEqualityCheckOptions& options);
 
   // Returns a pretty-printed (e.g. wrapped) string for the value
   // indented a number of spaces according to the 'indent' parameter.
@@ -958,7 +989,7 @@ class Value {
     int64_t bit_field_64_value_;  // Whole-second part of DatetimeValue.
     int32_t enum_value_;          // Used for TYPE_ENUM.
     internal::StringRef*
-        string_ptr_;       // Reffed. Used for TYPE_STRING and TYPE_BYTES.
+        string_ptr_;  // Reffed. Used for TYPE_STRING and TYPE_BYTES.
     internal::ValueContentContainerRef*
         container_ptr_;  // Reffed. Used for arrays, structs, and RANGE.
     internal::ProtoRep* proto_ptr_;          // Reffed. Used for protos.
@@ -1018,7 +1049,8 @@ Value Numeric(NumericValue v);
 Value Numeric(int64_t v);
 Value BigNumeric(BigNumericValue v);
 Value BigNumeric(int64_t v);
-Value Enum(const EnumType* enum_type, int32_t value);
+Value Enum(const EnumType* enum_type, int32_t value,
+           bool allow_unnamed_values = false);
 Value Enum(const EnumType* enum_type, absl::string_view name);
 Value Struct(const StructType* type, absl::Span<const Value> values);
 #ifndef SWIG

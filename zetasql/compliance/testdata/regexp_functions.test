@@ -7,3 +7,13 @@ ARRAY<STRUCT<BOOL>>[{true}]
 SELECT 'SeattleKirkland' LIKE 'Seattle_'
 --
 ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=regexp_functions_newline]
+SELECT "FirstLine\nSeattleKirkland\nAnotherLine" LIKE 'F%Seattle%Line' AS result
+--
+ARRAY<STRUCT<result BOOL>>[{true}]
+==
+[name=regexp_functions_case]
+SELECT 'SeattLeKirkland' LIKE '%Seattle' AS result
+--
+ARRAY<STRUCT<result BOOL>>[{false}]

@@ -175,6 +175,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/public:analyzer",
         "//zetasql/public:type",
+        "//zetasql/public/types",
         "@com_google_absl//absl/strings",
     ],
 )

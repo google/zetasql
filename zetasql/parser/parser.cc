@@ -22,7 +22,6 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
-#include "zetasql/common/timer_util.h"
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/parse_tree.h"
@@ -63,7 +62,7 @@ ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
       id_string_pool_(std::move(id_string_pool)),
       language_options_(std::move(language_options)) {}
 
-ParserOptions::~ParserOptions() {}
+ParserOptions::~ParserOptions() = default;
 
 void ParserOptions::CreateDefaultArenasIfNotSet() {
   if (arena_ == nullptr) {
@@ -95,7 +94,6 @@ ParserOutput::~ParserOutput() = default;
 absl::Status ParseStatement(absl::string_view statement_string,
                             const ParserOptions& parser_options_in,
                             std::unique_ptr<ParserOutput>* output) {
-  auto parser_timer = internal::MakeTimerStarted();
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
@@ -116,15 +114,13 @@ absl::Status ParseStatement(absl::string_view statement_string,
   ZETASQL_RETURN_IF_ERROR(
       ConvertInternalErrorLocationToExternal(status, statement_string));
   ZETASQL_RET_CHECK(ast_node != nullptr);
-  ParserRuntimeInfo info;
-  info.parser_timed_value().Accumulate(parser_timer);
 
   std::unique_ptr<ASTStatement> statement(
       ast_node.release()->GetAsOrDie<ASTStatement>());
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement),
-      parser.release_warnings(), std::move(info));
+      parser.release_warnings(), parser.release_runtime_info());
   return absl::OkStatus();
 }
 
@@ -132,7 +128,6 @@ absl::Status ParseScript(absl::string_view script_string,
                          const ParserOptions& parser_options_in,
                          ErrorMessageMode error_message_mode,
                          std::unique_ptr<ParserOutput>* output) {
-  auto parser_timer = internal::MakeTimerStarted();
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
@@ -154,12 +149,10 @@ absl::Status ParseScript(absl::string_view script_string,
   }
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
       error_message_mode, script_string, status));
-  ParserRuntimeInfo info;
-  info.parser_timed_value().Accumulate(parser_timer);
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(script),
-      parser.release_warnings(), std::move(info));
+      parser.release_warnings(), parser.release_runtime_info());
   return absl::OkStatus();
 }
 
@@ -169,7 +162,6 @@ absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
                                         BisonParserMode mode,
                                         std::unique_ptr<ParserOutput>* output,
                                         bool* at_end_of_input) {
-  auto parser_timer = internal::MakeTimerStarted();
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
@@ -205,13 +197,10 @@ absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
       ast_node.release()->GetAsOrDie<ASTStatement>());
   resume_location->set_byte_position(next_statement_byte_offset);
 
-  ParserRuntimeInfo info;
-  info.parser_timed_value().Accumulate(parser_timer);
-
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement),
-      parser.release_warnings(), std::move(info));
+      parser.release_warnings(), parser.release_runtime_info());
   return absl::OkStatus();
 }
 }  // namespace
@@ -237,8 +226,6 @@ absl::Status ParseNextStatement(ParseResumeLocation* resume_location,
 absl::Status ParseType(absl::string_view type_string,
                        const ParserOptions& parser_options_in,
                        std::unique_ptr<ParserOutput>* output) {
-  auto parser_timer = internal::MakeTimerStarted();
-
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
@@ -257,21 +244,16 @@ absl::Status ParseType(absl::string_view type_string,
   ZETASQL_RET_CHECK(ast_node->IsType());
   std::unique_ptr<ASTType> type(ast_node.release()->GetAsOrDie<ASTType>());
 
-  ParserRuntimeInfo info;
-  info.parser_timed_value().Accumulate(parser_timer);
-
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(type),
-      parser.release_warnings(), std::move(info));
+      parser.release_warnings(), parser.release_runtime_info());
   return absl::OkStatus();
 }
 
 absl::Status ParseExpression(absl::string_view expression_string,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output) {
-  auto parser_timer = internal::MakeTimerStarted();
-
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
@@ -291,21 +273,17 @@ absl::Status ParseExpression(absl::string_view expression_string,
   ZETASQL_RET_CHECK(ast_node->IsExpression());
   std::unique_ptr<ASTExpression> expression(
       ast_node.release()->GetAsOrDie<ASTExpression>());
-  ParserRuntimeInfo info;
-  info.parser_timed_value().Accumulate(parser_timer);
 
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(expression),
-      parser.release_warnings(), std::move(info));
+      parser.release_warnings(), parser.release_runtime_info());
   return absl::OkStatus();
 }
 
 absl::Status ParseExpression(const ParseResumeLocation& resume_location,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output) {
-  auto parser_timer = internal::MakeTimerStarted();
-
   ParserOptions parser_options = parser_options_in;
   parser_options.CreateDefaultArenasIfNotSet();
 
@@ -324,13 +302,11 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
   ZETASQL_RET_CHECK(ast_node != nullptr);
   std::unique_ptr<ASTExpression> expression(
       ast_node.release()->GetAsOrDie<ASTExpression>());
-  ParserRuntimeInfo info;
-  info.parser_timed_value().Accumulate(parser_timer);
 
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(expression),
-      parser.release_warnings(), std::move(info));
+      parser.release_warnings(), parser.release_runtime_info());
   return absl::OkStatus();
 }
 

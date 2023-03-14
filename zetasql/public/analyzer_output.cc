@@ -44,7 +44,7 @@ AnalyzerOutput::AnalyzerOutput(
     const std::vector<absl::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
     const std::vector<const Type*>& undeclared_positional_parameters,
-    int max_column_id, AnalyzerRuntimeInfo runtime_info)
+    int max_column_id)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       statement_(std::move(statement)),
@@ -53,8 +53,7 @@ AnalyzerOutput::AnalyzerOutput(
       deprecation_warnings_(deprecation_warnings),
       undeclared_parameters_(undeclared_parameters),
       undeclared_positional_parameters_(undeclared_positional_parameters),
-      max_column_id_(max_column_id),
-      runtime_info_(std::move(runtime_info)) {}
+      max_column_id_(max_column_id) {}
 
 AnalyzerOutput::AnalyzerOutput(
     std::shared_ptr<IdStringPool> id_string_pool,
@@ -65,7 +64,7 @@ AnalyzerOutput::AnalyzerOutput(
     const std::vector<absl::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
     const std::vector<const Type*>& undeclared_positional_parameters,
-    int max_column_id, AnalyzerRuntimeInfo runtime_info)
+    int max_column_id)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       expr_(std::move(expr)),
@@ -74,10 +73,9 @@ AnalyzerOutput::AnalyzerOutput(
       deprecation_warnings_(deprecation_warnings),
       undeclared_parameters_(undeclared_parameters),
       undeclared_positional_parameters_(undeclared_positional_parameters),
-      max_column_id_(max_column_id),
-      runtime_info_(std::move(runtime_info)) {}
+      max_column_id_(max_column_id) {}
 
-AnalyzerOutput::~AnalyzerOutput() {}
+AnalyzerOutput::~AnalyzerOutput() = default;
 
 AnalyzerRuntimeInfo::AnalyzerRuntimeInfo(const AnalyzerRuntimeInfo& rhs)
     : impl_(new Impl(*rhs.impl_)) {}
@@ -97,14 +95,15 @@ void AnalyzerRuntimeInfo::RewriterDetails::AccumulateAll(
 void AnalyzerRuntimeInfo::AccumulateAll(const AnalyzerRuntimeInfo& rhs) {
   impl_->parser_runtime_info.AccumulateAll(rhs.impl_->parser_runtime_info);
 
-  resolver_timed_value().Accumulate(rhs.resolver_elapsed_duration());
+  impl_->overall_timed_value.Accumulate(rhs.impl_->overall_timed_value);
+  resolver_timed_value().Accumulate(rhs.impl_->resolver_timed_value);
 
   for (ResolvedASTRewrite rewriter :
        zetasql_base::EnumerateEnumValues<ResolvedASTRewrite>()) {
     rewriters_details(rewriter).AccumulateAll(rhs.rewriters_details(rewriter));
   }
-  rewriters_timed_value().Accumulate(rhs.rewriters_elapsed_duration());
-  validator_timed_value().Accumulate(rhs.validator_elapsed_duration());
+  rewriters_timed_value().Accumulate(rhs.impl_->rewriters_timed_value);
+  validator_timed_value().Accumulate(rhs.impl_->validator_timed_value);
 }
 
 // Modifies the debug-string to assume this is the accumulation of multiple
@@ -150,10 +149,17 @@ std::string AnalyzerRuntimeInfo::DebugString(
   Rewriters  : %s
      %s)",
       print_latency(sum_elapsed_duration()),
-      print_latency(parser_elapsed_duration()),
+      print_latency(parser_runtime_info().parser_elapsed_duration()),
       print_latency(resolver_elapsed_duration()),
       print_latency(validator_elapsed_duration()),
       print_latency(rewriters_elapsed_duration()), rewriter_str);
 }
 
+AnalyzerLogEntry AnalyzerRuntimeInfo::log_entry() const {
+  AnalyzerLogEntry entry;
+  *entry.mutable_overall_execution_stats() =
+      overall_timed_value().ToExecutionStatsProto();
+  entry.set_num_lexical_tokens(parser_runtime_info().num_lexical_tokens());
+  return entry;
+}
 }  // namespace zetasql

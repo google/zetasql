@@ -14,16 +14,22 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_ANALYZER_REWRITERS_TERNARY_FUNCTION_REWRITER_H_
-#define ZETASQL_ANALYZER_REWRITERS_TERNARY_FUNCTION_REWRITER_H_
+#include "zetasql/analyzer/expr_resolver_helper.h"
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/templated_sql_tvf.h"
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 
-// Gets a pointer to ternary scalar functions rewriter.
-const Rewriter* GetTernaryFunctionRewriter();
+using ::zetasql_base::testing::StatusIs;
+
+TEST(ResolvedTVFArgTest, GetScan) {
+  ResolvedTVFArg arg;
+  EXPECT_FALSE(arg.IsScan());
+  EXPECT_THAT(arg.GetScan(), StatusIs(absl::StatusCode::kInternal));
+}
 
 }  // namespace zetasql
-
-#endif  // ZETASQL_ANALYZER_REWRITERS_TERNARY_FUNCTION_REWRITER_H_

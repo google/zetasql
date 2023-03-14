@@ -27,6 +27,7 @@
 #include <queue>
 #include <stack>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -42,6 +43,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "single_include/nlohmann/json.hpp"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -49,6 +51,7 @@ namespace zetasql {
 
 using JSON = ::nlohmann::json;
 using ::absl::StatusOr;
+using WideNumberMode = JSONParsingOptions::WideNumberMode;
 
 namespace {
 
@@ -246,10 +249,12 @@ class JSONValueParserBase {
 // NOTE: Method names are specific requirement of nlohmann SAX parser interface.
 class JSONValueStandardParser : public JSONValueParserBase {
  public:
-  JSONValueStandardParser(JSON& value, bool strict_number_parsing,
+  JSONValueStandardParser(JSON& value, WideNumberMode wide_number_mode,
                           std::optional<int> max_nesting)
       : value_builder_(value, max_nesting),
-        strict_number_parsing_(strict_number_parsing) {}
+        wide_number_mode_(wide_number_mode) {
+    ZETASQL_DCHECK(wide_number_mode != WideNumberMode::kIgnore);
+  }
   JSONValueStandardParser() = delete;
 
   bool null() { return MaybeUpdateStatus(value_builder_.ParsedNull()); }
@@ -267,7 +272,7 @@ class JSONValueStandardParser : public JSONValueParserBase {
   }
 
   bool number_float(double val, const std::string& input_str) {
-    if (strict_number_parsing_) {
+    if (wide_number_mode_ == WideNumberMode::kExact) {
       auto status = internal::CheckNumberRoundtrip(input_str, val);
       if (!status.ok()) {
         return MaybeUpdateStatus(status);
@@ -322,7 +327,7 @@ class JSONValueStandardParser : public JSONValueParserBase {
 
  private:
   JSONValueBuilder value_builder_;
-  const bool strict_number_parsing_;
+  const WideNumberMode wide_number_mode_;
 };
 
 // The parser implementation that uses nlohmann library implementation based on
@@ -416,8 +421,15 @@ class JSONValueStandardValidator : public JSONValueParserBase {
 
 absl::Status IsValidJSON(absl::string_view str,
                          const JSONParsingOptions& parsing_options) {
-  JSONValueStandardValidator validator(parsing_options.strict_number_parsing,
-                                       parsing_options.max_nesting);
+  WideNumberMode wide_number_mode = parsing_options.wide_number_mode;
+  if (wide_number_mode == WideNumberMode::kIgnore) {
+    wide_number_mode =
+        (parsing_options.strict_number_parsing ? WideNumberMode::kExact
+                                               : WideNumberMode::kRound);
+  }
+  ZETASQL_RET_CHECK(wide_number_mode != WideNumberMode::kIgnore);
+  JSONValueStandardValidator validator(
+      wide_number_mode == WideNumberMode::kExact, parsing_options.max_nesting);
   JSON::sax_parse(str, &validator);
   return validator.status();
 }
@@ -430,9 +442,14 @@ struct JSONValue::Impl {
 
 StatusOr<JSONValue> JSONValue::ParseJSONString(
     absl::string_view str, JSONParsingOptions parsing_options) {
+  WideNumberMode wide_number_mode = parsing_options.wide_number_mode;
+  if (wide_number_mode == WideNumberMode::kIgnore) {
+    wide_number_mode =
+        (parsing_options.strict_number_parsing ? WideNumberMode::kExact
+                                               : WideNumberMode::kRound);
+  }
   JSONValue json;
-  JSONValueStandardParser parser(json.impl_->value,
-                                 parsing_options.strict_number_parsing,
+  JSONValueStandardParser parser(json.impl_->value, wide_number_mode,
                                  parsing_options.max_nesting);
   JSON::sax_parse(str, &parser);
   ZETASQL_RETURN_IF_ERROR(parser.status());
@@ -442,8 +459,7 @@ StatusOr<JSONValue> JSONValue::ParseJSONString(
 StatusOr<JSONValue> JSONValue::DeserializeFromProtoBytes(
     absl::string_view str, std::optional<int> max_nesting_level) {
   JSONValue json;
-  JSONValueStandardParser parser(json.impl_->value,
-                                 /*strict_number_parsing=*/false,
+  JSONValueStandardParser parser(json.impl_->value, WideNumberMode::kRound,
                                  max_nesting_level);
   JSON::sax_parse(str, &parser, JSON::input_format_t::ubjson);
   ZETASQL_RETURN_IF_ERROR(parser.status());
@@ -462,7 +478,7 @@ JSONValue::JSONValue(int64_t value) : impl_(new Impl{value}) {}
 JSONValue::JSONValue(uint64_t value) : impl_(new Impl{value}) {}
 JSONValue::JSONValue(double value) : impl_(new Impl{value}) {}
 JSONValue::JSONValue(bool value) : impl_(new Impl{value}) {}
-JSONValue::JSONValue(std::string value) : impl_(new Impl{std::move(value)}) {}
+JSONValue::JSONValue(std::string_view value) : impl_(new Impl{value}) {}
 
 JSONValue::JSONValue(JSONValue&& value) : impl_(std::move(value.impl_)) {}
 

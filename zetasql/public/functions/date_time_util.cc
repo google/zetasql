@@ -1141,10 +1141,7 @@ static absl::Status ConvertTimestampToStringInternal(
       /*expansion_options=*/{.truncate_tz = true}, out);
 }
 
-// Returns the absl::Weekday corresponding to 'part', which must be one of the
-// WEEK values.
-static absl::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(
-    DateTimestampPart part) {
+absl::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(DateTimestampPart part) {
   switch (part) {
     case WEEK:
       return absl::Weekday::sunday;
@@ -1463,21 +1460,18 @@ static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
                                                 DateTimestampPart part,
                                                 absl::Time* output) {
   const absl::TimeZone::CivilInfo info = timezone.At(timestamp);
-  if (info.cs.year() < 1) {
-    return MakeEvalError() << "Truncating to the nearest "
-                           << DateTimestampPart_Name(part)
-                           << " causes underflow at timezone "
-                           << timezone.name();
-  }
 
-  // Given a valid input timestamp, truncation should never result in failure
-  // when reconstructing the timestamp from its parts, so ZETASQL_RET_CHECK the results.
+  // It is assumed (but not validated) that the input <timestamp> is valid.
+  // Given a valid timestamp, it is expected that reconstructing the timestamp
+  // from the truncated parts will not fail, so we ZETASQL_RET_CHECK the results here.
+  // We will always check the resulting truncated timestamp for validity before
+  // returning.
   switch (part) {
     case YEAR:
       ZETASQL_RET_CHECK(TimestampFromParts(info.cs.year(), 1 /* month */, 1 /* mday */,
                                    0 /* hour */, 0 /* minute */, 0 /* second */,
                                    0 /* subsecond */, scale, timezone, output));
-      return absl::OkStatus();
+      break;
     case ISOYEAR: {
       absl::CivilDay day = absl::CivilDay(info.cs);
       if (!IsValidCivilDay(day)) {
@@ -1491,20 +1485,20 @@ static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
                                    iso_civil_day.day(), 0 /* hour */,
                                    0 /* minute */, 0 /* second */,
                                    0 /* subsecond */, scale, timezone, output));
-      return absl::OkStatus();
+      break;
     }
     case QUARTER:
       ZETASQL_RET_CHECK(TimestampFromParts(
           info.cs.year(), (info.cs.month() - 1) / 3 * 3 + 1, 1 /* mday */,
           0 /* hour */, 0 /* minute */, 0 /* second */, 0 /* subsecond */,
           scale, timezone, output));
-      return absl::OkStatus();
+      break;
     case MONTH:
       ZETASQL_RET_CHECK(TimestampFromParts(info.cs.year(), info.cs.month(),
                                    1 /* mday */, 0 /* hour */, 0 /* minute */,
                                    0 /* second */, 0 /* subsecond */, scale,
                                    timezone, output));
-      return absl::OkStatus();
+      break;
     case WEEK:
     case ISOWEEK:
     case WEEK_MONDAY:
@@ -1526,14 +1520,14 @@ static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
           week_truncated_day.year(), week_truncated_day.month(),
           week_truncated_day.day(), 0 /* hour */, 0 /* minute */,
           0 /* second */, 0 /* subsecond */, scale, timezone, output));
-      return absl::OkStatus();
+      break;
     }
     case DAY:
       ZETASQL_RET_CHECK(TimestampFromParts(info.cs.year(), info.cs.month(),
                                    info.cs.day(), 0 /* hour */, 0 /* minute */,
                                    0 /* second */, 0 /* subsecond */, scale,
                                    timezone, output));
-      return absl::OkStatus();
+      break;
     case HOUR:
     case MINUTE: {
       // For HOUR or MINUTE truncation of a timestamp, we identify the
@@ -1578,7 +1572,7 @@ static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
       // Re-adjust the timestamp by the time zone offset.
       timestamp_seconds -= seconds_offset_east_of_UTC;
       *output = MakeTime(timestamp_seconds, kSeconds);
-      return absl::OkStatus();
+      break;
     }
     case DATE:
     case DAYOFWEEK:
@@ -1595,6 +1589,14 @@ static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
       return MakeEvalError()
              << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part);
   }
+  // Validate that the truncated result is a valid time.
+  if (!IsValidTime(*output)) {
+    return MakeEvalError() << "Truncating to the nearest "
+                           << DateTimestampPart_Name(part)
+                           << " causes underflow at timezone "
+                           << timezone.name();
+  }
+  return absl::OkStatus();
 }
 
 static absl::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,

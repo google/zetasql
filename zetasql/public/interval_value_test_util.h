@@ -88,6 +88,19 @@ inline IntervalValue GenerateRandomInterval(absl::BitGen* gen) {
   return MonthsDaysNanos(months, days, nanos);
 }
 
+// Invalid serialized INTERVAL values which will fail deserialization.
+constexpr absl::string_view kSerializedIntervalWithNotEnoughBytes(
+    "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 15);
+static_assert(kSerializedIntervalWithNotEnoughBytes.size() == 15);
+
+constexpr absl::string_view kSerializedIntervalWithTooManyBytes(
+    "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 17);
+static_assert(kSerializedIntervalWithTooManyBytes.size() == 17);
+
+constexpr absl::string_view kSerializedIntervalWithInvalidFields(
+    "\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01", 16);
+static_assert(kSerializedIntervalWithInvalidFields.size() == 16);
+
 }  // namespace interval_testing
 
 }  // namespace zetasql

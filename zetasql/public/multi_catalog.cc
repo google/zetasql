@@ -152,8 +152,11 @@ absl::Status MultiCatalog::FindTableWithPathPrefix(
     }
   }
   if (max_names_consumed > 0) {
+    ZETASQL_RET_CHECK_NE(*table, nullptr);
+    *num_names_consumed = max_names_consumed;
     return absl::OkStatus();
   }
+  *num_names_consumed = 0;
   return TableNotFoundError(path);
 }
 

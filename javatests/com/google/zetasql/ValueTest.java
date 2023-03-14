@@ -22,7 +22,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.zetasql.TypeTestBase.getDescriptorPoolWithTypeProtoAndTypeKind;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.SerializableTester;
@@ -761,7 +760,7 @@ public class ValueTest {
             .put(
                 "numeric_value: '\\001\\000\\000\\000\\300\\335u\\366\\205;y\\245W\\263\\304\\264'",
                 MIN_NUMERIC_VALUE_STRING)
-            .build();
+            .buildOrThrow();
     Type type = TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC);
     for (Map.Entry<String, String> pair : inputAndExpectedOutputs.entrySet()) {
       ValueProto proto = valueProtoFromText(pair.getKey());
@@ -853,51 +852,6 @@ public class ValueTest {
   }
 
   @Test
-  public void testBigNumericValueDeserialize() {
-    ImmutableMap<String, String> inputAndExpectedOutputs =
-        new ImmutableMap.Builder<String, String>()
-            .put("bignumeric_value: '\\000'", "0E-38")
-            .put("bignumeric_value: '\\x7f'", "127E-38")
-            .put("bignumeric_value: '\\x80'", "-128E-38")
-            .put("bignumeric_value: '\\x80\\x00'", "128E-38")
-            .put("bignumeric_value: '\\x80\\xff'", "-128E-38")
-            .put(
-                "bignumeric_value: '\\000\\000\\000\\000\\200\\217r\\v,R;\\006\\312(GZ'",
-                "1.20000000000000000000000000000000000000")
-            .put(
-                "bignumeric_value:"
-                    + " '\\000\\000\\000\\000\\200p\\215\\364\\323\\255\\304\\3715\\327\\270\\245'",
-                "-1.20000000000000000000000000000000000000")
-            .put(
-                "bignumeric_value: '" + Strings.repeat("\\xff", 31) + "\\x7f'",
-                MAX_BIGNUMERIC_VALUE_STRING)
-            .put(
-                "bignumeric_value: '" + Strings.repeat("\\x00", 31) + "\\x80'",
-                MIN_BIGNUMERIC_VALUE_STRING)
-            .build();
-    Type type = TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC);
-    for (Map.Entry<String, String> pair : inputAndExpectedOutputs.entrySet()) {
-      ValueProto proto = valueProtoFromText(pair.getKey());
-      Value value = Value.deserialize(type, proto);
-      assertThat(value.getBigNumericValue()).isEqualTo(new BigDecimal(pair.getValue()));
-    }
-
-    List<String> invalidInputs =
-        Arrays.asList(
-            "bignumeric_value: '" + Strings.repeat("\\xff", 31) + "\\x7f\\xff'",
-            "bignumeric_value: '" + Strings.repeat("\\x00", 31) + "\\x80\\x00'");
-    for (String str : invalidInputs) {
-      ValueProto proto = valueProtoFromText(str);
-      try {
-        Value.deserialize(type, proto);
-        fail("Expected IllegalArgumentException");
-      } catch (IllegalArgumentException e) {
-        assertThat(e).hasMessageThat().contains("BIGNUMERIC overflow");
-      }
-    }
-  }
-
-  @Test
   public void testEmptyIntervalByteStringDeserialize() {
     IntervalValue zero =
         IntervalValue.builder()
@@ -942,7 +896,7 @@ public class ValueTest {
                     .setNanoFractions((short) 999)
                     .build(),
                 "-10000-0 -3660000 -87839999:59:59.999999001")
-            .build();
+            .buildOrThrow();
     for (Map.Entry<IntervalValue, String> entry : validIntervalAndValueStrings.entrySet()) {
       IntervalValue val = entry.getKey();
       Value value = Value.createIntervalValue(val);
@@ -1035,7 +989,7 @@ public class ValueTest {
                     .setNanoFractions((short) -1)
                     .build(),
                 "Interval nanoFractions field value overflow, -1 is out of range 0 to 999.")
-            .build();
+            .buildOrThrow();
 
     for (Map.Entry<IntervalValue, String> entry :
         invalidIntervalValuesAndExpectedErrors.entrySet()) {
@@ -1144,7 +1098,7 @@ public class ValueTest {
                     .setNanoFractions((short) 1)
                     .build(),
                 ByteString.copyFrom(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0}))
-            .build();
+            .buildOrThrow();
     for (Map.Entry<IntervalValue, ByteString> entry : inputAndExpectedOutputs.entrySet()) {
       assertThat(IntervalValue.serializeInterval(entry.getKey())).isEqualTo(entry.getValue());
     }
@@ -1406,6 +1360,54 @@ public class ValueTest {
                         .setNanoFractions((short) 5)
                         .build()))
         .isEqualTo(1);
+  }
+
+  @Test
+  public void testIntervalValueOfMonths() {
+    assertThat(IntervalValue.ofMonths(7))
+        .isEqualTo(
+            IntervalValue.builder()
+                .setMonths(7)
+                .setDays(0)
+                .setMicros(0L)
+                .setNanoFractions((short) 0)
+                .build());
+  }
+
+  @Test
+  public void testIntervalValueOfDays() {
+    assertThat(IntervalValue.ofDays(7))
+        .isEqualTo(
+            IntervalValue.builder()
+                .setMonths(0)
+                .setDays(7)
+                .setMicros(0L)
+                .setNanoFractions((short) 0)
+                .build());
+  }
+
+  @Test
+  public void testIntervalValueOfSeconds() {
+    assertThat(IntervalValue.ofSeconds(7))
+        .isEqualTo(
+            IntervalValue.builder()
+                .setMonths(0)
+                .setDays(0)
+                .setMicros(7000000L)
+                .setNanoFractions((short) 0)
+                .build());
+  }
+
+  @Test
+  public void testIntervalValueOfMicros() {
+    assertThat(IntervalValue.ofMicros(7))
+        .isEqualTo(
+            IntervalValue.builder()
+                .setMonths(0)
+                .setDays(0)
+                .setMicros(7L)
+                .setNanoFractions((short) 0)
+                .build());
   }
 
   @Test

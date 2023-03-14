@@ -34,7 +34,6 @@
 #include <variant>
 #include <vector>
 
-#include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "zetasql/reference_impl/function.h"
@@ -95,11 +94,11 @@ struct AlgebrizerOptions {
 };
 
 struct AnonymizationOptions {
-  std::optional<Value> epsilon;  // double Value
-  std::optional<Value> delta;    // double Value
-  // TODO Rename to max_groups_contributed
-  std::optional<Value> kappa;        // int64_t Value
-  std::optional<Value> k_threshold;  // int64_t Value
+  std::optional<Value> epsilon;                    // double Value
+  std::optional<Value> delta;                      // double Value
+  std::optional<Value> max_groups_contributed;     // int64_t Value
+  std::optional<Value> max_rows_contributed;       // int64_t Value
+  std::optional<Value> group_selection_threshold;  // int64_t Value
 };
 
 class Algebrizer {
@@ -125,8 +124,6 @@ class Algebrizer {
   // For DML statements:
   //  * 'output' is only valid for as long as 'type_factory' and 'ast_root' are
   //     valid. Also, 'output' is always a DMLValueExpr.
-  //  * 'catalog' is used to algebrized column expressions (from default values
-  //    or generated columns) if any.
   //
   // For CREATE TABLE AS SELECT statements, algebrizes the query that would
   // go into the newly created table.
@@ -136,10 +133,9 @@ class Algebrizer {
   // statement/expression.
   static absl::Status AlgebrizeStatement(
       const LanguageOptions& language_options,
-      const AlgebrizerOptions& algebrizer_options, const Catalog* catalog,
-      TypeFactory* type_factory, const ResolvedStatement* ast_root,
-      std::unique_ptr<ValueExpr>* output, Parameters* parameters,
-      ParameterMap* column_map,
+      const AlgebrizerOptions& algebrizer_options, TypeFactory* type_factory,
+      const ResolvedStatement* ast_root, std::unique_ptr<ValueExpr>* output,
+      Parameters* parameters, ParameterMap* column_map,
       SystemVariablesAlgebrizerMap* system_variables_map);
 
   // Same as above, but only supports query statements and returns a
@@ -198,8 +194,8 @@ class Algebrizer {
 
   Algebrizer(const LanguageOptions& options,
              const AlgebrizerOptions& algebrizer_options,
-             const Catalog* catalog, TypeFactory* type_factory,
-             Parameters* parameters, ParameterMap* column_map,
+             TypeFactory* type_factory, Parameters* parameters,
+             ParameterMap* column_map,
              SystemVariablesAlgebrizerMap* system_variables_map);
 
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCast(
@@ -261,7 +257,10 @@ class Algebrizer {
       std::unique_ptr<ValueExpr> in_value,
       std::unique_ptr<ValueExpr> array_value,
       const ResolvedCollation& collation);
-  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeScalarArrayFunction(
+
+  // TODO: Remove the special collation logics in this function.
+  absl::StatusOr<std::unique_ptr<ValueExpr>>
+  AlgebrizeScalarArrayFunctionWithCollation(
       FunctionKind kind, const Type* output_type,
       absl::string_view function_name,
       std::vector<std::unique_ptr<ValueExpr>> args,
@@ -404,8 +403,15 @@ class Algebrizer {
       const ResolvedUnpivotScan* unpivot_scan,
       std::unique_ptr<RelationalOp> input);
   absl::StatusOr<std::unique_ptr<RelationalOp>>
+  AlgebrizeAnonymizedAggregateScanBase(
+      const ResolvedAggregateScanBase* aggregate_scan,
+      const AnonymizationOptions& anonymization_options);
+  absl::StatusOr<std::unique_ptr<RelationalOp>>
   AlgebrizeAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* aggregate_scan);
+  absl::StatusOr<std::unique_ptr<RelationalOp>>
+  AlgebrizeDifferentialPrivacyAggregateScan(
+      const ResolvedDifferentialPrivacyAggregateScan* aggregate_scan);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSetOperationScan(
       const ResolvedSetOperationScan* set_scan);
   absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUnionScan(
@@ -443,6 +449,13 @@ class Algebrizer {
   // index in the scan (not the Table).
   using TableScanColumnInfoMap =
       absl::flat_hash_map<ResolvedColumn, std::pair<VariableId, int>>;
+
+  // Algebrizes group_selection_threshold_expr expression of differential
+  // privacy nodes.
+  absl::StatusOr<std::vector<std::unique_ptr<ValueExpr>>>
+  AlgebrizeGroupSelectionThresholdExpression(
+      const ResolvedExpr* group_selection_threshold_expr,
+      const AnonymizationOptions& anonymization_options);
 
   // If 'conjunct_info' can be represented using ColumnFilterArgs with the
   // columns in 'column_info_map', appends them to 'and_filters'.
@@ -555,7 +568,7 @@ class Algebrizer {
       std::vector<VariableId>* output_column_variables);
 
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeDMLStatement(
-      const ResolvedStatement* ast_root);
+      const ResolvedStatement* ast_root, IdStringPool* id_string_pool);
 
   // Populates the ResolvedScanMap and the ResolvedExprMap corresponding to
   // 'ast_root', which must be a DML statement. If the DML statement is
@@ -576,7 +589,7 @@ class Algebrizer {
   // 'returning_column_values' contains the ValueExpr of the returning output
   // column list and then passed to its algebrized plan.
   absl::Status AlgebrizeDMLReturningClause(
-      const ResolvedStatement* ast_root,
+      const ResolvedStatement* ast_root, IdStringPool* id_string_pool,
       ResolvedColumnList* returning_column_list,
       std::vector<std::unique_ptr<ValueExpr>>* returning_column_values);
 
@@ -1006,9 +1019,11 @@ class Algebrizer {
   // the input expression for another Flatten.
   std::stack<std::unique_ptr<const Value*>> flattened_arg_input_;
 
-  // The catalog is used to algebrized column default values or generated column
-  // expressions.
-  const zetasql::Catalog* catalog_;  // Not owned.
+  // The list of variables to use when algebrizing a ResolvedCatalogColumnRef.
+  // This is not a stack because we should never have a nested
+  // ResolvedCatalogColumnRef.
+  std::optional<absl::flat_hash_map<const Column*, VariableId>>
+      catalog_column_ref_variables_;
 };
 
 }  // namespace zetasql

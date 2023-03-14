@@ -342,14 +342,10 @@ STRUCT<
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=update_primary_key_assert_rows_modified]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableInt64Values SET primary_key = 100 WHERE primary_key = 1
 ASSERT_ROWS_MODIFIED 1
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -358,19 +354,24 @@ STRUCT<
     {100, 10, 100, 1000},
     {2, 20, 200, 2000}
   ]}
+==
+
+[name=update_primary_key_assert_rows_modified_no_pk_update]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = 100 WHERE primary_key = 1
+ASSERT_ROWS_MODIFIED 1
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 # Engines that do not support primary keys can skip this test by overriding
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=update_primary_key]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableInt64Values SET primary_key = 100 WHERE primary_key = 1
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -381,22 +382,21 @@ STRUCT<
   ]}
 ==
 
+[name=update_primary_key_no_pk_update]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = 100 WHERE primary_key = 1
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+==
+
 # Engines that do not support primary keys can skip this test by overriding
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=update_primary_key_null]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
-[test_features2=DISALLOW_NULL_PRIMARY_KEYS]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES,DISALLOW_NULL_PRIMARY_KEYS]
 UPDATE TableInt64Values SET primary_key = NULL WHERE primary_key = 1
 --
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS,DISALLOW_PRIMARY_KEY_UPDATES
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
-ERROR: generic::out_of_range: Cannot set a primary key column to NULL with UPDATE
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -407,22 +407,30 @@ STRUCT<
   ]}
 ==
 
+[name=update_primary_key_null_no_null_pks]
+[primary_key_mode=first_column_is_primary_key]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=DISALLOW_NULL_PRIMARY_KEYS]
+UPDATE TableInt64Values SET primary_key = NULL WHERE primary_key = 1
+--
+ERROR: generic::out_of_range: Cannot set a primary key column to NULL with UPDATE
+==
+
+[name=update_primary_key_null_no_pk_update]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = NULL WHERE primary_key = 1
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+==
+
 # Engines that do not support primary keys can skip this test by overriding
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=update_primary_key_default]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
-[test_features2=DISALLOW_NULL_PRIMARY_KEYS]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES,DISALLOW_NULL_PRIMARY_KEYS]
 UPDATE TableInt64Values SET primary_key = DEFAULT WHERE primary_key = 1
 --
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS,DISALLOW_PRIMARY_KEY_UPDATES
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
-ERROR: generic::out_of_range: Cannot set a primary key column to NULL with UPDATE
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -431,6 +439,23 @@ STRUCT<
     {NULL, 10, 100, 1000},
     {2, 20, 200, 2000}
   ]}
+==
+
+[name=update_primary_key_default_no_null_pks]
+[primary_key_mode=first_column_is_primary_key]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=DISALLOW_NULL_PRIMARY_KEYS]
+UPDATE TableInt64Values SET primary_key = DEFAULT WHERE primary_key = 1
+--
+ERROR: generic::out_of_range: Cannot set a primary key column to NULL with UPDATE
+==
+
+[name=update_primary_key_default_no_pk_update]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = DEFAULT WHERE primary_key = 1
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 # A trivial modification to a primary key is allowed.
@@ -439,13 +464,9 @@ STRUCT<
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=update_primary_key_to_itself]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableInt64Values SET primary_key = primary_key WHERE True
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -456,6 +477,14 @@ STRUCT<
   ]}
 ==
 
+[name=update_primary_key_to_itself_no_pk_update]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = primary_key WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+==
+
 # Setting one row's primary key equal to a previously existing row's primary key
 # is an error.
 #
@@ -463,14 +492,18 @@ STRUCT<
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=update_primary_key_to_another_row]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableInt64Values SET primary_key = 2 WHERE primary_key = 1
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: <none>
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key (2)
+==
+
+[name=update_primary_key_to_another_row_no_pk_update]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = 2 WHERE primary_key = 1
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 # Setting two rows to the same (previously non-existent, non-NULL) primary key is
@@ -480,14 +513,18 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key (2)
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=update_two_primary_keys_to_a_third_value]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableInt64Values SET primary_key = 100 WHERE True
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: <none>
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key (100)
+==
+
+[name=update_two_primary_keys_to_a_third_value_no_pk_update]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = 100 WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 # Setting two primary keys to NULL is an error.
@@ -496,19 +533,29 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key (10
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=update_two_primary_keys_to_null]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
-[test_features2=DISALLOW_NULL_PRIMARY_KEYS]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES,DISALLOW_NULL_PRIMARY_KEYS]
 UPDATE TableInt64Values SET primary_key = NULL WHERE True
 --
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS,DISALLOW_PRIMARY_KEY_UPDATES
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
-ERROR: generic::out_of_range: Cannot set a primary key column to NULL with UPDATE
---
-WITH FEATURES: <none>
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key (NULL)
+==
+
+# Setting two primary keys to NULL is an error.
+[name=update_two_primary_keys_to_null_no_null_pks]
+[primary_key_mode=first_column_is_primary_key]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
+[required_features=DISALLOW_NULL_PRIMARY_KEYS]
+UPDATE TableInt64Values SET primary_key = NULL WHERE True
+--
+ERROR: generic::out_of_range: Cannot set a primary key column to NULL with UPDATE
+==
+
+# Setting two primary keys to NULL is an error.
+[name=update_two_primary_keys_to_null_no_pk_update]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = NULL WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 # An update that explicitly requires INT64 -> INT32 assignment coercion.
@@ -932,13 +979,9 @@ ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<INT64> of si
 [name=update_array_primary_key_to_itself]
 [required_features=V_1_2_GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableArrayKey SET primary_key = primary_key WHERE True
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -955,43 +998,64 @@ STRUCT<
   ]}
 ==
 
+# Repeat the primary key tests above, but with an array as the primary key.
+[name=update_array_primary_key_to_itself_no_pk_update]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[primary_key_mode=first_column_is_primary_key]
+UPDATE TableArrayKey SET primary_key = primary_key WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+==
+
 [name=update_array_primary_key_to_another_row]
 [required_features=V_1_2_GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableArrayKey SET primary_key = [10, 11, 12] WHERE primary_key[OFFSET(0)] = 1
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([10, 11, 12])
+==
+
+[name=update_array_primary_key_to_another_row_no_pk_update]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[primary_key_mode=first_column_is_primary_key]
+UPDATE TableArrayKey SET primary_key = [10, 11, 12] WHERE primary_key[OFFSET(0)] = 1
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=update_two_primary_array_keys_to_a_third_value]
 [required_features=V_1_2_GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableArrayKey SET primary_key = [100, 101, 102] WHERE True
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([100, 101, 102])
+==
+
+[name=update_two_primary_array_keys_to_a_third_value_no_pk_update]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[primary_key_mode=first_column_is_primary_key]
+UPDATE TableArrayKey SET primary_key = [100, 101, 102] WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=update_two_primary_array_keys_to_null]
 [required_features=V_1_2_GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableArrayKey SET primary_key = NULL WHERE True
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key (NULL)
+==
+
+[name=update_two_primary_array_keys_to_null_no_pk_update]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[primary_key_mode=first_column_is_primary_key]
+UPDATE TableArrayKey SET primary_key = NULL WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 # TODO: The reference implementation does not correctly support
@@ -1000,17 +1064,26 @@ ERROR: generic::out_of_range: Modification resulted in duplicate primary key (NU
 # this until there is actually some engine that cares. In the meantime, we only
 # run this compliance test with DISALLOW_NULL_PRIMARY_KEYS is disabled.
 [name=update_two_primary_array_keys_with_null_element]
-[forbidden_features=DISALLOW_NULL_PRIMARY_KEYS]
+[forbidden_features=DISALLOW_NULL_PRIMARY_KEYS,DISALLOW_PRIMARY_KEY_UPDATES]
 [required_features=V_1_2_GROUP_BY_ARRAY]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableArrayKey SET primary_key = [1, NULL, 2] WHERE True
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1, NULL, 2])
+==
+
+# TODO: The reference implementation does not correctly support
+# DISALLOW_NULL_PRIMARY_KEYS yet, because it supposed to disallow arrays with a
+# NULL element when that feature is enabled. It doesn't seem worth it to fix
+# this until there is actually some engine that cares. In the meantime, we only
+# run this compliance test with DISALLOW_NULL_PRIMARY_KEYS is disabled.
+[name=update_two_primary_array_keys_with_null_element_no_pk_update]
+[forbidden_features=DISALLOW_NULL_PRIMARY_KEYS]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+[primary_key_mode=first_column_is_primary_key]
+UPDATE TableArrayKey SET primary_key = [1, NULL, 2] WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=assign_two_columns]

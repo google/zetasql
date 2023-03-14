@@ -295,6 +295,12 @@ const std::vector<FunctionTestCall> GetJsonArrayTestsCommon(
         {function_name,
          {json2, String("$.y")},
          from_array({{"{\"a\":\"bar\"}", "{\"b\":\"baz\"}"}})});
+    // Special character in object key. Regression test for b/265948860
+    test_cases.push_back(
+        {function_name,
+         {from_json(R"({"foo": [{"b\"ar":"q\"w"}, {"b\"\"ar":"q\"w"}]})"),
+          String("$.foo")},
+         from_array({{R"({"b\"ar":"q\"w"})", R"({"b\"\"ar":"q\"w"})"}})});
     // Not scalar array - nested array
     test_cases.push_back({function_name,
                           {json5, String("$.a")},

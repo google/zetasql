@@ -26,6 +26,7 @@
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
@@ -56,6 +57,11 @@ namespace zetasql {
 STATIC_IDSTRING(kAnalyticId, "$analytic");
 STATIC_IDSTRING(kPartitionById, "$partitionby");
 STATIC_IDSTRING(kOrderById, "$orderby");
+
+#define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()                      \
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(                           \
+      "Out of stack space due to deeply nested query expression " \
+      "during query resolution")
 
 struct AnalyticFunctionResolver::AnalyticFunctionInfo {
   AnalyticFunctionInfo(
@@ -182,6 +188,7 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
     ResolvedFunctionCall* resolved_function_call,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   const ASTWindowSpecification* over_clause_window_spec =
       ast_analytic_function_call->window_spec();
@@ -426,6 +433,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggregation(
     const ASTPartitionBy* ast_partition_by,
     ExprResolutionInfo* expr_resolution_info,
     WindowExprInfoList** partition_by_info_out) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   const std::unique_ptr<WindowExprInfoList>* existing_partition_by_info =
       zetasql_base::FindOrNull(ast_to_resolved_info_map_, ast_partition_by);
@@ -471,6 +479,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
     const ASTOrderBy* ast_order_by, bool is_in_range_window,
     ExprResolutionInfo* expr_resolution_info,
     WindowExprInfoList** order_by_info_out) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   const std::unique_ptr<WindowExprInfoList>* existing_order_by_info =
       zetasql_base::FindOrNull(ast_to_resolved_info_map_, ast_order_by);
   if (existing_order_by_info != nullptr) {
@@ -530,6 +539,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowExpression(
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<WindowExprInfo>* resolved_item_out,
     const Type** expr_type_out) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   // This is NULL if this analytic function call is in the SELECT list, which
   // cannot reference a column in the SELECT list.
@@ -643,6 +653,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrame(
     const ASTWindowFrame* ast_window_frame, const Type* target_expr_type,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedWindowFrame>* resolved_window_frame) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   ResolvedWindowFrame::FrameUnit frame_unit;
   ZETASQL_RETURN_IF_ERROR(ResolveWindowFrameUnit(ast_window_frame, &frame_unit));
@@ -675,6 +686,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrame(
 absl::Status AnalyticFunctionResolver::ResolveWindowFrameUnit(
     const ASTWindowFrame* ast_window_frame,
     ResolvedWindowFrame::FrameUnit* resolved_unit) const {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   switch (ast_window_frame->frame_unit()) {
     case ASTWindowFrame::ROWS:
@@ -694,6 +706,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameExpr(
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedWindowFrameExpr>*
         resolved_window_frame_expr) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   // Only OFFSET_PRECEDING and OFFSET_FOLLOWING boundaries have a non-NULL
   // expression in the parse tree.
@@ -742,6 +755,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
     const Type* ordering_expr_type,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_offset_expr) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   ZETASQL_RET_CHECK(ast_frame_expr->expression() != nullptr);
   static const char window_frame_clause_name[] = "window frame";
@@ -1129,6 +1143,7 @@ absl::Status AnalyticFunctionResolver::AddColumnForWindowExpression(
 
 absl::Status AnalyticFunctionResolver::ExtractWindowInfoFromReferencedWindow(
     FlattenedWindowInfo* flattened_window_info) const {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   const ASTWindowSpecification* window_spec =
       flattened_window_info->ast_window_spec;

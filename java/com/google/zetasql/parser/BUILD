@@ -26,7 +26,15 @@ genrule(
     srcs = ["ASTNodes.java.template"],
     outs = ["ASTNodes.java"],
     cmd = "$(location //zetasql/parser:gen_parse_tree) $(OUTS) $(SRCS)",
-    exec_tools = ["//zetasql/parser:gen_parse_tree"],
+    tools = ["//zetasql/parser:gen_parse_tree"],
+)
+
+genrule(
+    name = "gen_parse_tree_visitor",
+    srcs = ["ParseTreeVisitor.java.template"],
+    outs = ["ParseTreeVisitor.java"],
+    cmd = "$(location //zetasql/parser:gen_parse_tree) $(OUTS) $(SRCS)",
+    tools = ["//zetasql/parser:gen_parse_tree"],
 )
 
 java_library(
@@ -34,6 +42,7 @@ java_library(
     srcs = [
         "ASTNode.java",
         "ASTNodes.java",
+        "ParseTreeVisitor.java",
     ],
     deps = [
         "//java/com/google/zetasql:debug_printable_node",

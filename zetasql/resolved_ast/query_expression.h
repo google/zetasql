@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/string_view.h"
+
 namespace zetasql {
 
 // SQLBuilder representation of a SQL query. Holds internal state while
@@ -42,7 +44,7 @@ class QueryExpression {
 
   // Mutates the QueryExpression, wrapping its previous form as a subquery in
   // the from_ clause, with the given <alias>.
-  void Wrap(const std::string& alias);
+  void Wrap(absl::string_view alias);
 
   // The below TrySet... methods return true if we are able to set the concerned
   // clause in QueryExpression successfully. Otherwise return false with the

@@ -1292,6 +1292,76 @@ SELECT ARRAY_MAX([collate("c", "und:ci"), collate("C", "und:ci"), collate("a", "
 ARRAY<STRUCT<STRING>>[{"c"}]
 ==
 
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_offset_collation_ci_string_1]
+SELECT ARRAY_OFFSET([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_offset_collation_ci_string_2]
+SELECT ARRAY_OFFSET(["a", "c", "C"], collate("C", "und:ci"))
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_offset_collation_ci_string_3]
+SELECT ARRAY_OFFSET(["a", "c", "C"], collate("C", "und:ci"), "LAST")
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_find_collation_ci_string_1]
+SELECT ARRAY_FIND([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
+--
+ARRAY<STRUCT<STRING>>[{"c"}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_find_collation_ci_string_2]
+SELECT ARRAY_FIND(["a", "c", "C"], collate("C", "und:ci"))
+--
+ARRAY<STRUCT<STRING>>[{"c"}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_find_collation_ci_string_3]
+SELECT ARRAY_FIND(["a", "c", "C"], collate("C", "und:ci"), "LAST")
+--
+ARRAY<STRUCT<STRING>>[{"C"}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_offsets_collation_ci_string_1]
+SELECT ARRAY_OFFSETS([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 2]}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_offsets_collation_ci_string_2]
+SELECT ARRAY_OFFSETS(["c", "a", "C"], collate("C", "und:ci"))
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[0, 2]}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_find_all_collation_ci_string_1]
+SELECT ARRAY_FIND_ALL([collate("a", "und:ci"), collate("c", "und:ci"), collate("C", "und:ci")], "C")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["c", "C"]}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_4_ARRAY_FIND_FUNCTIONS]
+[name=array_find_all_collation_ci_string_2]
+SELECT ARRAY_FIND_ALL(["c", "a", "C"], collate("C", "und:ci"))
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["c", "C"]}]
+==
+
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_function_count_distinct_with_collation_ci]
 with TestTable as (
@@ -1386,41 +1456,94 @@ select
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, true, false, false, false}]
 ==
 
-# TODO: Add PERCENTILE_DISC collation support for reference implementation.
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_percentile_disc_with_collation_ci]
 WITH TestTable AS (
-SELECT 'Alpha' col UNION ALL
-SELECT 'Bravo' UNION ALL
-SELECT 'Charlie' UNION ALL
-SELECT 'Delta' UNION ALL
-SELECT 'alpha' UNION ALL
-SELECT 'bravo' UNION ALL
-SELECT 'charlie' UNION ALL
-SELECT 'delta'
+SELECT '' col UNION ALL
+SELECT 'a' UNION ALL
+SELECT 'Ab' UNION ALL
+SELECT 'Abc' UNION ALL
+SELECT 'B' UNION ALL
+SELECT 'bc' UNION ALL
+SELECT 'bcd' UNION ALL
+SELECT 'Cd'
 )
 SELECT
   PERCENTILE_DISC(collate(col, 'und:ci'), 0.5) OVER ()
 FROM TestTable
 --
-ARRAY<STRUCT<STRING>>[{"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}, {"Bravo"}]
+ARRAY<STRUCT<STRING>>[
+  {"Abc"},
+  {"Abc"},
+  {"Abc"},
+  {"Abc"},
+  {"Abc"},
+  {"Abc"},
+  {"Abc"},
+  {"Abc"}
+]
 ==
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
 [name=analytic_percentile_disc_with_collation_binary]
 WITH TestTable AS (
-SELECT 'Alpha' col UNION ALL
-SELECT 'Bravo' UNION ALL
-SELECT 'Charlie' UNION ALL
-SELECT 'Delta' UNION ALL
-SELECT 'alpha' UNION ALL
-SELECT 'bravo' UNION ALL
-SELECT 'charlie' UNION ALL
-SELECT 'delta'
+SELECT '' col UNION ALL
+SELECT 'a' UNION ALL
+SELECT 'Ab' UNION ALL
+SELECT 'Abc' UNION ALL
+SELECT 'B' UNION ALL
+SELECT 'bc' UNION ALL
+SELECT 'bcd' UNION ALL
+SELECT 'Cd'
 )
 SELECT
   PERCENTILE_DISC(collate(col, 'binary'), 0.5) OVER ()
 FROM TestTable
 --
-ARRAY<STRUCT<STRING>>[{"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}, {"Delta"}]
+ARRAY<STRUCT<STRING>>[{"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}]
 ==
+
+[required_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[name=cast_to_string_with_collation_ci_binary]
+SELECT
+  CAST('abc' AS STRING COLLATE 'und:ci') = 'ABC',
+  CAST('abc' AS STRING COLLATE 'binary') = 'ABC',
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+[required_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[name=cast_to_array_with_collation_ci_binary]
+SELECT
+  'ABC' IN UNNEST(CAST(['abc', 'aBc']  AS ARRAY<STRING COLLATE 'und:ci'>)),
+  'ABC' IN UNNEST(CAST(['abc', 'aBc']  AS ARRAY<STRING COLLATE 'binary'>))
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+[required_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[name=cast_to_struct_with_collation_ci_binary]
+SELECT
+  CAST(STRUCT<a BOOL, b STRING>(true, 'abc') AS STRUCT<a BOOL, b STRING COLLATE 'und:ci'>).b = 'ABC',
+  CAST(STRUCT<a BOOL, b STRING>(true, 'abc') AS STRUCT<a BOOL, b STRING COLLATE 'binary'>).b = 'ABC'
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[name=analytic_percentile_disc_with_collation_empty]
+WITH TestTable AS (
+SELECT '' col UNION ALL
+SELECT 'a' UNION ALL
+SELECT 'Ab' UNION ALL
+SELECT 'Abc' UNION ALL
+SELECT 'B' UNION ALL
+SELECT 'bc' UNION ALL
+SELECT 'bcd' UNION ALL
+SELECT 'Cd'
+)
+SELECT
+  PERCENTILE_DISC(collate(col, ''), 0.5) OVER ()
+FROM TestTable
+--
+ARRAY<STRUCT<STRING>>[{"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}, {"B"}]

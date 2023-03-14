@@ -153,7 +153,7 @@ CreateTableFunctionStmt
 +-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (1 deprecation warning)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code='(select "foo" x from tvf_deprecation_warning())'
++-code='select "foo" x from tvf_deprecation_warning()'
 +-query=
 | +-ProjectScan
 |   +-column_list=[$query.x#3]
@@ -189,7 +189,7 @@ CreateTableFunctionStmt
 +-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (1 deprecation warning)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code='(select "foo" x from tvf_deprecation_warning()\n     union all\n     select "bar" from tvf_deprecation_warning())'
++-code='select "foo" x from tvf_deprecation_warning()\n     union all\n     select "bar" from tvf_deprecation_warning()'
 +-query=
 | +-SetOperationScan
 |   +-column_list=[$union_all.x#7]
@@ -239,7 +239,7 @@ CreateTableFunctionStmt
 +-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (1 deprecation warning)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code='(select "foo" x from tvf_two_deprecation_warnings_same_kind())'
++-code='select "foo" x from tvf_two_deprecation_warnings_same_kind()'
 +-query=
 | +-ProjectScan
 |   +-column_list=[$query.x#3]
@@ -273,7 +273,7 @@ CreateTableFunctionStmt
 +-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (2 deprecation warnings)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code='(select "foo" x from tvf_two_deprecation_warnings())'
++-code='select "foo" x from tvf_two_deprecation_warnings()'
 +-query=
 | +-ProjectScan
 |   +-column_list=[$query.x#3]
@@ -323,7 +323,7 @@ CreateTableFunctionStmt
 +-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (4 deprecation warnings)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code='(select "foo" x from tvf_deprecation_warning()\n     union all\n     select "bar" from tvf_two_deprecation_warnings_same_kind()\n     union all\n     select "baz" from tvf_two_deprecation_warnings())'
++-code='select "foo" x from tvf_deprecation_warning()\n     union all\n     select "bar" from tvf_two_deprecation_warnings_same_kind()\n     union all\n     select "baz" from tvf_two_deprecation_warnings()'
 +-query=
 | +-SetOperationScan
 |   +-column_list=[$union_all.x#10]
@@ -419,7 +419,7 @@ CreateTableFunctionStmt
 +-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (4 deprecation warnings)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code='(select "foo1" x from tvf_deprecation_warning()\n     union all\n     select "foo2" x from tvf_deprecation_warning()\n     union all\n     select "bar1" from tvf_two_deprecation_warnings_same_kind()\n     union all\n     select "bar2" from tvf_two_deprecation_warnings_same_kind()\n     union all\n     select "baz1" from tvf_two_deprecation_warnings()\n     union all\n     select "baz2" from tvf_two_deprecation_warnings())'
++-code='select "foo1" x from tvf_deprecation_warning()\n     union all\n     select "foo2" x from tvf_deprecation_warning()\n     union all\n     select "bar1" from tvf_two_deprecation_warnings_same_kind()\n     union all\n     select "bar2" from tvf_two_deprecation_warnings_same_kind()\n     union all\n     select "baz1" from tvf_two_deprecation_warnings()\n     union all\n     select "baz2" from tvf_two_deprecation_warnings()'
 +-query=
 | +-SetOperationScan
 |   +-column_list=[$union_all.x#19]
@@ -2424,7 +2424,7 @@ create temp table function asdf(t any table)
 returns table<int64>
 as (select 1 from t limit 1);
 --
-CreateTableFunctionStmt(name_path=asdf, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(ANY TABLE t) -> TABLE<INT64>, has_explicit_return_schema=TRUE, language="SQL", code="(select 1 from t limit 1)", is_value_table=TRUE)
+CreateTableFunctionStmt(name_path=asdf, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(ANY TABLE t) -> TABLE<INT64>, has_explicit_return_schema=TRUE, language="SQL", code="select 1 from t limit 1", is_value_table=TRUE)
 ==
 
 # This test case has an explicit SELECT list alias.
@@ -2432,7 +2432,7 @@ create temp table function asdf(t any table)
 returns table<int64>
 as (select 1 as a from t limit 1);
 --
-CreateTableFunctionStmt(name_path=asdf, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(ANY TABLE t) -> TABLE<INT64>, has_explicit_return_schema=TRUE, language="SQL", code="(select 1 as a from t limit 1)", is_value_table=TRUE)
+CreateTableFunctionStmt(name_path=asdf, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(ANY TABLE t) -> TABLE<INT64>, has_explicit_return_schema=TRUE, language="SQL", code="select 1 as a from t limit 1", is_value_table=TRUE)
 ==
 
 # This test case has SELECT AS VALUE.
@@ -2440,7 +2440,7 @@ create temp table function asdf(t any table)
 returns table<int64>
 as (select as value 1 from t limit 1);
 --
-CreateTableFunctionStmt(name_path=asdf, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(ANY TABLE t) -> TABLE<INT64>, has_explicit_return_schema=TRUE, language="SQL", code="(select as value 1 from t limit 1)", is_value_table=TRUE)
+CreateTableFunctionStmt(name_path=asdf, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(ANY TABLE t) -> TABLE<INT64>, has_explicit_return_schema=TRUE, language="SQL", code="select as value 1 from t limit 1", is_value_table=TRUE)
 ==
 
 # This test case has SELECT AS VALUE, but returns a table with a named column.
@@ -2448,7 +2448,7 @@ create temp table function asdf(t any table)
 returns table<a int64>
 as (select as value 1 from t limit 1)
 --
-CreateTableFunctionStmt(name_path=asdf, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(ANY TABLE t) -> TABLE<a INT64>, has_explicit_return_schema=TRUE, language="SQL", code="(select as value 1 from t limit 1)")
+CreateTableFunctionStmt(name_path=asdf, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(ANY TABLE t) -> TABLE<a INT64>, has_explicit_return_schema=TRUE, language="SQL", code="select as value 1 from t limit 1")
 ==
 
 # The statement contains a duplicate column name, but the RETURNS TABLE clause

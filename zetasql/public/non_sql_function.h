@@ -68,10 +68,6 @@ class NonSqlFunction : public Function {
       std::optional<ParseResumeLocation> parse_resume_location,
       std::unique_ptr<NonSqlFunction>* sql_function);
 
-  std::optional<ParseResumeLocation> GetParseResumeLocation() const {
-    return parse_resume_location_;
-  }
-
   const ResolvedCreateFunctionStmt& resolved_create_function_statement() const {
     return *resolved_create_function_statement_;
   }
@@ -95,8 +91,6 @@ class NonSqlFunction : public Function {
   const ResolvedCreateFunctionStmt* resolved_create_function_statement_;
   const std::vector<std::string> argument_names_;
   std::optional<ParseResumeLocation> parse_resume_location_;
-  const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
-      aggregate_expression_list_ = nullptr;            // Not owned.
 };
 
 }  // namespace zetasql

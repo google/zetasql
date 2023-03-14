@@ -629,12 +629,12 @@ class Function {
 
   // Helper function to add function signatures with simple argument and
   // result types.
-  absl::Status AddSignature(const TypeKind result_kind,
+  absl::Status AddSignature(TypeKind result_kind,
                             const std::vector<TypeKind>& input_kinds,
                             void* context, TypeFactory* factory);
   // Convenience function that returns the same Function object so that
   // calls can be chained.
-  Function* AddSignatureOrDie(const TypeKind result_kind,
+  Function* AddSignatureOrDie(TypeKind result_kind,
                               const std::vector<TypeKind>& input_kinds,
                               void* context, TypeFactory* factory);
 
@@ -647,6 +647,9 @@ class Function {
   // ownership of the returned FunctionSignature.  Returns NULL if the
   // specified idx does not exist.
   const FunctionSignature* GetSignature(int idx) const;
+
+  // Returns a non-const pointer to the requested FunctionSignature.
+  FunctionSignature* GetMutableSignature(int idx);
 
   // Returns the function name.  If <verbose> then also returns DebugString()s
   // of all its function signatures.
@@ -679,16 +682,21 @@ class Function {
 
   // Returns a relevant (customizable) error message for the no matching
   // function signature error condition.
-  const std::string GetNoMatchingFunctionSignatureErrorMessage(
-      const std::vector<InputArgumentType>& arguments,
-      ProductMode product_mode) const;
+  //
+  // `argument_names` is the provided argument names from the call site.
+  // `argument_names[i]` is the name of `arguments[i]`.
+  // If non-empty, the signatures in the error message are printed with
+  // argument names if the argument names are not positional-only.
+  std::string GetNoMatchingFunctionSignatureErrorMessage(
+      const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
+      absl::Span<const absl::string_view> argument_names) const;
 
   // Returns a generic error message for the no matching function signature
   // error condition.
   static const std::string GetGenericNoMatchingFunctionSignatureErrorMessage(
       const std::string& qualified_function_name,
-      const std::vector<InputArgumentType>& arguments,
-      ProductMode product_mode);
+      const std::vector<InputArgumentType>& arguments, ProductMode product_mode,
+      absl::Span<const absl::string_view> argument_names = {});
 
   const SupportedSignaturesCallback& GetSupportedSignaturesCallback() const;
 
@@ -697,8 +705,12 @@ class Function {
   // "DATE_DIFF(DATE, DATE, DATE_TIME_PART)"
   // "INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE"
   // In num_signatures returns number of signatures used to build a string.
-  const std::string GetSupportedSignaturesUserFacingText(
-      const LanguageOptions& language_options, int* num_signatures) const;
+  //
+  // `print_style` controls the way function argument names are printed.
+  std::string GetSupportedSignaturesUserFacingText(
+      const LanguageOptions& language_options,
+      FunctionArgumentType::NamePrintingStyle print_style,
+      int* num_signatures) const;
 
   const BadArgumentErrorPrefixCallback&
   GetBadArgumentErrorPrefixCallback() const;

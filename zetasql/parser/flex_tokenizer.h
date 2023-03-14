@@ -25,10 +25,8 @@
 #include <string>
 
 #include "zetasql/public/language_options.h"
-#include <cstdint>
+#include "zetasql/public/options.pb.h"
 #include "absl/flags/flag.h"
-#include "absl/memory/memory.h"
-#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 
@@ -88,6 +86,9 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // 'yylloc' must be the location of the previous token that was returned.
   int GetNextTokenFlex(zetasql_bison_parser::location* yylloc) {
     prev_token_ = GetNextTokenFlexImpl(yylloc);
+    if (override_error_.ok()) {
+      num_lexical_tokens_++;
+    }
     return prev_token_;
   }
 
@@ -112,9 +113,11 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // should trigger the generalized identifier tokenizer mode.
   bool IsDotGeneralizedIdentifierPrefixToken(int bison_token) const;
 
+  int64_t num_lexical_tokens() const { return num_lexical_tokens_; }
+
  private:
   void SetOverrideError(const zetasql_bison_parser::location& yylloc,
-                        const std::string& error_message) {
+                        absl::string_view error_message) {
     override_error_ = MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(
         filename_, yylloc.begin.column)) << error_message;
   }
@@ -135,6 +138,10 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   int GetIdentifierLength(absl::string_view text);
 
   bool IsReservedKeyword(absl::string_view text) const;
+
+  bool AreMacrosEnabled() const {
+    return language_options_.LanguageFeatureEnabled(FEATURE_V_1_4_SQL_MACROS);
+  }
 
   // EOF sentinel input. This is appended to the input and used as a sentinel in
   // the tokenizer. The reason for doing this is that some tokenizer rules
@@ -191,6 +198,9 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // LanguageOptions passed in from parser, used to decide if reservable
   // keywords are reserved or not.
   const LanguageOptions& language_options_;
+
+  // Count of lexical tokens returned
+  int64_t num_lexical_tokens_ = 0;
 };
 
 }  // namespace parser

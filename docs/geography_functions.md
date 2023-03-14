@@ -4,8 +4,8 @@
 
 ZetaSQL supports geography functions.
 Geography functions operate on or generate ZetaSQL
-`GEOGRAPHY` values. The signature of any geography
-function starts with `ST_`. ZetaSQL supports the following functions
+`GEOGRAPHY` values. The signature of most geography
+functions starts with `ST_`. ZetaSQL supports the following functions
 that can be used to analyze geographical data, determine spatial relationships
 between geographical features, and construct or manipulate
 `GEOGRAPHY`s.
@@ -102,6 +102,7 @@ behavior:
       <td>
         <a href="#st_dimension"><code>ST_DIMENSION</code></a><br>
         <a href="#st_dump"><code>ST_DUMP</code></a><br>
+        <a href="#st_dumppoints"><code>ST_DUMPPOINTS</code></a><br>
         <a href="#st_endpoint"><code>ST_ENDPOINT</code></a><br>
         <a href="#st_geometrytype"><code>ST_GEOMETRYTYPE</code></a><br>
         <a href="#st_isclosed"><code>ST_ISCLOSED</code></a><br>
@@ -179,7 +180,7 @@ behavior:
   </tbody>
 </table>
 
-### ST_ACCUM
+### `ST_ACCUM`
 
 ```sql
 ST_ACCUM(geography)
@@ -196,7 +197,9 @@ but only applies to `GEOGRAPHY` objects.
 
 `ARRAY<GEOGRAPHY>`
 
-### ST_ANGLE
+[geography-link-array-agg]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#array_agg
+
+### `ST_ANGLE`
 
 ```sql
 ST_ANGLE(point_geography_1, point_geography_2, point_geography_3)
@@ -251,7 +254,7 @@ SELECT ST_ANGLE(geo1,geo2,geo3) AS angle FROM geos ORDER BY id;
 +---------------------+
 ```
 
-### ST_AREA
+### `ST_AREA`
 
 ```sql
 ST_AREA(geography_expression[, use_spheroid])
@@ -277,7 +280,9 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 `DOUBLE`
 
-### ST_ASBINARY
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_ASBINARY`
 
 ```sql
 ST_ASBINARY(geography_expression)
@@ -288,14 +293,18 @@ ST_ASBINARY(geography_expression)
 Returns the [WKB][wkb-link] representation of an input
 `GEOGRAPHY`.
 
-See [`ST_GEOGFROMWKB`](#st_geogfromwkb) to construct a
+See [`ST_GEOGFROMWKB`][st-geogfromwkb] to construct a
 `GEOGRAPHY` from WKB.
 
 **Return type**
 
 `BYTES`
 
-### ST_ASGEOJSON
+[wkb-link]: https://en.wikipedia.org/wiki/Well-known_text#Well-known_binary
+
+[st-geogfromwkb]: #st_geogfromwkb
+
+### `ST_ASGEOJSON`
 
 ```sql
 ST_ASGEOJSON(geography_expression)
@@ -312,14 +321,20 @@ To convert between these two types of edges, ZetaSQL adds additional
 points to the line where necessary so that the resulting sequence of edges
 remains within 10 meters of the original edge.
 
-See [`ST_GEOGFROMGEOJSON`](#st_geogfromgeojson) to construct a
+See [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson] to construct a
 `GEOGRAPHY` from GeoJSON.
 
 **Return type**
 
 `STRING`
 
-### ST_ASKML
+[geojson-spec-link]: https://tools.ietf.org/html/rfc7946
+
+[geojson-link]: https://en.wikipedia.org/wiki/GeoJSON
+
+[st-geogfromgeojson]: #st_geogfromgeojson
+
+### `ST_ASKML`
 
 ```sql
 ST_ASKML(geography)
@@ -335,7 +350,9 @@ of precision.
 
 `STRING`
 
-### ST_ASTEXT
+[kml-geometry-link]: https://developers.google.com/kml/documentation/kmlreference#geometry
+
+### `ST_ASTEXT`
 
 ```sql
 ST_ASTEXT(geography_expression)
@@ -346,14 +363,18 @@ ST_ASTEXT(geography_expression)
 Returns the [WKT][wkt-link] representation of an input
 `GEOGRAPHY`.
 
-See [`ST_GEOGFROMTEXT`](#st_geogfromtext) to construct a
+See [`ST_GEOGFROMTEXT`][st-geogfromtext] to construct a
 `GEOGRAPHY` from WKT.
 
 **Return type**
 
 `STRING`
 
-### ST_AZIMUTH
+[wkt-link]: https://en.wikipedia.org/wiki/Well-known_text
+
+[st-geogfromtext]: #st_geogfromtext
+
+### `ST_AZIMUTH`
 
 ```sql
 ST_AZIMUTH(point_geography_1, point_geography_2)
@@ -414,7 +435,7 @@ SELECT ST_AZIMUTH(geo1, geo2) AS azimuth FROM geos ORDER BY id;
 +--------------------+
 ```
 
-### ST_BOUNDARY
+### `ST_BOUNDARY`
 
 ```sql
 ST_BOUNDARY(geography_expression)
@@ -438,7 +459,7 @@ defined as follows:
 
 `GEOGRAPHY`
 
-### ST_BOUNDINGBOX
+### `ST_BOUNDINGBOX`
 
 ```sql
 ST_BOUNDINGBOX(geography_expression)
@@ -494,9 +515,11 @@ FROM data
 +----+------------------------------------------+
 ```
 
-See `ST_EXTENT`(#st_extent) for the aggregate version of `ST_BOUNDINGBOX`.
+See [`ST_EXTENT`][st-extent] for the aggregate version of `ST_BOUNDINGBOX`.
 
-### ST_BUFFER
+[st-extent]: #st_extent
+
+### `ST_BUFFER`
 
 ```sql
 ST_BUFFER(
@@ -511,7 +534,7 @@ ST_BUFFER(
 **Description**
 
 Returns a `GEOGRAPHY` that represents the buffer around the input `GEOGRAPHY`.
-This function is similar to [`ST_BUFFERWITHTOLERANCE`](#st_bufferwithtolerance),
+This function is similar to [`ST_BUFFERWITHTOLERANCE`][st-bufferwithtolerance],
 but you specify the number of segments instead of providing tolerance to
 determine how much the resulting geography can deviate from the ideal
 buffer radius.
@@ -545,10 +568,10 @@ Polygon `GEOGRAPHY`
 The following example shows the result of `ST_BUFFER` on a point. A buffered
 point is an approximated circle. When `num_seg_quarter_circle = 2`, there are
 two line segments in a quarter circle, and therefore the buffered circle has
-eight sides and [`ST_NUMPOINTS`](#st_numpoints) returns nine vertices. When
+eight sides and [`ST_NUMPOINTS`][st-numpoints] returns nine vertices. When
 `num_seg_quarter_circle = 8`, there are eight line segments in a quarter circle,
 and therefore the buffered circle has thirty-two sides and
-[`ST_NUMPOINTS`](#st_numpoints) returns thirty-three vertices.
+[`ST_NUMPOINTS`][st-numpoints] returns thirty-three vertices.
 
 ```sql
 SELECT
@@ -564,7 +587,13 @@ SELECT
 +-------------+------------------+
 ```
 
-### ST_BUFFERWITHTOLERANCE
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+[st-bufferwithtolerance]: #st_bufferwithtolerance
+
+[st-numpoints]: #st_numpoints
+
+### `ST_BUFFERWITHTOLERANCE`
 
 ```sql
 ST_BUFFERWITHTOLERANCE(
@@ -577,7 +606,7 @@ ST_BUFFERWITHTOLERANCE(
 ```
 
 Returns a `GEOGRAPHY` that represents the buffer around the input `GEOGRAPHY`.
-This function is similar to [`ST_BUFFER`](#st_buffer),
+This function is similar to [`ST_BUFFER`][st-buffer],
 but you provide tolerance instead of segments to determine how much the
 resulting geography can deviate from the ideal buffer radius.
 
@@ -630,7 +659,11 @@ SELECT
 +------------+-------------------+
 ```
 
-### ST_CENTROID
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+[st-buffer]: #st_buffer
+
+### `ST_CENTROID`
 
 ```sql
 ST_CENTROID(geography_expression)
@@ -663,7 +696,7 @@ and the likelihood of this happening is vanishingly small.
 
 Point `GEOGRAPHY`
 
-### ST_CLOSESTPOINT
+### `ST_CLOSESTPOINT`
 
 ```sql
 ST_CLOSESTPOINT(geography_1, geography_2[, use_spheroid])
@@ -690,7 +723,9 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 Point `GEOGRAPHY`
 
-### ST_CLUSTERDBSCAN
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_CLUSTERDBSCAN`
 
 ```sql
 ST_CLUSTERDBSCAN(geography_column, epsilon, minimum_geographies)
@@ -789,7 +824,9 @@ Geos ORDER BY row_id
 +--------+-----------------------------------+-------------+
 ```
 
-### ST_CONTAINS
+[dbscan-link]: https://en.wikipedia.org/wiki/DBSCAN
+
+### `ST_CONTAINS`
 
 ```sql
 ST_CONTAINS(geography_1, geography_2)
@@ -801,7 +838,7 @@ Returns `TRUE` if no point of `geography_2` is outside `geography_1`, and
 the interiors intersect; returns `FALSE` otherwise.
 
 NOTE: A `GEOGRAPHY` *does not* contain its own
-boundary. Compare with [`ST_COVERS`](#st_covers).
+boundary. Compare with [`ST_COVERS`][st_covers].
 
 **Return type**
 
@@ -829,7 +866,9 @@ FROM UNNEST([0, 1, 10]) AS i;
 +--------------+----------+
 ```
 
-### ST_CONVEXHULL
+[st_covers]: #st_covers
+
+### `ST_CONVEXHULL`
 
 ```sql
 ST_CONVEXHULL(geography_expression)
@@ -882,7 +921,7 @@ FROM Geographies;
 +-----------------------------------------+--------------------------------------------------------+
 ```
 
-### ST_COVEREDBY
+### `ST_COVEREDBY`
 
 ```sql
 ST_COVEREDBY(geography_1, geography_2)
@@ -895,13 +934,15 @@ points of `geography_1` lie in the exterior of `geography_2`.
 
 Given two `GEOGRAPHY`s `a` and `b`,
 `ST_COVEREDBY(a, b)` returns the same result as
-[`ST_COVERS`](#st_covers)`(b, a)`. Note the opposite order of arguments.
+[`ST_COVERS`][st-covers]`(b, a)`. Note the opposite order of arguments.
 
 **Return type**
 
 `BOOL`
 
-### ST_COVERS
+[st-covers]: #st_covers
+
+### `ST_COVERS`
 
 ```sql
 ST_COVERS(geography_1, geography_2)
@@ -939,7 +980,7 @@ FROM UNNEST([0, 1, 10]) AS i;
 +--------------+--------+
 ```
 
-### ST_DIFFERENCE
+### `ST_DIFFERENCE`
 
 ```sql
 ST_DIFFERENCE(geography_1, geography_2)
@@ -969,7 +1010,7 @@ be in the difference.
 
 **Example**
 
-The following query illustrates the diffence between `geog1`, a larger polygon
+The following query illustrates the difference between `geog1`, a larger polygon
 `POLYGON((0 0, 10 0, 10 10, 0 0))` and `geog1`, a smaller polygon
 `POLYGON((4 2, 6 2, 8 6, 4 2))` that intersects with `geog1`. The result is
 `geog1` with a hole where `geog2` intersects with it.
@@ -988,7 +1029,7 @@ SELECT
 +--------------------------------------------------------+
 ```
 
-### ST_DIMENSION
+### `ST_DIMENSION`
 
 ```sql
 ST_DIMENSION(geography_expression)
@@ -1012,7 +1053,7 @@ returns `-1`.
 
 `INT64`
 
-### ST_DISJOINT
+### `ST_DISJOINT`
 
 ```sql
 ST_DISJOINT(geography_1, geography_2)
@@ -1023,13 +1064,15 @@ ST_DISJOINT(geography_1, geography_2)
 Returns `TRUE` if the intersection of `geography_1` and `geography_2` is empty,
 that is, no point in `geography_1` also appears in `geography_2`.
 
-`ST_DISJOINT` is the logical negation of [`ST_INTERSECTS`](#st_intersects).
+`ST_DISJOINT` is the logical negation of [`ST_INTERSECTS`][st-intersects].
 
 **Return type**
 
 `BOOL`
 
-### ST_DISTANCE
+[st-intersects]: #st_intersects
+
+### `ST_DISTANCE`
 
 ```
 ST_DISTANCE(geography_1, geography_2[, use_spheroid])
@@ -1054,7 +1097,9 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 `DOUBLE`
 
-### ST_DUMP
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_DUMP`
 
 ```sql
 ST_DUMP(geography[, dimension])
@@ -1124,10 +1169,48 @@ FROM example
 | GEOMETRYCOLLECTION(POINT(0 0),      | [LINESTRING(1 2, 2 1)]       |
 |   LINESTRING(1 2, 2 1))             |                              |
 +-------------------------------------+------------------------------+
-
 ```
 
-### ST_DWITHIN
+### `ST_DUMPPOINTS`
+
+```sql
+ST_DUMPPOINTS(geography)
+```
+
+**Description**
+
+Takes an input geography and returns all of its points, line vertices, and
+polygon vertices as an array of point geographies.
+
+**Return Type**
+
+`ARRAY<Point GEOGRAPHY>`
+
+**Examples**
+
+```sql
+WITH example AS (
+  SELECT ST_GEOGFROMTEXT('POINT(0 0)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('MULTIPOINT(0 0, 1 1)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1))'))
+SELECT
+  geography AS original_geography,
+  ST_DUMPPOINTS(geography) AS dumped_points_geographies
+FROM example
+
++-------------------------------------+------------------------------------+
+| original_geographies                | dumped_points_geographies          |
++-------------------------------------+------------------------------------+
+| POINT(0 0)                          | [POINT(0 0)]                       |
+| MULTIPOINT(0 0, 1 1)                | [POINT(0 0),POINT(1 1)]            |
+| GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0),POINT(1 2),POINT(2 1)] |
+|   LINESTRING(1 2, 2 1))             |                                    |
++-------------------------------------+------------------------------------+
+```
+
+### `ST_DWITHIN`
 
 ```sql
 ST_DWITHIN(geography_1, geography_2, distance[, use_spheroid])
@@ -1152,7 +1235,9 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 `BOOL`
 
-### ST_ENDPOINT
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_ENDPOINT`
 
 ```sql
 ST_ENDPOINT(linestring_geography)
@@ -1180,7 +1265,7 @@ SELECT ST_ENDPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) last
 +--------------+
 ```
 
-### ST_EQUALS
+### `ST_EQUALS`
 
 ```sql
 ST_EQUALS(geography_1, geography_2)
@@ -1208,7 +1293,7 @@ geometric structure.
 
 `BOOL`
 
-### ST_EXTENT
+### `ST_EXTENT`
 
 ```sql
 ST_EXTENT(geography_expression)
@@ -1263,10 +1348,11 @@ FROM data
 +----------------------------------------------+
 ```
 
-See <a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a> for the
-non-aggregate version of ST_EXTENT.
+[`ST_BOUNDINGBOX`][st-boundingbox] for the non-aggregate version of `ST_EXTENT`.
 
-### ST_EXTERIORRING
+[st-boundingbox]: #st_boundingbox
+
+### `ST_EXTERIORRING`
 
 ```sql
 ST_EXTERIORRING(polygon_geography)
@@ -1305,9 +1391,8 @@ SELECT ST_EXTERIORRING(g) AS ring FROM geo;
 | LINESTRING(5 1, 5 10, 1 10, 1 1, 5 1) |
 +---------------------------------------+
 ```
- 
 
-### ST_GEOGFROM
+### `ST_GEOGFROM`
 
 ```sql
 ST_GEOGFROM(expression)
@@ -1322,15 +1407,15 @@ If `expression` represents a `STRING` value, it must be a valid
 `GEOGRAPHY` representation in one of the following formats:
 
 + WKT format. To learn more about this format and the requirements to use it,
-  see [ST_GEOGFROMTEXT](#st_geogfromtext).
+  see [ST_GEOGFROMTEXT][st-geogfromtext].
 + WKB in hexadecimal text format. To learn more about this format and the
-  requirements to use it, see [ST_GEOGFROMWKB](#st_geogfromwkb).
+  requirements to use it, see [ST_GEOGFROMWKB][st-geogfromwkb].
 + GeoJSON format. To learn more about this format and the
-  requirements to use it, see [ST_GEOGFROMGEOJSON](#st_geogfromgeojson).
+  requirements to use it, see [ST_GEOGFROMGEOJSON][st-geogfromgeojson].
 
 If `expression` represents a `BYTES` value, it must be a valid `GEOGRAPHY`
 binary expression in WKB format. To learn more about this format and the
-requirements to use it, see [ST_GEOGFROMWKB](#st_geogfromwkb).
+requirements to use it, see [ST_GEOGFROMWKB][st-geogfromwkb].
 
 If `expression` is `NULL`, the output is `NULL`.
 
@@ -1391,7 +1476,13 @@ SELECT ST_GEOGFROM(
 +-----------------------------------------+
 ```
 
-### ST_GEOGFROMGEOJSON
+[st-geogfromtext]: #st_geogfromtext
+
+[st-geogfromwkb]: #st_geogfromwkb
+
+[st-geogfromgeojson]: #st_geogfromgeojson
+
+### `ST_GEOGFROMGEOJSON`
 
 ```sql
 ST_GEOGFROMGEOJSON(geojson_string [, make_valid => constant_expression])
@@ -1402,7 +1493,7 @@ ST_GEOGFROMGEOJSON(geojson_string [, make_valid => constant_expression])
 Returns a `GEOGRAPHY` value that corresponds to the
 input [GeoJSON][geojson-link] representation.
 
-`ST_GEOGFROMGEOJSON` accepts input that is [RFC 7946][GeoJSON-spec-link]
+`ST_GEOGFROMGEOJSON` accepts input that is [RFC 7946][geojson-spec-link]
 compliant.
 
 If the parameter `make_valid` is set to `TRUE`, the function attempts to repair
@@ -1416,7 +1507,7 @@ To convert between these two types of edges, ZetaSQL adds additional
 points to the line where necessary so that the resulting sequence of edges
 remains within 10 meters of the original edge.
 
-See [`ST_ASGEOJSON`](#st_asgeojson) to format a
+See [`ST_ASGEOJSON`][st-asgeojson] to format a
 `GEOGRAPHY` as GeoJSON.
 
 **Constraints**
@@ -1438,7 +1529,15 @@ The JSON input is subject to the following constraints:
 
 `GEOGRAPHY`
 
-### ST_GEOGFROMKML
+[geojson-link]: https://en.wikipedia.org/wiki/GeoJSON
+
+[geojson-spec-link]: https://tools.ietf.org/html/rfc7946
+
+[ogc-link]: https://www.ogc.org/standards/sfa
+
+[st-asgeojson]: #st_asgeojson
+
+### `ST_GEOGFROMKML`
 
 ```sql
 ST_GEOGFROMKML(kml_geometry)
@@ -1452,7 +1551,9 @@ Takes a `STRING` [KML geometry][kml-geometry-link] and returns a
 +  Polygon with boundary elements only
 +  Multigeometry
 
-### ST_GEOGFROMTEXT
+[kml-geometry-link]: https://developers.google.com/kml/documentation/kmlreference#geometry
+
+### `ST_GEOGFROMTEXT`
 
 + [Signature 1](#st_geogfromtext_signature1)
 + [Signature 2](#st_geogfromtext_signature2)
@@ -1476,17 +1577,17 @@ if someone walks along the boundary of the polygon in the order of
 the input vertices, the interior of the polygon is on the left. This allows
 WKT to represent polygons larger than a hemisphere. If `oriented` is `FALSE` or
 omitted, this function returns the polygon with the smaller area.
-See also [`ST_MAKEPOLYGONORIENTED`](#st_makepolygonoriented) which is similar
+See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented] which is similar
 to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
 
 To format `GEOGRAPHY` as WKT, use
-[`ST_ASTEXT`](#st_astext).
+[`ST_ASTEXT`][st-astext].
 
 **Constraints**
 
 *   All input edges are assumed to be spherical geodesics, and *not* planar
     straight lines. For reading data in a planar projection, consider using
-    [`ST_GEOGFROMGEOJSON`](#st_geogfromgeojson).
+    [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson].
 *   The function does not support three-dimensional geometries that have a `Z`
     suffix, nor does it support linear referencing system geometries with an `M`
     suffix.
@@ -1543,7 +1644,7 @@ if someone walks along the boundary of the polygon in the order of
 the input vertices, the interior of the polygon is on the left. This allows
 WKT to represent polygons larger than a hemisphere. If `oriented` is `FALSE` or
 omitted, this function returns the polygon with the smaller area.
-See also [`ST_MAKEPOLYGONORIENTED`](#st_makepolygonoriented) which is similar
+See also [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented] which is similar
 to `ST_GEOGFROMTEXT` with `oriented=TRUE`.
 
 If the parameter `planar` is set to `TRUE`, the edges of the line strings and
@@ -1554,14 +1655,14 @@ If the parameter `make_valid` is set to `TRUE`, the function attempts to repair
 polygons that don't conform to [Open Geospatial Consortium][ogc-link] semantics.
 
 To format `GEOGRAPHY` as WKT, use
-[`ST_ASTEXT`](#st_astext).
+[`ST_ASTEXT`][st-astext].
 
 **Constraints**
 
 *   All input edges are assumed to be spherical geodesics by default, and *not*
     planar straight lines. For reading data in a planar projection,
     pass `planar => TRUE` argument, or consider using
-    [`ST_GEOGFROMGEOJSON`](#st_geogfromgeojson).
+    [`ST_GEOGFROMGEOJSON`][st-geogfromgeojson].
 *   The function does not support three-dimensional geometries that have a `Z`
     suffix, nor does it support linear referencing system geometries with an `M`
     suffix.
@@ -1613,7 +1714,17 @@ FROM data
 +------+-----------------------------------------------------------------+
 ```
 
-### ST_GEOGFROMWKB
+[ogc-link]: https://www.ogc.org/standards/sfa
+
+[wkt-link]: https://en.wikipedia.org/wiki/Well-known_text
+
+[st-makepolygonoriented]: #st_makepolygonoriented
+
+[st-astext]: #st_astext
+
+[st-geogfromgeojson]: #st_geogfromgeojson
+
+### `ST_GEOGFROMWKB`
 
 ```sql
 ST_GEOGFROMWKB(wkb_bytes_expression)
@@ -1630,19 +1741,25 @@ value into a `GEOGRAPHY` value. The expression must be in
 [WKB][wkb-link] format.
 
 To format `GEOGRAPHY` as WKB, use
-[`ST_ASBINARY`](#st_asbinary).
+[`ST_ASBINARY`][st-asbinary].
 
 **Constraints**
 
 All input edges are assumed to be spherical geodesics, and *not* planar straight
 lines. For reading data in a planar projection, consider using
-[`ST_GEOGFROMGEOJSON`](#st_geogfromgeojson).
+[`ST_GEOGFROMGEOJSON`][st-geogfromgeojson].
 
 **Return type**
 
 `GEOGRAPHY`
 
-### ST_GEOGPOINT
+[wkb-link]: https://en.wikipedia.org/wiki/Well-known_text#Well-known_binary
+
+[st-asbinary]: #st_asbinary
+
+[st-geogfromgeojson]: #st_geogfromgeojson
+
+### `ST_GEOGPOINT`
 
 ```sql
 ST_GEOGPOINT(longitude, latitude)
@@ -1669,7 +1786,7 @@ NOTE: Some systems present latitude first; take care with argument order.
 
 Point `GEOGRAPHY`
 
-### ST_GEOGPOINTFROMGEOHASH
+### `ST_GEOGPOINTFROMGEOHASH`
 
 ```sql
 ST_GEOGPOINTFROMGEOHASH(geohash)
@@ -1684,7 +1801,9 @@ point in the middle of a bounding box defined in the [GeoHash][geohash-link].
 
 Point `GEOGRAPHY`
 
-### ST_GEOHASH
+[geohash-link]: https://en.wikipedia.org/wiki/Geohash
+
+### `ST_GEOHASH`
 
 ```sql
 ST_GEOHASH(geography_expression[, maxchars])
@@ -1723,7 +1842,9 @@ SELECT ST_GEOHASH(ST_GEOGPOINT(-122.35, 47.62), 10) geohash
 +--------------+
 ```
 
-### ST_GEOMETRYTYPE
+[geohash-link]: https://en.wikipedia.org/wiki/Geohash
+
+### `ST_GEOMETRYTYPE`
 
 ```sql
 ST_GEOMETRYTYPE(geography_expression)
@@ -1734,7 +1855,7 @@ ST_GEOMETRYTYPE(geography_expression)
 Returns the [Open Geospatial Consortium][ogc-link] (OGC) geometry type that
 describes the input `GEOGRAPHY` as a `STRING`. The OGC geometry type matches the
 types that are used in [WKT][wkt-link] and [GeoJSON][geojson-link] formats and
-printed for [ST_ASTEXT](#st_astext) and [ST_ASGEOJSON](#st_asgeojson).
+printed for [ST_ASTEXT][st-astext] and [ST_ASGEOJSON][st-asgeojson].
 `ST_GEOMETRYTYPE` returns the OGC geometry type with the "ST_" prefix.
 
 `ST_GEOMETRYTYPE` returns the following given the type on the input:
@@ -1781,7 +1902,17 @@ FROM example;
 +-------------------------------------------------------------------+-----------------------+
 ```
 
-### ST_INTERIORRINGS
+[ogc-link]: https://www.ogc.org/standards/sfa
+
+[wkt-link]: https://en.wikipedia.org/wiki/Well-known_text
+
+[geojson-link]: https://en.wikipedia.org/wiki/GeoJSON
+
+[st-astext]: #st_astext
+
+[st-asgeojson]: #st_asgeojson
+
+### `ST_INTERIORRINGS`
 
 ```sql
 ST_INTERIORRINGS(polygon_geography)
@@ -1827,9 +1958,10 @@ SELECT ST_INTERIORRINGS(g) AS rings FROM geo;
 | NULL                                                                       |
 +----------------------------------------------------------------------------+
 ```
+
  
 
-### ST_INTERSECTION
+### `ST_INTERSECTION`
 
 ```sql
 ST_INTERSECTION(geography_1, geography_2)
@@ -1845,14 +1977,18 @@ If the two input `GEOGRAPHY`s are disjoint, that is,
 there are no points that appear in both input `geometry_1` and `geometry_2`,
 then an empty `GEOGRAPHY` is returned.
 
-See [ST_INTERSECTS](#st_intersects), [ST_DISJOINT](#st_disjoint) for related
+See [ST_INTERSECTS][st-intersects], [ST_DISJOINT][st-disjoint] for related
 predicate functions.
 
 **Return type**
 
 `GEOGRAPHY`
 
-### ST_INTERSECTS
+[st-intersects]: #st_intersects
+
+[st-disjoint]: #st_disjoint
+
+### `ST_INTERSECTS`
 
 ```sql
 ST_INTERSECTS(geography_1, geography_2)
@@ -1864,14 +2000,16 @@ Returns `TRUE` if the point set intersection of `geography_1` and `geography_2`
 is non-empty. Thus, this function returns `TRUE` if there is at least one point
 that appears in both input `GEOGRAPHY`s.
 
-If `ST_INTERSECTS` returns `TRUE`, it implies that [`ST_DISJOINT`](#st_disjoint)
+If `ST_INTERSECTS` returns `TRUE`, it implies that [`ST_DISJOINT`][st-disjoint]
 returns `FALSE`.
 
 **Return type**
 
 `BOOL`
 
-### ST_INTERSECTSBOX
+[st-disjoint]: #st_disjoint
+
+### `ST_INTERSECTSBOX`
 
 ```sql
 ST_INTERSECTSBOX(geography, lng1, lat1, lng2, lat2)
@@ -1917,7 +2055,7 @@ FROM UNNEST([ST_GEOGPOINT(10, 10), ST_GEOGPOINT(170, 10),
 +----------------+--------------+--------------+
 ```
 
-### ST_ISCLOSED
+### `ST_ISCLOSED`
 
 ```sql
 ST_ISCLOSED(geography_expression)
@@ -1942,7 +2080,38 @@ An empty `GEOGRAPHY` is not closed.
 
 `BOOL`
 
-### ST_ISCOLLECTION
+**Example**
+
+```sql
+WITH example AS(
+  SELECT ST_GEOGFROMTEXT('POINT(5 0)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('LINESTRING(0 1, 4 3, 2 6, 0 1)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('LINESTRING(2 6, 1 3, 3 9)') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1))') AS geography
+  UNION ALL
+  SELECT ST_GEOGFROMTEXT('GEOMETRYCOLLECTION EMPTY'))
+SELECT
+  geography,
+  ST_ISCLOSED(geography) AS is_closed,
+FROM example;
+
++------------------------------------------------------+-----------+
+| geography                                            | is_closed |
++------------------------------------------------------+-----------+
+| POINT(5 0)                                           | TRUE      |
+| LINESTRING(0 1, 4 3, 2 6, 0 1)                       | TRUE      |
+| LINESTRING(2 6, 1 3, 3 9)                            | FALSE     |
+| GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | FALSE     |
+| GEOMETRYCOLLECTION EMPTY                             | FALSE     |
++------------------------------------------------------+-----------+
+```
+
+[st-boundary]: #st_boundary
+
+### `ST_ISCOLLECTION`
 
 ```sql
 ST_ISCOLLECTION(geography_expression)
@@ -1959,7 +2128,7 @@ An empty `GEOGRAPHY` is not a collection.
 
 `BOOL`
 
-### ST_ISEMPTY
+### `ST_ISEMPTY`
 
 ```sql
 ST_ISEMPTY(geography_expression)
@@ -1978,7 +2147,9 @@ For example, the results of expressions `ST_GEOGFROMTEXT('POINT EMPTY')` and
 
 `BOOL`
 
-### ST_ISRING
+ 
+
+### `ST_ISRING`
 
 ```sql
 ST_ISRING(geography_expression)
@@ -1998,7 +2169,9 @@ An empty `GEOGRAPHY` is not a ring.
 
 `BOOL`
 
-### ST_LENGTH
+[st-isclosed]: #st_isclosed
+
+### `ST_LENGTH`
 
 ```sql
 ST_LENGTH(geography_expression[, use_spheroid])
@@ -2024,7 +2197,9 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 `DOUBLE`
 
-### ST_MAKELINE
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_MAKELINE`
 
 ```sql
 ST_MAKELINE(geography_1, geography_2)
@@ -2066,7 +2241,7 @@ the result will be a `GEOGRAPHY` with exactly one point.
 
 LineString `GEOGRAPHY`
 
-### ST_MAKEPOLYGON
+### `ST_MAKEPOLYGON`
 
 ```sql
 ST_MAKEPOLYGON(geography_expression[, array_of_geography])
@@ -2118,7 +2293,7 @@ to `ST_MAKEPOLYGON` forms the polygon shell, and the interior is chosen to be
 the smaller of the two regions. Each subsequent input linestring specifies a
 polygon hole, so the interior of the polygon is already well-defined. In order
 to define a polygon shell such that the interior of the polygon is the larger of
-the two regions, see [`ST_MAKEPOLYGONORIENTED`](#st_makepolygonoriented).
+the two regions, see [`ST_MAKEPOLYGONORIENTED`][st-makepolygonoriented].
 
 NOTE: The ZetaSQL snapping process may discard sufficiently
 short edges and snap the two endpoints together. Hence, when vertices are
@@ -2130,7 +2305,9 @@ point.
 
 `GEOGRAPHY`
 
-### ST_MAKEPOLYGONORIENTED
+[st-makepolygonoriented]: #st_makepolygonoriented
+
+### `ST_MAKEPOLYGONORIENTED`
 
 ```sql
 ST_MAKEPOLYGONORIENTED(array_of_geography)
@@ -2172,7 +2349,7 @@ Every edge must span strictly less than 180 degrees.
 linestring to determine the orientation of the polygon. This applies to the
 polygon shell and any polygon holes. `ST_MAKEPOLYGONORIENTED` expects all
 polygon holes to have the opposite orientation of the shell. See
-[`ST_MAKEPOLYGON`](#st_makepolygon) for an alternate polygon constructor, and
+[`ST_MAKEPOLYGON`][st-makepolygon] for an alternate polygon constructor, and
 other constraints on building a valid polygon.
 
 NOTE: Due to the ZetaSQL snapping process, edges with a sufficiently
@@ -2186,7 +2363,9 @@ polygon hole that is sufficiently small may disappear, or the resulting
 
 `GEOGRAPHY`
 
-### ST_MAXDISTANCE
+[st-makepolygon]: #st_makepolygon
+
+### `ST_MAXDISTANCE`
 
 ```sql
 ST_MAXDISTANCE(geography_1, geography_2[, use_spheroid])
@@ -2215,7 +2394,9 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 `DOUBLE`
 
-### ST_NPOINTS
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_NPOINTS`
 
 ```sql
 ST_NPOINTS(geography_expression)
@@ -2223,9 +2404,11 @@ ST_NPOINTS(geography_expression)
 
 **Description**
 
-An alias of [ST_NUMPOINTS](#st_numpoints).
+An alias of [ST_NUMPOINTS][st-numpoints].
 
-### ST_NUMGEOMETRIES
+[st-numpoints]: #st_numpoints
+
+### `ST_NUMGEOMETRIES`
 
 ```
 ST_NUMGEOMETRIES(geography_expression)
@@ -2272,7 +2455,7 @@ FROM example;
 +------------------------------------------------------+----------------+
 ```
 
-### ST_NUMPOINTS
+### `ST_NUMPOINTS`
 
 ```sql
 ST_NUMPOINTS(geography_expression)
@@ -2291,7 +2474,7 @@ vertices.
 
 `INT64`
 
-### ST_PERIMETER
+### `ST_PERIMETER`
 
 ```sql
 ST_PERIMETER(geography_expression[, use_spheroid])
@@ -2317,7 +2500,9 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 
 `DOUBLE`
 
-### ST_POINTN
+[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_POINTN`
 
 ```sql
 ST_POINTN(linestring_geography, index)
@@ -2338,8 +2523,8 @@ Point `GEOGRAPHY`
 
 **Example**
 
-The following example uses `ST_POINTN`, [`ST_STARTPOINT`](#st_startpoint) and
-[`ST_ENDPOINT`](#st_endpoint) to extract points from a linestring.
+The following example uses `ST_POINTN`, [`ST_STARTPOINT`][st-startpoint] and
+[`ST_ENDPOINT`][st-endpoint] to extract points from a linestring.
 
 ```sql
 WITH linestring AS (
@@ -2356,7 +2541,11 @@ FROM linestring;
 +--------------+--------------+--------------+----------------+
 ```
 
-### ST_SIMPLIFY
+[st-startpoint]: #st_startpoint
+
+[st-endpoint]: #st_endpoint
+
+### `ST_SIMPLIFY`
 
 ```sql
 ST_SIMPLIFY(geography, tolerance_meters)
@@ -2435,7 +2624,7 @@ FROM example
 +-------------------------------------+------------------+-------------------------------------+
 ```
 
-### ST_SNAPTOGRID
+### `ST_SNAPTOGRID`
 
 ```sql
 ST_SNAPTOGRID(geography_expression, grid_size)
@@ -2456,7 +2645,7 @@ that it is of the form `10^n`, where `-10 < n < 0`.
 
 `GEOGRAPHY`
 
-### ST_STARTPOINT
+### `ST_STARTPOINT`
 
 ```sql
 ST_STARTPOINT(linestring_geography)
@@ -2484,7 +2673,7 @@ SELECT ST_STARTPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) first
 +--------------+
 ```
 
-### ST_TOUCHES
+### `ST_TOUCHES`
 
 ```sql
 ST_TOUCHES(geography_1, geography_2)
@@ -2502,7 +2691,7 @@ Returns `TRUE` provided the following two conditions are satisfied:
 
 `BOOL`
 
-### ST_UNION
+### `ST_UNION`
 
 ```sql
 ST_UNION(geography_1, geography_2)
@@ -2528,13 +2717,15 @@ is `NULL`, `ST_UNION` returns `NULL`.
 For a non-`NULL` input `ARRAY`, the union is computed
 and `NULL` elements are ignored so that they do not affect the output.
 
-See [`ST_UNION_AGG`](#st_union_agg) for the aggregate version of `ST_UNION`.
+See [`ST_UNION_AGG`][st-union-agg] for the aggregate version of `ST_UNION`.
 
 **Return type**
 
 `GEOGRAPHY`
 
-### ST_UNION_AGG
+[st-union-agg]: #st_union_agg
+
+### `ST_UNION_AGG`
 
 ```sql
 ST_UNION_AGG(geography)
@@ -2547,13 +2738,15 @@ union of all input `GEOGRAPHY`s.
 
 `ST_UNION_AGG` ignores `NULL` input `GEOGRAPHY` values.
 
-See [`ST_UNION`](#st_union) for the non-aggregate version of `ST_UNION_AGG`.
+See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
 
 **Return type**
 
 `GEOGRAPHY`
 
-### ST_WITHIN
+[st-union]: #st_union
+
+### `ST_WITHIN`
 
 ```sql
 ST_WITHIN(geography_1, geography_2)
@@ -2565,13 +2758,15 @@ Returns `TRUE` if no point of `geography_1` is outside of `geography_2` and
 the interiors of `geography_1` and `geography_2` intersect.
 
 Given two geographies `a` and `b`, `ST_WITHIN(a, b)` returns the same result
-as [`ST_CONTAINS`](#st_contains)`(b, a)`. Note the opposite order of arguments.
+as [`ST_CONTAINS`][st-contains]`(b, a)`. Note the opposite order of arguments.
 
 **Return type**
 
 `BOOL`
 
-### ST_X
+[st-contains]: #st_contains
+
+### `ST_X`
 
 ```sql
 ST_X(geography_expression)
@@ -2613,7 +2808,7 @@ FROM points;
 +--------------+-----------+----------+
 ```
 
-### ST_Y
+### `ST_Y`
 
 ```sql
 ST_Y(geography_expression)
@@ -2634,39 +2829,7 @@ error. Use the `SAFE.` prefix to return `NULL` instead.
 
 **Example**
 
-See [`ST_X`](#st_x) for example usage.
+See [`ST_X`][st-x] for example usage.
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[ogc-link]: https://www.ogc.org/standards/sfa
-
-[wkt-link]: https://en.wikipedia.org/wiki/Well-known_text
-
-[wkb-link]: https://en.wikipedia.org/wiki/Well-known_text#Well-known_binary
-
-[geojson-link]: https://en.wikipedia.org/wiki/GeoJSON
-
-[geojson-spec-link]: https://tools.ietf.org/html/rfc7946
-
-[geohash-link]: https://en.wikipedia.org/wiki/Geohash
-
-[wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
-
-[kml-geometry-link]: https://developers.google.com/kml/documentation/kmlreference#geometry
-
-[dbscan-link]: https://en.wikipedia.org/wiki/DBSCAN
-
-[s2-cells-link]: https://s2geometry.io/devguide/s2cell_hierarchy
-
-[s2-root-link]: https://s2geometry.io/
-
-[st-boundary]: #st_boundary
-
-[st-isclosed]: #st_isclosed
-
-[geography-link-array-agg]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#array_agg
-
-[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
-
-<!-- mdlint on -->
+[st-x]: #st_x
 

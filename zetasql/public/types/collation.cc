@@ -16,6 +16,7 @@
 
 #include "zetasql/public/types/collation.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -176,6 +177,61 @@ absl::StatusOr<bool> Collation::EqualsCollationAnnotation(
   ZETASQL_ASSIGN_OR_RETURN(Collation collation_from_annotation_map,
                    Collation::MakeCollation(*annotation_map));
   return Equals(collation_from_annotation_map);
+}
+
+namespace {
+// Set the collation annotations of empty <annotation_map> so that they
+// are equal to input <collation>.
+absl::Status SetCollationAnnotationsOfEmptyAnnotationMap(
+    const Collation& collation, AnnotationMap& annotation_map) {
+  uint64_t child_collation_num = collation.num_children();
+  if (annotation_map.IsArrayMap()) {
+    // The collation can only exist in the element type of an Array type.
+    ZETASQL_RET_CHECK(!collation.HasCollation() &&
+              annotation_map.GetAnnotation(
+                  static_cast<int>(AnnotationKind::kCollation)) == nullptr);
+    // If there is no child collation in input <collation>, we do not need to
+    // set collation annotation for the element annotation map.
+    if (child_collation_num == 0) {
+      return absl::OkStatus();
+    }
+    ZETASQL_RET_CHECK_EQ(child_collation_num, 1);
+    return SetCollationAnnotationsOfEmptyAnnotationMap(
+        collation.child(0), *(annotation_map.AsArrayMap()->mutable_element()));
+  } else if (annotation_map.IsStructMap()) {
+    // The collation can only exist in the field type of an Struct type.
+    ZETASQL_RET_CHECK(!collation.HasCollation() &&
+              annotation_map.GetAnnotation(
+                  static_cast<int>(AnnotationKind::kCollation)) == nullptr);
+    // If there is no child collation in input <collation>, we do not need to
+    // set collation annotations for the field annotation maps.
+    if (child_collation_num == 0) {
+      return absl::OkStatus();
+    }
+    StructAnnotationMap* struct_annotation_map = annotation_map.AsStructMap();
+    ZETASQL_RET_CHECK_EQ(child_collation_num, struct_annotation_map->num_fields());
+    for (int i = 0; i < struct_annotation_map->num_fields(); ++i) {
+      ZETASQL_RETURN_IF_ERROR(SetCollationAnnotationsOfEmptyAnnotationMap(
+          collation.child(i), *(struct_annotation_map->mutable_field(i))));
+    }
+  } else {
+    ZETASQL_RET_CHECK_EQ(child_collation_num, 0);
+    if (collation.HasCollation()) {
+      annotation_map.SetAnnotation(
+          static_cast<int>(AnnotationKind::kCollation),
+          SimpleValue::String(std::string(collation.CollationName())));
+    }
+  }
+  return absl::OkStatus();
+}
+}  // namespace
+
+absl::StatusOr<std::unique_ptr<AnnotationMap>> Collation::ToAnnotationMap(
+    const Type* type) const {
+  std::unique_ptr<AnnotationMap> annotation_map = AnnotationMap::Create(type);
+  ZETASQL_RETURN_IF_ERROR(
+      SetCollationAnnotationsOfEmptyAnnotationMap(*this, *annotation_map));
+  return std::move(annotation_map);
 }
 
 }  // namespace zetasql

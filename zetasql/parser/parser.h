@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PARSER_PARSER_H_
 #define ZETASQL_PARSER_PARSER_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -24,8 +25,8 @@
 #include <vector>
 
 #include "zetasql/base/arena.h"
-#include "zetasql/common/timer_util.h"
 #include "zetasql/parser/ast_node_kind.h"
+#include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -120,21 +121,6 @@ class ParserOptions {
   std::shared_ptr<IdStringPool> id_string_pool_;
 
   LanguageOptions language_options_;
-};
-
-class ParserRuntimeInfo {
- public:
-  absl::Duration parser_elapsed_duration() const {
-    return parser_timed_value_.elapsed_duration();
-  }
-  internal::TimedValue& parser_timed_value() { return parser_timed_value_; }
-
-  void AccumulateAll(const ParserRuntimeInfo& rhs) {
-    parser_timed_value_.Accumulate(rhs.parser_timed_value_);
-  }
-
- private:
-  internal::TimedValue parser_timed_value_;
 };
 
 // Output of a parse operation. The output parse tree can be accessed via

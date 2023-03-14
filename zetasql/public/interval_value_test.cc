@@ -38,6 +38,9 @@ using zetasql_base::testing::StatusIs;
 
 using interval_testing::Days;
 using interval_testing::Hours;
+using interval_testing::kSerializedIntervalWithInvalidFields;
+using interval_testing::kSerializedIntervalWithNotEnoughBytes;
+using interval_testing::kSerializedIntervalWithTooManyBytes;
 using interval_testing::Micros;
 using interval_testing::Minutes;
 using interval_testing::Months;
@@ -340,25 +343,21 @@ TEST(IntervalValueTest, Deserialize) {
 
   // Error cases
   {
-    // Not enough bytes
-    const char bytes[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    EXPECT_THAT(
-        IntervalValue::DeserializeFromBytes(absl::string_view(bytes, 15)),
-        StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(IntervalValue::DeserializeFromBytes(
+                    kSerializedIntervalWithNotEnoughBytes),
+                StatusIs(absl::StatusCode::kOutOfRange));
   }
   {
     // Too many bytes
-    const char bytes[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    EXPECT_THAT(
-        IntervalValue::DeserializeFromBytes(absl::string_view(bytes, 17)),
-        StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(IntervalValue::DeserializeFromBytes(
+                    kSerializedIntervalWithTooManyBytes),
+                StatusIs(absl::StatusCode::kOutOfRange));
   }
   {
     // Invalid fields
-    const char bytes[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    EXPECT_THAT(
-        IntervalValue::DeserializeFromBytes(absl::string_view(bytes, 16)),
-        StatusIs(absl::StatusCode::kOutOfRange));
+    EXPECT_THAT(IntervalValue::DeserializeFromBytes(
+                    kSerializedIntervalWithInvalidFields),
+                StatusIs(absl::StatusCode::kOutOfRange));
   }
 }
 
@@ -573,6 +572,9 @@ TEST(IntervalValueTest, Multiply) {
     EXPECT_EQ(-Seconds(v), *(Seconds(v) * (-1))) << v;
     EXPECT_EQ(-Micros(v), *(Micros(v) * (-1))) << v;
     EXPECT_EQ(-Nanos(v), *(Nanos(v) * (-1))) << v;
+
+    // Multiply is just a wrapper around operator*
+    EXPECT_EQ(Years(v), *(Years(1).Multiply(v))) << v;
   }
 
   EXPECT_THAT(Years(2) * 10000, StatusIs(absl::StatusCode::kOutOfRange));
@@ -598,6 +600,9 @@ TEST(IntervalValueTest, Divide) {
   EXPECT_EQ(Nanos(-500), *(Micros(1) / (-2)));
   EXPECT_EQ(Years(0), *(Nanos(1) / 2));
   EXPECT_EQ(Years(0), *(Nanos(1) / (-2)));
+
+  // Divide is just a wrapper around operator/
+  EXPECT_EQ(Months(5), *(Months(10).Divide(2)));
 
   EXPECT_THAT(Years(0) / 0, StatusIs(absl::StatusCode::kOutOfRange));
   EXPECT_THAT(Micros(1) / 0, StatusIs(absl::StatusCode::kOutOfRange));
@@ -836,6 +841,38 @@ TEST(IntervalValueTest, SumAggregatorAverage) {
   EXPECT_EQ(Nanos(-1), *agg2.GetAverage(4));
   EXPECT_EQ(Nanos(-1), *agg2.GetAverage(5));
   EXPECT_EQ(Nanos(0), *agg2.GetAverage(6));
+}
+
+TEST(IntervalValueTest, SumAggregatorAverageRoundsToMicros) {
+  IntervalValue::SumAggregator agg;
+  agg.Add(Nanos(-5));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/1, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/2, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/3, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/4, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/5, /*round_to_micros=*/true));
+
+  agg.Add(Nanos(10));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/1, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/2, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/3, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/4, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/5, /*round_to_micros=*/true));
+
+  agg.Add(Micros(1));
+  EXPECT_EQ(Micros(1), *agg.GetAverage(/*count=*/1, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/2, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/3, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/4, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/5, /*round_to_micros=*/true));
+
+  agg.Add(Micros(-2));
+  agg.Add(Nanos(-10));
+  EXPECT_EQ(Micros(-1), *agg.GetAverage(/*count=*/1, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/2, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/3, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/4, /*round_to_micros=*/true));
+  EXPECT_EQ(Micros(0), *agg.GetAverage(/*count=*/5, /*round_to_micros=*/true));
 }
 
 TEST(IntervalValueTest, SumAggregatorDeserializeEdgeCases) {

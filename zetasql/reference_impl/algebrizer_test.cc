@@ -206,9 +206,8 @@ class AlgebrizerTestBase : public ::testing::Test {
  protected:
   void SetUp() override {
     algebrizer_ = absl::WrapUnique(
-        new Algebrizer(LanguageOptions(), algebrizer_options_,
-                       /*catalog=*/nullptr, &type_factory_, &parameters_,
-                       &column_map_, &system_variables_map_));
+        new Algebrizer(LanguageOptions(), algebrizer_options_, &type_factory_,
+                       &parameters_, &column_map_, &system_variables_map_));
   }
 
   // Table and column names for table table_all_types.
@@ -692,9 +691,8 @@ TEST_F(ExpressionAlgebrizerTest, PositionalParametersInStatements) {
   parameters_.set_named(false);
   std::unique_ptr<ValueExpr> result;
   ZETASQL_ASSERT_OK(Algebrizer::AlgebrizeStatement(
-      LanguageOptions(), AlgebrizerOptions(), /*catalog=*/nullptr,
-      &type_factory_, query.get(), &result, &parameters_, &column_map_,
-      &system_variables_map_));
+      LanguageOptions(), AlgebrizerOptions(), &type_factory_, query.get(),
+      &result, &parameters_, &column_map_, &system_variables_map_));
 
   const ParameterList& parameter_list = parameters_.positional_parameters();
   ASSERT_EQ(params_and_columns.size(), parameter_list.size());

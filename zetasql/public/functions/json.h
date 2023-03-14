@@ -64,10 +64,60 @@ class JsonPathEvaluator {
   // Error cases:
   // * OUT_OF_RANGE - json_path is malformed.
   // * OUT_OF_RANGE - json_path uses a (currently) unsupported expression type.
+  //
+  // Note: By default special character escaping is disabled for both keys and
+  // values.
+  //
+  // TODO: Once all users are inlined, change each of the booleans
+  // in this definition to 'true' and remove the deprecation annotation.
+  ABSL_DEPRECATED("Inline me!")
   static absl::StatusOr<std::unique_ptr<JsonPathEvaluator>> Create(
-      absl::string_view json_path, bool sql_standard_mode);
+      absl::string_view json_path, bool sql_standard_mode) {
+    return Create(json_path, sql_standard_mode,
+                  /*enable_special_character_escaping_in_values=*/false,
+                  /*enable_special_character_escaping_in_keys=*/false);
+  }
 
-  // Extracts a value from 'json' according to the JSONPath string 'json_path'
+  // Creates a new evaluator for a constant `json_path`. `json_path` does not
+  // need to persist beyond the call to `Create()`.
+  //
+  // Parameters:
+  // `sql_standard_mode`: The JSON Path is interpreted differently with this
+  // flag. For full details please see (broken link)
+  // 1) True: Only number subscripts are allowed. It allows the . child
+  // operator as a quoted field name. The previous example could be rewritten
+  // as $.a."b"
+  // 2) False: String subscripts are allowed. For example: $.a["b"] is a valid
+  // JSON path in this mode and equivalent to $.a.b
+  // New callers to this API should be using `sql_standard_mode` = true.
+  //
+  // `enable_special_character_escaping_in_values`: If set to true, escapes
+  // JSON values.
+  //
+  // `enable_special_character_escaping_in_keys`: If set to true, and
+  // `enable_special_character_escaping_in_values` is set to true, escapes
+  // JSON keys. This option was introduced as a bugfix for b/265948860.
+  //
+  // Escaping special characters is part of the behavior detailed in the
+  // ISO/IEC TR 19075-6 report on SQL support for JavaScript Object Notation.
+  //
+  // This implementation follows the proto3 JSON spec ((broken link),
+  // (broken link)), where special characters include the
+  // following:
+  //    * Quotation mark, '"'
+  //    * Reverse solidus, '\'
+  //    * Control characters (U+0000 through U+001F).
+  //
+  // Error cases:
+  // * OUT_OF_RANGE - `json_path` is malformed.
+  // * OUT_OF_RANGE - `json_path` uses a (currently) unsupported expression
+  // type.
+  static absl::StatusOr<std::unique_ptr<JsonPathEvaluator>> Create(
+      absl::string_view json_path, bool sql_standard_mode,
+      bool enable_special_character_escaping_in_values,
+      bool enable_special_character_escaping_in_keys);
+
+  // Extracts a value from `json` according to the JSONPath string json_path
   // provided in Create().
   // For example:
   //   json: {"a": {"b": [ { "c" : "foo" } ] } }
@@ -86,12 +136,17 @@ class JsonPathEvaluator {
   //  will always return OK.
   //
   // Null cases:
-  // * json is malformed and fails to parse.
+  // * `json` is malformed and fails to parse.
   // * json_path does not match anything.
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
+  //
+  // When `issue_warning` is passed in, if there's a potential incorrect
+  // behavior that does not cause an error, the callback will be triggered.
   absl::Status Extract(absl::string_view json, std::string* value,
-                       bool* is_null) const;
+                       bool* is_null,
+                       std::optional<std::function<void(absl::Status)>>
+                           issue_warning = std::nullopt) const;
 
   // Similar to the string version above, but for JSON types.
   // Returns std::nullopt to indicate that:
@@ -125,9 +180,9 @@ class JsonPathEvaluator {
   // * json_path does not correspond to a scalar value in json.
   std::optional<std::string> ExtractScalar(JSONValueConstRef input) const;
 
-  // Extracts an array from 'json' according to the JSONPath string 'json_path'
-  // provided in Create(). The value in 'json' that 'json_path' refers to should
-  // be an JSON array. Then the output of the function will be in the form of an
+  // Extracts an array from `json` according to the JSONPath string json_path
+  // provided in Create(). The value in `json` that json_path refers to should
+  // be a JSON array. Then the output of the function will be in the form of an
   // ARRAY.
   // For example:
   //   json: ["foo","bar","baz"]
@@ -148,9 +203,13 @@ class JsonPathEvaluator {
   // Error cases are the same as in Extract function.
   // Null cases are the same as in Extract, except for the addition of:
   // * json_path does not correspond to an array in json.
+  //
+  // When `issue_warning` is passed in, if there's a potential incorrect
+  // behavior that does not cause an error, the callback will be triggered.
   absl::Status ExtractArray(absl::string_view json,
-                            std::vector<std::string>* value,
-                            bool* is_null) const;
+                            std::vector<std::string>* value, bool* is_null,
+                            std::optional<std::function<void(absl::Status)>>
+                                issue_warning = std::nullopt) const;
 
   // Similar to the string version above, but for JSON types.
   // Returns std::nullopt to indicate that:
@@ -192,19 +251,9 @@ class JsonPathEvaluator {
   std::optional<std::vector<std::optional<std::string>>> ExtractStringArray(
       JSONValueConstRef input) const;
 
-  // Enables the escaping of special characters for JSON_EXTRACT.
-  //
-  // Escaping special characters is part of the behavior detailed in the
-  // ISO/IEC TR 19075-6 report on SQL support for JavaScript Object Notation.
-  //
-  // This implementation follows the proto3 JSON spec ((broken link),
-  // (broken link)), where special characters include the
-  // following:
-  //    * Quotation mark, '"'
-  //    * Reverse solidus, '\'
-  //    * Control characters (U+0000 through U+001F).
+  ABSL_DEPRECATED("Set escaping in JsonPathEvaluator::Create() instead.")
   void enable_special_character_escaping() {
-    escape_special_characters_ = true;
+    enable_special_character_escaping_in_values_ = true;
   }
 
   // Sets the callback to be invoked when a string with special characters was
@@ -216,10 +265,12 @@ class JsonPathEvaluator {
   }
 
  private:
-  explicit JsonPathEvaluator(
-      std::unique_ptr<json_internal::ValidJSONPathIterator> itr);
+  JsonPathEvaluator(std::unique_ptr<json_internal::ValidJSONPathIterator> itr,
+                    bool enable_special_character_escaping_in_values,
+                    bool enable_special_character_escaping_in_keys);
   const std::unique_ptr<json_internal::ValidJSONPathIterator> path_iterator_;
-  bool escape_special_characters_ = false;
+  bool enable_special_character_escaping_in_values_ = false;
+  bool enable_special_character_escaping_in_keys_ = false;
   std::function<void(absl::string_view)> escaping_needed_callback_;
 };
 
@@ -262,10 +313,7 @@ absl::StatusOr<bool> ConvertJsonToBool(JSONValueConstRef input);
 absl::StatusOr<std::string> ConvertJsonToString(JSONValueConstRef input);
 
 // Mode to determine how to handle numbers that cannot be round-tripped.
-enum class WideNumberMode {
-    kRound,
-    kExact
-};
+enum class WideNumberMode { kRound, kExact };
 
 // Converts 'input' into a Double.
 // 'mode': defines what happens with a number that cannot be converted to double
@@ -280,20 +328,25 @@ absl::StatusOr<double> ConvertJsonToDouble(JSONValueConstRef input,
 absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input);
 
 // Converts a json 'input' into a Boolean.
-// Upon success the function returns the converted value, else returns the
-// status failure. For more details on the conversion rules
+// Upon success the function returns the converted value, else returns nullopt.
+// Returns non-ok status if there's an internal error during execution. For more
+// details on the conversion rules
 // see (broken link).
-absl::StatusOr<bool> LaxConvertJsonToBool(JSONValueConstRef input);
+absl::StatusOr<std::optional<bool>> LaxConvertJsonToBool(
+    JSONValueConstRef input);
 
 // Similar to the above function except converts json 'input' into INT64.
 // Floating point numbers are rounded when converted to INT64.
-absl::StatusOr<int64_t> LaxConvertJsonToInt64(JSONValueConstRef input);
+absl::StatusOr<std::optional<int64_t>> LaxConvertJsonToInt64(
+    JSONValueConstRef input);
 
 // Similar to the above function except converts json 'input' into Float.
-absl::StatusOr<double> LaxConvertJsonToFloat64(JSONValueConstRef input);
+absl::StatusOr<std::optional<double>> LaxConvertJsonToFloat64(
+    JSONValueConstRef input);
 
 // Similar to the above function except converts json 'input' into String.
-absl::StatusOr<std::string> LaxConvertJsonToString(JSONValueConstRef input);
+absl::StatusOr<std::optional<std::string>> LaxConvertJsonToString(
+    JSONValueConstRef input);
 
 }  // namespace functions
 }  // namespace zetasql

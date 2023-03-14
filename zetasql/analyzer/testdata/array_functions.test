@@ -41,7 +41,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<INT32>, INT32, optional(1) ENUM<ARRAY_FIND_MODE>) -> INT64)
+    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<INT32> input_array, INT32 target_element, optional(1) ENUM<ARRAY_FIND_MODE> find_mode) -> INT64)
     |     +-Literal(type=ARRAY<INT32>, value=[1, 2, 3], has_explicit_type=TRUE)
     |     +-Literal(type=INT32, value=3)
     |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=FIRST)
@@ -61,10 +61,31 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRUCT<a INT64>>, STRUCT<a INT64>, optional(1) ENUM<ARRAY_FIND_MODE>) -> INT64)
+    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRUCT<a INT64>> input_array, STRUCT<a INT64> target_element, optional(1) ENUM<ARRAY_FIND_MODE> find_mode) -> INT64)
     |     +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}, {a:3}])
     |     +-Literal(type=STRUCT<a INT64>, value={a:3})
     |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=LAST)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[no_java]
+# TODO: Enable this test when enum debug string is fixed in Java
+SELECT ARRAY_OFFSET([STRUCT(1 AS a), STRUCT(2), STRUCT(3)], STRUCT(3 AS a), CAST("LAST" AS ARRAY_FIND_MODE))
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_offset(ARRAY<STRUCT<a INT64>> input_array, STRUCT<a INT64> target_element, optional(1) ENUM<ARRAY_FIND_MODE> find_mode) -> INT64)
+    |     +-Literal(type=ARRAY<STRUCT<a INT64>>, value=[{a:1}, {a:2}, {a:3}])
+    |     +-Literal(type=STRUCT<a INT64>, value={a:3})
+    |     +-Cast(STRING -> ENUM<ARRAY_FIND_MODE>)
+    |       +-Literal(type=STRING, value="LAST")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -95,7 +116,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_offsets(ARRAY<STRING>, STRING) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_offsets(ARRAY<STRING> input_array, STRING target_element) -> ARRAY<INT64>)
     |     +-Literal(type=ARRAY<STRING>, value=[""])
     |     +-Literal(type=STRING, value="")
     +-input_scan=
@@ -130,7 +151,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_find(ARRAY<DOUBLE>, DOUBLE, optional(1) ENUM<ARRAY_FIND_MODE>) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:array_find(ARRAY<DOUBLE> input_array, DOUBLE target_element, optional(1) ENUM<ARRAY_FIND_MODE> find_mode) -> DOUBLE)
     |     +-Literal(type=ARRAY<DOUBLE>, value=[4, 5])
     |     +-Literal(type=DOUBLE, value=5)
     |     +-Literal(type=ENUM<ARRAY_FIND_MODE>, value=LAST)
@@ -165,7 +186,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_find_all(ARRAY<DOUBLE>, DOUBLE) -> ARRAY<DOUBLE>)
+    |   +-FunctionCall(ZetaSQL:array_find_all(ARRAY<DOUBLE> input_array, DOUBLE target_element) -> ARRAY<DOUBLE>)
     |     +-Literal(type=ARRAY<DOUBLE>, value=[4, 5])
     |     +-Literal(type=DOUBLE, value=5)
     +-input_scan=
@@ -223,7 +244,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_min(ARRAY<DOUBLE>) -> DOUBLE)
+    |   +-FunctionCall(ZetaSQL:array_min(ARRAY<DOUBLE> input_array) -> DOUBLE)
     |     +-Literal(type=ARRAY<DOUBLE>, value=[3.5, 7])
     +-input_scan=
       +-SingleRowScan
@@ -233,3 +254,11 @@ ALTERNATION GROUP: ,DISABLE_ARRAY_MIN_AND_MAX
 ERROR: Function not found: ARRAY_MIN; Did you mean array_agg? [at 1:8]
 SELECT ARRAY_MIN([3.5, 7])
        ^
+==
+
+[language_features=NAMED_ARGUMENTS,V_1_4_ARRAY_FIND_FUNCTIONS]
+SELECT ARRAY_OFFSETS(input_array=>[1, 2, 3], target_element=>2);
+--
+ERROR: Argument input_array must by supplied by position, not by name, for call to function ZetaSQL:array_offsets [at 1:22]
+SELECT ARRAY_OFFSETS(input_array=>[1, 2, 3], target_element=>2);
+                     ^

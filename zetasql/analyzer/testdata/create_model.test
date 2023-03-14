@@ -1,14 +1,20 @@
 # NOTE: CREATE MODEL tests are derived from those for CREATE TABLE AS SELECT and
 # CREATE VIEW tests.
-[default language_features=V_1_4_REMOTE_MODEL,V_1_3_REMOTE_FUNCTION]
+[default language_features=V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST,V_1_4_REMOTE_MODEL,V_1_3_REMOTE_FUNCTION]
 
-[language_features={{V_1_4_REMOTE_MODEL,|}}V_1_3_REMOTE_FUNCTION]
+[language_features={{V_1_4_REMOTE_MODEL,|V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST,|}}V_1_3_REMOTE_FUNCTION]
 # Bare statement
 create model t1
 --
 ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
 --
 CreateModelStmt(name_path=t1)
+--
+ALTERNATION GROUP: V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST,
+--
+ERROR: Either the AS SELECT clause or AS aliased query list is required for CREATE MODEL [at 2:1]
+create model t1
+^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -45,7 +51,7 @@ transform (a + b as t)
 ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
 
 --
-ERROR: The TRANSFORM clause cannot be used with INPUT and OUTPUT [at 2:1]
+ERROR: The TRANSFORM clause cannot be used without AS SELECT clause [at 2:1]
 transform (a + b as t)
 ^
 --
@@ -61,7 +67,7 @@ create model t1 transform (a + b as t)
 --
 ALTERNATION GROUP: V_1_4_REMOTE_MODEL,
 --
-ERROR: The TRANSFORM clause cannot be used with INPUT and OUTPUT [at 1:17]
+ERROR: The TRANSFORM clause cannot be used without AS SELECT clause [at 1:17]
 create model t1 transform (a + b as t)
                 ^
 --
@@ -69,6 +75,14 @@ ALTERNATION GROUP: <empty>
 --
 ERROR: The AS SELECT clause is required for CREATE MODEL [at 1:1]
 create model t1 transform (a + b as t)
+^
+==
+
+create model m
+transform (a + b as t)
+--
+ERROR: The TRANSFORM clause cannot be used without AS SELECT clause or AS aliased query list [at 2:1]
+transform (a + b as t)
 ^
 ==
 
@@ -167,6 +181,15 @@ as select 1 a, TRUE b
 ==
 
 create model tt
+input (a INT64) output (b BOOL)
+as (training_data as (select 1 a, TRUE b))
+--
+ERROR: The aliased query cannot be used with INPUT and OUTPUT [at 3:5]
+as (training_data as (select 1 a, TRUE b))
+    ^
+==
+
+create model tt
 transform (a + b as t)
 remote
 --
@@ -182,6 +205,15 @@ as select 1 a
 ERROR: The AS SELECT clause cannot be used with REMOTE [at 3:4]
 as select 1 a
    ^
+==
+
+create model tt
+remote
+as (training_data as (select 1 a))
+--
+ERROR: The aliased query cannot be used with REMOTE [at 3:5]
+as (training_data as (select 1 a))
+    ^
 ==
 
 # The two columns from SELECT statement reference the same column. b/140028539
@@ -982,7 +1014,9 @@ CreateModelStmt
 
 ==
 
-# Create model with aliased query list is not supported yet.
+# Create model with aliased query list is not supported yet if language feature
+# flag is not turned on yet.
+[language_features=]
 create model m
 as
 (

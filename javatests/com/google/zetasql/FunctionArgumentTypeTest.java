@@ -22,9 +22,11 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
 import com.google.zetasql.FunctionArgumentType.FunctionArgumentTypeOptions;
+import com.google.zetasql.FunctionProtos.FunctionArgumentTypeOptionsProto;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeProto;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ArgumentCardinality;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.NamedArgumentKind;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ProcedureArgumentMode;
 import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
 import com.google.zetasql.ZetaSQLType.TypeKind;
@@ -182,23 +184,38 @@ public class FunctionArgumentTypeTest {
     FunctionArgumentType t1ArgType = new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_1);
     List<FunctionArgumentType> lambdaArgs = new ArrayList<>();
     FunctionArgumentType lambdaArg = new FunctionArgumentType(lambdaArgs, boolArgType);
-    assertThat(lambdaArg.debugString()).isEqualTo("LAMBDA(()->BOOL)");
+    assertThat(lambdaArg.debugString()).isEqualTo(" LAMBDA(()->BOOL)");
     assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
     assertThat(lambdaArg.getType()).isNull();
     checkSerializeAndDeserialize(lambdaArg);
 
     lambdaArgs.add(t1ArgType);
     lambdaArg = new FunctionArgumentType(lambdaArgs, boolArgType);
-    assertThat(lambdaArg.debugString()).isEqualTo("LAMBDA(<T1>->BOOL)");
+    assertThat(lambdaArg.debugString()).isEqualTo(" LAMBDA(<T1>->BOOL)");
     assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
     assertThat(lambdaArg.getType()).isNull();
     checkSerializeAndDeserialize(lambdaArg);
 
     lambdaArgs.add(int64ArgType);
     lambdaArg = new FunctionArgumentType(lambdaArgs, boolArgType);
-    assertThat(lambdaArg.debugString()).isEqualTo("LAMBDA((<T1>, INT64)->BOOL)");
+    assertThat(lambdaArg.debugString()).isEqualTo(" LAMBDA((<T1>, INT64)->BOOL)");
     assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
     assertThat(lambdaArg.getType()).isNull();
+    checkSerializeAndDeserialize(lambdaArg);
+
+    lambdaArg =
+        new FunctionArgumentType(
+            lambdaArgs,
+            boolArgType,
+            FunctionArgumentTypeOptions.builder()
+                .setArgumentName("mylambda")
+                .setNamedArgumentKind(NamedArgumentKind.NAMED_ONLY)
+                .build());
+    assertThat(lambdaArg.debugString()).isEqualTo(" LAMBDA((<T1>, INT64)->BOOL) mylambda");
+    assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
+    assertThat(lambdaArg.getType()).isNull();
+    assertThat(lambdaArg.getOptions()).isNotNull();
+    assertThat(lambdaArg.getOptions().getArgumentName()).isEqualTo("mylambda");
     checkSerializeAndDeserialize(lambdaArg);
   }
 
@@ -255,11 +272,10 @@ public class FunctionArgumentTypeTest {
             .setRelationInputSchema(
                 TVFRelation.createValueTableBased(
                     TypeFactory.createSimpleType(TypeKind.TYPE_INT64)))
-            .setArgumentName("name")
+            .setArgumentName("name", FunctionEnums.NamedArgumentKind.NAMED_ONLY)
             .setArgumentNameParseLocation(ParseLocationRange.create("filename1", 0, 1))
             .setArgumentTypeParseLocation(ParseLocationRange.create("fielname2", 2, 3))
             .setProcedureArgumentMode(ProcedureArgumentMode.INOUT)
-            .setArgumentNameIsMandatory(true)
             .setDescriptorResolutionTableOffset(1234)
             .setArgumentCollationMode(FunctionEnums.ArgumentCollationMode.AFFECTS_PROPAGATION)
             .build();
@@ -279,6 +295,65 @@ public class FunctionArgumentTypeTest {
                     /*argType=*/null,
                     TypeFactory.nonUniqueNames())
                 .serialize(/*argType=*/null, fileDescriptorSetsBuilder));
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Sets deprecated field for serialization compat.
+  public void testSerializationAndDeserializationOfFunctionArgumentTypeOptionsWithLegacyFields() {
+    FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+    Type argType = null;
+    FunctionArgumentTypeOptionsProto optionsProtoNameMandatoryUnset =
+        FunctionArgumentTypeOptionsProto.newBuilder()
+            .setCardinality(ArgumentCardinality.REQUIRED)
+            .setArgumentName("argname")
+            .build();
+
+    // Deserialize a few proto shapes that use the deprecated "argument_name_is_mandatory" field in
+    // different ways. This test is making sure we handle the deprecated field in expected ways.
+    FunctionArgumentTypeOptions fromOptionsProtoNameMandatoryUnset =
+        FunctionArgumentTypeOptions.deserialize(
+            optionsProtoNameMandatoryUnset, fileDescriptorSetsBuilder.getDescriptorPools(),
+            argType, TypeFactory.nonUniqueNames());
+    FunctionArgumentTypeOptions fromOptionsProtoNameMandatoryFalse =
+        FunctionArgumentTypeOptions.deserialize(
+            optionsProtoNameMandatoryUnset.toBuilder().setArgumentNameIsMandatory(false).build(),
+            fileDescriptorSetsBuilder.getDescriptorPools(),
+            argType,
+            TypeFactory.nonUniqueNames());
+    FunctionArgumentTypeOptions fromOptionsProtoNameMandatoryTrue =
+        FunctionArgumentTypeOptions.deserialize(
+            optionsProtoNameMandatoryUnset.toBuilder().setArgumentNameIsMandatory(true).build(),
+            fileDescriptorSetsBuilder.getDescriptorPools(),
+            argType,
+            TypeFactory.nonUniqueNames());
+    FunctionArgumentTypeOptions fromOptionsProtoMandatoryWithoutName =
+        FunctionArgumentTypeOptions.deserialize(
+            optionsProtoNameMandatoryUnset.toBuilder()
+                .clearArgumentName()
+                .setArgumentNameIsMandatory(true)
+                .build(),
+            fileDescriptorSetsBuilder.getDescriptorPools(),
+            argType,
+            TypeFactory.nonUniqueNames());
+
+    // Set up several options objects that have the shapes we expect to see in deserializations.
+    FunctionArgumentTypeOptions optionsPositionalOrNamed =
+        FunctionArgumentTypeOptions.builder()
+            .setCardinality(ArgumentCardinality.REQUIRED)
+            .setArgumentName("argname", FunctionEnums.NamedArgumentKind.POSITIONAL_OR_NAMED)
+            .build();
+    FunctionArgumentTypeOptions optionsNamed =
+        FunctionArgumentTypeOptions.builder()
+            .setCardinality(ArgumentCardinality.REQUIRED)
+            .setArgumentName("argname", FunctionEnums.NamedArgumentKind.NAMED_ONLY)
+            .build();
+    FunctionArgumentTypeOptions optionsUnnamed =
+        FunctionArgumentTypeOptions.builder().setCardinality(ArgumentCardinality.REQUIRED).build();
+
+    assertThat(fromOptionsProtoNameMandatoryUnset).isEqualTo(optionsPositionalOrNamed);
+    assertThat(fromOptionsProtoNameMandatoryFalse).isEqualTo(optionsPositionalOrNamed);
+    assertThat(fromOptionsProtoNameMandatoryTrue).isEqualTo(optionsNamed);
+    assertThat(fromOptionsProtoMandatoryWithoutName).isEqualTo(optionsUnnamed);
   }
 
   static void checkEquals(FunctionArgumentType type1, FunctionArgumentType type2) {

@@ -902,6 +902,54 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayAvgFunctions, 1) {
                          "SAFE.ARRAY_AVG");
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayOffsetFunctions, 2) {
+  SetNamePrefix("ArrayOffset");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayOffset(/*is_safe=*/false)),
+                         "ARRAY_OFFSET");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayOffsetFunctions, 2) {
+  SetNamePrefix("SafeArrayOffset");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayOffset(/*is_safe=*/true)),
+                         "SAFE.ARRAY_OFFSET");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFindFunctions, 2) {
+  SetNamePrefix("ArrayFind");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFind(/*is_safe=*/false)),
+                         "ARRAY_FIND");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayFindFunctions, 2) {
+  SetNamePrefix("SafeArrayFind");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFind(/*is_safe=*/true)),
+                         "SAFE.ARRAY_FIND");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayOffsetsFunctions, 1) {
+  SetNamePrefix("ArrayOffsets");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayOffsets(/*is_safe=*/false)),
+                         "ARRAY_OFFSETS");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayOffsetsFunctions, 1) {
+  SetNamePrefix("SafeArrayOffsets");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayOffsets(/*is_safe=*/true)),
+                         "SAFE.ARRAY_OFFSETS");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFindAllFunctions, 1) {
+  SetNamePrefix("ArrayFindAll");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFindAll(/*is_safe=*/false)),
+                         "ARRAY_FIND_ALL");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayFindAllFunctions, 1) {
+  SetNamePrefix("SafeArrayFindAll");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFindAll(/*is_safe=*/true)),
+                         "SAFE.ARRAY_FIND_ALL");
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestLogicalFunctions_AND, 1) {
   SetNamePrefix("And");
   RunFunctionTestsInfix(Shard(GetFunctionTestsAnd()), "AND");
@@ -2176,6 +2224,20 @@ SHARDED_TEST_F(ComplianceCodebasedTests, RangeComparisons, 1) {
     }
   };
   RunFunctionTestsCustom(Shard(GetFunctionTestsRangeComparisons()), cmp);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, RangeOverlaps, 1) {
+  SetNamePrefix("RangeOverlaps");
+  RunFunctionTestsCustom(
+      Shard(GetFunctionTestsRangeOverlaps()),
+      [](const FunctionTestCall& f) { return "range_overlaps(@p0, @p1)"; });
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, RangeIntersect, 1) {
+  SetNamePrefix("RangeIntersect");
+  RunFunctionTestsCustom(
+      Shard(GetFunctionTestsRangeIntersect()),
+      [](const FunctionTestCall& f) { return "range_intersect(@p0, @p1)"; });
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalUnaryMinus, 1) {

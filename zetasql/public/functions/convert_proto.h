@@ -43,7 +43,7 @@ bool ProtoToMultilineString(const google::protobuf::Message* value, absl::Cord* 
 // extension types, and their associated file descriptors must be
 // reachable from the DescriptorPool associated with 'out'. Additionally,
 // the Reflection object accessible through 'out' must be available.
-bool StringToProto(const absl::string_view value, google::protobuf::Message* out,
+bool StringToProto(absl::string_view value, google::protobuf::Message* out,
                    absl::Status* error);
 
 }  // namespace functions

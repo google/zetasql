@@ -279,6 +279,32 @@ DeleteStmt
     +-Literal(type=INT32, value=1)
 ==
 
+DELETE TestTable AS T WHERE KitchenSink.int32_val = 1
+THEN RETURN T.key, 100 AS exp1, T.TestEnum as exp2
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.key#1 AS key [INT32]
+|   | +-T.exp1#4 AS exp1 [INT64]
+|   | +-TestTable.TestEnum#2 AS exp2 [ENUM<zetasql_test__.TestEnum>]
+|   +-expr_list=
+|     +-exp1#4 := Literal(type=INT64, value=100)
++-column_access_list=READ,READ,READ
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=1)
+==
+
 # UPDATE
 UPDATE KeyValue SET key=1, value="a" WHERE key > 10 THEN RETURN *
 --
@@ -2321,4 +2347,3 @@ InsertStmt
 |       +-value=
 |         +-Literal(type=INT64, value=1)
 +-column_access_list=READ_WRITE,READ
-==

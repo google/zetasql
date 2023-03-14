@@ -1,0 +1,480 @@
+# Clamped as an identifier followed by an alias.
+select clamped clamped;
+--
+QueryStatement [0-22] [select clamped clamped]
+  Query [0-22] [select clamped clamped]
+    Select [0-22] [select clamped clamped]
+      SelectList [7-22] [clamped clamped]
+        SelectColumn [7-22] [clamped clamped]
+          PathExpression [7-14] [clamped]
+            Identifier(clamped) [7-14] [clamped]
+          Alias [15-22] [clamped]
+            Identifier(clamped) [15-22] [clamped]
+--
+SELECT
+  clamped AS clamped
+==
+
+# Clamped as an identifier before between.
+select clamped between clamped and clamped;
+--
+QueryStatement [0-42] [select clamped...and clamped]
+  Query [0-42] [select clamped...and clamped]
+    Select [0-42] [select clamped...and clamped]
+      SelectList [7-42] [clamped between...and clamped]
+        SelectColumn [7-42] [clamped between...and clamped]
+          BetweenExpression(BETWEEN) [7-42] [clamped between...and clamped]
+            PathExpression [7-14] [clamped]
+              Identifier(clamped) [7-14] [clamped]
+            Location [15-22] [between]
+            PathExpression [23-30] [clamped]
+              Identifier(clamped) [23-30] [clamped]
+            PathExpression [35-42] [clamped]
+              Identifier(clamped) [35-42] [clamped]
+--
+SELECT
+  clamped BETWEEN clamped AND clamped
+==
+
+# Clamped as an identifier before between.
+select clamped # clamped
+   between clamped and clamped;
+--
+QueryStatement [0-55] [select clamped...and clamped]
+  Query [0-55] [select clamped...and clamped]
+    Select [0-55] [select clamped...and clamped]
+      SelectList [7-55] [clamped #...and clamped]
+        SelectColumn [7-55] [clamped #...and clamped]
+          BetweenExpression(BETWEEN) [7-55] [clamped #...and clamped]
+            PathExpression [7-14] [clamped]
+              Identifier(clamped) [7-14] [clamped]
+            Location [28-35] [between]
+            PathExpression [36-43] [clamped]
+              Identifier(clamped) [36-43] [clamped]
+            PathExpression [48-55] [clamped]
+              Identifier(clamped) [48-55] [clamped]
+--
+SELECT
+  clamped BETWEEN clamped AND clamped
+==
+
+# Clamped as an identifier before between in a where clause.
+SELECT
+  1 AS clamped
+WHERE
+  clamped BETWEEN 1 AND 2
+--
+QueryStatement [0-53] [SELECT   1...BETWEEN 1 AND 2]
+  Query [0-53] [SELECT   1...BETWEEN 1 AND 2]
+    Select [0-53] [SELECT   1...BETWEEN 1 AND 2]
+      SelectList [9-21] [1 AS clamped]
+        SelectColumn [9-21] [1 AS clamped]
+          IntLiteral(1) [9-10] [1]
+          Alias [11-21] [AS clamped]
+            Identifier(clamped) [14-21] [clamped]
+      WhereClause [22-53] [WHERE   clamped...WEEN 1 AND 2]
+        BetweenExpression(BETWEEN) [30-53] [clamped BETWEEN 1 AND 2]
+          PathExpression [30-37] [clamped]
+            Identifier(clamped) [30-37] [clamped]
+          Location [38-45] [BETWEEN]
+          IntLiteral(1) [46-47] [1]
+          IntLiteral(2) [52-53] [2]
+--
+SELECT
+  1 AS clamped
+WHERE
+  clamped BETWEEN 1 AND 2
+==
+
+# Clamped before as a keyword is only allowed in function arguments.
+select x clamped between a and b;
+--
+ERROR: Syntax error: Expected end of input but got keyword BETWEEN [at 1:18]
+select x clamped between a and b;
+                 ^
+==
+
+# Clamped between not allowed in TVF calls.
+select x FROM TVF(x clamped between a and b);
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword CLAMPED [at 1:21]
+select x FROM TVF(x clamped between a and b);
+                    ^
+==
+
+# CLAMPED BETWEEN with 'clamped' as a path expression lhs.
+select array_agg(clamped clamped between 1 and 2);
+--
+QueryStatement [0-49] [select array_agg...en 1 and 2)]
+  Query [0-49] [select array_agg...en 1 and 2)]
+    Select [0-49] [select array_agg...en 1 and 2)]
+      SelectList [7-49] [array_agg(...between 1 and 2)]
+        SelectColumn [7-49] [array_agg(...between 1 and 2)]
+          FunctionCall [7-49] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            PathExpression [17-24] [clamped]
+              Identifier(clamped) [17-24] [clamped]
+            ClampedBetweenModifier [25-48] [clamped between 1 and 2]
+              IntLiteral(1) [41-42] [1]
+              IntLiteral(2) [47-48] [2]
+--
+SELECT
+  array_agg(clamped
+    CLAMPED BETWEEN 1 AND 2)
+==
+
+# CLAMPED BETWEEN with 'clamped' as a path expression lhs, with comments
+select array_agg(clamped clamped # clamped
+                 between 1 and 2);
+--
+QueryStatement [0-76] [select array_agg...en 1 and 2)]
+  Query [0-76] [select array_agg...en 1 and 2)]
+    Select [0-76] [select array_agg...en 1 and 2)]
+      SelectList [7-76] [array_agg(...between 1 and 2)]
+        SelectColumn [7-76] [array_agg(...between 1 and 2)]
+          FunctionCall [7-76] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            PathExpression [17-24] [clamped]
+              Identifier(clamped) [17-24] [clamped]
+            ClampedBetweenModifier [25-75] [clamped #...between 1 and 2]
+              IntLiteral(1) [68-69] [1]
+              IntLiteral(2) [74-75] [2]
+--
+SELECT
+  array_agg(clamped
+    CLAMPED BETWEEN 1 AND 2)
+==
+
+# CLAMPED BETWEEN with leading identifier or star argument and optionally
+# multiple arguments.
+select array_agg({{*|x|clamped}}{{|, y|, clamped}} clamped between 1 and 2) as a from T;
+--
+ALTERNATION GROUP: *,
+--
+QueryStatement [0-55] [select array_agg...as a from T]
+  Query [0-55] [select array_agg...as a from T]
+    Select [0-55] [select array_agg...as a from T]
+      SelectList [7-48] [array_agg(...and 2) as a]
+        SelectColumn [7-48] [array_agg(...and 2) as a]
+          FunctionCall [7-43] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            Star(*) [17-18] [*]
+            ClampedBetweenModifier [19-42] [clamped between 1 and 2]
+              IntLiteral(1) [35-36] [1]
+              IntLiteral(2) [41-42] [2]
+          Alias [44-48] [as a]
+            Identifier(a) [47-48] [a]
+      FromClause [49-55] [from T]
+        TablePathExpression [54-55] [T]
+          PathExpression [54-55] [T]
+            Identifier(T) [54-55] [T]
+--
+SELECT
+  array_agg(*
+    CLAMPED BETWEEN 1 AND 2) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,, y
+--
+QueryStatement [0-58] [select array_agg...as a from T]
+  Query [0-58] [select array_agg...as a from T]
+    Select [0-58] [select array_agg...as a from T]
+      SelectList [7-51] [array_agg(...and 2) as a]
+        SelectColumn [7-51] [array_agg(...and 2) as a]
+          FunctionCall [7-46] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            Star(*) [17-18] [*]
+            PathExpression [20-21] [y]
+              Identifier(y) [20-21] [y]
+            ClampedBetweenModifier [22-45] [clamped between 1 and 2]
+              IntLiteral(1) [38-39] [1]
+              IntLiteral(2) [44-45] [2]
+          Alias [47-51] [as a]
+            Identifier(a) [50-51] [a]
+      FromClause [52-58] [from T]
+        TablePathExpression [57-58] [T]
+          PathExpression [57-58] [T]
+            Identifier(T) [57-58] [T]
+--
+SELECT
+  array_agg(*, y
+    CLAMPED BETWEEN 1 AND 2) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,, clamped
+--
+QueryStatement [0-64] [select array_agg...as a from T]
+  Query [0-64] [select array_agg...as a from T]
+    Select [0-64] [select array_agg...as a from T]
+      SelectList [7-57] [array_agg(...and 2) as a]
+        SelectColumn [7-57] [array_agg(...and 2) as a]
+          FunctionCall [7-52] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            Star(*) [17-18] [*]
+            PathExpression [20-27] [clamped]
+              Identifier(clamped) [20-27] [clamped]
+            ClampedBetweenModifier [28-51] [clamped between 1 and 2]
+              IntLiteral(1) [44-45] [1]
+              IntLiteral(2) [50-51] [2]
+          Alias [53-57] [as a]
+            Identifier(a) [56-57] [a]
+      FromClause [58-64] [from T]
+        TablePathExpression [63-64] [T]
+          PathExpression [63-64] [T]
+            Identifier(T) [63-64] [T]
+--
+SELECT
+  array_agg(*, clamped
+    CLAMPED BETWEEN 1 AND 2) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: x,
+--
+QueryStatement [0-55] [select array_agg...as a from T]
+  Query [0-55] [select array_agg...as a from T]
+    Select [0-55] [select array_agg...as a from T]
+      SelectList [7-48] [array_agg(...and 2) as a]
+        SelectColumn [7-48] [array_agg(...and 2) as a]
+          FunctionCall [7-43] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            PathExpression [17-18] [x]
+              Identifier(x) [17-18] [x]
+            ClampedBetweenModifier [19-42] [clamped between 1 and 2]
+              IntLiteral(1) [35-36] [1]
+              IntLiteral(2) [41-42] [2]
+          Alias [44-48] [as a]
+            Identifier(a) [47-48] [a]
+      FromClause [49-55] [from T]
+        TablePathExpression [54-55] [T]
+          PathExpression [54-55] [T]
+            Identifier(T) [54-55] [T]
+--
+SELECT
+  array_agg(x
+    CLAMPED BETWEEN 1 AND 2) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: x,, y
+--
+QueryStatement [0-58] [select array_agg...as a from T]
+  Query [0-58] [select array_agg...as a from T]
+    Select [0-58] [select array_agg...as a from T]
+      SelectList [7-51] [array_agg(...and 2) as a]
+        SelectColumn [7-51] [array_agg(...and 2) as a]
+          FunctionCall [7-46] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            PathExpression [17-18] [x]
+              Identifier(x) [17-18] [x]
+            PathExpression [20-21] [y]
+              Identifier(y) [20-21] [y]
+            ClampedBetweenModifier [22-45] [clamped between 1 and 2]
+              IntLiteral(1) [38-39] [1]
+              IntLiteral(2) [44-45] [2]
+          Alias [47-51] [as a]
+            Identifier(a) [50-51] [a]
+      FromClause [52-58] [from T]
+        TablePathExpression [57-58] [T]
+          PathExpression [57-58] [T]
+            Identifier(T) [57-58] [T]
+--
+SELECT
+  array_agg(x, y
+    CLAMPED BETWEEN 1 AND 2) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: x,, clamped
+--
+QueryStatement [0-64] [select array_agg...as a from T]
+  Query [0-64] [select array_agg...as a from T]
+    Select [0-64] [select array_agg...as a from T]
+      SelectList [7-57] [array_agg(...and 2) as a]
+        SelectColumn [7-57] [array_agg(...and 2) as a]
+          FunctionCall [7-52] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            PathExpression [17-18] [x]
+              Identifier(x) [17-18] [x]
+            PathExpression [20-27] [clamped]
+              Identifier(clamped) [20-27] [clamped]
+            ClampedBetweenModifier [28-51] [clamped between 1 and 2]
+              IntLiteral(1) [44-45] [1]
+              IntLiteral(2) [50-51] [2]
+          Alias [53-57] [as a]
+            Identifier(a) [56-57] [a]
+      FromClause [58-64] [from T]
+        TablePathExpression [63-64] [T]
+          PathExpression [63-64] [T]
+            Identifier(T) [63-64] [T]
+--
+SELECT
+  array_agg(x, clamped
+    CLAMPED BETWEEN 1 AND 2) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: clamped,
+--
+QueryStatement [0-61] [select array_agg...as a from T]
+  Query [0-61] [select array_agg...as a from T]
+    Select [0-61] [select array_agg...as a from T]
+      SelectList [7-54] [array_agg(...and 2) as a]
+        SelectColumn [7-54] [array_agg(...and 2) as a]
+          FunctionCall [7-49] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            PathExpression [17-24] [clamped]
+              Identifier(clamped) [17-24] [clamped]
+            ClampedBetweenModifier [25-48] [clamped between 1 and 2]
+              IntLiteral(1) [41-42] [1]
+              IntLiteral(2) [47-48] [2]
+          Alias [50-54] [as a]
+            Identifier(a) [53-54] [a]
+      FromClause [55-61] [from T]
+        TablePathExpression [60-61] [T]
+          PathExpression [60-61] [T]
+            Identifier(T) [60-61] [T]
+--
+SELECT
+  array_agg(clamped
+    CLAMPED BETWEEN 1 AND 2) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: clamped,, y
+--
+QueryStatement [0-64] [select array_agg...as a from T]
+  Query [0-64] [select array_agg...as a from T]
+    Select [0-64] [select array_agg...as a from T]
+      SelectList [7-57] [array_agg(...and 2) as a]
+        SelectColumn [7-57] [array_agg(...and 2) as a]
+          FunctionCall [7-52] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            PathExpression [17-24] [clamped]
+              Identifier(clamped) [17-24] [clamped]
+            PathExpression [26-27] [y]
+              Identifier(y) [26-27] [y]
+            ClampedBetweenModifier [28-51] [clamped between 1 and 2]
+              IntLiteral(1) [44-45] [1]
+              IntLiteral(2) [50-51] [2]
+          Alias [53-57] [as a]
+            Identifier(a) [56-57] [a]
+      FromClause [58-64] [from T]
+        TablePathExpression [63-64] [T]
+          PathExpression [63-64] [T]
+            Identifier(T) [63-64] [T]
+--
+SELECT
+  array_agg(clamped, y
+    CLAMPED BETWEEN 1 AND 2) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: clamped,, clamped
+--
+QueryStatement [0-70] [select array_agg...as a from T]
+  Query [0-70] [select array_agg...as a from T]
+    Select [0-70] [select array_agg...as a from T]
+      SelectList [7-63] [array_agg(...and 2) as a]
+        SelectColumn [7-63] [array_agg(...and 2) as a]
+          FunctionCall [7-58] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            PathExpression [17-24] [clamped]
+              Identifier(clamped) [17-24] [clamped]
+            PathExpression [26-33] [clamped]
+              Identifier(clamped) [26-33] [clamped]
+            ClampedBetweenModifier [34-57] [clamped between 1 and 2]
+              IntLiteral(1) [50-51] [1]
+              IntLiteral(2) [56-57] [2]
+          Alias [59-63] [as a]
+            Identifier(a) [62-63] [a]
+      FromClause [64-70] [from T]
+        TablePathExpression [69-70] [T]
+          PathExpression [69-70] [T]
+            Identifier(T) [69-70] [T]
+--
+SELECT
+  array_agg(clamped, clamped
+    CLAMPED BETWEEN 1 AND 2) AS a
+FROM
+  T
+==
+
+# The first use of CLAMPED BETWEEN is treated as identifier BETWEEN, since use
+# of CLAMPED BETWEEN as a modifier is restricted to functions with arguments as
+# demonstrated with the second use. CLAMPED as an identifier or alias does not
+# require backquoting.
+select array_agg(clamped between 1 and 2{{| clamped between 1 and 2}}) as clamped from T;
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-59] [select array_agg...mped from T]
+  Query [0-59] [select array_agg...mped from T]
+    Select [0-59] [select array_agg...mped from T]
+      SelectList [7-52] [array_agg(...as clamped]
+        SelectColumn [7-52] [array_agg(...as clamped]
+          FunctionCall [7-41] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            BetweenExpression(BETWEEN) [17-40] [clamped between 1 and 2]
+              PathExpression [17-24] [clamped]
+                Identifier(clamped) [17-24] [clamped]
+              Location [25-32] [between]
+              IntLiteral(1) [33-34] [1]
+              IntLiteral(2) [39-40] [2]
+          Alias [42-52] [as clamped]
+            Identifier(clamped) [45-52] [clamped]
+      FromClause [53-59] [from T]
+        TablePathExpression [58-59] [T]
+          PathExpression [58-59] [T]
+            Identifier(T) [58-59] [T]
+--
+SELECT
+  array_agg(clamped BETWEEN 1 AND 2) AS clamped
+FROM
+  T
+--
+ALTERNATION GROUP:  clamped between 1 and 2
+--
+QueryStatement [0-83] [select array_agg...mped from T]
+  Query [0-83] [select array_agg...mped from T]
+    Select [0-83] [select array_agg...mped from T]
+      SelectList [7-76] [array_agg(...as clamped]
+        SelectColumn [7-76] [array_agg(...as clamped]
+          FunctionCall [7-65] [array_agg(...between 1 and 2)]
+            PathExpression [7-16] [array_agg]
+              Identifier(array_agg) [7-16] [array_agg]
+            BetweenExpression(BETWEEN) [17-40] [clamped between 1 and 2]
+              PathExpression [17-24] [clamped]
+                Identifier(clamped) [17-24] [clamped]
+              Location [25-32] [between]
+              IntLiteral(1) [33-34] [1]
+              IntLiteral(2) [39-40] [2]
+            ClampedBetweenModifier [41-64] [clamped between 1 and 2]
+              IntLiteral(1) [57-58] [1]
+              IntLiteral(2) [63-64] [2]
+          Alias [66-76] [as clamped]
+            Identifier(clamped) [69-76] [clamped]
+      FromClause [77-83] [from T]
+        TablePathExpression [82-83] [T]
+          PathExpression [82-83] [T]
+            Identifier(T) [82-83] [T]
+--
+SELECT
+  array_agg(clamped BETWEEN 1 AND 2
+    CLAMPED BETWEEN 1 AND 2) AS clamped
+FROM
+  T

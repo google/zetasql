@@ -166,7 +166,7 @@ InternalErrorLocation MakeInternalErrorLocation(
 // payload contains a new ErrorSource that wraps the <input_status>
 // based on <error_source_mode>.
 absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
-                                   const std::string& error_message,
+                                   absl::string_view error_message,
                                    const absl::Status& input_status,
                                    ErrorMessageMode error_source_mode);
 

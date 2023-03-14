@@ -63,6 +63,10 @@ struct ZetaSQLBuiltinFunctionOptions {
     for (int i = 0; i < proto.exclude_function_ids_size(); ++i) {
       exclude_function_ids.insert(proto.exclude_function_ids(i));
     }
+    for (int i = 0; i < proto.enabled_rewrites_map_entry_size(); ++i) {
+      rewrite_enabled.insert({proto.enabled_rewrites_map_entry(i).key(),
+                              proto.enabled_rewrites_map_entry(i).value()});
+    }
   }
 
   // Specifies the set of language features that are enabled, which affects
@@ -80,6 +84,12 @@ struct ZetaSQLBuiltinFunctionOptions {
   // Ignore FunctionSignatures for FunctionSignatureIds in this set.
   absl::flat_hash_set<FunctionSignatureId, FunctionSignatureIdHasher>
       exclude_function_ids;
+
+  // Rewrite overrides. For each function signature included in the map, the
+  // boolean value indicates whether the rewrite implementation is enabled for
+  // that function signature. For function signatures not specified in the map,
+  // a default value is used.
+  absl::flat_hash_map<FunctionSignatureId, bool> rewrite_enabled;
 };
 
 }  // namespace zetasql

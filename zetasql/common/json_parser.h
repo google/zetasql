@@ -158,8 +158,8 @@ class JSONParser {
   // number. It returns false when there's a parsing error, either the size is
   // not the expected size or a character is not a hex digit.  When it returns
   // str will contain what has been successfully parsed so far.
-  bool ParseHexDigits(const int size, std::string* str);
-  void ParseOctalDigits(const int size, std::string* str);
+  bool ParseHexDigits(int size, std::string* str);
+  void ParseOctalDigits(int size, std::string* str);
 
   // Returns true if c contains an Octal digit, false otherwise.
   static bool IsOctalDigit(char c);

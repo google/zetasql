@@ -63,9 +63,20 @@ TEST(SimpleBuiltinFunctionTests, ConstructWithProtoTest) {
   proto.mutable_language_options()->add_supported_statement_kinds(
       ResolvedNodeKind::RESOLVED_AGGREGATE_FUNCTION_CALL);
 
+  EnabledRewriteProto rewrite_proto_1 = EnabledRewriteProto::default_instance();
+  rewrite_proto_1.set_key(FunctionSignatureId::FN_ARRAY_FILTER);
+  rewrite_proto_1.set_value(false);
+  *proto.add_enabled_rewrites_map_entry() = rewrite_proto_1;
+
+  EnabledRewriteProto rewrite_proto_2 = EnabledRewriteProto::default_instance();
+  rewrite_proto_2.set_key(FunctionSignatureId::FN_ARRAY_FILTER_WITH_INDEX);
+  rewrite_proto_2.set_value(true);
+  *proto.add_enabled_rewrites_map_entry() = rewrite_proto_2;
+
   ZetaSQLBuiltinFunctionOptions option1(proto);
   EXPECT_EQ(2, option1.exclude_function_ids.size());
   EXPECT_EQ(3, option1.include_function_ids.size());
+  EXPECT_EQ(2, option1.rewrite_enabled.size());
   EXPECT_TRUE(
       option1.include_function_ids.find(FunctionSignatureId::FN_EQUAL) !=
           option1.include_function_ids.end());
@@ -89,17 +100,22 @@ TEST(SimpleBuiltinFunctionTests, ConstructWithProtoTest) {
       ResolvedNodeKind::RESOLVED_AGGREGATE_FUNCTION_CALL));
   EXPECT_FALSE(option1.language_options.SupportsStatementKind(
       ResolvedNodeKind::RESOLVED_ASSERT_ROWS_MODIFIED));
+  EXPECT_EQ(option1.rewrite_enabled[FunctionSignatureId::FN_ARRAY_FILTER],
+            false);
+  EXPECT_EQ(
+      option1.rewrite_enabled[FunctionSignatureId::FN_ARRAY_FILTER_WITH_INDEX],
+      true);
 }
 
 TEST(SimpleBuiltinFunctionTests, ClassAndProtoSize) {
-  EXPECT_EQ(2 * sizeof(absl::flat_hash_set<FunctionSignatureId,
+  EXPECT_EQ(3 * sizeof(absl::flat_hash_set<FunctionSignatureId,
                                            FunctionSignatureIdHasher>),
             sizeof(ZetaSQLBuiltinFunctionOptions) - sizeof(LanguageOptions))
       << "The size of ZetaSQLBuiltinFunctionOptions class has changed, "
       << "please also update the proto and serialization code if you "
       << "added/removed fields in it.";
-  EXPECT_EQ(
-      3, ZetaSQLBuiltinFunctionOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(4,
+            ZetaSQLBuiltinFunctionOptionsProto::descriptor()->field_count())
       << "The number of fields in ZetaSQLBuiltinFunctionOptionsProto has "
       << "changed, please also update the serialization code accordingly.";
 }
@@ -182,10 +198,14 @@ void ValidateFunction(const LanguageOptions& language_options,
     function.CheckPreResolutionArgumentConstraints(args, language_options)
         .IgnoreError();
     function.GetNoMatchingFunctionSignatureErrorMessage(
-        args, language_options.product_mode());
+        args, language_options.product_mode(), /*argument_names=*/{});
   }
+  // In this file, we don't actually test the output of the supported signatures
+  // code. We just test it doesn't crash.
   int ignored;
-  function.GetSupportedSignaturesUserFacingText(language_options, &ignored);
+  function.GetSupportedSignaturesUserFacingText(
+      language_options, FunctionArgumentType::NamePrintingStyle::kIfNamedOnly,
+      &ignored);
 }
 
 TEST(SimpleBuiltinFunctionTests, SanityTests) {
@@ -888,6 +908,32 @@ TEST(SimpleFunctionTests,
     // for unsigned integer arguments).
     EXPECT_FALSE(FunctionMayHaveUnintendedArgumentCoercion(function))
         << function->DebugString();
+  }
+}
+
+TEST(SimpleFunctionTests, TestRewriteEnabled) {
+  TypeFactory type_factory;
+  NameToFunctionMap functions;
+  ZetaSQLBuiltinFunctionOptions options;
+
+  // Override the rewriters for ARRAY_FIRST and ARRAY_LAST.
+  options.rewrite_enabled[FN_ARRAY_FIRST] = true;
+  options.rewrite_enabled[FN_ARRAY_LAST] = false;
+
+  GetZetaSQLFunctions(&type_factory, options, &functions);
+
+  std::unique_ptr<Function>* function =
+      zetasql_base::FindOrNull(functions, FunctionSignatureIdToName(FN_ARRAY_FIRST));
+  EXPECT_THAT(function, NotNull());
+  for (const FunctionSignature& signature : (*function)->signatures()) {
+    EXPECT_TRUE(signature.options().rewrite_options()->enabled());
+  }
+
+  function =
+      zetasql_base::FindOrNull(functions, FunctionSignatureIdToName(FN_ARRAY_LAST));
+  EXPECT_THAT(function, NotNull());
+  for (const FunctionSignature& signature : (*function)->signatures()) {
+    EXPECT_FALSE(signature.options().rewrite_options()->enabled());
   }
 }
 

@@ -27,10 +27,12 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/string_format.h"
@@ -1796,8 +1798,39 @@ static bool FunctionSignatureIsDisabled(
   return false;
 }
 
-static absl::Status InsertCheckedFunction(NameToFunctionMap* functions,
-                                          std::unique_ptr<Function> function) {
+static absl::Status InsertCheckedFunction(
+    NameToFunctionMap* functions, std::unique_ptr<Function> function,
+    const ZetaSQLBuiltinFunctionOptions& options) {
+  // Check if a rewrite override has been specified in the rewrite_enabled
+  // map and set the enabled bit in FunctionSignatureRewriteOptions
+  // accordingly.
+  for (int idx = 0; idx < function->signatures().size(); ++idx) {
+    const FunctionSignature& signature = function->signatures()[idx];
+    ZETASQL_RET_CHECK(function->IsZetaSQLBuiltin());
+    auto found_override = options.rewrite_enabled.find(
+        static_cast<FunctionSignatureId>(signature.context_id()));
+    if (found_override != options.rewrite_enabled.end()) {
+      FunctionSignature& mutable_signature =
+          *function->GetMutableSignature(idx);
+      auto opt_rewrite_options =
+          mutable_signature.mutable_options().mutable_rewrite_options();
+      if (opt_rewrite_options.has_value()) {
+        mutable_signature.mutable_options()
+            .mutable_rewrite_options()
+            ->set_enabled(found_override->second);
+      } else {
+        if (found_override->second) {
+          return absl::FailedPreconditionError(absl::StrCat(
+              "Attempted to opt into a rewrite for the following function: ",
+              function->Name(),
+              " but found no valid FunctionSignatureRewriteOptions. Rewrites "
+              "may "
+              "only be opted into if a valid rewriter has already been "
+              "configured for that function. "));
+        }
+      }
+    }
+  }
   // Not using IdentifierPathToString to avoid escaping things like '$add' and
   // 'if'.
   std::string name = absl::StrJoin(function->FunctionNamePath(), ".");
@@ -1844,7 +1877,7 @@ void InsertCreatedFunction(NameToFunctionMap* functions,
     }
     function->ResetSignatures(new_signatures);
   }
-  ZETASQL_CHECK_OK(InsertCheckedFunction(functions, std::move(function)));
+  ZETASQL_CHECK_OK(InsertCheckedFunction(functions, std::move(function), options));
 }
 
 // Returns true if the function was actually inserted.
@@ -1889,7 +1922,8 @@ static absl::StatusOr<bool> InsertFunctionImpl(
       functions,
       std::make_unique<Function>(
           std::move(name), Function::kZetaSQLFunctionGroupName, mode,
-          std::move(signatures), std::move(function_options))));
+          std::move(signatures), std::move(function_options)),
+      options));
   return true;
 }
 

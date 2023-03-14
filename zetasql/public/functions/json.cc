@@ -16,6 +16,7 @@
 #include "zetasql/public/functions/json.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -45,27 +46,41 @@ using json_internal::ValidJSONPathIterator;
 
 JsonPathEvaluator::~JsonPathEvaluator() {}
 
-JsonPathEvaluator::JsonPathEvaluator(std::unique_ptr<ValidJSONPathIterator> itr)
-    : path_iterator_(std::move(itr)) {}
+JsonPathEvaluator::JsonPathEvaluator(
+    std::unique_ptr<ValidJSONPathIterator> itr,
+    bool enable_special_character_escaping_in_values,
+    bool enable_special_character_escaping_in_keys)
+    : path_iterator_(std::move(itr)),
+      enable_special_character_escaping_in_values_(
+          enable_special_character_escaping_in_values),
+      enable_special_character_escaping_in_keys_(
+          enable_special_character_escaping_in_keys) {}
 
 // static
 absl::StatusOr<std::unique_ptr<JsonPathEvaluator>> JsonPathEvaluator::Create(
-    absl::string_view json_path, bool sql_standard_mode) {
+    absl::string_view json_path, bool sql_standard_mode,
+    bool enable_special_character_escaping_in_values,
+    bool enable_special_character_escaping_in_keys) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValidJSONPathIterator> itr,
                    ValidJSONPathIterator::Create(json_path, sql_standard_mode));
   // Scan tokens as json_path may not persist beyond this call.
   itr->Scan();
-  return absl::WrapUnique(new JsonPathEvaluator(std::move(itr)));
+  return absl::WrapUnique(new JsonPathEvaluator(
+      std::move(itr), enable_special_character_escaping_in_values,
+      enable_special_character_escaping_in_keys));
 }
 
-absl::Status JsonPathEvaluator::Extract(absl::string_view json,
-                                        std::string* value,
-                                        bool* is_null) const {
+absl::Status JsonPathEvaluator::Extract(
+    absl::string_view json, std::string* value, bool* is_null,
+    std::optional<std::function<void(absl::Status)>> issue_warning) const {
   JSONPathExtractor parser(json, path_iterator_.get());
-  parser.set_special_character_escaping(escape_special_characters_);
+  parser.set_special_character_escaping(
+      enable_special_character_escaping_in_values_);
+  parser.set_special_character_key_escaping(
+      enable_special_character_escaping_in_keys_);
   parser.set_escaping_needed_callback(&escaping_needed_callback_);
   value->clear();
-  parser.Extract(value, is_null);
+  parser.Extract(value, is_null, issue_warning);
   if (parser.StoppedDueToStackSpace()) {
     return MakeEvalError() << "JSON parsing failed due to deeply nested "
                               "array/struct. Maximum nesting depth is "
@@ -145,14 +160,17 @@ std::optional<std::string> JsonPathEvaluator::ExtractScalar(
   return optional_json->ToString();
 }
 
-absl::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
-                                             std::vector<std::string>* value,
-                                             bool* is_null) const {
+absl::Status JsonPathEvaluator::ExtractArray(
+    absl::string_view json, std::vector<std::string>* value, bool* is_null,
+    std::optional<std::function<void(absl::Status)>> issue_warning) const {
   json_internal::JSONPathArrayExtractor array_parser(json,
                                                      path_iterator_.get());
-  array_parser.set_special_character_escaping(escape_special_characters_);
+  array_parser.set_special_character_escaping(
+      enable_special_character_escaping_in_values_);
+  array_parser.set_special_character_key_escaping(
+      enable_special_character_escaping_in_keys_);
   value->clear();
-  array_parser.ExtractArray(value, is_null);
+  array_parser.ExtractArray(value, is_null, issue_warning);
   if (array_parser.StoppedDueToStackSpace()) {
     return MakeEvalError() << "JSON parsing failed due to deeply nested "
                               "array/struct. Maximum nesting depth is "
@@ -384,10 +402,10 @@ absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input) {
   if (input.IsNumber()) {
     return "number";
   }
-  if (input.IsString()){
+  if (input.IsString()) {
     return "string";
   }
-  if (input.IsBoolean()){
+  if (input.IsBoolean()) {
     return "boolean";
   }
   if (input.IsObject()) {
@@ -404,36 +422,37 @@ absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input) {
 }
 
 template <typename FromType, typename ToType>
-static absl::StatusOr<ToType> ConvertNumericToNumeric(FromType val) {
+static std::optional<ToType> ConvertNumericToNumeric(FromType val) {
   absl::Status status;
   ToType out;
   if (!Convert(val, &out, &status)) {
-    return status;
+    return std::nullopt;
   }
   return out;
 }
 
 template <typename Type>
-static absl::StatusOr<std::string> ConvertNumericToString(Type val) {
+static std::optional<std::string> ConvertNumericToString(Type val) {
   absl::Status status;
   std::string out;
   if (!NumericToString(val, &out, &status)) {
-    return status;
+    return std::nullopt;
   }
   return out;
 }
 
 template <typename Type>
-static absl::StatusOr<Type> ConvertStringToNumeric(absl::string_view val) {
+static std::optional<Type> ConvertStringToNumeric(absl::string_view val) {
   absl::Status status;
   Type out;
   if (!StringToNumeric(val, &out, &status)) {
-    return status;
+    return std::nullopt;
   }
   return out;
 }
 
-absl::StatusOr<bool> LaxConvertJsonToBool(JSONValueConstRef input) {
+absl::StatusOr<std::optional<bool>> LaxConvertJsonToBool(
+    JSONValueConstRef input) {
   if (input.IsBoolean()) {
     return input.GetBoolean();
   } else if (input.IsInt64()) {
@@ -444,12 +463,12 @@ absl::StatusOr<bool> LaxConvertJsonToBool(JSONValueConstRef input) {
     return input.GetDouble() != 0;
   } else if (input.IsString()) {
     return ConvertStringToNumeric<bool>(input.GetString());
-  } else {
-    return absl::OutOfRangeError("Unable to convert JSON value to bool");
   }
+  return std::nullopt;
 }
 
-absl::StatusOr<int64_t> LaxConvertJsonToInt64(JSONValueConstRef input) {
+absl::StatusOr<std::optional<int64_t>> LaxConvertJsonToInt64(
+    JSONValueConstRef input) {
   if (input.IsBoolean()) {
     return input.GetBoolean() ? 1 : 0;
   } else if (input.IsInt64()) {
@@ -464,15 +483,15 @@ absl::StatusOr<int64_t> LaxConvertJsonToInt64(JSONValueConstRef input) {
     int64_t out;
     if (!StringToNumeric(input.GetString(), &big_numeric_value, &status) ||
         !Convert(big_numeric_value, &out, &status)) {
-      return status;
+      return std::nullopt;
     }
     return out;
-  } else {
-    return absl::OutOfRangeError("Unable to convert JSON value to Int64");
   }
+  return std::nullopt;
 }
 
-absl::StatusOr<double> LaxConvertJsonToFloat64(JSONValueConstRef input) {
+absl::StatusOr<std::optional<double>> LaxConvertJsonToFloat64(
+    JSONValueConstRef input) {
   if (input.IsInt64()) {
     return ConvertNumericToNumeric<int64_t, double>(input.GetInt64());
   } else if (input.IsUInt64()) {
@@ -481,12 +500,12 @@ absl::StatusOr<double> LaxConvertJsonToFloat64(JSONValueConstRef input) {
     return input.GetDouble();
   } else if (input.IsString()) {
     return ConvertStringToNumeric<double>(input.GetString());
-  } else {
-    return absl::OutOfRangeError("Unable to convert JSON value to Float64");
   }
+  return std::nullopt;
 }
 
-absl::StatusOr<std::string> LaxConvertJsonToString(JSONValueConstRef input) {
+absl::StatusOr<std::optional<std::string>> LaxConvertJsonToString(
+    JSONValueConstRef input) {
   if (input.IsBoolean()) {
     return ConvertNumericToString<bool>(input.GetBoolean());
   } else if (input.IsInt64()) {
@@ -497,9 +516,8 @@ absl::StatusOr<std::string> LaxConvertJsonToString(JSONValueConstRef input) {
     return ConvertNumericToString<double>(input.GetDouble());
   } else if (input.IsString()) {
     return input.GetString();
-  } else {
-    return absl::OutOfRangeError("Unable to convert JSON value to String");
   }
+  return std::nullopt;
 }
 
 }  // namespace functions

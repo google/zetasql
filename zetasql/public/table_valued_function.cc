@@ -472,8 +472,9 @@ absl::Status ForwardInputSchemaToOutputSchemaTVF::Deserialize(
     path.push_back(name);
   }
   std::unique_ptr<FunctionSignature> signature;
-  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(proto.signature(), pools,
-                                                 factory, &signature));
+  ZETASQL_ASSIGN_OR_RETURN(signature,
+                   FunctionSignature::Deserialize(
+                       proto.signature(), TypeDeserializer(factory, pools)));
 
   std::unique_ptr<TableValuedFunctionOptions> options;
   ZETASQL_RETURN_IF_ERROR(
@@ -596,8 +597,9 @@ absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Deserialize(
     path.push_back(name);
   }
   std::unique_ptr<FunctionSignature> signature;
-  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(proto.signature(), pools,
-                                                 factory, &signature));
+  ZETASQL_ASSIGN_OR_RETURN(signature,
+                   FunctionSignature::Deserialize(
+                       proto.signature(), TypeDeserializer(factory, pools)));
 
   std::vector<TVFSchemaColumn> extra_columns;
   if (proto.has_custom_context()) {

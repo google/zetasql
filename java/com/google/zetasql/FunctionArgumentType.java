@@ -20,6 +20,7 @@ package com.google.zetasql;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.FunctionProtos.ArgumentTypeLambdaProto;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeOptionsProto;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeProto;
@@ -94,19 +95,25 @@ public final class FunctionArgumentType implements Serializable {
   }
 
   public FunctionArgumentType(
-      List<FunctionArgumentType> lambdaArgumentTypes, FunctionArgumentType lambdaBodyType) {
+      List<FunctionArgumentType> lambdaArgumentTypes,
+      FunctionArgumentType lambdaBodyType,
+      FunctionArgumentTypeOptions options) {
     Preconditions.checkNotNull(lambdaArgumentTypes);
     Preconditions.checkNotNull(lambdaBodyType);
     this.kind = SignatureArgumentKind.ARG_TYPE_LAMBDA;
     this.type = null;
     this.numOccurrences = -1;
-    this.options =
-        FunctionArgumentTypeOptions.builder().setCardinality(ArgumentCardinality.REQUIRED).build();
+    this.options = options;
     LambdaArgument lambda = new LambdaArgument();
     lambda.argumentTypes = lambdaArgumentTypes;
     lambda.bodyType = lambdaBodyType;
     this.lambda = lambda;
     validate();
+  }
+
+  public FunctionArgumentType(
+      List<FunctionArgumentType> lambdaArgumentTypes, FunctionArgumentType lambdaBodyType) {
+    this(lambdaArgumentTypes, lambdaBodyType, FunctionArgumentTypeOptions.builder().build());
   }
 
   public FunctionArgumentType(Type type, ArgumentCardinality cardinality) {
@@ -329,7 +336,11 @@ public final class FunctionArgumentType implements Serializable {
         argumentTypes.add(deserialize(argType, pools));
       }
       FunctionArgumentType bodyType = deserialize(proto.getLambda().getBody(), pools);
-      return new FunctionArgumentType(argumentTypes, bodyType);
+      return new FunctionArgumentType(
+          argumentTypes,
+          bodyType,
+          FunctionArgumentTypeOptions.deserialize(
+              proto.getOptions(), pools, /* argType= */ null, factory));
 
     } else {
       return new FunctionArgumentType(
@@ -418,7 +429,7 @@ public final class FunctionArgumentType implements Serializable {
     public abstract FunctionEnums.ProcedureArgumentMode getProcedureArgumentMode();
 
     @Nullable
-    public abstract Boolean getArgumentNameIsMandatory();
+    public abstract FunctionEnums.NamedArgumentKind getNamedArgumentKind();
 
     @Nullable
     public abstract Integer getDescriptorResolutionTableOffset();
@@ -429,6 +440,7 @@ public final class FunctionArgumentType implements Serializable {
     @Nullable
     public abstract FunctionEnums.ArgumentCollationMode getArgumentCollationMode();
 
+    @SuppressWarnings("deprecation") // Sets deprecated field for serialization compat.
     public FunctionArgumentTypeOptionsProto serialize(
         @Nullable Type argType, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
       FunctionArgumentTypeOptionsProto.Builder builder =
@@ -478,6 +490,11 @@ public final class FunctionArgumentType implements Serializable {
       }
       if (getArgumentName() != null) {
         builder.setArgumentName(getArgumentName());
+        builder.setNamedArgumentKind(getNamedArgumentKind());
+        if (getNamedArgumentKind() != null) {
+          builder.setArgumentNameIsMandatory(
+              getNamedArgumentKind() == FunctionEnums.NamedArgumentKind.NAMED_ONLY);
+        }
       }
       if (getArgumentNameParseLocation() != null) {
         builder.setArgumentNameParseLocation(getArgumentNameParseLocation().serialize());
@@ -487,9 +504,6 @@ public final class FunctionArgumentType implements Serializable {
       }
       if (getProcedureArgumentMode() != null) {
         builder.setProcedureArgumentMode(getProcedureArgumentMode());
-      }
-      if (getArgumentNameIsMandatory() != null) {
-        builder.setArgumentNameIsMandatory(getArgumentNameIsMandatory());
       }
       if (getDescriptorResolutionTableOffset() != null) {
         builder.setDescriptorResolutionTableOffset(getDescriptorResolutionTableOffset());
@@ -508,6 +522,7 @@ public final class FunctionArgumentType implements Serializable {
       return builder.build();
     }
 
+    @SuppressWarnings("deprecation") // Reads deprecated field for serialization compat.
     public static FunctionArgumentTypeOptions deserialize(
         FunctionArgumentTypeOptionsProto proto,
         ImmutableList<? extends DescriptorPool> pools,
@@ -571,8 +586,18 @@ public final class FunctionArgumentType implements Serializable {
       if (proto.hasProcedureArgumentMode()) {
         builder.setProcedureArgumentMode(proto.getProcedureArgumentMode());
       }
-      if (proto.hasArgumentNameParseLocation()) {
-        builder.setArgumentNameIsMandatory(proto.getArgumentNameIsMandatory());
+      if (proto.hasArgumentName()) {
+        if (proto.hasNamedArgumentKind()
+            && proto.getNamedArgumentKind()
+                != FunctionEnums.NamedArgumentKind.NAMED_ARGUMENT_KIND_UNSPECIFIED) {
+          builder.setArgumentName(proto.getArgumentName(), proto.getNamedArgumentKind());
+        } else if (proto.hasArgumentNameIsMandatory() && proto.getArgumentNameIsMandatory()) {
+          builder.setArgumentName(
+              proto.getArgumentName(), FunctionEnums.NamedArgumentKind.NAMED_ONLY);
+        } else {
+          builder.setArgumentName(
+              proto.getArgumentName(), FunctionEnums.NamedArgumentKind.POSITIONAL_OR_NAMED);
+        }
       }
       if (proto.hasDescriptorResolutionTableOffset()) {
         builder.setDescriptorResolutionTableOffset(proto.getDescriptorResolutionTableOffset());
@@ -654,7 +679,15 @@ public final class FunctionArgumentType implements Serializable {
 
       public abstract Builder setRelationInputSchema(TVFRelation inputSchema);
 
-      public abstract Builder setArgumentName(String name);
+      abstract Builder setArgumentName(String name);
+
+      @CanIgnoreReturnValue
+      public Builder setArgumentName(
+          String name, FunctionEnums.NamedArgumentKind namedArgumentKind) {
+        return setArgumentName(name).setNamedArgumentKind(namedArgumentKind);
+      }
+
+      abstract Builder setNamedArgumentKind(FunctionEnums.NamedArgumentKind namedArgumentKind);
 
       public abstract Builder setArgumentNameParseLocation(ParseLocationRange nameLocation);
 
@@ -662,8 +695,6 @@ public final class FunctionArgumentType implements Serializable {
 
       public abstract Builder setProcedureArgumentMode(
           FunctionEnums.ProcedureArgumentMode procedureArgumentMode);
-
-      public abstract Builder setArgumentNameIsMandatory(Boolean isMandatory);
 
       public abstract Builder setDescriptorResolutionTableOffset(Integer offset);
 

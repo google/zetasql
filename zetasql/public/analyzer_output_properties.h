@@ -42,6 +42,11 @@ class AnalyzerOutputProperties {
   absl::flat_hash_map<const ResolvedTableScan*,
                       const ResolvedAnonymizedAggregateScan*>
       resolved_table_scan_to_anonymized_aggregate_scan_map;  // NOLINT
+  // A map from ResolvedTableScan to ResolvedAnonymizedAggregateScan.
+  // TODO: Encapsulate this appropriately.
+  absl::flat_hash_map<const ResolvedTableScan*,
+                      const ResolvedDifferentialPrivacyAggregateScan*>
+      resolved_table_scan_to_dp_aggregate_scan_map;  // NOLINT
 
   // Marks the given `rewrite` as being applicable to the resolved AST.
   void MarkRelevant(ResolvedASTRewrite rewrite) {

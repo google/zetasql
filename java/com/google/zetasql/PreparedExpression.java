@@ -314,7 +314,7 @@ public class PreparedExpression implements AutoCloseable {
     for (Map.Entry<String, Type> entry : parameters.entrySet()) {
       b.put(Ascii.toLowerCase(entry.getKey()), entry.getValue());
     }
-    return b.build();
+    return b.buildOrThrow();
   }
 
 

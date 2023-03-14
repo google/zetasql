@@ -254,6 +254,10 @@ QueryStatement [0-42] [select EXISTS...select 2)]
           ExpressionSubquery(modifier=EXISTS) [7-42] [EXISTS(select...select 2)]
             Query [14-41] [select 1 union all select 2]
               SetOperation(UNION ALL) [14-41] [select 1 union all select 2]
+                SetOperationMetadataList [23-32] [union all]
+                  SetOperationMetadata [23-32] [union all]
+                    SetOperationType [23-28] [union]
+                    ASTSetOperationAllOrDistinct [29-32] [all]
                 Select [14-22] [select 1]
                   SelectList [21-22] [1]
                     SelectColumn [21-22] [1]
@@ -478,12 +482,11 @@ QueryStatement [0-195] [select * from...SELECT 1))]
                 WhereClause [164-175] [WHERE false]
                   BooleanLiteral(false) [170-175] [false]
           Location [180-182] [IN]
-          Query [184-194] [(SELECT 1)]
-            Query [185-193] [SELECT 1]
-              Select [185-193] [SELECT 1]
-                SelectList [192-193] [1]
-                  SelectColumn [192-193] [1]
-                    IntLiteral(1) [192-193] [1]
+          Query [185-193] [SELECT 1]
+            Select [185-193] [SELECT 1]
+              SelectList [192-193] [1]
+                SelectColumn [192-193] [1]
+                  IntLiteral(1) [192-193] [1]
 --
 SELECT
   *
@@ -526,3 +529,4 @@ select safe_cast(select key from keyvalue)
 ERROR: The argument to SAFE_CAST is an expression, not a query; to use a query as an expression, the query must be wrapped with additional parentheses to make it a scalar subquery expression [at 1:18]
 select safe_cast(select key from keyvalue)
                  ^
+==

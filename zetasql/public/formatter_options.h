@@ -37,6 +37,7 @@ class FormatterOptions {
         line_length_limit_(80),
         indentation_spaces_(2),
         allow_invalid_tokens_(true),
+        capitalize_functions_(false),
         capitalize_keywords_(true),
         preserve_line_breaks_(false),
         expand_format_ranges_(false),
@@ -75,6 +76,12 @@ class FormatterOptions {
   }
   bool IsAllowedInvalidTokens() const { return allow_invalid_tokens_; }
 
+  // If true, formatter capitalizes reserved ZetaSQL functions.
+  void CapitalizeFunctions(bool capitalize_functions) {
+    capitalize_functions_ = capitalize_functions;
+  }
+  bool IsCapitalizeFunctions() const { return capitalize_functions_; }
+
   // If true, formatter capitalizes reserved ZetaSQL keywords.
   void CapitalizeKeywords(bool capitalize_keywords) {
     capitalize_keywords_ = capitalize_keywords;
@@ -108,6 +115,7 @@ class FormatterOptions {
   int line_length_limit_;
   int indentation_spaces_;
   bool allow_invalid_tokens_;
+  bool capitalize_functions_;
   bool capitalize_keywords_;
   bool preserve_line_breaks_;
   bool expand_format_ranges_;

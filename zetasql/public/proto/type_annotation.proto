@@ -149,6 +149,14 @@ message FieldFormat {
     // Can be applied to bytes fields.
     INTERVAL = 14;
 
+    // A ZetaSQL Range value encoded as bytes.
+    // See RangeValue::SerializeAsBytes() for serialization format details.
+    //
+    // Can be applied to bytes fields.
+    RANGE_DATES_ENCODED = 16;
+    RANGE_DATETIMES_ENCODED = 17;
+    RANGE_TIMESTAMPS_ENCODED = 18;
+
     // User code that switches on this enum must have a default case so
     // builds won't break if new enums get added.
     __FieldFormat_Type__switch_must_have_a_default__ = -1;

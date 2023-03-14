@@ -256,6 +256,34 @@ enum LanguageFeature {
   // ((broken link)).
   FEATURE_ANONYMIZATION = 24 [(language_feature_options).in_development = true];
 
+  // Use user specified function for k_threshold if it is a count of unique
+  // users. See details in (broken link).
+  FEATURE_ANONYMIZATION_THRESHOLDING = 83
+      [(language_feature_options).in_development = true];
+
+  // Treat anonymization options case-insensitively. Previously,
+  // anonymization options were treated case-sensitively in parts of the code,
+  // so the options were not correctly validated.
+  FEATURE_ANONYMIZATION_CASE_INSENSITIVE_OPTIONS = 85
+      [(language_feature_options).ideally_enabled = true];
+
+  // Enables SELECT WITH DIFFERENTIAL_PRIVACY syntax
+  // ((broken link)). Although ANONYMIZATION and
+  // DIFFERENTIAL_PRIVACY are semantically similar in most ways, there are a
+  // couple of differences e.g. list of valid options are different and so we
+  // need to be able to distinguish between them. SELECT WITH ANONYMIZATION will
+  // be deprecated and this syntax will be used instead
+  // (see: (broken link)).
+  FEATURE_DIFFERENTIAL_PRIVACY = 88
+      [(language_feature_options).in_development = true];
+  // Enables DP functions with report.
+  FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS = 89
+      [(language_feature_options).in_development = true];
+  // Use user specified function for group_selection_threshold if it is a count
+  // of unique users. See details in (broken link).
+  FEATURE_DIFFERENTIAL_PRIVACY_THRESHOLDING = 90
+      [(language_feature_options).in_development = true];
+
   // Geography type support per (broken link)
   FEATURE_GEOGRAPHY = 25;
 
@@ -390,6 +418,12 @@ enum LanguageFeature {
   // Example:
   // CREATE VIEW v(a, b) AS SELECT ...
   FEATURE_CREATE_VIEW_WITH_COLUMN_LIST = 59;
+
+  // Enables support for altering column options for columns in views.
+  // Example:
+  // ALTER VIEW v ALTER COLUMN a SET OPTIONS(description="col a")
+  FEATURE_ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS = 87
+      [(language_feature_options).in_development = true];
 
   // Enables support for CREATE TABLE CLONE
   // Example:
@@ -528,6 +562,24 @@ enum LanguageFeature {
   //   5. Extensions.
   //   6. Proto functions.
   FEATURE_PROTO_BASE = 82 [(language_feature_options).in_development = true];
+
+  // This feature can be enabled to disable the new SQL functions ARRAY_SUM and
+  // ARRAY_AVG. It is here to ensure there is a way to turn these functions off
+  // in case they cause trouble.
+  FEATURE_DISABLE_ARRAY_SUM_AND_AVG = 84
+      [(language_feature_options) = { ideally_enabled: false }];
+
+  // Enables support for creating views with column options.
+  // Example:
+  // CREATE VIEW v(a OPTIONS(description="col a"), b) AS SELECT ...
+  FEATURE_CREATE_VIEWS_WITH_COLUMN_OPTIONS = 86
+      [(language_feature_options).in_development = true];
+
+  // Enables support for WITH CONNECTION in CREATE TABLE.
+  // More details in (broken link).
+  // TODO: Remove in_development tag
+  FEATURE_CREATE_TABLE_WITH_CONNECTION = 91
+      [(language_feature_options).in_development = true];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -912,6 +964,37 @@ enum LanguageFeature {
   // See (broken link)
   FEATURE_V_1_4_STRUCT_POSITIONAL_ACCESSOR = 14010;
 
+  // Allow unnesting singleton un-correlated array path expression to have table
+  // name as path prefix in FROM clause.
+  // See (broken link)
+  FEATURE_V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH = 14011;
+
+  // Enable Macros
+  FEATURE_V_1_4_SQL_MACROS = 14012
+      [(language_feature_options).in_development = true];
+
+  // Enables collation in WITH RECURSIVE
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_COLLATION_IN_WITH_RECURSIVE = 14013
+      [(language_feature_options).in_development = true];
+
+  // Enables collation in type string in explicit CAST
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_COLLATION_IN_EXPLICIT_CAST = 14014
+      [(language_feature_options).in_development = true];
+
+  // Enables load to partitions
+  FEATURE_V_1_4_LOAD_DATA_PARTITIONS = 14015;
+
+  // Enables CREATE MODEL statement to support one or more aliased queries as
+  // input.
+  // See (broken link).
+  FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST = 14016
+      [(language_feature_options).in_development = true];
+
+  // Enables load to temp tables
+  FEATURE_V_1_4_LOAD_DATA_TEMP_TABLE = 14017;
+
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
   // officially supported ZetaSQL as of any version.
@@ -963,6 +1046,8 @@ message ResolvedASTRewriteOptions {
 // node types to be quickly and easily available to engines without needing each
 // engine to implement support for the new node types.
 enum ResolvedASTRewrite {
+  reserved 13, 15;
+
   // Make sure default value of 0 is not an resolved AST rewrite.
   REWRITE_INVALID_DO_NOT_USE = 0;
 
@@ -1031,22 +1116,36 @@ enum ResolvedASTRewrite {
   // See (broken link)
   REWRITE_NULLIFERROR_FUNCTION = 12 [(rewrite_options).default_enabled = true];
 
-  // Rewrite unary functions into subqueries.
-  // The functions that use unary rewriter have single input.
-  REWRITE_UNARY_FUNCTIONS = 13 [(rewrite_options).default_enabled = true];
-
   // Rewrite LIKE ANY/SOME/ALL functions with pattern lists represented as
   // (pattern1, ...), UNNEST(<array-expression>), or a subquery
   // See (broken link)
   REWRITE_LIKE_ANY_ALL = 14 [(rewrite_options).default_enabled = true];
 
-  // Rewrite ternary functions into subqueries.
-  // The functions that use ternary rewriter have three inputs.
-  REWRITE_TERNARY_FUNCTIONS = 15 [(rewrite_options).default_enabled = true];
-
-  // Rewrite binary functions into subqueries.
-  // The functions that use binary rewriter have two inputs.
-  REWRITE_BINARY_FUNCTIONS = 16 [(rewrite_options).default_enabled = true];
+  // Rewrite calls to concrete function signatues with simple arguments.
+  //
+  // This rewriter is configured through FunctionSignatureOptions. It inlines
+  // a SQL snippet provided by FunctionSignatureRewriteOptions to replace
+  // the call to the function signature.
+  //
+  // Concrete function signatures must have only arguments that are simple
+  // values described by the type system to use this rewriter.
+  //
+  // Argument as-if-once evaluation semantics are handled inside this rewriter,
+  // authors of the SQL logic do not accommodate that.
+  //
+  // SAFE. mode calls are handled inside this rewriter, authors of the SQL
+  // logic do not need to accommodate that.
+  //
+  // NULL saturation (when an NULL argument causes the function result to be
+  // NULL) is *NOT* handled by the rewriter, so the SQL logic does need to
+  // accommodate that.
+  // TODO: Declaratively configure NULL stauration behavior through
+  //     options to redunce the complexity of the SQL function implementations.
+  //
+  // Function arguments are referenced by the name supplied to the function
+  // signature in `FunctionArgumentTypeOptions`.
+  REWRITE_BUILTIN_FUNCTION_INLINER = 16
+      [(rewrite_options).default_enabled = true];
 
   // Inline SQL Views.
   // Experimental. Functionality may change before generally available.

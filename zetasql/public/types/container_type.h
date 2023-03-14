@@ -153,7 +153,7 @@ class ContainerType : public Type {
   // prefix? E.g. when formatting a struct we may want to prepend each element
   // with the name of the struct field: "{foo: 1, bar: 2}"
   virtual std::string GetFormatElementPrefix(
-      const int index, const bool is_null,
+      int index, bool is_null,
       const FormatValueContentOptions& options) const = 0;
 
   friend struct MultisetValueContentContainerElementHasher;

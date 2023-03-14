@@ -1,51 +1,31 @@
 # The "civil_time_types_and_functions" label applies to all queries in this
 # file related to the ZetaSQL V1.2 civil time types: TIME and DATETIME.
 [default global_labels=civil_time_types_and_functions]
-[default test_features1=V_1_2_CIVIL_TIME]
-[default test_features2=TIMESTAMP_NANOS]
+[default required_features=V_1_2_CIVIL_TIME]
 
 [name=civil_time_literals]
 SELECT TIME '01:02:03.123456',
        DATETIME '2006-01-02 03:04:05.123456'
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME, DATETIME>>[
   {
     01:02:03.123456,
     2006-01-02 03:04:05.123456
   }
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 1:8]
-SELECT TIME '01:02:03.123456',
-       ^
 ==
 
 [name=civil_time_nano_literals]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT TIME '01:02:03.123456789',
        DATETIME '2006-01-02 03:04:05.123456789'
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME, DATETIME>>[
   {
     01:02:03.123456789,
     2006-01-02 03:04:05.123456789
   }
 ]
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid TIME literal [at 1:8]
-SELECT TIME '01:02:03.123456789',
-       ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 1:8]
-SELECT TIME '01:02:03.123456789',
-       ^
 ==
 
 [name=roundtrip_cast_between_string_and_time_common]
@@ -76,8 +56,6 @@ SELECT
     CAST(CAST("12:59:60" as TIME) as STRING),
     CAST(CAST("12:59:60.123456" as TIME) as STRING)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME,
              TIME,
              TIME,
@@ -122,15 +100,10 @@ ARRAY<STRUCT<TIME,
   "00:00:00",
   "13:00:00",
   "13:00:00"}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 2:45]
-    CAST(CAST(TIME "00:00:00" as STRING) as TIME),
-                                            ^
 ==
 
 [name=roundtrip_cast_between_string_and_time_nano]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
     CAST(CAST(TIME "23:59:59.999999999" as STRING) as TIME),
     CAST(CAST(TIME "01:02:03.123456789" as STRING) as TIME),
@@ -148,7 +121,6 @@ SELECT
     #Leap second case
     CAST(CAST("12:59:60.123456789" as TIME) as STRING)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME,
              TIME,
              TIME,
@@ -173,17 +145,6 @@ ARRAY<STRUCT<TIME,
   "01:02:03.123450",
   "01:02:03.120",
   "13:00:00"}]
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid TIME literal [at 2:15]
-    CAST(CAST(TIME "23:59:59.999999999" as STRING) as TIME),
-              ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 2:55]
-    CAST(CAST(TIME "23:59:59.999999999" as STRING) as TIME),
-                                                      ^
 ==
 [name=roundtrip_cast_between_string_and_datetime_common]
 SELECT
@@ -219,8 +180,6 @@ SELECT
     CAST(CAST("2015-11-06 12:59:60" as DATETIME) as STRING),
     CAST(CAST("2015-11-06 12:59:60.123456" as DATETIME) as STRING)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME,
              DATETIME,
              DATETIME,
@@ -279,14 +238,9 @@ ARRAY<STRUCT<DATETIME,
    "2015-11-06 13:00:00",
    "2015-11-06 13:00:00"
  }]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 2:60]
-    CAST(CAST(DATETIME "0001-01-01 00:00:00" as STRING) as DATETIME),
-                                                           ^
 ==
 [name=roundtrip_cast_between_string_and_datetime_nano]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
     CAST(CAST(DATETIME "9999-12-31 23:59:59.999999999" as STRING) as DATETIME),
     CAST(CAST(DATETIME "2006-01-02 01:02:03.123456789" as STRING) as DATETIME),
@@ -304,7 +258,6 @@ SELECT
     # Leap second case
     CAST(CAST("2015-11-06 12:59:60.123456789" as DATETIME) as STRING)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME,
              DATETIME,
              DATETIME,
@@ -331,17 +284,6 @@ ARRAY<STRUCT<DATETIME,
    "2006-01-02 01:02:03.120",
    "2015-11-06 13:00:00"
  }]
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid DATETIME literal [at 2:15]
-    CAST(CAST(DATETIME "9999-12-31 23:59:59.999999999" as STRING) as DATETIME),
-              ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 2:70]
-    CAST(CAST(DATETIME "9999-12-31 23:59:59.999999999" as STRING) as DATETIME),
-                                                                     ^
 ==
 [name=roundtrip_cast_between_timestamp_and_datetime_common]
 SELECT
@@ -377,8 +319,6 @@ SELECT
     CAST(CAST("2015-11-06 12:59:60" as DATETIME) as TIMESTAMP),
     CAST(CAST("2015-11-06 12:59:60.123456" as DATETIME) as TIMESTAMP)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME,
              DATETIME,
              DATETIME,
@@ -437,12 +377,6 @@ ARRAY<STRUCT<DATETIME,
    2015-11-06 21:00:00+00,
    2015-11-06 21:00:00+00
  }]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 2:63]
-    CAST(CAST(DATETIME "0001-01-01 00:00:00" as TIMESTAMP) as DATETIME),
-                                                              ^
 ==
 [name=cast_from_timestamp_to_time]
 SELECT
@@ -454,17 +388,9 @@ SELECT
     CAST(TIMESTAMP "2015-11-06 12:59:60" as TIME),
     CAST(TIMESTAMP "2015-11-06 12:59:60.123456" as TIME)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME, TIME, TIME, TIME, TIME, TIME>>[
   {00:00:00, 15:59:59.999999, 00:00:00, 00:00:00, 13:00:00, 13:00:00.123456}
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 2:45]
-    CAST(TIMESTAMP "0001-01-01 00:00:00" as TIME),
-                                            ^
 ==
 [name=roundtrip_lossy_cast_between_date_and_datetime_common]
 SELECT
@@ -500,8 +426,6 @@ SELECT
     CAST(CAST("2015-11-06 12:59:60" as DATETIME) as DATE),
     CAST(CAST("2015-11-06 12:59:60.123456" as DATETIME) as DATE)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME,
              DATETIME,
              DATETIME,
@@ -558,12 +482,6 @@ ARRAY<STRUCT<DATETIME,
   2015-11-07,
   2015-11-06,
   2015-11-06}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 2:58]
-    CAST(CAST(DATETIME "0001-01-01 00:00:00" as DATE) as DATETIME),
-                                                         ^
 ==
 
 [name=roundtrip_cast_between_string_and_time_nested]
@@ -580,18 +498,10 @@ SELECT
     TIME "12:34:56.123456" as time_col
 ))
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<
         time_col_3 TIME,
         str_time_col_3 STRING
       >>[{12:34:56.123456, "12:34:56.123456"}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 11:5]
-    TIME "12:34:56.123456" as time_col
-    ^
 ==
 
 [name=cast_string_to_civil_time_zero_row]
@@ -600,15 +510,7 @@ SELECT
 FROM (SELECT 0 as k, 'a' as str)
 WHERE k > 0;
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<k INT64, TIME>>[]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 2:18]
-  k, CAST(str as TIME)
-                 ^
 ==
 
 [name=convert_datetime_to_timestamp]
@@ -619,8 +521,6 @@ SELECT
   timestamp(DATETIME '2015-12-28 15:42:56', 'Asia/Shanghai'),
   timestamp(DATETIME '2015-12-28 15:42:56', 'UTC');
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
   {
     2015-12-28 23:42:56+00,
@@ -630,12 +530,6 @@ ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
     2015-12-28 15:42:56+00
   }
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 2:13]
-  timestamp(DATETIME '2015-12-28 15:42:56'),
-            ^
 ==
 
 [name=cast_from_datetime_to_time]
@@ -649,8 +543,6 @@ SELECT
     CAST(DATETIME "2015-11-06 12:59:60" as TIME),
     CAST(DATETIME "2015-11-06 12:59:60.123456" as TIME)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME, TIME, TIME, TIME, TIME, TIME, TIME>>[
   {08:00:00,
    11:22:33.123456,
@@ -660,12 +552,6 @@ ARRAY<STRUCT<TIME, TIME, TIME, TIME, TIME, TIME, TIME>>[
    13:00:00,
    13:00:00}
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 2:44]
-    CAST(DATETIME "0001-01-01 08:00:00" as TIME),
-                                           ^
 ==
 
 [name=convert_timestamp_to_time]
@@ -686,8 +572,6 @@ SELECT
   time(TIMESTAMP '2015-12-28 15:42:56', 'Asia/Shanghai'),
   time(TIMESTAMP '2015-12-28 15:42:56', 'UTC');
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME,
              TIME,
              TIME,
@@ -718,12 +602,6 @@ ARRAY<STRUCT<TIME,
   07:42:56,
   07:42:56,
   23:42:56}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: time; Did you mean trim? [at 2:3]
-  time(TIMESTAMP '2015-12-28 15:42:56-08:00'),
-  ^
 ==
 
 [name=convert_datetime_to_time]
@@ -738,23 +616,16 @@ FROM (
 )
 ORDER BY dt
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME, TIME>>[
   {15:42:56, NULL},
   {15:42:56, 00:00:00},
   {15:42:56, 12:34:56.123456},
   {15:42:56, 09:30:00}
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 5:10]
-  SELECT DATETIME '2017-05-18 09:30:00' AS dt UNION ALL
-         ^
 ==
 
 [name=convert_timestamp_to_date]
+[required_features=]
 SELECT
   DATE(TIMESTAMP '2015-12-28 15:42:56.123456'),
   DATE(ts)
@@ -766,10 +637,6 @@ FROM (
 )
 ORDER BY ts
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATE, DATE>>[
   {2015-12-28, NULL},
   {2015-12-28, 0001-01-01},
@@ -790,20 +657,12 @@ FROM (
 )
 ORDER BY dt
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATE, DATE>>[
   {2015-12-28, NULL},
   {2015-12-28, 0001-01-01},
   {2015-12-28, 2014-12-31},
   {2015-12-28, 2017-05-18}
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 5:10]
-  SELECT DATETIME '2017-05-18 09:30:00.987654' AS dt UNION ALL
-         ^
 ==
 
 [name=convert_timestamp_to_datetime]
@@ -824,8 +683,6 @@ SELECT
   datetime(TIMESTAMP '2015-12-28 15:42:56', 'Asia/Shanghai'),
   datetime(TIMESTAMP '2015-12-28 15:42:56', 'UTC');
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME,
              DATETIME,
              DATETIME,
@@ -856,12 +713,6 @@ ARRAY<STRUCT<DATETIME,
   2015-12-29 07:42:56,
   2015-12-29 07:42:56,
   2015-12-28 23:42:56}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: datetime [at 2:3]
-  datetime(TIMESTAMP '2015-12-28 15:42:56-08:00'),
-  ^
 ==
 
 [name=convert_date_to_datetime]
@@ -876,20 +727,12 @@ FROM (
 )
 ORDER BY d
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME, DATETIME>>[
   {2015-12-28 00:00:00, NULL},
   {2015-12-28 00:00:00, 0001-01-01 00:00:00},
   {2015-12-28 00:00:00, 2017-05-18 00:00:00},
   {2015-12-28 00:00:00, 9999-12-31 00:00:00}
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: datetime [at 2:3]
-  datetime(DATE '2015-12-28'),
-  ^
 ==
 
 [name=current_datetime]
@@ -897,15 +740,7 @@ SELECT
   current_datetime >= datetime '2016-01-08 12:02:00',
   current_datetime <= datetime '2025-12-31 23:59:59.999999';
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: `current_datetime`; Did you mean current_date? [at 2:3]
-  current_datetime >= datetime '2016-01-08 12:02:00',
-  ^
 ==
 
 [name=current_datetime_2]
@@ -916,15 +751,7 @@ SELECT
   current_datetime = datetime(current_timestamp),
   current_datetime('UTC') = datetime(current_timestamp, 'UTC');
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, true, true}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: `current_datetime`; Did you mean current_date? [at 2:3]
-  current_datetime() = current_datetime,
-  ^
 ==
 
 # The format for TIME, DATETIME and TIMESTAMP when casted string are:
@@ -949,52 +776,26 @@ SELECT
   substr(cast(current_datetime('UTC') as STRING), 12, 8) =
     substr(cast(current_time('UTC') as STRING), 1, 8);
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {true, true, true, true, true, true}
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: `current_datetime`; Did you mean current_date? [at 3:17]
-    substr(cast(current_datetime as STRING), 1, 19),
-                ^
 ==
 
 [name=current_time_micros]
-[test_features2=]
 SELECT
   current_time >= time '00:00:00',
   current_time <= time '23:59:59.999999';
 --
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Function not found: `current_time`; Did you mean current_date? [at 2:3]
-  current_time >= time '00:00:00',
-  ^
 ==
 
 [name=current_time_nanos]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   current_time >= time '00:00:00',
   current_time <= time '23:59:59.999999999';
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: `current_time`; Did you mean current_date? [at 2:3]
-  current_time >= time '00:00:00',
-  ^
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid TIME literal [at 3:19]
-  current_time <= time '23:59:59.999999999';
-                  ^
 ==
 
 [name=current_time_2]
@@ -1004,15 +805,7 @@ SELECT
   current_time = time(current_timestamp),
   current_time('UTC') = time(current_timestamp, 'UTC');
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, true, true, true}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: `current_time`; Did you mean current_date? [at 2:3]
-  current_time() = current_time,
-  ^
 ==
 
 [name=extract_from_time]
@@ -1025,18 +818,11 @@ SELECT
 FROM
   (SELECT time '12:34:56.999999' as time);
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64>>[{12, 34, 56, 999, 999999}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 8:11]
-  (SELECT time '12:34:56.999999' as time);
-          ^
 ==
 
 [name=extract_from_time_with_nano]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   EXTRACT(HOUR FROM time),
   EXTRACT(MINUTE FROM time),
@@ -1046,22 +832,11 @@ SELECT
 FROM
   (SELECT time '12:34:56.999999999' as time);
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64>>[{12, 34, 56, 999, 999999}]
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid TIME literal [at 8:11]
-  (SELECT time '12:34:56.999999999' as time);
-          ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 8:11]
-  (SELECT time '12:34:56.999999999' as time);
-          ^
 ==
 
 [name=extract_from_date]
+[required_features=]
 SELECT
   EXTRACT(YEAR FROM date),
   EXTRACT(QUARTER FROM date),
@@ -1075,10 +850,6 @@ SELECT
 FROM
   (SELECT date '2016-01-21' as date);
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64, INT64, INT64, INT64, INT64>>[
   {2016, 1, 1, 21, 3, 5, 21, 2016, 3}
 ]
@@ -1106,8 +877,6 @@ SELECT
 FROM
   (SELECT datetime '2016-01-21 12:34:56.999999' as datetime);
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<INT64,
              INT64,
              INT64,
@@ -1140,15 +909,10 @@ ARRAY<STRUCT<INT64,
   999999,
   2016-01-21,
   12:34:56.999999}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 20:11]
-  (SELECT datetime '2016-01-21 12:34:56.999999' as datetime);
-          ^
 ==
 
 [name=extract_from_datetime_nano]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   EXTRACT(YEAR FROM datetime),
   EXTRACT(QUARTER FROM datetime),
@@ -1170,7 +934,6 @@ SELECT
 FROM
   (SELECT datetime '2016-01-21 12:34:56.999999999' as datetime);
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<INT64,
              INT64,
              INT64,
@@ -1203,27 +966,13 @@ ARRAY<STRUCT<INT64,
   999999,
   2016-01-21,
   12:34:56.999999999}]
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid DATETIME literal [at 20:11]
-  (SELECT datetime '2016-01-21 12:34:56.999999999' as datetime);
-          ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 20:11]
-  (SELECT datetime '2016-01-21 12:34:56.999999999' as datetime);
-          ^
 ==
 
 [name=extract_date_from_timestamp]
+[required_features=]
 select extract(DATE FROM timestamp '2017-01-01 12:34:56 UTC'
                AT TIME ZONE "UTC");
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATE>>[{2017-01-01}]
 ==
 
@@ -1231,51 +980,29 @@ ARRAY<STRUCT<DATE>>[{2017-01-01}]
 select extract(TIME FROM timestamp '2017-01-01 12:34:56 UTC'
                AT TIME ZONE "UTC");
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME>>[{12:34:56}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Unknown date part 'TIME' [at 1:16]
-select extract(TIME FROM timestamp '2017-01-01 12:34:56 UTC'
-               ^
 ==
 
 [name=extract_datetime_from_timestamp]
 select extract(DATETIME FROM timestamp '2017-01-01 12:34:56 UTC'
                AT TIME ZONE "UTC");
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME>>[{2017-01-01 12:34:56}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Unknown date part 'DATETIME' [at 1:16]
-select extract(DATETIME FROM timestamp '2017-01-01 12:34:56 UTC'
-               ^
 ==
 
 [name=extract_date_from_timestamp_with_invalid_time_zone]
+[required_features=]
 select extract(DATE FROM timestamp '2017-01-01'
                AT TIME ZONE "invalid_time_zone");
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Invalid time zone: invalid_time_zone
 ==
 
 [name=extract_date_from_timestamp_with_invalid_empty_time_zone]
+[required_features=]
 select extract(DATE FROM timestamp '2017-01-01'
                AT TIME ZONE "");
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Invalid empty time zone
 ==
 
@@ -1283,14 +1010,6 @@ ERROR: generic::out_of_range: Invalid empty time zone
 select extract(TIME FROM timestamp '2017-01-01'
                AT TIME ZONE "invalid_time_zone");
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Unknown date part 'TIME' [at 1:16]
-select extract(TIME FROM timestamp '2017-01-01'
-               ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Invalid time zone: invalid_time_zone
 ==
 
@@ -1298,14 +1017,6 @@ ERROR: generic::out_of_range: Invalid time zone: invalid_time_zone
 select extract(TIME FROM timestamp '2017-01-01'
                AT TIME ZONE "");
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Unknown date part 'TIME' [at 1:16]
-select extract(TIME FROM timestamp '2017-01-01'
-               ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Invalid empty time zone
 ==
 
@@ -1313,14 +1024,6 @@ ERROR: generic::out_of_range: Invalid empty time zone
 select extract(DATETIME FROM timestamp '2017-01-01'
                AT TIME ZONE "invalid_time_zone");
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Unknown date part 'DATETIME' [at 1:16]
-select extract(DATETIME FROM timestamp '2017-01-01'
-               ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Invalid time zone: invalid_time_zone
 ==
 
@@ -1328,14 +1031,6 @@ ERROR: generic::out_of_range: Invalid time zone: invalid_time_zone
 select extract(DATETIME FROM timestamp '2017-01-01'
                AT TIME ZONE "");
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Unknown date part 'DATETIME' [at 1:16]
-select extract(DATETIME FROM timestamp '2017-01-01'
-               ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Invalid empty time zone
 ==
 
@@ -1343,33 +1038,14 @@ ERROR: generic::out_of_range: Invalid empty time zone
 SELECT
   DATETIME_ADD(DATETIME '9999-12-31 23:59:59.999999', interval 1 MICROSECOND);
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: DATETIME_ADD; Did you mean date_add? [at 2:3]
-  DATETIME_ADD(DATETIME '9999-12-31 23:59:59.999999', interval 1 MICROSECOND);
-  ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Adding 1 MICROSECOND to datetime 9999-12-31 23:59:59.999999 causes overflow
 ==
 
 [name=datetime_add_nanos_positive_overflow]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_ADD(DATETIME '9999-12-31 23:59:59.999999', interval 1000 NANOSECOND);
 --
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: DATETIME_ADD does not support the NANOSECOND date part [at 2:3]
-  DATETIME_ADD(DATETIME '9999-12-31 23:59:59.999999', interval 1000 NANOSECOND);
-  ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: DATETIME_ADD; Did you mean date_add? [at 2:3]
-  DATETIME_ADD(DATETIME '9999-12-31 23:59:59.999999', interval 1000 NANOSECOND);
-  ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Adding 1000 NANOSECOND to datetime 9999-12-31 23:59:59.999999 causes overflow
 ==
 
@@ -1377,33 +1053,14 @@ ERROR: generic::out_of_range: Adding 1000 NANOSECOND to datetime 9999-12-31 23:5
 SELECT
   DATETIME_ADD(DATETIME '0001-01-01 00:00:00.000000', interval -1 MICROSECOND);
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: DATETIME_ADD; Did you mean date_add? [at 2:3]
-  DATETIME_ADD(DATETIME '0001-01-01 00:00:00.000000', interval -1 MICROSECOND);
-  ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Adding -1 MICROSECOND to datetime 0001-01-01 00:00:00 causes overflow
 ==
 
 [name=datetime_add_nanos_negative_overflow]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_ADD(DATETIME '0001-01-01 00:00:00', interval -1 NANOSECOND);
 --
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: DATETIME_ADD does not support the NANOSECOND date part [at 2:3]
-  DATETIME_ADD(DATETIME '0001-01-01 00:00:00', interval -1 NANOSECOND);
-  ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: DATETIME_ADD; Did you mean date_add? [at 2:3]
-  DATETIME_ADD(DATETIME '0001-01-01 00:00:00', interval -1 NANOSECOND);
-  ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Adding -1 NANOSECOND to datetime 0001-01-01 00:00:00 causes overflow
 ==
 
@@ -1411,14 +1068,6 @@ ERROR: generic::out_of_range: Adding -1 NANOSECOND to datetime 0001-01-01 00:00:
 SELECT
   DATETIME_SUB(DATETIME '0001-01-01 00:00:00.000000', interval 1 MICROSECOND);
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: DATETIME_SUB; Did you mean date_sub? [at 2:3]
-  DATETIME_SUB(DATETIME '0001-01-01 00:00:00.000000', interval 1 MICROSECOND);
-  ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Subtracting 1 MICROSECOND from datetime 0001-01-01 00:00:00 causes overflow
 ==
 
@@ -1426,73 +1075,31 @@ ERROR: generic::out_of_range: Subtracting 1 MICROSECOND from datetime 0001-01-01
 SELECT
   DATETIME_SUB(DATETIME '9999-12-31 23:59:59.999999', interval -1 MICROSECOND);
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: DATETIME_SUB; Did you mean date_sub? [at 2:3]
-  DATETIME_SUB(DATETIME '9999-12-31 23:59:59.999999', interval -1 MICROSECOND);
-  ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Subtracting -1 MICROSECOND from datetime 9999-12-31 23:59:59.999999 causes overflow
 ==
 
 [name=datetime_sub_int64min_plus_1_ok]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224192', interval (-9223372036854775808+1) NANOSECOND);
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME>>[{9999-12-31 23:59:59.999999999}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: DATETIME_SUB; Did you mean date_sub? [at 2:3]
-  DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224192', interval (-922337203...
-  ^
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid DATETIME literal [at 2:16]
-  DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224192', interval (-922337203...
-               ^
 ==
 
 [name=datetime_sub_int64min_ok]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224191', interval -9223372036854775808 NANOSECOND);
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME>>[{9999-12-31 23:59:59.999999999}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: DATETIME_SUB; Did you mean date_sub? [at 2:3]
-  DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224191', interval -9223372036...
-  ^
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid DATETIME literal [at 2:16]
-  DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224191', interval -9223372036...
-               ^
 ==
 
 [name=datetime_sub_int64min_overflow]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT
   DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224192', interval -9223372036854775808 NANOSECOND);
 --
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: DATETIME_SUB; Did you mean date_sub? [at 2:3]
-  DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224192', interval -9223372036...
-  ^
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid DATETIME literal [at 2:16]
-  DATETIME_SUB(DATETIME '9707-09-22 00:12:43.145224192', interval -9223372036...
-               ^
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ERROR: generic::out_of_range: Subtracting -9223372036854775808 NANOSECOND from datetime 9707-09-22 00:12:43.145224192 causes overflow
-
 ==
 
 [name=current_functions_consistent]
@@ -1503,15 +1110,7 @@ SELECT
     (CURRENT_DATETIME(tz) = EXTRACT(DATETIME FROM CURRENT_TIMESTAMP AT TIME ZONE tz)))
 FROM UNNEST(["-09", "-04", "-01", "UTC", "+01", "+04", "+09"]) tz
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<BOOL>>[{true}]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Function not found: `CURRENT_TIME`; Did you mean current_date? [at 4:6]
-    (CURRENT_TIME(tz) = EXTRACT(TIME FROM CURRENT_TIMESTAMP AT TIME ZONE tz))...
-     ^
 ==
 
 [name=datetime_with_t_separator]
@@ -1523,8 +1122,6 @@ from UNNEST(["2016-11-06T00:30:00",
              "2016-11-06t00:30:41.123456"]) as dt WITH OFFSET
 ORDER BY OFFSET;
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<dt STRING, DATETIME>>[
   {
     "2016-11-06T00:30:00",
@@ -1543,29 +1140,6 @@ ARRAY<STRUCT<dt STRING, DATETIME>>[
     2016-11-06 00:30:41.123456
   }
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 1:23]
-select dt, cast(dt as DATETIME)
-                      ^
-==
-
-[name=datetime_literal_with_trailing_t]
-
-select DATETIME "2016-11-06T" AS dt;
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid DATETIME literal [at 1:8]
-select DATETIME "2016-11-06T" AS dt;
-       ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 1:8]
-select DATETIME "2016-11-06T" AS dt;
-       ^
 ==
 
 [name=datetime_timestamp_date_time_casts]
@@ -1588,8 +1162,6 @@ FROM (
     DATE '2016-09-01' AS d
 );
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING>>[
   {
     "2016-09-01 04:03:02.123456",
@@ -1608,12 +1180,6 @@ ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING>>[
     "2017-02-28 00:00:00"
   }
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 11:5]
-    DATETIME '2017-02-28 12:34:56' AS dt,
-    ^
 ==
 [required_features=V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS]
 [name=datetime_constructor]
@@ -1622,8 +1188,6 @@ select datetime(datetime '9876-12-31 18:19:20.567'),
        string(datetime '1234-01-02 21:22:23'),
        string(datetime '1234-01-02 21:22:23.123456');
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS
 ARRAY<STRUCT<DATETIME, DATETIME, STRING, STRING>>[
   {
     9876-12-31 18:19:20.567,
@@ -1637,8 +1201,6 @@ ARRAY<STRUCT<DATETIME, DATETIME, STRING, STRING>>[
 [name=time_constructor]
 select time(time '11:22:33.444555'), string(time '01:02:03.456789')
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS
 ARRAY<STRUCT<TIME, STRING>>[{11:22:33.444555, "01:02:03.456789"}]
 ==
 [required_features=V_1_2_CIVIL_TIME]
@@ -1646,19 +1208,7 @@ ARRAY<STRUCT<TIME, STRING>>[{11:22:33.444555, "01:02:03.456789"}]
 [name=time_on_string_literal_or_parameter]
 select time('2010-11-12 01:02:03.456'), time('2010-11-12 01:02:03.456+08'), time(@p1)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME, TIME, TIME>>[{01:02:03.456, 09:02:03.456, 22:02:03.456}]
-==
-[required_features=V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS]
-[name=time_on_string]
-select time(x) from (select '2010-11-12 01:02:03.456' x UNION ALL select '2010-11-12 01:02:03.456+08')
---
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS
-ERROR: generic::invalid_argument: No matching signature for function TIME for argument types: STRING. Supported signatures: TIME(INT64, INT64, INT64); TIME(TIMESTAMP, [STRING]); TIME(DATETIME); TIME(TIME) [at 1:8]
-select time(x) from (select '2010-11-12 01:02:03.456' x UNION ALL select '201...
-       ^
 ==
 [required_features=TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_DATE_TIME_CONSTRUCTORS]
 [name=constructors_nanos]
@@ -1689,8 +1239,6 @@ select
   date_add(dt, interval 1 microsecond), date_sub(dt, interval 1 microsecond),
 from (select datetime '2000-01-01 00:00:00.000000' dt)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
 ARRAY<STRUCT<DATETIME,
              DATETIME,
              DATETIME,
@@ -1741,8 +1289,6 @@ select
   date_diff(dt1, dt2, microsecond),
 from (select datetime '2000-01-01 00:00:00.000000' dt1, datetime '1998-12-31 23:59:59.999999' dt2)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
 ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64, INT64, INT64, INT64, INT64, INT64>>[
   {2, 5, 13, 52, 366, 8761, 525601, 31536001, 31536000001, 31536000000001}
 ]
@@ -1762,8 +1308,6 @@ select
   date_trunc(dt, microsecond),
 from (select datetime '1987-08-07 12:34:56.789123' dt)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
 ARRAY<STRUCT<DATETIME,
              DATETIME,
              DATETIME,
@@ -1794,8 +1338,6 @@ select
   format_date("%j %g", dt)
 from (select datetime '1987-08-07 12:34:56.789123' dt)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
 ARRAY<STRUCT<STRING, STRING>>[{"08/07/87 12:34:56", "219 87"}]
 ==
 
@@ -1809,8 +1351,6 @@ select
   datetime_add(ts, interval 1 microsecond), datetime_sub(ts, interval 1 microsecond),
 from (select timestamp '2000-01-01 00:00:00.000000' ts)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
 ARRAY<STRUCT<TIMESTAMP,
              TIMESTAMP,
              TIMESTAMP,
@@ -1845,8 +1385,6 @@ select
   datetime_diff(ts2, ts1, microsecond),
 from (select timestamp '2000-01-01' ts1, timestamp '2001-02-03 04:05:06.789' ts2)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
 ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64>>[
   {399, 9580, 574805, 34488306, 34488306789000}
 ]
@@ -1866,8 +1404,6 @@ select
   datetime_trunc(ts, microsecond),
 from (select timestamp '2001-02-03 04:05:06.789' ts)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
 ARRAY<STRUCT<TIMESTAMP,
              TIMESTAMP,
              TIMESTAMP,
@@ -1898,8 +1434,6 @@ select
   format_datetime("%D %T", ts, 'UTC+08'),
 from (select timestamp '2001-02-03 04:05:06.789' ts)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
-WITH FEATURES: V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES
 ARRAY<STRUCT<STRING, STRING, STRING>>[
   {"02/03/01 04:05:06", "02/03/01 07:05:06", "02/03/01 20:05:06"}
 ]
@@ -1916,8 +1450,6 @@ select
   datetime_bucket(dt, INTERVAL 7 DAY)
 from (select datetime '2020-02-15 14:57:39.646565' dt)
 --
-WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
-WITH FEATURES: INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
   {
     2020-02-15 14:57:39.646500,
@@ -1942,8 +1474,6 @@ select
 from (select datetime '2020-02-15 14:57:39.646565' dt,
              datetime '2150-12-11 07:00:00' origin)
 --
-WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
-WITH FEATURES: INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
   {
     2020-02-15 14:57:39.646500,
@@ -1972,6 +1502,26 @@ ARRAY<STRUCT<DATETIME, DATETIME>>[
 ]
 ==
 
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=datetime_in_timestamp_bucket]
+select
+  timestamp_bucket(dt, INTERVAL 7 DAY),
+  timestamp_bucket(dt, INTERVAL 7 DAY, datetime '2150-12-11 07:00:00')
+from (select datetime '2020-02-15 14:57:39.646565' dt)
+--
+ARRAY<STRUCT<DATETIME, DATETIME>>[{2020-02-09 00:00:00, 2020-02-14 07:00:00}]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=datetime_in_date_bucket]
+select
+  date_bucket(dt, INTERVAL 7 DAY),
+  date_bucket(dt, INTERVAL 7 DAY, datetime '2150-12-11 07:00:00')
+from (select datetime '2020-02-15 14:57:39.646565' dt)
+--
+ARRAY<STRUCT<DATETIME, DATETIME>>[{2020-02-09 00:00:00, 2020-02-14 07:00:00}]
+==
+
 [required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME]
 [name=datetime_bucket_null_inputs]
 select
@@ -1981,65 +1531,14 @@ select
   datetime_bucket('2020-02-15 14:57:39', NULL, '2150-12-11 07:00:00'),
   datetime_bucket('2020-02-15 14:57:39', INTERVAL 3 HOUR, NULL)
 --
-WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
-WITH FEATURES: INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
   {NULL, NULL, NULL, NULL, NULL}
 ]
 ==
 
-[test_features1=INTERVAL_TYPE]
-[test_features2=V_1_2_CIVIL_TIME]
-[name=datetime_bucket_feature_disabled]
-select
-  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
---
-WITH FEATURES: <none>
-WITH FEATURES: INTERVAL_TYPE
-ERROR: generic::invalid_argument: Function not found: datetime_bucket [at 2:3]
-  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
-  ^
---
-WITH FEATURES: INTERVAL_TYPE,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Function not found: datetime_bucket; Did you mean datetime_sub? [at 2:3]
-  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
-  ^
-==
-
-[test_features1=TIME_BUCKET_FUNCTIONS]
-[test_features2=V_1_2_CIVIL_TIME]
-[name=datetime_bucket_no_interval_type]
-select
-  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
---
-WITH FEATURES: <none>
-WITH FEATURES: TIME_BUCKET_FUNCTIONS
-ERROR: generic::invalid_argument: Function not found: datetime_bucket [at 2:3]
-  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
-  ^
---
-WITH FEATURES: TIME_BUCKET_FUNCTIONS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Function not found: datetime_bucket; Did you mean datetime_sub? [at 2:3]
-  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
-  ^
-==
-
-[test_features1=INTERVAL_TYPE]
-[test_features2=TIME_BUCKET_FUNCTIONS]
+[required_features=V_1_2_CIVIL_TIME,INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS]
 [name=datetime_bucket_no_civil_time]
 select
   datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
 --
-WITH FEATURES: <none>
-WITH FEATURES: INTERVAL_TYPE
-WITH FEATURES: TIME_BUCKET_FUNCTIONS
-ERROR: generic::invalid_argument: Function not found: datetime_bucket [at 2:3]
-  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
-  ^
---
-WITH FEATURES: INTERVAL_TYPE,TIME_BUCKET_FUNCTIONS
-ERROR: generic::invalid_argument: Function not found: datetime_bucket; Did you mean date_bucket? [at 2:3]
-  datetime_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
-  ^
+ARRAY<STRUCT<DATETIME>>[{2020-02-15 00:00:00}]

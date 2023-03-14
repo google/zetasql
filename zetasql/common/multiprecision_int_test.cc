@@ -44,7 +44,6 @@
 #include <vector>
 
 #include "zetasql/common/multiprecision_int_impl.h"
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <cstdint>
 #include "absl/base/macros.h"
@@ -577,7 +576,7 @@ constexpr std::pair<uint128, absl::string_view> kSerializedUnsignedValues[] = {
 };
 
 constexpr absl::string_view kInvalidSerialized128BitValues[] = {
-    {"", 0},
+    "",
     "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
 };
 
@@ -1180,7 +1179,7 @@ TYPED_TEST(FixedIntGoldenDataTest, DivMod) {
                                      T(rounded_quotient));
     if (quotient != 0 && !item.expected_overflow) {
       TestDivModWithVariousRhsTypes<T>(x, quotient, T(y + remainder / quotient),
-                                       remainder % quotient, absl::nullopt);
+                                       remainder % quotient, std::nullopt);
     }
     if (x != kint128min && y != kint128min && quotient != kint128min) {
       TestDivModWithVariousRhsTypes<T>(x, -y, T(-quotient), remainder,
@@ -1965,12 +1964,13 @@ void TestArithmeticOperatorsWithConstWordForType(V x) {
   EXPECT_EQ(T(x).DivAndRoundAwayFromZero(const_divisor),
             T(x).DivAndRoundAwayFromZero(DivisorWord{divisor}));
 
-  // DivMod(std::integral_constant<W, divisor>) is defined only for W with the
-  // same sign of Word.
-  if constexpr (std::is_signed_v<typename T::Word> == std::is_signed_v<W>) {
+  // FixedInt::DivMod(std::integral_constant<UnsignedWord, divisor>)
+  // requires highest bit of divisor is not set.
+  if constexpr (!(std::is_signed_v<typename T::Word> && !std::is_signed_v<W> &&
+                  static_cast<typename T::Word>(divisor) < 0)) {
     T t(x);
     T quotient1, quotient2;
-    W remainder1;
+    typename T::Word remainder1;
     typename T::Word remainder2;
     t.DivMod(const_divisor, &quotient1, &remainder1);
     t.DivMod(divisor, &quotient2, &remainder2);
@@ -1990,21 +1990,12 @@ void TestArithmeticOperatorsWithConstWordForType(V x) {
     t = T(x);
     t.DivMod(const_divisor, &t, nullptr);
     EXPECT_EQ(t, quotient2);
-    auto number = T(x).number();
-    VarUintRef<sizeof(typename T::Word) * 8> ref(number);
-    if constexpr (std::is_same_v<typename T::Word, uint32_t> &&
-                  std::is_same_v<decltype(divisor), uint32_t>) {
+
+    // VarUintRef::DivMod has only an unsigned signature.
+    if constexpr (!std::is_signed_v<typename T::Word> && !std::is_signed_v<W>) {
+      auto number = T(x).number();
+      VarUintRef<sizeof(typename T::Word) * 8> ref(number);
       EXPECT_EQ(ref.DivMod(const_divisor), remainder2);
-      EXPECT_EQ(T(number), quotient2);
-    }
-    if constexpr (std::is_same_v<typename T::Word, uint64_t>) {
-      std::integral_constant<uint64_t, divisor> const_divisor_64;
-      EXPECT_EQ(ref.DivMod(const_divisor_64), remainder2);
-      EXPECT_EQ(T(number), quotient2);
-    }
-    if constexpr (std::is_same_v<decltype(divisor), uint32_t>) {
-      number = T(x).number();
-      EXPECT_EQ(ref.DivMod(divisor), remainder2);
       EXPECT_EQ(T(number), quotient2);
     }
   }
@@ -2012,45 +2003,49 @@ void TestArithmeticOperatorsWithConstWordForType(V x) {
 
 template <typename T>
 void TestArithmeticOperatorsWithConstWord(uint128 x) {
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 1>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 2>(x);
+  using W = typename T::Word;
+  TestArithmeticOperatorsWithConstWordForType<T, W, 1>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, W, 2>(x);
   // Divisor 34 helps cover a rare but important condition in
   // DivModWordNormalizedConstant.
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 34>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 100>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kint32max>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 0x80000000U>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kuint32max>(x);
-  if constexpr (std::is_same_v<typename T::Word, uint64_t>) {
-    TestArithmeticOperatorsWithConstWordForType<T, uint64_t, k1e9>(x);
-    TestArithmeticOperatorsWithConstWordForType<T, uint64_t, k1e18>(x);
-    TestArithmeticOperatorsWithConstWordForType<T, uint64_t, k1e18>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, W, 34>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, W, 100>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, W, kint32max>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, W, 0x80000000U>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, W, kuint32max>(x);
+  if constexpr (std::is_same_v<W, uint64_t>) {
+    TestArithmeticOperatorsWithConstWordForType<T, W, k1e9>(x);
+    TestArithmeticOperatorsWithConstWordForType<T, W, k1e18>(x);
+    TestArithmeticOperatorsWithConstWordForType<T, W, k1e18>(x);
     TestArithmeticOperatorsWithConstWordForType<
-        T, uint64_t, std::numeric_limits<int64_t>::max()>(x);
-    TestArithmeticOperatorsWithConstWordForType<T, uint64_t, k1e19>(x);
-    TestArithmeticOperatorsWithConstWordForType<
-        T, uint64_t, std::numeric_limits<uint64_t>::max()>(x);
+        T, W, std::numeric_limits<int64_t>::max()>(x);
+    TestArithmeticOperatorsWithConstWordForType<T, W, k1e19>(x);
+    TestArithmeticOperatorsWithConstWordForType<T, W,
+                                                std::numeric_limits<W>::max()>(
+        x);
   }
 }
 
 template <typename T>
 void TestArithmeticOperatorsWithConstWord(int128 x) {
-  TestArithmeticOperatorsWithConstWordForType<T, int32_t, 1>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, int32_t, 2>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, int32_t, 100>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, int32_t, kint32max>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, int32_t, -1>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, int32_t, -2>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, int32_t, -100>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, int32_t, -kint32max>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, int32_t, kint32min>(x);
+  using Word = typename T::Word;
+  TestArithmeticOperatorsWithConstWordForType<T, Word, 1>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, Word, 2>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, Word, 100>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, Word, kint32max>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, Word, -1>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, Word, -2>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, Word, -100>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, Word, -kint32max>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, Word, kint32min>(x);
 
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 1>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 2>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 100>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kint32max>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 0x80000000U>(x);
-  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kuint32max>(x);
+  using UnsignedWord = typename T::UnsignedWord;
+  TestArithmeticOperatorsWithConstWordForType<T, UnsignedWord, 1>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, UnsignedWord, 2>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, UnsignedWord, 100>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, UnsignedWord, kint32max>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, UnsignedWord, 0x80000000U>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, UnsignedWord, kuint32max>(x);
 }
 
 #if !defined(ADDRESS_SANITIZER)

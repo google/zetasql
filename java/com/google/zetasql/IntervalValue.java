@@ -74,6 +74,31 @@ public abstract class IntervalValue implements Comparable<IntervalValue> {
     return new AutoValue_IntervalValue.Builder();
   }
 
+  /** Creates an IntervalValue consisting of the given number of months. */
+  public static IntervalValue ofMonths(int months) {
+    return builder().setMonths(months).setDays(0).setMicros(0).setNanoFractions((short) 0).build();
+  }
+
+  /** Creates an IntervalValue consisting of the given number of days. */
+  public static IntervalValue ofDays(int days) {
+    return builder().setMonths(0).setDays(days).setMicros(0).setNanoFractions((short) 0).build();
+  }
+
+  /** Creates an IntervalValue consisting of the given number of seconds. */
+  public static IntervalValue ofSeconds(int seconds) {
+    return builder()
+        .setMonths(0)
+        .setDays(0)
+        .setMicros(seconds * MICROS_IN_SECOND)
+        .setNanoFractions((short) 0)
+        .build();
+  }
+
+  /** Creates an IntervalValue consisting of the given number of microseconds. */
+  public static IntervalValue ofMicros(long micros) {
+    return builder().setMonths(0).setDays(0).setMicros(micros).setNanoFractions((short) 0).build();
+  }
+
   /**
    * Serializes the {@link IntervalValue} into {@link ByteString}.
    *

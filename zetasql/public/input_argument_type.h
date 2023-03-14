@@ -146,10 +146,18 @@ class InputArgumentType {
   std::string DebugString(bool verbose = false) const;
 
   // Returns a comma-separated string in vector order.  If <verbose>, then
-  // the generated string for each argument is also verbose.
+  // the generated string for each argument is also verbose. If `argument_names`
+  // is provided, any arguments with non-empty names will be printed as in the
+  // function signature, like NAME => TYPE. If `argument_names` is shorter
+  // than `arguments`, any arguments past the end of `argument_names` are
+  // printed with type only.
+  //
+  // TODO: Separate ArgumentsToString into a debug string function,
+  // which is what many callers want, and a function for generating diagnostics.
   static std::string ArgumentsToString(
       const std::vector<InputArgumentType>& arguments,
-      ProductMode product_mode = PRODUCT_INTERNAL);
+      ProductMode product_mode = PRODUCT_INTERNAL,
+      absl::Span<const absl::string_view> argument_names = {});
 
   // Represents an argument type for untyped NULL that is coercible to any other
   // type. By convention, <type_> defaults to INT64.

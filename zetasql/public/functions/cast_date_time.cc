@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -1960,18 +1961,24 @@ absl::Status CastStringToTimestamp(absl::string_view format_string,
                                current_timestamp, timestamp);
 }
 
-absl::Status CastStringToDate(absl::string_view format_string,
-                              absl::string_view date_string,
-                              int32_t current_date, int32_t* date) {
+absl::StatusOr<StringToDateCaster> StringToDateCaster::Create(
+    absl::string_view format_string) {
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
+  ZETASQL_ASSIGN_OR_RETURN(auto format_elements,
+                   GetDateTimeFormatElements(format_string));
+  ZETASQL_RETURN_IF_ERROR(ValidateDateTimeFormatElementsForDateType(format_elements));
+
+  return StringToDateCaster(std::move(format_elements));
+}
+
+absl::Status StringToDateCaster::Cast(absl::string_view date_string,
+                                      int32_t current_date,
+                                      int32_t* date) const {
   if (!IsWellFormedUTF8(date_string)) {
     return MakeEvalError() << "Input string is not valid UTF-8";
   }
 
-  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
-
-  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement> format_elements,
-                   GetDateTimeFormatElements(format_string));
-  ZETASQL_RETURN_IF_ERROR(ValidateDateTimeFormatElementsForDateType(format_elements));
   absl::Time current_date_utc_ts;
   int64_t timestamp;
   ZETASQL_RETURN_IF_ERROR(ConvertDateToTimestamp(current_date, absl::UTCTimeZone(),
@@ -1980,12 +1987,19 @@ absl::Status CastStringToDate(absl::string_view format_string,
   // as <current_timestamp> and "UTC" as <default_timezone>, so the
   // <current_year> and <current_date> used in ParseTimeWithFormatElements
   // function would be the same as year and month in <current_date>.
-  ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(
-      format_elements, date_string, absl::UTCTimeZone(),
-      current_date_utc_ts, &timestamp));
+  ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(format_elements_, date_string,
+                                              absl::UTCTimeZone(),
+                                              current_date_utc_ts, &timestamp));
   ZETASQL_RETURN_IF_ERROR(ExtractFromTimestamp(DATE, timestamp, kMicroseconds,
                                        absl::UTCTimeZone(), date));
   return absl::OkStatus();
+}
+
+absl::Status CastStringToDate(absl::string_view format_string,
+                              absl::string_view date_string,
+                              int32_t current_date, int32_t* date) {
+  ZETASQL_ASSIGN_OR_RETURN(auto caster, StringToDateCaster::Create(format_string));
+  return caster.Cast(date_string, current_date, date);
 }
 
 absl::Status CastStringToTime(absl::string_view format_string,

@@ -65,6 +65,9 @@ class ParseLocationPoint {
   // a negative value for invalid ParseLocationPoints.
   int GetByteOffset() const { return byte_offset_; }
 
+  // Returns true if the <byte_offset_> is non-negative.
+  bool IsValid() const { return byte_offset_ >= 0; }
+
   // Creates a ParseLocationPoint from the contents of <info>. Not intended for
   // public use.
   static ParseLocationPoint FromInternalErrorLocation(
@@ -77,13 +80,12 @@ class ParseLocationPoint {
   // Returns the string representation of this ParseLocationPoint, in the
   // form of [filename:]byte_offset.
   std::string GetString() const {
-    if (byte_offset_ >= 0) {
+    if (IsValid()) {
       return absl::StrCat(
           (!filename_.empty() ? absl::StrCat(filename_, ":") : ""),
           byte_offset_);
-    } else {
-      return "INVALID";
     }
+    return "INVALID";
   }
 
   friend bool operator==(const ParseLocationPoint& lhs,
@@ -120,7 +122,7 @@ class ParseLocationPoint {
 // A half-open range of ParseLocationPoints [start(), end()).
 class ParseLocationRange {
  public:
-  ParseLocationRange() {}
+  ParseLocationRange() = default;
 
   void set_start(ParseLocationPoint start) { start_ = start; }
   void set_end(ParseLocationPoint end) { end_ = end; }
@@ -162,6 +164,9 @@ class ParseLocationRange {
     return parse_location_range;
   }
 
+  // Returns true if both start and end ParseLocationPoint are valid.
+  bool IsValid() const { return start().IsValid() && end().IsValid(); }
+
   // Returns the string representation of this parse location.
   std::string GetString() const {
     if (!start_.filename().empty() && start_.filename() == end_.filename()) {
@@ -169,6 +174,20 @@ class ParseLocationRange {
                           end_.GetByteOffset());
     }
     return absl::StrCat(start_.GetString(), "-", end_.GetString());
+  }
+
+  // Given an input string_view, it returns a view of the substring denoted
+  // by this range's offsets. Recall that 'start' is inclusive while 'end' is
+  // exclusive.
+  // REQUIRES: 'start' and 'end' must be initialized on this ParseLocationRange.
+  absl::string_view GetTextFrom(absl::string_view input) const {
+    size_t start = start_.GetByteOffset();
+    ZETASQL_DCHECK_GE(start, 0);
+    ZETASQL_DCHECK_LE(start, input.size());
+    size_t len = end_.GetByteOffset() - start;
+    ZETASQL_DCHECK_GE(len, 0);
+    ZETASQL_DCHECK_LE(len, input.length());
+    return absl::ClippedSubstr(input, start, len);
   }
 
   friend bool operator==(const ParseLocationRange& lhs,

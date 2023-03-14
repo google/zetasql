@@ -133,18 +133,18 @@ absl::Status ParseGeneralizedIdentifier(absl::string_view str, std::string* out,
 // If <quote_reserved_keywords> is true then all reserved keywords (including
 // conditionally reserved keywords) are quoted and escaped.
 std::string ToIdentifierLiteral(absl::string_view str,
-                                const bool quote_reserved_keywords = true);
+                                bool quote_reserved_keywords = true);
 std::string ToIdentifierLiteral(IdString str,
-                                const bool quote_reserved_keywords = true);
+                                bool quote_reserved_keywords = true);
 
 // Convert an identifier path to a string, quoting identifiers if necessary.
 // If <quote_reserved_keywords> is true then all reserved (including
 // conditionally reserved) keywords are quoted and escaped. Otherwise only quote
 // and escape the keyword when it is first in the path.
 std::string IdentifierPathToString(absl::Span<const std::string> path,
-                                   const bool quote_reserved_keywords = true);
+                                   bool quote_reserved_keywords = true);
 std::string IdentifierPathToString(absl::Span<const IdString> path,
-                                   const bool quote_reserved_keywords = true);
+                                   bool quote_reserved_keywords = true);
 
 // Convert an identifier string to a vector of path components, unquoting
 // identifiers if necessary. This inverts IdentifierPathToString and also

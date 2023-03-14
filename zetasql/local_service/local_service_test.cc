@@ -716,6 +716,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, UnregisterWrongCatalogId) {
 TEST_F(ZetaSqlLocalServiceImplTest, Parse) {
   ParseRequest request;
   request.set_sql_statement("select 9");
+  request.set_allow_script(false);
   ParseResponse response;
   ZETASQL_ASSERT_OK(Parse(request, &response));
 
@@ -802,6 +803,202 @@ TEST_F(ZetaSqlLocalServiceImplTest, Parse) {
            })pb",
       &expectedResponse);
   EXPECT_THAT(response, EqualsProto(expectedResponse));
+
+  ParseRequest request2;
+  request2.set_allow_script(false);
+  ParseResumeLocationProto* parse_resume_location2 =
+      request2.mutable_parse_resume_location();
+  parse_resume_location2->set_input("select 9;select 10;");
+  parse_resume_location2->set_byte_position(0);
+  ParseResponse response2;
+  ZETASQL_EXPECT_OK(Parse(request2, &response2));
+  EXPECT_EQ(9, response2.resume_byte_position());
+
+  ParseRequest request3;
+  request3.set_allow_script(false);
+  ParseResumeLocationProto* parse_resume_location3 =
+      request3.mutable_parse_resume_location();
+  parse_resume_location3->set_input("select 9;select 10;");
+  parse_resume_location3->set_byte_position(response2.resume_byte_position());
+  ParseResponse response3;
+  ZETASQL_EXPECT_OK(Parse(request3, &response3));
+  EXPECT_EQ(19, response3.resume_byte_position());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, ParseScript) {
+  const std::string script_content = R"(
+    DECLARE variable INT64;
+    SET variable = 1;
+  )";
+
+  ParseRequest request;
+  request.set_sql_statement(script_content);
+  request.set_allow_script(true);
+  ParseResponse response;
+  ZETASQL_ASSERT_OK(Parse(request, &response));
+
+  ParseResponse expectedResponse;
+  google::protobuf::TextFormat::ParseFromString(
+      R"pb(parsed_script {
+             parent { parse_location_range { filename: "" start: 5 end: 53 } }
+             statement_list_node {
+               parent { parse_location_range { filename: "" start: 5 end: 53 } }
+               statement_list {
+                 ast_script_statement_node {
+                   ast_variable_declaration_node {
+                     parent {
+                       parent {
+                         parent {
+                           parse_location_range {
+                             filename: ""
+                             start: 5
+                             end: 27
+                           }
+                         }
+                       }
+                     }
+                     variable_list {
+                       parent {
+                         parse_location_range { filename: "" start: 13 end: 21 }
+                       }
+                       identifier_list {
+                         parent {
+                           parent {
+                             parse_location_range {
+                               filename: ""
+                               start: 13
+                               end: 21
+                             }
+                           }
+                           parenthesized: false
+                         }
+                         id_string: "variable"
+                       }
+                     }
+                     type {
+                       ast_simple_type_node {
+                         parent {
+                           parent {
+                             parse_location_range {
+                               filename: ""
+                               start: 22
+                               end: 27
+                             }
+                           }
+                         }
+                         type_name {
+                           parent {
+                             parent {
+                               parent {
+                                 parse_location_range {
+                                   filename: ""
+                                   start: 22
+                                   end: 27
+                                 }
+                               }
+                               parenthesized: false
+                             }
+                           }
+                           names {
+                             parent {
+                               parent {
+                                 parse_location_range {
+                                   filename: ""
+                                   start: 22
+                                   end: 27
+                                 }
+                               }
+                               parenthesized: false
+                             }
+                             id_string: "INT64"
+                           }
+                         }
+                       }
+                     }
+                   }
+                 }
+               }
+               statement_list {
+                 ast_script_statement_node {
+                   ast_single_assignment_node {
+                     parent {
+                       parent {
+                         parent {
+                           parse_location_range {
+                             filename: ""
+                             start: 33
+                             end: 49
+                           }
+                         }
+                       }
+                     }
+                     variable {
+                       parent {
+                         parent {
+                           parse_location_range {
+                             filename: ""
+                             start: 37
+                             end: 45
+                           }
+                         }
+                         parenthesized: false
+                       }
+                       id_string: "variable"
+                     }
+                     expression {
+                       ast_leaf_node {
+                         ast_int_literal_node {
+                           parent {
+                             parent {
+                               parent {
+                                 parse_location_range {
+                                   filename: ""
+                                   start: 48
+                                   end: 49
+                                 }
+                               }
+                               parenthesized: false
+                             }
+                             image: "1"
+                           }
+                         }
+                       }
+                     }
+                   }
+                 }
+               }
+               variable_declarations_allowed: true
+             }
+           })pb",
+      &expectedResponse);
+  EXPECT_THAT(response, EqualsProto(expectedResponse));
+
+  ParseRequest request2;
+  ParseResumeLocationProto* parse_resume_location =
+      request2.mutable_parse_resume_location();
+  parse_resume_location->set_input(script_content);
+  parse_resume_location->set_byte_position(0);
+  request2.set_allow_script(true);
+  ParseResponse response2;
+  ZETASQL_ASSERT_OK(Parse(request2, &response2));
+  EXPECT_EQ(28, response2.resume_byte_position());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, ParseWithEmptyTarget) {
+  const std::string script_content = R"(
+    DECLARE variable INT64;
+    SET variable = 1;
+  )";
+
+  ParseRequest request;
+  request.set_allow_script(false);
+  ParseResponse response;
+  ASSERT_FALSE(Parse(request, &response).ok());
+
+  ParseRequest request2;
+  request.set_allow_script(true);
+  ParseResponse response2;
+  ASSERT_FALSE(Parse(request2, &response2).ok());
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, Analyze) {
@@ -2290,10 +2487,122 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {
   function1.mutable_options()->set_supports_clamped_between_modifier(false);
   function2.mutable_options()->set_supports_clamped_between_modifier(false);
 
-  ASSERT_TRUE(GetBuiltinFunctions(proto, &response).ok());
-  EXPECT_EQ(2, response.function_size());
+  ZETASQL_ASSERT_OK(GetBuiltinFunctions(proto, &response));
+  EXPECT_EQ(response.function_size(), 2);
   EXPECT_EQ(function1.DebugString(), response.function(0).DebugString());
   EXPECT_EQ(function2.DebugString(), response.function(1).DebugString());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctionsReturnsTypes) {
+  ZetaSQLBuiltinFunctionOptionsProto proto;
+  GetBuiltinFunctionsResponse response;
+  google::protobuf::TextFormat::ParseFromString(R"(
+      language_options {
+        product_mode: PRODUCT_INTERNAL
+        error_on_deprecated_syntax: false
+        supported_statement_kinds: RESOLVED_QUERY_STMT
+        enabled_language_features: FEATURE_ROUND_WITH_ROUNDING_MODE
+        enabled_language_features: FEATURE_NUMERIC_TYPE
+      }
+      include_function_ids: FN_ROUND_WITH_ROUNDING_MODE_NUMERIC)",
+                                      &proto);
+  FunctionProto expected_round_function;
+  google::protobuf::TextFormat::ParseFromString(R"(
+      name_path: "round"
+      group: "ZetaSQL"
+      mode: SCALAR
+      signature {
+        argument {
+          kind: ARG_TYPE_FIXED
+          type {
+            type_kind: TYPE_NUMERIC
+          }
+          options {
+            cardinality: REQUIRED
+            extra_relation_input_columns_allowed: true
+          }
+          num_occurrences: -1
+        }
+        argument {
+          kind: ARG_TYPE_FIXED
+          type {
+            type_kind: TYPE_INT64
+          }
+          options {
+            cardinality: REQUIRED
+            extra_relation_input_columns_allowed: true
+          }
+          num_occurrences: -1
+        }
+        argument {
+          kind: ARG_TYPE_FIXED
+          type {
+            type_kind: TYPE_ENUM
+            enum_type {
+              enum_name: "zetasql.functions.RoundingMode"
+              enum_file_name: "zetasql/public/functions/rounding_mode.proto"
+              is_opaque: true
+            }
+          }
+          options {
+            cardinality: REQUIRED
+            extra_relation_input_columns_allowed: true
+          }
+          num_occurrences: -1
+        }
+        return_type {
+          kind: ARG_TYPE_FIXED
+          type {
+            type_kind: TYPE_NUMERIC
+          }
+          options {
+            cardinality: REQUIRED
+            extra_relation_input_columns_allowed: true
+          }
+          num_occurrences: -1
+        }
+        context_id: 1945
+        options {
+          is_deprecated: false
+        }
+      }
+      options {
+        supports_over_clause: false
+        window_ordering_support: ORDER_UNSUPPORTED
+        supports_window_framing: false
+        arguments_are_coercible: true
+        is_deprecated: false
+        alias_name: ""
+        sql_name: ""
+        allow_external_usage: true
+        volatility: IMMUTABLE
+        supports_order_by: false
+        supports_limit: false
+        supports_null_handling_modifier: false
+        supports_safe_error_mode: true
+        supports_having_modifier: true
+        uses_upper_case_sql_name: true
+        supports_clamped_between_modifier: false
+      })",
+                                      &expected_round_function);
+
+  TypeProto expected_rounding_mode_type;
+  google::protobuf::TextFormat::ParseFromString(R"(
+        type_kind: TYPE_ENUM
+        enum_type {
+          enum_name: "zetasql.functions.RoundingMode"
+          enum_file_name: "zetasql/public/functions/rounding_mode.proto"
+          is_opaque: true
+        }
+    )",
+                                      &expected_rounding_mode_type);
+
+  ZETASQL_ASSERT_OK(GetBuiltinFunctions(proto, &response));
+  EXPECT_EQ(response.function_size(), 1);
+  EXPECT_THAT(response.function(0), EqualsProto(expected_round_function));
+  EXPECT_EQ(response.types_size(), 1);
+  EXPECT_THAT(response.types().at("ROUNDING_MODE"),
+              EqualsProto(expected_rounding_mode_type));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest,

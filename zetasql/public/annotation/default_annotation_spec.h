@@ -75,6 +75,12 @@ class DefaultAnnotationSpec : public AnnotationSpec {
       const ResolvedSetOperationScan& set_operation_scan,
       const std::vector<AnnotationMap*>& result_annotation_maps) override;
 
+  // Merges the AnnotationMaps for each column in the recursive scan by
+  // successively calling ScalarMergeIfCompatible on their components.
+  absl::Status CheckAndPropagateForRecursiveScan(
+      const ResolvedRecursiveScan& recursive_scan,
+      const std::vector<AnnotationMap*>& result_annotation_maps) override;
+
   // Merges two scalar annotations, placing the result in 'out'.
   // This function should not call AsStructMap or AsArrayMap on either 'in' or
   // 'out'. The work of traversing struct map or array map structures is

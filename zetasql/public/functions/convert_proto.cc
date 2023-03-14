@@ -82,7 +82,8 @@ bool StringToProto(const absl::string_view value, google::protobuf::Message* out
     Proto2ErrorCollector& operator=(const Proto2ErrorCollector&) = delete;
     ~Proto2ErrorCollector() final = default;
 
-    void AddError(int line, int column, const std::string& message) final {
+          void AddError(int line, int column, const std::string& message) final
+         {
       *error_ = ::zetasql_base::OutOfRangeErrorBuilder()
                 << "Error parsing proto: " << message << " [" << line + 1 << ":"
                 << column + 1 << "]";

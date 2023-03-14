@@ -14,16 +14,15 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_ANALYZER_REWRITERS_UNARY_FUNCTION_REWRITER_H_
-#define ZETASQL_ANALYZER_REWRITERS_UNARY_FUNCTION_REWRITER_H_
+#ifndef ZETASQL_ANALYZER_REWRITERS_BUILTIN_FUNCTION_INLINER_H_
+#define ZETASQL_ANALYZER_REWRITERS_BUILTIN_FUNCTION_INLINER_H_
 
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 
 namespace zetasql {
 
-// Gets a pointer to unary scalar functions rewriter.
-const Rewriter* GetUnaryFunctionRewriter();
+const Rewriter* GetBuiltinFunctionInliner();
 
 }  // namespace zetasql
 
-#endif  // ZETASQL_ANALYZER_REWRITERS_UNARY_FUNCTION_REWRITER_H_
+#endif  // ZETASQL_ANALYZER_REWRITERS_BUILTIN_FUNCTION_INLINER_H_

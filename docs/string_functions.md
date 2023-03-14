@@ -15,7 +15,7 @@ returned positions refer to character positions.
 All string comparisons are done byte-by-byte, without regard to Unicode
 canonical equivalence.
 
-### ASCII
+### `ASCII`
 
 ```sql
 ASCII(value)
@@ -43,7 +43,7 @@ SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
 +-------+-------+-------+-------+
 ```
 
-### BYTE_LENGTH
+### `BYTE_LENGTH`
 
 ```sql
 BYTE_LENGTH(value)
@@ -78,7 +78,7 @@ FROM example;
 +------------+----------------+-------+---------------+
 ```
 
-### CHAR_LENGTH
+### `CHAR_LENGTH`
 
 ```sql
 CHAR_LENGTH(value)
@@ -110,7 +110,7 @@ FROM example;
 +------------+---------------------+
 ```
 
-### CHARACTER_LENGTH
+### `CHARACTER_LENGTH`
 
 ```sql
 CHARACTER_LENGTH(value)
@@ -142,7 +142,9 @@ FROM example;
 +------------+---------------------+
 ```
 
-### CHR
+[string-link-to-char-length]: #char_length
+
+### `CHR`
 
 ```sql
 CHR(value)
@@ -185,7 +187,11 @@ SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 +-------+-------+-------+-------+
 ```
 
-### CODE_POINTS_TO_BYTES
+[string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
+
+[string-link-to-codepoints-to-string]: #code_points_to_string
+
+### `CODE_POINTS_TO_BYTES`
 
 ```sql
 CODE_POINTS_TO_BYTES(ascii_code_points)
@@ -245,7 +251,11 @@ FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 +------------------+
 ```
 
-### CODE_POINTS_TO_STRING
+[string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
+
+[string-link-to-code-points]: #to_code_points
+
+### `CODE_POINTS_TO_STRING`
 
 ```sql
 CODE_POINTS_TO_STRING(unicode_code_points)
@@ -329,7 +339,11 @@ ORDER BY 2 DESC;
 +--------+--------------+
 ```
 
-### COLLATE
+[string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
+
+[string-link-to-code-points]: #to_code_points
+
+### `COLLATE`
 
 ```sql
 COLLATE(value, collate_specification)
@@ -391,7 +405,11 @@ FROM Words;
 +----------------+
 ```
 
-### CONCAT
+[link-collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
+
+[link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#working_with_collation
+
+### `CONCAT`
 
 ```sql
 CONCAT(value1[, ...])
@@ -463,7 +481,9 @@ FROM Employees;
 +---------------------+
 ```
 
-### ENDS_WITH
+[string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
+
+### `ENDS_WITH`
 
 ```sql
 ENDS_WITH(value1, value2)
@@ -505,7 +525,7 @@ FROM items;
 +---------+
 ```
 
-### FORMAT 
+### `FORMAT` 
 <a id="format_string"></a>
 
 ```sql
@@ -1275,7 +1295,29 @@ ZetaSQL returns quoted strings for
 `DOUBLE` values that don't have non-string literal
 representations.
 
-### FROM_BASE32
+[format-specifiers]: #format_specifiers
+
+[format-specifier-list]: #format_specifier_list
+
+[flags]: #flags
+
+[width]: #width
+
+[precision]: #precision
+
+[g-and-g-behavior]: #g_and_g_behavior
+
+[p-and-p-behavior]: #p_and_p_behavior
+
+[t-and-t-behavior]: #t_and_t_behavior
+
+[error-format-specifiers]: #error_format_specifiers
+
+[null-format-specifiers]: #null_format_specifiers
+
+[rules-format-specifiers]: #rules_format_specifiers
+
+### `FROM_BASE32`
 
 ```sql
 FROM_BASE32(string_expr)
@@ -1302,7 +1344,9 @@ SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 +-----------+
 ```
 
-### FROM_BASE64
+[string-link-to-base32]: #to_base32
+
+### `FROM_BASE64`
 
 ```sql
 FROM_BASE64(string_expr)
@@ -1317,7 +1361,7 @@ use [TO_BASE64][string-link-to-base64].
 
 There are several base64 encodings in common use that vary in exactly which
 alphabet of 65 ASCII characters are used to encode the 64 digits and padding.
-See [RFC 4648](https://tools.ietf.org/html/rfc4648#section-4) for details. This
+See [RFC 4648][RFC-4648] for details. This
 function expects the alphabet `[A-Za-z0-9+/=]`.
 
 **Return type**
@@ -1352,7 +1396,11 @@ SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 +-----------+
 ```
 
-### FROM_HEX
+[RFC-4648]: https://tools.ietf.org/html/rfc4648#section-4
+
+[string-link-to-from-base64]: #from_base64
+
+### `FROM_HEX`
 
 ```sql
 FROM_HEX(string)
@@ -1391,7 +1439,9 @@ FROM Input;
 +------------------+----------------------------------+
 ```
 
-### INITCAP
+[string-link-to-to-hex]: #to_hex
+
+### `INITCAP`
 
 ```sql
 INITCAP(value[, delimiters])
@@ -1454,7 +1504,7 @@ SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM examp
 +----------------------+------------+----------------------+
 ```
 
-### INSTR
+### `INSTR`
 
 ```sql
 INSTR(source_value, search_value[, position[, occurrence]])
@@ -1543,7 +1593,7 @@ FROM example;
 +--------------+--------------+----------+------------+-------+
 ```
 
-### LEFT
+### `LEFT`
 
 ```sql
 LEFT(value, length)
@@ -1609,7 +1659,7 @@ FROM examples;
 +----------------------+--------------+
 ```
 
-### LENGTH
+### `LENGTH`
 
 ```sql
 LENGTH(value)
@@ -1645,7 +1695,7 @@ FROM example;
 +------------+----------------+---------------+
 ```
 
-### LPAD
+### `LPAD`
 
 ```sql
 LPAD(original_value, return_length[, pattern])
@@ -1750,7 +1800,7 @@ FROM UNNEST([
 +-----------------+-----+---------+-------------------------+
 ```
 
-### LOWER
+### `LOWER`
 
 ```sql
 LOWER(value)
@@ -1798,7 +1848,9 @@ FROM items;
 +---------+
 ```
 
-### LTRIM
+[string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
+
+### `LTRIM`
 
 ```sql
 LTRIM(value1[, value2])
@@ -1882,7 +1934,9 @@ FROM items;
 +-----------+
 ```
 
-### NORMALIZE
+[string-link-to-trim]: #trim
+
+### `NORMALIZE`
 
 ```sql
 NORMALIZE(value[, normalization_mode])
@@ -1949,7 +2003,9 @@ GROUP BY 1;
 +-----------------+------------+
 ```
 
-### NORMALIZE_AND_CASEFOLD
+[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
+
+### `NORMALIZE_AND_CASEFOLD`
 
 ```sql
 NORMALIZE_AND_CASEFOLD(value[, normalization_mode])
@@ -2019,15 +2075,23 @@ FROM Strings;
 +---+----+-------+-------+------+------+
 ```
 
-### OCTET_LENGTH
+[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
+
+[string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
+
+[string-link-to-normalize]: #normalize
+
+### `OCTET_LENGTH`
 
 ```sql
 OCTET_LENGTH(value)
 ```
 
-Alias for [`BYTE_LENGTH`](#byte-length).
+Alias for [`BYTE_LENGTH`][byte-length].
 
-### REGEXP_CONTAINS
+[byte-length]: #byte_length
+
+### `REGEXP_CONTAINS`
 
 ```sql
 REGEXP_CONTAINS(value, regexp)
@@ -2098,7 +2162,9 @@ FROM
 +----------------+---------------------+---------------------+
 ```
 
-### REGEXP_EXTRACT
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
+### `REGEXP_EXTRACT`
 
 ```sql
 REGEXP_EXTRACT(value, regexp)
@@ -2106,21 +2172,18 @@ REGEXP_EXTRACT(value, regexp)
 
 **Description**
 
-Returns the first substring in `value` that matches the regular expression,
+Returns the first substring in `value` that matches the
+[re2 regular expression][string-link-to-re2],
 `regexp`. Returns `NULL` if there is no match.
 
-If the regular expression contains a capturing group, the function returns the
-substring that is matched by that capturing group. If the expression does not
-contain a capturing group, the function returns the entire matching substring.
+If the regular expression contains a capturing group (`(...)`), and there is a
+match for that capturing group, that match is returned. If there
+are multiple matches for a capturing group, the last match is returned.
 
 Returns an error if:
 
 + The regular expression is invalid
 + The regular expression has more than one capturing group
-
-Note: ZetaSQL provides regular expression support using the
-[re2][string-link-to-re2] library; see that documentation for its
-regular expression syntax.
 
 **Return type**
 
@@ -2172,7 +2235,29 @@ FROM email_addresses;
 +------------------+
 ```
 
-### REGEXP_EXTRACT_ALL
+```sql
+WITH
+  characters AS (
+    SELECT 'ab' AS value, '.b' AS regex UNION ALL
+    SELECT 'ab' AS value, '(.)b' AS regex UNION ALL
+    SELECT 'xyztb' AS value, '(.)+b' AS regex UNION ALL
+    SELECT 'ab' AS value, '(z)?b' AS regex
+  )
+SELECT value, regex, REGEXP_EXTRACT(value, regex) AS result FROM characters;
+
++-------+---------+----------+
+| value | regex   | result   |
++-------+---------+----------+
+| ab    | .b      | ab       |
+| ab    | (.)b    | a        |
+| xyztb | (.)+b   | t        |
+| ab    | (z)?b   | NULL     |
++-------+---------+----------+
+```
+
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
+### `REGEXP_EXTRACT_ALL`
 
 ```sql
 REGEXP_EXTRACT_ALL(value, regexp)
@@ -2180,20 +2265,27 @@ REGEXP_EXTRACT_ALL(value, regexp)
 
 **Description**
 
-Returns an array of all substrings of `value` that match the regular expression,
-`regexp`.
+Returns an array of all substrings of `value` that match the
+[re2 regular expression][string-link-to-re2], `regexp`. Returns an empty array
+if there is no match.
+
+If the regular expression contains a capturing group (`(...)`), and there is a
+match for that capturing group, that match is added to the results. If there
+are multiple matches for a capturing group, the last match is added to the
+results.
 
 The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
 example, using this function to extract `ana` from `banana` returns only one
 substring, not two.
 
-Note: ZetaSQL provides regular expression support using the
-[re2][string-link-to-re2] library; see that documentation for its
-regular expression syntax.
+Returns an error if:
+
++ The regular expression is invalid
++ The regular expression has more than one capturing group
 
 **Return type**
 
-An `ARRAY<STRING>` or `ARRAY<BYTES>`
+`ARRAY<STRING>` or `ARRAY<BYTES>`
 
 **Examples**
 
@@ -2212,7 +2304,9 @@ FROM code_markdown;
 +----------------------------+
 ```
 
-### REGEXP_INSTR
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
+### `REGEXP_INSTR`
 
 ```sql
 REGEXP_INSTR(source_value, regexp [, position[, occurrence, [occurrence_position]]])
@@ -2346,7 +2440,7 @@ FROM example;
 +--------------+--------+----------+------------+------------+-------+
 ```
 
-### REGEXP_MATCH
+### `REGEXP_MATCH`
 
 <p class="caution"><strong>Deprecated.</strong> Use <a href="#regexp_contains">REGEXP_CONTAINS</a>.</p>
 
@@ -2394,7 +2488,9 @@ FROM email_addresses;
 +-----------------------+---------------------+
 ```
 
-### REGEXP_REPLACE
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
+### `REGEXP_REPLACE`
 
 ```sql
 REGEXP_REPLACE(value, regexp, replacement)
@@ -2450,7 +2546,11 @@ FROM markdown;
 +--------------------------+
 ```
 
-### REPLACE
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
+[string-link-to-lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+
+### `REPLACE`
 
 ```sql
 REPLACE(original_value, from_value, to_value)
@@ -2492,7 +2592,7 @@ FROM desserts;
 +--------------------+
 ```
 
-### REPEAT
+### `REPEAT`
 
 ```sql
 REPEAT(original_value, repetitions)
@@ -2531,7 +2631,7 @@ SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
 +------+------+-----------+
 ```
 
-### REVERSE
+### `REVERSE`
 
 ```sql
 REVERSE(value)
@@ -2567,7 +2667,7 @@ FROM example;
 +---------------+----------------+--------------+---------------+
 ```
 
-### RIGHT
+### `RIGHT`
 
 ```sql
 RIGHT(value, length)
@@ -2633,7 +2733,7 @@ FROM examples;
 +----------------------+---------------+
 ```
 
-### RPAD
+### `RPAD`
 
 ```sql
 RPAD(original_value, return_length[, pattern])
@@ -2739,7 +2839,7 @@ FROM UNNEST([
 +-----------------+-----+---------+-------------------------+
 ```
 
-### RTRIM
+### `RTRIM`
 
 ```sql
 RTRIM(value1[, value2])
@@ -2800,7 +2900,9 @@ FROM items;
 +---------+
 ```
 
-### SAFE_CONVERT_BYTES_TO_STRING
+[string-link-to-trim]: #trim
+
+### `SAFE_CONVERT_BYTES_TO_STRING`
 
 ```sql
 SAFE_CONVERT_BYTES_TO_STRING(value)
@@ -2823,7 +2925,7 @@ The following statement returns the Unicode replacement character, &#65533;.
 SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2') as safe_convert;
 ```
 
-### SOUNDEX
+### `SOUNDEX`
 
 ```sql
 SOUNDEX(value)
@@ -2877,7 +2979,9 @@ FROM example;
 +----------------------+---------+
 ```
 
-### SPLIT
+[string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
+
+### `SPLIT`
 
 ```sql
 SPLIT(value[, delimiter])
@@ -2928,7 +3032,7 @@ FROM letters;
 +----------------------+
 ```
 
-### STARTS_WITH
+### `STARTS_WITH`
 
 ```sql
 STARTS_WITH(value1, value2)
@@ -2970,7 +3074,7 @@ FROM items;
 +---------+
 ```
 
-### STRPOS
+### `STRPOS`
 
 ```sql
 STRPOS(value1, value2)
@@ -3019,7 +3123,7 @@ FROM email_addresses;
 +---------+
 ```
 
-### SUBSTR
+### `SUBSTR`
 
 ```sql
 SUBSTR(value, position[, length])
@@ -3183,15 +3287,17 @@ FROM items;
 +---------+
 ```
 
-### SUBSTRING
+### `SUBSTRING`
 
 ```sql
 SUBSTRING(value, position[, length])
 ```
 
-Alias for [`SUBSTR`](#substr).
+Alias for [`SUBSTR`][substr].
 
-### TO_BASE32
+[substr]: #substr
+
+### `TO_BASE32`
 
 ```sql
 TO_BASE32(bytes_expr)
@@ -3218,7 +3324,9 @@ SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 +------------------+
 ```
 
-### TO_BASE64
+[string-link-to-from-base32]: #from_base32
+
+### `TO_BASE64`
 
 ```sql
 TO_BASE64(bytes_expr)
@@ -3231,7 +3339,7 @@ base64-encoded `STRING` into `BYTES`, use [FROM_BASE64][string-link-to-from-base
 
 There are several base64 encodings in common use that vary in exactly which
 alphabet of 65 ASCII characters are used to encode the 64 digits and padding.
-See [RFC 4648](https://tools.ietf.org/html/rfc4648#section-4) for details. This
+See [RFC 4648][RFC-4648] for details. This
 function adds padding and uses the alphabet `[A-Za-z0-9+/=]`.
 
 **Return type**
@@ -3266,7 +3374,11 @@ SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_b
 +----------------+
 ```
 
-### TO_CODE_POINTS
+[string-link-to-from-base64]: #from_base64
+
+[RFC-4648]: https://tools.ietf.org/html/rfc4648#section-4
+
+### `TO_CODE_POINTS`
 
 ```sql
 TO_CODE_POINTS(value)
@@ -3274,7 +3386,7 @@ TO_CODE_POINTS(value)
 
 **Description**
 
-Takes a [value](#string_values) and returns an array of
+Takes a `STRING` or `BYTES` value and returns an array of
 `INT64`.
 
 + If `value` is a `STRING`, each element in the returned array represents a
@@ -3343,7 +3455,13 @@ Notice that the character, Ā, is represented as a two-byte Unicode sequence. As
 a result, the `BYTES` version of `TO_CODE_POINTS` returns an array with two
 elements, while the `STRING` version returns an array with a single element.
 
-### TO_HEX
+[string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
+
+[string-link-to-codepoints-to-string]: #code_points_to_string
+
+[string-link-to-codepoints-to-bytes]: #code_points_to_bytes
+
+### `TO_HEX`
 
 ```sql
 TO_HEX(bytes)
@@ -3378,7 +3496,9 @@ FROM Input;
 +----------------------------------+------------------+
 ```
 
-### TRANSLATE
+[string-link-to-from-hex]: #from_hex
+
+### `TRANSLATE`
 
 ```sql
 TRANSLATE(expression, source_characters, target_characters)
@@ -3422,7 +3542,7 @@ FROM example;
 +------------------+-------------------+-------------------+------------------+
 ```
 
-### TRIM
+### `TRIM`
 
 ```sql
 TRIM(value_to_trim[, set_of_characters_to_remove])
@@ -3564,7 +3684,7 @@ FROM items;
 +----------------------+------------------+
 ```
 
-### UNICODE
+### `UNICODE`
 
 ```sql
 UNICODE(value)
@@ -3592,7 +3712,9 @@ SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL
 +-------+-------+-------+-------+
 ```
 
-### UPPER
+[string-code-point]: https://en.wikipedia.org/wiki/Code_point
+
+### `UPPER`
 
 ```sql
 UPPER(value)
@@ -3639,79 +3761,7 @@ FROM items;
 +---------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
-
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
 
-[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
-
-[string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
-
-[string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
-
-[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
-
-[string-code-point]: https://en.wikipedia.org/wiki/Code_point
-
 [string-link-to-strpos]: #strpos
-
-[string-link-to-char-length]: #char_length
-
-[string-link-to-code-points]: #to_code_points
-
-[string-link-to-base64]: #to_base64
-
-[string-link-to-trim]: #trim
-
-[string-link-to-normalize]: #normalize
-
-[string-link-to-normalize-casefold]: #normalize_and_casefold
-
-[string-link-to-from-base64]: #from_base64
-
-[string-link-to-codepoints-to-string]: #code_points_to_string
-
-[string-link-to-codepoints-to-bytes]: #code_points_to_bytes
-
-[string-link-to-base32]: #to_base32
-
-[string-link-to-from-base32]: #from_base32
-
-[string-link-to-from-hex]: #from_hex
-
-[string-link-to-to-hex]: #to_hex
-
-[string-link-to-lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
-
-[format-specifiers]: #format_specifiers
-
-[format-specifier-list]: #format_specifier_list
-
-[flags]: #flags
-
-[width]: #width
-
-[precision]: #precision
-
-[g-and-g-behavior]: #g_and_g_behavior
-
-[p-and-p-behavior]: #p_and_p_behavior
-
-[t-and-t-behavior]: #t_and_t_behavior
-
-[error-format-specifiers]: #error_format_specifiers
-
-[null-format-specifiers]: #null_format_specifiers
-
-[rules-format-specifiers]: #rules_format_specifiers
-
-[string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
-
-[link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#working_with_collation
-
-[link-collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
-
-<!-- mdlint on -->
 

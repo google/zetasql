@@ -977,12 +977,14 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson() {
       {"to_json", {Uint64(0)}, values::Json(JSONValue(uint64_t{0}))},
       {"to_json", {Uint64(132)}, values::Json(JSONValue(uint64_t{132}))},
       {"to_json",
-       QueryParamsWithResult({Uint64(uint64_t{9007199254740991}), true},
-                             values::Json(JSONValue(uint64_t{9007199254740991})))
+       QueryParamsWithResult(
+           {Uint64(uint64_t{9007199254740991}), true},
+           values::Json(JSONValue(uint64_t{9007199254740991})))
            .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})},
       {"to_json",
-       QueryParamsWithResult({Uint64(uint64_t{9007199254740992}), true},
-                             values::Json(JSONValue(uint64_t{9007199254740992})))
+       QueryParamsWithResult(
+           {Uint64(uint64_t{9007199254740992}), true},
+           values::Json(JSONValue(uint64_t{9007199254740992})))
            .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})},
 
       // Cases in pair where results differ with different stringify value.

@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_TYPES_COLLATION_H_
 #define ZETASQL_PUBLIC_TYPES_COLLATION_H_
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -111,6 +112,11 @@ class Collation {
   // on <child_list_> for more detail.
   const Collation& child(int i) const { return child_list_[i]; }
   uint64_t num_children() const { return child_list_.size(); }
+
+  // Returns an annotation map that is compatible with the input <type> and has
+  // collation annotations equal to the Collation object.
+  absl::StatusOr<std::unique_ptr<AnnotationMap>> ToAnnotationMap(
+      const Type* type) const;
 
   absl::Status Serialize(CollationProto* proto) const;
   static absl::StatusOr<Collation> Deserialize(const CollationProto& proto);

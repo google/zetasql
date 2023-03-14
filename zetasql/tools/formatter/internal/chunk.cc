@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <ostream>
 #include <queue>
@@ -27,14 +28,20 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/public/builtin_function.h"
 #include "zetasql/public/formatter_options.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_tokens.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/tools/formatter/internal/fusible_tokens.h"
 #include "zetasql/tools/formatter/internal/token.h"
 #include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
 #include "absl/memory/memory.h"
@@ -193,8 +200,8 @@ bool CanBeUnaryOperator(absl::string_view keyword) {
 // "max + min + offset" or "date AND time").
 bool CanBePartOfExpression(const Token& token) {
   static const auto* forbidden = new zetasql_base::flat_set<absl::string_view>(
-      {";", ",", "BY", "DEFINE", "CASE", "ELSE", "INTERVAL", "ON", "THEN",
-       "WHEN"});
+      {";", ",", "BY", "DEFAULT", "DEFINE", "CASE", "ELSE", "INTERVAL", "ON",
+       "THEN", "WHEN"});
   return !IsTopLevelClauseKeyword(token) &&
          !forbidden->contains(token.GetKeyword());
 }
@@ -395,7 +402,6 @@ std::string Chunk::PrintableString(const FormatterOptions& options, int column,
     absl::StrAppend(&t, tokens[i]->ImageForPrinting(options, i == 0, column,
                                                     original_column_));
   }
-
   return t;
 }
 
@@ -1684,7 +1690,8 @@ void MarkAllTokensStartingAList(const TokensView& tokens_view) {
         list_starters.back()->GetKeyword() == "SELECT") {
       list_starters.pop_back();
       continue;
-    } else if (IsCloseParenOrBracket(keyword)) {
+    } else if (IsCloseParenOrBracket(keyword) &&
+               !token->Is(Token::Type::CLOSE_PROTO_EXTENSION_PARENTHESIS)) {
       const absl::string_view matching_open_bracket =
           CorrespondingOpenBracket(keyword);
       while (!list_starters.empty() &&
@@ -2211,8 +2218,55 @@ void MarkAllColonsInBracedConstructors(const TokensView& tokens_view) {
   }
 }
 
+// Builds a hash-set of built-in function names within ZetaSQL.
+absl::flat_hash_set<std::string>* GetBuiltinFunctions() {
+  static absl::flat_hash_set<std::string>* function_names = []() {
+    TypeFactory type_factory;
+    LanguageOptions options;
+    options.EnableMaximumLanguageFeaturesForDevelopment();
+    options.set_product_mode(PRODUCT_INTERNAL);
+    std::map<std::string, std::unique_ptr<Function>> functions;
+    GetZetaSQLFunctions(&type_factory, options, &functions);
+    absl::flat_hash_set<std::string>* function_names =
+        new absl::flat_hash_set<std::string>();
+    function_names->reserve(functions.size());
+    for (const auto& function_mapping : functions) {
+      function_names->insert(absl::AsciiStrToUpper(function_mapping.first));
+    }
+    return function_names;
+  }();
+  return function_names;
+}
+
+// Annotates all tokens which are a part of a Builtin Function call.
+void MarkAllBuiltinFunctions(const TokensView& tokens_view) {
+  const std::vector<Token*>& tokens = tokens_view.WithoutComments();
+  if (tokens.empty()) {
+    return;
+  }
+  absl::flat_hash_set<std::string>* builtin_function_names =
+      GetBuiltinFunctions();
+  for (int i = 0; i < tokens.size() - 1; ++i) {
+    // Function call should be followed by an open-parenthesis.
+    if (tokens[i + 1]->GetKeyword() == "(") {
+      int start = i;
+      std::string s = "";
+      while (start > 0 &&
+             !SpaceBetweenTokensInInput(*tokens[start], *tokens[start + 1])) {
+        s = absl::StrCat(tokens[start--]->GetKeyword(), s);
+      }
+      if (builtin_function_names->contains(s)) {
+        for (; start <= i; ++start) {
+          tokens[start]->SetType(Token::Type::BUILTIN_FUNCTION);
+        }
+      }
+    }
+  }
+}
+
 void AnnotateTokens(const TokensView& tokens,
-                    const ParseLocationTranslator& location_translator) {
+                    const ParseLocationTranslator& location_translator,
+                    const FormatterOptions& formatter_options) {
   MarkAllKeywordsInComplexIdentifiers(tokens);
   MarkAllTypeDeclarations(tokens);
   MarkNonSqlTokensThatArePartOfComplexToken(tokens);
@@ -2235,6 +2289,9 @@ void AnnotateTokens(const TokensView& tokens,
   MarkAllProtoBrackets(tokens);
   MarkAllSlashedIdentifiers(tokens);
   MarkAllColonsInBracedConstructors(tokens);
+  if (formatter_options.IsCapitalizeFunctions()) {
+    MarkAllBuiltinFunctions(tokens);
+  }
 }
 
 void MarkAllAngleBracketPairs(std::vector<Chunk>* chunks) {
@@ -2268,8 +2325,9 @@ void MarkAllAngleBracketPairs(std::vector<Chunk>* chunks) {
 
 absl::StatusOr<std::vector<Chunk>> ChunksFromTokens(
     const TokensView& tokens_view,
-    const ParseLocationTranslator& location_translator) {
-  AnnotateTokens(tokens_view, location_translator);
+    const ParseLocationTranslator& location_translator,
+    const FormatterOptions& formatter_options) {
+  AnnotateTokens(tokens_view, location_translator, formatter_options);
 
   std::vector<Chunk> chunks;
 

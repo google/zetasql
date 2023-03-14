@@ -30,6 +30,7 @@
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 
@@ -49,7 +50,7 @@ QueryParamsWithResult::QueryParamsWithResult(
 
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
-    const ValueConstructor& result, const std::string& error_substring)
+    const ValueConstructor& result, absl::string_view error_substring)
     : params_(ValueConstructor::ToValues(arguments)),
       result_(result,
               error_substring.empty()

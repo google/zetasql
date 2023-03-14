@@ -28,6 +28,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/simple_catalog.pb.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/constant.h"
 #include "zetasql/public/procedure.h"
@@ -77,6 +78,14 @@ absl::Status SimpleCatalog::GetConnection(const std::string& name,
                                           const FindOptions& options) {
   absl::MutexLock l(&mutex_);
   *connection = zetasql_base::FindPtrOrNull(connections_, absl::AsciiStrToLower(name));
+  return absl::OkStatus();
+}
+
+absl::Status SimpleCatalog::GetSequence(const std::string& name,
+                                        const Sequence** sequence,
+                                        const FindOptions& options) {
+  absl::MutexLock l(&mutex_);
+  *sequence = zetasql_base::FindPtrOrNull(sequences_, absl::AsciiStrToLower(name));
   return absl::OkStatus();
 }
 
@@ -317,6 +326,12 @@ void SimpleCatalog::AddConnection(const std::string& name,
   zetasql_base::InsertOrDie(&connections_, absl::AsciiStrToLower(name), connection);
 }
 
+void SimpleCatalog::AddSequence(const std::string& name,
+                                const Sequence* sequence) {
+  absl::MutexLock l(&mutex_);
+  zetasql_base::InsertOrDie(&sequences_, absl::AsciiStrToLower(name), sequence);
+}
+
 void SimpleCatalog::AddType(const std::string& name, const Type* type) {
   absl::MutexLock l(&mutex_);
   ZETASQL_CHECK(types_.insert({absl::AsciiStrToLower(name), type}).second);
@@ -505,6 +520,10 @@ void SimpleCatalog::AddModel(const Model* model) {
 
 void SimpleCatalog::AddConnection(const Connection* connection) {
   AddConnection(connection->Name(), connection);
+}
+
+void SimpleCatalog::AddSequence(const Sequence* sequence) {
+  AddSequence(sequence->Name(), sequence);
 }
 
 void SimpleCatalog::AddCatalog(Catalog* catalog) {
@@ -811,6 +830,12 @@ int SimpleCatalog::RemoveFunctionsLocked(
     num_removed += sub_catalog->RemoveFunctions(predicate, removed);
   }
   for (auto& [_, sub_catalog] : catalogs_) {
+    if (sub_catalog == this) {
+      // This avoids deadlock for recursive simple catalogs.
+      // TODO: Support a indirectly recursive example in
+      //     SampleCatalog and improve this to detect indirect recursion.
+      continue;
+    }
     if (sub_catalog->Is<SimpleCatalog>()) {
       num_removed += sub_catalog->GetAs<SimpleCatalog>()->RemoveFunctions(
           predicate, removed);
@@ -1523,7 +1548,7 @@ absl::StatusOr<std::unique_ptr<SimpleTable>> SimpleTable::Deserialize(
 
   for (const SimpleColumnProto& column_proto : proto.column()) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<SimpleColumn> column,
-                     SimpleColumn::Deserialize(column_proto, table->Name(),
+                     SimpleColumn::Deserialize(column_proto, table->FullName(),
                                                type_deserializer));
     ZETASQL_RETURN_IF_ERROR(table->AddColumn(column.release(), /*is_owned=*/true));
   }
@@ -1547,15 +1572,14 @@ absl::StatusOr<std::unique_ptr<SimpleTable>> SimpleTable::Deserialize(
   return table;
 }
 
-SimpleColumn::SimpleColumn(const std::string& table_name,
-                           const std::string& name, const Type* type,
+SimpleColumn::SimpleColumn(absl::string_view table_name, absl::string_view name,
+                           const Type* type,
                            const SimpleColumn::Attributes& attributes)
     : SimpleColumn(table_name, name,
                    AnnotatedType(type, /*annotation_map=*/nullptr),
                    attributes) {}
 
-SimpleColumn::SimpleColumn(const std::string& table_name,
-                           const std::string& name,
+SimpleColumn::SimpleColumn(absl::string_view table_name, absl::string_view name,
                            AnnotatedType annotated_type,
                            const SimpleColumn::Attributes& attributes)
     : name_(name),

@@ -193,9 +193,12 @@ absl::StatusOr<Value> JsonSubscriptFunction::Eval(
         input_json,
         JSONValue::ParseJSONString(
             args[0].json_value_unparsed(),
-            JSONParsingOptions{.strict_number_parsing =
-                                   language_options.LanguageFeatureEnabled(
-                                       FEATURE_JSON_STRICT_NUMBER_PARSING)}));
+            JSONParsingOptions{
+                .wide_number_mode =
+                    (language_options.LanguageFeatureEnabled(
+                         FEATURE_JSON_STRICT_NUMBER_PARSING)
+                         ? JSONParsingOptions::WideNumberMode::kExact
+                         : JSONParsingOptions::WideNumberMode::kRound)}));
     json_value_const_ref = input_json.GetConstRef();
   }
   ZETASQL_RET_CHECK(json_value_const_ref.has_value());
@@ -237,20 +240,23 @@ absl::StatusOr<Value> JsonFunction::Eval(
       std::unique_ptr<functions::JsonPathEvaluator> evaluator,
       functions::JsonPathEvaluator::Create(
           /*json_path=*/((args.size() > 1) ? args[1].string_value() : "$"),
-          sql_standard_mode));
-  evaluator->enable_special_character_escaping();
+          sql_standard_mode,
+          /*enable_special_character_escaping_in_values=*/true,
+          /*enable_special_character_escaping_in_keys=*/true));
   bool scalar = kind() == FunctionKind::kJsonValue ||
                 kind() == FunctionKind::kJsonExtractScalar;
   if (args[0].type_kind() == TYPE_STRING) {
-    return JsonExtractString(*evaluator, args[0].string_value(),
-                             scalar);
+    return JsonExtractString(*evaluator, args[0].string_value(), scalar);
   } else {
     const auto& language_options = context->GetLanguageOptions();
     return JsonExtractJson(
         *evaluator, args[0], output_type(), scalar,
-        JSONParsingOptions{.strict_number_parsing =
-                               language_options.LanguageFeatureEnabled(
-                                   FEATURE_JSON_STRICT_NUMBER_PARSING)});
+        JSONParsingOptions{
+            .wide_number_mode =
+                (language_options.LanguageFeatureEnabled(
+                     FEATURE_JSON_STRICT_NUMBER_PARSING)
+                     ? JSONParsingOptions::WideNumberMode::kExact
+                     : JSONParsingOptions::WideNumberMode::kRound)});
   }
 }
 
@@ -367,10 +373,11 @@ absl::StatusOr<Value> JsonArrayFunction::Eval(
 
   std::string json_path = args.size() == 2 ? args[1].string_value() : "$";
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<functions::JsonPathEvaluator> evaluator,
-      functions::JsonPathEvaluator::Create(json_path, sql_standard_mode));
-  evaluator->enable_special_character_escaping();
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<functions::JsonPathEvaluator> evaluator,
+                   functions::JsonPathEvaluator::Create(
+                       json_path, sql_standard_mode,
+                       /*enable_special_character_escaping_in_values=*/true,
+                       /*enable_special_character_escaping_in_keys=*/true));
   bool scalar = kind() == FunctionKind::kJsonValueArray ||
                 kind() == FunctionKind::kJsonExtractStringArray;
   if (args[0].type_kind() == TYPE_STRING) {
@@ -380,8 +387,10 @@ absl::StatusOr<Value> JsonArrayFunction::Eval(
   } else {
     const auto& language_options = context->GetLanguageOptions();
     JSONParsingOptions parsing_options{
-        .strict_number_parsing = language_options.LanguageFeatureEnabled(
-            FEATURE_JSON_STRICT_NUMBER_PARSING)};
+        .wide_number_mode = (language_options.LanguageFeatureEnabled(
+                                 FEATURE_JSON_STRICT_NUMBER_PARSING)
+                                 ? JSONParsingOptions::WideNumberMode::kExact
+                                 : JSONParsingOptions::WideNumberMode::kRound)};
 
     return scalar ? JsonExtractStringArrayJson(*evaluator, args[0],
                                                parsing_options)
@@ -421,9 +430,11 @@ absl::StatusOr<Value> ToJsonStringFunction::Eval(
   ZETASQL_RETURN_IF_ERROR(functions::JsonFromValue(
       args[0], &pretty_printer, &output,
       JSONParsingOptions{
-          .strict_number_parsing =
-              context->GetLanguageOptions().LanguageFeatureEnabled(
-                  FEATURE_JSON_STRICT_NUMBER_PARSING),
+          .wide_number_mode =
+              (context->GetLanguageOptions().LanguageFeatureEnabled(
+                   FEATURE_JSON_STRICT_NUMBER_PARSING)
+                   ? JSONParsingOptions::WideNumberMode::kExact
+                   : JSONParsingOptions::WideNumberMode::kRound),
           .canonicalize_zero = true}));
   MaybeSetNonDeterministicContext(args[0], context);
   return Value::String(output);
@@ -443,8 +454,10 @@ absl::StatusOr<Value> ParseJsonFunction::Eval(
            << args[1].string_value();
   }
 
-  JSONParsingOptions options{.strict_number_parsing =
-                                 (args[1].string_value() == "exact")};
+  JSONParsingOptions options{
+      .wide_number_mode = (args[1].string_value() == "exact"
+                               ? JSONParsingOptions::WideNumberMode::kExact
+                               : JSONParsingOptions::WideNumberMode::kRound)};
   auto result = JSONValue::ParseJSONString(args[0].string_value(), options);
   if (!result.ok()) {
     return MakeEvalError() << "Invalid input to PARSE_JSON: "

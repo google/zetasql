@@ -20,7 +20,6 @@
 #include <type_traits>
 
 namespace zetasql {
-namespace multiprecision_int_impl {
 namespace {
 template <uint64_t power>
 uint64_t DividePower10(VarUintRef<64>& var_int, uint64_t& remainder) {
@@ -34,7 +33,8 @@ uint64_t DividePower10<1>(VarUintRef<64>& var_int, uint64_t& remainder) {
 }
 }  // namespace
 
-uint64_t (*kVarUintDivModPow10[])(VarUintRef<64>&, uint64_t&) = {
+template <>
+const VarUintRef<64>::DivModFn VarUintRef<64>::kVarUintDivModPow10[] = {
     &DividePower10<1>,
     &DividePower10<10>,
     &DividePower10<100>,
@@ -55,5 +55,4 @@ uint64_t (*kVarUintDivModPow10[])(VarUintRef<64>&, uint64_t&) = {
     &DividePower10<100000000000000000>,
     &DividePower10<1000000000000000000>,
     &DividePower10<10000000000000000000ULL>};
-}  // namespace multiprecision_int_impl
 }  // namespace zetasql

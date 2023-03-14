@@ -186,7 +186,7 @@ analyze OPTIONS, T
                ^
 ==
 
-# When the keyword as identifier OPTIONS is after a table name, we parser it as
+# When the keyword as identifier OPTIONS is after a table name, we parse it as
 # another table name instead of a keyword. In this case, the options are null.
 analyze T, OPTIONS
 --

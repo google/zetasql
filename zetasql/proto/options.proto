@@ -32,6 +32,12 @@ message ZetaSQLBuiltinFunctionOptionsProto {
   optional LanguageOptionsProto language_options = 1;
   repeated FunctionSignatureId include_function_ids = 2;
   repeated FunctionSignatureId exclude_function_ids = 3;
+  repeated EnabledRewriteProto enabled_rewrites_map_entry = 4;
+}
+
+message EnabledRewriteProto {
+  optional FunctionSignatureId key = 1;
+  optional bool value = 2;
 }
 
 // Serialized form of LanguageOptions.
@@ -58,6 +64,15 @@ message AllowedHintsAndOptionsProto {
   message OptionProto {
     optional string name = 1;
     optional TypeProto type = 2;
+    enum ResolvingKind {
+      // Legacy kind - option is either constant or an identifier resolved
+      // without any given name scope.
+      CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER = 0;
+      // Option is an identifier resolved against FROM name scope.
+      // See: (broken link).
+      FROM_NAME_SCOPE_IDENTIFIER = 1;
+    }
+    optional ResolvingKind resolving_kind = 3;
   }
 
   optional bool disallow_unknown_options = 1;
@@ -65,6 +80,7 @@ message AllowedHintsAndOptionsProto {
   repeated HintProto hint = 3;
   repeated OptionProto option = 4;
   repeated OptionProto anonymization_option = 5;
+  repeated OptionProto differential_privacy_option = 6;
 }
 
 // Serialized form of AnalyzerOptions.

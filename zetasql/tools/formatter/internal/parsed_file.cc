@@ -148,14 +148,16 @@ absl::StatusOr<std::unique_ptr<TokenizedStmt>> TokenizedStmt::ParseFrom(
   auto parsed_sql = std::make_unique<TokenizedStmt>(
       parse_location->input(), start_offset, parse_location->byte_position(),
       std::move(tokens));
-  ZETASQL_RETURN_IF_ERROR(parsed_sql->BuildChunksAndBlocks(location_translator));
+  ZETASQL_RETURN_IF_ERROR(
+      parsed_sql->BuildChunksAndBlocks(location_translator, options));
   return parsed_sql;
 }
 
 absl::Status TokenizedStmt::BuildChunksAndBlocks(
-    const ParseLocationTranslator& location_translator) {
+    const ParseLocationTranslator& location_translator,
+    const FormatterOptions& options) {
   ZETASQL_ASSIGN_OR_RETURN(std::vector<Chunk> chunks,
-                   ChunksFromTokens(Tokens(), location_translator));
+                   ChunksFromTokens(Tokens(), location_translator, options));
   chunks_ = std::move(chunks);
 
   ZETASQL_RETURN_IF_ERROR(ComputeChunkBlocksForChunks(&block_factory_, &chunks_));

@@ -125,6 +125,9 @@ class ExpressionSubstitutorTest : public ::testing::Test {
 
   std::unique_ptr<const AnalyzerOutput> filter_lambda_output_;
   const ResolvedInlineLambda* filter_lambda_;
+
+  std::unique_ptr<const AnalyzerOutput> transform_lambda_output_;
+  const ResolvedInlineLambda* transform_lambda_;
 };
 
 TEST_F(ExpressionSubstitutorTest, RequiresArenas) {
@@ -258,7 +261,7 @@ TEST_F(ExpressionSubstitutorTest, SubstituteLambda) {
   // Run substitute
   constexpr absl::string_view input_sql = R"sql(
   ARRAY(SELECT x FROM UNNEST([1,2,3]) x WITH OFFSET off
-        WHERE INVOKE(@mylambda, x, off))
+        WHERE mylambda(x, off))
   )sql";
   auto result =
       *AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql, {},
@@ -312,13 +315,12 @@ TEST_F(ExpressionSubstitutorTest, SubstituteLambda) {
 )");
 }
 
-TEST_F(ExpressionSubstitutorTest,
-       SubstituteLambdaWithCorrelatedInvokeArgument) {
+TEST_F(ExpressionSubstitutorTest, SubstituteLambdaWithCorrelatedArgument) {
   // Run substitute
-  // NOTE: x and off arguments of INVOKE are correlated ColumnRefs.
+  // NOTE: x and off arguments of 'mylambda' are correlated ColumnRefs.
   constexpr absl::string_view input_sql = R"sql(
   ARRAY(SELECT x FROM UNNEST([1,2,3]) x WITH OFFSET off
-        WHERE (SELECT INVOKE(@mylambda, x, off)))
+        WHERE (SELECT mylambda(x, off)))
   )sql";
   auto result =
       *AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql, {},
@@ -416,41 +418,188 @@ TEST_F(ExpressionSubstitutorTest, SubstituteErrors) {
   }
 
   {
-    // Using lambda as normal query parameter.
-    // This test regresses to OK status after removing resolving query parameter
-    // in AnalyzeSubstitute as part of fixing b/233941129.
+    // Attempting to use lambda as a query parameter when undefined produces
+    // an error.
     constexpr absl::string_view input_sql = "@lambda AND FALSE";
-    auto result =
-        AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
-                          {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
-    ZETASQL_ASSERT_OK(result.status());
-  }
-
-  {
-    // First argument of INVOKE is not named query parameter
-    constexpr absl::string_view input_sql =
-        "(SELECT INVOKE(element + 1,  element) FROM (SELECT 1 as element))";
-    auto result =
-        AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
-                          {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
-    ASSERT_THAT(
-        result.status(),
-        StatusIs(absl::StatusCode::kInvalidArgument,
-                 HasSubstr("First argument to invoke must be a parameter with "
-                           "the name of the lambda to be invoked")));
-  }
-
-  {
-    // Lambda not found for INVOKE
-    constexpr absl::string_view input_sql =
-        "(SELECT INVOKE(@lambda2,  element) FROM (SELECT 1 as element))";
     auto result =
         AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
                           {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
     ASSERT_THAT(result.status(),
                 StatusIs(absl::StatusCode::kInvalidArgument,
-                         HasSubstr("Query parameter 'lambda2' not found")));
+                         HasSubstr("Query parameter 'lambda' not found")));
+  }
+
+  {
+    // Lambda not found
+    constexpr absl::string_view input_sql =
+        "(SELECT lambda2(element) FROM (SELECT 1 as element))";
+    auto result =
+        AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
+                          {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
+    ASSERT_THAT(result.status(),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("Function not found: lambda2")));
   }
 }
+
+TEST_F(ExpressionSubstitutorTest, MultipleLambdas) {
+  // Introduce a second ResolvedInlineLambda, produced using the following
+  // SQL snippet that calls ARRAY_TRANSFORM.
+  constexpr absl::string_view sql_with_array_transform = R"sql(
+  ( SELECT ARRAY_TRANSFORM([1, 2, 3], (e) -> e+20)
+    FROM TestTable t )
+  )sql";
+  // Disable rewrites to preserve the ResolvedInlineLambdas.
+  options_.set_enabled_rewrites({});
+  ZETASQL_ASSERT_OK(AnalyzeExpressionForAssignmentToType(
+      sql_with_array_transform, options_, &catalog_, &type_factory_,
+      types::Int64ArrayType(), &transform_lambda_output_));
+  const ResolvedFunctionCall* array_transform_call =
+      transform_lambda_output_->resolved_expr()
+          ->GetAs<ResolvedSubqueryExpr>()
+          ->subquery()
+          ->GetAs<ResolvedProjectScan>()
+          ->expr_list(0)
+          ->expr()
+          ->GetAs<ResolvedFunctionCall>();
+  transform_lambda_ =
+      array_transform_call->generic_argument_list(1)->inline_lambda();
+
+  // Test AnalyzeSubstitute on input SQL that contains two lambda expressions.
+  constexpr absl::string_view input_sql = R"sql(
+  ARRAY(SELECT x FROM UNNEST([1,2,3]) x WITH OFFSET off
+        WHERE (SELECT lambda1(x, off)) AND EXISTS(SELECT lambda2(x)))
+  )sql";
+  auto result = *AnalyzeSubstitute(
+      options_, catalog_, type_factory_, input_sql, {},
+      /*lambdas=*/
+      {{"lambda1", filter_lambda_}, {"lambda2", transform_lambda_}});
+
+  ZETASQL_VLOG(1) << result->DebugString();
+
+  EXPECT_EQ(result->DebugString(), R"(SubqueryExpr
++-type=ARRAY<INT64>
++-subquery_type=SCALAR
++-parameter_list=
+| +-ColumnRef(type=INT64, column=TestTable.Int64Col#3)
++-subquery=
+  +-ProjectScan
+    +-column_list=[$expr_subquery.$col1#14]
+    +-expr_list=
+    | +-$col1#14 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT64>
+    |     +-subquery_type=ARRAY
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=TestTable.Int64Col#3, is_correlated=TRUE)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$array.x#10]
+    |         +-input_scan=
+    |           +-FilterScan
+    |             +-column_list=[$array.x#10, $array_offset.off#11]
+    |             +-input_scan=
+    |             | +-ArrayScan
+    |             |   +-column_list=[$array.x#10, $array_offset.off#11]
+    |             |   +-array_expr=
+    |             |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             |   +-element_column=$array.x#10
+    |             |   +-array_offset_column=
+    |             |     +-ColumnHolder(column=$array_offset.off#11)
+    |             +-filter_expr=
+    |               +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+    |                 +-SubqueryExpr
+    |                 | +-type=BOOL
+    |                 | +-subquery_type=SCALAR
+    |                 | +-parameter_list=
+    |                 | | +-ColumnRef(type=INT64, column=$array.x#10)
+    |                 | | +-ColumnRef(type=INT64, column=$array_offset.off#11)
+    |                 | | +-ColumnRef(type=INT64, column=TestTable.Int64Col#3, is_correlated=TRUE)
+    |                 | +-subquery=
+    |                 |   +-ProjectScan
+    |                 |     +-column_list=[$expr_subquery.$col1#12]
+    |                 |     +-expr_list=
+    |                 |     | +-$col1#12 :=
+    |                 |     |   +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |                 |     |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |                 |     |     | +-ColumnRef(type=INT64, column=$array.x#10, is_correlated=TRUE)
+    |                 |     |     | +-ColumnRef(type=INT64, column=$array_offset.off#11, is_correlated=TRUE)
+    |                 |     |     +-ColumnRef(parse_location=49-57, type=INT64, column=TestTable.Int64Col#3, is_correlated=TRUE)
+    |                 |     +-input_scan=
+    |                 |       +-SingleRowScan
+    |                 +-SubqueryExpr
+    |                   +-type=BOOL
+    |                   +-subquery_type=EXISTS
+    |                   +-parameter_list=
+    |                   | +-ColumnRef(type=INT64, column=$array.x#10)
+    |                   +-subquery=
+    |                     +-ProjectScan
+    |                       +-column_list=[$expr_subquery.$col1#13]
+    |                       +-expr_list=
+    |                       | +-$col1#13 :=
+    |                       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |                       |     +-ColumnRef(type=INT64, column=$array.x#10, is_correlated=TRUE)
+    |                       |     +-Literal(parse_location=48-50, type=INT64, value=20)
+    |                       +-input_scan=
+    |                         +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+)");
+}
+
+TEST_F(ExpressionSubstitutorTest, LambdaNameConflictsWithExistingFunction) {
+  // When a named lambda conflicts with a function name in the supplied catalog
+  // to AnalyzeSubstitute, precedence is given to the named lambda.
+  constexpr absl::string_view input_sql =
+      "(SELECT SAFE_DIVIDE(element, element) FROM (SELECT 1 as element))";
+  auto result = *AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
+                                   {{"col1", col1_ref_.get()}},
+                                   {{"SAFE_DIVIDE", filter_lambda_}});
+
+  ZETASQL_VLOG(1) << result->DebugString();
+
+  EXPECT_EQ(result->DebugString(), R"(SubqueryExpr
++-type=BOOL
++-subquery_type=SCALAR
++-parameter_list=
+| +-ColumnRef(type=INT64, column=t.col1#1)
+| +-ColumnRef(type=INT64, column=TestTable.Int64Col#3)
++-subquery=
+  +-ProjectScan
+    +-column_list=[$expr_subquery.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=TestTable.Int64Col#3, is_correlated=TRUE)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#9]
+    |         +-expr_list=
+    |         | +-$col1#9 :=
+    |         |   +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |         |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |     | +-ColumnRef(type=INT64, column=$subquery2.element#8)
+    |         |     | +-ColumnRef(type=INT64, column=$subquery2.element#8)
+    |         |     +-ColumnRef(parse_location=49-57, type=INT64, column=TestTable.Int64Col#3, is_correlated=TRUE)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery2.element#8]
+    |             +-expr_list=
+    |             | +-element#8 := Literal(type=INT64, value=1)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.col1#7]
+        +-expr_list=
+        | +-col1#7 := ColumnRef(type=INT64, column=t.col1#1, is_correlated=TRUE)
+        +-input_scan=
+          +-SingleRowScan
+)");
+}
+
 }  // namespace
 }  // namespace zetasql

@@ -529,7 +529,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 210
+          Next tag_id: 226
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -2619,14 +2619,49 @@ value.
       into a separate stage.
 
       <anonymization_option_list> provides user-specified options, and
-      requires that option names are one of: delta, epsilon, kappa, or
-      k_threshold.
+      requires that option names are one of: delta, epsilon, kappa,
+      max_groups_contributed, max_rows_contributed, or k_threshold.
 
               """,
       fields=[
-          Field('k_threshold_expr', 'ResolvedColumnRef', tag_id=5),
+          Field('k_threshold_expr', 'ResolvedExpr', tag_id=5),
           Field(
               'anonymization_option_list',
+              'ResolvedOption',
+              tag_id=6,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
+      name='ResolvedDifferentialPrivacyAggregateScan',
+      tag_id=221,
+      parent='ResolvedAggregateScanBase',
+      comment="""
+      Apply differentially private aggregation (anonymization) to rows produced
+      from input_scan, and output anonymized rows.
+      Spec: (broken link)
+
+      <group_selection_threshold_expr> when non-null, points to a function call
+      in the <aggregate_list> and adds a filter that acts like:
+        HAVING <group_selection_threshold_expr> >=
+        <implementation-defined group_selection_threshold>
+      omitting any rows that would not pass this condition.
+      TODO: Update this comment after splitting the rewriter out
+      into a separate stage.
+
+      <option_list> provides user-specified options, and
+      requires that option names are one of: delta, epsilon,
+      max_groups_contributed or max_rows_contributed.
+
+              """,
+      fields=[
+          Field(
+              'group_selection_threshold_expr',
+              'ResolvedExpr',
+              tag_id=5),
+          Field(
+              'option_list',
               'ResolvedOption',
               tag_id=6,
               vector=True,
@@ -3861,6 +3896,11 @@ right.
               'ResolvedExpr',
               tag_id=12,
               ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'connection',
+              'ResolvedConnection',
+              tag_id=13,
+              ignorable=IGNORABLE_DEFAULT)
       ])
 
   gen.AddNode(
@@ -3876,6 +3916,7 @@ right.
                 [WHERE <where_clause>]]
         [DEFAULT COLLATE <collation_name>]
         [PARTITION BY expr, ...] [CLUSTER BY expr, ...]
+        [WITH CONNECTION connection_name]
         [OPTIONS (...)]
 
       One of <clone_from> or <copy_from> can be present for CLONE or COPY.
@@ -3930,7 +3971,9 @@ right.
       This statement:
         CREATE [TEMP] TABLE <name> [(column schema, ...) | LIKE <name_path>]
         [DEFAULT COLLATE <collation_name>] [PARTITION BY expr, ...]
-        [CLUSTER BY expr, ...] [OPTIONS (...)]
+        [CLUSTER BY expr, ...]
+        [WITH CONNECTION connection_name]
+        [OPTIONS (...)]
         AS SELECT ...
 
       The <output_column_list> matches 1:1 with the <column_definition_list> in
@@ -4130,6 +4173,17 @@ right.
          include 'INVOKER', 'DEFINER'.
       <recursive> specifies whether or not the view is created with the
         RECURSIVE keyword.
+      <column_definition_list> matches 1:1 with the <output_column_list> and
+        provides explicit definition for each output column. Output column names
+        and types must match column definition names and types. If the table is
+        a value table, <column_definition_list> must have exactly one column,
+        with a generated name such as "$struct".
+
+      Currently <column_definition_list> contains the same schema information
+      (column names and types) as <output_column_list>, but also contains the
+      column OPTIONS. Therefore, consumers are encouraged to read from
+      <column_definition_list> rather than from <output_column_list> to
+      determine the schema, if possible.
 
       Note that <query> and <sql> are both marked as IGNORABLE because
       an engine could look at either one (but might not look at both).
@@ -4180,7 +4234,15 @@ right.
               ignorable=IGNORABLE,
               comment="""
                 True if the view uses the RECURSIVE keyword. <query>
-                can be a ResolvedRecursiveScan only if this is true.""")
+                can be a ResolvedRecursiveScan only if this is true."""),
+          Field(
+              'column_definition_list',
+              'ResolvedColumnDefinition',
+              tag_id=10,
+              vector=True,
+              # This is ignorable for backwards compatibility (engines may
+              # already be using output_column_list instead).
+              ignorable=IGNORABLE)
       ])
 
   gen.AddNode(
@@ -4266,11 +4328,6 @@ right.
               'ResolvedWithPartitionColumns',
               tag_id=2,
               ignorable=IGNORABLE_DEFAULT),
-          Field(
-              'connection',
-              'ResolvedConnection',
-              tag_id=3,
-              ignorable=IGNORABLE_DEFAULT)
       ])
 
   gen.AddNode(
@@ -7392,33 +7449,12 @@ ResolvedArgumentRef(y)
         CREATE MATERIALIZED VIEW <name> [(...)] [PARTITION BY expr, ...]
         [CLUSTER BY expr, ...] [OPTIONS (...)] AS SELECT ...
 
-      <column_definition_list> matches 1:1 with the <output_column_list> in
-      ResolvedCreateViewBase and provides explicit definition for each
-      ResolvedColumn produced by <query>. Output column names and types must
-      match column definition names and types. If the table is a value table,
-      <column_definition_list> must have exactly one column, with a generated
-      name such as "$struct".
-
-      Currently <column_definition_list> contains the same schema information
-      (column names and types) as <output_definition_list>, but when/if we
-      allow specifying column OPTIONS as part of CMV statement, this information
-      will be available only in <column_definition_list>. Therefore, consumers
-      are encouraged to read from <column_definition_list> rather than from
-      <output_column_list> to determine the schema, if possible.
-
       <partition_by_list> specifies the partitioning expressions for the
                           materialized view.
       <cluster_by_list> specifies the clustering expressions for the
                         materialized view.
               """,
       fields=[
-          Field(
-              'column_definition_list',
-              'ResolvedColumnDefinition',
-              tag_id=2,
-              vector=True,
-              # This is ignorable for backwards compatibility.
-              ignorable=IGNORABLE),
           Field(
               'partition_by_list',
               'ResolvedExpr',
@@ -8055,15 +8091,51 @@ ResolvedArgumentRef(y)
       ])
 
   gen.AddNode(
+      name='ResolvedAuxLoadDataPartitionFilter',
+      tag_id=222,
+      parent='ResolvedArgument',
+      comment="""
+      Indicates that the LOAD DATA statement will load to or overwrite the
+      selected partitions:
+        [OVERWRITE] PARTITIONS (<filter>)
+              """,
+      fields=[
+          Field(
+              'filter',
+              'ResolvedExpr',
+              tag_id=2,
+              comment="""
+              Expression to find the partitions to load.
+              Scan rows from source file, and fail the query if filter
+              evaluates some rows to false.
+              <filter> is always of type bool.
+              When this expression produces NULL, the query should fail.
+              """),
+          Field(
+              'is_overwrite',
+              SCALAR_BOOL,
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              Indicates whether the load data will append to or overwrite the
+              selected partition.
+              """),
+      ])
+
+  gen.AddNode(
       name='ResolvedAuxLoadDataStmt',
       tag_id=186,
       parent='ResolvedStatement',
       comment="""
-      LOAD DATA {OVERWRITE|INTO} <table_name> ... FROM FILES ...
+      LOAD DATA {OVERWRITE|INTO} [{TEMP|TEMPORARY} TABLE] <table_name>
+      [[OVERWRITE] PARTITIONS(...)] ...
+      FROM FILES ...
         This statement loads an external file to a new or existing table.
         See (broken link).
 
       <insertion_mode> either OVERWRITE or APPEND (INTO) the destination table.
+      <is_temp_table> True if the destination table should be a temporary table.
+        Otherwise, the destination table should be a persistent table.
       <name_path> the table to load data into.
       <output_column_list> the list of visible columns of the destination table.
         If <column_definition_list> is explicitly specified:
@@ -8101,6 +8173,8 @@ ResolvedArgumentRef(y)
       <cluster_by_list> The list of columns to cluster the destination
           table. Similar to <column_definition_list>, it must match the
           destination table's partitioning spec if it already exists.
+      <partition_filter> specifies the destination partition selections and
+          whether load to or overwrite the selected partitions.
       <option_list> the options list describing the destination table.
           If the destination doesn't already exist, it will be created with
           these options; otherwise it must match the existing destination
@@ -8119,11 +8193,17 @@ ResolvedArgumentRef(y)
               """,
       fields=[
           Field('insertion_mode', SCALAR_INSERTION_MODE, tag_id=2),
+          Field('is_temp_table', SCALAR_BOOL, tag_id=17),
           Field(
               'name_path',
               SCALAR_STRING,
               tag_id=3,
               vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'partition_filter',
+              'ResolvedAuxLoadDataPartitionFilter',
+              tag_id=16,
               ignorable=IGNORABLE_DEFAULT),
           Field(
               'output_column_list',
@@ -8205,3 +8285,4 @@ if __name__ == '__main__':
   flags.mark_flag_as_required('input_templates')
   flags.mark_flag_as_required('output_files')
   app.run(main)
+

@@ -118,6 +118,7 @@ absl::Status GetZetaSQLFunctionsAndTypes(
   GetErrorHandlingFunctions(type_factory, options, functions);
   GetConditionalFunctions(type_factory, options, functions);
   GetMiscellaneousFunctions(type_factory, options, functions);
+  GetArrayMiscFunctions(type_factory, options, functions);
   GetArrayAggregationFunctions(type_factory, options, functions);
   GetSubscriptFunctions(type_factory, options, functions);
   GetJSONFunctions(type_factory, options, functions);
@@ -141,11 +142,16 @@ absl::Status GetZetaSQLFunctionsAndTypes(
   if (options.language_options.LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
     GetAnonFunctions(type_factory, options, functions);
   }
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_DIFFERENTIAL_PRIVACY)) {
+    GetDifferentialPrivacyFunctions(type_factory, options, functions, types);
+  }
   GetTypeOfFunction(type_factory, options, functions);
   GetFilterFieldsFunction(type_factory, options, functions);
   if (options.language_options.LanguageFeatureEnabled(FEATURE_RANGE_TYPE)) {
     GetRangeFunctions(type_factory, options, functions);
   }
+  GetArraySlicingFunctions(type_factory, options, functions);
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS)) {
     ZETASQL_RETURN_IF_ERROR(

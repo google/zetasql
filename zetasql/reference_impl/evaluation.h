@@ -35,6 +35,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
 #include "absl/random/random.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
@@ -53,7 +54,7 @@ namespace zetasql {
 //   2. Does not have NULL Values
 //   3. Does not have duplicate Values
 absl::Status ValidateFirstColumnPrimaryKey(
-    const std::string& table_name, const Value& array,
+    absl::string_view table_name, const Value& array,
     const LanguageOptions& language_options);
 
 struct EvaluationOptions {
@@ -132,7 +133,7 @@ class EvaluationContext {
   MemoryAccountant* memory_accountant() { return &memory_accountant_; }
 
   // Returns the contents of table 'table_name' or Value::Invalid().
-  Value GetTableAsArray(const std::string& table_name) {
+  Value GetTableAsArray(absl::string_view table_name) {
     const auto it = tables_.find(table_name);
     if (it != tables_.end()) {
       return it->second;
@@ -141,9 +142,9 @@ class EvaluationContext {
   }
 
   // Makes the given 'array' accessible under 'table_name'.
-  absl::Status AddTableAsArray(const std::string& table_name,
-                                 bool is_value_table, Value array,
-                                 const LanguageOptions& language_options);
+  absl::Status AddTableAsArray(absl::string_view table_name,
+                               bool is_value_table, Value array,
+                               const LanguageOptions& language_options);
 
   // Indicates that the result of evaluation is non-deterministic.
   void SetNonDeterministicOutput() { deterministic_output_ = false; }
@@ -378,7 +379,7 @@ class EvaluationContext {
   const EvaluationOptions options_;
   MemoryAccountant memory_accountant_;
   // Tables added by AddTableAsArray().
-  std::map<std::string, Value> tables_;
+  std::map<std::string, Value, std::less<>> tables_;
 
   const TupleDataDeque* active_group_rows_ = nullptr;
   // Indicates that the result of evaluation is non-deterministic.

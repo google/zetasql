@@ -4,7 +4,7 @@
 
 ZetaSQL supports the following array functions.
 
-### ARRAY
+### `ARRAY`
 
 ```sql
 ARRAY(subquery)
@@ -101,7 +101,70 @@ SELECT ARRAY
 
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
 
-### ARRAY_CONCAT
+### `ARRAY_AVG`
+
+```sql
+ARRAY_AVG(input_array)
+```
+
+**Description**
+
+Returns the average of non-`NULL` values in an array.
+
+Caveats:
+
++ If the array is `NULL`, empty, or contains only `NULL`s, returns
+  `NULL`.
++ If the array contains `NaN`, returns `NaN`.
++ If the array contains `[+|-]Infinity`, returns either `[+|-]Infinity`
+  or `NaN`.
++ If there is numeric overflow, produces an error.
++ If a [floating-point type][floating-point-types] is returned, the result is
+  [non-deterministic][non-deterministic], which means you might receive a
+  different result each time you use this function.
+
+[floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
+
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+
+**Supported Argument Types**
+
+In the input array, `ARRAY<T>`, `T` can represent one of the following
+data types:
+
++ Any numeric input type
++ `INTERVAL`
+
+**Return type**
+
+The return type depends upon `T` in the input array:
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th><th><code>INTERVAL</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>INTERVAL</code></td></tr>
+</tbody>
+
+</table>
+
+**Examples**
+
+```sql
+SELECT ARRAY_AVG([0, 2, NULL, 4, 4, 5]) as avg
+
++-----+
+| avg |
++-----+
+| 3   |
++-----+
+```
+
+### `ARRAY_CONCAT`
 
 ```sql
 ARRAY_CONCAT(array_expression[, ...])
@@ -134,15 +197,15 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
 [array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 
-### ARRAY_FILTER
+### `ARRAY_FILTER`
 
 ```sql
 ARRAY_FILTER(array_expression, lambda_expression)
 
 lambda_expression:
   {
-    element_alias->boolean_expression
-    | (element_alias, index_alias)->boolean_expression
+    element_alias -> boolean_expression
+    | (element_alias, index_alias) -> boolean_expression
   }
 ```
 
@@ -170,19 +233,19 @@ ARRAY
 
 ```sql
 SELECT
-  ARRAY_FILTER([1,2,3], e->e>1) AS a1,
-  ARRAY_FILTER([0,2,3], (e, i)->e>i) AS a2;
+  ARRAY_FILTER([1 ,2, 3], e -> e > 1) AS a1,
+  ARRAY_FILTER([0, 2, 3], (e, i) -> e > i) AS a2;
 
-+-------+-------+
-| a1    | a2    |
-+-------+-------+
-| [2,3] | [2,3] |
-+-------+-------+
+-- +-------+-------+
+-- | a1    | a2    |
+-- +-------+-------+
+-- | [2,3] | [2,3] |
+-- +-------+-------+
 ```
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
-### ARRAY_FIRST
+### `ARRAY_FIRST`
 
 ```sql
 ARRAY_FIRST(array_expression)
@@ -216,7 +279,7 @@ SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 
 [array-last]: #array_last
 
-### ARRAY_INCLUDES
+### `ARRAY_INCLUDES`
 
 +   [Signature 1](#array_includes_signature1):
     `ARRAY_INCLUDES(array_to_search, search_value)`
@@ -251,14 +314,14 @@ array. Then the query checks to see if `1` exists in an array.
 
 ```sql
 SELECT
-  ARRAY_INCLUDES([1,2,3], 0) AS a1,
-  ARRAY_INCLUDES([1,2,3], 1) AS a2;
+  ARRAY_INCLUDES([1, 2, 3], 0) AS a1,
+  ARRAY_INCLUDES([1, 2, 3], 1) AS a2;
 
-+-------+------+
-| a1    | a2   |
-+-------+------+
-| false | true |
-+-------+------+
+-- +-------+------+
+-- | a1    | a2   |
+-- +-------+------+
+-- | false | true |
+-- +-------+------+
 ```
 
 #### Signature 2 
@@ -267,7 +330,7 @@ SELECT
 ```sql
 ARRAY_INCLUDES(array_to_search, lambda_expression)
 
-lambda_expression: element_alias->boolean_expression
+lambda_expression: element_alias -> boolean_expression
 ```
 
 **Description**
@@ -290,24 +353,24 @@ Returns `NULL` if `array_to_search` is `NULL`.
 **Example**
 
 In the following example, the query first checks to see if any elements that are
-greater than 3 exist in an array (`e>3`). Then the query checks to see if any
-any elements that are greater than 0 exist in an array (`e>0`).
+greater than 3 exist in an array (`e > 3`). Then the query checks to see if any
+any elements that are greater than 0 exist in an array (`e > 0`).
 
 ```sql
 SELECT
-  ARRAY_INCLUDES([1,2,3], e->e>3) AS a1,
-  ARRAY_INCLUDES([1,2,3], e->e>0) AS a2;
+  ARRAY_INCLUDES([1, 2, 3], e -> e > 3) AS a1,
+  ARRAY_INCLUDES([1, 2, 3], e -> e > 0) AS a2;
 
-+-------+------+
-| a1    | a2   |
-+-------+------+
-| false | true |
-+-------+------+
+-- +-------+------+
+-- | a1    | a2   |
+-- +-------+------+
+-- | false | true |
+-- +-------+------+
 ```
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
-### ARRAY_INCLUDES_ANY
+### `ARRAY_INCLUDES_ANY`
 
 ```sql
 ARRAY_INCLUDES_ANY(array_to_search, search_values)
@@ -346,7 +409,7 @@ SELECT
 +------+-------+
 ```
 
-### ARRAY_INCLUDES_ALL
+### `ARRAY_INCLUDES_ALL`
 
 ```sql
 ARRAY_INCLUDES_ALL(array_to_search, search_values)
@@ -385,7 +448,7 @@ SELECT
 +------+-------+
 ```
 
-### ARRAY_LAST
+### `ARRAY_LAST`
 
 ```sql
 ARRAY_LAST(array_expression)
@@ -419,7 +482,7 @@ SELECT ARRAY_LAST(['a','b','c','d']) as last_element
 
 [array-first]: #array_first
 
-### ARRAY_LENGTH
+### `ARRAY_LENGTH`
 
 ```sql
 ARRAY_LENGTH(array_expression)
@@ -453,7 +516,85 @@ ORDER BY size DESC;
 +--------------------+------+
 ```
 
-### ARRAY_SLICE
+### `ARRAY_MAX`
+
+```sql
+ARRAY_MAX(input_array)
+```
+
+**Description**
+
+Returns the maximum non-`NULL` value in an array.
+
+Caveats:
+
++ If the array is `NULL`, empty, or contains only `NULL`s, returns
+  `NULL`.
++ If the array contains `NaN`, returns `NaN`.
+
+**Supported Argument Types**
+
+In the input array, `ARRAY<T>`, `T` can be an
+[orderable data type][data-type-properties].
+
+**Return type**
+
+The same data type as `T` in the input array.
+
+**Examples**
+
+```sql
+SELECT ARRAY_MAX([8, 37, NULL, 55, 4]) as max
+
++-----+
+| max |
++-----+
+| 55  |
++-----+
+```
+
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+### `ARRAY_MIN`
+
+```sql
+ARRAY_MIN(input_array)
+```
+
+**Description**
+
+Returns the minimum non-`NULL` value in an array.
+
+Caveats:
+
++ If the array is `NULL`, empty, or contains only `NULL`s, returns
+  `NULL`.
++ If the array contains `NaN`, returns `NaN`.
+
+**Supported Argument Types**
+
+In the input array, `ARRAY<T>`, `T` can be an
+[orderable data type][data-type-properties].
+
+**Return type**
+
+The same data type as `T` in the input array.
+
+**Examples**
+
+```sql
+SELECT ARRAY_MIN([8, 37, NULL, 4, 55]) as min
+
++-----+
+| min |
++-----+
+| 4   |
++-----+
+```
+
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+### `ARRAY_SLICE`
 
 ```sql
 ARRAY_SLICE(array_to_slice, start_offset, end_offset)
@@ -694,7 +835,69 @@ SELECT ARRAY_SLICE(['a', 'b', NULL, 'd', 'e'], 1, 3) AS result
 +--------------+
 ```
 
-### ARRAY_TO_STRING
+### `ARRAY_SUM`
+
+```sql
+ARRAY_SUM(input_array)
+```
+
+**Description**
+
+Returns the sum of non-`NULL` values in an array.
+
+Caveats:
+
++ If the array is `NULL`, empty, or contains only `NULL`s, returns
+  `NULL`.
++ If the array contains `NaN`, returns `NaN`.
++ If the array contains `[+|-]Infinity`, returns either `[+|-]Infinity`
+  or `NaN`.
++ If there is numeric overflow, produces an error.
++ If a [floating-point type][floating-point-types] is returned, the result is
+  [non-deterministic][non-deterministic], which means you might receive a
+  different result each time you use this function.
+
+[floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
+
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+
+**Supported Argument Types**
+
+In the input array, `ARRAY<T>`, `T` can represent:
+
++ Any supported numeric data type
++ `INTERVAL`
+
+**Return type**
+
+The return type depends upon `T` in the input array:
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th><th><code>INTERVAL</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>INTERVAL</code></td></tr>
+</tbody>
+
+</table>
+
+**Examples**
+
+```sql
+SELECT ARRAY_SUM([1, 2, 3, 4, 5, NULL, 4, 3, 2, 1]) as sum
+
++-----+
+| sum |
++-----+
+| 25  |
++-----+
+```
+
+### `ARRAY_TO_STRING`
 
 ```sql
 ARRAY_TO_STRING(array_expression, delimiter[, null_text])
@@ -753,15 +956,15 @@ FROM items;
 +--------------------------------+
 ```
 
-### ARRAY_TRANSFORM
+### `ARRAY_TRANSFORM`
 
 ```sql
 ARRAY_TRANSFORM(array_expression, lambda_expression)
 
 lambda_expression:
   {
-    element_alias->transform_expression
-    | (element_alias, index_alias)->transform_expression
+    element_alias -> transform_expression
+    | (element_alias, index_alias) -> transform_expression
   }
 ```
 
@@ -789,19 +992,19 @@ Returns `NULL` if the `array_expression` is `NULL`.
 
 ```sql
 SELECT
-  ARRAY_TRANSFORM([1,2,3], e->e+1) AS a1,
-  ARRAY_TRANSFORM([1,2,3], (e, i)->e+i) AS a2;
+  ARRAY_TRANSFORM([1, 2, 3], e -> e + 1) AS a1,
+  ARRAY_TRANSFORM([1, 2, 3], (e, i) -> e + i) AS a2;
 
-+---------+---------+
-| a1      | a2      |
-+---------+---------+
-| [2,3,4] | [1,3,5] |
-+---------+---------+
+-- +---------+---------+
+-- | a1      | a2      |
+-- +---------+---------+
+-- | [2,3,4] | [1,3,5] |
+-- +---------+---------+
 ```
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
-### FLATTEN
+### `FLATTEN`
 
 ```sql
 FLATTEN(array_elements_field_access_expression)
@@ -895,7 +1098,7 @@ For more examples, including how to use protocol buffers with `FLATTEN`, see the
 
 [array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
 
-### GENERATE_ARRAY
+### `GENERATE_ARRAY`
 
 ```sql
 GENERATE_ARRAY(start_expression, end_expression[, step_expression])
@@ -1017,7 +1220,7 @@ FROM UNNEST([3, 4, 5]) AS start;
 +---------------+
 ```
 
-### GENERATE_DATE_ARRAY
+### `GENERATE_DATE_ARRAY`
 
 ```sql
 GENERATE_DATE_ARRAY(start_date, end_date[, INTERVAL INT64_expr date_part])
@@ -1160,7 +1363,7 @@ FROM (
 +--------------------------------------------------------------+
 ```
 
-### GENERATE_TIMESTAMP_ARRAY
+### `GENERATE_TIMESTAMP_ARRAY`
 
 ```sql
 GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp,
@@ -1304,7 +1507,7 @@ FROM
 +--------------------------------------------------------------------------+
 ```
 
-### ARRAY_REVERSE
+### `ARRAY_REVERSE`
 
 ```sql
 ARRAY_REVERSE(value)
@@ -1340,7 +1543,7 @@ FROM example;
 +-----------+-------------+
 ```
 
-### ARRAY_IS_DISTINCT
+### `ARRAY_IS_DISTINCT`
 
 ```sql
 ARRAY_IS_DISTINCT(value)

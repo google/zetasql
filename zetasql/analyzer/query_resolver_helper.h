@@ -295,7 +295,7 @@ class SelectColumnStateList {
   // <expr_resolution_info>.
   absl::Status FindAndValidateSelectColumnStateByOrdinal(
       const std::string& expr_description, const ASTNode* ast_location,
-      const int64_t ordinal, const ExprResolutionInfo* expr_resolution_info,
+      int64_t ordinal, const ExprResolutionInfo* expr_resolution_info,
       const SelectColumnState** select_column_state) const;
 
   static absl::Status ValidateAggregateAndAnalyticSupport(
@@ -576,7 +576,6 @@ class QueryResolutionInfo {
   void set_has_group_by(bool has_group_by) {
     group_by_info_.has_group_by = has_group_by;
   }
-  bool has_group_by() const { return group_by_info_.has_group_by; }
 
   void set_select_with_mode(SelectWithMode select_with_mode) {
     select_with_mode_ = select_with_mode;
@@ -585,10 +584,8 @@ class QueryResolutionInfo {
   SelectWithMode select_with_mode() const { return select_with_mode_; }
 
   void set_has_having(bool has_having) { has_having_ = has_having; }
-  bool has_having() const { return has_having_; }
 
   void set_has_order_by(bool has_order_by) { has_order_by_ = has_order_by; }
-  bool has_order_by() const { return has_order_by_; }
 
   bool HasHavingOrOrderBy() const { return has_having_ || has_order_by_; }
 

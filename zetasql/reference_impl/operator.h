@@ -194,8 +194,7 @@ class CppValueArg : public AlgebraArg {
  public:
   // Represents a variable holding a C++ value, along with a debug string
   // describing the value (the actual value is later via CreateValue()).
-  CppValueArg(const VariableId variable,
-              const absl::string_view value_debug_string);
+  CppValueArg(VariableId variable, absl::string_view value_debug_string);
   CppValueArg(const CppValueArg&) = delete;
   CppValueArg& operator=(const CppValueArg&) = delete;
 
@@ -667,7 +666,7 @@ class AggregateArg final : public ExprArg {
       std::vector<std::unique_ptr<ValueExpr>> arguments = {},
       Distinctness distinct = kAll,
       std::unique_ptr<ValueExpr> having_expr = nullptr,
-      const HavingModifierKind having_modifier_kind = kHavingNone,
+      HavingModifierKind having_modifier_kind = kHavingNone,
       std::vector<std::unique_ptr<KeyArg>> order_by_keys = {},
       std::unique_ptr<ValueExpr> limit = nullptr,
       std::unique_ptr<RelationalOp> group_rows_subquery = {},
@@ -699,7 +698,7 @@ class AggregateArg final : public ExprArg {
   AggregateArg(const VariableId& variable,
                std::unique_ptr<AggregateFunctionCallExpr> function,
                Distinctness distinct, std::unique_ptr<ValueExpr> having_expr,
-               const HavingModifierKind having_modifier_kind,
+               HavingModifierKind having_modifier_kind,
                std::vector<std::unique_ptr<KeyArg>> order_by_keys,
                std::unique_ptr<ValueExpr> limit,
                std::unique_ptr<RelationalOp> group_rows_subquery,
@@ -3145,6 +3144,17 @@ class IsErrorExpr final : public ValueExpr {
   const ValueExpr* try_value() const;
   ValueExpr* mutable_try_value();
 };
+
+// Operator backing TYPEOF. This can't be a "normal" function because its
+// argument is not evaluated. "Normal" reference implementation functions
+// evaluate arguments before entering function specific logic.
+absl::StatusOr<std::unique_ptr<ValueExpr>> CreateTypeofExpr(
+    std::vector<std::unique_ptr<ValueExpr>> args);
+
+// Operator backing NULLIFERROR. It is not a regular function since its inputs
+// cannot be evaluated before evaluating the operator.
+absl::StatusOr<std::unique_ptr<ValueExpr>> CreateNullIfErrorExpr(
+    std::vector<std::unique_ptr<ValueExpr>> args);
 
 // Let operator creates local variables in value expressions and can be used to
 // eliminate common subexpressions. It is equivalent to applying a lambda

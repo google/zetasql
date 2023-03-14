@@ -132,8 +132,8 @@ Value NullableInt(const std::string& proto_str);
 // the 'value' field of the wrapper message.
 template <typename Wrapper>
 Value Proto3Wrapper(
-    const typename std::result_of<
-        functions::internal::ValidWrapperConversions(Wrapper)>::type& input) {
+    const typename std::invoke_result<
+        functions::internal::ValidWrapperConversions, Wrapper>::type& input) {
   Wrapper proto3_wrapper;
   proto3_wrapper.set_value(input);
   const ProtoType* wrapper_type;

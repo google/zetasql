@@ -10,7 +10,7 @@ a multi-statement query to:
 + Automate management tasks such as creating or dropping tables.
 + Implement complex logic using programming constructs such as `IF` and `WHILE`.
 
-## DECLARE {: notranslate }
+## `DECLARE`
 
 <pre class="lang-sql prettyprint">
 DECLARE variable_name[, ...] [variable_type] [DEFAULT expression];
@@ -74,7 +74,7 @@ from the table schema.
 DECLARE item DEFAULT (SELECT item FROM schema1.products LIMIT 1);
 </pre>
 
-## SET {: notranslate }
+## `SET`
 
 **Syntax**
 
@@ -138,7 +138,7 @@ This statement list outputs the following string:
 Found 151 occurrences of "methinks" across 38 Shakespeare works
 ```
 
-## EXECUTE IMMEDIATE {: notranslate }
+## `EXECUTE IMMEDIATE`
 
 **Syntax**
 
@@ -263,7 +263,8 @@ EXECUTE IMMEDIATE "SELECT publish_date FROM Books LIMIT 1" INTO first_date;
 +------------------+------------------+
 ```
 
-## BEGIN...END {: #begin notranslate }
+## `BEGIN...END` 
+<a id="begin"></a>
 
 **Syntax**
 
@@ -308,7 +309,7 @@ END;
 SELECT x;
 </pre>
 
-## BEGIN...EXCEPTION...END {: notranslate }
+## `BEGIN...EXCEPTION...END`
 
 **Syntax**
 
@@ -373,7 +374,7 @@ EXCEPTION WHEN ERROR THEN
 END;
 </pre>
 
-## CASE {: notranslate }
+## `CASE`
 
 **Syntax**
 
@@ -416,7 +417,7 @@ CASE
 END CASE;
 </pre>
 
-## CASE search_expression {: notranslate }
+## `CASE search_expression`
 
 **Syntax**
 
@@ -459,7 +460,7 @@ CASE product_id
 END CASE;
 </pre>
 
-## IF {: notranslate }
+## `IF`
 
 **Syntax**
 
@@ -711,7 +712,7 @@ END;
 
 ## Loops
 
-### LOOP {: notranslate }
+### `LOOP`
 
 **Syntax**
 
@@ -760,7 +761,7 @@ This example outputs the following:
 +----+
 ```
 
-### REPEAT {: notranslate }
+### `REPEAT`
 
 **Syntax**
 
@@ -821,7 +822,7 @@ This example outputs the following:
 +---+
 ```
 
-### WHILE {: notranslate }
+### `WHILE`
 
 **Syntax**
 
@@ -844,7 +845,7 @@ means `WHILE` cannot be nested in an `EXECUTE IMMEDIATE` statement.
 
 You can use a label with this statement. To learn more, see [Labels][labels].
 
-### BREAK {: notranslate }
+### `BREAK`
 
 **Syntax**
 
@@ -884,11 +885,11 @@ END <span class="kwd">LOOP</span>;
 SELECT CONCAT(CAST(heads_count AS STRING), ' heads in a row');
 </pre>
 
-### LEAVE {: notranslate }
+### `LEAVE`
 
 Synonym for [`BREAK`][break].
 
-### CONTINUE {: notranslate }
+### `CONTINUE`
 
 **Syntax**
 
@@ -930,11 +931,12 @@ END <span class="kwd">LOOP</span>;
 SELECT CONCAT(CAST(heads_count AS STRING), ' heads in a row');
 </pre>
 
-### ITERATE {: notranslate }
+### `ITERATE`
 
 Synonym for [`CONTINUE`][continue].
 
-### FOR...IN {: notranslate #for-in }
+### `FOR...IN` 
+<a id="for-in"></a>
 
 **Syntax**
 
@@ -978,7 +980,7 @@ END FOR;
 
 ## Transactions
 
-### BEGIN TRANSACTION
+### `BEGIN TRANSACTION`
 
 **Syntax**
 
@@ -1026,7 +1028,7 @@ DROP TABLE tmp;
 COMMIT TRANSACTION;
 </pre>
 
-### COMMIT TRANSACTION
+### `COMMIT TRANSACTION`
 
 **Syntax**
 
@@ -1049,7 +1051,7 @@ BEGIN TRANSACTION;
 COMMIT TRANSACTION;
 </pre>
 
-### ROLLBACK TRANSACTION
+### `ROLLBACK TRANSACTION`
 
 **Syntax**
 
@@ -1086,7 +1088,7 @@ EXCEPTION WHEN ERROR THEN
 END;
 </pre>
 
-## RAISE {: notranslate }
+## `RAISE`
 
 **Syntax**
 
@@ -1117,11 +1119,11 @@ If the `RAISE` statement is not contained within the `BEGIN` section of a
 `BEGIN...EXCEPTION` block, the `RAISE` statement will stop execution of the
 multi-statement query with the error message supplied.
 
-## RETURN {: notranslate }
+## `RETURN`
 
 `RETURN` stops execution of the multi-statements query.
 
-## CALL {: notranslate }
+## `CALL`
 
 **Syntax**
 

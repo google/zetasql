@@ -11,12 +11,11 @@
 (select 1)
 --
 QueryStatement [0-10] [(select 1)]
-  Query [0-10] [(select 1)]
-    Query [1-9] [select 1]
-      Select [1-9] [select 1]
-        SelectList [8-9] [1]
-          SelectColumn [8-9] [1]
-            IntLiteral(1) [8-9] [1]
+  Query [1-9] [select 1]
+    Select [1-9] [select 1]
+      SelectList [8-9] [1]
+        SelectColumn [8-9] [1]
+          IntLiteral(1) [8-9] [1]
 --
 (
 SELECT
@@ -27,20 +26,16 @@ SELECT
 ((((select 1))))
 --
 QueryStatement [0-16] [((((select 1))))]
-  Query [0-16] [((((select 1))))]
-    Query [1-15] [(((select 1)))]
-      Query [2-14] [((select 1))]
-        Query [3-13] [(select 1)]
-          Query [4-12] [select 1]
-            Select [4-12] [select 1]
-              SelectList [11-12] [1]
-                SelectColumn [11-12] [1]
-                  IntLiteral(1) [11-12] [1]
+  Query [4-12] [select 1]
+    Select [4-12] [select 1]
+      SelectList [11-12] [1]
+        SelectColumn [11-12] [1]
+          IntLiteral(1) [11-12] [1]
 --
-((((
+(
 SELECT
   1
-))))
+)
 ==
 
 (select 1) limit 1
@@ -66,19 +61,18 @@ LIMIT 1
 (((select 1) limit 3) order by 1 desc)
 --
 QueryStatement [0-38] [(((select...by 1 desc)]
-  Query [0-38] [(((select...by 1 desc)]
-    Query [1-37] [((select 1...by 1 desc]
-      Query [2-20] [(select 1) limit 3]
-        Query [3-11] [select 1]
-          Select [3-11] [select 1]
-            SelectList [10-11] [1]
-              SelectColumn [10-11] [1]
-                IntLiteral(1) [10-11] [1]
-        LimitOffset [13-20] [limit 3]
-          IntLiteral(3) [19-20] [3]
-      OrderBy [22-37] [order by 1 desc]
-        OrderingExpression(DESC) [31-37] [1 desc]
-          IntLiteral(1) [31-32] [1]
+  Query [1-37] [((select 1...by 1 desc]
+    Query [2-20] [(select 1) limit 3]
+      Query [3-11] [select 1]
+        Select [3-11] [select 1]
+          SelectList [10-11] [1]
+            SelectColumn [10-11] [1]
+              IntLiteral(1) [10-11] [1]
+      LimitOffset [13-20] [limit 3]
+        IntLiteral(3) [19-20] [3]
+    OrderBy [22-37] [order by 1 desc]
+      OrderingExpression(DESC) [31-37] [1 desc]
+        IntLiteral(1) [31-32] [1]
 --
 (((
 SELECT
@@ -91,30 +85,41 @@ ORDER BY 1 DESC)
 ((select 1) union all (select 2 union all (select 3 union all select 4)))
 --
 QueryStatement [0-73] [((select 1...select 4)))]
-  Query [0-73] [((select 1...select 4)))]
-    Query [1-72] [(select 1)...select 4))]
-      SetOperation(UNION ALL) [1-72] [(select 1)...select 4))]
-        Query [2-10] [select 1]
-          Select [2-10] [select 1]
-            SelectList [9-10] [1]
-              SelectColumn [9-10] [1]
-                IntLiteral(1) [9-10] [1]
-        Query [23-71] [select 2 union...select 4)]
-          SetOperation(UNION ALL) [23-71] [select 2 union...select 4)]
-            Select [23-31] [select 2]
-              SelectList [30-31] [2]
-                SelectColumn [30-31] [2]
-                  IntLiteral(2) [30-31] [2]
-            Query [43-70] [select 3 union all select 4]
-              SetOperation(UNION ALL) [43-70] [select 3 union all select 4]
-                Select [43-51] [select 3]
-                  SelectList [50-51] [3]
-                    SelectColumn [50-51] [3]
-                      IntLiteral(3) [50-51] [3]
-                Select [62-70] [select 4]
-                  SelectList [69-70] [4]
-                    SelectColumn [69-70] [4]
-                      IntLiteral(4) [69-70] [4]
+  Query [1-72] [(select 1)...select 4))]
+    SetOperation(UNION ALL) [1-72] [(select 1)...select 4))]
+      SetOperationMetadataList [12-21] [union all]
+        SetOperationMetadata [12-21] [union all]
+          SetOperationType [12-17] [union]
+          ASTSetOperationAllOrDistinct [18-21] [all]
+      Query [2-10] [select 1]
+        Select [2-10] [select 1]
+          SelectList [9-10] [1]
+            SelectColumn [9-10] [1]
+              IntLiteral(1) [9-10] [1]
+      Query [23-71] [select 2 union...select 4)]
+        SetOperation(UNION ALL) [23-71] [select 2 union...select 4)]
+          SetOperationMetadataList [32-41] [union all]
+            SetOperationMetadata [32-41] [union all]
+              SetOperationType [32-37] [union]
+              ASTSetOperationAllOrDistinct [38-41] [all]
+          Select [23-31] [select 2]
+            SelectList [30-31] [2]
+              SelectColumn [30-31] [2]
+                IntLiteral(2) [30-31] [2]
+          Query [43-70] [select 3 union all select 4]
+            SetOperation(UNION ALL) [43-70] [select 3 union all select 4]
+              SetOperationMetadataList [52-61] [union all]
+                SetOperationMetadata [52-61] [union all]
+                  SetOperationType [52-57] [union]
+                  ASTSetOperationAllOrDistinct [58-61] [all]
+              Select [43-51] [select 3]
+                SelectList [50-51] [3]
+                  SelectColumn [50-51] [3]
+                    IntLiteral(3) [50-51] [3]
+              Select [62-70] [select 4]
+                SelectList [69-70] [4]
+                  SelectColumn [69-70] [4]
+                    IntLiteral(4) [69-70] [4]
 --
 ((
 SELECT
@@ -138,6 +143,10 @@ limit 10
 QueryStatement [0-84] [(select 1...1 limit 10]
   Query [0-84] [(select 1...1 limit 10]
     SetOperation(UNION ALL) [0-64] [(select 1...order by 1)]
+      SetOperationMetadataList [26-35] [union all]
+        SetOperationMetadata [26-35] [union all]
+          SetOperationType [26-31] [union]
+          ASTSetOperationAllOrDistinct [32-35] [all]
       Query [1-24] [select 1 from x limit 1]
         Select [1-16] [select 1 from x]
           SelectList [8-9] [1]
@@ -292,6 +301,10 @@ QueryStatement [0-41] [select  ((...select 2))]
           ExpressionSubquery [8-41] [((select 1...select 2))]
             Query [9-40] [(select 1)...(select 2)]
               SetOperation(UNION ALL) [9-40] [(select 1)...(select 2)]
+                SetOperationMetadataList [20-29] [union all]
+                  SetOperationMetadata [20-29] [union all]
+                    SetOperationType [20-25] [union]
+                    ASTSetOperationAllOrDistinct [26-29] [all]
                 Query [10-18] [select 1]
                   Select [10-18] [select 1]
                     SelectList [17-18] [1]
@@ -322,6 +335,10 @@ QueryStatement [0-46] [select ARRAY...select 2))]
           ExpressionSubquery(modifier=ARRAY) [7-46] [ARRAY ((select...select 2))]
             Query [14-45] [(select 1)...(select 2)]
               SetOperation(UNION ALL) [14-45] [(select 1)...(select 2)]
+                SetOperationMetadataList [25-34] [union all]
+                  SetOperationMetadata [25-34] [union all]
+                    SetOperationType [25-30] [union]
+                    ASTSetOperationAllOrDistinct [31-34] [all]
                 Query [15-23] [select 1]
                   Select [15-23] [select 1]
                     SelectList [22-23] [1]
@@ -360,12 +377,15 @@ QueryStatement [0-43] [select  ((...select 2))]
           ExpressionSubquery [8-43] [(((select...select 2))]
             Query [9-42] [((select 1...(select 2)]
               SetOperation(UNION ALL) [9-42] [((select 1...(select 2)]
-                Query [10-20] [(select 1)]
-                  Query [11-19] [select 1]
-                    Select [11-19] [select 1]
-                      SelectList [18-19] [1]
-                        SelectColumn [18-19] [1]
-                          IntLiteral(1) [18-19] [1]
+                SetOperationMetadataList [22-31] [union all]
+                  SetOperationMetadata [22-31] [union all]
+                    SetOperationType [22-27] [union]
+                    ASTSetOperationAllOrDistinct [28-31] [all]
+                Query [11-19] [select 1]
+                  Select [11-19] [select 1]
+                    SelectList [18-19] [1]
+                      SelectColumn [18-19] [1]
+                        IntLiteral(1) [18-19] [1]
                 Query [33-41] [select 2]
                   Select [33-41] [select 2]
                     SelectList [40-41] [2]
@@ -373,10 +393,10 @@ QueryStatement [0-43] [select  ((...select 2))]
                         IntLiteral(2) [40-41] [2]
 --
 SELECT
-  (((
+  ((
     SELECT
       1
-    )) UNION ALL(
+    ) UNION ALL(
     SELECT
       2
     ))
@@ -391,12 +411,15 @@ QueryStatement [0-48] [select ARRAY...select 2))]
           ExpressionSubquery(modifier=ARRAY) [7-48] [ARRAY (((select...select 2))]
             Query [14-47] [((select 1...(select 2)]
               SetOperation(UNION ALL) [14-47] [((select 1...(select 2)]
-                Query [15-25] [(select 1)]
-                  Query [16-24] [select 1]
-                    Select [16-24] [select 1]
-                      SelectList [23-24] [1]
-                        SelectColumn [23-24] [1]
-                          IntLiteral(1) [23-24] [1]
+                SetOperationMetadataList [27-36] [union all]
+                  SetOperationMetadata [27-36] [union all]
+                    SetOperationType [27-32] [union]
+                    ASTSetOperationAllOrDistinct [33-36] [all]
+                Query [16-24] [select 1]
+                  Select [16-24] [select 1]
+                    SelectList [23-24] [1]
+                      SelectColumn [23-24] [1]
+                        IntLiteral(1) [23-24] [1]
                 Query [38-46] [select 2]
                   Select [38-46] [select 2]
                     SelectList [45-46] [2]
@@ -404,10 +427,10 @@ QueryStatement [0-48] [select ARRAY...select 2))]
                         IntLiteral(2) [45-46] [2]
 --
 SELECT
-  ARRAY(((
+  ARRAY((
     SELECT
       1
-    )) UNION ALL(
+    ) UNION ALL(
     SELECT
       2
     ))
@@ -717,19 +740,17 @@ QueryStatement [0-26] [select ARRAY(((select 1)))]
       SelectList [7-26] [ARRAY(((select 1)))]
         SelectColumn [7-26] [ARRAY(((select 1)))]
           ExpressionSubquery(modifier=ARRAY) [7-26] [ARRAY(((select 1)))]
-            Query [13-25] [((select 1))]
-              Query [14-24] [(select 1)]
-                Query [15-23] [select 1]
-                  Select [15-23] [select 1]
-                    SelectList [22-23] [1]
-                      SelectColumn [22-23] [1]
-                        IntLiteral(1) [22-23] [1]
+            Query [15-23] [select 1]
+              Select [15-23] [select 1]
+                SelectList [22-23] [1]
+                  SelectColumn [22-23] [1]
+                    IntLiteral(1) [22-23] [1]
 --
 SELECT
-  ARRAY(((
+  ARRAY((
     SELECT
       1
-    )))
+    ))
 ==
 
 select *
@@ -743,21 +764,18 @@ QueryStatement [0-28] [select * from (((select 1)))]
           Star(*) [7-8] [*]
       FromClause [9-28] [from (((select 1)))]
         TableSubquery [14-28] [(((select 1)))]
-          Query [15-27] [((select 1))]
-            Query [16-26] [(select 1)]
-              Query [17-25] [select 1]
-                Select [17-25] [select 1]
-                  SelectList [24-25] [1]
-                    SelectColumn [24-25] [1]
-                      IntLiteral(1) [24-25] [1]
+          Query [17-25] [select 1]
+            Select [17-25] [select 1]
+              SelectList [24-25] [1]
+                SelectColumn [24-25] [1]
+                  IntLiteral(1) [24-25] [1]
 --
 SELECT
   *
 FROM
-  (((
+  (
     SELECT
       1
-    ))
   )
 ==
 
@@ -774,12 +792,15 @@ QueryStatement [0-49] [select * from...select 2))]
         TableSubquery [14-49] [(((select...select 2))]
           Query [15-48] [((select 1...(select 2)]
             SetOperation(UNION ALL) [15-48] [((select 1...(select 2)]
-              Query [16-26] [(select 1)]
-                Query [17-25] [select 1]
-                  Select [17-25] [select 1]
-                    SelectList [24-25] [1]
-                      SelectColumn [24-25] [1]
-                        IntLiteral(1) [24-25] [1]
+              SetOperationMetadataList [28-37] [union all]
+                SetOperationMetadata [28-37] [union all]
+                  SetOperationType [28-33] [union]
+                  ASTSetOperationAllOrDistinct [34-37] [all]
+              Query [17-25] [select 1]
+                Select [17-25] [select 1]
+                  SelectList [24-25] [1]
+                    SelectColumn [24-25] [1]
+                      IntLiteral(1) [24-25] [1]
               Query [39-47] [select 2]
                 Select [39-47] [select 2]
                   SelectList [46-47] [2]
@@ -789,10 +810,10 @@ QueryStatement [0-49] [select * from...select 2))]
 SELECT
   *
 FROM
-  (((
+  ((
     SELECT
       1
-    )) UNION ALL(
+    ) UNION ALL(
     SELECT
       2
     )
@@ -890,3 +911,4 @@ FROM
     )
     USING(x)
   )
+==

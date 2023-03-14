@@ -553,13 +553,7 @@ class ScriptExecutorOptions {
   void set_dry_run(bool dry_run) { dry_run_ = dry_run; }
 
   absl::TimeZone default_time_zone() const { return default_time_zone_; }
-  void set_default_time_zone(absl::TimeZone time_zone) {
-    default_time_zone_ = time_zone;
-  }
   const LanguageOptions& language_options() const { return language_options_; }
-  void set_language_options(const LanguageOptions& language_options) {
-    language_options_ = language_options;
-  }
   const SystemVariablesMap& engine_owned_system_variables() const {
     return engine_owned_system_variables_;
   }
@@ -571,9 +565,6 @@ class ScriptExecutorOptions {
   const ParsedScript::QueryParameters& query_parameters() const {
     return query_parameters_;
   }
-  void set_query_parameters(ParsedScript::QueryParameters query_parameters) {
-    query_parameters_ = std::move(query_parameters);
-  }
 
   const VariableWithTypeParameterMap& script_variables() const {
     return script_variables_;
@@ -583,9 +574,6 @@ class ScriptExecutorOptions {
   }
 
   ErrorMessageMode error_message_mode() const { return error_message_mode_; }
-  void set_error_message_mode(ErrorMessageMode error_message_mode) {
-    error_message_mode_ = error_message_mode;
-  }
 
   const MemoryLimitOptions& variable_size_limit_options() const {
     return variable_size_limit_options_;

@@ -4,7 +4,7 @@
 
 ZetaSQL supports statements for privileges.
 
-## GRANT and REVOKE
+## `GRANT` and `REVOKE`
 
 ```
 GRANT privileges ON [object_type] object TO grantees;

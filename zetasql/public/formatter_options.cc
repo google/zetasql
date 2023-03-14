@@ -16,6 +16,10 @@
 
 #include "zetasql/public/formatter_options.h"
 
+#include <string>
+
+#include "zetasql/public/formatter_options.pb.h"
+
 namespace zetasql {
 
 FormatterOptions::FormatterOptions(const FormatterOptionsProto& proto)

@@ -21,7 +21,7 @@ headers, protos and other files from templates.
 
 """
 
-import collections
+import collections.abc
 import enum
 import operator
 import re
@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 368
+NEXT_NODE_TAG_ID = 389
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -170,6 +170,9 @@ SCALAR_MODIFIER_KIND = EnumScalarType('ModifierKind', 'ASTHavingModifier',
                                       'MAX')
 SCALAR_OPERATION_TYPE = EnumScalarType('OperationType', 'ASTSetOperation',
                                        'NOT_SET')
+SCALAR_ALL_OR_DISTINCT = EnumScalarType(
+    'AllOrDistinct', 'ASTSetOperation', 'ALL'
+)
 
 SCALAR_UNARY_OP = EnumScalarType('Op', 'ASTUnaryExpression', 'NOT_SET')
 
@@ -344,6 +347,7 @@ def Field(name,
                                                         'scalar field %s' %
                                                         name)
     cpp_default = ctype.cpp_default
+    is_node_type = False
     is_node_ptr = False
     node_kind = None
     element_storage_type = None
@@ -365,6 +369,7 @@ def Field(name,
       java_type = ctype.java_type
     full_java_type = java_type
   else:
+    is_node_type = True
     is_enum = False
     enum_value = None
     element_storage_type = 'const %s*' % ctype
@@ -395,6 +400,7 @@ def Field(name,
       'javadoc': JavaDoc(comment, indent=4),
       'member_type': member_type,
       'is_node_ptr': is_node_ptr,
+      'is_node_vector': is_node_type and is_vector,
       'field_loader': field_loader.name,
       'node_kind': node_kind,
       'is_vector': is_vector,
@@ -820,18 +826,6 @@ def main(argv):
                 True if this query represents the input to a pivot clause.
                 """)
       ],
-      extra_public_defs="""
-  bool IsTrivialWrapperQuery() const {
-    return !is_nested() &&
-      !is_pivot_input() &&
-      !with_clause() && // Clauses will never be set while in the parser.
-      !order_by() &&
-      !limit_offset() &&
-      ((query_expr() && query_expr()->node_kind() == AST_QUERY) ||
-       (num_children() == 1 && // While parsing, clauses are in the children.
-        child(0)->node_kind() == AST_QUERY));
-  }
-  """,
       use_custom_debug_string=True)
 
   gen.AddNode(
@@ -1449,7 +1443,7 @@ def main(argv):
       ])
 
   gen.AddNode(
-      name='ASTWithClauseEntry',
+      name='ASTAliasedQuery',
       tag_id=33,
       parent='ASTNode',
       fields=[
@@ -1457,13 +1451,16 @@ def main(argv):
               'alias',
               'ASTIdentifier',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
           Field(
               'query',
               'ASTQuery',
               tag_id=3,
-              field_loader=FieldLoaderMethod.REQUIRED)
-      ])
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTJoin',
@@ -1595,15 +1592,13 @@ def main(argv):
       fields=[
           Field(
               'with',
-              'ASTWithClauseEntry',
+              'ASTAliasedQuery',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
-          Field(
-              'recursive',
-              SCALAR_BOOL,
-              tag_id=3)
-
-      ])
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+          Field('recursive', SCALAR_BOOL, tag_id=3),
+      ],
+  )
 
   gen.AddNode(
       name='ASTHaving',
@@ -2573,32 +2568,145 @@ def main(argv):
       parent='ASTQueryExpression',
       use_custom_debug_string=True,
       fields=[
-          Field(
-              'hint',
-              'ASTHint',
-              tag_id=2),
+          Field('hint', 'ASTHint', tag_id=2, gen_setters_and_getters=False),
           Field(
               'inputs',
               'ASTQueryExpression',
               tag_id=3,
-              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
           Field(
               'op_type',
               SCALAR_OPERATION_TYPE,
-              tag_id=4),
+              tag_id=4,
+              gen_setters_and_getters=False,
+          ),
           Field(
-              'distinct',
-              SCALAR_BOOL,
-              tag_id=5),
+              'distinct', SCALAR_BOOL, tag_id=5, gen_setters_and_getters=False
+          ),
+          Field(
+              'metadata',
+              'ASTSetOperationMetadataList',
+              tag_id=6,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+      init_fields_order=[
+          'hint',
+          'metadata',
+          'inputs',
       ],
       extra_public_defs="""
+  // Returns the pair of <set operation type, distinct>, e.g. <UNION, ALL>,
+  // <EXCEPT, DISTINCT>.
+  // For the `ASTSetOperation` structure that supports multiple set
+  // operations), returns the <operation type, distinct'ness> of the first set
+  // operation.
+  ABSL_DEPRECATED("Use `metadata()` to get `op_type` and `all_or_distinct` instead")
   std::pair<std::string, std::string> GetSQLForOperationPair() const;
 
   // Returns the SQL keywords for the underlying set operation eg. UNION ALL,
   // UNION DISTINCT, EXCEPT ALL, INTERSECT DISTINCT etc.
+  ABSL_DEPRECATED("Use `metadata()` to get `op_type` and `all_or_distinct` instead")
   std::string GetSQLForOperation() const;
-      """
-      )
+
+  // Returns the hint of the set operation.
+  // For the legacy `ASTSetOperation` structure supporting only one hint, it
+  // returns the hint, if present; For the `ASTSetOperation` supporting multiple
+  // set operation metadata, it returns the hint of the first set operation.
+  ABSL_DEPRECATED("Use `metadata()` to get `hint` for each set operation.")
+  const ASTHint* hint() const;
+
+  // For the legacy `ASTSetOperation` supporting only one `all_or_distinct`,
+  // returns whether the set operation is distinct; for the ASTSetOperation
+  // structure supporting multiple set operations, returns the distinct'ness of
+  // the first set operation.
+  ABSL_DEPRECATED("Use `metadata()` to get `all_or_distinct` for each set operation.")
+  bool distinct() const;
+
+  ABSL_DEPRECATED("Setter for the legacy field `distinct_`. Do not use.")
+  void set_distinct(bool distinct) { distinct_ = distinct; }
+
+  // For the legacy `ASTSetOperation` structure supporting only one `op_type`,
+  // returns the operation type of the set operation, e.g. UNION; for the
+  // structure that supports multiple set operations, returns the operation type
+  // of the first set operation.
+  ABSL_DEPRECATED("Use `metadata()` to get `op_type` for each set operation.")
+  OperationType op_type() const;
+
+  ABSL_DEPRECATED("Setter for the legacy field `op_type_`. Do not use.")
+  void set_op_type(ASTSetOperation::OperationType op_type) { op_type_ = op_type; }
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTSetOperationMetadataList',
+      tag_id=384,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'set_operation_metadata_list',
+              'ASTSetOperationMetadata',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+      comment="""
+      Contains the list of metadata for each set operation. Note the parser
+      range of this node can span the inner SELECT clauses, if any. For example,
+      for the following SQL query:
+        ```
+        SELECT 1
+        UNION ALL
+        SELECT 2
+        UNION ALL
+        SELECT 3
+        ```
+      the parser range of `ASTSetOperationMetadataList` starts from the first
+      "UNION ALL" to the last "UNION ALL", including the "SELECT 2" in middle.
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTSetOperationAllOrDistinct',
+      tag_id=385,
+      parent='ASTNode',
+      fields=[
+          Field('value', SCALAR_ALL_OR_DISTINCT, tag_id=2),
+      ],
+      comment="""
+      Wrapper node for the enum ASTSetOperation::AllOrDistinct to provide parse
+      location range.
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTSetOperationType',
+      tag_id=386,
+      parent='ASTNode',
+      fields=[
+          Field('value', SCALAR_OPERATION_TYPE, tag_id=2),
+      ],
+      comment="""
+      Wrapper node for the enum ASTSetOperation::OperationType to provide parse
+      location range.
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTSetOperationMetadata',
+      tag_id=387,
+      parent='ASTNode',
+      fields=[
+          Field('op_type', 'ASTSetOperationType', tag_id=2),
+          Field(
+              'all_or_distinct',
+              'ASTSetOperationAllOrDistinct',
+              tag_id=3,
+          ),
+          Field('hint', 'ASTHint', tag_id=4),
+      ],
+  )
 
   gen.AddNode(
       name='ASTStarExceptList',
@@ -4064,7 +4172,8 @@ def main(argv):
               tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED,
               comment="""
-              Value is always an identifier, literal, or parameter.
+              Value may be any expression; engines can decide whether they
+              support identifiers, literals, parameters, constants, etc.
               """),
       ])
 
@@ -4583,10 +4692,12 @@ def main(argv):
       fields=[
           Field(
               'aliased_query_list',
-              'ASTWithClauseEntry',
+              'ASTAliasedQuery',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
-      ])
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTTransformClause',
@@ -6844,7 +6955,8 @@ def main(argv):
               tag_id=4,
               field_loader=FieldLoaderMethod.REQUIRED,
               comment="""
-              Value is always an identifier, literal, or parameter.
+              Value may be any expression; engines can decide whether they
+              support identifiers, literals, parameters, constants, etc.
               """),
       ],
       gen_init_fields=False,
@@ -6989,16 +7101,36 @@ def main(argv):
       ])
 
   gen.AddNode(
-      name='ASTArrayColumnSchema',
-      tag_id=269,
+      name='ASTElementTypeColumnSchema',
+      tag_id=382,
       parent='ASTColumnSchema',
+      is_abstract=True,
+      comment="""
+      Base class for column schemas that are also defined by an element type (eg
+      ARRAY and RANGE).
+      """,
       fields=[
           Field(
               'element_schema',
               'ASTColumnSchema',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
-      ])
+              field_loader=FieldLoaderMethod.REQUIRED,
+              visibility=Visibility.PROTECTED,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ASTArrayColumnSchema',
+      tag_id=269,
+      parent='ASTElementTypeColumnSchema',
+  )
+
+  gen.AddNode(
+      name='ASTRangeColumnSchema',
+      tag_id=383,
+      parent='ASTElementTypeColumnSchema',
+  )
 
   gen.AddNode(
       name='ASTPrimaryKeyElement',
@@ -7688,6 +7820,11 @@ def main(argv):
               'ASTCollate',
               tag_id=6,
               visibility=Visibility.PROTECTED),
+          Field(
+              'with_connection_clause',
+              'ASTWithConnectionClause',
+              tag_id=7,
+              visibility=Visibility.PROTECTED),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
@@ -7738,6 +7875,7 @@ def main(argv):
           'partition_by',
           'cluster_by',
           'ttl',
+          'with_connection_clause',
           'options_list',
           'query',
       ])
@@ -7751,10 +7889,6 @@ def main(argv):
               'with_partition_columns_clause',
               'ASTWithPartitionColumnsClause',
               tag_id=2),
-          Field(
-              'with_connection_clause',
-              'ASTWithConnectionClause',
-              tag_id=3),
       ],
       init_fields_order=[
           'name',
@@ -7782,17 +7916,6 @@ def main(argv):
               'column_with_options_list',
               'ASTColumnWithOptionsList',
               tag_id=3,
-              visibility=Visibility.PROTECTED),
-          Field(
-              'column_list',
-              'ASTColumnWithOptionsList',
-              tag_id=8,
-              comment="""
-                TODO: Remove this field (is duplicate of
-                column_with_options_list field) once Spanner mainline uses
-                column_with_options_list.
-              """,
-              field_loader=FieldLoaderMethod.OPTIONAL,
               visibility=Visibility.PROTECTED),
           Field(
               'options_list',
@@ -7831,7 +7954,6 @@ def main(argv):
       parent='ASTCreateViewStatementBase',
       init_fields_order=[
           'name',
-          'column_list',
           'column_with_options_list',
           'options_list',
           'query',
@@ -7853,7 +7975,6 @@ def main(argv):
       ],
       init_fields_order=[
           'name',
-          'column_list',
           'column_with_options_list',
           'partition_by',
           'cluster_by',
@@ -8309,15 +8430,36 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTAuxLoadDataPartitionsClause',
+      tag_id=378,
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'partition_filter',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION),
+          Field('is_overwrite', SCALAR_BOOL, tag_id=3),
+      ])
+
+  gen.AddNode(
       name='ASTAuxLoadDataStatement',
       tag_id=342,
       parent='ASTCreateTableStmtBase',
+      use_custom_debug_string=True,
       comment="""
     Auxiliary statement used by some engines but not formally part of the
     ZetaSQL language.
       """,
       fields=[
           Field('insertion_mode', SCALAR_LOAD_INSERTION_MODE, tag_id=2),
+          Field('is_temp_table', SCALAR_BOOL, tag_id=9),
+          Field(
+              'load_data_partitions_clause',
+              'ASTAuxLoadDataPartitionsClause',
+              field_loader=FieldLoaderMethod.OPTIONAL,
+              tag_id=8),
           Field('partition_by', 'ASTPartitionBy', tag_id=3),
           Field('cluster_by', 'ASTClusterBy', tag_id=4),
           Field(
@@ -8329,11 +8471,11 @@ def main(argv):
               'with_partition_columns_clause',
               'ASTWithPartitionColumnsClause',
               tag_id=6),
-          Field('with_connection_clause', 'ASTWithConnectionClause', tag_id=7),
       ],
       init_fields_order=[
           'name',
           'table_element_list',
+          'load_data_partitions_clause',
           'collate',
           'partition_by',
           'cluster_by',
@@ -8573,6 +8715,57 @@ def main(argv):
               tag_id=2,
               field_loader=FieldLoaderMethod.REST_AS_REPEATED),
       ])
+
+  gen.AddNode(
+      name='ASTMacroBody',
+      tag_id=368,
+      parent='ASTLeaf',
+      comment="""
+      Represents the body of a DEFINE MACRO statement.
+      """)
+
+  gen.AddNode(
+      name='ASTDefineMacroStatement',
+      tag_id=369,
+      parent='ASTStatement',
+      comment="""
+      Represents a DEFINE MACRO statement.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'body',
+              'ASTMacroBody',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTUndropStatement',
+      tag_id=388,
+      parent='ASTDdlStatement',
+      comment="""
+      This represents an UNDROP statement (broken link)
+      """,
+      fields=[
+          Field('schema_object_kind', SCALAR_SCHEMA_OBJECT_KIND, tag_id=2),
+          Field(
+              'name',
+              'ASTPathExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('is_if_not_exists', SCALAR_BOOL, tag_id=4),
+          Field('for_system_time', 'ASTForSystemTime', tag_id=5),
+      ],
+      extra_public_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """,
+  )
 
   gen.Generate(output_path, template_path=template_path)
 

@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.Mode;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 
@@ -38,12 +39,12 @@ public class CatalogTest {
   @Test
   public void testConvertPathToProtoName() {
     assertThat(Catalog.convertPathToProtoName(new ArrayList<String>())).isEmpty();
-    assertThat(Catalog.convertPathToProtoName(null)).isEqualTo("");
+    assertThat(Catalog.convertPathToProtoName(null)).isEmpty();
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A"))).isEqualTo("A");
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "B"))).isEqualTo("A.B");
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "B", "C"))).isEqualTo("A.B.C");
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "B.C"))).isEqualTo("");
-    assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "", "C"))).isEqualTo("");
+    assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "", "C"))).isEmpty();
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A1", "B_2", "z99")))
         .isEqualTo("A1.B_2.z99");
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("1a"))).isEqualTo("");

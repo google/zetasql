@@ -17,6 +17,8 @@
 
 package com.google.zetasql;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
@@ -49,6 +51,33 @@ import javax.annotation.Nullable;
  */
 public class AllowedHintsAndOptions implements Serializable {
 
+  /** This class specifies a set of option type and resolving kind */
+  @AutoValue
+  public abstract static class AllowedOptionProperties {
+    // Expected option type.
+    @Nullable
+    public abstract Type type();
+
+    // Option resolving kind.
+    public abstract OptionProto.ResolvingKind resolvingKind();
+
+    public abstract Builder toBuilder();
+
+    public static Builder builder() {
+      return new AutoValue_AllowedHintsAndOptions_AllowedOptionProperties.Builder();
+    }
+
+    /** Builder. */
+    @AutoValue.Builder
+    public abstract interface Builder {
+      Builder type(@Nullable Type type);
+
+      Builder resolvingKind(OptionProto.ResolvingKind referenceTree);
+
+      AllowedOptionProperties build();
+    }
+  }
+
   // If true, give an error for an unknown option.
   boolean disallowUnknownOptions = false;
   // Keys are lower-case qualifiers, values are the original qualifiers.
@@ -57,12 +86,15 @@ public class AllowedHintsAndOptions implements Serializable {
   // (qualifier, hint). Unqualified hints are declared using an empty qualifier.
   private final Table<String, String, Hint> hints = HashBasedTable.create();
   // Map containing declared options. Map keys are in lower-case.
-  private final Map<String, Type> options = new HashMap<>();
+  private final Map<String, AllowedOptionProperties> options = new HashMap<>();
   // Map containing declared anonymization options. Map keys are in lower-case.
-  private final Map<String, Type> anonymizationOptions = new HashMap<>();
+  private final Map<String, AllowedOptionProperties> anonymizationOptions = new HashMap<>();
+  // Map containing declared differential privacy options. Map keys are in lower-case.
+  private final Map<String, AllowedOptionProperties> differentialPrivacyOptions = new HashMap<>();
 
   public AllowedHintsAndOptions() {
     addDefaultAnonymizationOptions();
+    addDefaultDifferentialPrivacyOptions();
   }
 
   /**
@@ -76,6 +108,7 @@ public class AllowedHintsAndOptions implements Serializable {
    */
   public AllowedHintsAndOptions(String qualifier) {
     addDefaultAnonymizationOptions();
+    addDefaultDifferentialPrivacyOptions();
     disallowUnknownOptions = true;
     disallowUnknownHintsWithQualifier(qualifier);
     disallowUnknownHintsWithQualifier("");
@@ -110,25 +143,57 @@ public class AllowedHintsAndOptions implements Serializable {
             .setAllowUnqualified(hint.getAllowUnqualified());
       }
     }
-    for (Entry<String, Type> option : options.entrySet()) {
-      if (option.getValue() != null) {
+    for (Entry<String, AllowedOptionProperties> option : options.entrySet()) {
+      if (option.getValue().type() != null) {
         TypeProto.Builder typeBuilder = TypeProto.newBuilder();
-        option.getValue().serialize(typeBuilder, fileDescriptorSetsBuilder);
-        builder.addOptionBuilder().setName(option.getKey()).setType(typeBuilder);
+        option.getValue().type().serialize(typeBuilder, fileDescriptorSetsBuilder);
+        builder
+            .addOptionBuilder()
+            .setName(option.getKey())
+            .setType(typeBuilder)
+            .setResolvingKind(option.getValue().resolvingKind());
       } else {
-        builder.addOptionBuilder().setName(option.getKey());
+        builder
+            .addOptionBuilder()
+            .setName(option.getKey())
+            .setResolvingKind(option.getValue().resolvingKind());
       }
     }
-    for (Entry<String, Type> anonymizationOption : anonymizationOptions.entrySet()) {
-      if (anonymizationOption.getValue() != null) {
+    for (Entry<String, AllowedOptionProperties> anonymizationOption :
+        anonymizationOptions.entrySet()) {
+      if (anonymizationOption.getValue().type() != null) {
         TypeProto.Builder typeBuilder = TypeProto.newBuilder();
-        anonymizationOption.getValue().serialize(typeBuilder, fileDescriptorSetsBuilder);
+        anonymizationOption.getValue().type().serialize(typeBuilder, fileDescriptorSetsBuilder);
         builder
             .addAnonymizationOptionBuilder()
             .setName(anonymizationOption.getKey())
-            .setType(typeBuilder);
+            .setType(typeBuilder)
+            .setResolvingKind(anonymizationOption.getValue().resolvingKind());
       } else {
-        builder.addAnonymizationOptionBuilder().setName(anonymizationOption.getKey());
+        builder
+            .addAnonymizationOptionBuilder()
+            .setName(anonymizationOption.getKey())
+            .setResolvingKind(anonymizationOption.getValue().resolvingKind());
+      }
+    }
+    for (Entry<String, AllowedOptionProperties> differentialPrivacyOption :
+        differentialPrivacyOptions.entrySet()) {
+      if (differentialPrivacyOption.getValue().type() != null) {
+        TypeProto.Builder typeBuilder = TypeProto.newBuilder();
+        differentialPrivacyOption
+            .getValue()
+            .type()
+            .serialize(typeBuilder, fileDescriptorSetsBuilder);
+        builder
+            .addDifferentialPrivacyOptionBuilder()
+            .setName(differentialPrivacyOption.getKey())
+            .setType(typeBuilder)
+            .setResolvingKind(differentialPrivacyOption.getValue().resolvingKind());
+      } else {
+        builder
+            .addDifferentialPrivacyOptionBuilder()
+            .setName(differentialPrivacyOption.getKey())
+            .setResolvingKind(differentialPrivacyOption.getValue().resolvingKind());
       }
     }
     return builder.build();
@@ -144,9 +209,10 @@ public class AllowedHintsAndOptions implements Serializable {
       TypeFactory factory) {
     AllowedHintsAndOptions allowed = new AllowedHintsAndOptions();
     allowed.anonymizationOptions.clear();
+    allowed.differentialPrivacyOptions.clear();
     for (String qualifier : proto.getDisallowUnknownHintsWithQualifierList()) {
       Preconditions.checkArgument(
-          !allowed.disallowUnknownHintsWithQualifiers.containsKey(qualifier.toLowerCase()));
+          !allowed.disallowUnknownHintsWithQualifiers.containsKey(Ascii.toLowerCase(qualifier)));
       allowed.disallowUnknownHintsWithQualifier(qualifier);
     }
     allowed.setDisallowUnknownOptions(proto.getDisallowUnknownOptions());
@@ -162,10 +228,15 @@ public class AllowedHintsAndOptions implements Serializable {
       }
     }
     for (OptionProto option : proto.getOptionList()) {
+      OptionProto.ResolvingKind resolvingKind =
+          option.hasResolvingKind()
+              ? option.getResolvingKind()
+              : OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER;
       if (option.hasType()) {
-        allowed.addOption(option.getName(), factory.deserialize(option.getType(), pools));
+        allowed.addOption(
+            option.getName(), factory.deserialize(option.getType(), pools), resolvingKind);
       } else {
-        allowed.addOption(option.getName(), null);
+        allowed.addOption(option.getName(), null, resolvingKind);
       }
     }
 
@@ -174,14 +245,36 @@ public class AllowedHintsAndOptions implements Serializable {
     // AnalyzerOptions constructor with factory == null.
     if (factory == null) {
       allowed.addDefaultAnonymizationOptions();
+      allowed.addDefaultDifferentialPrivacyOptions();
     } else {
       for (OptionProto anonymizationOption : proto.getAnonymizationOptionList()) {
+        OptionProto.ResolvingKind resolvingKind =
+            anonymizationOption.hasResolvingKind()
+                ? anonymizationOption.getResolvingKind()
+                : OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER;
+
         if (anonymizationOption.hasType()) {
           allowed.addAnonymizationOption(
               anonymizationOption.getName(),
-              factory.deserialize(anonymizationOption.getType(), pools));
+              factory.deserialize(anonymizationOption.getType(), pools),
+              resolvingKind);
         } else {
-          allowed.addAnonymizationOption(anonymizationOption.getName(), null);
+          allowed.addAnonymizationOption(anonymizationOption.getName(), null, resolvingKind);
+        }
+      }
+      for (OptionProto differentialPrivacyOption : proto.getDifferentialPrivacyOptionList()) {
+        OptionProto.ResolvingKind resolvingKind =
+            differentialPrivacyOption.hasResolvingKind()
+                ? differentialPrivacyOption.getResolvingKind()
+                : OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER;
+        if (differentialPrivacyOption.hasType()) {
+          allowed.addDifferentialPrivacyOption(
+              differentialPrivacyOption.getName(),
+              factory.deserialize(differentialPrivacyOption.getType(), pools),
+              resolvingKind);
+        } else {
+          allowed.addDifferentialPrivacyOption(
+              differentialPrivacyOption.getName(), null, resolvingKind);
         }
       }
     }
@@ -189,53 +282,118 @@ public class AllowedHintsAndOptions implements Serializable {
   }
 
   /**
-   * Add an option.
+   * Add an option with CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER resolvingKind.
    *
    * @param type may be NULL to indicate that all Types are allowed.
    */
   public void addOption(String name, @Nullable Type type) {
+    addOption(name, type, OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER);
+  }
+
+  /**
+   * Add an option.
+   *
+   * @param type may be NULL to indicate that all Types are allowed.
+   * @param resolvingKind may not be NULL.
+   */
+  public void addOption(String name, @Nullable Type type, OptionProto.ResolvingKind resolvingKind) {
     Preconditions.checkNotNull(name);
+    Preconditions.checkNotNull(resolvingKind);
     Preconditions.checkArgument(!name.isEmpty());
-    Preconditions.checkArgument(!options.containsKey(name.toLowerCase()));
-    options.put(name.toLowerCase(), type);
+    Preconditions.checkArgument(!options.containsKey(Ascii.toLowerCase(name)));
+    options.put(
+        Ascii.toLowerCase(name),
+        AllowedOptionProperties.builder().type(type).resolvingKind(resolvingKind).build());
+  }
+
+  /**
+   * Add an anonymization option with CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER resolvingKind.
+   *
+   * @param type may be NULL to indicate that all Types are allowed.
+   */
+  public void addAnonymizationOption(String name, @Nullable Type type) {
+    addAnonymizationOption(
+        name, type, OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER);
   }
 
   /**
    * Add an anonymization option.
    *
    * @param type may be NULL to indicate that all Types are allowed.
+   * @param resolvingKind may not be NULL.
    */
-  public void addAnonymizationOption(String name, @Nullable Type type) {
+  public void addAnonymizationOption(
+      String name, @Nullable Type type, OptionProto.ResolvingKind resolvingKind) {
     Preconditions.checkNotNull(name);
+    Preconditions.checkNotNull(resolvingKind);
     Preconditions.checkArgument(!name.isEmpty());
-    Preconditions.checkArgument(!anonymizationOptions.containsKey(name.toLowerCase()));
-    anonymizationOptions.put(name.toLowerCase(), type);
+    Preconditions.checkArgument(!anonymizationOptions.containsKey(Ascii.toLowerCase(name)));
+    anonymizationOptions.put(
+        Ascii.toLowerCase(name),
+        AllowedOptionProperties.builder().type(type).resolvingKind(resolvingKind).build());
+  }
+
+  /**
+   * Add a differential privacy option with CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER resolvingKind.
+   *
+   * @param type may be NULL to indicate that all Types are allowed.
+   */
+  public void addDifferentialPrivacyOption(String name, @Nullable Type type) {
+    addDifferentialPrivacyOption(
+        name, type, OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER);
+  }
+
+  /**
+   * Add a differential privacy option.
+   *
+   * @param type may be NULL to indicate that all Types are allowed.
+   * @param resolvingKind may not be NULL.
+   */
+  public void addDifferentialPrivacyOption(
+      String name, @Nullable Type type, OptionProto.ResolvingKind resolvingKind) {
+    Preconditions.checkNotNull(name);
+    Preconditions.checkNotNull(resolvingKind);
+    Preconditions.checkArgument(!name.isEmpty());
+    Preconditions.checkArgument(!differentialPrivacyOptions.containsKey(Ascii.toLowerCase(name)));
+    differentialPrivacyOptions.put(
+        Ascii.toLowerCase(name),
+        AllowedOptionProperties.builder().type(type).resolvingKind(resolvingKind).build());
   }
 
   /**
    * Add a hint.
-   * @param qualifier may be empty to add this hint only unqualified, but hints
-   * for some engine should normally allow the engine name as a qualifier.
+   *
+   * @param qualifier may be empty to add this hint only unqualified, but hints for some engine
+   *     should normally allow the engine name as a qualifier.
    * @param name
    * @param type may be NULL to indicate that all Types are allowed.
-   * @param allowUnqualified if true, this hint is allowed both unqualified and
-   * qualified with {@code qualifier}.
+   * @param allowUnqualified if true, this hint is allowed both unqualified and qualified with
+   *     {@code qualifier}.
    */
   public void addHint(
       String qualifier, String name, @Nullable Type type, boolean allowUnqualified) {
     Preconditions.checkNotNull(name);
     Preconditions.checkArgument(!name.isEmpty());
     Preconditions.checkNotNull(qualifier);
-    Preconditions.checkArgument(!qualifier.isEmpty() || allowUnqualified,
+    Preconditions.checkArgument(
+        !qualifier.isEmpty() || allowUnqualified,
         "Cannot have hint with no qualifier and !allowUnqualified");
     Preconditions.checkArgument(
-        !hints.contains(qualifier.toLowerCase(), name.toLowerCase()));
-    hints.put(qualifier.toLowerCase(), name.toLowerCase(),
+        !hints.contains(Ascii.toLowerCase(qualifier), Ascii.toLowerCase(name)));
+    hints.put(
+        Ascii.toLowerCase(qualifier),
+        Ascii.toLowerCase(name),
         new Hint(qualifier, name, type, allowUnqualified));
     if (allowUnqualified && !qualifier.isEmpty()) {
-      Preconditions.checkArgument(!hints.contains("", name.toLowerCase()));
-      hints.put("", name.toLowerCase(), new Hint("", name, type,
-          false  /* This is to mark this hint is not explicitly added and won't be serialized */));
+      Preconditions.checkArgument(!hints.contains("", Ascii.toLowerCase(name)));
+      hints.put(
+          "" /* Unqualified hints use empty qualifier */,
+          Ascii.toLowerCase(name),
+          new Hint(
+              "" /* Unqualified hints use empty qualifier */,
+              name,
+              type,
+              false /* Marks that this hint is not explicitly added and won't be serialized */));
     }
   }
 
@@ -248,19 +406,30 @@ public class AllowedHintsAndOptions implements Serializable {
   }
 
   public Hint getHint(String qualifier, String name) {
-    return hints.get(qualifier.toLowerCase(), name.toLowerCase());
+    return hints.get(Ascii.toLowerCase(qualifier), Ascii.toLowerCase(name));
   }
 
   public ImmutableList<Hint> getHintList() {
     return ImmutableList.copyOf(hints.values());
   }
 
+  @Nullable
   public Type getOptionType(String name) {
-    return options.get(name.toLowerCase());
+    AllowedOptionProperties optionProperties = options.get(Ascii.toLowerCase(name));
+    return optionProperties == null ? null : optionProperties.type();
   }
 
+  @Nullable
   public Type getAnonymizationOptionType(String name) {
-    return anonymizationOptions.get(name.toLowerCase());
+    AllowedOptionProperties optionProperties = anonymizationOptions.get(Ascii.toLowerCase(name));
+    return optionProperties == null ? null : optionProperties.type();
+  }
+
+  @Nullable
+  public Type getDifferentialPrivacyOptionType(String name) {
+    AllowedOptionProperties optionProperties =
+        differentialPrivacyOptions.get(Ascii.toLowerCase(name));
+    return optionProperties == null ? null : optionProperties.type();
   }
 
   public ImmutableList<String> getOptionNameList() {
@@ -271,11 +440,15 @@ public class AllowedHintsAndOptions implements Serializable {
     return ImmutableList.copyOf(anonymizationOptions.keySet());
   }
 
+  public ImmutableList<String> getDifferentialPrivacyOptionNameList() {
+    return ImmutableList.copyOf(differentialPrivacyOptions.keySet());
+  }
+
   public void disallowUnknownHintsWithQualifier(String qualifier) {
     Preconditions.checkNotNull(qualifier);
     Preconditions.checkArgument(
-        !disallowUnknownHintsWithQualifiers.containsKey(qualifier.toLowerCase()));
-    disallowUnknownHintsWithQualifiers.put(qualifier.toLowerCase(), qualifier);
+        !disallowUnknownHintsWithQualifiers.containsKey(Ascii.toLowerCase(qualifier)));
+    disallowUnknownHintsWithQualifiers.put(Ascii.toLowerCase(qualifier), qualifier);
   }
 
   public ImmutableList<String> getDisallowUnknownHintsWithQualifiers() {
@@ -310,9 +483,8 @@ public class AllowedHintsAndOptions implements Serializable {
     }
 
     /**
-     * AllowUnqualified is only used when adding new hints and serializing to
-     * proto to recreate hints in C++ side. This should only be used inside the
-     * class and should not be used by users.
+     * AllowUnqualified is only used when adding new hints and serializing to proto to recreate
+     * hints in C++ side. This should only be used inside the class and should not be used by users.
      */
     private boolean getAllowUnqualified() {
       return allowUnqualified;
@@ -320,9 +492,65 @@ public class AllowedHintsAndOptions implements Serializable {
   }
 
   private void addDefaultAnonymizationOptions() {
-    anonymizationOptions.put("epsilon", TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE));
-    anonymizationOptions.put("delta", TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE));
-    anonymizationOptions.put("k_threshold", TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
-    anonymizationOptions.put("kappa", TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
+    anonymizationOptions.put(
+        "epsilon",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .build());
+    anonymizationOptions.put(
+        "delta",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .build());
+    anonymizationOptions.put(
+        "k_threshold",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .build());
+    anonymizationOptions.put(
+        "kappa",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .build());
+    anonymizationOptions.put(
+        "max_rows_contributed",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .build());
+  }
+
+  // Helper function populates differentialPrivacyOptions with default set of options that are
+  // accepted not that
+  // these options are different than anonymization options above see:(broken link).
+  private void addDefaultDifferentialPrivacyOptions() {
+    differentialPrivacyOptions.put(
+        "epsilon",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .build());
+    differentialPrivacyOptions.put(
+        "delta",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .build());
+    differentialPrivacyOptions.put(
+        "max_groups_contributed",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .build());
+    differentialPrivacyOptions.put(
+        "max_rows_contributed",
+        AllowedOptionProperties.builder()
+            .type(TypeFactory.createSimpleType(TypeKind.TYPE_INT64))
+            .resolvingKind(OptionProto.ResolvingKind.CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER)
+            .build());
   }
 }

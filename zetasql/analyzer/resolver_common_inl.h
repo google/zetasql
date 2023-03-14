@@ -24,12 +24,18 @@
 #include "zetasql/base/logging.h"
 // This header includes the common macros used in the resolver*.cc files.
 #include "zetasql/analyzer/resolver.h"
+#include "zetasql/common/thread_stack.h"  
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+
+#define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()                                   \
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(                                        \
+      "Out of stack space due to deeply nested query expression during query " \
+      "resolution")
 
 template <class NODE_TYPE>
 absl::Status Resolver::ResolveHintsForNode(const ASTHint* ast_hints,

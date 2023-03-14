@@ -30,7 +30,6 @@
 #include <type_traits>
 
 #include "zetasql/base/logging.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/numeric/bits.h"
 #include "absl/strings/string_view.h"
@@ -405,26 +404,26 @@ inline uint8_t Add(std::array<uint64_t, size>& lhs,
 }
 
 #ifdef __x86_64__
-inline uint8_t SubtractWithBorrow(uint32_t* x, uint32_t y, uint8_t carry) {
-  return _subborrow_u32(carry, *x, y, x);
+inline uint8_t SubtractWithBorrow(uint32_t* x, uint32_t y, uint8_t borrow) {
+  return _subborrow_u32(borrow, *x, y, x);
 }
 
-inline uint8_t SubtractWithBorrow(uint64_t* x, uint64_t y, uint8_t carry) {
+inline uint8_t SubtractWithBorrow(uint64_t* x, uint64_t y, uint8_t borrow) {
   static_assert(sizeof(uint64_t) == sizeof(unsigned long long));  // NOLINT
   unsigned long long tmp;                                         // NOLINT
-  carry = _subborrow_u64(carry, *x, y, &tmp);
+  borrow = _subborrow_u64(borrow, *x, y, &tmp);
   *x = tmp;
-  return carry;
+  return borrow;
 }
 
 #else
 
 template <typename Word>
-inline uint8_t SubtractWithBorrow(Word* x, Word y, uint8_t carry) {
+inline uint8_t SubtractWithBorrow(Word* x, Word y, uint8_t borrow) {
   constexpr int k = sizeof(Word) * 8;
   Uint<k * 2> lhs = *x;
   Uint<k * 2> rhs = y;
-  rhs += carry;
+  rhs += borrow;
   *x = static_cast<Word>(lhs - rhs);
   return lhs < rhs;
 }
@@ -434,27 +433,27 @@ inline uint8_t SubtractWithBorrow(Word* x, Word y, uint8_t carry) {
 template <typename Word>
 inline uint8_t SubtractWithVariableSize(Word lhs[], const Word rhs[],
                                         int size) {
-  uint8_t carry = 0;
+  uint8_t borrow = 0;
   for (int i = 0; i < size; ++i) {
-    carry = SubtractWithBorrow(&lhs[i], rhs[i], carry);
+    borrow = SubtractWithBorrow(&lhs[i], rhs[i], borrow);
   }
-  return carry;
+  return borrow;
 }
 
 template <int size>
 inline uint8_t Subtract(std::array<uint32_t, size>& lhs,
                         const std::array<uint32_t, size>& rhs) {
-  uint8_t carry = 0;
+  uint8_t borrow = 0;
   for (int i = 0; i < (size & ~1); i += 2) {
     uint64_t tmp = MakeDword<32>(lhs.data() + i);
-    carry = SubtractWithBorrow(&tmp, MakeDword<32>(rhs.data() + i), carry);
+    borrow = SubtractWithBorrow(&tmp, MakeDword<32>(rhs.data() + i), borrow);
     lhs[i + 1] = static_cast<uint32_t>(tmp >> 32);
     lhs[i] = static_cast<uint32_t>(tmp);
   }
   if (size & 1) {
-    carry = SubtractWithBorrow(&lhs[size - 1], rhs[size - 1], carry);
+    borrow = SubtractWithBorrow(&lhs[size - 1], rhs[size - 1], borrow);
   }
-  return carry;
+  return borrow;
 }
 
 template <int size>
@@ -574,7 +573,7 @@ constexpr uint8_t NormalizedDivisorShiftAmount(uint64_t divisor) {
 // from "Improved division by invariant integers" by Moller and Grandlund.
 // It is up to the caller to make sure that the quotient has been appropriately
 // shifted and to unshift the remainder.
-template <uint64_t divisor, bool need_quotient = true>
+template <uint64_t divisor>
 inline void DivModWordNormalizedConstant(uint64_t dividend_hi,
                                          uint64_t dividend_lo,
                                          uint64_t* quotient,
@@ -605,7 +604,7 @@ inline void DivModWordNormalizedConstant(uint64_t dividend_hi,
     q1 += 1;
     local_remainder -= kNormalizedDivisor;
   }
-  if constexpr (need_quotient) {
+  if (quotient != nullptr) {
     *quotient = q1;
   }
   *remainder = local_remainder;
@@ -618,53 +617,30 @@ inline uint32_t ShortDivModConstant(const std::array<uint32_t, n>& dividend,
   return ShortDivMod<uint32_t, n, true>(dividend, divisor, quotient);
 }
 
-template <int n, uint64_t divisor, bool need_quotient = true>
+template <int n, uint64_t divisor>
 inline uint64_t ShortDivModConstant(const std::array<uint64_t, n>& dividend,
                                     std::integral_constant<uint64_t, divisor> d,
                                     std::array<uint64_t, n>* quotient) {
   uint64_t remainder = 0;
   // Since the divisor is shifted we also must shift the dividend. We do this
   // inline.
-  constexpr uint64_t kShiftAmount =
-      multiprecision_int_impl::NormalizedDivisorShiftAmount(divisor);
+  constexpr uint64_t kShiftAmount = NormalizedDivisorShiftAmount(divisor);
   if constexpr (kShiftAmount != 0) {
     // The first division's quotient is always zero, so we throw it away.
-    multiprecision_int_impl::DivModWordNormalizedConstant<
-        divisor, /*need_quotient=*/false>(
-        remainder,
-        multiprecision_int_impl::ShiftLeftAndGetHighWord(0, dividend.back(),
-                                                         kShiftAmount),
+    DivModWordNormalizedConstant<divisor>(
+        remainder, ShiftLeftAndGetHighWord(0, dividend.back(), kShiftAmount),
         nullptr, &remainder);
   }
   for (int i = n - 1; i > 0; --i) {
-    multiprecision_int_impl::DivModWordNormalizedConstant<divisor,
-                                                          need_quotient>(
+    DivModWordNormalizedConstant<divisor>(
         remainder,
-        multiprecision_int_impl::ShiftLeftAndGetHighWord(
-            dividend[i], dividend[i - 1], kShiftAmount),
-        need_quotient ? &((*quotient)[i]) : nullptr, &remainder);
+        ShiftLeftAndGetHighWord(dividend[i], dividend[i - 1], kShiftAmount),
+        quotient != nullptr ? &((*quotient)[i]) : nullptr, &remainder);
   }
-  multiprecision_int_impl::DivModWordNormalizedConstant<divisor, need_quotient>(
-      remainder,
-      multiprecision_int_impl::ShiftLeftAndGetHighWord(dividend[0], 0,
-                                                       kShiftAmount),
-      need_quotient ? &((*quotient)[0]) : nullptr, &remainder);
+  DivModWordNormalizedConstant<divisor>(
+      remainder, ShiftLeftAndGetHighWord(dividend[0], 0, kShiftAmount),
+      quotient != nullptr ? &((*quotient)[0]) : nullptr, &remainder);
   return remainder >> kShiftAmount;
-}
-
-template <int n, uint32_t divisor>
-inline uint32_t ShortDivModConstant(const std::array<uint64_t, n>& dividend,
-                                    std::integral_constant<uint32_t, divisor> d,
-                                    std::array<uint64_t, n>* quotient) {
-  if (quotient != nullptr) {
-    return static_cast<uint32_t>(
-        ShortDivModConstant<n, divisor, /*need_quotient=*/true>(
-            dividend, std::integral_constant<uint64_t, d>(), quotient));
-  } else {
-    return static_cast<uint32_t>(
-        ShortDivModConstant<n, divisor, /*need_quotient=*/false>(
-            dividend, std::integral_constant<uint64_t, d>(), quotient));
-  }
 }
 
 // Computes *quotient = *dividend / *divisor.
@@ -869,7 +845,7 @@ void AppendSegmentsToString(const UnsignedWord segments[], size_t num_segments,
 // be used to build constexpr variables. Use them only with constexpr inputs.
 
 // MulWord(src, multiplier, carry) returns an array representing
-// src * multipler + carry.
+// src * multiplier + carry.
 template <typename Word, size_t size, typename... T>
 constexpr std::array<Word, size> MulWord(const std::array<Word, size>& src,
                                          Word multiplier, Word carry, T... v) {
@@ -897,6 +873,13 @@ constexpr std::array<Word, size> PowersAsc(T... v) {
     return std::array<Word, size>{v...};
   }
 }
+
+extern template void AppendSegmentsToString<uint64_t>(const uint64_t segments[],
+                                                      size_t num_segments,
+                                                      std::string* result);
+extern template void AppendSegmentsToString<uint32_t>(const uint32_t segments[],
+                                                      size_t num_segments,
+                                                      std::string* result);
 
 }  // namespace multiprecision_int_impl
 }  // namespace zetasql

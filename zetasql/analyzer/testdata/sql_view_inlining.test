@@ -2042,3 +2042,43 @@ QueryStmt
         +-alias="v"
 
 Rewrite ERROR: generic::unimplemented: Hints are not supported on invocations of inlined views.
+==
+
+SELECT v1.a, v2.b FROM ScanTableView v1, ScanTableView v2;
+--
+QueryStmt
++-output_column_list=
+| +-ScanTableView.a#1 AS a [INT64]
+| +-ScanTableView.b#4 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=ScanTableView.[a#1, b#4]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=ScanTableView.[a#1, b#4]
+        +-left_scan=
+        | +-TableScan(column_list=[ScanTableView.a#1], table=ScanTableView, column_index_list=[0], alias="v1")
+        +-right_scan=
+          +-TableScan(column_list=[ScanTableView.b#4], table=ScanTableView, column_index_list=[1], alias="v2")
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-ScanTableView.a#1 AS a [INT64]
+| +-ScanTableView.b#4 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=ScanTableView.[a#1, b#4]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=ScanTableView.[a#1, b#4]
+        +-left_scan=
+        | +-ProjectScan
+        |   +-column_list=[ScanTableView.a#1, TwoIntegers.value#5]
+        |   +-input_scan=
+        |     +-TableScan(column_list=[ScanTableView.a#1, TwoIntegers.value#5], table=TwoIntegers, column_index_list=[0, 1])
+        +-right_scan=
+          +-ProjectScan
+            +-column_list=[TwoIntegers.key#6, ScanTableView.b#4]
+            +-input_scan=
+              +-TableScan(column_list=[TwoIntegers.key#6, ScanTableView.b#4], table=TwoIntegers, column_index_list=[0, 1])

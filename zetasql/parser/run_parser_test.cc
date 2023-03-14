@@ -168,7 +168,7 @@ class RunParserTest : public ::testing::Test {
   // Adds the test outputs in 'test_outputs' to 'annotated_outputs', annotated
   // with 'annotation'.
   void AddAnnotatedTestOutputs(const std::vector<std::string>& test_outputs,
-                               const std::string& annotation,
+                               absl::string_view annotation,
                                std::vector<std::string>* annotated_outputs) {
     for (const std::string& test_output : test_outputs) {
       annotated_outputs->push_back(absl::StrCat(annotation, test_output));
@@ -213,7 +213,7 @@ class RunParserTest : public ::testing::Test {
   // Runs parser tests with alternate newlines if that option is enabled, and
   // returns merged results if they are the same across newline types, and
   // separate results otherwise.
-  void RunTestForNewlineTypes(const std::string& test_case,
+  void RunTestForNewlineTypes(absl::string_view test_case,
                               std::vector<std::string>* test_outputs) {
     std::vector<std::string> newlines = {"\n", "\r", "\r\n"};
     const std::vector<std::string> newline_annotations = {
@@ -395,6 +395,22 @@ class RunParserTest : public ::testing::Test {
         {R"((NumericLiteral)\([^)]*\))"},
         {R"((JSONLiteral)\([^)]*\))"},
         {R"((Identifier)\([^)]*\))"},
+        // Instead of skipping this check completely for macro parsing, we
+        // leverage the fact that test macros do not have parentheses.
+        // For now, all our macro tests are related to parsing tokens correctly
+        // and finding the end of the statement.
+        // If at any point we need to add test cases where the macro body has
+        // parentheses, then we will have to introduce a flag and skip this
+        // check, since regex-based replacement cannot really handle any
+        // arbitrary macro. In fact, not even parsing would be enough since
+        // there is no syntax for macros: they can have closing extra
+        // parentheses in the body.
+        //
+        // Alternatively, we could escape closing parentheses ')' in order to
+        // find the closing one, but that pollutes the DebugString() just for
+        // this test, so we choose to keep redacting this way until we need
+        // tests with parentheses.
+        {R"((MacroBody)\([^)]*\))"},
     };
     std::string out = tree->DebugString();
     for (const RE2& re2 : cleanups) {
@@ -433,7 +449,7 @@ class RunParserTest : public ::testing::Test {
   //    - Parse location ranges of sibling nodes must be sorted in the order
   //        of the nodes' child indices, and may not overlap.
   //
-  void VerifyParseLocationRanges(const std::string& test_case,
+  void VerifyParseLocationRanges(absl::string_view test_case,
                                  const ASTNode* root) {
     // Using a stack instead of recursion to avoid overflowing the stack when
     // running against stack_overflow.test.
@@ -809,7 +825,7 @@ class RunParserTest : public ::testing::Test {
     }
   }
 
-  void TestUnparsing(const std::string& test_case, const std::string& mode,
+  void TestUnparsing(absl::string_view test_case, const std::string& mode,
                      const ASTNode* parsed_root, std::string* output) {
     const std::string unparsed = Unparse(parsed_root);
     if (absl::StrContains(unparsed, "<Complex nested expression truncated>")) {
@@ -845,8 +861,8 @@ class RunParserTest : public ::testing::Test {
     }
   }
 
-  absl::Status ParseWithMode(const std::string& test_case,
-                             const std::string& mode, const ASTNode** root,
+  absl::Status ParseWithMode(absl::string_view test_case,
+                             absl::string_view mode, const ASTNode** root,
                              std::unique_ptr<ParserOutput>* parser_output) {
     ZETASQL_ASSIGN_OR_RETURN(ParserOptions parser_options, GetParserOptions());
     *root = nullptr;

@@ -147,6 +147,7 @@ cc_library(
         "unaligned_access.h",
     ],
     deps = [
+        ":logging",
         "@com_google_absl//absl/base:config",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/numeric:int128",
@@ -289,6 +290,7 @@ cc_test(
         ":logging",
         ":map_util",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:node_hash_map",
     ],
 )

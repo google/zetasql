@@ -343,6 +343,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAggregateScan* node) override;
   absl::Status VisitResolvedAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* node) override;
+  absl::Status VisitResolvedDifferentialPrivacyAggregateScan(
+      const ResolvedDifferentialPrivacyAggregateScan* node) override;
   absl::Status VisitResolvedRecursiveScan(
       const ResolvedRecursiveScan* node) override;
   absl::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
@@ -536,10 +538,10 @@ class SQLBuilder : public ResolvedASTVisitor {
                                         const std::string& object_type,
                                         std::string* sql);
 
-  // If the view was created with explicit column names,
-  // prints the column names.
-  void GetOptionalColumnNameList(const ResolvedCreateViewBase* node,
-                                 std::string* sql);
+  // If the view was created with explicit column names, prints the column
+  // names with optional column options.
+  absl::Status GetOptionalColumnNameWithOptionsList(
+      const ResolvedCreateViewBase* node, std::string* sql);
 
   // Appends PARTITION BY or CLUSTER BY expressions to the provided string, not
   // including the "PARTITION BY " or "CLUSTER BY " prefix.
@@ -560,6 +562,12 @@ class SQLBuilder : public ResolvedASTVisitor {
   // REVOKE statement.
   absl::Status GetPrivilegesString(const ResolvedGrantOrRevokeStmt* node,
                                    std::string* sql);
+
+  // Appends PARTITIONS(...) expressions to the provided string, including
+  // "PARTITIONS" prefix.
+  absl::Status GetLoadDataPartitionFilterString(
+      const ResolvedAuxLoadDataPartitionFilter* partition_filter,
+      std::string* sql);
 
   // Helper functions to save the <path> used to access the column later.
   void SetPathForColumn(const ResolvedColumn& column, const std::string& path);
@@ -594,6 +602,15 @@ class SQLBuilder : public ResolvedASTVisitor {
       ResolvedNonScalarFunctionCallBase::NullHandlingModifier kind);
 
   absl::StatusOr<std::string> GetSQL(const Value& value, ProductMode mode,
+                                     bool is_constant_value = false);
+
+  // Similar to the above function, but uses <annotation_map> to indicate the
+  // annotation map of value type. Currently we only support collation
+  // annotations for NULL values, and would return error if collation
+  // annotations exist while <value> is not NULL.
+  absl::StatusOr<std::string> GetSQL(const Value& value,
+                                     const AnnotationMap* annotation_map,
+                                     ProductMode mode,
                                      bool is_constant_value = false);
 
   absl::StatusOr<std::string> GetFunctionCallSQL(

@@ -1190,32 +1190,32 @@ SELECT VAR_POP(x) FROM TableBigNumericHighPrecValues
 ARRAY<STRUCT<DOUBLE>>[{2.0249999999999997e-33}]
 ==
 
-[name=var_samp_overflow_error]
+[name=var_samp_double_extreme_inf]
 SELECT VAR_SAMP(x)
 FROM UNNEST([1.0, 2.2e+304,-2.2e+304]) x
 --
-ERROR: generic::out_of_range: double overflow: -1.1e+304 * -2.2e+304
+ARRAY<STRUCT<DOUBLE>>[{inf}]
 ==
 
-[name=var_pop_overflow_error]
+[name=var_pop_double_extreme_inf]
 SELECT VAR_POP(x)
 FROM UNNEST([1.0, 2.2e+304,-2.2e+304]) x
 --
-ERROR: generic::out_of_range: double overflow: -1.1e+304 * -2.2e+304
+ARRAY<STRUCT<DOUBLE>>[{inf}]
 ==
 
-[name=stddev_samp_overflow_error]
+[name=stddev_samp_double_extreme]
 SELECT STDDEV_SAMP(x)
 FROM UNNEST([1.0, 2.2e+304,-2.2e+304]) x
 --
-ERROR: generic::out_of_range: double overflow: -1.1e+304 * -2.2e+304
+ARRAY<STRUCT<DOUBLE>>[{2.2e+304}]
 ==
 
-[name=stddev_pop_overflow_error]
+[name=stddev_pop_double_extreme]
 SELECT STDDEV_POP(x)
 FROM UNNEST([1.0, 2.2e+304,-2.2e+304]) x
 --
-ERROR: generic::out_of_range: double overflow: -1.1e+304 * -2.2e+304
+ARRAY<STRUCT<DOUBLE>>[{1.7962924780409973e+304}]
 ==
 
 [name=cross_apply]
@@ -1480,34 +1480,61 @@ FROM UNNEST([
 ARRAY<STRUCT<DOUBLE>>[{0.4}]
 ==
 
-[name=covar_samp_overflow_error]
+[name=covar_samp_double_extreme_negative_slope]
 SELECT COVAR_SAMP(y,x)
 FROM UNNEST([
   STRUCT(1.0 AS y, 1.0 AS x),
         (2.2e+304, -2.2e+304)
 ])
 --
-ERROR: generic::out_of_range: double overflow: -2.2e+304 * 2.2e+304
+ARRAY<STRUCT<DOUBLE>>[{-inf}]
 ==
 
-[name=covar_pop_overflow_error]
+[name=covar_pop_double_extreme_negative_slope]
 SELECT COVAR_POP(y,x)
 FROM UNNEST([
   STRUCT(1.0 AS y, 1.0 AS x),
         (2.2e+304, -2.2e+304)
 ])
 --
-ERROR: generic::out_of_range: double overflow: -2.2e+304 * 2.2e+304
+ARRAY<STRUCT<DOUBLE>>[{-inf}]
 ==
 
-[name=corr_overflow_error]
+[name=corr_double_extreme_negative_slope]
 SELECT CORR(y,x)
 FROM UNNEST([
   STRUCT(1.0 AS y, -1.0 AS x),
         (2.2e+154, -2.2e+154)
 ])
 --
-ERROR: generic::out_of_range: double overflow: -2.2e+154 * 2.2e+154
+ARRAY<STRUCT<DOUBLE>>[{-1}]
+==
+
+# Repro b/267896406: When COVAR_* works with either a fixed X or Y, the returned
+# value should be 0, instead of indeterministically generate overflow depending
+# on the other value.
+[name=covar_samp_double_max_non_overflow]
+SELECT COVAR_SAMP(x, CAST('1.7317579696886923e+308' AS DOUBLE))
+FROM UNNEST([10,1,2,9,3,4,5,6,7,8]) AS x
+--
+ARRAY<STRUCT<DOUBLE>>[{0}]
+==
+
+[name=covar_pop_double_max_non_overflow]
+SELECT COVAR_POP(x, CAST('1.7317579696886923e+308' AS DOUBLE))
+FROM UNNEST([10,1,2,9,3,4,5,6,7,8]) AS x
+--
+ARRAY<STRUCT<DOUBLE>>[{0}]
+==
+
+# Repro b/268264381: When CORR works with either a fixed X or Y, the returned
+# value should be NAN, instead of indeterministically generate overflow depending
+# on the other value.
+[name=corr_double_max_non_overflow]
+SELECT CORR(x, CAST('1.7317579696886923e+308' AS DOUBLE))
+FROM UNNEST([10,1,2,9,3,4,5,6,7,8]) AS x
+--
+ARRAY<STRUCT<DOUBLE>>[{nan}]
 ==
 
 [name=corr_zero_over_zero]

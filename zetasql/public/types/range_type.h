@@ -115,7 +115,7 @@ class RangeType : public ContainerType {
 
   // Helper function for determining if a type kind is a supported range element
   // type kind.
-  static bool IsSupportedElementTypeKind(const TypeKind element_type_kind);
+  static bool IsSupportedElementTypeKind(TypeKind element_type_kind);
 
   // Helper function for determining equality or equivalence for range types.
   // Equals means that the range element type is the same.

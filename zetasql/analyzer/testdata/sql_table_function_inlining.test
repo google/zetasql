@@ -3746,3 +3746,93 @@ QueryStmt
             |                   +-WithRefScan(column_list=[$inlined_DefinerRightsTvf.a#9], with_query_name="$inlined_DefinerRightsTvf_scalar_args")
             +-original_inlined_view=<null>
             +-original_inlined_tvf=DefinerRightsTvf((INT64 a) -> TABLE<Key INT64, Value STRING>)
+==
+
+SELECT *
+FROM JoinsTableArgToScannedTable(
+  (SELECT `key`, `value` FROM TwoIntegers), "arg");
+--
+QueryStmt
++-output_column_list=
+| +-JoinsTableArgToScannedTable.c#3 AS c [STRING]
+| +-JoinsTableArgToScannedTable.key#4 AS key [INT64]
+| +-JoinsTableArgToScannedTable.value#5 AS value [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=JoinsTableArgToScannedTable.[c#3, key#4, value#5]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=JoinsTableArgToScannedTable.[c#3, key#4, value#5]
+        +-tvf=JoinsTableArgToScannedTable((TABLE<key INT64, value INT64> arg_table, STRING arg_scalar) -> TABLE<c STRING, key INT64, value INT64>)
+        +-signature=(TABLE<key INT64, value INT64>, literal STRING) -> TABLE<c STRING, key INT64, value INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=TwoIntegers.[key#1, value#2]
+        | | |   +-input_scan=
+        | | |     +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        | | +-argument_column_list=TwoIntegers.[key#1, value#2]
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="arg")
+        +-column_index_list=[0, 1, 2]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-JoinsTableArgToScannedTable.c#3 AS c [STRING]
+| +-JoinsTableArgToScannedTable.key#4 AS key [INT64]
+| +-JoinsTableArgToScannedTable.value#5 AS value [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=JoinsTableArgToScannedTable.[c#3, key#4, value#5]
+    +-input_scan=
+      +-WithScan
+        +-column_list=JoinsTableArgToScannedTable.[c#3, key#4, value#5]
+        +-with_entry_list=
+        | +-WithEntry
+        | | +-with_query_name="arg_table"
+        | | +-with_subquery=
+        | |   +-ProjectScan
+        | |     +-column_list=TwoIntegers.[key#1, value#2]
+        | |     +-input_scan=
+        | |       +-TableScan(column_list=TwoIntegers.[key#1, value#2], table=TwoIntegers, column_index_list=[0, 1])
+        | +-WithEntry
+        |   +-with_query_name="$inlined_JoinsTableArgToScannedTable_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_JoinsTableArgToScannedTable.arg_scalar#8]
+        |       +-expr_list=
+        |       | +-arg_scalar#8 := Literal(type=STRING, value="arg")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=JoinsTableArgToScannedTable.[c#3, key#4, value#5]
+            +-expr_list=
+            | +-c#3 :=
+            |   +-SubqueryExpr
+            |     +-type=STRING
+            |     +-subquery_type=SCALAR
+            |     +-subquery=
+            |       +-ProjectScan
+            |         +-column_list=[$inlined_JoinsTableArgToScannedTable.arg_scalar#9]
+            |         +-input_scan=
+            |           +-WithRefScan(column_list=[$inlined_JoinsTableArgToScannedTable.arg_scalar#9], with_query_name="$inlined_JoinsTableArgToScannedTable_scalar_args")
+            +-input_scan=
+              +-JoinScan
+                +-column_list=[JoinsTableArgToScannedTable.key#4, JoinsTableArgToScannedTable.value#5, arg_table.key#6, arg_table.value#7]
+                +-left_scan=
+                | +-TableScan(column_list=JoinsTableArgToScannedTable.[key#4, value#5], table=TwoIntegers, column_index_list=[0, 1])
+                +-right_scan=
+                | +-WithRefScan(column_list=arg_table.[key#6, value#7], with_query_name="arg_table")
+                +-join_expr=
+                  +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+                    +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                    | +-ColumnRef(type=INT64, column=JoinsTableArgToScannedTable.key#4)
+                    | +-ColumnRef(type=INT64, column=arg_table.key#6)
+                    +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                      +-ColumnRef(type=INT64, column=JoinsTableArgToScannedTable.value#5)
+                      +-ColumnRef(type=INT64, column=arg_table.value#7)
+

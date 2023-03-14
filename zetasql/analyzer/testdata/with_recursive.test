@@ -1,5 +1,5 @@
 # out-of-order WITH entries without actual recursion
-[default language_features=V_1_3_WITH_RECURSIVE,ANALYTIC_FUNCTIONS,TABLE_VALUED_FUNCTIONS,TABLESAMPLE,V_1_1_WITH_ON_SUBQUERY,NUMERIC_TYPE]
+[default language_features=V_1_3_WITH_RECURSIVE,ANALYTIC_FUNCTIONS,TABLE_VALUED_FUNCTIONS,TABLESAMPLE,V_1_1_WITH_ON_SUBQUERY,NUMERIC_TYPE,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
 WITH RECURSIVE
   t1 AS (SELECT * FROM t2),
   t2 AS (SELECT * FROM t3 CROSS JOIN t4),
@@ -173,6 +173,17 @@ QueryStmt
     |     +-WithRefScan(column_list=[t1.n#5], with_query_name="t1")
     +-recursive=TRUE
 ==
+
+# Simple recursive query with collation
+WITH RECURSIVE
+  t1 AS (SELECT collate('a', 'und:ci') AS n UNION ALL SELECT concat(n, 'a') FROM t1 WHERE n < 'c')
+SELECT * FROM t1;
+--
+ERROR: Collation is not supported in recursive queries [at 2:10]
+  t1 AS (SELECT collate('a', 'und:ci') AS n UNION ALL SELECT concat(n, 'a') F...
+         ^
+==
+
 
 # Under WITH RECURSIVE, a forward reference masks a table in the catalog of the
 # same name.
@@ -1266,7 +1277,7 @@ QueryStmt
     |       | +-SetOperationItem
     |       |   +-scan=
     |       |   | +-SetOperationScan
-    |       |   |   +-column_list=[$union_all.$col1#6]
+    |       |   |   +-column_list=[$union_all.$col1#5]
     |       |   |   +-op_type=UNION_ALL
     |       |   |   +-input_item_list=
     |       |   |     +-SetOperationItem
@@ -1296,15 +1307,15 @@ QueryStmt
     |       |   |       |   +-input_scan=
     |       |   |       |     +-SingleRowScan
     |       |   |       +-output_column_list=[$union_all3.$col1#3]
-    |       |   +-output_column_list=[$union_all.$col1#6]
+    |       |   +-output_column_list=[$union_all.$col1#5]
     |       +-recursive_term=
     |         +-SetOperationItem
     |           +-scan=
     |           | +-ProjectScan
-    |           |   +-column_list=[t.$col1#5]
+    |           |   +-column_list=[t.$col1#6]
     |           |   +-input_scan=
-    |           |     +-RecursiveRefScan(column_list=[t.$col1#5])
-    |           +-output_column_list=[t.$col1#5]
+    |           |     +-RecursiveRefScan(column_list=[t.$col1#6])
+    |           +-output_column_list=[t.$col1#6]
     +-query=
     | +-ProjectScan
     |   +-column_list=[t.$col1#7]
@@ -1336,7 +1347,7 @@ QueryStmt
     |       | +-SetOperationItem
     |       |   +-scan=
     |       |   | +-SetOperationScan
-    |       |   |   +-column_list=[$union_all.$col1#8]
+    |       |   |   +-column_list=[$union_all.$col1#7]
     |       |   |   +-op_type=UNION_ALL
     |       |   |   +-input_item_list=
     |       |   |     +-SetOperationItem
@@ -1376,15 +1387,15 @@ QueryStmt
     |       |   |       |   +-input_scan=
     |       |   |       |     +-SingleRowScan
     |       |   |       +-output_column_list=[$union_all3.$col1#3]
-    |       |   +-output_column_list=[$union_all.$col1#8]
+    |       |   +-output_column_list=[$union_all.$col1#7]
     |       +-recursive_term=
     |         +-SetOperationItem
     |           +-scan=
     |           | +-ProjectScan
-    |           |   +-column_list=[t.$col1#7]
+    |           |   +-column_list=[t.$col1#8]
     |           |   +-input_scan=
-    |           |     +-RecursiveRefScan(column_list=[t.$col1#7])
-    |           +-output_column_list=[t.$col1#7]
+    |           |     +-RecursiveRefScan(column_list=[t.$col1#8])
+    |           +-output_column_list=[t.$col1#8]
     +-query=
     | +-ProjectScan
     |   +-column_list=[t.$col1#9]
@@ -1651,7 +1662,7 @@ QueryStmt
     |       | +-SetOperationItem
     |       |   +-scan=
     |       |   | +-SetOperationScan
-    |       |   |   +-column_list=[$union_all.n#6]
+    |       |   |   +-column_list=[$union_all.n#4]
     |       |   |   +-op_type=UNION_ALL
     |       |   |   +-input_item_list=
     |       |   |     +-SetOperationItem
@@ -1672,20 +1683,20 @@ QueryStmt
     |       |   |       |   +-input_scan=
     |       |   |       |     +-SingleRowScan
     |       |   |       +-output_column_list=[$union_all2.n#2]
-    |       |   +-output_column_list=[$union_all.n#6]
+    |       |   +-output_column_list=[$union_all.n#4]
     |       +-recursive_term=
     |         +-SetOperationItem
     |           +-scan=
     |           | +-ProjectScan
-    |           |   +-column_list=[$union_all3.$col1#5]
+    |           |   +-column_list=[$union_all3.$col1#6]
     |           |   +-expr_list=
-    |           |   | +-$col1#5 :=
+    |           |   | +-$col1#6 :=
     |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-    |           |   |     +-ColumnRef(type=INT64, column=t1.n#4)
+    |           |   |     +-ColumnRef(type=INT64, column=t1.n#5)
     |           |   |     +-Literal(type=INT64, value=1)
     |           |   +-input_scan=
-    |           |     +-RecursiveRefScan(column_list=[t1.n#4])
-    |           +-output_column_list=[$union_all3.$col1#5]
+    |           |     +-RecursiveRefScan(column_list=[t1.n#5])
+    |           +-output_column_list=[$union_all3.$col1#6]
     +-query=
     | +-ProjectScan
     |   +-column_list=[t1.n#7]
@@ -5241,3 +5252,229 @@ SELECT * from t;
 ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 8:39]
         UNION DISTINCT (SELECT * FROM t))
                                       ^
+==
+
+# Simple query with shape `SELECT (WITH RECURSIVE ...) FROM ...`
+SELECT
+  (
+    WITH RECURSIVE
+      t1 AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t1 WHERE n < 5)
+    SELECT ARRAY_AGG(n) FROM t1
+  ) AS n_arr,
+  x
+FROM (SELECT 1 AS x);
+--
+QueryStmt
++-output_column_list=
+| +-$query.n_arr#8 AS n_arr [ARRAY<INT64>]
+| +-$subquery1.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.n_arr#8, $subquery1.x#1]
+    +-expr_list=
+    | +-n_arr#8 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT64>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-WithScan
+    |         +-column_list=[$aggregate.$agg1#7]
+    |         +-with_entry_list=
+    |         | +-WithEntry
+    |         |   +-with_query_name="t1"
+    |         |   +-with_subquery=
+    |         |     +-RecursiveScan
+    |         |       +-column_list=[$union_all.n#3]
+    |         |       +-op_type=UNION_ALL
+    |         |       +-non_recursive_term=
+    |         |       | +-SetOperationItem
+    |         |       |   +-scan=
+    |         |       |   | +-ProjectScan
+    |         |       |   |   +-column_list=[$union_all1.n#2]
+    |         |       |   |   +-expr_list=
+    |         |       |   |   | +-n#2 := Literal(type=INT64, value=1)
+    |         |       |   |   +-input_scan=
+    |         |       |   |     +-SingleRowScan
+    |         |       |   +-output_column_list=[$union_all1.n#2]
+    |         |       +-recursive_term=
+    |         |         +-SetOperationItem
+    |         |           +-scan=
+    |         |           | +-ProjectScan
+    |         |           |   +-column_list=[$union_all2.$col1#5]
+    |         |           |   +-expr_list=
+    |         |           |   | +-$col1#5 :=
+    |         |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |           |   |     +-ColumnRef(type=INT64, column=t1.n#4)
+    |         |           |   |     +-Literal(type=INT64, value=1)
+    |         |           |   +-input_scan=
+    |         |           |     +-FilterScan
+    |         |           |       +-column_list=[t1.n#4]
+    |         |           |       +-input_scan=
+    |         |           |       | +-RecursiveRefScan(column_list=[t1.n#4])
+    |         |           |       +-filter_expr=
+    |         |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |         |           |           +-ColumnRef(type=INT64, column=t1.n#4)
+    |         |           |           +-Literal(type=INT64, value=5)
+    |         |           +-output_column_list=[$union_all2.$col1#5]
+    |         +-query=
+    |         | +-ProjectScan
+    |         |   +-column_list=[$aggregate.$agg1#7]
+    |         |   +-input_scan=
+    |         |     +-AggregateScan
+    |         |       +-column_list=[$aggregate.$agg1#7]
+    |         |       +-input_scan=
+    |         |       | +-WithRefScan(column_list=[t1.n#6], with_query_name="t1")
+    |         |       +-aggregate_list=
+    |         |         +-$agg1#7 :=
+    |         |           +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+    |         |             +-ColumnRef(type=INT64, column=t1.n#6)
+    |         +-recursive=TRUE
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.x#1]
+        +-expr_list=
+        | +-x#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# Simple query with shape `SELECT ... FROM (WITH RECURSIVE ...)`
+SELECT
+  n_arr
+FROM
+  (
+    WITH RECURSIVE
+      t1 AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t1 WHERE n < 5)
+    SELECT ARRAY_AGG(n) AS n_arr FROM t1
+  );
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.n_arr#6 AS n_arr [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.n_arr#6]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[$aggregate.n_arr#6]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="t1"
+        |   +-with_subquery=
+        |     +-RecursiveScan
+        |       +-column_list=[$union_all.n#2]
+        |       +-op_type=UNION_ALL
+        |       +-non_recursive_term=
+        |       | +-SetOperationItem
+        |       |   +-scan=
+        |       |   | +-ProjectScan
+        |       |   |   +-column_list=[$union_all1.n#1]
+        |       |   |   +-expr_list=
+        |       |   |   | +-n#1 := Literal(type=INT64, value=1)
+        |       |   |   +-input_scan=
+        |       |   |     +-SingleRowScan
+        |       |   +-output_column_list=[$union_all1.n#1]
+        |       +-recursive_term=
+        |         +-SetOperationItem
+        |           +-scan=
+        |           | +-ProjectScan
+        |           |   +-column_list=[$union_all2.$col1#4]
+        |           |   +-expr_list=
+        |           |   | +-$col1#4 :=
+        |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |           |   |     +-ColumnRef(type=INT64, column=t1.n#3)
+        |           |   |     +-Literal(type=INT64, value=1)
+        |           |   +-input_scan=
+        |           |     +-FilterScan
+        |           |       +-column_list=[t1.n#3]
+        |           |       +-input_scan=
+        |           |       | +-RecursiveRefScan(column_list=[t1.n#3])
+        |           |       +-filter_expr=
+        |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+        |           |           +-ColumnRef(type=INT64, column=t1.n#3)
+        |           |           +-Literal(type=INT64, value=5)
+        |           +-output_column_list=[$union_all2.$col1#4]
+        +-query=
+        | +-ProjectScan
+        |   +-column_list=[$aggregate.n_arr#6]
+        |   +-input_scan=
+        |     +-AggregateScan
+        |       +-column_list=[$aggregate.n_arr#6]
+        |       +-input_scan=
+        |       | +-WithRefScan(column_list=[t1.n#5], with_query_name="t1")
+        |       +-aggregate_list=
+        |         +-n_arr#6 :=
+        |           +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+        |             +-ColumnRef(type=INT64, column=t1.n#5)
+        +-recursive=TRUE
+==
+
+# Simple query with shape `WITH t as (WITH RECURSIVE ...) SELECT ... FROM ...`
+WITH
+  t AS (
+    WITH RECURSIVE
+      t1 AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t1 WHERE n < 5)
+    SELECT * FROM t1
+  )
+SELECT * FROM t;
+--
+QueryStmt
++-output_column_list=
+| +-t.n#6 AS n [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.n#6]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-WithScan
+    |       +-column_list=[t1.n#5]
+    |       +-with_entry_list=
+    |       | +-WithEntry
+    |       |   +-with_query_name="t1"
+    |       |   +-with_subquery=
+    |       |     +-RecursiveScan
+    |       |       +-column_list=[$union_all.n#2]
+    |       |       +-op_type=UNION_ALL
+    |       |       +-non_recursive_term=
+    |       |       | +-SetOperationItem
+    |       |       |   +-scan=
+    |       |       |   | +-ProjectScan
+    |       |       |   |   +-column_list=[$union_all1.n#1]
+    |       |       |   |   +-expr_list=
+    |       |       |   |   | +-n#1 := Literal(type=INT64, value=1)
+    |       |       |   |   +-input_scan=
+    |       |       |   |     +-SingleRowScan
+    |       |       |   +-output_column_list=[$union_all1.n#1]
+    |       |       +-recursive_term=
+    |       |         +-SetOperationItem
+    |       |           +-scan=
+    |       |           | +-ProjectScan
+    |       |           |   +-column_list=[$union_all2.$col1#4]
+    |       |           |   +-expr_list=
+    |       |           |   | +-$col1#4 :=
+    |       |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |       |           |   |     +-ColumnRef(type=INT64, column=t1.n#3)
+    |       |           |   |     +-Literal(type=INT64, value=1)
+    |       |           |   +-input_scan=
+    |       |           |     +-FilterScan
+    |       |           |       +-column_list=[t1.n#3]
+    |       |           |       +-input_scan=
+    |       |           |       | +-RecursiveRefScan(column_list=[t1.n#3])
+    |       |           |       +-filter_expr=
+    |       |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |       |           |           +-ColumnRef(type=INT64, column=t1.n#3)
+    |       |           |           +-Literal(type=INT64, value=5)
+    |       |           +-output_column_list=[$union_all2.$col1#4]
+    |       +-query=
+    |       | +-ProjectScan
+    |       |   +-column_list=[t1.n#5]
+    |       |   +-input_scan=
+    |       |     +-WithRefScan(column_list=[t1.n#5], with_query_name="t1")
+    |       +-recursive=TRUE
+    +-query=
+      +-ProjectScan
+        +-column_list=[t.n#6]
+        +-input_scan=
+          +-WithRefScan(column_list=[t.n#6], with_query_name="t")

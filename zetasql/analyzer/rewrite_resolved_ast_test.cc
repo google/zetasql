@@ -17,15 +17,18 @@
 #include <memory>
 
 #include "zetasql/analyzer/rewriters/map_function_rewriter.h"
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/simple_catalog.h"
-#include "zetasql/public/testing/test_case_options_util.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/flags/flag.h"
+
+ABSL_DECLARE_FLAG(double, zetasql_stack_usage_proportion_warning);
 
 namespace zetasql {
 
@@ -144,6 +147,36 @@ TEST(RewriteResolvedAstTest, RewriterDoesNotConflictWithExpressionColumnNames) {
 |             +-SingleRowScan
 +-ExpressionColumn(type=INT64, name="k")
 )sql");
+}
+
+TEST(RewriteResolvedAstTest, RewriterWarnsComplextyJustOnce) {
+  double old_value =
+      absl::GetFlag(FLAGS_zetasql_stack_usage_proportion_warning);
+  // Always warn.
+  absl::SetFlag(&FLAGS_zetasql_stack_usage_proportion_warning, 0.0);
+  AnalyzerOptions options;
+  options.mutable_language()->EnableMaximumLanguageFeatures();
+  ZETASQL_CHECK_OK(options.AddExpressionColumn("k", types::Int64Type()));
+
+  TypeFactory types;
+  const Type* map_type;
+  ZETASQL_CHECK_OK(types.MakeProtoType(
+      zetasql_test__::MessageWithMapField::descriptor(), &map_type));
+  ZETASQL_CHECK_OK(options.AddExpressionColumn("mapproto", map_type));
+
+  SimpleCatalog catalog("catalog", &types);
+  catalog.AddZetaSQLFunctions();
+
+  std::unique_ptr<const AnalyzerOutput> output;
+  auto status = zetasql::AnalyzeExpression(
+      "mapproto.string_int32_map[SAFE_KEY('foo')] + k", options, &catalog,
+      &types, &output);
+  ZETASQL_EXPECT_OK(status);
+
+  EXPECT_THAT(output->deprecation_warnings(),
+              ::testing::ElementsAre(zetasql_base::testing::StatusIs(
+                  absl::StatusCode::kResourceExhausted)));
+  absl::SetFlag(&FLAGS_zetasql_stack_usage_proportion_warning, old_value);
 }
 
 }  // namespace zetasql

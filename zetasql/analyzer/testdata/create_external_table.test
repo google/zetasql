@@ -545,10 +545,10 @@ CreateExternalTableStmt
 | +-x := Literal(type=STRING, value="bar")
 +-column_definition_list=
 | +-ColumnDefinition(name="x", type=INT64, column=projectid.datasetid.tablename.x#1)
-+-with_partition_columns=
-| +-WithPartitionColumns
 +-connection=
-  +-Connection(connection=connection2)
+| +-Connection(connection=connection2)
++-with_partition_columns=
+  +-WithPartitionColumns
 ==
 
 [language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
@@ -567,12 +567,12 @@ CreateExternalTableStmt
 | +-x := Literal(type=STRING, value="baz")
 +-column_definition_list=
 | +-ColumnDefinition(name="x", type=INT64, column=t.x#1)
-+-with_partition_columns=
-| +-WithPartitionColumns
-|   +-column_definition_list=
-|     +-ColumnDefinition(name="y", type=INT64, column=t.y#2)
 +-connection=
-  +-Connection(connection=connection2)
+| +-Connection(connection=connection2)
++-with_partition_columns=
+  +-WithPartitionColumns
+    +-column_definition_list=
+      +-ColumnDefinition(name="y", type=INT64, column=t.y#2)
 ==
 
 [language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
@@ -591,9 +591,9 @@ CreateExternalTableStmt
 | +-x := Literal(type=STRING, value="baz")
 +-column_definition_list=
 | +-ColumnDefinition(name="x", type=INT64, column=t.x#1)
-+-with_partition_columns=
-| +-WithPartitionColumns
-|   +-column_definition_list=
-|     +-ColumnDefinition(name="y", type=INT64, column=t.y#2)
 +-connection=
-  +-Connection(connection=connection2)
+| +-Connection(connection=connection2)
++-with_partition_columns=
+  +-WithPartitionColumns
+    +-column_definition_list=
+      +-ColumnDefinition(name="y", type=INT64, column=t.y#2)

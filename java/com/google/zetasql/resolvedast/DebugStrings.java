@@ -202,7 +202,7 @@ class DebugStrings {
   }
 
   static String toStringImpl(Column column) {
-    return column.getName();
+    return column.getFullName();
   }
 
   // To deal with type erasure, every toString function for repeated fields

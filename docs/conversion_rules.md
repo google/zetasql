@@ -316,7 +316,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>INT32</td>
       <td>
 
-<span> INT32</span><br /><span> INT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+<span><code>INT32</code></span><br /><span><code>INT64</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
 </td>
     </tr>
     
@@ -325,7 +325,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>INT64</td>
       <td>
 
-<span> INT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+<span><code>INT64</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
 </td>
     </tr>
     
@@ -334,7 +334,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>UINT32</td>
       <td>
 
-<span> UINT32</span><br /><span> INT64</span><br /><span> UINT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+<span><code>UINT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT64</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
 </td>
     </tr>
     
@@ -343,7 +343,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>UINT64</td>
       <td>
 
-<span> UINT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+<span><code>UINT64</code></span><br /><span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
 </td>
     </tr>
     
@@ -352,7 +352,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>FLOAT</td>
       <td>
 
-<span> FLOAT</span><br /><span> DOUBLE</span><br />
+<span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
     
@@ -361,7 +361,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>DOUBLE</td>
       <td>
 
-<span> DOUBLE</span><br />
+<span><code>DOUBLE</code></span><br />
 </td>
     </tr>
     
@@ -370,7 +370,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>NUMERIC</td>
       <td>
 
-<span> NUMERIC</span><br /><span> BIGNUMERIC</span><br /><span> DOUBLE</span><br />
+<span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
     
@@ -379,7 +379,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>DECIMAL</td>
       <td>
 
-<span> DECIMAL</span><br /><span> BIGDECIMAL</span><br /><span> DOUBLE</span><br />
+<span><code>DECIMAL</code></span><br /><span><code>BIGDECIMAL</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
     
@@ -388,7 +388,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>BIGNUMERIC</td>
       <td>
 
-<span> BIGNUMERIC</span><br /><span> DOUBLE</span><br />
+<span><code>BIGNUMERIC</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
     
@@ -397,7 +397,7 @@ or more supertypes, including itself, which defines its set of supertypes.
       <td>BIGDECIMAL</td>
       <td>
 
-<span> BIGDECIMAL</span><br /><span> DOUBLE</span><br />
+<span><code>BIGDECIMAL</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
     
@@ -507,7 +507,7 @@ the most specific type is the type with the most restrictive domain.
     <tr>
       <td>
 
-<span> INT64</span><br /><span> FLOAT</span><br />
+<span><code>INT64</code></span><br /><span><code>FLOAT</code></span><br />
 </td>
       <td>DOUBLE</td>
       <td>DOUBLE</td>
@@ -521,7 +521,7 @@ the most specific type is the type with the most restrictive domain.
     <tr>
       <td>
 
-<span> INT64</span><br /><span> DOUBLE</span><br />
+<span><code>INT64</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
       <td>DOUBLE</td>
       <td>DOUBLE</td>
@@ -534,7 +534,7 @@ the most specific type is the type with the most restrictive domain.
     <tr>
       <td>
 
-<span> INT64</span><br /><span> BOOL</span><br />
+<span><code>INT64</code></span><br /><span><code>BOOL</code></span><br />
 </td>
       <td>None</td>
       <td>Error</td>
@@ -565,11 +565,11 @@ The following table contains a list of exact and inexact numeric data types.
     <tr>
       <td>
 
-<span> INT32</span><br /><span> UINT32</span><br /><span> INT64</span><br /><span> UINT64</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+<span><code>INT32</code></span><br /><span><code>UINT32</code></span><br /><span><code>INT64</code></span><br /><span><code>UINT64</code></span><br /><span><code>NUMERIC</code></span><br /><span><code>BIGNUMERIC</code></span><br />
 </td>
       <td>
 
-<span> FLOAT</span><br /><span> DOUBLE</span><br />
+<span><code>FLOAT</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
     </tr>
   </tbody>
@@ -591,7 +591,7 @@ The following table contains a list of exact and inexact numeric data types.
     <tr>
       <td>
 
-<span> UINT64</span><br /><span> INT64</span><br />
+<span><code>UINT64</code></span><br /><span><code>INT64</code></span><br />
 </td>
       <td>DOUBLE</td>
       <td>Error</td>
@@ -606,7 +606,7 @@ The following table contains a list of exact and inexact numeric data types.
     <tr>
       <td>
 
-<span> UINT32</span><br /><span> INT32</span><br />
+<span><code>UINT32</code></span><br /><span><code>INT32</code></span><br />
 </td>
       <td>INT64</td>
       <td>INT64</td>
@@ -620,7 +620,7 @@ The following table contains a list of exact and inexact numeric data types.
     <tr>
       <td>
 
-<span> INT64</span><br /><span> DOUBLE</span><br />
+<span><code>INT64</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
       <td>DOUBLE</td>
       <td>DOUBLE</td>
@@ -634,7 +634,7 @@ The following table contains a list of exact and inexact numeric data types.
     <tr>
       <td>
 
-<span> UINT64</span><br /><span> INT64</span><br /><span> DOUBLE</span><br />
+<span><code>UINT64</code></span><br /><span><code>INT64</code></span><br /><span><code>DOUBLE</code></span><br />
 </td>
       <td>DOUBLE</td>
       <td>DOUBLE</td>

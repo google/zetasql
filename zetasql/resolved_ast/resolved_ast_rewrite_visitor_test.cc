@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/resolved_ast/resolved_ast_zero_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
 
 #include <cstdint>
 #include <memory>
@@ -50,7 +50,7 @@ namespace zetasql {
 // by incrementing the enum (e.g. INNER -> LEFT).
 //
 // This is an example of copy-then-mutate during a deep copy.
-class ModifyJoinScanCopyVisitor : public ResolvedASTZeroCopyVisitor {
+class ModifyJoinScanCopyVisitor : public ResolvedASTRewriteVisitor {
  private:
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> PostVisitResolvedJoinScan(
       std::unique_ptr<const ResolvedJoinScan> node) override {
@@ -68,7 +68,7 @@ class ModifyJoinScanCopyVisitor : public ResolvedASTZeroCopyVisitor {
 //
 // This is an example of the pop / recreate / push method of rewriting a node
 // during copying.  The simpler method above is preferred.
-class CastFilterScanCopyVisitor : public ResolvedASTZeroCopyVisitor {
+class CastFilterScanCopyVisitor : public ResolvedASTRewriteVisitor {
  private:
   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
   PostVisitResolvedFilterScan(
@@ -94,7 +94,7 @@ class CastFilterScanCopyVisitor : public ResolvedASTZeroCopyVisitor {
 // name and table provided, will add a >= comparison for the given threshold.
 //
 // Because this is just an example, corner cases are likely not covered.
-class AddFilterToTableScanCopyVisitor : public ResolvedASTZeroCopyVisitor {
+class AddFilterToTableScanCopyVisitor : public ResolvedASTRewriteVisitor {
  public:
   // Constructor for AddFilterToTableScan. Takes a table name and column
   // name to apply filter to, and the threshold in wihch to apply the >= on.
@@ -190,9 +190,9 @@ class AddFilterToTableScanCopyVisitor : public ResolvedASTZeroCopyVisitor {
   IdStringPool* id_string_pool_;
 };
 
-class ResolvedASTZeroCopyVisitorTest : public ::testing::Test {
+class ResolvedASTRewriteVisitorTest : public ::testing::Test {
  protected:
-  ResolvedASTZeroCopyVisitorTest() : catalog_("Test catalog", nullptr) {}
+  ResolvedASTRewriteVisitorTest() : catalog_("Test catalog", nullptr) {}
 
   void SetUp() override {
     // Must add ZetaSQL functions or the catalog will not be parsed properly.
@@ -249,25 +249,18 @@ class ResolvedASTZeroCopyVisitorTest : public ::testing::Test {
   // Analyze <query> and then apply <visitor> to copy its resolved AST,
   // then return the copy.
   std::unique_ptr<const ResolvedNode> ApplyCopyVisitor(
-      absl::string_view query, ResolvedASTZeroCopyVisitor* visitor);
-
-  absl::Status ApplyCopyVisitorError(absl::string_view query,
-                                     ResolvedASTZeroCopyVisitor* visitor);
+      absl::string_view query, ResolvedASTRewriteVisitor* visitor);
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> ApplyCopyVisitorImpl(
-      absl::string_view query, ResolvedASTZeroCopyVisitor* visitor);
+      absl::string_view query, ResolvedASTRewriteVisitor* visitor);
 
   // Create AST and deep copied AST for a given query. Verify that all
   // statuses work as expected and that the debug string matches.
   std::unique_ptr<const ResolvedNode> TestDeepCopyAST(const std::string& query);
-  std::unique_ptr<const ResolvedNode> TestAddFilterToTableScanCopyVisitor(
-      const std::string& query);
   std::unique_ptr<const ResolvedNode> TestModifyJoinScanCopyVisitor(
       const std::string& query);
   std::unique_ptr<const ResolvedNode> TestCastFilterScanCopyVisitor(
       const std::string& query);
-  void TestAddFilterToTableScanError(const std::string& query,
-                                     const std::string& error);
 
   // Keeps the analyzer outputs from the tests alive without having to pass them
   // around. This is a vector because there are tests that analyze multiple
@@ -282,7 +275,7 @@ class ResolvedASTZeroCopyVisitorTest : public ::testing::Test {
 };
 
 std::unique_ptr<const ResolvedNode>
-ResolvedASTZeroCopyVisitorTest::TestDeepCopyAST(const std::string& query) {
+ResolvedASTRewriteVisitorTest::TestDeepCopyAST(const std::string& query) {
   // Parse query into AST.
   analyzer_outputs_.emplace_back();
   ZETASQL_EXPECT_OK(AnalyzeStatement(query, options_, &catalog_, &type_factory_,
@@ -296,21 +289,21 @@ ResolvedASTZeroCopyVisitorTest::TestDeepCopyAST(const std::string& query) {
       ResolvedASTDeepCopyVisitor::Copy(original);
   ZETASQL_CHECK_OK(deep_copy);
 
-  // Create zero copy visitor.
-  ResolvedASTZeroCopyVisitor visitor;
+  // Create rewrite visitor.
+  ResolvedASTRewriteVisitor visitor;
   // Accept the visitor on the resolved query.
-  absl::StatusOr<std::unique_ptr<const ResolvedNode>> zero_copy =
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> rewrite_copy =
       visitor.VisitAll<ResolvedNode>(std::move(deep_copy).value());
-  ZETASQL_CHECK_OK(zero_copy);
+  ZETASQL_CHECK_OK(rewrite_copy);
   // Verify that the debug string matches.
-  EXPECT_EQ(original->DebugString(), (*zero_copy)->DebugString());
+  EXPECT_EQ(original->DebugString(), (*rewrite_copy)->DebugString());
 
-  return std::move(zero_copy).value();
+  return std::move(rewrite_copy).value();
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedNode>>
-ResolvedASTZeroCopyVisitorTest::ApplyCopyVisitorImpl(
-    absl::string_view query, ResolvedASTZeroCopyVisitor* visitor) {
+ResolvedASTRewriteVisitorTest::ApplyCopyVisitorImpl(
+    absl::string_view query, ResolvedASTRewriteVisitor* visitor) {
   // Parse query into AST.
   analyzer_outputs_.emplace_back();
   ZETASQL_EXPECT_OK(AnalyzeStatement(query, options_, &catalog_, &type_factory_,
@@ -329,68 +322,31 @@ ResolvedASTZeroCopyVisitorTest::ApplyCopyVisitorImpl(
 }
 
 std::unique_ptr<const ResolvedNode>
-ResolvedASTZeroCopyVisitorTest::ApplyCopyVisitor(
-    absl::string_view query, ResolvedASTZeroCopyVisitor* visitor) {
-  absl::StatusOr<std::unique_ptr<const ResolvedNode>> zero_copy =
+ResolvedASTRewriteVisitorTest::ApplyCopyVisitor(
+    absl::string_view query, ResolvedASTRewriteVisitor* visitor) {
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> rewrite_copy =
       ApplyCopyVisitorImpl(query, visitor);
-  ZETASQL_CHECK_OK(zero_copy);
+  ZETASQL_CHECK_OK(rewrite_copy);
 
   // Return the copied tree.
-  return std::move(zero_copy).value();
-}
-
-absl::Status ResolvedASTZeroCopyVisitorTest::ApplyCopyVisitorError(
-    absl::string_view query, ResolvedASTZeroCopyVisitor* visitor) {
-  absl::StatusOr<std::unique_ptr<const ResolvedNode>> zero_copy =
-      ApplyCopyVisitorImpl(query, visitor);
-  ZETASQL_CHECK(!zero_copy.ok());
-
-  return zero_copy.status();
+  return std::move(rewrite_copy).value();
 }
 
 std::unique_ptr<const ResolvedNode>
-ResolvedASTZeroCopyVisitorTest::TestAddFilterToTableScanCopyVisitor(
-    const std::string& query) {
-  AddFilterToTableScanCopyVisitor visitor("Temp", "int32_field", 50, &catalog_,
-                                          &id_string_pool_);
-  return ApplyCopyVisitor(query, &visitor);
-}
-
-std::unique_ptr<const ResolvedNode>
-ResolvedASTZeroCopyVisitorTest::TestModifyJoinScanCopyVisitor(
+ResolvedASTRewriteVisitorTest::TestModifyJoinScanCopyVisitor(
     const std::string& query) {
   ModifyJoinScanCopyVisitor visitor;
   return ApplyCopyVisitor(query, &visitor);
 }
 
 std::unique_ptr<const ResolvedNode>
-ResolvedASTZeroCopyVisitorTest::TestCastFilterScanCopyVisitor(
+ResolvedASTRewriteVisitorTest::TestCastFilterScanCopyVisitor(
     const std::string& query) {
   CastFilterScanCopyVisitor visitor;
   return ApplyCopyVisitor(query, &visitor);
 }
 
-void ResolvedASTZeroCopyVisitorTest::TestAddFilterToTableScanError(
-    const std::string& query, const std::string& error) {
-  // Parse query into AST.
-  analyzer_outputs_.emplace_back();
-  ZETASQL_EXPECT_OK(AnalyzeStatement(query, options_, &catalog_, &type_factory_,
-                             &analyzer_outputs_.back()));
-
-  // Get the original debug string.
-  const std::string original_debug_string =
-      analyzer_outputs_.back()->resolved_statement()->DebugString();
-
-  // Create deep copy visitor.
-  AddFilterToTableScanCopyVisitor visitor("Temp", "int32_field", 50, &catalog_,
-                                          &id_string_pool_);
-
-  EXPECT_THAT(
-      ApplyCopyVisitorError(query, &visitor),
-      zetasql_base::testing::StatusIs(testing::_, "No filter scans allowed."));
-}
-
-TEST_F(ResolvedASTZeroCopyVisitorTest, DeepCopyASTTest) {
+TEST_F(ResolvedASTRewriteVisitorTest, DeepCopyASTTest) {
   // Test that we are able to perform deep copy of the AST with no errors
   // and a matching debug string.
 
@@ -408,7 +364,7 @@ TEST_F(ResolvedASTZeroCopyVisitorTest, DeepCopyASTTest) {
   TestDeepCopyAST(input_sql);
 }
 
-TEST_F(ResolvedASTZeroCopyVisitorTest, TestCopyASTTestComplex) {
+TEST_F(ResolvedASTRewriteVisitorTest, TestCopyASTTestComplex) {
   // Test that DeepCopy works for a more complex query.
   const std::string input_sql = R"(
       WITH companies AS (
@@ -449,13 +405,13 @@ TEST_F(ResolvedASTZeroCopyVisitorTest, TestCopyASTTestComplex) {
   TestDeepCopyAST(input_sql);
 }
 
-TEST_F(ResolvedASTZeroCopyVisitorTest, TestCopyASTTestHint) {
+TEST_F(ResolvedASTRewriteVisitorTest, TestCopyASTTestHint) {
   // Tests that it works for hints.
   const std::string input_sql = "select @{ key = 5 } 123";
   TestDeepCopyAST(input_sql);
 }
 
-TEST_F(ResolvedASTZeroCopyVisitorTest, TestModifyJoinScan) {
+TEST_F(ResolvedASTRewriteVisitorTest, TestModifyJoinScan) {
   // Tests that it updates the join type.
   const std::string input_sql =
       "SELECT a.double_field FROM Temp a JOIN Temp b USING (int32_field)";
@@ -468,7 +424,7 @@ TEST_F(ResolvedASTZeroCopyVisitorTest, TestModifyJoinScan) {
   ASSERT_EQ(ast->DebugString(), desired_ast->DebugString());
 }
 
-TEST_F(ResolvedASTZeroCopyVisitorTest, TestCastFilterScan) {
+TEST_F(ResolvedASTRewriteVisitorTest, TestCastFilterScan) {
   // Tests that it updates the filter expression.
   const std::string input_sql =
       "SELECT double_field FROM Temp WHERE int32_field = 10";
@@ -482,7 +438,35 @@ TEST_F(ResolvedASTZeroCopyVisitorTest, TestCastFilterScan) {
   ASSERT_EQ(ast->DebugString(), desired_ast->DebugString());
 }
 
-class VisitOrderInspectingVisitor : public ResolvedASTZeroCopyVisitor {
+TEST_F(ResolvedASTRewriteVisitorTest, TestOrderByNotRepropagated) {
+  ResolvedColumn column;
+  const SimpleTable t1{"t1"};
+
+  auto scan = ResolvedLimitOffsetScanBuilder()
+                  .add_column_list(column)
+                  .set_offset(MakeResolvedLiteral(Value::Int64(1)))
+                  .set_limit(MakeResolvedLiteral(Value::Int64(1)))
+                  .set_input_scan(ResolvedTableScanBuilder()
+                                      .add_column_list(column)
+                                      .set_table(&t1)
+                                      .set_is_ordered(true))
+                  .Build()
+                  .value();
+  // Verify that the default behavior will be to propagate order from
+  // the input scan.
+  EXPECT_TRUE(scan->is_ordered());
+  scan = ToBuilder(std::move(scan)).set_is_ordered(false).Build().value();
+  // Now force it false.
+  EXPECT_FALSE(scan->is_ordered());
+  ResolvedASTRewriteVisitor identity_visitor;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto new_scan,
+      identity_visitor.VisitAll<ResolvedLimitOffsetScan>(std::move(scan)));
+
+  EXPECT_FALSE(new_scan->is_ordered());
+}
+
+class VisitOrderInspectingVisitor : public ResolvedASTRewriteVisitor {
  public:
   absl::Status PreVisitResolvedFunctionCall(
       const ResolvedFunctionCall& call) override {
@@ -507,7 +491,7 @@ class VisitOrderInspectingVisitor : public ResolvedASTZeroCopyVisitor {
   std::vector<std::string> hint_stack_;
 };
 
-TEST_F(ResolvedASTZeroCopyVisitorTest, TestVisitOrder) {
+TEST_F(ResolvedASTRewriteVisitorTest, TestVisitOrder) {
   constexpr absl::string_view input_sql =
       R"(SELECT concat(
                   (select concat((select concat(1) @{C=1} )) @{B=1} )

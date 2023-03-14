@@ -2816,6 +2816,301 @@ static const std::vector<QueryParamsWithResult> GetArrayAvgTestCases(
   return test_cases;
 }
 
+struct ArrayFindFunctionsTestCase {
+  Value input_array;
+  Value target_element;
+  Value find_first_result;
+  Value find_last_result;
+  Value offset_first_result;
+  Value offset_last_result;
+  Value find_all_result;
+  Value offsets_result;
+  std::set<LanguageFeature> required_features;
+};
+
+static std::vector<ArrayFindFunctionsTestCase>
+GetArrayFindFunctionsTestCases() {
+  Value null_int64 = NullInt64();
+
+  static const ArrayType* kInt64ArrayType =
+      MakeArrayType(types::Int64Type(), type_factory());
+  const Value null_int64_array = Null(kInt64ArrayType);
+  const Value empty_indices = Value::EmptyArray(kInt64ArrayType);
+  const Value indices_1 = Value::Array(kInt64ArrayType, {Value::Int64(1)});
+  const Value indices_12 =
+      Value::Array(kInt64ArrayType, {Value::Int64(1), Value::Int64(2)});
+  const Value indices_13 =
+      Value::Array(kInt64ArrayType, {Value::Int64(1), Value::Int64(3)});
+  const Value indices_23 =
+      Value::Array(kInt64ArrayType, {Value::Int64(2), Value::Int64(3)});
+  const Value indices_0 = Value::Array(kInt64ArrayType, {Value::Int64(0)});
+  const Value indices_01 =
+      Value::Array(kInt64ArrayType, {Value::Int64(0), Value::Int64(1)});
+
+  std::vector<ArrayFindFunctionsTestCase> test_cases;
+  std::vector<TypeFeaturePair> pairs = GetOrderableTypesWithFeaturesAndValues();
+  ZETASQL_DCHECK_GT(pairs.size(), 0);
+  for (const TypeFeaturePair& v : pairs) {
+    const ArrayType* array_type = MakeArrayType(v.type, type_factory());
+    Value null_element = Null(v.type);
+
+    // Set up array values with different example input combinations, which are
+    // used as input of the test cases.
+    // Note that, example_input_2 and example_input_3 are equal.
+    Value null_array = Null(array_type);
+    Value empty_array = Value::EmptyArray(array_type);
+    Value input1 = values::Array(array_type, {v.example_input_1});
+    Value input2 = values::Array(array_type, {v.example_input_2});
+    Value input3 = values::Array(array_type, {v.example_input_3});
+    Value input12 =
+        values::Array(array_type, {v.example_input_1, v.example_input_2});
+    Value input23 =
+        values::Array(array_type, {v.example_input_2, v.example_input_3});
+    Value input123 = values::Array(
+        array_type, {v.example_input_1, v.example_input_2, v.example_input_3});
+
+    Value input_nulls = values::Array(array_type, {null_element, null_element});
+    Value input_1_null =
+        values::Array(array_type, {v.example_input_1, null_element});
+    Value input_2_null =
+        values::Array(array_type, {v.example_input_2, null_element});
+    Value input_null_3 =
+        values::Array(array_type, {null_element, v.example_input_3});
+    Value input_12_null = values::Array(
+        array_type, {v.example_input_1, v.example_input_2, null_element});
+    Value input_23_null = values::Array(
+        array_type, {v.example_input_2, v.example_input_3, null_element});
+    Value input_null_123 =
+        values::Array(array_type, {null_element, v.example_input_1,
+                                   v.example_input_2, v.example_input_3});
+    Value input_12_null_3 =
+        values::Array(array_type, {v.example_input_1, v.example_input_2,
+                                   null_element, v.example_input_3});
+
+    // 1. Empty array argument.
+    test_cases.push_back({.input_array = empty_array,
+                          .target_element = v.example_input_1,
+                          .find_first_result = null_element,
+                          .find_last_result = null_element,
+                          .offset_first_result = null_int64,
+                          .offset_last_result = null_int64,
+                          .find_all_result = empty_array,
+                          .offsets_result = empty_indices,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = empty_array,
+                          .target_element = null_element,
+                          .find_first_result = null_element,
+                          .find_last_result = null_element,
+                          .offset_first_result = null_int64,
+                          .offset_last_result = null_int64,
+                          .find_all_result = null_array,
+                          .offsets_result = null_int64_array,
+                          .required_features = v.required_features});
+
+    // 2. NULL array argument.
+    test_cases.push_back({.input_array = null_array,
+                          .target_element = null_element,
+                          .find_first_result = null_element,
+                          .find_last_result = null_element,
+                          .offset_first_result = null_int64,
+                          .offset_last_result = null_int64,
+                          .find_all_result = null_array,
+                          .offsets_result = null_int64_array,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = null_array,
+                          .target_element = v.example_input_1,
+                          .find_first_result = null_element,
+                          .find_last_result = null_element,
+                          .offset_first_result = null_int64,
+                          .offset_last_result = null_int64,
+                          .find_all_result = null_array,
+                          .offsets_result = null_int64_array,
+                          .required_features = v.required_features});
+
+    // 3. Array argument with all NULL elements.
+    test_cases.push_back({.input_array = input_nulls,
+                          .target_element = null_element,
+                          .find_first_result = null_element,
+                          .find_last_result = null_element,
+                          .offset_first_result = null_int64,
+                          .offset_last_result = null_int64,
+                          .find_all_result = null_array,
+                          .offsets_result = null_int64_array,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = input_nulls,
+                          .target_element = v.example_input_1,
+                          .find_first_result = null_element,
+                          .find_last_result = null_element,
+                          .offset_first_result = null_int64,
+                          .offset_last_result = null_int64,
+                          .find_all_result = empty_array,
+                          .offsets_result = empty_indices,
+                          .required_features = v.required_features});
+
+    // 4. Find unique element from array.
+    test_cases.push_back({.input_array = input2,
+                          .target_element = v.example_input_2,
+                          .find_first_result = v.example_input_2,
+                          .find_last_result = v.example_input_2,
+                          .offset_first_result = Value::Int64(0),
+                          .offset_last_result = Value::Int64(0),
+                          .find_all_result = input2,
+                          .offsets_result = indices_0,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = input_2_null,
+                          .target_element = v.example_input_2,
+                          .find_first_result = v.example_input_2,
+                          .find_last_result = v.example_input_2,
+                          .offset_first_result = Value::Int64(0),
+                          .offset_last_result = Value::Int64(0),
+                          .find_all_result = input2,
+                          .offsets_result = indices_0,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = input12,
+                          .target_element = v.example_input_2,
+                          .find_first_result = v.example_input_2,
+                          .find_last_result = v.example_input_2,
+                          .offset_first_result = Value::Int64(1),
+                          .offset_last_result = Value::Int64(1),
+                          .find_all_result = input2,
+                          .offsets_result = indices_1,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = input_12_null,
+                          .target_element = v.example_input_2,
+                          .find_first_result = v.example_input_2,
+                          .find_last_result = v.example_input_2,
+                          .offset_first_result = Value::Int64(1),
+                          .offset_last_result = Value::Int64(1),
+                          .find_all_result = input2,
+                          .offsets_result = indices_1,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = input123,
+                          .target_element = v.example_input_1,
+                          .find_first_result = v.example_input_1,
+                          .find_last_result = v.example_input_1,
+                          .offset_first_result = Value::Int64(0),
+                          .offset_last_result = Value::Int64(0),
+                          .find_all_result = input1,
+                          .offsets_result = indices_0,
+                          .required_features = v.required_features});
+
+    // 5. Find element with ties from array.
+    // Note that, example_input_2 and example_input_3 have equal values.
+    test_cases.push_back({.input_array = input23,
+                          .target_element = v.example_input_2,
+                          .find_first_result = v.example_input_2,
+                          .find_last_result = v.example_input_3,
+                          .offset_first_result = Value::Int64(0),
+                          .offset_last_result = Value::Int64(1),
+                          .find_all_result = input23,
+                          .offsets_result = indices_01,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = input_23_null,
+                          .target_element = v.example_input_2,
+                          .find_first_result = v.example_input_2,
+                          .find_last_result = v.example_input_3,
+                          .offset_first_result = Value::Int64(0),
+                          .offset_last_result = Value::Int64(1),
+                          .find_all_result = input23,
+                          .offsets_result = indices_01,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = input123,
+                          .target_element = v.example_input_2,
+                          .find_first_result = v.example_input_2,
+                          .find_last_result = v.example_input_3,
+                          .offset_first_result = Value::Int64(1),
+                          .offset_last_result = Value::Int64(2),
+                          .find_all_result = input23,
+                          .offsets_result = indices_12,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = input_null_123,
+                          .target_element = v.example_input_2,
+                          .find_first_result = v.example_input_2,
+                          .find_last_result = v.example_input_3,
+                          .offset_first_result = Value::Int64(2),
+                          .offset_last_result = Value::Int64(3),
+                          .find_all_result = input23,
+                          .offsets_result = indices_23,
+                          .required_features = v.required_features});
+
+    test_cases.push_back({.input_array = input_12_null_3,
+                          .target_element = v.example_input_2,
+                          .find_first_result = v.example_input_2,
+                          .find_last_result = v.example_input_3,
+                          .offset_first_result = Value::Int64(1),
+                          .offset_last_result = Value::Int64(3),
+                          .find_all_result = input23,
+                          .offsets_result = indices_13,
+                          .required_features = v.required_features});
+  }
+  // TODO: Add test cases with lambda argument.
+  return test_cases;
+}
+
+static std::vector<QueryParamsWithResult> GetArrayFindFunctionsTestCases(
+    bool is_safe, bool is_find_offset, bool is_find_multiple) {
+  static const EnumType* kArrayFindModeType = types::ArrayFindModeEnumType();
+  const Value array_find_mode_first = Value::Enum(kArrayFindModeType, "FIRST");
+  const Value array_find_mode_last = Value::Enum(kArrayFindModeType, "LAST");
+  const Value array_find_mode_null = Value::Null(kArrayFindModeType);
+  Value null_int64 = NullInt64();
+
+  std::vector<QueryParamsWithResult> test_cases;
+  for (const ArrayFindFunctionsTestCase& v : GetArrayFindFunctionsTestCases()) {
+    const Value null_element = Null(v.target_element.type());
+    const Value null_array = Null(v.input_array.type());
+
+    size_t existing_num_tests = test_cases.size();
+    if (is_find_offset && !is_find_multiple) {  // ARRAY_OFFSET
+      test_cases.push_back(QueryParamsWithResult(
+          {v.input_array, v.target_element, array_find_mode_first},
+          v.offset_first_result));
+      test_cases.push_back(QueryParamsWithResult(
+          {v.input_array, v.target_element, array_find_mode_last},
+          v.offset_last_result));
+      test_cases.push_back(QueryParamsWithResult(
+          {v.input_array, v.target_element, array_find_mode_null}, null_int64));
+    } else if (!is_find_offset && !is_find_multiple) {  // ARRAY_FIND
+      test_cases.push_back(QueryParamsWithResult(
+          {v.input_array, v.target_element, array_find_mode_first},
+          v.find_first_result));
+      test_cases.push_back(QueryParamsWithResult(
+          {v.input_array, v.target_element, array_find_mode_last},
+          v.find_last_result));
+      test_cases.push_back(QueryParamsWithResult(
+          {v.input_array, v.target_element, array_find_mode_null},
+          null_element));
+    } else if (is_find_offset && is_find_multiple) {  // ARRAY_OFFSETS
+      test_cases.push_back(QueryParamsWithResult(
+          {v.input_array, v.target_element}, v.offsets_result));
+    } else {  // ARRAY_FIND_ALL
+      test_cases.push_back(QueryParamsWithResult(
+          {v.input_array, v.target_element}, v.find_all_result));
+    }
+
+    for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {
+      if (is_safe) {
+        test_cases[i].AddRequiredFeature(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+      }
+      test_cases[i]
+          .AddRequiredFeatures(v.required_features)
+          .AddRequiredFeature(FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS);
+    }
+  }
+  // TODO: Add test cases with lambda argument.
+  return test_cases;
+}
+
 static std::vector<QueryParamsWithResult>
 GetAndAddWrappedArrayFirstLastFunctionTestResult(bool is_safe, bool is_first) {
   std::vector<ArrayFirstLastTestCase> test_cases = GetArrayFirstLastTestCases();
@@ -2858,6 +3153,26 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArraySum(bool is_safe) {
 
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayAvg(bool is_safe) {
   return GetArrayAvgTestCases(is_safe);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayOffset(bool is_safe) {
+  return GetArrayFindFunctionsTestCases(is_safe, /*is_find_offset=*/true,
+                                        /*is_find_multiple=*/false);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayFind(bool is_safe) {
+  return GetArrayFindFunctionsTestCases(is_safe, /*is_find_offset=*/false,
+                                        /*is_find_multiple=*/false);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayOffsets(bool is_safe) {
+  return GetArrayFindFunctionsTestCases(is_safe, /*is_find_offset=*/true,
+                                        /*is_find_multiple=*/true);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayFindAll(bool is_safe) {
+  return GetArrayFindFunctionsTestCases(is_safe, /*is_find_offset=*/false,
+                                        /*is_find_multiple=*/true);
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsGreatest() {

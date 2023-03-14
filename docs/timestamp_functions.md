@@ -14,7 +14,7 @@ NOTE: These functions return a runtime error if overflow occurs; result
 values are bounded by the defined [date][data-types-link-to-date_type]
 and [timestamp][data-types-link-to-timestamp_type] min/max values.
 
-### CURRENT_TIMESTAMP
+### `CURRENT_TIMESTAMP`
 
 ```sql
 CURRENT_TIMESTAMP()
@@ -67,7 +67,9 @@ SELECT current_timestamp() AS now, t.current_timestamp FROM t;
 +---------------------------------------------+-------------------+
 ```
 
-### EXTRACT
+[timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
+
+### `EXTRACT`
 
 ```sql
 EXTRACT(part FROM timestamp_expression [AT TIME ZONE time_zone])
@@ -198,7 +200,13 @@ FROM table;
 +---------------------------------------------+-------------+---------------+
 ```
 
-### STRING
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+[timestamp-link-to-timezone-definitions]: #timezone_definitions
+
+### `STRING`
 
 ```sql
 STRING(timestamp_expression[, time_zone])
@@ -227,7 +235,9 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 +-------------------------------+
 ```
 
-### TIMESTAMP
+[timestamp-link-to-timezone-definitions]: #timezone_definitions
+
+### `TIMESTAMP`
 
 ```sql
 TIMESTAMP(string_expression[, time_zone])
@@ -244,7 +254,8 @@ TIMESTAMP(datetime_expression[, time_zone])
    include an explicit `time_zone`
    argument.
 +  `date_expression[, time_zone]`: Converts a DATE object to a TIMESTAMP
-   data type.
+   data type. The value returned is the earliest timestamp that falls within the
+   given date.
 +  `datetime_expression[, time_zone]`: Converts a
    DATETIME object to a TIMESTAMP data type.
 
@@ -314,7 +325,11 @@ SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 +---------------------------------------------+
 ```
 
-### TIMESTAMP_ADD
+[timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
+
+[timestamp-link-to-timezone-definitions]: #timezone_definitions
+
+### `TIMESTAMP_ADD`
 
 ```sql
 TIMESTAMP_ADD(timestamp_expression, INTERVAL int64_expression date_part)
@@ -355,7 +370,7 @@ SELECT
 +---------------------------------------------+---------------------------------------------+
 ```
 
-### TIMESTAMP_SUB
+### `TIMESTAMP_SUB`
 
 ```sql
 TIMESTAMP_SUB(timestamp_expression, INTERVAL int64_expression date_part)
@@ -396,7 +411,7 @@ SELECT
 +---------------------------------------------+---------------------------------------------+
 ```
 
-### TIMESTAMP_DIFF
+### `TIMESTAMP_DIFF`
 
 ```sql
 TIMESTAMP_DIFF(timestamp_expression_a, timestamp_expression_b, date_part)
@@ -448,7 +463,7 @@ In the following example, the first timestamp occurs before the second
 timestamp, resulting in a negative output.
 
 ```sql
-SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY);
+SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS negative_diff;
 
 +---------------+
 | negative_diff |
@@ -461,16 +476,16 @@ In this example, the result is 0 because only the number of whole specified
 `HOUR` intervals are included.
 
 ```sql
-SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR)
+SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS diff;
 
 +---------------+
-| negative_diff |
+| diff          |
 +---------------+
 | 0             |
 +---------------+
 ```
 
-### TIMESTAMP_TRUNC
+### `TIMESTAMP_TRUNC`
 
 ```sql
 TIMESTAMP_TRUNC(timestamp_expression, date_time_part[, time_zone])
@@ -611,7 +626,9 @@ SELECT
 +---------------------------------------------+----------------+
 ```
 
-### FORMAT_TIMESTAMP
+[timestamp-link-to-timezone-definitions]: #timezone_definitions
+
+### `FORMAT_TIMESTAMP`
 
 ```sql
 FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
@@ -661,7 +678,9 @@ SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
 +-------------+
 ```
 
-### PARSE_TIMESTAMP
+[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `PARSE_TIMESTAMP`
 
 ```sql
 PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
@@ -691,9 +710,6 @@ SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 -- This works because %c can find all matching elements in timestamp_string.
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
 ```
-
-The format string fully supports most format elements, except for
-`%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
 
@@ -731,7 +747,11 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 +---------------------------------------------+
 ```
 
-### TIMESTAMP_SECONDS
+[timestamp-format]: #format_timestamp
+
+[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `TIMESTAMP_SECONDS`
 
 ```sql
 TIMESTAMP_SECONDS(int64_expression)
@@ -759,7 +779,7 @@ SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 +------------------------+
 ```
 
-### TIMESTAMP_MILLIS
+### `TIMESTAMP_MILLIS`
 
 ```sql
 TIMESTAMP_MILLIS(int64_expression)
@@ -787,7 +807,7 @@ SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 +------------------------+
 ```
 
-### TIMESTAMP_MICROS
+### `TIMESTAMP_MICROS`
 
 ```sql
 TIMESTAMP_MICROS(int64_expression)
@@ -815,7 +835,7 @@ SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 +------------------------+
 ```
 
-### UNIX_SECONDS
+### `UNIX_SECONDS`
 
 ```sql
 UNIX_SECONDS(timestamp_expression)
@@ -842,7 +862,7 @@ SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
 +------------+
 ```
 
-### UNIX_MILLIS
+### `UNIX_MILLIS`
 
 ```sql
 UNIX_MILLIS(timestamp_expression)
@@ -869,7 +889,7 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
 +---------------+
 ```
 
-### UNIX_MICROS
+### `UNIX_MICROS`
 
 ```sql
 UNIX_MICROS(timestamp_expression)
@@ -896,7 +916,7 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 +------------------+
 ```
 
-### TIMESTAMP_FROM_UNIX_SECONDS
+### `TIMESTAMP_FROM_UNIX_SECONDS`
 
 ```sql
 TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
@@ -929,7 +949,7 @@ SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 +------------------------+
 ```
 
-### TIMESTAMP_FROM_UNIX_MILLIS
+### `TIMESTAMP_FROM_UNIX_MILLIS`
 
 ```sql
 TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
@@ -962,7 +982,7 @@ SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 +------------------------+
 ```
 
-### TIMESTAMP_FROM_UNIX_MICROS
+### `TIMESTAMP_FROM_UNIX_MICROS`
 
 ```sql
 TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
@@ -1023,29 +1043,13 @@ or time zone offset from UTC (for example, -08).
 To learn more about how time zones work with timestamps, see
 [Time zones][data-types-timezones].
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
 [timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
+[data-types-timezones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
+
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
-
-[timestamp-format]: #format_timestamp
-
-[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
-
-[timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
 
 [data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
-
-[data-types-timezones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
-
-[timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
-
-<!-- mdlint on -->
 

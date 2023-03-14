@@ -164,7 +164,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
 
   absl::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
       const ScriptExecutor& executor, const absl::Span<const std::string>& path,
-      const int64_t num_arguments) override;
+      int64_t num_arguments) override;
 
   TypeFactory* type_factory() { return type_factory_; }
   const AnalyzerOptions& initial_analyzer_options() const {

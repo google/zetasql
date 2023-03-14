@@ -214,6 +214,8 @@ public abstract class TypeFactory implements Serializable {
    */
   public abstract EnumType createEnumType(Class<? extends ProtocolMessageEnum> generatedEnumClass);
 
+  protected abstract EnumType createOpaqueEnumType(ZetaSQLEnumDescriptor descriptor);
+
   /** Deserialize a self-contained {@link TypeProto} into a {@link Type}. */
   @CanIgnoreReturnValue // TODO: consider removing this?
   public abstract Type deserialize(TypeProto proto);
@@ -258,11 +260,12 @@ public abstract class TypeFactory implements Serializable {
      * <p>The {@code EnumDescriptor} together with the {@link DescriptorPool} fully describes the
      * {@code EnumType}.
      */
-    protected abstract EnumType createEnumType(EnumDescriptor descriptor, DescriptorPool pool);
+    protected abstract EnumType createEnumType(
+        EnumDescriptor descriptor, DescriptorPool pool, boolean isOpaque);
 
     @Override
     public final EnumType createEnumType(ZetaSQLEnumDescriptor descriptor) {
-      return createEnumType(descriptor.getDescriptor(), descriptor.getDescriptorPool());
+      return createEnumType(descriptor.getDescriptor(), descriptor.getDescriptorPool(), false);
     }
 
     @Override
@@ -270,7 +273,12 @@ public abstract class TypeFactory implements Serializable {
       EnumDescriptor descriptor = getEnumDescriptor(generatedEnumClass);
       ZetaSQLDescriptorPool.importIntoGeneratedPool(descriptor);
       ZetaSQLDescriptorPool pool = ZetaSQLDescriptorPool.getGeneratedPool();
-      return createEnumType(descriptor, pool);
+      return createEnumType(descriptor, pool, false);
+    }
+
+    @Override
+    public final EnumType createOpaqueEnumType(ZetaSQLEnumDescriptor descriptor) {
+      return createEnumType(descriptor.getDescriptor(), descriptor.getDescriptorPool(), true);
     }
 
     @Override
@@ -339,7 +347,7 @@ public abstract class TypeFactory implements Serializable {
           enumType,
           filename);
 
-      return createEnumType(descriptor.getDescriptor(), pool);
+      return createEnumType(descriptor.getDescriptor(), pool, enumType.getIsOpaque());
     }
 
     private ArrayType deserializeArrayType(TypeProto proto, List<? extends DescriptorPool> pools) {
@@ -424,8 +432,9 @@ public abstract class TypeFactory implements Serializable {
     }
 
     @Override
-    protected EnumType createEnumType(EnumDescriptor descriptor, DescriptorPool pool) {
-      return new EnumType(descriptor, pool);
+    protected EnumType createEnumType(
+        EnumDescriptor descriptor, DescriptorPool pool, boolean isOpaque) {
+      return new EnumType(descriptor, pool, isOpaque);
     }
   }
 
@@ -451,11 +460,12 @@ public abstract class TypeFactory implements Serializable {
     }
 
     @Override
-    public EnumType createEnumType(EnumDescriptor descriptor, DescriptorPool pool) {
+    public EnumType createEnumType(
+        EnumDescriptor descriptor, DescriptorPool pool, boolean isOpaque) {
       if (enumTypesByName.containsKey(descriptor.getFullName())) {
         return enumTypesByName.get(descriptor.getFullName());
       }
-      EnumType enumType = new EnumType(descriptor, pool);
+      EnumType enumType = new EnumType(descriptor, pool, isOpaque);
       enumTypesByName.put(descriptor.getFullName(), enumType);
       return enumType;
     }

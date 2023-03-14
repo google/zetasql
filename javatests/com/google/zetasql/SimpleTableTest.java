@@ -252,7 +252,7 @@ public class SimpleTableTest {
     assertThat(table1.getPrimaryKey().isPresent()).isFalse();
 
     table1.setPrimaryKey(ImmutableList.of(1));
-    assertThat(table1.getPrimaryKey().get()).isEqualTo(ImmutableList.of(1));
+    assertThat(table1.getPrimaryKey().get()).containsExactly(1);
 
     table1.setPrimaryKey(ImmutableList.of(1, 2));
     assertThat(table1.getPrimaryKey().get()).containsExactly(1, 2).inOrder();
@@ -263,7 +263,7 @@ public class SimpleTableTest {
     } catch (IllegalArgumentException e) {
       assertThat(e).hasMessageThat().isEqualTo("Invalid column index 5 in primary key");
     }
-    assertThat(table1.getPrimaryKey().get()).isEqualTo(ImmutableList.of(1, 2));
+    assertThat(table1.getPrimaryKey().get()).containsExactly(1, 2).inOrder();
   }
 
   @Test

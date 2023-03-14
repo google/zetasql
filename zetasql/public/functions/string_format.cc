@@ -170,7 +170,7 @@ bool StringFormatEvaluator::ValueAsString(const Value& value,
       cord_buffer_.Append(EscapeBytes(value.bytes_value()));
       break;
     case TYPE_ENUM:
-      cord_buffer_.Append(value.enum_name());
+      cord_buffer_.Append(value.EnumDisplayName());
       break;
     case TYPE_PROTO:
       if (!PrintProto(value, /*single_line=*/true, /*print_null=*/false,

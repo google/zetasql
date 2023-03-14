@@ -8,19 +8,12 @@ To learn more, see the next sections.
 
 ## Function call rules
 
-The following rules apply to all functions unless explicitly indicated otherwise
-in the function description:
+The following rules apply to all built-in ZetaSQL functions unless
+explicitly indicated otherwise in the function description:
 
-+ Integer types coerce to INT64.
-+ For functions that accept numeric types, if one operand is a floating point
-  operand and the other operand is another numeric type, both operands are
-  converted to DOUBLE before the function is
-  evaluated.
-+ If an operand is `NULL`, the result is `NULL`, with the exception of the
-  IS operator.
-+ For functions that are time zone sensitive (as indicated in the function
-  description), the default time zone, which is implementation defined, is used if a time
-  zone is not specified.
++ If an operand is `NULL`, the function result is `NULL`.
++ For functions that are time zone sensitive, the default time zone,
+  which is implementation defined, is used when a time zone is not specified.
 
 ## Lambdas 
 <a id="lambdas"></a>

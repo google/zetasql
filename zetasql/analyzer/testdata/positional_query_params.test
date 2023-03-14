@@ -831,7 +831,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<INT64>) -> INT64)
+    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<INT64> input_array) -> INT64)
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
     |       +-Literal(type=INT64, value=1)
     |       +-Literal(type=INT64, value=3)
@@ -854,11 +854,10 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<INT64>) -> INT64)
+    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<INT64> input_array) -> INT64)
     |     +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
     |       +-Literal(type=INT64, value=1)
     |       +-Literal(type=INT64, value=3)
     |       +-Parameter(type=INT64, position=1)
     +-input_scan=
       +-SingleRowScan
-==

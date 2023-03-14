@@ -5558,3 +5558,10 @@ select CAST(CAST(1 as `zetasql.functions.RoundingMode`) as ROUNDING_MODE);
             ^
 
 ==
+
+[language_features=V_1_2_CIVIL_TIME]
+SELECT CAST(123 AS DATETIME)
+--
+ERROR: Invalid cast from INT64 to DATETIME [at 1:13]
+SELECT CAST(123 AS DATETIME)
+            ^

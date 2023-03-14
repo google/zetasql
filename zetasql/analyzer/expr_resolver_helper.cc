@@ -288,6 +288,12 @@ bool ExprResolutionInfo::is_post_distinct() const {
   return false;
 }
 
+SelectWithMode ExprResolutionInfo::GetSelectWithMode() const {
+  return query_resolution_info == nullptr
+             ? SelectWithMode::NONE
+             : query_resolution_info->select_with_mode();
+}
+
 std::string ExprResolutionInfo::DebugString() const {
   std::string debugstring;
   absl::StrAppend(&debugstring, "\nname_scope: ",

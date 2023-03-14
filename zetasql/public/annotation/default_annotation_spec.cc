@@ -116,6 +116,31 @@ absl::Status DefaultAnnotationSpec::CheckAndPropagateForSetOperationScan(
   return absl::OkStatus();
 }
 
+absl::Status DefaultAnnotationSpec::CheckAndPropagateForRecursiveScan(
+    const ResolvedRecursiveScan& recursive_scan,
+    const std::vector<AnnotationMap*>& result_annotation_maps) {
+  const int column_list_size = recursive_scan.column_list_size();
+  ZETASQL_RET_CHECK_EQ(column_list_size, result_annotation_maps.size());
+  int item_index = 0;
+  for (const auto& item :
+       {recursive_scan.non_recursive_term(), recursive_scan.recursive_term()}) {
+    if (item == nullptr) {
+      continue;
+    }
+    ZETASQL_RET_CHECK_EQ(item->output_column_list_size(), column_list_size);
+    for (int i = 0; i < column_list_size; i++) {
+      if (result_annotation_maps[i] == nullptr) continue;
+      ZETASQL_RETURN_IF_ERROR(
+          MergeAnnotations(item->output_column_list(i).type_annotation_map(),
+                           *result_annotation_maps[i]))
+          << "in column " << i + 1 << ", item " << item_index + 1
+          << " of recursive scan";
+    }
+    item_index++;
+  }
+  return absl::OkStatus();
+}
+
 absl::Status DefaultAnnotationSpec::ScalarMergeIfCompatible(
     const AnnotationMap* in, AnnotationMap& out) const {
   const SimpleValue* value_before = out.GetAnnotation(Id());

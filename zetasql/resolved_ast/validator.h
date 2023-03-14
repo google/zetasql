@@ -238,6 +238,9 @@ class Validator {
   absl::Status ValidateResolvedAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
+  absl::Status ValidateResolvedDifferentialPrivacyAggregateScan(
+      const ResolvedDifferentialPrivacyAggregateScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
   absl::Status ValidateResolvedTableScan(
       const ResolvedTableScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
@@ -555,7 +558,7 @@ class Validator {
 
   absl::Status ValidateResolvedForeignKey(
       const ResolvedForeignKey* foreign_key,
-      const std::vector<const Type*> column_types,
+      std::vector<const Type*> column_types,
       absl::flat_hash_set<std::string>* constraint_names);
 
   absl::Status ValidateResolvedPrimaryKey(
@@ -566,6 +569,10 @@ class Validator {
   absl::Status ValidateAddForeignKeyAction(
       const ResolvedAddConstraintAction* action,
       absl::flat_hash_set<std::string>* constraint_names);
+
+  absl::Status ValidateResolvedAuxLoadDataPartitionFilter(
+      const std::set<ResolvedColumn>& visible_columns,
+      const ResolvedAuxLoadDataPartitionFilter* partition_filter);
 
   absl::Status ValidateResolvedAuxLoadDataStmt(
       const ResolvedAuxLoadDataStmt* stmt);

@@ -174,9 +174,11 @@ A table name represents the name of a table.
 Table names can be quoted identifiers or unquoted identifiers. If unquoted:
 
 + Unquoted identifiers support [dashes][unquoted-identifiers] when referenced
-  in a `FROM` or `TABLE` clause. 
+  in a `FROM` or `TABLE` clause.
 
 Table names can be path expressions.
+
+Table names have [case-sensitivity rules][case-sensitivity].
 
 Examples:
 
@@ -211,11 +213,18 @@ all, data types can be expressed as literals.
 ### String and bytes literals 
 <a id="string_and_bytes_literals"></a>
 
+A string literal represents a constant value of the
+[string data type][string-data-type]. A bytes literal represents a
+constant value of the [bytes data type][bytes-data-type].
+
 Both string and bytes literals must be *quoted*, either with single (`'`) or
 double (`"`) quotation marks, or *triple-quoted* with groups of three single
 (`'''`) or three double (`"""`) quotation marks.
 
-**Quoted literals:**
+#### Formats for quoted literals 
+<a id="quoted_literals"></a>
+
+The following table lists all of the ways you can format a quoted literal.
 
 <table>
 <thead>
@@ -238,28 +247,11 @@ double (`"`) quotation marks, or *triple-quoted* with groups of three single
 </tr>
 <tr>
 <td>Raw string</td>
-<td><ul><li><code>R"abc+"</code></li><li> <code>r'''abc+'''</code></li><li> <code>R"""abc+"""</code></li><li><code>r'f\(abc,(.*),def\)'</code></li></ul></td>
-<td>Quoted or triple-quoted literals that have the raw string literal prefix (<code>r</code> or <code>R</code>) are interpreted as raw/regex strings.<br>Backslash characters (<code>\</code>) do not act as escape characters. If a backslash followed by another character occurs inside the string literal, both characters are preserved.<br>A raw string cannot end with an odd number of backslashes.<br>Raw strings are useful for constructing regular expressions.</td>
+<td><ul><li><code>r"abc+"</code></li><li> <code>r'''abc+'''</code></li><li> <code>r"""abc+"""</code></li><li><code>r'f\(abc,(.*),def\)'</code></li></ul></td>
+<td>Quoted or triple-quoted literals that have the raw string literal prefix (<code>r</code> or <code>R</code>) are interpreted as raw strings (sometimes described as regex strings).<br>Backslash characters (<code>\</code>) do not act as escape characters. If a backslash followed by another character occurs inside the string literal, both characters are preserved.<br>A raw string cannot end with an odd number of backslashes.<br>Raw strings are useful for constructing regular expressions.
+The prefix is case-insensitive.
+</td>
 </tr>
-</tbody>
-</table>
-
-Prefix characters (`r`, `R`, `b`, `B)` are optional for quoted or triple-quoted
-strings, and indicate that the string is a raw/regex string or a byte sequence,
-respectively. For example, `b'abc'` and `b'''abc'''` are both interpreted as
-type bytes. Prefix characters are case-insensitive.
-
-**Quoted literals with prefixes:**
-
-<table>
-<thead>
-<tr>
-<th>Literal</th>
-<th>Example</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
 <tr>
 <td>Bytes</td>
 <td><ul><li><code>B"abc"</code></li><li><code>B'''abc'''</code></li><li><code>b"""abc"""</code></li></ul></td>
@@ -268,13 +260,22 @@ type bytes. Prefix characters are case-insensitive.
 <tr>
 <td>Raw bytes</td>
 <td><ul><li><code>br'abc+'</code></li><li><code>RB"abc+"</code></li><li><code>RB'''abc'''</code></li></ul></td>
-<td>The <code>r</code> and <code>b</code> prefixes can be combined in any order. For example, <code>rb'abc*'</code> is equivalent to <code>br'abc*'</code>.</td>
+<td>A bytes literal can be interpreted as raw bytes if both the
+<code>r</code> and <code>b</code> prefixes are present. These prefixes can be
+combined in any order and are case-insensitive. For example,
+<code>rb'abc*'</code> and <code>rB'abc*'</code> and <code>br'abc*'</code> are
+all equivalent. See the description for raw string to learn more about
+what you can do with a raw literal.
+</td>
 </tr>
 </tbody>
 </table>
 
-The table below lists all valid escape sequences for representing
-non-alphanumeric characters in string and byte literals. Any sequence not in
+#### Escape sequences for string and bytes literals 
+<a id="escape_sequences"></a>
+
+The following table lists all valid escape sequences for representing
+non-alphanumeric characters in string and bytes literals. Any sequence not in
 this table produces an error.
 
 <table>
@@ -352,10 +353,6 @@ this table produces an error.
 </tbody>
 </table>
 
-A string literal represents a constant value of the
-[string data type][string-data-type]. A bytes literal represents a
-constant value of the [bytes data type][bytes-data-type].
-
 ### Integer literals 
 <a id="integer_literals"></a>
 
@@ -381,7 +378,7 @@ literal value 77 is coerced into type `INT32` because
 A integer literal represents a constant value of the
 [integer data type][integer-data-type].
 
-### NUMERIC literals
+### `NUMERIC` literals
 
 You can construct `NUMERIC` literals using the
 `NUMERIC` keyword followed by a floating point value in quotes.
@@ -400,7 +397,7 @@ SELECT NUMERIC '-9.876e-3';
 A `NUMERIC` literal represents a constant value of the
 [`NUMERIC` data type][decimal-data-type].
 
-### BIGNUMERIC literals
+### `BIGNUMERIC` literals
 
 You can construct `BIGNUMERIC` literals using the `BIGNUMERIC` keyword followed
 by a floating point value in quotes.
@@ -566,6 +563,7 @@ A date literal represents a constant value of the
  
 
 ### Time literals
+
 Syntax:
 
 ```sql
@@ -585,6 +583,7 @@ A time literal represents a constant value of the
 [time data type][time-data-type].
 
 ### Datetime literals
+
 Syntax:
 
 ```sql
@@ -742,39 +741,114 @@ TIMESTAMP '2014-09-27 12:30:00 America/Argentina/Buenos_Aires'
 
 ### Interval literals
 
+An interval literal represents a constant value of the
+[interval data type][interval-data-type]. There are two types of
+interval literals:
+
++  [Interval literal with a single datetime part][interval-literal-single]
++  [Interval literal with a datetime part range][interval-literal-range]
+
+An interval literal can be used directly inside of the `SELECT` statement
+and as an argument in some functions that support the interval data type.
+
+#### Interval literal with a single datetime part 
+<a id="interval_literal_single"></a>
+
 Syntax:
 
 ```sql
-INTERVAL 'N' datetime_part
-INTERVAL '[Y]-[M] [D] [H]:[M]:[S].[F]' datetime_part TO datetime_part
+INTERVAL int64_expression datetime_part
 ```
 
-`datetime_part` is one of `YEAR`, `MONTH`, `DAY`, `HOUR`, `MINUTE` or `SECOND`.
-
-Interval literals come in two forms. The first form has a single datetime part.
+The single datetime part syntax includes an `INT64` expression and a
+single [interval-supported datetime part][interval-datetime-parts].
 For example:
 
 ```sql
-INTERVAL '5' DAY
-INTERVAL '0.001' SECOND
+-- 0 years, 0 months, 5 days, 0 hours, 0 minutes, 0 seconds (0-0 5 0:0:0)
+INTERVAL 5 DAY
+
+-- 0 years, 0 months, -5 days, 0 hours, 0 minutes, 0 seconds (0-0 -5 0:0:0)
+INTERVAL -5 DAY
+
+-- 0 years, 0 months, 0 days, 0 hours, 0 minutes, 1 seconds (0-0 0 0:0:1)
+INTERVAL 1 SECOND
 ```
 
-The second form allows multiple consecutive datetime parts.
+When a negative sign precedes the year or month part in an interval literal, the
+negative sign distributes over the years and months. Or, when a negative sign
+precedes the time part in an interval literal, the negative sign distributes
+over the hours, minutes, and seconds. For example:
+
+```sql
+-- -2 years, -1 months, 0 days, 0 hours, 0 minutes, and 0 seconds (-2-1 0 0:0:0)
+INTERVAL -25 MONTH
+
+-- 0 years, 0 months, 0 days, -1 hours, -30 minutes, and 0 seconds (0-0 0 -1:30:0)
+INTERVAL -90 MINUTE
+```
+
+For more information on how to construct interval with a single datetime part,
+see [Construct an interval with a single datetime part][construct-single-interval].
+
+####  Interval literal with a datetime part range 
+<a id="interval_literal_range"></a>
+
+Syntax:
+
+```sql
+INTERVAL datetime_parts_string starting_datetime_part TO ending_datetime_part
+```
+
+The range datetime part syntax includes a
+[datetime parts string][construct-range-interval],
+a [starting datetime part][interval-datetime-parts], and an
+[ending datetime part][interval-datetime-parts].
+
 For example:
 
 ```sql
--- 10 hours, 20 minutes, 30 seconds
-INTERVAL '10:20:30' HOUR TO SECOND
--- 1 year, 2 months
+-- 0 years, 0 months, 0 days, 10 hours, 20 minutes, 30 seconds (0-0 0 10:20:30.520)
+INTERVAL '10:20:30.52' HOUR TO SECOND
+
+-- 1 year, 2 months, 0 days, 0 hours, 0 minutes, 0 seconds (1-2 0 0:0:0)
 INTERVAL '1-2' YEAR TO MONTH
--- 1 month, 15 days
-INTERVAL '1 15' MONTH TO DAY
--- 1 day, 5 hours, 30 minutes
+
+-- 0 years, 1 month, -15 days, 0 hours, 0 minutes, 0 seconds (0-1 -15 0:0:0)
+INTERVAL '1 -15' MONTH TO DAY
+
+-- 0 years, 0 months, 1 day, 5 hours, 30 minutes, 0 seconds (0-0 1 5:30:0)
 INTERVAL '1 5:30' DAY TO MINUTE
 ```
 
-An interval literal represents a constant value of the
-[interval data type][interval-data-type].
+When a negative sign precedes the year or month part in an interval literal, the
+negative sign distributes over the years and months. Or, when a negative sign
+precedes the time part in an interval literal, the negative sign distributes
+over the hours, minutes, and seconds.  For example:
+
+```sql
+-- -23 years, -2 months, 10 days, -12 hours, -30 minutes, and 0 seconds (-23-2 10 -12:30:0)
+INTERVAL '-23-2 10 -12:30' YEAR TO MINUTE
+
+-- -23 years, -2 months, 10 days, 0 hours, -30 minutes, and 0 seconds (-23-2 10 -0:30:0)
+SELECT INTERVAL '-23-2 10 -0:30' YEAR TO MINUTE
+
+-- Produces an error because the negative sign for minutes must come before the hour.
+SELECT INTERVAL '-23-2 10 0:-30' YEAR TO MINUTE
+
+-- Produces an error because the negative sign for months must come before the year.
+SELECT INTERVAL '23--2 10 0:30' YEAR TO MINUTE
+
+-- 0 years, -2 months, 10 days, 0 hours, 30 minutes, and 0 seconds (-0-2 10 0:30:0)
+SELECT INTERVAL '-2 10 0:30' MONTH TO MINUTE
+
+-- 0 years, 0 months, 0 days, 0 hours, -30 minutes, and -10 seconds (0-0 0 -0:30:10)
+SELECT INTERVAL '-30:10' MINUTE TO SECOND
+```
+
+For more information on how to construct interval with a datetime part range,
+see
+[Construct an interval with a datetime part range][construct-single-interval].
 
 ### Enum literals 
 <a id="enum_literals"></a>
@@ -1298,7 +1372,17 @@ WHERE book = "Ulysses";
 
 [timestamp-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
 
+[interval-literal-single]: #interval_literal_single
+
+[interval-literal-range]: #interval_literal_range
+
 [interval-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#interval_type
+
+[interval-datetime-parts]: https://github.com/google/zetasql/blob/master/docs/data-types.md#interval_datetime_parts
+
+[construct-single-interval]: https://github.com/google/zetasql/blob/master/docs/data-types.md#single_datetime_part_interval
+
+[construct-range-interval]: https://github.com/google/zetasql/blob/master/docs/data-types.md#range_datetime_part_interval
 
 [enum-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#enum_type
 

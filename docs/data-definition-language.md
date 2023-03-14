@@ -8,7 +8,14 @@ statements.
 Where possible, this topic provides a link to the product-specific documentation
 for each statement.
 
-## CREATE DATABASE
+## `CREATE`
+
+Note: Some documentation is pending for this feature.
+
+The `CREATE` statement creates an object. To learn more about creating
+specific types of objects, see the following sections.
+
+### `CREATE DATABASE`
 
 <pre>
 CREATE
@@ -40,7 +47,10 @@ CREATE DATABASE library OPTIONS(
 ```
 
 <a id="create_table_statement"></a>
-## CREATE TABLE
+
+### `CREATE TABLE`
+
+Note: Some documentation is pending for this feature.
 
 <pre>
 CREATE
@@ -141,7 +151,7 @@ CREATE TABLE books (
 CLUSTER BY last_name, first_name;
 ```
 
-### Defining columns
+#### Defining columns
 
 <pre>
 <span class="var">column_definition:</span>
@@ -237,7 +247,7 @@ CREATE TABLE books (
 )
 ```
 
-### Defining table constraints
+#### Defining table constraints
 
 <pre>
 <span class="var">constraint_definition:</span>
@@ -326,7 +336,7 @@ CREATE TABLE page_count_average (
 );
 ```
 
-### Defining foreign references
+#### Defining foreign references
 
 <pre>
 <span class="var">foreign_reference:</span>
@@ -403,7 +413,7 @@ CREATE TABLE top_books (
 );
 ```
 
-### Using CREATE TABLE AS
+#### Using `CREATE TABLE AS`
 
 ```
 CREATE TABLE table_definition AS query
@@ -448,7 +458,9 @@ CREATE TABLE books AS (
   SELECT * FROM ancient_books);
 ```
 
-## CREATE VIEW
+### `CREATE VIEW`
+
+Note: The `RECURSIVE` keyword has been added, but documentation is pending.
 
 ```
 CREATE
@@ -483,7 +495,7 @@ The `CREATE VIEW` statement creates a view based on a specific query.
        that invoked the view are used to run the view, and are applied to each
        schema object the view accesses.
 
-## CREATE EXTERNAL TABLE
+### `CREATE EXTERNAL TABLE`
 
 ```
 CREATE
@@ -512,7 +524,11 @@ pointer to data that exists outside of the database.
 +   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
 
-## CREATE INDEX
+### `CREATE SNAPSHOT TABLE`
+
+Documentation is pending for this feature.
+
+### `CREATE INDEX`
 
 ```
 CREATE
@@ -681,11 +697,12 @@ CREATE INDEX i1 ON KeyValue (Key) STORING (KeyValue);
 ```
 
 <a id="create_schema_statement"></a>
-## CREATE SCHEMA
+
+### `CREATE SCHEMA`
 
 Documentation is pending for this feature.
 
-## CREATE CONSTANT
+### `CREATE CONSTANT`
 
 <pre>
 CREATE
@@ -742,7 +759,7 @@ SELECT (DEFAULT_HEIGHT + 5) AS result;
 +--------+
 ```
 
-## CREATE AGGREGATE FUNCTION
+### `CREATE AGGREGATE FUNCTION`
 
 A user-defined aggregate function (UDA), enables you to create an
 aggregate function using another SQL expression or another programming language.
@@ -750,28 +767,90 @@ These functions accept arguments and perform actions, returning the
 result of those actions as a value. To create a UDA,
 see [UDAs][udas].
 
-## CREATE FUNCTION
+### `CREATE FUNCTION`
 
 A user-defined function (UDF), enables you to create a scalar function using
 another SQL expression or another programming language.
 These functions accept arguments and perform actions, returning the
 result of those actions as a value. To create a UDF, see [UDFs][udfs].
 
-## CREATE PROCEDURE
+### `CREATE MODEL`
 
 Documentation is pending for this feature.
 
-## CREATE ROW POLICY
+### `CREATE PLACEMENT`
 
 Documentation is pending for this feature.
 
-## CREATE TABLE FUNCTION
+### `CREATE PROCEDURE`
+
+Documentation is pending for this feature.
+
+### `CREATE ROW POLICY`
+
+Documentation is pending for this feature.
+
+### `CREATE PRIVILEGE RESTRICTION`
+
+<pre>
+CREATE
+   [ OR REPLACE ]
+   PRIVILEGE RESTRICTION
+   [ IF NOT EXISTS ]
+   ON SELECT (<span class="var">column_list</span>)
+   ON <span class="var">object_type</span> object_path
+   [ RESTRICT TO (<span class="var">exemptee_list</span>) ];
+
+<span class="var">column_list:</span>
+   column_name[, ...]
+
+<span class="var">object_type:</span>
+   { TABLE | VIEW }
+
+<span class="var">exemptee_list:</span>
+   { mdb_user | gaia_user | mdb_group }[, ...]
+</pre>
+
+**Description**
+
+The `CREATE PRIVILEGE RESTRICTION` statement restricts who can select a list of
+columns from a table or view. Users and groups not in the exemptee list are
+denied from exercising these privileges on the object.
+
+> Warning: Creating a privilege restriction can break downstream dependencies.
+> For tips to avoid this, see [Privileges and Restrictions]
+> (/company/teams/datahub/privileges_and_restrictions.md).
+
+**Parameters**
+
++   `column_list`: The list of columns on which to add privilege restrictions.
++   `object_type`: The type of object on which to add privilege restrictions.
+    Restrictions can be added for tables and views.
++   `object_path`: The path of the object.
++   `exemptee_list`: Comma-delimited list of quoted users and groups.
+    Only users and groups with `READER` privileges on the object who are also in
+    this list can exercise those privileges.
+
+**Optional Clauses**
+
++   `OR REPLACE`: This creates restrictions if they don't exist or overwrites
+    them if they do. Can't be used with `IF NOT EXISTS`.
++   `IF NOT EXISTS`: This creates restrictions if they don't exist or does
+    nothing if they do. Can't be used with `OR REPLACE`.
++   If neither `OR REPLACE` nor `IF NOT EXISTS` is specified, this creates
+    restrictions if they don't exist or returns an error if they do.
++   `RESTRICT TO`: If specified, sets the ACL of the privilege restriction to
+    `exemptee_list`. If not specified, the privilege restriction is
+    interpreted as having an empty ACL, in which case no users can exercise the
+    privileges.
+
+### `CREATE TABLE FUNCTION`
 
 A table function, also known as a table value function (TVF), is a function that
 returns a table.  A TVF is called in the `FROM` clause like a table subquery.
 To create a TVF, see [TVFs][tvfs].
 
-## DEFINE TABLE
+## `DEFINE TABLE`
 
 ```
 DEFINE TABLE table_name (options);
@@ -784,7 +863,10 @@ source.
 
 <a id="alter_schema_collate_statement"></a>
 <a id="alter_table_collate_statement"></a>
-## ALTER
+
+## `ALTER`
+
+Note: Some documentation is pending for this feature.
 
 <pre>
 ALTER <span class="var">object_type</span> <span class="var">alter_action</span>, ...
@@ -865,7 +947,7 @@ ADD COLUMN A STRUCT<
              >
 ```
 
-## RENAME
+## `RENAME`
 
 ```
 RENAME object_type old_name_path TO new_name_path;
@@ -876,7 +958,9 @@ RENAME object_type old_name_path TO new_name_path;
 The `RENAME` object renames an object. `object_type` indicates what type of
 object to rename.
 
-## DROP
+## `DROP`
+
+Note: Some documentation is pending for this feature.
 
 ```
 DROP object_type [IF EXISTS] object_path;

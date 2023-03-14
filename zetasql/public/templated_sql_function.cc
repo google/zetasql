@@ -65,13 +65,13 @@ absl::Status TemplatedSQLFunction::Deserialize(
     name_path.push_back(name);
   }
 
-  std::unique_ptr<FunctionSignature> function_signature;
   // Note that ZetaSQL does not yet support overloaded templated functions.
   // So we check that there is exactly one signature and retrieve it.
   ZETASQL_RET_CHECK_EQ(1, proto.signature_size()) << proto.DebugString();
-  std::unique_ptr<FunctionSignature> signature;
-  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(proto.signature(0), pools,
-                                                 factory, &function_signature));
+  std::unique_ptr<FunctionSignature> function_signature;
+  ZETASQL_ASSIGN_OR_RETURN(function_signature,
+                   FunctionSignature::Deserialize(
+                       proto.signature(0), TypeDeserializer(factory, pools)));
 
   std::vector<std::string> argument_names;
   for (const std::string& name : proto.templated_sql_function_argument_name()) {

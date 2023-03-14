@@ -265,6 +265,8 @@ class TypeFactory {
   absl::Status MakeRangeType(const Type* element_type,
                              const RangeType** result);
   absl::Status MakeRangeType(const Type* element_type, const Type** result);
+  absl::Status MakeRangeType(const google::protobuf::FieldDescriptor* field,
+                             const Type** result);
 
   // Stores the unique copy of an ExtendedType in the TypeFactory. If such
   // extended type already exists in the cache, frees `extended_type` and
@@ -327,9 +329,7 @@ class TypeFactory {
   absl::Status GetProtoFieldType(
       bool ignore_annotations, const google::protobuf::FieldDescriptor* field_descr,
       absl::Span<const std::string> catalog_name_path, const Type** type);
-#ifndef SWIG
   ABSL_DEPRECATED("Inline me!")
-#endif
   absl::Status GetProtoFieldType(bool ignore_annotations,
                                  const google::protobuf::FieldDescriptor* field_descr,
                                  const Type** type) {
@@ -352,9 +352,7 @@ class TypeFactory {
   // Get the Type for a proto field.
   // This is the same as the above signature with <ignore_annotations> = false
   // and an empty <catalog_name_path>.
-#ifndef SWIG
   ABSL_DEPRECATED("Inline me!")
-#endif
   absl::Status GetProtoFieldType(const google::protobuf::FieldDescriptor* field_descr,
                                  const Type** type) {
     return GetProtoFieldType(/*ignore_annotations=*/false, field_descr,
@@ -367,9 +365,7 @@ class TypeFactory {
   absl::Status GetProtoFieldType(
       const google::protobuf::FieldDescriptor* field_descr, bool use_obsolete_timestamp,
       absl::Span<const std::string> catalog_name_path, const Type** type);
-#ifndef SWIG
   ABSL_DEPRECATED("Inline me!")
-#endif
   absl::Status GetProtoFieldType(const google::protobuf::FieldDescriptor* field_descr,
                                  bool use_obsolete_timestamp,
                                  const Type** type) {
@@ -650,6 +646,11 @@ const EnumType* RoundingModeEnumType();
 // This is an opaque enum type.
 const EnumType* ArrayFindModeEnumType();
 
+// Accessor for the ZetaSQL enum Type
+// (differential_privacy::DifferentialPrivacyEnums::ReportFormat) that
+// represents the report output format for differential privacy functions.
+const EnumType* DifferentialPrivacyReportFormatEnumType();
+
 // Return a type of 'type_kind' if 'type_kind' is a simple type, otherwise
 // returns nullptr. This is similar to TypeFactory::MakeSimpleType, but doesn't
 // require TypeFactory.
@@ -662,6 +663,7 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind);
 // Returns a range type with element type of 'type_kind' if 'type_kind' is a
 // valid range type, otherwise returns nullptr.
 const RangeType* RangeTypeFromSimpleTypeKind(TypeKind type_kind);
+
 }  // namespace types
 
 }  // namespace zetasql

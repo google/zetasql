@@ -18,6 +18,7 @@
 #define ZETASQL_ANALYZER_NAMED_ARGUMENT_INFO_H_
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -25,15 +26,12 @@
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 
 // Contains necessary named argument information for resolving function call.
-// NamedArgumentInfo uses a constructor that takes the following parameters:
-//   name - argument name
-//   index - concrete signature index
-//   argument_node - AST node from which we parse location to generate an error.
 class NamedArgumentInfo {
  public:
   NamedArgumentInfo() = delete;
@@ -43,11 +41,30 @@ class NamedArgumentInfo {
   NamedArgumentInfo &operator=(NamedArgumentInfo &&) = default;
   ~NamedArgumentInfo() = default;
 
-  NamedArgumentInfo(IdString name, int index, const ASTNode *argument_node)
+  // Constructs NamedArgumentInfo using ASTNode:
+  //   name - argument name
+  //   index - concrete signature index
+  //   ast_node - AST node from which we extract parse location to generate an
+  //     error.
+  NamedArgumentInfo(IdString name, int index, const ASTNode *ast_node)
       : name_(std::move(name)),
         index_(index),
         argument_error_location_(GetErrorLocationPoint(
-            argument_node, /*include_leftmost_child=*/false)) {}
+            ast_node, /*include_leftmost_child=*/false)) {}
+
+  // Constructs NamedArgumentInfo using ASTNode:
+  //   name - argument name
+  //   index - concrete signature index
+  //   resolved_node - ResolvedAST node from which we extract parse location to
+  //     generate an error if present - otherwise there will not be a a parse
+  //     location.
+  NamedArgumentInfo(IdString name, int index, const ResolvedNode *resolved_node)
+      : name_(std::move(name)), index_(index) {
+    if (resolved_node->GetParseLocationRangeOrNULL() != nullptr) {
+      argument_error_location_ =
+          resolved_node->GetParseLocationRangeOrNULL()->start();
+    }
+  }
 
   const IdString &name() const { return name_; }
   int index() const { return index_; }
@@ -55,8 +72,11 @@ class NamedArgumentInfo {
   // Creates an error at the argument's parse location. Used if an error with
   // the provided named argument is encountered.
   zetasql_base::StatusBuilder MakeSQLError() const {
-    return MakeSqlError().Attach(
-        argument_error_location_.ToInternalErrorLocation());
+    if (argument_error_location_.has_value()) {
+      return MakeSqlError().Attach(
+          argument_error_location_->ToInternalErrorLocation());
+    }
+    return MakeSqlError();
   }
 
  private:
@@ -65,7 +85,7 @@ class NamedArgumentInfo {
   // Index of the named argument in the concrete signature - starts at 0.
   int index_ = 0;
   // Argument parse location used to create an error message.
-  ParseLocationPoint argument_error_location_;
+  std::optional<ParseLocationPoint> argument_error_location_;
 };
 }  // namespace zetasql
 

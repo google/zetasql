@@ -36,7 +36,6 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
-#include "zetasql/common/float_margin.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
@@ -67,14 +66,10 @@ class Value::TypedList : public internal::ValueContentContainer {
   const std::vector<Value>& values() const { return values_; }
 
   uint64_t physical_byte_size() const override {
-    if (physical_byte_size_.has_value()) {
-      return physical_byte_size_.value();
-    }
     uint64_t size = sizeof(TypedList);
     for (const Value& value : values_) {
       size += value.physical_byte_size();
     }
-    physical_byte_size_ = size;
     return size;
   }
 
@@ -89,7 +84,6 @@ class Value::TypedList : public internal::ValueContentContainer {
 
  private:
   std::vector<Value> values_;
-  mutable std::optional<uint64_t> physical_byte_size_;
 };
 
 // -------------------------------------------------------
@@ -325,8 +319,9 @@ inline Value Value::UnvalidatedJsonString(std::string v) {
 inline Value Value::Json(JSONValue v) {
   return Value(new internal::JSONRef(std::move(v)));
 }
-inline Value Value::Enum(const EnumType* type, int64_t value) {
-  return Value(type, value);
+inline Value Value::Enum(const EnumType* type, int64_t value,
+                         bool allow_unknown_enum_values) {
+  return Value(type, value, allow_unknown_enum_values);
 }
 inline Value Value::Enum(const EnumType* type, absl::string_view name) {
   return Value(type, name);
@@ -854,8 +849,9 @@ inline Value BigNumeric(int64_t v) {
 
 inline Value Json(JSONValue v) { return Value::Json(std::move(v)); }
 
-inline Value Enum(const EnumType* enum_type, int32_t value) {
-  return Value::Enum(enum_type, value);
+inline Value Enum(const EnumType* enum_type, int32_t value,
+                  bool allow_unnamed_values) {
+  return Value::Enum(enum_type, value, allow_unnamed_values);
 }
 inline Value Enum(const EnumType* enum_type, absl::string_view name) {
   return Value::Enum(enum_type, name);

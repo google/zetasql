@@ -22,10 +22,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.LocalService.ParseRequest;
 import com.google.zetasql.LocalService.ParseResponse;
+import com.google.zetasql.parser.ASTNodes.ASTScript;
 import com.google.zetasql.parser.ASTNodes.ASTStatement;
 import io.grpc.StatusRuntimeException;
 
-/** The Parser class provides a static method to parse an SQL query into an ASTStatement. */
+/** The Parser class provides static methods to parse ZetaSQL statements or scripts */
 public class Parser {
 
   @CanIgnoreReturnValue // TODO: consider removing this?
@@ -34,15 +35,70 @@ public class Parser {
     checkNotNull(languageOptions);
     ParseResponse response;
     try {
-      ParseRequest request = ParseRequest.newBuilder()
-          .setSqlStatement(sql)
-          .setOptions(languageOptions.serialize())
-          .build();
+      ParseRequest request =
+          ParseRequest.newBuilder()
+              .setSqlStatement(sql)
+              .setOptions(languageOptions.serialize())
+              .setAllowScript(false)
+              .build();
       response = Client.getStub().parse(request);
       return ASTStatement.deserialize(response.getParsedStatement());
     } catch (StatusRuntimeException e) {
       throw new SqlException(e);
     }
+  }
+
+  public static ASTScript parseScript(String sql, LanguageOptions languageOptions) {
+    checkNotNull(sql);
+    checkNotNull(languageOptions);
+    ParseResponse response;
+    try {
+      ParseRequest request =
+          ParseRequest.newBuilder()
+              .setSqlStatement(sql)
+              .setOptions(languageOptions.serialize())
+              .setAllowScript(true)
+              .build();
+      response = Client.getStub().parse(request);
+      return ASTScript.deserialize(response.getParsedScript());
+    } catch (StatusRuntimeException e) {
+      throw new SqlException(e);
+    }
+  }
+
+  public static ASTStatement parseNextStatement(
+      ParseResumeLocation parseResumeLocation, LanguageOptions languageOptions) {
+    return parseNextInternal(parseResumeLocation, languageOptions, /*allowScript=*/ false);
+  }
+
+  public static ASTStatement parseNextScriptStatement(
+      ParseResumeLocation parseResumeLocation, LanguageOptions languageOptions) {
+    return parseNextInternal(parseResumeLocation, languageOptions, /*allowScript=*/ true);
+  }
+
+  private static ASTStatement parseNextInternal(
+      ParseResumeLocation parseResumeLocation,
+      LanguageOptions languageOptions,
+      boolean allowScript) {
+    checkNotNull(parseResumeLocation);
+    checkNotNull(languageOptions);
+
+    ParseResponse response;
+    try {
+      ParseRequest request =
+          ParseRequest.newBuilder()
+              .setParseResumeLocation(parseResumeLocation.serialize())
+              .setAllowScript(allowScript)
+              .setOptions(languageOptions.serialize())
+              .build();
+      response = Client.getStub().parse(request);
+    } catch (StatusRuntimeException e) {
+      throw new SqlException(e);
+    }
+
+    parseResumeLocation.setBytePosition(response.getResumeBytePosition());
+
+    return ASTStatement.deserialize(response.getParsedStatement());
   }
 
   private Parser() {}

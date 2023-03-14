@@ -16,6 +16,8 @@
 
 #include "zetasql/analyzer/rewriters/rewriter_relevance_checker.h"
 
+#include <optional>
+
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/sql_function.h"
@@ -63,8 +65,23 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
+  absl::Status VisitResolvedDifferentialPrivacyAggregateScan(
+      const ResolvedDifferentialPrivacyAggregateScan* node) override {
+    applicable_rewrites_->insert(REWRITE_ANONYMIZATION);
+    return DefaultVisit(node);
+  }
+
   absl::Status VisitResolvedFunctionCall(
       const ResolvedFunctionCall* node) override {
+    // Identify functions that have rewriting configured in their function
+    // signatures, add those rewriters to the relevant set.
+    const FunctionSignature& signature = node->signature();
+    if (signature.HasEnabledRewriteImplementation()) {
+      applicable_rewrites_->insert(
+          signature.options().rewrite_options()->rewriter());
+      return DefaultVisit(node);
+    }
+
     if (node->function()->Is<SQLFunctionInterface>() ||
         node->function()->Is<TemplatedSQLFunction>()) {
       applicable_rewrites_->insert(REWRITE_INLINE_SQL_FUNCTIONS);
@@ -74,7 +91,8 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       return DefaultVisit(node);
     }
 
-    // This switch is only for ZetaSQL built-ins.
+    // TODO: Migrate remaining functions (that do not have lambda
+    //     type arguments for now) to use FunctionSignatureRewriteOptions.
     switch (node->signature().context_id()) {
       case FN_PROTO_MAP_AT_KEY:
       case FN_SAFE_PROTO_MAP_AT_KEY:
@@ -94,42 +112,6 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       case FN_ARRAY_INCLUDES_ALL:
         applicable_rewrites_->insert(REWRITE_ARRAY_INCLUDES);
         break;
-      case FN_ARRAY_FIRST:
-      case FN_ARRAY_LAST:
-      case FN_ARRAY_SUM_INT32:
-      case FN_ARRAY_SUM_INT64:
-      case FN_ARRAY_SUM_UINT32:
-      case FN_ARRAY_SUM_UINT64:
-      case FN_ARRAY_SUM_FLOAT:
-      case FN_ARRAY_SUM_DOUBLE:
-      case FN_ARRAY_SUM_NUMERIC:
-      case FN_ARRAY_SUM_BIGNUMERIC:
-      case FN_ARRAY_SUM_INTERVAL:
-      case FN_ARRAY_AVG_INT32:
-      case FN_ARRAY_AVG_INT64:
-      case FN_ARRAY_AVG_UINT32:
-      case FN_ARRAY_AVG_UINT64:
-      case FN_ARRAY_AVG_FLOAT:
-      case FN_ARRAY_AVG_DOUBLE:
-      case FN_ARRAY_AVG_NUMERIC:
-      case FN_ARRAY_AVG_BIGNUMERIC:
-      case FN_ARRAY_AVG_INTERVAL:
-      case FN_ARRAY_MIN:
-      case FN_ARRAY_MAX:
-        applicable_rewrites_->insert(REWRITE_UNARY_FUNCTIONS);
-        break;
-      case FN_ARRAY_SLICE:
-      case FN_ARRAY_OFFSET:
-      case FN_ARRAY_FIND:
-        applicable_rewrites_->insert(REWRITE_TERNARY_FUNCTIONS);
-        break;
-      case FN_ARRAY_OFFSETS:
-      case FN_ARRAY_FIND_ALL:
-        applicable_rewrites_->insert(REWRITE_BINARY_FUNCTIONS);
-        break;
-      case FN_TYPEOF:
-        applicable_rewrites_->insert(REWRITE_TYPEOF_FUNCTION);
-        break;
       case FN_ANON_COUNT:
       case FN_ANON_COUNT_STAR:
       case FN_ANON_SUM_INT64:
@@ -145,9 +127,6 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       case FN_ANON_PERCENTILE_CONT_DOUBLE:
       case FN_ANON_PERCENTILE_CONT_DOUBLE_ARRAY:
         applicable_rewrites_->insert(REWRITE_ANONYMIZATION);
-        break;
-      case FN_NULLIFERROR:
-        applicable_rewrites_->insert(REWRITE_NULLIFERROR_FUNCTION);
         break;
       case FN_STRING_ARRAY_LIKE_ANY:
       case FN_BYTE_ARRAY_LIKE_ANY:
@@ -187,6 +166,7 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
 
 absl::StatusOr<absl::btree_set<ResolvedASTRewrite>> FindRelevantRewriters(
     const ResolvedNode* node) {
+  ZETASQL_RET_CHECK(node != nullptr);
   absl::btree_set<ResolvedASTRewrite> applicable_rewrites_;
   RewriteApplicabilityChecker checker(&applicable_rewrites_);
   ZETASQL_RETURN_IF_ERROR(node->Accept(&checker));

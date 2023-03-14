@@ -20,12 +20,14 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -38,6 +40,7 @@
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/name_scope.h"
 // This includes common macro definitions to define in the resolver cc files.
+#include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver_common_inl.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
@@ -71,6 +74,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
@@ -114,8 +118,7 @@ Resolver::Resolver(Catalog* catalog, TypeFactory* type_factory,
   ZETASQL_DCHECK(analyzer_options_.AllArenasAreInitialized());
 }
 
-Resolver::~Resolver() {
-}
+Resolver::~Resolver() = default;
 
 void Resolver::Reset(absl::string_view sql) {
   sql_ = sql;
@@ -182,10 +185,25 @@ std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedLiteral(
 std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedLiteral(
     const ASTNode* ast_location, const Type* type, const Value& value,
     bool has_explicit_type) const {
-  auto resolved_literal =
-      zetasql::MakeResolvedLiteral(type, value, has_explicit_type);
-  MaybeRecordParseLocation(ast_location, resolved_literal.get());
-  return resolved_literal;
+  return MakeResolvedLiteral(ast_location, {type, /*annotation_map=*/nullptr},
+                             value, has_explicit_type);
+}
+
+std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedLiteral(
+    const ASTNode* ast_location, AnnotatedType annotated_type,
+    const Value& value, bool has_explicit_type) const {
+  auto status_or_resolved_literal =
+      ResolvedLiteralBuilder()
+          .set_value(value)
+          .set_type(annotated_type.type)
+          .set_type_annotation_map(annotated_type.annotation_map)
+          .set_has_explicit_type(has_explicit_type)
+          .Build();
+  ZETASQL_DCHECK_OK(status_or_resolved_literal.status());
+  MaybeRecordParseLocation(
+      ast_location,
+      const_cast<ResolvedLiteral*>(status_or_resolved_literal.value().get()));
+  return std::move(status_or_resolved_literal.value());
 }
 
 std::unique_ptr<const ResolvedLiteral> Resolver::MakeResolvedFloatLiteral(
@@ -302,6 +320,15 @@ absl::Status Resolver::ResolveStandaloneExpr(
   ZETASQL_RETURN_IF_ERROR(ValidateUndeclaredParameters(resolved_expr_out->get()));
   ZETASQL_RETURN_IF_ERROR(PruneColumnLists(resolved_expr_out->get()));
   return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveStandaloneExprAndAssignToType(
+    absl::string_view sql, const ASTExpression* ast_expr,
+    AnnotatedType target_type,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  ZETASQL_RETURN_IF_ERROR(ResolveStandaloneExpr(sql, ast_expr, resolved_expr_out));
+  return CoerceExprToType(ast_expr, target_type, Resolver::kImplicitAssignment,
+                          resolved_expr_out);
 }
 
 absl::Status Resolver::ResolveExprWithFunctionArguments(
@@ -537,8 +564,7 @@ absl::Status Resolver::MakeEqualityComparison(
   std::unique_ptr<ResolvedFunctionCall> resolved_function_call;
   ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
       ast_location, {ast_location, ast_location}, "$equal",
-      /*is_analytic=*/false,
-      MakeNodeVector(std::move(expr1), std::move(expr2)),
+      /*is_analytic=*/false, MakeNodeVector(std::move(expr1), std::move(expr2)),
       /*named_arguments=*/{}, /*expected_result_type=*/nullptr,
       &resolved_function_call));
 
@@ -550,6 +576,7 @@ absl::Status Resolver::MakeNotExpr(
     const ASTNode* ast_location, std::unique_ptr<const ResolvedExpr> expr,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* expr_out) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RET_CHECK(expr->type()->IsBool())
       << "MakeNotExpr can only be called on bool: "
       << expr->type()->ShortTypeName(product_mode());
@@ -604,8 +631,7 @@ absl::Status Resolver::MakeAndExpr(
         /*named_arguments=*/{}, /*expected_result_type=*/nullptr,
         &resolved_function_call));
 
-    ZETASQL_RET_CHECK_EQ(resolved_function_call->function()->mode(),
-                 Function::SCALAR);
+    ZETASQL_RET_CHECK_EQ(resolved_function_call->function()->mode(), Function::SCALAR);
 
     *output_expr = std::move(resolved_function_call);
   }
@@ -659,8 +685,7 @@ std::unique_ptr<const ResolvedColumnRef> Resolver::CopyColumnRef(
 }
 
 absl::Status Resolver::ResolvePathExpressionAsType(
-    const ASTPathExpression* path_expr,
-    bool is_single_identifier,
+    const ASTPathExpression* path_expr, bool is_single_identifier,
     const Type** resolved_type) const {
   const std::vector<std::string> identifier_path =
       path_expr->ToIdentifierVector();
@@ -703,18 +728,89 @@ absl::Status Resolver::ResolvePathExpressionAsType(
 }
 
 // Get name of a hint or option formatted appropriately for error messages.
-static std::string HintName(const std::string& qualifier,
-                            const std::string& name) {
+static std::string HintName(std::string_view qualifier, std::string_view name) {
   return absl::StrCat((qualifier.empty() ? "" : ToIdentifierLiteral(qualifier)),
                       (qualifier.empty() ? "" : "."),
                       ToIdentifierLiteral(name));
 }
 
+static const char* GetHintOrOptionName(
+    Resolver::HintOrOptionType hint_or_option_type) {
+  switch (hint_or_option_type) {
+    case Resolver::HintOrOptionType::Hint:
+      return "hint";
+    case Resolver::HintOrOptionType::AnonymizationOption:
+      return "anonymization option";
+    case Resolver::HintOrOptionType::Option:
+      return "option";
+    case Resolver::HintOrOptionType::DifferentialPrivacyOption:
+      return "differential privacy option";
+  }
+}
+
+static absl::StatusOr<AllowedOptionProperties> GetHintOrOptionProperties(
+    const AllowedHintsAndOptions& allowed, std::string_view qualifier,
+    const ASTIdentifier* ast_name, std::string_view name,
+    Resolver::HintOrOptionType hint_or_option_type) {
+  switch (hint_or_option_type) {
+    case Resolver::HintOrOptionType::Hint: {
+      auto iter = allowed.hints_lower.find(std::make_pair(
+          absl::AsciiStrToLower(qualifier), absl::AsciiStrToLower(name)));
+      if (iter != allowed.hints_lower.end()) {
+        return AllowedOptionProperties{.type = iter->second};
+      }
+      if (zetasql_base::ContainsKey(allowed.disallow_unknown_hints_with_qualifiers,
+                           std::string(qualifier))) {
+        return MakeSqlErrorAt(ast_name)
+               << "Unknown hint: " << HintName(qualifier, name);
+      }
+      return AllowedOptionProperties{.type = nullptr};
+    } break;
+    case Resolver::HintOrOptionType::Option: {
+      ZETASQL_RET_CHECK(qualifier.empty());
+      auto iter = allowed.options_lower.find(absl::AsciiStrToLower(name));
+      if (iter != allowed.options_lower.end()) {
+        return iter->second;
+      }
+      if (allowed.disallow_unknown_options) {
+        return MakeSqlErrorAt(ast_name)
+               << "Unknown option: " << HintName(qualifier, name);
+      }
+      return AllowedOptionProperties{.type = nullptr};
+    } break;
+    case Resolver::HintOrOptionType::AnonymizationOption: {
+      ZETASQL_RET_CHECK(qualifier.empty());
+      auto iter =
+          allowed.anonymization_options_lower.find(absl::AsciiStrToLower(name));
+      if (iter == allowed.anonymization_options_lower.end()) {
+        return MakeSqlErrorAt(ast_name)
+               << "Unknown anonymization option: " << HintName(qualifier, name);
+      }
+      return iter->second;
+    } break;
+    case Resolver::HintOrOptionType::DifferentialPrivacyOption: {
+      ZETASQL_RET_CHECK(qualifier.empty());
+      auto iter = allowed.differential_privacy_options_lower.find(
+          absl::AsciiStrToLower(name));
+      if (iter == allowed.differential_privacy_options_lower.end()) {
+        return MakeSqlErrorAt(ast_name)
+               << "Unknown differential privacy option: "
+               << HintName(qualifier, name);
+      }
+      return iter->second;
+    } break;
+    default:
+      return absl::InternalError(absl::StrCat(
+          "Unknown option type: ", static_cast<int>(hint_or_option_type)));
+  }
+}
+
 absl::Status Resolver::ResolveHintOrOptionAndAppend(
     const ASTExpression* ast_value, const ASTIdentifier* ast_qualifier,
     const ASTIdentifier* ast_name, HintOrOptionType hint_or_option_type,
-    const AllowedHintsAndOptions& allowed,
+    const AllowedHintsAndOptions& allowed, const NameScope* from_name_scope,
     std::vector<std::unique_ptr<const ResolvedOption>>* option_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RET_CHECK(ast_name != nullptr);
 
   const std::string qualifier =
@@ -723,118 +819,93 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
 
   std::unique_ptr<const ResolvedExpr> resolved_expr;
 
-  const char* hint_or_option_name = [&] {
-    switch (hint_or_option_type) {
-      case HintOrOptionType::Hint:
-        return "hint";
-      case HintOrOptionType::Option:
-        return "option";
-      case HintOrOptionType::AnonymizationOption:
-        return "anonymization option";
-    }
-  }();
+  const char* hint_or_option_name = GetHintOrOptionName(hint_or_option_type);
+  const std::string first_char_upper_case_option_name =
+      [&hint_or_option_name]() {
+        std::string option_name = hint_or_option_name;
+        if (!option_name.empty()) {
+          option_name[0] = absl::ascii_toupper(option_name[0]);
+        }
+        return option_name;
+      }();
 
-  // Single identifiers are accepted as hint values, and are stored as string
-  // values.  These show up in the AST as path expressions with one element.
-  if (ast_value->node_kind() == AST_PATH_EXPRESSION) {
-    const ASTPathExpression* path_expr
-        = static_cast<const ASTPathExpression*>(ast_value);
-    if (path_expr->num_names() == 1 && !path_expr->parenthesized()) {
-      // For backward compatibility, standalone identifier names need to be
-      // treated as a literal string.  But, if the name happens to resolve
-      // as an expression, emit an error, since it's not clear whether the user
-      // is referring to a literal string "foo" or a constant symbol named
-      // "foo".  The user can resolve the error by either adding parentheses or
-      // enclosing the name in quotation marks.
-      if (ResolveScalarExpr(ast_value, empty_name_scope_.get(),
-                            hint_or_option_name, &resolved_expr)
-              .ok()) {
-        return MakeSqlErrorAt(ast_value)
-               << "Unable to determine if "
-               << path_expr->name(0)->GetAsIdString().ToStringView()
-               << " is a string or expression.  If a string is intended, "
-               << "please enclose it with quotation marks.  If an expression "
-               << "is intended, please enclose it with parentheses.";
-      }
-
-      resolved_expr = MakeResolvedLiteral(
-          ast_value, Value::String(path_expr->first_name()->GetAsString()));
-    }
-  }
-
-  // Otherwise, we parse the value as a constant expression,
-  // with no names visible in scope.
-  if (resolved_expr == nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_value, empty_name_scope_.get(),
-                                      hint_or_option_name, &resolved_expr));
-    // We try collapsing the resolved_expr early as we want to be sure that a
-    // literal/parameter is passed as a hint value when possible.
-    TryCollapsingExpressionsAsLiterals(
-        ast_value,
-        reinterpret_cast<std::unique_ptr<const ResolvedNode>*>(&resolved_expr));
-  }
-
-  // <found_ptr> points at the Type* of the hint or option we found.
+  // expected_type points at the Type* of the hint or option we found.
   // If it points at a NULL, any type is allowed.
-  const Type* const* found_ptr = nullptr;
-  switch (hint_or_option_type) {
-    case HintOrOptionType::Hint: {
-      found_ptr = zetasql_base::FindOrNull(
-          allowed.hints_lower, std::make_pair(absl::AsciiStrToLower(qualifier),
-                                              absl::AsciiStrToLower(name)));
+  ZETASQL_ASSIGN_OR_RETURN(auto option_properties,
+                   GetHintOrOptionProperties(allowed, qualifier, ast_name, name,
+                                             hint_or_option_type));
+  auto [expected_type, resolving_kind] = std::move(option_properties);
+  switch (resolving_kind) {
+    case AllowedHintsAndOptionsProto::OptionProto::
+        CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER: {
+      // Single identifiers are accepted as hint values, and are stored as
+      // string values.  These show up in the AST as path expressions with one
+      // element.
+      if (ast_value->node_kind() == AST_PATH_EXPRESSION) {
+        const ASTPathExpression* path_expr =
+            static_cast<const ASTPathExpression*>(ast_value);
+        if (path_expr->num_names() == 1 && !path_expr->parenthesized()) {
+          // For backward compatibility, standalone identifier names need to be
+          // treated as a literal string.  But, if the name happens to resolve
+          // as an expression, emit an error, since it's not clear whether the
+          // user is referring to a literal string "foo" or a constant symbol
+          // named "foo".  The user can resolve the error by either adding
+          // parentheses or enclosing the name in quotation marks.
+          if (ResolveScalarExpr(ast_value, empty_name_scope_.get(),
+                                hint_or_option_name, &resolved_expr)
+                  .ok()) {
+            return MakeSqlErrorAt(ast_value)
+                   << "Unable to determine if "
+                   << path_expr->name(0)->GetAsIdString().ToStringView()
+                   << " is a string or expression.  If a string is intended, "
+                   << "please enclose it with quotation marks.  If an "
+                      "expression "
+                   << "is intended, please enclose it with parentheses.";
+          }
 
-      // If we have a qualifier that we are supposed to validate, then give
-      // an error on unknown hints.  Otherwise, let them through.
-      if (found_ptr == nullptr &&
-          zetasql_base::ContainsKey(allowed.disallow_unknown_hints_with_qualifiers,
-                           qualifier)) {
-        return MakeSqlErrorAt(ast_name)
-               << "Unknown hint: " << HintName(qualifier, name);
+          resolved_expr = MakeResolvedLiteral(
+              ast_value, Value::String(path_expr->first_name()->GetAsString()));
+        }
       }
-    } break;
-    case HintOrOptionType::Option: {
-      ZETASQL_RET_CHECK(qualifier.empty());
-      found_ptr =
-          zetasql_base::FindOrNull(allowed.options_lower, absl::AsciiStrToLower(name));
 
-      if (found_ptr == nullptr && allowed.disallow_unknown_options) {
-        return MakeSqlErrorAt(ast_name)
-               << "Unknown option: " << HintName(qualifier, name);
+      // Otherwise, we parse the value as a constant expression,
+      // with no names visible in scope.
+      if (resolved_expr == nullptr) {
+        ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_value, empty_name_scope_.get(),
+                                          hint_or_option_name, &resolved_expr));
+        // We try collapsing the resolved_expr early as we want to be sure that
+        // a literal/parameter is passed as a hint value when possible.
+        TryCollapsingExpressionsAsLiterals(
+            ast_value, reinterpret_cast<std::unique_ptr<const ResolvedNode>*>(
+                           &resolved_expr));
       }
     } break;
-    case HintOrOptionType::AnonymizationOption: {
-      ZETASQL_RET_CHECK(qualifier.empty());
-      found_ptr = zetasql_base::FindOrNull(allowed.anonymization_options_lower,
-                                  absl::AsciiStrToLower(name));
-      if (found_ptr == nullptr) {
-        return MakeSqlErrorAt(ast_name)
-               << "Unknown anonymization option: " << HintName(qualifier, name);
+
+    case AllowedHintsAndOptionsProto::OptionProto::FROM_NAME_SCOPE_IDENTIFIER: {
+      ZETASQL_RET_CHECK(
+          hint_or_option_type == HintOrOptionType::DifferentialPrivacyOption &&
+          language().LanguageFeatureEnabled(FEATURE_DIFFERENTIAL_PRIVACY));
+      ZETASQL_RET_CHECK_NE(from_name_scope, nullptr);
+      // TODO: Add support for multi column privacy unit column as
+      // defined in proposal: (broken link).
+      if (ast_value->node_kind() != AST_PATH_EXPRESSION) {
+        return MakeSqlErrorAt(ast_value) << first_char_upper_case_option_name
+                                         << " must be a path expression";
       }
+      ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_value, from_name_scope,
+                                        hint_or_option_name, &resolved_expr));
     } break;
-    default:
-      return absl::InternalError(absl::StrCat(
-          "Unknown option type: ", static_cast<int>(hint_or_option_type)));
   }
 
   // If we found the option, try to coerce the value to the appropriate type.
-  if (found_ptr != nullptr && *found_ptr != nullptr) {
-    const Type* expected_type = *found_ptr;
-    auto option_name = [&] {
-      switch (hint_or_option_type) {
-        case HintOrOptionType::Hint:
-          return "Hint";
-        case HintOrOptionType::Option:
-          return "Option";
-        case HintOrOptionType::AnonymizationOption:
-          return "Anonymization option";
-      }
-    }();
-    auto make_error_msg = [option_name, &qualifier, &name](
-                              absl::string_view target_t,
-                              absl::string_view arg_t) {
+  if (expected_type != nullptr) {
+    auto make_error_msg = [&first_char_upper_case_option_name, &qualifier,
+                           &name](absl::string_view target_t,
+                                  absl::string_view arg_t) {
       return absl::Substitute(
           "$2 $3 value has type $0 which cannot be coerced to expected type $1",
-          arg_t, target_t, option_name, HintName(qualifier, name));
+          arg_t, target_t, first_char_upper_case_option_name,
+          HintName(qualifier, name));
     };
     ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_value, expected_type,
                                      kImplicitCoercion, make_error_msg,
@@ -875,7 +946,8 @@ absl::Status Resolver::ResolveHintAndAppend(
     ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
         ast_hint_entry->value(), ast_hint_entry->qualifier(),
         ast_hint_entry->name(), HintOrOptionType::Hint,
-        analyzer_options_.allowed_hints_and_options(), hints));
+        analyzer_options_.allowed_hints_and_options(),
+        /*from_name_scope=*/nullptr, hints));
   }
 
   return absl::OkStatus();
@@ -973,7 +1045,8 @@ absl::Status Resolver::ResolveOptionsList(
       ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
           options_entry->value(), /*ast_qualifier=*/nullptr,
           options_entry->name(), HintOrOptionType::Option,
-          analyzer_options_.allowed_hints_and_options(), resolved_options));
+          analyzer_options_.allowed_hints_and_options(),
+          /*from_name_scope=*/nullptr, resolved_options));
     }
   }
   return absl::OkStatus();
@@ -981,23 +1054,40 @@ absl::Status Resolver::ResolveOptionsList(
 
 absl::Status Resolver::ResolveAnonymizationOptionsList(
     const ASTOptionsList* options_list,
+    const QueryResolutionInfo& query_resolution_info,
     std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options) {
+  const HintOrOptionType option_type =
+      query_resolution_info.select_with_mode() ==
+              SelectWithMode::DIFFERENTIAL_PRIVACY
+          ? HintOrOptionType::DifferentialPrivacyOption
+          : HintOrOptionType::AnonymizationOption;
+  const char* option_type_name =
+      option_type == HintOrOptionType::AnonymizationOption
+          ? "anonymization"
+          : "differential privacy";
   if (options_list != nullptr) {
     // ZetaSQL defines an allowlist of valid option names for anonymization
     // options.
     std::set<std::string> specified_options;
+    NameScope from_name_scope(*query_resolution_info.from_clause_name_list());
     for (const ASTOptionsEntry* options_entry :
          options_list->options_entries()) {
-      if (!zetasql_base::InsertIfNotPresent(&specified_options,
-                                   options_entry->name()->GetAsString())) {
+      const std::string option_name =
+          (language().LanguageFeatureEnabled(
+               FEATURE_ANONYMIZATION_CASE_INSENSITIVE_OPTIONS) ||
+           option_type == HintOrOptionType::DifferentialPrivacyOption)
+              ? absl::AsciiStrToLower(options_entry->name()->GetAsString())
+              : options_entry->name()->GetAsString();
+      if (!zetasql_base::InsertIfNotPresent(&specified_options, option_name)) {
         return MakeSqlErrorAt(options_entry->name())
-               << "Duplicate anonymization option specified for '"
+               << "Duplicate " << option_type_name << " option specified for '"
                << options_entry->name()->GetAsString() << "'";
       }
       ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
           options_entry->value(), /*ast_qualifier=*/nullptr,
-          options_entry->name(), HintOrOptionType::AnonymizationOption,
-          analyzer_options_.allowed_hints_and_options(), resolved_options));
+          options_entry->name(), option_type,
+          analyzer_options_.allowed_hints_and_options(), &from_name_scope,
+          resolved_options));
     }
 
     // Validate that if epsilon is specified, then only at most one of delta or
@@ -1016,16 +1106,55 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
       }
     }
 
-    // TODO: Mark kappa as deprecated using
-    // Resolver::AddDeprecationWarning once F1 supports max_groups_contributed.
-
-    // Validate that at most one of the synonyms kappa and
-    // max_groups_contributed are specified.
-    if (zetasql_base::ContainsKey(specified_options, "kappa") &&
-        zetasql_base::ContainsKey(specified_options, "max_groups_contributed")) {
+    // Validate that at most one of the options kappa, max_groups_contributed,
+    // and max_rows_contributed are specified. The options kappa and
+    // max_groups_contributed are synonyms and are mutually exclusive with the
+    // option max_rows_contributed.
+    static const auto* const kBoundingOptions = new std::set<absl::string_view>{
+        "kappa", "max_groups_contributed", "max_rows_contributed"};
+    std::set<std::string> specified_bounding_options;
+    std::set_intersection(specified_options.begin(), specified_options.end(),
+                          kBoundingOptions->begin(), kBoundingOptions->end(),
+                          std::inserter(specified_bounding_options,
+                                        specified_bounding_options.begin()));
+    if (option_type != HintOrOptionType::DifferentialPrivacyOption &&
+        zetasql_base::ContainsKey(specified_bounding_options, "kappa") &&
+        zetasql_base::ContainsKey(specified_bounding_options,
+                         "max_groups_contributed")) {
       return MakeSqlErrorAt(options_list)
              << "The anonymization options specify mutually exclusive options "
                 "kappa and max_groups_contributed";
+    } else if (specified_bounding_options.size() > 1) {
+      const char* allowed_options_string =
+          option_type == HintOrOptionType::DifferentialPrivacyOption
+              ? "max_groups_contributed or max_rows_contributed may be "
+                "specified in differential privacy options"
+              : "kappa, max_groups_contributed, and "
+                "max_rows_contributed may be specified in anonymization "
+                "options";
+      return MakeSqlErrorAt(options_list)
+             << "At most one of the options " << allowed_options_string
+             << ", instead got: "
+             << absl::StrJoin(specified_bounding_options.begin(),
+                              specified_bounding_options.end(), ", ");
+    }
+
+    // TODO Not all SQL engines have the language feature
+    // FEATURE_ANONYMIZATION_CASE_INSENSITIVE_OPTIONS enabled (e.g. F1 currently
+    // does not). When that feature flag is enabled, we can simplify this code,
+    // because we just need to check whether specified_bounding_options contains
+    // kappa.
+    const bool caseInsensitiveKappaSpecified =
+        std::find_if(specified_options.begin(), specified_options.end(),
+                     [](const absl::string_view option) {
+                       return absl::AsciiStrToLower(option) == "kappa";
+                     }) != specified_options.end();
+    if (caseInsensitiveKappaSpecified) {
+      ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
+          options_list,
+          DeprecationWarning::DEPRECATED_ANONYMIZATION_OPTION_KAPPA,
+          "Anonymization option kappa is deprecated, instead use "
+          "max_groups_contributed"));
     }
   }
   return absl::OkStatus();
@@ -1058,7 +1187,8 @@ absl::Status Resolver::ResolveAnonWithReportOptionsList(
   const ASTOptionsEntry* options_entry = options_list->options_entries(0);
   ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
       options_entry->value(), /*ast_qualifier=*/nullptr, options_entry->name(),
-      HintOrOptionType::Option, allowed_report_options, resolved_options));
+      HintOrOptionType::Option, allowed_report_options,
+      /*from_name_scope=*/nullptr, resolved_options));
 
   ZETASQL_RET_CHECK_EQ(resolved_options->size(), 1);
   ZETASQL_RET_CHECK(
@@ -1275,6 +1405,7 @@ absl::Status Resolver::ResolveStructType(
     ZETASQL_RET_CHECK(resolve_type_modifier_options.context.has_value());
   }
 
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   std::vector<StructType::StructField> struct_fields;
   bool has_parameter_children = false;
   std::vector<TypeParameters> child_parameter_list;
@@ -1373,6 +1504,7 @@ absl::Status Resolver::ResolveRangeType(
       !resolve_type_modifier_options.allow_collation) {
     ZETASQL_RET_CHECK(resolve_type_modifier_options.context.has_value());
   }
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   const Type* resolved_element_type;
   TypeModifiers resolved_element_type_modifiers;
@@ -1629,7 +1761,7 @@ absl::Status Resolver::RecordImpliedAccess(const ResolvedStatement* statement) {
   // For ResolvedMergeStmt, it will return the set of ResolvedUpdateItems
   // under the WHEN clause if the MERGE includes an UPDATE statement.
   statement->GetDescendantsWithKinds({zetasql::RESOLVED_UPDATE_ITEM},
-                                &update_items);
+                                     &update_items);
   for (auto node : update_items) {
     const ResolvedUpdateItem* updateItem = node->GetAs<ResolvedUpdateItem>();
     // For every encountered update item, determine whether we need to
@@ -1736,7 +1868,7 @@ absl::Status Resolver::PruneColumnLists(const ResolvedNode* node) const {
       << "SetColumnAccessList was called before PruneColumnList";
 
   ZETASQL_RET_CHECK(node->node_kind() != zetasql::RESOLVED_MERGE_STMT ||
-          node->GetAs<ResolvedMergeStmt>()->column_access_list_size() == 0)
+            node->GetAs<ResolvedMergeStmt>()->column_access_list_size() == 0)
       << "SetColumnAccessList was called before PruneColumnList";
 
   ZETASQL_RET_CHECK(node->node_kind() != zetasql::RESOLVED_INSERT_STMT ||
@@ -1807,11 +1939,11 @@ absl::Status Resolver::PruneColumnLists(const ResolvedNode* node) const {
       mutable_scan->set_column_list(pruned_column_list);
       if (column_index_list != nullptr) {
         if (scan_node->node_kind() == RESOLVED_TABLE_SCAN) {
-          mutable_scan->GetAs<ResolvedTableScan>()
-              ->set_column_index_list(pruned_column_index_list);
+          mutable_scan->GetAs<ResolvedTableScan>()->set_column_index_list(
+              pruned_column_index_list);
         } else if (scan_node->node_kind() == RESOLVED_TVFSCAN) {
-          mutable_scan->GetAs<ResolvedTVFScan>()
-              ->set_column_index_list(pruned_column_index_list);
+          mutable_scan->GetAs<ResolvedTVFScan>()->set_column_index_list(
+              pruned_column_index_list);
         }
       }
     }
@@ -1819,17 +1951,17 @@ absl::Status Resolver::PruneColumnLists(const ResolvedNode* node) const {
   return absl::OkStatus();
 }
 
-absl::Status Resolver::FindTable(
-    const ASTPathExpression* name, const Table** table) {
+absl::Status Resolver::FindTable(const ASTPathExpression* name,
+                                 const Table** table) {
   ZETASQL_RET_CHECK(name != nullptr);
   ZETASQL_RET_CHECK(table != nullptr);
 
-  absl::Status status = catalog_->FindTable(
-      name->ToIdentifierVector(), table, analyzer_options_.find_options());
+  absl::Status status = catalog_->FindTable(name->ToIdentifierVector(), table,
+                                            analyzer_options_.find_options());
   if (status.code() == absl::StatusCode::kNotFound) {
     std::string message;
-    absl::StrAppend(
-        &message, "Table not found: ", name->ToIdentifierPathString());
+    absl::StrAppend(&message,
+                    "Table not found: ", name->ToIdentifierPathString());
     std::string suggestion(catalog_->SuggestTable(name->ToIdentifierVector()));
     if (!suggestion.empty()) {
       absl::StrAppend(&message, "; did you mean: ", suggestion, "?");
@@ -1940,16 +2072,14 @@ static absl::Status CheckAndPropagateAnnotationsImpl(
       case RESOLVED_AGGREGATE_FUNCTION_CALL: {
         auto* function_call =
             resolved_node->GetAs<ResolvedAggregateFunctionCall>();
-        ZETASQL_RETURN_IF_ERROR(
-            annotation_spec->CheckAndPropagateForFunctionCallBase(
-                *function_call, annotation_map));
+        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForFunctionCallBase(
+            *function_call, annotation_map));
       } break;
       case RESOLVED_ANALYTIC_FUNCTION_CALL: {
         auto* function_call =
             resolved_node->GetAs<ResolvedAnalyticFunctionCall>();
-        ZETASQL_RETURN_IF_ERROR(
-            annotation_spec->CheckAndPropagateForFunctionCallBase(
-                *function_call, annotation_map));
+        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForFunctionCallBase(
+            *function_call, annotation_map));
       } break;
       case RESOLVED_SUBQUERY_EXPR: {
         auto* subquery_expr = resolved_node->GetAs<ResolvedSubqueryExpr>();
@@ -1960,6 +2090,74 @@ static absl::Status CheckAndPropagateAnnotationsImpl(
         break;
     }
   }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::CheckAndPropagateAnnotationsForRecursiveScan(
+    ResolvedRecursiveScan* recursive_scan, const ASTNode* error_node) {
+  if (!language().LanguageFeatureEnabled(
+          FEATURE_V_1_4_COLLATION_IN_WITH_RECURSIVE)) {
+    // Disable collation propagation through ResolvedRecursiveScan.
+    for (const auto& item : {recursive_scan->non_recursive_term(),
+                             recursive_scan->recursive_term()}) {
+      // The recursive_term can be null since we try to propagate annotations
+      // earlier after non_recursive_term is resolved.
+      if (item == nullptr) {
+        continue;
+      }
+      for (const auto& output_column : item->output_column_list()) {
+        if (CollationAnnotation::ExistsIn(
+                output_column.type_annotation_map())) {
+          return MakeSqlErrorAt(error_node)
+                 << "Collation is not supported in recursive queries";
+        }
+      }
+    }
+  }
+  // Owns the pointers.
+  std::vector<std::unique_ptr<AnnotationMap>> annotation_maps;
+  std::vector<AnnotationMap*> annotation_map_ptrs;
+  for (const auto column : recursive_scan->column_list()) {
+    // Insert place holder for proto and extended type. We don't propagate
+    // annotations for them.
+    if (column.type()->IsProto() || column.type()->IsExtendedType()) {
+      annotation_maps.push_back(nullptr);
+      annotation_map_ptrs.push_back(nullptr);
+    } else {
+      annotation_maps.push_back(AnnotationMap::Create(column.type()));
+      annotation_map_ptrs.push_back(annotation_maps.back().get());
+    }
+  }
+
+  // Check and propagate the annotations for recursive scan for every
+  // AnnotationSpec supported by the resolver.
+  for (auto& annotation_spec : annotation_specs_) {
+    absl::Status status = annotation_spec->CheckAndPropagateForRecursiveScan(
+        *recursive_scan, annotation_map_ptrs);
+    if (!status.ok() && error_node != nullptr) {
+      return MakeSqlErrorAt(error_node) << status.message();
+    }
+  }
+
+  std::vector<ResolvedColumn> annotated_column_list;
+  annotated_column_list.reserve(recursive_scan->column_list_size());
+  for (int i = 0; i < recursive_scan->column_list_size(); i++) {
+    const ResolvedColumn& original_column = recursive_scan->column_list(i);
+    if (annotation_maps[i] == nullptr || annotation_maps[i]->Empty()) {
+      annotated_column_list.push_back(original_column);
+      continue;
+    }
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        const AnnotationMap* column_annotation_map,
+        type_factory_->TakeOwnership(std::move(annotation_maps[i])));
+
+    annotated_column_list.push_back(ResolvedColumn(
+        original_column.column_id(), original_column.table_name_id(),
+        original_column.name_id(),
+        AnnotatedType(original_column.type(), column_annotation_map)));
+  }
+  recursive_scan->set_column_list(std::move(annotated_column_list));
   return absl::OkStatus();
 }
 
@@ -2037,19 +2235,28 @@ absl::Status Resolver::CheckAndPropagateAnnotations(
     }
     set_operation_scan->set_column_list(std::move(annotated_column_list));
   } else if (resolved_node->Is<ResolvedRecursiveScan>()) {
-    // Disable collation propagation through ResolvedRecursiveScan.
-    // TODO: Implement collation propagation logic for
-    // ResolvedRecursiveScan.
-    auto* scan = resolved_node->GetAs<ResolvedRecursiveScan>();
-    for (const auto& item :
-         {scan->non_recursive_term(), scan->recursive_term()}) {
-      for (const auto& output_column : item->output_column_list()) {
-        if (CollationAnnotation::ExistsIn(
-                output_column.type_annotation_map())) {
-          return MakeSqlErrorAt(error_node)
-                 << "Collation is not supported in recursive queries";
-        }
-      }
+    auto* recursive_scan = resolved_node->GetAs<ResolvedRecursiveScan>();
+    ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotationsForRecursiveScan(recursive_scan,
+                                                                 error_node));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ThrowErrorIfExprHasCollation(
+    const ASTNode* error_node, absl::string_view error_template,
+    const ResolvedExpr* resolved_expr) {
+  if (resolved_expr == nullptr ||
+      resolved_expr->type_annotation_map() == nullptr) {
+    return absl::OkStatus();
+  }
+  if (CollationAnnotation::ExistsIn(resolved_expr->type_annotation_map())) {
+    std::string error_msg = absl::Substitute(
+        error_template, resolved_expr->type_annotation_map()->DebugString(
+                            CollationAnnotation::GetId()));
+    if (error_node != nullptr) {
+      return MakeSqlErrorAt(error_node) << error_msg;
+    } else {
+      return MakeSqlError() << error_msg;
     }
   }
   return absl::OkStatus();
@@ -2075,13 +2282,11 @@ absl::Status Resolver::ResolveCollate(
   ResolvedNodeKind kind = resolved_collate->get()->node_kind();
   bool is_order_by_collate =
       ast_collate->parent()->node_kind() == AST_ORDERING_EXPRESSION;
-  if (kind == RESOLVED_LITERAL &&
-      resolved_collate->get()->type()->IsString()) {
+  if (kind == RESOLVED_LITERAL && resolved_collate->get()->type()->IsString()) {
     return absl::OkStatus();
   }
   if (kind == RESOLVED_PARAMETER &&
-      resolved_collate->get()->type()->IsString() &&
-      is_order_by_collate) {
+      resolved_collate->get()->type()->IsString() && is_order_by_collate) {
     return absl::OkStatus();
   }
   if (is_order_by_collate) {

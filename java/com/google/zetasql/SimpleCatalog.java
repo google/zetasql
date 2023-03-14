@@ -163,7 +163,7 @@ public class SimpleCatalog extends Catalog {
     for (int i = 0; i < pools.size(); ++i) {
       idsMapBuilder.put(pools.get(i), poolIds.get(i));
     }
-    registeredDescriptorPoolIds = idsMapBuilder.build();
+    registeredDescriptorPoolIds = idsMapBuilder.buildOrThrow();
     registered = true;
   }
 
@@ -229,7 +229,7 @@ public class SimpleCatalog extends Catalog {
     for (Entry<String, SimpleTable> table : tables.entrySet()) {
       SimpleTableProto.Builder tableBuilder = builder.addTableBuilder();
       tableBuilder.mergeFrom(table.getValue().serialize(fileDescriptorSetsBuilder));
-      if (!table.getKey().equals(tableBuilder.getName().toLowerCase())) {
+      if (!table.getKey().equals(Ascii.toLowerCase(tableBuilder.getName()))) {
         tableBuilder.setNameInCatalog(table.getKey());
       }
     }
@@ -267,12 +267,11 @@ public class SimpleCatalog extends Catalog {
 
   /** Add simple constant into this catalog. Constant names are case insensitive. */
   public void addConstant(Constant constant) {
-
     Preconditions.checkState(!registered);
-    Preconditions.checkArgument(!constants.containsKey(constant.getFullName().toLowerCase()));
+    Preconditions.checkArgument(!constants.containsKey(Ascii.toLowerCase(constant.getFullName())));
     List<String> namePath = constant.getNamePath();
     Preconditions.checkArgument(!namePath.isEmpty());
-    constants.put(namePath.get(namePath.size() - 1).toLowerCase(), constant);
+    constants.put(Ascii.toLowerCase(namePath.get(namePath.size() - 1)), constant);
   }
 
   /**
@@ -321,18 +320,35 @@ public class SimpleCatalog extends Catalog {
    * @param type
    */
   public void addType(String name, Type type) {
+    addTypeImpl(name, type, false);
+  }
+
+  private void addTypeImpl(String name, Type type, boolean allowDuplicateEntries) {
+    String nameInLowerCase = Ascii.toLowerCase(name);
     Preconditions.checkState(!registered);
-    Preconditions.checkArgument(!types.containsKey(name.toLowerCase()), "duplicate key: %s", name);
-    types.put(name.toLowerCase(), type);
+    Type existingType = types.get(nameInLowerCase);
+    if (existingType != null) {
+      // This can happen during deserialization when a type from the catalog
+      // matches a builtin type.
+      Preconditions.checkArgument(
+          allowDuplicateEntries && existingType.equals(type),
+          "duplicate type: %s and types do not match, while adding. Existing Type %s New type %s",
+          name,
+          existingType,
+          type);
+      return;
+    }
+    types.put(nameInLowerCase, type);
   }
 
   /**
    * Removes the type with the passed name from this catalog. Type names are case insensitive.
    */
   public void removeType(String name) {
+    String nameInLowerCase = Ascii.toLowerCase(name);
     Preconditions.checkState(!registered);
-    Preconditions.checkArgument(types.containsKey(name.toLowerCase()), "missing key: %s", name);
-    types.remove(name.toLowerCase());
+    Preconditions.checkArgument(types.containsKey(nameInLowerCase), "missing key: %s", name);
+    types.remove(nameInLowerCase);
   }
 
   /**
@@ -341,12 +357,11 @@ public class SimpleCatalog extends Catalog {
    * @param catalog
    */
   public void addSimpleCatalog(SimpleCatalog catalog) {
+    String fullNameInLowerCase = Ascii.toLowerCase(catalog.getFullName());
     Preconditions.checkState(!registered);
     Preconditions.checkArgument(
-        !catalogs.containsKey(catalog.getFullName().toLowerCase()),
-        "duplicate key: %s",
-        catalog.getFullName());
-    catalogs.put(catalog.getFullName().toLowerCase(), catalog);
+        !catalogs.containsKey(fullNameInLowerCase), "duplicate key: %s", catalog.getFullName());
+    catalogs.put(fullNameInLowerCase, catalog);
   }
 
   /**
@@ -376,10 +391,11 @@ public class SimpleCatalog extends Catalog {
    * insensitive.
    */
   public void removeSimpleCatalog(String fullName) {
+    String fullNameInLowerCase = Ascii.toLowerCase(fullName);
     Preconditions.checkState(!registered);
-    Preconditions.checkArgument(catalogs.containsKey(fullName.toLowerCase()),
-        "missing key: %s", fullName);
-    catalogs.remove(fullName.toLowerCase());
+    Preconditions.checkArgument(
+        catalogs.containsKey(fullNameInLowerCase), "missing key: %s", fullName);
+    catalogs.remove(fullNameInLowerCase);
   }
 
   /**
@@ -388,7 +404,18 @@ public class SimpleCatalog extends Catalog {
    *
    * @param options used to select which functions get loaded.
    */
+  @Deprecated
   public void addZetaSQLFunctions(ZetaSQLBuiltinFunctionOptions options) {
+    addZetaSQLFunctionsAndTypes(options);
+  }
+
+  /**
+   * Add ZetaSQL built-in function definitions into this catalog. Function names are case
+   * insensitive.
+   *
+   * @param options used to select which functions get loaded.
+   */
+  public void addZetaSQLFunctionsAndTypes(ZetaSQLBuiltinFunctionOptions options) {
     Preconditions.checkNotNull(options);
     Preconditions.checkState(builtinFunctionOptions == null);
     builtinFunctionOptions = options.serialize();
@@ -408,6 +435,12 @@ public class SimpleCatalog extends Catalog {
     for (FunctionProto proto : response.getFunctionList()) {
       addFunctionToFullNameMap(Function.deserialize(proto, pools));
     }
+    for (Map.Entry<String, TypeProto> entry : response.getTypesMap().entrySet()) {
+      Type type = typeFactory.deserialize(entry.getValue(), pools);
+      // When we deserialize a catalog, it may contain these types already, so as any existing
+      // type is equal to what we are about to add, ignore it.
+      addTypeImpl(entry.getKey(), type, /*ignoreDuplicateEntries*/ true);
+    }
   }
 
   /**
@@ -417,20 +450,21 @@ public class SimpleCatalog extends Catalog {
    * @param function
    */
   public void addFunction(Function function) {
+    String nameInLowerCase = Ascii.toLowerCase(function.getName());
     Preconditions.checkState(!registered);
-    Preconditions.checkArgument(!customFunctions.containsKey(function.getName().toLowerCase()));
-    customFunctions.put(function.getName().toLowerCase(), function);
+    Preconditions.checkArgument(!customFunctions.containsKey(nameInLowerCase));
+    customFunctions.put(nameInLowerCase, function);
     if (!function.getOptions().getAliasName().isEmpty()
         && !function.getOptions().getAliasName().equals(function.getName())) {
-      Preconditions.checkArgument(
-          !customFunctions.containsKey(function.getOptions().getAliasName().toLowerCase()));
-      customFunctions.put(function.getOptions().getAliasName().toLowerCase(), function);
+      String aliasInLowerCase = Ascii.toLowerCase(function.getOptions().getAliasName());
+      Preconditions.checkArgument(!customFunctions.containsKey(aliasInLowerCase));
+      customFunctions.put(aliasInLowerCase, function);
     }
     addFunctionToFullNameMap(function);
   }
 
   private void addFunctionToFullNameMap(Function function) {
-    String functionName = function.getFullName().toLowerCase();
+    String functionName = Ascii.toLowerCase(function.getFullName());
     Preconditions.checkArgument(
         !functionsByFullName.containsKey(functionName), functionName + " already exists.");
     functionsByFullName.put(functionName, function);
@@ -450,10 +484,11 @@ public class SimpleCatalog extends Catalog {
     Preconditions.checkState(!registered);
     Function function = getFunctionByFullName(fullName);
     Preconditions.checkArgument(function != null);
-    Preconditions.checkArgument(customFunctions.containsKey(function.getName().toLowerCase()));
-    customFunctions.remove(function.getName().toLowerCase());
+    String functionNameInLowerCase = Ascii.toLowerCase(function.getName());
+    Preconditions.checkArgument(customFunctions.containsKey(functionNameInLowerCase));
+    customFunctions.remove(functionNameInLowerCase);
     if (!function.getOptions().getAliasName().isEmpty()) {
-      customFunctions.remove(function.getOptions().getAliasName().toLowerCase());
+      customFunctions.remove(Ascii.toLowerCase(function.getOptions().getAliasName()));
     }
     removeFunctionFromFullNameMap(function);
   }
@@ -461,7 +496,7 @@ public class SimpleCatalog extends Catalog {
   /** Add the given {@code tvf} to this catalog. Names are case insensitive. */
   public void addTableValuedFunction(TableValuedFunction tvf) {
     Preconditions.checkState(!registered);
-    String tvfName = tvf.getName().toLowerCase();
+    String tvfName = Ascii.toLowerCase(tvf.getName());
     Preconditions.checkArgument(!tvfs.containsKey(tvfName));
     tvfs.put(tvfName, tvf);
   }
@@ -474,16 +509,16 @@ public class SimpleCatalog extends Catalog {
   /** Removes the TVF with the passed full name from this catalog. */
   public void removeTableValuedFunction(String name) {
     Preconditions.checkState(!registered);
-    String lowerCaseName = name.toLowerCase();
+    String lowerCaseName = Ascii.toLowerCase(name);
     TableValuedFunction tvf = getTVFByName(lowerCaseName);
     Preconditions.checkArgument(tvf != null);
     tvfs.remove(lowerCaseName);
   }
 
   private void removeFunctionFromFullNameMap(Function function) {
-    Preconditions.checkArgument(
-        functionsByFullName.containsKey(function.getFullName().toLowerCase()));
-    functionsByFullName.remove(function.getFullName().toLowerCase());
+    String fullNameInlowerCase = Ascii.toLowerCase(function.getFullName());
+    Preconditions.checkArgument(functionsByFullName.containsKey(fullNameInlowerCase));
+    functionsByFullName.remove(fullNameInlowerCase);
   }
 
   /**
@@ -492,9 +527,10 @@ public class SimpleCatalog extends Catalog {
    * @param procedure
    */
   public void addProcedure(Procedure procedure) {
+    String nameInLowerCase = Ascii.toLowerCase(procedure.getName());
     Preconditions.checkState(!registered);
-    Preconditions.checkArgument(!procedures.containsKey(procedure.getName().toLowerCase()));
-    procedures.put(procedure.getName().toLowerCase(), procedure);
+    Preconditions.checkArgument(!procedures.containsKey(nameInLowerCase));
+    procedures.put(nameInLowerCase, procedure);
   }
 
   /**
@@ -508,9 +544,10 @@ public class SimpleCatalog extends Catalog {
    * Removes the procedure with the passed name from this catalog. Names are case insensitive.
    */
   public void removeProcedure(String name) {
+    String nameInLowerCase = Ascii.toLowerCase(name);
     Preconditions.checkState(!registered);
-    Preconditions.checkArgument(procedures.containsKey(name.toLowerCase()));
-    procedures.remove(name.toLowerCase());
+    Preconditions.checkArgument(procedures.containsKey(nameInLowerCase));
+    procedures.remove(nameInLowerCase);
   }
 
   public void setDescriptorPool(DescriptorPool descriptorPool) {
@@ -564,21 +601,25 @@ public class SimpleCatalog extends Catalog {
     return ImmutableList.copyOf(procedures.values());
   }
 
+  public ImmutableList<Constant> getConstantList() {
+    return ImmutableList.copyOf(constants.values());
+  }
+
   @Override
   protected Constant getConstant(String name, FindOptions options) {
-    return constants.get(name.toLowerCase());
+    return constants.get(Ascii.toLowerCase(name));
   }
 
   @Override
   public SimpleTable getTable(String name, FindOptions options) {
-    return tables.get(name.toLowerCase());
+    return tables.get(Ascii.toLowerCase(name));
   }
 
   @Override
   @Nullable
   public Type getType(String name, FindOptions options) {
-    if (types.containsKey(name.toLowerCase())) {
-      return types.get(name.toLowerCase());
+    if (types.containsKey(Ascii.toLowerCase(name))) {
+      return types.get(Ascii.toLowerCase(name));
     }
     if (descriptorPool != null) {
       ZetaSQLDescriptor descriptor = descriptorPool.findMessageTypeByName(name);
@@ -595,11 +636,16 @@ public class SimpleCatalog extends Catalog {
 
   @Override
   public SimpleCatalog getCatalog(String name, FindOptions options) {
-    return catalogs.get(name.toLowerCase());
+    return catalogs.get(Ascii.toLowerCase(name));
+  }
+
+  @Override
+  protected Function getFunction(String name, FindOptions options) {
+    return customFunctions.get(Ascii.toLowerCase(name));
   }
 
   public Function getFunctionByFullName(String fullName) {
-    Function function = functionsByFullName.get(fullName.toLowerCase());
+    Function function = functionsByFullName.get(Ascii.toLowerCase(fullName));
     if (function == null) {
       for (SimpleCatalog catalog : catalogs.values()) {
         function = catalog.getFunctionByFullName(fullName);
@@ -611,8 +657,13 @@ public class SimpleCatalog extends Catalog {
     return function;
   }
 
+  @Override
+  protected TableValuedFunction getTableValuedFunction(String name, FindOptions options) {
+    return tvfs.get(Ascii.toLowerCase(name));
+  }
+
   public TableValuedFunction getTVFByName(String name) {
-    return tvfs.get(name.toLowerCase());
+    return tvfs.get(Ascii.toLowerCase(name));
   }
 
   public SimpleTable getTableById(long serializationId) {
@@ -640,7 +691,7 @@ public class SimpleCatalog extends Catalog {
 
   @Override
   protected Procedure getProcedure(String name, FindOptions options) {
-    return procedures.get(name.toLowerCase());
+    return procedures.get(Ascii.toLowerCase(name));
   }
 
   /**
@@ -694,7 +745,7 @@ public class SimpleCatalog extends Catalog {
     if (proto.hasBuiltinFunctionOptions()) {
       ZetaSQLBuiltinFunctionOptions options =
           new ZetaSQLBuiltinFunctionOptions(proto.getBuiltinFunctionOptions());
-      catalog.addZetaSQLFunctions(options);
+      catalog.addZetaSQLFunctionsAndTypes(options);
     }
 
     if (proto.hasFileDescriptorSetIndex()) {

@@ -1,10 +1,10 @@
 
 
-# Data export
+# Data import and export statements
 
-ZetaSQL specifies the syntax for the `EXPORT` statement.
+ZetaSQL can specify the syntax for exporting and importing data.
 
-## EXPORT DATA
+## `EXPORT DATA`
 
 ```
 EXPORT DATA
@@ -14,6 +14,10 @@ AS query;
 
 The `EXPORT DATA` statement writes out a query result. You can use this
 statement to write a result to a file or stream the result into another system.
+
+## `LOAD DATA`
+
+Documentation is pending for this feature.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 

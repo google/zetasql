@@ -63,19 +63,19 @@ constexpr absl::string_view kLoadProtoNames = "load_proto_names";
 constexpr absl::string_view kName = "name";
 constexpr absl::string_view kParameters = "parameters";
 constexpr absl::string_view kPrepareDatabase = "prepare_database";
+
 constexpr absl::string_view kExtractLabels = "extract_labels";  // boolean flag
 
 // These are comma-separated lists of LanguageFeature enums, without the
 // FEATURE_ prefix.  If these are set, when testing against the reference
 // implementation, the test will run multiple times, with features in
-// test_features1 on or off, and features in test_features2 on or off, and
+// test_features1 on or off, and
 // all outputs will be shown in the golden file.
 // When testing against a non-reference implementation, each test runs only
 // once, and the output is compared to the reference implementation's output
 // when running with the engines options, provided by
 // TestDriver::GetSupportedLanguageOptions.
 constexpr absl::string_view kTestFeatures1 = "test_features1";
-constexpr absl::string_view kTestFeatures2 = "test_features2";
 
 // A comma-separated list of LanguageFeature enums,
 // without the FEATURE_ prefix. If it is set, the test will be run
@@ -256,6 +256,7 @@ FilebasedSQLTestFileOptions::ProcessTestCase(absl::string_view test_case,
   case_opts->sql_ = absl::StripAsciiWhitespace(test_case_string);
 
   case_opts->prepare_database_ = options_->GetBool(kPrepareDatabase);
+
   case_opts->extract_labels_ = options_->GetBool(kExtractLabels);
 
   // Sometimes the first "...\n==" block in a test file is just setting up
@@ -287,9 +288,6 @@ FilebasedSQLTestFileOptions::ProcessTestCase(absl::string_view test_case,
   ZETASQL_RETURN_IF_ERROR(ParseFeatures(options_->GetString(kTestFeatures1),
                                 case_opts->test_features1_))
       .With(reason("Failed to parse test_features1"));
-  ZETASQL_RETURN_IF_ERROR(ParseFeatures(options_->GetString(kTestFeatures2),
-                                case_opts->test_features2_))
-      .With(reason("Failed to parse test_features2"));
 
   ZETASQL_RETURN_IF_ERROR(ParsePrimaryKeyMode(options_->GetString(kPrimaryKeyMode),
                                       &case_opts->primary_key_mode_))
@@ -318,7 +316,6 @@ FilebasedSQLTestFileOptions::FilebasedSQLTestFileOptions(
   options_->RegisterBool(kPrepareDatabase, false);
   options_->RegisterBool(kExtractLabels, false);
   options_->RegisterString(kTestFeatures1, "");
-  options_->RegisterString(kTestFeatures2, "");
   options_->RegisterString(kRequiredFeatures, "");
   options_->RegisterString(kForbiddenFeatures, "");
   options_->RegisterString(kDefaultTimeZone, "");

@@ -207,3 +207,23 @@ SELECT TYPEOF(n), TYPEOF(s), TYPEOF(b) FROM ParameterizedTypes;
 --
 ARRAY<STRUCT<STRING, STRING, STRING>>[{"NUMERIC", "STRING", "BYTES"}]
 ==
+
+[required_features=V_1_3_TYPEOF_FUNCTION,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[name=typeof_collated_string]
+WITH t AS (SELECT COLLATE('aBc', 'und:ci') AS collated_str)
+SELECT TYPEOF(collated_str) FROM t
+--
+ARRAY<STRUCT<STRING>>[{"STRING"}]
+==
+
+[required_features=V_1_3_TYPEOF_FUNCTION,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[name=typeof_collated_compound_types]
+WITH t AS (SELECT [COLLATE('aBc', 'und:ci')] AS arr)
+SELECT TYPEOF(t.arr), TYPEOF(t) FROM t
+--
+ARRAY<STRUCT<STRING, STRING>>[
+  {
+    "ARRAY<STRING>",
+    "STRUCT<arr ARRAY<STRING>>"
+  }
+]

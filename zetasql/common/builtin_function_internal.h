@@ -675,9 +675,17 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                                const ZetaSQLBuiltinFunctionOptions& options,
                                NameToFunctionMap* functions);
 
+void GetArrayMiscFunctions(TypeFactory* type_factory,
+                           const ZetaSQLBuiltinFunctionOptions& options,
+                           NameToFunctionMap* functions);
+
 void GetArrayAggregationFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions);
+
+void GetArraySlicingFunctions(TypeFactory* type_factory,
+                              const ZetaSQLBuiltinFunctionOptions& options,
+                              NameToFunctionMap* functions);
 
 absl::Status GetArrayFindFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
@@ -736,6 +744,10 @@ void GetGeographyFunctions(TypeFactory* type_factory,
 void GetAnonFunctions(TypeFactory* type_factory,
                       const ZetaSQLBuiltinFunctionOptions& options,
                       NameToFunctionMap* functions);
+
+void GetDifferentialPrivacyFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToFunctionMap* functions, NameToTypeMap* types);
 
 void GetTypeOfFunction(TypeFactory* type_factory,
                        const ZetaSQLBuiltinFunctionOptions& options,

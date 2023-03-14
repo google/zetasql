@@ -523,10 +523,12 @@ FROM
   ) AS simpletypes_4;
 ==
 
-# CV without column list
+# CV / CMV without column list
 [language_features=CREATE_VIEW_WITH_COLUMN_LIST]
-create view mv
+create {{|materialized}} view mv
 as select timestamp, string from SimpleTypes
+--
+ALTERNATION GROUP: <empty>
 --
 [UNPARSED_SQL]
 CREATE VIEW mv AS
@@ -541,12 +543,30 @@ FROM
     FROM
       SimpleTypes
   ) AS simpletypes_3;
+--
+ALTERNATION GROUP: materialized
+--
+[UNPARSED_SQL]
+CREATE MATERIALIZED VIEW mv AS
+SELECT
+  simpletypes_3.a_2 AS timestamp,
+  simpletypes_3.a_1 AS string
+FROM
+  (
+    SELECT
+      SimpleTypes.string AS a_1,
+      SimpleTypes.timestamp AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
 ==
 
-# CV with column list
+# CV / CMV with column list
 [language_features=CREATE_VIEW_WITH_COLUMN_LIST]
-create view mv(c1, c2)
+create {{|materialized}} view mv(c1, c2)
 as select timestamp, string from SimpleTypes
+--
+ALTERNATION GROUP: <empty>
 --
 [UNPARSED_SQL]
 CREATE VIEW mv(c1, c2) AS
@@ -561,33 +581,8 @@ FROM
     FROM
       SimpleTypes
   ) AS simpletypes_3;
-==
-
-# CMV without column list
-[language_features=CREATE_VIEW_WITH_COLUMN_LIST]
-create materialized view mv
-as select timestamp, string from SimpleTypes
 --
-[UNPARSED_SQL]
-CREATE MATERIALIZED VIEW mv AS
-SELECT
-  simpletypes_3.a_2 AS timestamp,
-  simpletypes_3.a_1 AS string
-FROM
-  (
-    SELECT
-      SimpleTypes.string AS a_1,
-      SimpleTypes.timestamp AS a_2
-    FROM
-      SimpleTypes
-  ) AS simpletypes_3;
-
-==
-
-# CMV with column list
-[language_features=CREATE_VIEW_WITH_COLUMN_LIST]
-create materialized view mv(c1, c2)
-as select timestamp, string from SimpleTypes
+ALTERNATION GROUP: materialized
 --
 [UNPARSED_SQL]
 CREATE MATERIALIZED VIEW mv(c1, c2) AS
@@ -602,12 +597,13 @@ FROM
     FROM
       SimpleTypes
   ) AS simpletypes_3;
-
 ==
 
-# CV without column list
-create view mv
+# CV / CMV without column list and explicit column name feature disabled
+create {{|materialized}} view mv
 as select timestamp AS c1, string AS c2 from SimpleTypes
+--
+ALTERNATION GROUP: <empty>
 --
 [UNPARSED_SQL]
 CREATE VIEW mv AS
@@ -622,11 +618,8 @@ FROM
     FROM
       SimpleTypes
   ) AS simpletypes_3;
-==
-
-# CMV without column list
-create materialized view mv
-as select timestamp AS c1, string AS c2 from SimpleTypes
+--
+ALTERNATION GROUP: materialized
 --
 [UNPARSED_SQL]
 CREATE MATERIALIZED VIEW mv AS
@@ -641,6 +634,48 @@ FROM
     FROM
       SimpleTypes
   ) AS simpletypes_3;
+==
+
+# CV / CMV with column list with options
+[language_features=CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS]
+create {{|materialized}} view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
+as select timestamp, string, date from SimpleTypes
+--
+ALTERNATION GROUP: <empty>
+--
+[UNPARSED_SQL]
+CREATE VIEW tt(c1 OPTIONS(description = "col1"), c2, c3) AS
+SELECT
+  simpletypes_4.a_3 AS c1,
+  simpletypes_4.a_1 AS c2,
+  simpletypes_4.a_2 AS c3
+FROM
+  (
+    SELECT
+      SimpleTypes.string AS a_1,
+      SimpleTypes.date AS a_2,
+      SimpleTypes.timestamp AS a_3
+    FROM
+      SimpleTypes
+  ) AS simpletypes_4;
+--
+ALTERNATION GROUP: materialized
+--
+[UNPARSED_SQL]
+CREATE MATERIALIZED VIEW tt(c1 OPTIONS(description = "col1"), c2, c3) AS
+SELECT
+  simpletypes_4.a_3 AS c1,
+  simpletypes_4.a_1 AS c2,
+  simpletypes_4.a_2 AS c3
+FROM
+  (
+    SELECT
+      SimpleTypes.string AS a_1,
+      SimpleTypes.date AS a_2,
+      SimpleTypes.timestamp AS a_3
+    FROM
+      SimpleTypes
+  ) AS simpletypes_4;
 ==
 
 # CREATE TABLE CLONE
@@ -859,4 +894,60 @@ alter privilege restriction on select (doubly_nested_struct.e, doubly_nested_str
 [UNPARSED_SQL]
 ALTER PRIVILEGE RESTRICTION ON `select`(doubly_nested_struct.e, doubly_nested_struct.f.c) ON table DoublyNestedStructTable RESTRICT TO ("obsessed@google.com",
   "mdb/datahub-eng");
+==
+
+# Generated Columns: Simple
+[no_enable_literal_replacement]
+LOAD DATA INTO KeyValue
+FROM FILES (
+  uris = ['gs://mybucket/myfile.csv'],
+  format = 'csv'
+)
+--
+[UNPARSED_SQL]
+LOAD DATA INTO KeyValue
+FROM FILES(uris = ARRAY< STRING >["gs://mybucket/myfile.csv"], format = "csv");
+==
+
+# Generated Columns: Simple
+[no_enable_literal_replacement]
+LOAD DATA OVERWRITE KeyValue
+FROM FILES (
+  uris = ['gs://mybucket/myfile.csv'],
+  format = 'csv'
+)
+--
+[UNPARSED_SQL]
+LOAD DATA OVERWRITE KeyValue
+FROM FILES(uris = ARRAY< STRING >["gs://mybucket/myfile.csv"], format = "csv");
+==
+
+# Generated Columns: Simple
+[language_features=V_1_4_LOAD_DATA_PARTITIONS]
+[no_enable_literal_replacement]
+LOAD DATA INTO KeyValue
+OVERWRITE PARTITIONS (Key = 1)
+FROM FILES (
+  uris = ['gs://mybucket/myfile.csv'],
+  format = 'csv'
+)
+--
+[UNPARSED_SQL]
+LOAD DATA INTO KeyValue OVERWRITE PARTITIONS(Key = 1)
+FROM FILES(uris = ARRAY< STRING >["gs://mybucket/myfile.csv"], format = "csv");
+==
+
+# Generated Columns: Simple
+[language_features=V_1_4_LOAD_DATA_PARTITIONS]
+[no_enable_literal_replacement]
+LOAD DATA INTO KeyValue
+PARTITIONS (Key = 1)
+FROM FILES (
+  uris = ['gs://mybucket/myfile.csv'],
+  format = 'csv'
+)
+--
+[UNPARSED_SQL]
+LOAD DATA INTO KeyValue PARTITIONS(Key = 1)
+FROM FILES(uris = ARRAY< STRING >["gs://mybucket/myfile.csv"], format = "csv");
 ==

@@ -1482,6 +1482,159 @@ select datetime_sub(current_datetime, interval 1 nanosecond);
 ==
 
 [language_features={{V_1_2_CIVIL_TIME|}}]
+SELECT time(TIMESTAMP '2015-12-28 15:42:56-08:00');
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:time(TIMESTAMP, optional(0) STRING) -> TIME)
+    |     +-Literal(type=TIMESTAMP, value=2015-12-28 23:42:56+00, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: time; Did you mean trim? [at 1:8]
+SELECT time(TIMESTAMP '2015-12-28 15:42:56-08:00');
+       ^
+==
+
+[language_features=V_1_2_CIVIL_TIME]
+SELECT time({{'2015-12-28 15:42:56-08:00'|CAST('2015-12-28 15:42:56-08:00' AS STRING)}});
+--
+ALTERNATION GROUP: '2015-12-28 15:42:56-08:00'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:time(TIMESTAMP, optional(0) STRING) -> TIME)
+    |     +-Literal(type=TIMESTAMP, value=2015-12-28 23:42:56+00)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: CAST('2015-12-28 15:42:56-08:00' AS STRING)
+--
+ERROR: No matching signature for function TIME for argument types: STRING. Supported signatures: TIME(INT64, INT64, INT64); TIME(TIMESTAMP, [STRING]); TIME(DATETIME) [at 1:8]
+SELECT time(CAST('2015-12-28 15:42:56-08:00' AS STRING));
+       ^
+==
+
+[language_features={{V_1_2_CIVIL_TIME|}}]
+SELECT datetime(TIMESTAMP '2015-12-28 15:42:56-08:00');
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime(TIMESTAMP, optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=TIMESTAMP, value=2015-12-28 23:42:56+00, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: datetime [at 1:8]
+SELECT datetime(TIMESTAMP '2015-12-28 15:42:56-08:00');
+       ^
+==
+
+[language_features=V_1_2_CIVIL_TIME]
+SELECT datetime({{'2015-12-28 15:42:56-08:00'|CAST('2015-12-28 15:42:56-08:00' AS STRING)}});
+--
+ALTERNATION GROUP: '2015-12-28 15:42:56-08:00'
+--
+ERROR: Could not cast literal "2015-12-28 15:42:56-08:00" to type DATE [at 1:17]
+SELECT datetime('2015-12-28 15:42:56-08:00');
+                ^
+--
+ALTERNATION GROUP: CAST('2015-12-28 15:42:56-08:00' AS STRING)
+--
+ERROR: No matching signature for function DATETIME for argument types: STRING. Supported signatures: DATETIME(INT64, INT64, INT64, INT64, INT64, INT64); DATETIME(DATE, TIME); DATETIME(TIMESTAMP, [STRING]); DATETIME(DATE) [at 1:8]
+SELECT datetime(CAST('2015-12-28 15:42:56-08:00' AS STRING));
+       ^
+==
+
+[language_features={{V_1_2_CIVIL_TIME|}}]
+SELECT current_time{{|()}};
+--
+ALTERNATION GROUPS:
+    V_1_2_CIVIL_TIME,
+    V_1_2_CIVIL_TIME,()
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(ZetaSQL:current_time(optional(0) STRING) -> TIME)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: `current_time`; Did you mean current_date? [at 1:8]
+SELECT current_time;
+       ^
+--
+ALTERNATION GROUP: ()
+--
+ERROR: Function not found: `current_time`; Did you mean current_date? [at 1:8]
+SELECT current_time();
+       ^
+==
+
+[language_features={{V_1_2_CIVIL_TIME|}}]
+SELECT current_datetime{{|()}};
+--
+ALTERNATION GROUPS:
+    V_1_2_CIVIL_TIME,
+    V_1_2_CIVIL_TIME,()
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: `current_datetime`; Did you mean current_date? [at 1:8]
+SELECT current_datetime;
+       ^
+--
+ALTERNATION GROUP: ()
+--
+ERROR: Function not found: `current_datetime`; Did you mean current_date? [at 1:8]
+SELECT current_datetime();
+       ^
+==
+
+[language_features={{V_1_2_CIVIL_TIME|}}]
 select time_{{add|sub}}(
   time '03:04:05.123456',
   interval 1 {{dayofyear|dayofweek|isoyear|isoweek|date|time|year|quarter|month|week|day|hour|minute|second|millisecond|microsecond}});
@@ -4043,6 +4196,46 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
+==
+
+[language_features=TIME_BUCKET_FUNCTIONS{{|,V_1_2_CIVIL_TIME|,INTERVAL_TYPE|,V_1_2_CIVIL_TIME,INTERVAL_TYPE}}]
+SELECT datetime_bucket('1999-12-31', INTERVAL 1 DAY);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: datetime_bucket [at 1:8]
+SELECT datetime_bucket('1999-12-31', INTERVAL 1 DAY);
+       ^
+--
+ALTERNATION GROUP: ,V_1_2_CIVIL_TIME
+--
+ERROR: Function not found: datetime_bucket; Did you mean datetime_sub? [at 1:8]
+SELECT datetime_bucket('1999-12-31', INTERVAL 1 DAY);
+       ^
+--
+ALTERNATION GROUP: ,INTERVAL_TYPE
+--
+ERROR: Function not found: datetime_bucket; Did you mean date_bucket? [at 1:8]
+SELECT datetime_bucket('1999-12-31', INTERVAL 1 DAY);
+       ^
+--
+ALTERNATION GROUP: ,V_1_2_CIVIL_TIME,INTERVAL_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_bucket(DATETIME, INTERVAL, optional(0) DATETIME) -> DATETIME)
+    |     +-Literal(type=DATETIME, value=1999-12-31 00:00:00)
+    |     +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    |       +-Literal(type=INT64, value=1)
+    |       +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Regression test for b/186420709.

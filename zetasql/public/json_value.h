@@ -23,6 +23,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -40,10 +41,25 @@ class JSONValueRef;
 
 // Options for parsing an input JSON-formatted string.
 struct JSONParsingOptions {
-  // If 'strict_number_parsing' is set to true, parsing will fail if there is at
-  // least one number value in 'str' that does not round-trip from
-  // string -> number -> string.
-  bool strict_number_parsing = false;
+  enum class WideNumberMode {
+    // Numbers will be rounded to the nearest double value.
+    kRound = 0,
+    // Parsing will fail if there is a least one number value that does not
+    // round-trip from string -> number -> string.
+    kExact,
+    // Ignore 'wide_number_mode' and use 'strict_number_parsing'.
+    kIgnore,
+  };
+
+  bool ABSL_DEPRECATED("Use 'wide_number_mode' instead")
+      strict_number_parsing = false;
+
+  // This setting specifies how wide number should be handled.
+  // 'wide_number_mode' has precedence over 'strict_number_parsing' if
+  // 'wide_number_mode' != kIgnore with the following mapping:
+  // strict_number_mode: true  <-> wide_number_mode: kExact
+  // strict_number_mode: false <-> wide_number_mode: kRound
+  WideNumberMode wide_number_mode = WideNumberMode::kIgnore;
   // If 'max_nesting' is set to a non-negative number, parsing will fail if the
   // JSON document has more than 'max_nesting' levels of nesting. If it is set
   // to a negative number, the max nesting will be set to 0 instead (i.e. only
@@ -63,10 +79,11 @@ struct JSONParsingOptions {
 // TODO: Find a better place for this function. It is currently
 // placed in json_value.h because the implementation uses the
 // JSONValueParserBase (but this can be moved too).
-absl::Status IsValidJSON(absl::string_view json_str,
-                         const JSONParsingOptions& parsing_options = {
-                             .strict_number_parsing = false,
-                             .max_nesting = std::nullopt});
+absl::Status IsValidJSON(
+    absl::string_view json_str,
+    const JSONParsingOptions& parsing_options = {
+        .wide_number_mode = JSONParsingOptions::WideNumberMode::kRound,
+        .max_nesting = std::nullopt});
 
 // JSONValue stores a JSON document. Access to read and update the values and
 // their members and elements is provided through JSONValueRef and
@@ -81,7 +98,7 @@ class JSONValue final {
   explicit JSONValue(uint64_t value);
   explicit JSONValue(double value);
   explicit JSONValue(bool value);
-  explicit JSONValue(std::string value);
+  explicit JSONValue(std::string_view value);
 
   JSONValue(JSONValue&& value);
   ~JSONValue();
@@ -101,8 +118,9 @@ class JSONValue final {
   // Parses a given JSON document string and returns a JSON value.
   static absl::StatusOr<JSONValue> ParseJSONString(
       absl::string_view str,
-      JSONParsingOptions parsing_options = {.strict_number_parsing = false,
-                                            .max_nesting = std::nullopt});
+      JSONParsingOptions parsing_options = {
+          .wide_number_mode = JSONParsingOptions::WideNumberMode::kRound,
+          .max_nesting = std::nullopt});
 
   // Decodes a binary representation of a JSON value produced by
   // JSONValueConstRef::SerializeAndAppendToProtoBytes(). Returns an error if

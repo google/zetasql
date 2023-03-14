@@ -13,6 +13,244 @@ QueryStmt
       +-SingleRowScan
 ==
 
+# This test is here to document current behavior and notice regressions in case
+# some customer has started doing this. We suspect the authors never intended
+# the `@@` token to be separated from the variable name by whitespace.
+SELECT @@ int64_system_variable;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := SystemVariable(int64_system_variable, type=INT64)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# This test is here to document current behavior and notice regressions in case
+# some customer has started doing this. We suspect the authors never intended
+# the `@@` token to be separated from the variable name by whitespace.
+SELECT all @@
+FROM t;
+--
+QueryStmt
++-output_column_list=
+| +-$query.t#1 AS t [STRUCT<c INT32, d STRUCT<a INT32, b STRING>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.t#1]
+    +-expr_list=
+    | +-t#1 := SystemVariable(`FROM`, type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT @@FROM;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<c INT32, d STRUCT<a INT32, b STRING>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := SystemVariable(`FROM`, type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# The case where the sysvar name is a reserved work is consistent with the
+# non-reserved word case.
+SELECT @@FROM{{|x}}.d.a;
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.a#1 AS a [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.a#1]
+    +-expr_list=
+    | +-a#1 :=
+    |   +-GetStructField
+    |     +-type=INT32
+    |     +-expr=
+    |     | +-GetStructField
+    |     |   +-type=STRUCT<a INT32, b STRING>
+    |     |   +-expr=
+    |     |   | +-SystemVariable(`FROM`, type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>)
+    |     |   +-field_idx=1
+    |     +-field_idx=0
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: x
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-GetStructField
+    |     +-type=INT32
+    |     +-expr=
+    |     | +-GetStructField
+    |     |   +-type=STRUCT<a INT32, b STRING>
+    |     |   +-expr=
+    |     |   | +-SystemVariable(FROMx, type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>)
+    |     |   +-field_idx=1
+    |     +-field_idx=0
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT @@UNION{{|x}}.d.with.with;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Unrecognized name: @@`UNION` [at 1:8]
+SELECT @@UNION.d.with.with;
+       ^
+--
+ALTERNATION GROUP: x
+--
+ERROR: Unrecognized name: @@UNIONx [at 1:8]
+SELECT @@UNIONx.d.with.with;
+       ^
+==
+
+# This is probably a bug. When the sysvar namespace is a reserved word there
+# is inconsistent behavior.
+SELECT @@WHERE{{|x}}.d.d.a;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Field name d does not exist in STRUCT<a INT32, b STRING> [at 1:18]
+SELECT @@WHERE.d.d.a;
+                 ^
+--
+ALTERNATION GROUP: x
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-GetStructField
+    |     +-type=INT32
+    |     +-expr=
+    |     | +-GetStructField
+    |     |   +-type=STRUCT<a INT32, b STRING>
+    |     |   +-expr=
+    |     |   | +-SystemVariable(WHEREx.d, type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>)
+    |     |   +-field_idx=1
+    |     +-field_idx=0
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# This is probably also a bug when the first element of the sysvar's namespace
+# is a reserved word.
+SELECT @@GROUP{{|x}}.with_dots.d.a;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Unrecognized name: @@`GROUP`; Did you mean @@`from`? [at 1:8]
+SELECT @@GROUP.with_dots.d.a;
+       ^
+--
+ALTERNATION GROUP: x
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-GetStructField
+    |     +-type=INT32
+    |     +-expr=
+    |     | +-GetStructField
+    |     |   +-type=STRUCT<a INT32, b STRING>
+    |     |   +-expr=
+    |     |   | +-SystemVariable(GROUPx.with_dots, type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>)
+    |     |   +-field_idx=1
+    |     +-field_idx=0
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# This is probably also a bug when the sysvar's namespace is a reserved word
+# and the var name is also a reserved word.
+SELECT @@HAVING{{|x}}.with;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected keyword WITH [at 1:17]
+SELECT @@HAVING.with;
+                ^
+--
+ALTERNATION GROUP: x
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-GetStructField
+    |     +-type=INT32
+    |     +-expr=
+    |     | +-SystemVariable(HAVINGx, type=STRUCT<`with` INT32>)
+    |     +-field_idx=0
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# This is probably a bug. The "Unrecognized name" errors are expected because
+# system variable namespaces need to be `backtick escaped`, but the
+# "Unexpected keyword" is not expected.
+SELECT @@ORDER{{|x}}{{|.d}}.with.dots.d.a;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected keyword WITH [at 1:16]
+SELECT @@ORDER.with.dots.d.a;
+               ^
+--
+ALTERNATION GROUP: .d
+--
+ERROR: Unrecognized name: @@`ORDER` [at 1:8]
+SELECT @@ORDER.d.with.dots.d.a;
+       ^
+--
+ALTERNATION GROUP: x,
+--
+ERROR: Unrecognized name: @@ORDERx [at 1:8]
+SELECT @@ORDERx.with.dots.d.a;
+       ^
+--
+ALTERNATION GROUP: x,.d
+--
+ERROR: Unrecognized name: @@ORDERx [at 1:8]
+SELECT @@ORDERx.d.with.dots.d.a;
+       ^
+==
+
 # Select a system variable more than once.
 SELECT
   @@int64_system_variable,
@@ -343,7 +581,7 @@ QueryStmt
 # Selecting just a system variable namespace, by itself, doesn't work.
 SELECT @@error;
 --
-ERROR: Unrecognized name: @@error [at 1:8]
+ERROR: Unrecognized name: @@error; Did you mean @@`from`? [at 1:8]
 SELECT @@error;
        ^
 ==

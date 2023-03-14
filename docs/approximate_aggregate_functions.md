@@ -22,7 +22,7 @@ sketches. If you would like specify precision with sketches, see:
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
 +  [KLL functions][kll-functions] to estimate quantile values.
 
-### APPROX_COUNT_DISTINCT
+### `APPROX_COUNT_DISTINCT`
 
 ```sql
 APPROX_COUNT_DISTINCT(
@@ -63,7 +63,7 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 +-----------------+
 ```
 
-### APPROX_QUANTILES
+### `APPROX_QUANTILES`
 
 ```sql
 APPROX_QUANTILES(
@@ -163,7 +163,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 +------------------+
 ```
 
-### APPROX_TOP_COUNT
+### `APPROX_TOP_COUNT`
 
 ```sql
 APPROX_TOP_COUNT(
@@ -229,7 +229,7 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 +------------------------+
 ```
 
-### APPROX_TOP_SUM
+### `APPROX_TOP_SUM`
 
 ```sql
 APPROX_TOP_SUM(

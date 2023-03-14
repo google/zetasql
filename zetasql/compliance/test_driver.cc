@@ -82,6 +82,7 @@ absl::Status SerializeTestDatabase(const TestDatabase& database,
       }
     }
   }
+
   return absl::OkStatus();
 }
 
@@ -150,6 +151,7 @@ absl::StatusOr<TestDatabase> DeserializeTestDatabase(
     }
     table.options.set_column_annotations(std::move(column_annotations));
   }
+
   return db;
 }
 

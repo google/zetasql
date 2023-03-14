@@ -23,6 +23,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -32,6 +33,7 @@
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
@@ -63,6 +65,13 @@ typedef std::map<std::string, const Type*> QueryParametersMap;
 typedef std::map<std::vector<std::string>, const Type*, StringVectorCaseLess>
     SystemVariablesMap;
 
+struct AllowedOptionProperties {
+  const Type* type = nullptr;
+  AllowedHintsAndOptionsProto::OptionProto::ResolvingKind resolving_kind =
+      AllowedHintsAndOptionsProto::OptionProto::
+          CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER;
+};
+
 // This class specifies a set of allowed hints and options, and their expected
 // types.
 //
@@ -80,7 +89,7 @@ typedef std::map<std::vector<std::string>, const Type*, StringVectorCaseLess>
 // options or hints (with specific qualifiers).  Unknown hints with other
 // qualifiers do not cause errors.
 struct AllowedHintsAndOptions {
-  AllowedHintsAndOptions() {}
+  AllowedHintsAndOptions() = default;
   AllowedHintsAndOptions(const AllowedHintsAndOptions&) = default;
   AllowedHintsAndOptions& operator=(const AllowedHintsAndOptions&) = default;
 
@@ -90,18 +99,22 @@ struct AllowedHintsAndOptions {
   // Unknown hints without qualifiers, or with <qualifier>, will be errors.
   // Unkonwn hints with other qualifiers will be allowed (because these are
   // typically interpreted as hints intended for other engines).
-  explicit AllowedHintsAndOptions(const std::string& qualifier) {
+  explicit AllowedHintsAndOptions(absl::string_view qualifier) {
     disallow_unknown_options = true;
-    disallow_unknown_hints_with_qualifiers.insert("");
-    disallow_unknown_hints_with_qualifiers.insert(qualifier);
+    disallow_unknown_hints_with_qualifiers.emplace("");
+    disallow_unknown_hints_with_qualifiers.emplace(qualifier);
   }
 
   // Add an option.  <type> may be NULL to indicate that all Types are allowed.
-  void AddOption(const std::string& name, const Type* type);
+  void AddOption(absl::string_view name, const Type* type);
 
-  // Add an anonymization option.  <type> may be NULL to indicate that all Types
+  // Add an anonymization option. <type> may be NULL to indicate that all Types
   // are allowed.
-  void AddAnonymizationOption(const std::string& name, const Type* type);
+  void AddAnonymizationOption(absl::string_view name, const Type* type);
+
+  // Add a differential_privacy option. <type> may be NULL to indicate that all
+  // Types are allowed.
+  void AddDifferentialPrivacyOption(const std::string& name, const Type* type);
 
   // Add a hint.
   // <qualifier> may be empty to add this hint only unqualified, but hints
@@ -109,7 +122,7 @@ struct AllowedHintsAndOptions {
   // <type> may be NULL to indicate that all Types are allowed.
   // If <allow_unqualified> is true, this hint is allowed both unqualified
   //   and qualified with <qualifier>.
-  void AddHint(const std::string& qualifier, const std::string& name,
+  void AddHint(absl::string_view qualifier, absl::string_view name,
                const Type* type, bool allow_unqualified = true);
 
   // Deserialize AllowedHintsAndOptions from proto. Types will be deserialized
@@ -147,25 +160,39 @@ struct AllowedHintsAndOptions {
   // but that it does not have an enforced Type, so any Type is allowed.
   // (We could allow callbacks or some other mechanism to specify more rules
   // about what types or values are allowed.)
+
   absl::flat_hash_map<std::pair<std::string, std::string>, const Type*>
       hints_lower;
-  absl::flat_hash_map<std::string, const Type*> options_lower;
-  absl::flat_hash_map<std::string, const Type*> anonymization_options_lower = {
-      {"delta", types::DoubleType()},
-      {"epsilon", types::DoubleType()},
-      {"k_threshold", types::Int64Type()},
-      // TODO deprecate kappa
-      {"kappa", types::Int64Type()},
-      // Synonym for kappa:
-      {"max_groups_contributed", types::Int64Type()}};
+  absl::flat_hash_map<std::string, AllowedOptionProperties> options_lower;
+  absl::flat_hash_map<std::string, AllowedOptionProperties>
+      anonymization_options_lower = {
+          {"delta", {types::DoubleType()}},
+          {"epsilon", {types::DoubleType()}},
+          {"k_threshold", {types::Int64Type()}},
+          {"kappa", {types::Int64Type()}},  // TODO deprecate kappa
+          {"max_groups_contributed",
+           {types::Int64Type()}},  // Synonym for kappa
+          {"max_rows_contributed", {types::Int64Type()}}};
+
+  absl::flat_hash_map<std::string, AllowedOptionProperties>
+      differential_privacy_options_lower = {
+          {"delta", {types::DoubleType()}},
+          {"epsilon", {types::DoubleType()}},
+          {"max_groups_contributed", {types::Int64Type()}},
+          {"max_rows_contributed", {types::Int64Type()}},
+          {"privacy_unit_column",
+           {nullptr, AllowedHintsAndOptionsProto::OptionProto::
+                         FROM_NAME_SCOPE_IDENTIFIER}}};
 
  private:
-  absl::Status AddHintImpl(const std::string& qualifier,
-                           const std::string& name, const Type* type,
-                           bool allow_unqualified = true);
+  absl::Status AddHintImpl(absl::string_view qualifier, absl::string_view name,
+                           const Type* type, bool allow_unqualified = true);
   absl::Status AddOptionImpl(
-      absl::flat_hash_map<std::string, const Type*>& options_map,
-      const std::string& name, const Type* type);
+      absl::flat_hash_map<std::string, AllowedOptionProperties>& options_map,
+      absl::string_view name, const Type* type,
+      AllowedHintsAndOptionsProto::OptionProto::ResolvingKind resolving_kind =
+          AllowedHintsAndOptionsProto::OptionProto::
+              CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER);
 };
 
 // AnalyzerOptions contains options that affect analyzer behavior. The language
@@ -282,7 +309,7 @@ class AnalyzerOptions {
   //
   // Note that an error will be produced if type is not supported according to
   // the current language options.
-  absl::Status AddQueryParameter(const std::string& name, const Type* type);
+  absl::Status AddQueryParameter(absl::string_view name, const Type* type);
 
   const QueryParametersMap& query_parameters() const {
     return data_->query_parameters;
@@ -358,8 +385,8 @@ class AnalyzerOptions {
   //
   // Note that an error will be produced if type is not supported according to
   // the current language options.
-  absl::Status AddExpressionColumn(const std::string& name, const Type* type);
-  absl::Status SetInScopeExpressionColumn(const std::string& name,
+  absl::Status AddExpressionColumn(absl::string_view name, const Type* type);
+  absl::Status SetInScopeExpressionColumn(absl::string_view name,
                                           const Type* type);
 
   void SetLookupExpressionColumnCallback(

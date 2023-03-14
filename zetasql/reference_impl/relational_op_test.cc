@@ -32,7 +32,7 @@
 #include "zetasql/common/evaluator_test_table.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/testing/testing_proto_util.h"
-#include "google/protobuf/wire_format_lite.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
@@ -61,6 +61,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
+#include "google/protobuf/wire_format_lite.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -4352,7 +4353,10 @@ TEST(DeepJoinTest, DeeplyJoin) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter,
                          join_op->CreateIterator(
                              EmptyParams(), /*num_extra_slots=*/0, &context));
-    ZETASQL_ASSERT_OK(ReadFromTupleIterator(iter.get()).status());
+    absl::Status result = ReadFromTupleIterator(iter.get()).status();
+    if (!result.ok()) {
+      EXPECT_THAT(result, StatusIs(absl::StatusCode::kResourceExhausted));
+    }
 }
 
 const int kMediumJoinSize = 100;

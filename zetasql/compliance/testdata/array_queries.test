@@ -445,6 +445,29 @@ ARRAY<STRUCT<elem BOOL>>[
   {true}
 ]
 ==
+
+[required_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[name=select_bool_array_unnest_from_table_name_array_path]
+SELECT elem FROM AllArraysTable.bool_arrcol elem
+--
+ARRAY<STRUCT<elem BOOL>>[
+  {NULL},
+  {true},
+  {true},
+  {NULL},
+  {true},
+  {NULL},
+  {false},
+  {true},
+  {true},
+  {true},
+  {NULL},
+  {NULL},
+  {NULL},
+  {true}
+]
+==
+
 [name=select_int32_arrays]
 SELECT int32_arrcol FROM AllArraysTable
 --
@@ -480,6 +503,29 @@ ARRAY<STRUCT<elem INT32>>[
   {1}
 ]
 ==
+
+[required_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[name=select_int32_array_unnest_from_table_name_array_path]
+SELECT elem FROM AllArraysTable.int32_arrcol elem
+--
+ARRAY<STRUCT<elem INT32>>[
+  {NULL},
+  {1},
+  {-1},
+  {NULL},
+  {1},
+  {NULL},
+  {0},
+  {1},
+  {-1},
+  {-1},
+  {NULL},
+  {NULL},
+  {NULL},
+  {1}
+]
+==
+
 [name=select_uint32_arrays]
 SELECT uint32_arrcol FROM AllArraysTable
 --
@@ -515,6 +561,29 @@ ARRAY<STRUCT<elem UINT32>>[
   {2}
 ]
 ==
+
+[required_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[name=select_uint32_array_unnest_from_table_name_array_path]
+SELECT elem FROM AllArraysTable.uint32_arrcol elem
+--
+ARRAY<STRUCT<elem UINT32>>[
+  {NULL},
+  {2},
+  {0},
+  {NULL},
+  {2},
+  {NULL},
+  {1},
+  {2},
+  {0},
+  {0},
+  {NULL},
+  {NULL},
+  {NULL},
+  {2}
+]
+==
+
 [name=select_int64_arrays]
 SELECT int64_arrcol FROM AllArraysTable
 --
@@ -530,6 +599,7 @@ ARRAY<STRUCT<int64_arrcol ARRAY<>>>[
   {ARRAY<INT64>(NULL)}
 ]
 ==
+
 [name=select_int64_array_unnest]
 SELECT elem FROM AllArraysTable t, t.int64_arrcol elem
 --
@@ -550,6 +620,29 @@ ARRAY<STRUCT<elem INT64>>[
   {8589934592}
 ]
 ==
+
+[required_features=V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH]
+[name=select_int64_array_unnest_from_table_name_array_path]
+SELECT elem FROM AllArraysTable.int64_arrcol elem
+--
+ARRAY<STRUCT<elem INT64>>[
+  {NULL},
+  {8589934592},
+  {-8589934592},
+  {NULL},
+  {8589934592},
+  {NULL},
+  {0},
+  {8589934592},
+  {-8589934592},
+  {-8589934592},
+  {NULL},
+  {NULL},
+  {NULL},
+  {8589934592}
+]
+==
+
 [name=select_uint64_arrays]
 SELECT uint64_arrcol FROM AllArraysTable
 --

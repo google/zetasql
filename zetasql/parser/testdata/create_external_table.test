@@ -245,10 +245,10 @@ create external table T if not exists options () as select 1
 # (AMBIGUOUS CASE 4 in parser documentation)
 # and assumes options is the name of the function so () should be a valid
 # opt_table_element_list
-create external table function options();
+create external table function options() as select 1;
 --
 ERROR: Syntax error: CREATE EXTERNAL TABLE FUNCTION is not supported [at 1:8]
-create external table function options();
+create external table function options() as select 1;
        ^
 ==
 
@@ -262,10 +262,17 @@ CreateExternalTableStatement [0-42] [create external...options()]
 CREATE EXTERNAL TABLE `function` OPTIONS()
 ==
 
-create external table function() options();
+create external table function options();
 --
 ERROR: Syntax error: CREATE EXTERNAL TABLE FUNCTION is not supported [at 1:8]
-create external table function() options();
+create external table function options();
+       ^
+==
+
+create external table function() options() as select 1;
+--
+ERROR: Syntax error: CREATE EXTERNAL TABLE FUNCTION is not supported [at 1:8]
+create external table function() options() as select 1;
        ^
 ==
 

@@ -31,6 +31,7 @@
 #include "google/protobuf/message.h"
 #include "zetasql/common/canonicalize_signed_zero_to_string.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/functions/json_format.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
@@ -54,6 +55,23 @@ constexpr int64_t kInt64Min = std::numeric_limits<int64_t>::min();
 constexpr int64_t kInt64Max = std::numeric_limits<int64_t>::max();
 constexpr uint64_t kUint64Min = std::numeric_limits<uint64_t>::min();
 constexpr uint64_t kUint64Max = std::numeric_limits<uint64_t>::max();
+
+absl::Status GetToJsonStackOverflowStatus() {
+  // Status object returned when the stack overflows. Used to avoid
+  // RETURN_ERROR, which may end up calling GoogleOnceInit methods on
+  // GenericErrorSpace, which in turn would require more stack while the
+  // stack is already overflowed.
+  static absl::Status* overflow =
+      new absl::Status(absl::StatusCode::kResourceExhausted,
+                       "Out of stack space due to deeply nested json object "
+                       "in to_json function");
+  return *overflow;
+}
+
+#define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()                       \
+  if (!::zetasql::ThreadHasEnoughStack()) {                      \
+    return ::zetasql::functions::GetToJsonStackOverflowStatus(); \
+  }
 
 // Returns JSONValue constructed from NumericValue and BigNumericValue.
 // If the value is int64_t or uint64_t, use the corresponding value directly.
@@ -128,6 +146,7 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
   // Check the stack usage iff the <current_neesting_level> not less than
   // kNestingLevelStackCheckThreshold.
   if (current_nesting_level >= kNestingLevelStackCheckThreshold) {
+    RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   }
   if (value.is_null()) {
     return JSONValue();
@@ -211,9 +230,12 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
       }
       auto input_json = JSONValue::ParseJSONString(
           value.json_value_unparsed(),
-          JSONParsingOptions{.strict_number_parsing =
-                                 language_options.LanguageFeatureEnabled(
-                                     FEATURE_JSON_STRICT_NUMBER_PARSING)});
+          JSONParsingOptions{
+              .wide_number_mode =
+                  (language_options.LanguageFeatureEnabled(
+                       FEATURE_JSON_STRICT_NUMBER_PARSING)
+                       ? JSONParsingOptions::WideNumberMode::kExact
+                       : JSONParsingOptions::WideNumberMode::kRound)});
       if (!input_json.ok()) {
         return MakeEvalError() << input_json.status().message();
       }
@@ -262,7 +284,11 @@ absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
       return json_value;
     }
     case TYPE_ENUM: {
-      return JSONValue(value.enum_name());
+      if (absl::StatusOr<std::string_view> name = value.EnumName(); name.ok()) {
+        return JSONValue(*name);
+      } else {
+        return JSONValue(static_cast<int64_t>(value.enum_value()));
+      }
     }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()

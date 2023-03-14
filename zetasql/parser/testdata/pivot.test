@@ -1826,7 +1826,7 @@ QueryStatement [0-99] [SELECT * FROM...IN (1, 2))]
         TableSubquery [14-99] [(   WITH tt...IN (1, 2))]
           Query (pivot input) [18-65] [WITH tt AS...* FROM tt]
             WithClause [18-46] [WITH tt AS (SELECT 1 FROM t)]
-              WithClauseEntry [23-46] [tt AS (SELECT 1 FROM t)]
+              AliasedQuery [23-46] [tt AS (SELECT 1 FROM t)]
                 Identifier(tt) [23-25] [tt]
                 Query [30-45] [SELECT 1 FROM t]
                   Select [30-45] [SELECT 1 FROM t]
@@ -1894,6 +1894,10 @@ QueryStatement [0-104] [SELECT * FROM...IN (1, 2))]
         TableSubquery [14-104] [(   SELECT...IN (1, 2))]
           Query (pivot input) [18-71] [SELECT a,...d FROM t2)]
             SetOperation(UNION ALL) [18-71] [SELECT a,...d FROM t2)]
+              SetOperationMetadataList [40-49] [UNION ALL]
+                SetOperationMetadata [40-49] [UNION ALL]
+                  SetOperationType [40-45] [UNION]
+                  ASTSetOperationAllOrDistinct [46-49] [ALL]
               Select [18-37] [SELECT a, b FROM t1]
                 SelectList [25-29] [a, b]
                   SelectColumn [25-26] [a]
@@ -2038,3 +2042,4 @@ FROM
       )
       ON (a = c)
   ) PIVOT(SUM(x) FOR y IN (1, 2))
+==

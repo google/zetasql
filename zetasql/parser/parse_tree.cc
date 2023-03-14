@@ -74,6 +74,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ADD_SUB_ENTITY_ACTION] = "AddSubEntityAction";
   map[AST_ADD_TO_RESTRICTEE_LIST_CLAUSE] = "AddToRestricteeListClause";
   map[AST_ADD_TTL_ACTION] = "AddTtlAction";
+  map[AST_ALIASED_QUERY] = "AliasedQuery";
   map[AST_ALIASED_QUERY_LIST] = "AliasedQueryList";
   map[AST_ALIAS] = "Alias";
   map[AST_ALTER_ACTION_LIST] = "AlterActionList";
@@ -112,6 +113,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ASSIGNMENT_FROM_STRUCT] = "AssignmentFromStruct";
   map[AST_AUX_LOAD_DATA_FROM_FILES_OPTIONS_LIST] =
       "LoadDataFromFilesOptionsList";
+  map[AST_AUX_LOAD_DATA_PARTITIONS_CLAUSE] = "LoadDataPartitionsClause";
   map[AST_AUX_LOAD_DATA_STATEMENT] = "LoadDataStatement";
   map[AST_BEGIN_END_BLOCK] = "BeginEndBlock";
   map[AST_BEGIN_STATEMENT] = "BeginStatement";
@@ -169,6 +171,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CREATE_VIEW_STATEMENT] = "CreateViewStatement";
   map[AST_DATE_OR_TIME_LITERAL] = "DateOrTimeLiteral";
   map[AST_DEFAULT_LITERAL] = "DefaultLiteral";
+  map[AST_DEFINE_MACRO_STATEMENT] = "DefineMacroStatement";
   map[AST_DEFINE_TABLE_STATEMENT] = "DefineTableStatement";
   map[AST_DELETE_STATEMENT] = "DeleteStatement";
   map[AST_DESCRIBE_STATEMENT] = "DescribeStatement";
@@ -264,6 +267,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_LIKE_EXPRESSION] = "LikeExpression";
   map[AST_LIMIT_OFFSET] = "LimitOffset";
   map[AST_LOCATION] = "Location";
+  map[AST_MACRO_BODY] = "MacroBody";
   map[AST_MAX_LITERAL] = "MaxLiteral";
   map[AST_MERGE_ACTION] = "MergeAction";
   map[AST_MERGE_STATEMENT] = "MergeStatement";
@@ -306,6 +310,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_QUERY] = "Query";
   map[AST_QUERY_STATEMENT] = "QueryStatement";
   map[AST_RAISE_STATEMENT] = "Raise";
+  map[AST_RANGE_COLUMN_SCHEMA] = "RangeColumnSchema";
   map[AST_RANGE_LITERAL] = "RangeLiteral";
   map[AST_RANGE_TYPE] = "RangeType";
   map[AST_REMOVE_FROM_RESTRICTEE_LIST_CLAUSE] =
@@ -338,6 +343,10 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_SET_AS_ACTION] = "SetAsOperation";
   map[AST_SET_COLLATE_CLAUSE] = "SetCollateClause";
   map[AST_SET_OPERATION] = "SetOperation";
+  map[AST_SET_OPERATION_ALL_OR_DISTINCT] = "ASTSetOperationAllOrDistinct";
+  map[AST_SET_OPERATION_METADATA] = "SetOperationMetadata";
+  map[AST_SET_OPERATION_METADATA_LIST] = "SetOperationMetadataList";
+  map[AST_SET_OPERATION_TYPE] = "SetOperationType";
   map[AST_SET_OPTIONS_ACTION] = "SetOptionsOperation";
   map[AST_SET_TRANSACTION_STATEMENT] = "SetTransaction";
   map[AST_SHOW_STATEMENT] = "ShowStatement";
@@ -381,6 +390,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_TVF_SCHEMA_COLUMN] = "TVFSchemaColumn";
   map[AST_TYPE_PARAMETER_LIST] = "TypeParameterList";
   map[AST_UNARY_EXPRESSION] = "UnaryExpression";
+  map[AST_UNDROP_STATEMENT] = "UndropStatement";
   map[AST_UNNEST_EXPRESSION] = "UnnestExpression";
   map[AST_UNNEST_EXPRESSION_WITH_OPT_ALIAS_AND_OFFSET] =
       "UnnestExpressionWithOptAliasAndOffset";
@@ -405,7 +415,6 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_WINDOW_FRAME_EXPR] = "WindowFrameExpr";
   map[AST_WINDOW_SPECIFICATION] = "WindowSpecification";
   map[AST_WITH_CLAUSE] = "WithClause";
-  map[AST_WITH_CLAUSE_ENTRY] = "WithClauseEntry";
   map[AST_WITH_CONNECTION_CLAUSE] = "WithConnectionClause";
   map[AST_WITH_EXPRESSION] = "WithExpression";
   map[AST_WITH_GROUP_ROWS] = "WithGroupRows";
@@ -630,12 +639,13 @@ void ASTNode::GetDescendantsWithKindsImpl(
 
 std::pair<std::string, std::string> ASTSetOperation::GetSQLForOperationPair()
     const {
-  if (op_type_ == NOT_SET) {
+  if (op_type() == NOT_SET) {
     return std::make_pair("<UNKNOWN SET OPERATOR>", "");
   }
-  return std::make_pair(
-      op_type_ == UNION ? "UNION" : op_type_ == EXCEPT ? "EXCEPT" : "INTERSECT",
-      distinct_ ? "DISTINCT" : "ALL");
+  return std::make_pair(op_type() == UNION    ? "UNION"
+                        : op_type() == EXCEPT ? "EXCEPT"
+                                              : "INTERSECT",
+                        distinct() ? "DISTINCT" : "ALL");
 }
 
 std::string ASTSetOperation::GetSQLForOperation() const {
@@ -646,6 +656,32 @@ std::string ASTSetOperation::GetSQLForOperation() const {
 std::string ASTSetOperation::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
                       GetSQLForOperation(), ")");
+}
+
+const ASTHint* ASTSetOperation::hint() const {
+  if (metadata_ == nullptr) {
+    return hint_;
+  } else {
+    return metadata_->set_operation_metadata_list(0)->hint();
+  }
+}
+
+bool ASTSetOperation::distinct() const {
+  if (metadata_ == nullptr) {
+    return distinct_;
+  } else {
+    return metadata_->set_operation_metadata_list(0)
+               ->all_or_distinct()
+               ->value() == ASTSetOperation::DISTINCT;
+  }
+}
+
+ASTSetOperation::OperationType ASTSetOperation::op_type() const {
+  if (metadata_ == nullptr) {
+    return op_type_;
+  } else {
+    return metadata_->set_operation_metadata_list(0)->op_type()->value();
+  }
 }
 
 std::string ASTQuery::SingleNodeDebugString() const {
@@ -1870,6 +1906,32 @@ std::string ASTAlterStatementBase::SingleNodeDebugString() const {
     return node_name;
   }
   return absl::StrCat(node_name, "(is_if_exists)");
+}
+
+std::string ASTAuxLoadDataPartitionsClause::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_overwrite_ ? "(is_overwrite)" : "");
+}
+
+std::string ASTAuxLoadDataStatement::SingleNodeDebugString() const {
+  std::string result("");
+  switch (insertion_mode_) {
+    case ASTAuxLoadDataStatement::InsertionMode::APPEND:
+      result = "(into";
+      break;
+    case ASTAuxLoadDataStatement::InsertionMode::OVERWRITE:
+      result = "(overwrite";
+      break;
+    default:
+      ZETASQL_LOG(DFATAL) << "Unexpected InsertionMode for Load Data Statement: "
+                  << insertion_mode_;
+      result = "(unspecified";
+  }
+  if (is_temp_table_) {
+    absl::StrAppend(&result, ", is_temp");
+  }
+  absl::StrAppend(&result, ")");
+  return absl::StrCat(ASTNode::SingleNodeDebugString(), result);
 }
 
 absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {

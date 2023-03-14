@@ -27,6 +27,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "zetasql/common/thread_stack.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -603,8 +604,9 @@ absl::StatusOr<FunctionSignature> RestoreFromImpl(
   // std::unique_ptr<FunctionSignature>. It's fine if we just copy the returned
   // one though.
   std::unique_ptr<FunctionSignature> sig;
-  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(
-      proto, params.pools, params.type_factory, &sig));
+  ZETASQL_ASSIGN_OR_RETURN(sig,
+    FunctionSignature::Deserialize(
+      proto, TypeDeserializer(params.type_factory, params.pools)));
   return *sig;
 }
 
@@ -626,8 +628,9 @@ absl::StatusOr<std::shared_ptr<FunctionSignature>> RestoreFromImpl(
   // std::unique_ptr<FunctionSignature>. It's fine if we just copy the returned
   // one though.
   std::unique_ptr<FunctionSignature> sig;
-  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(
-      proto, params.pools, params.type_factory, &sig));
+  ZETASQL_ASSIGN_OR_RETURN(sig,
+    FunctionSignature::Deserialize(
+      proto, TypeDeserializer(params.type_factory, params.pools)));
   return sig;
 }
 

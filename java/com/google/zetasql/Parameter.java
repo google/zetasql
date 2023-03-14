@@ -47,7 +47,7 @@ final class Parameter {
     for (Map.Entry<String, Type> entry : parameters.entrySet()) {
       lowerMapBuilder.put(Ascii.toLowerCase(entry.getKey()), entry.getValue());
     }
-    return lowerMapBuilder.build();
+    return lowerMapBuilder.buildOrThrow();
   }
 
   /**
@@ -72,6 +72,6 @@ final class Parameter {
 
       lowerMapBuilder.put(name, value);
     }
-    return lowerMapBuilder.build();
+    return lowerMapBuilder.buildOrThrow();
   }
 }

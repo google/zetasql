@@ -36,7 +36,7 @@ statement.
     <tr>
       <td>1</td>
       <td>Field access operator</td>
-      <td><span> JSON</span><br><span> PROTO</span><br><span> STRUCT</span><br></td>
+      <td><span><code>JSON</code></span><br><span><code>PROTO</code></span><br><span><code>STRUCT</code></span><br></td>
       <td>Field access operator</td>
       <td>Binary</td>
     </tr>
@@ -44,7 +44,7 @@ statement.
     <tr>
       <td>&nbsp;</td>
       <td>Array elements field access operator</td>
-      <td>ARRAY</td>
+      <td><code>ARRAY</code></td>
       <td>Field access operator for elements in an array</td>
       <td>Binary</td>
     </tr>
@@ -52,8 +52,8 @@ statement.
     <tr>
       <td>&nbsp;</td>
       <td>Array subscript operator</td>
-      <td>ARRAY</td>
-      <td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
+      <td><code>ARRAY</code></td>
+      <td>Array position. Must be used with <coce>OFFSET</code> or <code>ORDINAL</code>&mdash;see
       <a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md">Array Functions</a>
 
 .</td>
@@ -63,42 +63,42 @@ statement.
     <tr>
       <td>&nbsp;</td>
       <td>JSON subscript operator</td>
-      <td>JSON</td>
+      <td><code>JSON</code></td>
       <td>Field name or array position in JSON.</td>
       <td>Binary</td>
     </tr>
     
     <tr>
       <td>2</td>
-      <td>+</td>
+      <td><code>+</code></td>
       <td>All numeric types</td>
       <td>Unary plus</td>
       <td>Unary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>-</td>
+      <td><code>-</code></td>
       <td>All numeric types</td>
       <td>Unary minus</td>
       <td>Unary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>~</td>
-      <td>Integer or BYTES</td>
+      <td><code>~</code></td>
+      <td>Integer or <code>BYTES</code></td>
       <td>Bitwise not</td>
       <td>Unary</td>
     </tr>
     <tr>
       <td>3</td>
-      <td>*</td>
+      <td><code>*</code></td>
       <td>All numeric types</td>
       <td>Multiplication</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>/</td>
+      <td><code>/</code></td>
       <td>All numeric types</td>
       <td>Division</td>
       <td>Binary</td>
@@ -106,72 +106,72 @@ statement.
     
     <tr>
       <td>&nbsp;</td>
-      <td>||</td>
-      <td>STRING, BYTES, or ARRAY&#60;T&#62;</td>
+      <td><code>||</code></td>
+      <td><code>STRING</code>, <code>BYTES</code>, or <code>ARRAY&#60;T&#62;</code></td>
       <td>Concatenation operator</td>
       <td>Binary</td>
     </tr>
     
     <tr>
       <td>4</td>
-      <td>+</td>
+      <td><code>+</code></td>
       <td>
-        All numeric types, DATE with
-        INT64
-        , INTERVAL
+        All numeric types, <code>DATE</code> with
+        <code>INT64</code>
+        , <code>INTERVAL</code>
       </td>
       <td>Addition</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>-</td>
+      <td><code>-</code></td>
       <td>
-        All numeric types, DATE with
-        INT64
-        , INTERVAL
+        All numeric types, <code>DATE</code> with
+        <code>INT64</code>
+        , <code>INTERVAL</code>
       </td>
       <td>Subtraction</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>5</td>
-      <td>&lt;&lt;</td>
-      <td>Integer or BYTES</td>
+      <td><code>&lt;&lt;</code></td>
+      <td>Integer or <code>BYTES</code></td>
       <td>Bitwise left-shift</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>&gt;&gt;</td>
-      <td>Integer or BYTES</td>
+      <td><code>&gt;&gt;</code></td>
+      <td>Integer or <code>BYTES</code></td>
       <td>Bitwise right-shift</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>6</td>
-      <td>&amp;</td>
-      <td>Integer or BYTES</td>
+      <td><code>&amp;</code></td>
+      <td>Integer or <code>BYTES</code></td>
       <td>Bitwise and</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>7</td>
-      <td>^</td>
-      <td>Integer or BYTES</td>
+      <td><code>^</code></td>
+      <td>Integer or <code>BYTES</code></td>
       <td>Bitwise xor</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>8</td>
-      <td>|</td>
-      <td>Integer or BYTES</td>
+      <td><code>|</code></td>
+      <td>Integer or <code>BYTES</code></td>
       <td>Bitwise or</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>9 (Comparison Operators)</td>
-      <td>=</td>
+      <td><code>=</code></td>
       <td>Any comparable type. See
       <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
@@ -181,7 +181,7 @@ statement.
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>&lt;</td>
+      <td><code>&lt;</code></td>
       <td>Any comparable type. See
       <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
@@ -191,7 +191,7 @@ statement.
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>&gt;</td>
+      <td><code>&gt;</code></td>
       <td>Any comparable type. See
       <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
@@ -201,7 +201,7 @@ statement.
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>&lt;=</td>
+      <td><code>&lt;=</code></td>
       <td>Any comparable type. See
       <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
@@ -211,7 +211,7 @@ statement.
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>&gt;=</td>
+      <td><code>&gt;=</code></td>
       <td>Any comparable type. See
       <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
@@ -221,7 +221,7 @@ statement.
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>!=, &lt;&gt;</td>
+      <td><code>!=</code>, <code>&lt;&gt;</code></td>
       <td>Any comparable type. See
       <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
@@ -231,14 +231,14 @@ statement.
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>[NOT] LIKE</td>
-      <td>STRING and byte</td>
+      <td><code>[NOT] LIKE</code></td>
+      <td><code>STRING</code> and <code>BYTES</code></td>
       <td>Value does [not] match the pattern specified</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>[NOT] BETWEEN</td>
+      <td><code>[NOT] BETWEEN</code></td>
       <td>Any comparable types. See
       <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
@@ -248,7 +248,7 @@ statement.
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>[NOT] IN</td>
+      <td><code>[NOT] IN</code></td>
       <td>Any comparable types. See
       <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
@@ -258,44 +258,44 @@ statement.
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>IS [NOT] <code>NULL</code></td>
+      <td><code>IS [NOT] NULL</code></td>
       <td>All</td>
       <td>Value is [not] <code>NULL</code></td>
       <td>Unary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>IS [NOT] TRUE</td>
-      <td>BOOL</td>
-      <td>Value is [not] TRUE.</td>
+      <td><code>IS [NOT] TRUE</code></td>
+      <td><code>BOOL</code></td>
+      <td>Value is [not] <code>TRUE</code>.</td>
       <td>Unary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>IS [NOT] FALSE</td>
-      <td>BOOL</td>
-      <td>Value is [not] FALSE.</td>
+      <td><code>IS [NOT] FALSE</code></td>
+      <td><code>BOOL</code></td>
+      <td>Value is [not] <code>FALSE</code>.</td>
       <td>Unary</td>
     </tr>
     <tr>
       <td>10</td>
-      <td>NOT</td>
-      <td>BOOL</td>
-      <td>Logical NOT</td>
+      <td><code>NOT</code></td>
+      <td><code>BOOL</code></td>
+      <td>Logical <code>NOT</code></td>
       <td>Unary</td>
     </tr>
     <tr>
       <td>11</td>
-      <td>AND</td>
-      <td>BOOL</td>
-      <td>Logical AND</td>
+      <td><code>AND</code></td>
+      <td><code>BOOL</code></td>
+      <td>Logical <code>AND</code></td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>12</td>
-      <td>OR</td>
-      <td>BOOL</td>
-      <td>Logical OR</td>
+      <td><code>OR</code></td>
+      <td><code>BOOL</code></td>
+      <td>Logical <code>OR</code></td>
       <td>Binary</td>
     </tr>
   </tbody>
@@ -341,11 +341,16 @@ expression.fieldname[. ...]
 Gets the value of a field. Alternatively known as the dot operator. Can be
 used to access nested fields. For example, `expression.fieldname1.fieldname2`.
 
-**Input types**
+Input values:
 
 + `STRUCT`
 + `PROTO`
 + `JSON`
+
+Note: If the field to access is within a `STRUCT`, you can use the
+[struct subscript operator][struct-subscript-operator] to access the field by
+its position within the `STRUCT` instead of by its name. Accessing by
+a field by position is useful when fields are un-named or have ambiguous names.
 
 **Return type**
 
@@ -385,7 +390,7 @@ SELECT t.customer.address.country FROM orders AS t;
 array_expression[array_subscript_specifier]
 
 array_subscript_specifier:
-  position_keyword(index)
+  { index | position_keyword(index) }
 
 position_keyword:
   { OFFSET | SAFE_OFFSET | ORDINAL | SAFE_ORDINAL }
@@ -396,22 +401,26 @@ syntax; they do not represent an optional part.
 
 **Description**
 
-Gets a value from an array at a specific location.
+Gets a value from an array at a specific position.
 
-**Input types**
+Input values:
 
 + `array_expression`: The input array.
-+ `position_keyword`: Where the index for the array should start and how
-  out-of-range indexes are handled. Your choices are:
-  + `OFFSET`: The index starts at zero.
-    Produces an error if the index is out of range.
-  + `SAFE_OFFSET`: The index starts at
++ `position_keyword(index)`: Determines where the index for the array should
+  start and how out-of-range indexes are handled. The index is an integer that
+  represents a specific position in the array.
+  + `OFFSET(index)`: The index starts at zero. Produces an error if the index is
+    out of range. Produces the same
+    result as `index` by itself.
+  + `SAFE_OFFSET(index)`: The index starts at
     zero. Returns `NULL` if the index is out of range.
-  + `ORDINAL`: The index starts at one.
+  + `ORDINAL(index)`: The index starts at one.
     Produces an error if the index is out of range.
-  + `SAFE_ORDINAL`: The index starts at
+  + `SAFE_ORDINAL(index)`: The index starts at
     one. Returns `NULL` if the index is out of range.
-+ `index`: An integer that represents a specific position in the array.
++ `index`: An integer that represents a specific position in the array. If used
+  by itself without a position keyword, the index starts at zero and produces
+  an error if the index is out of range.
 
 **Return type**
 
@@ -419,29 +428,40 @@ Gets a value from an array at a specific location.
 
 **Examples**
 
-In this example, the array subscript operator is used to return values at
-specific locations in `item_array`. This example also shows what happens when
-you reference an index (`6`) in an array that is out of range. If the
-`SAFE` prefix is included, `NULL` is returned, otherwise an error is produced.
+In following query, the array subscript operator is used to return values at
+specific position in `item_array`. This query also shows what happens when you
+reference an index (`6`) in an array that is out of range. If the `SAFE` prefix
+is included, `NULL` is returned, otherwise an error is produced.
 
 ```sql
 WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
 SELECT
   item_array,
-  item_array[OFFSET(1)] AS item_offset,
+  item_array[0] AS item_index,
+  item_array[OFFSET(0)] AS item_offset,
   item_array[ORDINAL(1)] AS item_ordinal,
-  item_array[SAFE_OFFSET(6)] AS item_safe_offset,
+  item_array[SAFE_OFFSET(6)] AS item_safe_offset
 FROM Items
 
-+----------------------------------+--------------+--------------+------------------+
-| item_array                       | item_offset  | item_ordinal | item_safe_offset |
-+----------------------------------+--------------+--------------+------------------+
-| [coffee, tea, milk]              | tea          | coffee       | NULL             |
-+----------------------------------+--------------+--------------+------------------+
++---------------------+------------+-------------+--------------+------------------+
+| item_array          | item_index | item_offset | item_ordinal | item_safe_offset |
++---------------------+------------+-------------+--------------+------------------+
+| [coffee, tea, milk] | coffee     | coffee      | coffee       | NULL             |
++----------------------------------+-------------+--------------+------------------+
 ```
 
-In the following example, when you reference an index in an array that is out of
-range and the `SAFE` prefix is not included, an error is produced.
+When you reference an index that is out of range in an array, and a positional
+keyword that begins with `SAFE` is not included, an error is produced.
+For example:
+
+```sql
+WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
+SELECT
+  item_array[6] AS item_offset
+FROM Items
+
+-- Error. Array index 6 is out of bounds.
+```
 
 ```sql
 WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
@@ -449,7 +469,87 @@ SELECT
   item_array[OFFSET(6)] AS item_offset
 FROM Items
 
--- Error. OFFSET(6) is out of range.
+-- Error. Array index 6 is out of bounds.
+```
+
+### Struct subscript operator
+
+```
+struct_expression[struct_subscript_specifier]
+
+struct_subscript_specifier:
+  { index | position_keyword(index) }
+
+position_keyword:
+  { OFFSET | ORDINAL }
+```
+
+Note: The brackets (`[]`) around `struct_subscript_specifier` are part of the
+syntax; they do not represent an optional part.
+
+**Description**
+
+Gets the value of a field at a selected position in a struct.
+
+**Input types**
+
++ `struct_expression`: The input struct.
++ `position_keyword(index)`: Determines where the index for the struct should
+  start and how out-of-range indexes are handled. The index is an
+  integer literal or constant that represents a specific position in the struct.
+  + `OFFSET(index)`: The index starts at zero. Produces an error if the index is
+    out of range. Produces the same
+    result as `index` by itself.
+  + `ORDINAL(index)`: The index starts at one. Produces an error if the index
+    is out of range.
++ `index`: An integer literal or constant that represents a specific position in
+  the struct. If used by itself without a position keyword, the index starts at
+  zero and produces an error if the index is out of range.
+
+Note: The struct subscript operator doesn't support `SAFE` positional keywords
+at this time.
+
+**Examples**
+
+In following query, the struct subscript operator is used to return values at
+specific locations in `item_struct` using position keywords. This query also
+shows what happens when you reference an index (`6`) in an struct that is out of
+range.
+
+```sql
+WITH Items AS (SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE) AS item_struct)
+SELECT
+  item_struct[0] AS field_index,
+  item_struct[OFFSET(0)] AS field_offset,
+  item_struct[ORDINAL(1)] AS field_ordinal
+FROM Items
+
++-------------+--------------+---------------+
+| field_index | field_offset | field_ordinal |
++-------------+--------------+---------------+
+| 23          | 23           | 23            |
++-------------+--------------+---------------+
+```
+
+When you reference an index that is out of range in a struct, an error is
+produced. For example:
+
+```sql
+WITH Items AS (SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE) AS item_struct)
+SELECT
+  item_struct[6] AS field_offset
+FROM Items
+
+-- Error. Field ordinal 6 is out of bounds in STRUCT
+```
+
+```sql
+WITH Items AS (SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE) AS item_struct)
+SELECT
+  item_struct[OFFSET(6)] AS field_offset
+FROM Items
+
+-- Error. Field ordinal 6 is out of bounds in STRUCT
 ```
 
 ### JSON subscript operator
@@ -470,7 +570,7 @@ of the syntax; they do not represent an optional part.
 Gets a value of an array element or field in a JSON expression. Can be
 used to access nested data.
 
-**Input types**
+Input values:
 
 + `JSON expression`: The `JSON` expression that contains an array element or
   field to return.
@@ -517,6 +617,111 @@ FROM
 +-----------------+
 ```
 
+### Protocol buffer map subscript operator 
+<a id="proto_subscript_operator"></a>
+
+```sql
+proto_map_field_expression[proto_subscript_specifier]
+
+proto_subscript_specifier:
+  key_keyword(key_name)
+
+key_keyword:
+  { KEY | SAFE_KEY }
+```
+
+**Description**
+
+Returns the value in a [protocol buffer map][proto-map] for a
+given key.
+
+Input values:
+
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key_keyword(key_name)`: Determines whether to produce `NULL` or
+  an error if the key is not present in the protocol buffer map field.
+  + `KEY(key_name)`: Returns an error if the key is not present in the
+    protocol buffer map field.
+  + `SAFE_KEY(key_name)`: Returns `NULL` if the key is not present in the
+    protocol buffer map field.
++ `key_name`: The key in the protocol buffer map field. This operator returns
+  `NULL` if the key is `NULL`.
+
+**Return type**
+
+In the input protocol buffer map field, `V` as represented in `map<K,V>`.
+
+**Examples**
+
+To illustrate the use of this function, we use the protocol buffer message
+`Item`.
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the subscript operator returns the value when the key
+is present.
+
+```sql
+SELECT
+  m.purchased[KEY('A')] AS map_value
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
++-----------+
+| map_value |
++-----------+
+| 2         |
++-----------+
+```
+
+When the key does not exist in the map field and you use `KEY`, an error is
+produced. For example:
+
+```sql
+-- ERROR: Key not found in map: 2
+SELECT
+  m.purchased[KEY('B')] AS value
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+```
+
+When the key does not exist in the map field and you use `SAFE_KEY`,
+the subscript operator returns `NULL`. For example:
+
+```sql
+SELECT
+  CAST(m.purchased[SAFE_KEY('B')] AS safe_key_missing
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
++------------------+
+| safe_key_missing |
++------------------+
+| NULL             |
++------------------+
+```
+
+The subscript operator returns `NULL` when the map field or key is `NULL`.
+For example:
+
+```sql
+SELECT
+  CAST(NULL AS Item).purchased[KEY('A')] AS null_map,
+  m.purchased[KEY(NULL)] AS null_key
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
++-----------------------+
+| null_map  | null_key  |
++-----------------------+
+| NULL      | NULL      |
++-----------------------+
+```
+
 ### Array elements field access operator 
 <a id="array_el_field_operator"></a>
 
@@ -538,11 +743,11 @@ syntax; they do not represent an optional part.
 The array elements field access operation lets you traverse through the
 levels of a nested data type inside an array.
 
-**Input types**
+Input values:
 
-+ `array_expression`: An expression that evaluates to an `ARRAY` value.
++ `array_expression`: An expression that evaluates to an array value.
 + `field_or_element[. ...]`: The field to access. This can also be a position
-  in an `ARRAY`-typed field.
+  in an array-typed field.
 + `fieldname`: The name of the field to access.
 
   For example, this query returns all values for the `items` field inside of the
@@ -553,7 +758,7 @@ levels of a nested data type inside an array.
   SELECT FLATTEN(my_array.items)
   FROM T
   ```
-+ `array_element`: If the field to access is an `ARRAY` field (`array_field`),
++ `array_element`: If the field to access is an array field (`array_field`),
   you can additionally access a specific position in the field
   with the [array subscript operator][array-subscript-operator]
   (`[array_subscript_specifier]`). This operation returns only elements at a
@@ -568,7 +773,7 @@ levels of a nested data type inside an array.
   FROM T
   ```
 
-**Details**
+Details:
 
 The array elements field access operation is not a typical expression
 that returns a typed value; it represents a concept outside the type system
@@ -642,7 +847,7 @@ to the resulting array.
 
 **Return Value**
 
-+ `FLATTEN` of an array element access operation returns an `ARRAY`.
++ `FLATTEN` of an array element access operation returns an array.
 + `UNNEST` of an array element access operation, whether explicit or implicit,
    returns a table.
 
@@ -858,8 +1063,8 @@ SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
 
 ### Arithmetic operators
 
-All arithmetic operators accept input of numeric type T, and the result type
-has type T unless otherwise indicated in the description below:
+All arithmetic operators accept input of numeric type `T`, and the result type
+has type `T` unless otherwise indicated in the description below:
 
 <table>
   <thead>
@@ -871,33 +1076,33 @@ has type T unless otherwise indicated in the description below:
   <tbody>
     <tr>
       <td>Addition</td>
-      <td>X + Y</td>
+      <td><code>X + Y</code></td>
     </tr>
     <tr>
       <td>Subtraction</td>
-      <td>X - Y</td>
+      <td><code>X - Y</code></td>
     </tr>
     <tr>
       <td>Multiplication</td>
-      <td>X * Y</td>
+      <td><code>X * Y</code></td>
     </tr>
     <tr>
       <td>Division</td>
-      <td>X / Y</td>
+      <td><code>X / Y</code></td>
     </tr>
     <tr>
       <td>Unary Plus</td>
-      <td>+ X</td>
+      <td><code>+ X</code></td>
     </tr>
     <tr>
       <td>Unary Minus</td>
-      <td>- X</td>
+      <td><code>- X</code></td>
     </tr>
   </tbody>
 </table>
 
 NOTE: Divide by zero operations return an error. To return a different result,
-consider the IEEE_DIVIDE or SAFE_DIVIDE functions.
+consider the `IEEE_DIVIDE` or `SAFE_DIVIDE` functions.
 
 Result types for Addition and Multiplication:
 
@@ -905,18 +1110,18 @@ Result types for Addition and Multiplication:
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
 </tr>
 </thead>
 <tbody>
-<tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>BIGNUMERIC</th><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
 </tbody>
 
 </table>
@@ -927,18 +1132,18 @@ Result types for Subtraction:
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
 </tr>
 </thead>
 <tbody>
-<tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>BIGNUMERIC</th><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
 </tbody>
 
 </table>
@@ -949,18 +1154,18 @@ Result types for Division:
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
 </tr>
 </thead>
 <tbody>
-<tr><th>INT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>INT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>UINT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>UINT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>BIGNUMERIC</th><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
 </tbody>
 
 </table>
@@ -971,11 +1176,11 @@ Result types for Unary Plus:
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
 </tr>
 </thead>
 <tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT32</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>INT32</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT32</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>FLOAT</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
 </tbody>
 
 </table>
@@ -986,16 +1191,17 @@ Result types for Unary Minus:
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
 </tr>
 </thead>
 <tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>INT32</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>FLOAT</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
 </tbody>
 
 </table>
 
 ### Date arithmetics operators
+
 Operators '+' and '-' can be used for arithmetic operations on dates.
 
 ```sql
@@ -1012,7 +1218,7 @@ days.
 
 **Return Data Type**
 
-DATE
+`DATE`
 
 **Example**
 
@@ -1040,7 +1246,7 @@ Computes the difference between two datetime values as an interval.
 
 **Return Data Type**
 
-INTERVAL
+`INTERVAL`
 
 **Example**
 
@@ -1074,6 +1280,7 @@ datetime_expression - interval_expression = DATETIME
 
 Adds an interval to a datetime value or subtracts an interval from a datetime
 value.
+
 **Example**
 
 ```sql
@@ -1117,6 +1324,7 @@ SELECT
 ```
 
 ### Bitwise operators
+
 All bitwise operators return the same type
  and the same length as
 the first operand.
@@ -1133,69 +1341,91 @@ the first operand.
 <tbody>
 <tr>
 <td>Bitwise not</td>
-<td>~ X</td>
-<td style="white-space:nowrap">Integer or BYTES</td>
+<td><code>~ X</code></td>
+<td style="white-space:nowrap">Integer or <code>BYTES</code></td>
 <td>Performs logical negation on each bit, forming the ones' complement of the
 given binary value.</td>
 </tr>
 <tr>
 <td>Bitwise or</td>
-<td>X | Y</td>
-<td style="white-space:nowrap">X: Integer or BYTES
-<br>Y: Same type as X</td>
-<td>Takes two bit patterns of equal length and performs the logical inclusive OR
-operation on each pair of the corresponding bits.
-This operator throws an error if X and Y are BYTES of different lengths.
+<td><code>X | Y</code></td>
+<td style="white-space:nowrap">
+<code>X</code>: Integer or <code>BYTES</code><br>
+<code>Y</code>: Same type as <code>X</code>
+</td>
+<td>Takes two bit patterns of equal length and performs the logical inclusive
+<code>OR</code> operation on each pair of the corresponding bits.
+
+This operator throws an error if <code>X</code> and <code>Y</code> are bytes of
+different lengths.
+
 </td>
 </tr>
 <tr>
 <td>Bitwise xor</td>
-<td style="white-space:nowrap">X ^ Y</td>
-<td style="white-space:nowrap">X: Integer or BYTES
-<br>Y: Same type as X</td>
-<td>Takes two bit patterns of equal length and performs the logical exclusive OR
-operation on each pair of the corresponding bits.
-This operator throws an error if X and Y are BYTES of different lengths.
+<td style="white-space:nowrap"><code>X ^ Y</code></td>
+<td style="white-space:nowrap">
+<code>X</code>: Integer or <code>BYTES</code><br>
+<code>Y</code>: Same type as <code>X</code>
+</td>
+<td>Takes two bit patterns of equal length and performs the
+logical exclusive <code>OR</code> operation on each pair of the corresponding
+bits.
+
+This operator throws an error if <code>X</code> and <code>Y</code> are bytes of
+different lengths.
+
 </td>
 </tr>
 <tr>
 <td>Bitwise and</td>
-<td style="white-space:nowrap">X &amp; Y</td>
-<td style="white-space:nowrap">X: Integer or BYTES
-<br>Y: Same type as X</td>
-<td>Takes two bit patterns of equal length and performs the logical AND
-operation on each pair of the corresponding bits.
-This operator throws an error if X and Y are BYTES of different lengths.
+<td style="white-space:nowrap"><code>X &amp; Y</code></td>
+<td style="white-space:nowrap">
+<code>X</code>: Integer or <code>BYTES</code><br>
+<code>Y</code>: Same type as <code>X</code>
+</td>
+<td>Takes two bit patterns of equal length and performs the
+logical <code>AND</code> operation on each pair of the corresponding bits.
+
+This operator throws an error if <code>X</code> and <code>Y</code> are bytes of
+different lengths.
+
 </td>
 </tr>
 <tr>
 <td>Left shift</td>
-<td style="white-space:nowrap">X &lt;&lt; Y</td>
-<td style="white-space:nowrap">X: Integer or BYTES
-<br>Y: INT64</td>
-<td>Shifts the first operand X to the left.
+<td style="white-space:nowrap"><code>X &lt;&lt; Y</code></td>
+<td style="white-space:nowrap">
+<code>X</code>: Integer or <code>BYTES</code><br>
+<code>Y</code>: <code>INT64</code>
+</td>
+<td>Shifts the first operand <code>X</code> to the left.
 This operator returns
-0 or a byte sequence of b'\x00'
-if the second operand Y is greater than or equal to
+<code>0</code> or a byte sequence of <code>b'\x00'</code>
+if the second operand <code>Y</code> is greater than or equal to
 
-the bit length of the first operand X (for example, 64 if X has the type INT64).
+the bit length of the first operand <code>X</code> (for example, <code>64</code>
+if <code>X</code> has the type <code>INT64</code>).
 
-This operator throws an error if Y is negative.</td>
+This operator throws an error if <code>Y</code> is negative.</td>
 </tr>
 <tr>
 <td>Right shift</td>
-<td style="white-space:nowrap">X &gt;&gt; Y</td>
-<td style="white-space:nowrap">X: Integer or BYTES
-<br>Y: INT64</td>
-<td>Shifts the first operand X to the right. This operator does not do sign bit
-extension with a signed type (i.e. it fills vacant bits on the left with 0).
-This operator returns
-0 or a byte sequence of b'\x00'
-if the second operand Y is greater than or equal to
+<td style="white-space:nowrap"><code>X &gt;&gt; Y</code></td>
+<td style="white-space:nowrap">
+<code>X</code>: Integer or <code>BYTES</code><br>
+<code>Y</code>: <code>INT64</code></td>
+<td>Shifts the first operand <code>X</code> to the right. This operator does not
+do sign bit extension with a signed type (i.e. it fills vacant bits on the left
+with <code>0</code>). This operator returns
+<code>0</code> or a byte sequence of
+<code>b'\x00'</code>
+if the second operand <code>Y</code> is greater than or equal to
 
-the bit length of the first operand X (for example, 64 if X has the type INT64).
+the bit length of the first operand <code>X</code> (for example, <code>64</code>
+if <code>X</code> has the type <code>INT64</code>).
 
-This operator throws an error if Y is negative.</td>
+This operator throws an error if <code>Y</code> is negative.</td>
 </tr>
 </tbody>
 </table>
@@ -1203,27 +1433,27 @@ This operator throws an error if Y is negative.</td>
 ### Logical operators
 
 ZetaSQL supports the `AND`, `OR`, and  `NOT` logical operators.
-Logical operators allow only BOOL or `NULL` input
+Logical operators allow only `BOOL` or `NULL` input
 and use [three-valued logic][three-valued-logic]
 to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 
-| x       | y       | x AND y | x OR y |
-| ------- | ------- | ------- | ------ |
-| TRUE    | TRUE    | TRUE    | TRUE   |
-| TRUE    | FALSE   | FALSE   | TRUE   |
-| TRUE    | NULL    | NULL    | TRUE   |
-| FALSE   | TRUE    | FALSE   | TRUE   |
-| FALSE   | FALSE   | FALSE   | FALSE  |
-| FALSE   | NULL    | FALSE   | NULL   |
-| NULL    | TRUE    | NULL    | TRUE   |
-| NULL    | FALSE   | FALSE   | NULL   |
-| NULL    | NULL    | NULL    | NULL   |
+| `x`     | `y`       | `x AND y` | `x OR y` |
+| ------- | --------- | --------- | -------- |
+| `TRUE`  | `TRUE`    | `TRUE`    | `TRUE`   |
+| `TRUE`  | `FALSE`   | `FALSE`   | `TRUE`   |
+| `TRUE`  | `NULL`    | `NULL`    | `TRUE`   |
+| `FALSE` | `TRUE`    | `FALSE`   | `TRUE`   |
+| `FALSE` | `FALSE`   | `FALSE`   | `FALSE`  |
+| `FALSE` | `NULL`    | `FALSE`   | `NULL`   |
+| `NULL`  | `TRUE`    | `NULL`    | `TRUE`   |
+| `NULL`  | `FALSE`   | `FALSE`   | `NULL`   |
+| `NULL`  | `NULL`    | `NULL`    | `NULL`   |
 
-| x       | NOT x   |
-| ------- | ------- |
-| TRUE    | FALSE   |
-| FALSE   | TRUE    |
-| NULL    | NULL    |
+| `x`       | `NOT x`   |
+| --------- | --------- |
+| `TRUE`    | `FALSE`   |
+| `FALSE`   | `TRUE`    |
+| `NULL`    | `NULL`    |
 
 **Examples**
 
@@ -1285,28 +1515,33 @@ SELECT entry FROM entry_table WHERE entry IS NULL
 
 ### Comparison operators
 
-Comparisons always return BOOL. Comparisons generally
+Comparisons always return `BOOL`. Comparisons generally
 require both operands to be of the same type. If operands are of different
 types, and if ZetaSQL can convert the values of those types to a
 common type without loss of precision, ZetaSQL will generally coerce
 them to that common type for the comparison; ZetaSQL will generally
-[coerce literals to the type of non-literals][link-to-coercion], where
+coerce literals to the type of non-literals, where
 present. Comparable data types are defined in
 [Data Types][operators-link-to-data-types].
 
 NOTE: ZetaSQL allows comparisons
 between signed and unsigned integers.
 
-STRUCTs support only 4 comparison operators: equal
-(=), not equal (!= and <>), and IN.
+Structs support only these comparison operators: equal
+(`=`), not equal (`!=` and `<>`), and `IN`.
+
+The comparison operators in this section cannot be used to compare
+`JSON` ZetaSQL literals with other `JSON` ZetaSQL literals.
+If you need to compare values inside of `JSON`, convert the values to
+SQL values first. For more information, see [`JSON` functions][json-functions].
 
 The following rules apply when comparing these data types:
 
 +  Floating point:
-   All comparisons with NaN return FALSE,
-   except for `!=` and `<>`, which return TRUE.
-+  BOOL: FALSE is less than TRUE.
-+  STRING: Strings are
+   All comparisons with `NaN` return `FALSE`,
+   except for `!=` and `<>`, which return `TRUE`.
++  `BOOL`: `FALSE` is less than `TRUE`.
++  `STRING`: Strings are
    compared codepoint-by-codepoint, which means that canonically equivalent
    strings are only guaranteed to compare as equal if
    they have been normalized first.
@@ -1324,9 +1559,9 @@ The following rules apply when comparing these data types:
 <tbody>
 <tr>
 <td>Less Than</td>
-<td>X &lt; Y</td>
+<td><code>X &lt; Y</code></td>
 <td>
-  Returns TRUE if X is less than Y.
+  Returns <code>TRUE</code> if <code>X</code> is less than <code>Y</code>.
   
 
 This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
@@ -1335,9 +1570,10 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
 </tr>
 <tr>
 <td>Less Than or Equal To</td>
-<td>X &lt;= Y</td>
+<td><code>X &lt;= Y</code></td>
 <td>
-  Returns TRUE if X is less than or equal to Y.
+  Returns <code>TRUE</code> if <code>X</code> is less than or equal to
+  <code>Y</code>.
   
 
 This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
@@ -1346,9 +1582,9 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
 </tr>
 <tr>
 <td>Greater Than</td>
-<td>X &gt; Y</td>
+<td><code>X &gt; Y</code></td>
 <td>
-  Returns TRUE if X is greater than Y.
+  Returns <code>TRUE</code> if <code>X</code> is greater than <code>Y</code>.
   
 
 This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
@@ -1357,9 +1593,10 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
 </tr>
 <tr>
 <td>Greater Than or Equal To</td>
-<td>X &gt;= Y</td>
+<td><code>X &gt;= Y</code></td>
 <td>
-  Returns TRUE if X is greater than or equal to Y.
+  Returns <code>TRUE</code> if <code>X</code> is greater than or equal to
+  <code>Y</code>.
   
 
 This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
@@ -1368,9 +1605,9 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
 </tr>
 <tr>
 <td>Equal</td>
-<td>X = Y</td>
+<td><code>X = Y</code></td>
 <td>
-  Returns TRUE if X is equal to Y.
+  Returns <code>TRUE</code> if <code>X</code> is equal to <code>Y</code>.
   
 
 This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
@@ -1379,9 +1616,9 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
 </tr>
 <tr>
 <td>Not Equal</td>
-<td>X != Y<br>X &lt;&gt; Y</td>
+<td><code>X != Y</code><br><code>X &lt;&gt; Y</code></td>
 <td>
-  Returns TRUE if X is not equal to Y.
+  Returns <code>TRUE</code> if <code>X</code> is not equal to <code>Y</code>.
   
 
 This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
@@ -1389,13 +1626,14 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
 </td>
 </tr>
 <tr>
-<td>BETWEEN</td>
-<td>X [NOT] BETWEEN Y AND Z</td>
+<td><code>BETWEEN</code></td>
+<td><code>X [NOT] BETWEEN Y AND Z</code></td>
 <td>
   <p>
-    Returns TRUE if X is [not] within the range specified. The result of "X
-    BETWEEN Y AND Z" is equivalent to "Y &lt;= X AND X &lt;= Z" but X is
-    evaluated only once in the former.
+    Returns <code>TRUE</code> if <code>X</code> is [not] within the range
+    specified. The result of <code>X BETWEEN Y AND Z</code> is equivalent to
+    <code>Y &lt;= X AND X &lt;= Z</code> but <code>X</code> is evaluated only
+    once in the former.
     
 
 This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
@@ -1404,46 +1642,33 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
 </td>
 </tr>
 <tr>
-<td>LIKE</td>
-<td>X [NOT] LIKE Y</td>
-<td>Checks if the STRING in the first operand X
-matches a pattern specified by the second operand Y. Expressions can contain
-these characters:
-<ul>
-<li>A percent sign "%" matches any number of characters or bytes</li>
-<li>An underscore "_" matches a single character or byte</li>
-<li>You can escape "\", "_", or "%" using two backslashes. For example, <code>
-"\\%"</code>. If you are using raw strings, only a single backslash is
-required. For example, <code>r"\%"</code>.</li>
-</ul>
+<td><code>LIKE</code></td>
+<td><code>X [NOT] LIKE Y</code></td>
+<td>
+  See the <a href="#like_operator">`LIKE` operator</a>
+
+  for details.
 </td>
 </tr>
 <tr>
-<td>IN</td>
-<td>Multiple - see below</td>
+<td><code>IN</code></td>
+<td>Multiple</td>
 <td>
-  Returns FALSE if the right operand is empty. Returns <code>NULL</code> if
-  the left operand is <code>NULL</code>. Returns TRUE or <code>NULL</code>,
-  never FALSE, if the right operand contains <code>NULL</code>. Arguments on
-  either side of IN are general expressions. Neither operand is required to be
-  a literal, although using a literal on the right is most common. X is
-  evaluated only once.
-  
+  See the <a href="#in_operator">`IN` operator</a>
 
-This operator generally supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
-
+  for details.
 </td>
 </tr>
 </tbody>
 </table>
 
-When testing values that have a STRUCT data type for
+When testing values that have a struct data type for
 equality, it's possible that one or more fields are `NULL`. In such cases:
 
-+ If all non-NULL field values are equal, the comparison returns NULL.
-+ If any non-NULL field values are not equal, the comparison returns false.
++ If all non-`NULL` field values are equal, the comparison returns `NULL`.
++ If any non-`NULL` field values are not equal, the comparison returns `FALSE`.
 
-The following table demonstrates how STRUCT data
+The following table demonstrates how struct data
 types are compared when they have fields that are `NULL` valued.
 
 <table>
@@ -1473,7 +1698,7 @@ types are compared when they have fields that are `NULL` valued.
 </tbody>
 </table>
 
-### EXISTS operator 
+### `EXISTS` operator 
 <a id="exists_operator"></a>
 
 ```sql
@@ -1507,7 +1732,7 @@ SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
 +--------+
 ```
 
-### IN operator 
+### `IN` operator 
 <a id="in_operators"></a>
 
 The `IN` operator supports the following syntax:
@@ -1545,7 +1770,14 @@ equal value is excluded, otherwise `NULL`.
       IN (SELECT element FROM UNNEST(array_expression) AS element)
       ```
 
+This operator supports [collation][collation], but these limitations apply:
+
++ `[NOT] IN UNNEST` does not support collation.
++ If collation is used with a list of expressions, there must be at least one
+  item in the list.
+
 <a id="semantic_rules_in"></a>
+
 **Semantic rules**
 
 When using the `IN` operator, the following semantics apply in this order:
@@ -1563,11 +1795,6 @@ When using the `NOT IN` operator, the following semantics apply in this order:
 + Returns `FALSE` if `value_set` contains a value equal to `search_value`.
 + Returns `NULL` if `value_set` contains a `NULL`.
 + Returns `TRUE`.
-
-This operator generally supports [collation][link-collation-concepts],
-however, `x [NOT] IN UNNEST` is not supported.
-
-[link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 The semantics of:
 
@@ -1594,13 +1821,13 @@ NOT(x IN ...)
 ```
 
 The `UNNEST` form treats an array scan like `UNNEST` in the
-[FROM][operators-link-to-from-clause] clause:
+[`FROM`][operators-link-to-from-clause] clause:
 
 ```
 x [NOT] IN UNNEST(<array expression>)
 ```
 
-This form is often used with `ARRAY` parameters. For example:
+This form is often used with array parameters. For example:
 
 ```
 x IN UNNEST(@array_parameter)
@@ -1617,7 +1844,7 @@ For example:
 (Key1, Key2) IN ( SELECT (table.a, table.b) FROM table )
 ```
 
-See the [Struct Type][operators-link-to-struct-type] for more information.
+See the [Struct Type][operators-link-to-struct-type] topic for more information.
 
 **Return Data Type**
 
@@ -1722,7 +1949,7 @@ SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
 +----------+
 ```
 
-Example with `IN` and a `STRUCT`:
+Example with `IN` and a struct:
 
 ```sql
 SELECT
@@ -1738,12 +1965,12 @@ WHERE (info.shape, info.color) IN (('round', 'blue'));
 +------------------------------------+
 ```
 
-### IS operators
+### `IS` operators
 
 IS operators return TRUE or FALSE for the condition they are testing. They never
 return `NULL`, even for `NULL` inputs, unlike the `IS_INF` and `IS_NAN`
 functions defined in [Mathematical Functions][operators-link-to-math-functions].
-If `NOT` is present, the output BOOL value is
+If `NOT` is present, the output `BOOL` value is
 inverted.
 
 <table>
@@ -1757,81 +1984,89 @@ inverted.
   </thead>
   <tbody>
     <tr>
-      <td><pre>X IS TRUE</pre></td>
-      <td>BOOL</td>
-      <td>BOOL</td>
+      <td><code>X IS TRUE</code></td>
+      <td><code>BOOL</code></td>
+      <td><code>BOOL</code></td>
       <td>
-        Evaluates to TRUE if X evaluates to TRUE.
-        Otherwise, evaluates to FALSE.
+        Evaluates to <code>TRUE</code> if <code>X</code> evaluates to
+        <code>TRUE</code>.
+        Otherwise, evaluates to <code>FALSE</code>.
       </td>
     </tr>
     <tr>
-      <td><pre>X IS NOT TRUE</pre></td>
-      <td>BOOL</td>
-      <td>BOOL</td>
+      <td><code>X IS NOT TRUE</code></td>
+      <td><code>BOOL</code></td>
+      <td><code>BOOL</code></td>
       <td>
-        Evaluates to FALSE if X evaluates to TRUE.
-        Otherwise, evaluates to TRUE.
+        Evaluates to <code>FALSE</code> if <code>X</code> evaluates to
+        <code>TRUE</code>.
+        Otherwise, evaluates to <code>TRUE</code>.
       </td>
     </tr>
     <tr>
-      <td><pre>X IS FALSE</pre></td>
-      <td>BOOL</td>
-      <td>BOOL</td>
+      <td><code>X IS FALSE</code></td>
+      <td><code>BOOL</code></td>
+      <td><code>BOOL</code></td>
       <td>
-        Evaluates to TRUE if X evaluates to FALSE.
-        Otherwise, evaluates to FALSE.
+        Evaluates to <code>TRUE</code> if <code>X</code> evaluates to
+        <code>FALSE</code>.
+        Otherwise, evaluates to <code>FALSE</code>.
       </td>
     </tr>
     <tr>
-      <td><pre>X IS NOT FALSE</pre></td>
-      <td>BOOL</td>
-      <td>BOOL</td>
+      <td><code>X IS NOT FALSE</code></td>
+      <td><code>BOOL</code></td>
+      <td><code>BOOL</code></td>
       <td>
-        Evaluates to FALSE if X evaluates to FALSE.
-        Otherwise, evaluates to TRUE.
+        Evaluates to <code>FALSE</code> if <code>X</code> evaluates to
+        <code>FALSE</code>.
+        Otherwise, evaluates to <code>TRUE</code>.
       </td>
     </tr>
     <tr>
-      <td><pre>X IS NULL</pre></td>
+      <td><code>X IS NULL</code></td>
       <td>Any value type</td>
-      <td>BOOL</td>
+      <td><code>BOOL</code></td>
       <td>
-        Evaluates to TRUE if X evaluates to <code>NULL</code>.
-        Otherwise evaluates to FALSE.
+        Evaluates to <code>TRUE</code> if <code>X</code> evaluates to
+        <code>NULL</code>.
+        Otherwise evaluates to <code>FALSE</code>.
       </td>
     </tr>
     <tr>
-      <td><pre>X IS NOT NULL</pre></td>
+      <td><code>X IS NOT NULL</code></td>
       <td>Any value type</td>
-      <td>BOOL</td>
+      <td><code>BOOL</code></td>
       <td>
-        Evaluates to FALSE if X evaluates to <code>NULL</code>.
-        Otherwise evaluates to TRUE.
+        Evaluates to <code>FALSE</code> if <code>X</code> evaluates to
+        <code>NULL</code>.
+        Otherwise evaluates to <code>TRUE</code>.
       </td>
     </tr>
     <tr>
-      <td><pre>X IS UNKNOWN</pre></td>
-      <td>BOOL</td>
-      <td>BOOL</td>
+      <td><code>X IS UNKNOWN</code></td>
+      <td><code>BOOL</code></td>
+      <td><code>BOOL</code></td>
       <td>
-        Evaluates to TRUE if X evaluates to <code>NULL</code>.
-        Otherwise evaluates to FALSE.
+        Evaluates to <code>TRUE</code> if <code>X</code> evaluates to
+        <code>NULL</code>.
+        Otherwise evaluates to <code>FALSE</code>.
       </td>
     </tr>
     <tr>
-      <td><pre>X IS NOT UNKNOWN</pre></td>
-      <td>BOOL</td>
-      <td>BOOL</td>
+      <td><code>X IS NOT UNKNOWN</code></td>
+      <td><code>BOOL</code></td>
+      <td><code>BOOL</code></td>
       <td>
-        Evaluates to FALSE if X evaluates to <code>NULL</code>.
-        Otherwise, evaluates to TRUE.
+        Evaluates to <code>FALSE</code> if <code>X</code> evaluates to
+        <code>NULL</code>.
+        Otherwise, evaluates to <code>TRUE</code>.
       </td>
     </tr>
   </tbody>
 </table>
 
-### IS DISTINCT FROM operator 
+### `IS DISTINCT FROM` operator 
 <a id="is_distinct"></a>
 
 ```sql
@@ -1857,7 +2092,7 @@ following cases:
 + `NaN` values are considered to be distinct from non-`NaN` values, but not
   other `NaN` values.
 
-**Input types**
+Input values:
 
 + `expression_1`: The first value to compare. This can be a groupable data type,
   `NULL` or `NaN`.
@@ -1907,12 +2142,235 @@ SELECT 1 IS NOT DISTINCT FROM 2
 SELECT 1 IS NOT DISTINCT FROM NULL
 ```
 
-### NEW operator 
+### `LIKE` operator 
+<a id="like_operator"></a>
+
+```sql
+expression_1 IS [NOT] LIKE expression_2
+```
+
+**Description**
+
+`IS LIKE` returns `TRUE` if the string in the first operand `expression_1`
+matches a pattern specified by the second operand `expression_2`,
+otherwise returns `FALSE`.
+
+`IS NOT LIKE` returns `TRUE` if the string in the first operand `expression_1`
+does not match a pattern specified by the second operand `expression_2`,
+otherwise returns `FALSE`.
+
+Expressions can contain these characters:
+
++   A percent sign (`%`) matches any number of characters or bytes.
++   An underscore (`_`) matches a single character or byte.
++   You can escape `\ `, `_`, or `%` using two backslashes. For example,
+    `\\% `. If you are using raw strings, only a single backslash is
+    required. For example, `r'\%'`.
+
+This operator supports [collation][collation], but caveats apply:
+
++   Each `%` character in `expression_2` represents an
+    _arbitrary string specifier_. An arbitrary string specifier can represent
+    any sequence of `0` or more characters.
++   When an operand has collation, a character in the expression that is not a
+    `_` or `%` character represents itself and is considered a
+    _single character specifier_.
++   For a contiguous sequence of single character specifiers, equality
+    depends on the collator and its language tags and tailoring.
+
+    +   By default, the `und:ci` collator does not fully normalize a string.
+        Some canonically equivalent strings are considered unequal for
+        both the `=` and `LIKE` operators.
+
+    +   The `LIKE` operator with collation has the same behavior as the `=` operator
+        when there are no wildcards in the strings.
+
+    +   Character sequences with secondary or higher-weighted differences are
+        considered unequal. This includes accent differences and some
+        special cases.
+
+        For example there are three ways to produce German sharp `ß`:
+
+        +`\u1E9E`
+        + `\U00DF`
+        + `ss`
+
+        `\u1E9E` and `\U00DF` are considered equal but differ in tertiary.
+        They are considered equal with `und:ci` collation but different from
+        `ss`, which has secondary differences.
+
+    +   Character sequences with tertiary or lower-weighted differences are
+        considered equal. This includes case differences and
+        kana subtype differences, which are considered equal.
++   There are [ignorable characters][ignorable-chars] defined in Unicode.
+    Ignorable characters are ignored in the pattern matching.
++   An error is returned when `_` is not escaped in `expression_2`.
++   `_` is not allowed when the operands have collation specified and the
+    collator is performing a binary comparison.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+The following examples illustrate how you can check to see if the string in the
+first operand matches a pattern specified by the second operand.
+
+```sql
+-- Returns TRUE
+SELECT 'apple' LIKE 'a%';
+```
+
+```sql
+-- Returns FALSE
+SELECT '%a' LIKE 'apple';
+```
+
+```sql
+-- Returns FALSE
+SELECT 'apple' NOT LIKE 'a%';
+```
+
+```sql
+-- Returns TRUE
+SELECT '%a' NOT LIKE 'apple';
+```
+
+```sql
+-- Produces an error
+SELECT NULL LIKE 'a%';
+```
+
+```sql
+-- Produces an error
+SELECT 'apple' LIKE NULL;
+```
+
+The following examples illustrate how collation can be used with the `LIKE`
+operator.
+
+```sql
+-- Returns FALSE
+'Foo' LIKE '%foo%'
+```
+
+```sql
+-- Returns TRUE
+COLLATE('Foo', 'und:ci') LIKE COLLATE('%foo%', 'und:ci');
+```
+
+```sql
+-- Returns TRUE
+COLLATE('Foo', 'und:ci') = COLLATE('foo', 'und:ci');
+```
+
+```sql
+-- Produces an error
+COLLATE('Foo', 'und:ci') LIKE COLLATE('%foo%', 'binary');
+```
+
+```sql
+-- Produces an error
+COLLATE('Foo', 'und:ci') LIKE COLLATE('%f_o%', 'und:ci');
+```
+
+```sql
+-- Returns TRUE
+COLLATE('Foo_', 'und:ci') LIKE COLLATE('%foo\\_%', 'und:ci');
+```
+
+There are two capital forms of `ß`. We can use either `SS` or `ẞ` as upper
+case. While the difference between `ß` and `ẞ` is case difference (tertiary
+difference), the difference between sharp `s` and `ss` is secondary and
+considered not equal using the `und:ci` collator. For example:
+
+```sql
+-- Returns FALSE
+'MASSE' LIKE 'Maße';
+```
+
+```sql
+-- Returns FALSE
+COLLATE('MASSE', 'und:ci') LIKE '%Maße%';
+```
+
+```sql
+-- Returns FALSE
+COLLATE('MASSE', 'und:ci') = COLLATE('Maße', 'und:ci');
+```
+
+The kana differences in Japanese are considered as tertiary or quaternary
+differences, and should be considered as equal in the `und:ci` collator with
+secondary strength.
+
++ `'\u3042'` is `'あ'` (hiragana)
++ `'\u30A2'` is `'ア'` (katakana)
+
+For example:
+
+```sql
+-- Returns FALSE
+'\u3042' LIKE '%\u30A2%';
+```
+
+```sql
+-- Returns TRUE
+COLLATE('\u3042', 'und:ci') LIKE COLLATE('%\u30A2%', 'und:ci');
+```
+
+```sql
+-- Returns TRUE
+COLLATE('\u3042', 'und:ci') = COLLATE('\u30A2', 'und:ci');
+```
+
+When comparing two strings, the `und:ci` collator compares the collation units
+based on the specification of the collation. Even though the number of
+code points is different, the two strings are considered equal when the
+collation units are considered the same.
+
++ `'\u0041\u030A'` is `'Å'` (two code points)
++ `'\u0061\u030A'` is `'å'` (two code points)
++ `'\u00C5'` is `'Å'` (one code point)
+
+In the following examples, the difference between `'\u0061\u030A'` and
+`'\u00C5'` is tertiary.
+
+```sql
+-- Returns FALSE
+'\u0061\u030A' LIKE '%\u00C5%';
+```
+
+```sql
+-- Returns TRUE
+COLLATE('\u0061\u030A', 'und:ci') LIKE '%\u00C5%';
+```
+
+```sql
+-- Returns TRUE
+COLLATE('\u0061\u030A', 'und:ci') = COLLATE('\u00C5', 'und:ci');
+```
+
+In the following example, `'\u0083'` is a `NO BREAK HERE` character and
+is ignored.
+
+```sql
+-- Returns FALSE
+'\u0083' LIKE '';
+```
+
+```sql
+-- Returns TRUE
+COLLATE('\u0083', 'und:ci') LIKE '';
+```
+
+### `NEW` operator 
 <a id="new_operator"></a>
 
 The `NEW` operator supports only protocol buffers and uses the following syntax:
 
-+ Create a protocol buffer using a map constructor:
+ + `NEW protocol_buffer {...}`: Creates a
+protocol buffer using a map constructor.
 
   ```sql
   NEW protocol_buffer {
@@ -1923,11 +2381,12 @@ The `NEW` operator supports only protocol buffers and uses the following syntax:
     (extension_name): literal_or_expression
   }
   ```
-+ Create a protocol buffer using a parenthesized list of arguments:
++   `NEW protocol_buffer (...)`: Creates a protocol buffer using a parenthesized
+    list of arguments.
 
-  ```sql
-  NEW protocol_buffer(field [AS alias], ...field [AS alias])
-  ```
+    ```sql
+    NEW protocol_buffer(field [AS alias], ...field [AS alias])
+    ```
 
 **Examples**
 
@@ -1971,8 +2430,8 @@ SELECT
   NEW zetasql.examples.music.Chart { rank: 1 chart_name: "2" }
 ```
 
-To learn more about constructing, configuring, and using protocol buffers in
-ZetaSQL, see [Work with protocol buffers][protocol-buffers].
+To learn more about protocol buffers in ZetaSQL, see [Work with
+protocol buffers][protocol-buffers].
 
 ### Concatenation operator
 
@@ -1988,24 +2447,24 @@ The concatenation operator combines multiple values into one.
 </thead>
 <tbody>
 <tr>
-  <td><pre>STRING || STRING [ || ... ]</pre></td>
-<td>STRING</td>
-<td>STRING</td>
+  <td><code>STRING || STRING [ || ... ]</code></td>
+  <td><code>STRING</code></td>
+  <td><code>STRING</code></td>
 </tr>
 <tr>
-  <td><pre>BYTES || BYTES [ || ... ]</pre></td>
-<td>BYTES</td>
-<td>STRING</td>
+  <td><code>BYTES || BYTES [ || ... ]</code></td>
+  <td><code>BYTES</code></td>
+  <td><code>STRING</code></td>
 </tr>
 <tr>
-  <td><pre>ARRAY&#60;T&#62; || ARRAY&#60;T&#62; [ || ... ]</pre></td>
-<td>ARRAY&#60;T&#62;</td>
-<td>ARRAY&#60;T&#62;</td>
+  <td><code>ARRAY&#60;T&#62; || ARRAY&#60;T&#62; [ || ... ]</code></td>
+  <td><code>ARRAY&#60;T&#62;</code></td>
+  <td><code>ARRAY&#60;T&#62;</code></td>
 </tr>
 </tbody>
 </table>
 
-### WITH operator
+### `WITH` operator
 
 ```sql
 WITH(variable_assignment[, ...], result_expression)
@@ -2111,6 +2570,8 @@ FROM UNNEST([
 
 [array-subscript-operator]: #array_subscript_operator
 
+[struct-subscript-operator]: #struct_subscript_operator
+
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
 
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
@@ -2120,6 +2581,10 @@ FROM UNNEST([
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
 
 [operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[default-und]: https://github.com/unicode-org/cldr/blob/main/common/collation/root.xml
+
+[ignorable-chars]: https://www.unicode.org/charts/collation/chart_Ignored.html
 
 [protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
 
@@ -2135,11 +2600,15 @@ FROM UNNEST([
 
 [operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
 
-[link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
-
 [operators-link-to-array-safeoffset]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#safe-offset-and-safe-ordinal
 
 [flatten-operation]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
+
+[json-functions]: https://github.com/google/zetasql/blob/master/docs/json_functions.md
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_funcs
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 
 <!-- mdlint on -->
 

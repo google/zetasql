@@ -126,6 +126,16 @@ GetCollatorFromResolvedCollation(const ResolvedCollation& resolved_collation) {
 }
 
 absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+GetCollatorFromResolvedCollationList(
+    const std::vector<ResolvedCollation>& collation_list) {
+  ZETASQL_RET_CHECK_LE(collation_list.size(), 1);
+  if (collation_list.empty()) {
+    return nullptr;
+  }
+  return GetCollatorFromResolvedCollation(collation_list[0]);
+}
+
+absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
 GetCollatorFromResolvedCollationValue(const Value& collation_value) {
   ResolvedCollationProto resolved_collation_proto;
   bool is_valid = resolved_collation_proto.ParsePartialFromString(

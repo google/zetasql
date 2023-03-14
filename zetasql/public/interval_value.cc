@@ -18,6 +18,7 @@
 
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <ostream>
 #include <string>
@@ -191,7 +192,7 @@ absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetSum() const {
 }
 
 absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetAverage(
-    int64_t count) const {
+    int64_t count, bool round_to_micros) const {
   ZETASQL_DCHECK_GT(count, 0);
 
   // AVG(interval) = SUM(interval) / count, but SUM(interval) may not be a
@@ -219,9 +220,14 @@ absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetAverage(
     return absl::OutOfRangeError("Interval overflow during Avg operation");
   }
 
-  return IntervalValue::FromMonthsDaysNanos(static_cast<int64_t>(months),
-                                            static_cast<int64_t>(days),
-                                            static_cast<__int128>(nanos));
+  __int128 nanos_value = static_cast<__int128>(nanos);
+  if (round_to_micros) {
+    int64_t micros_value = nanos_value / IntervalValue::kNanosInMicro;
+    return IntervalValue::FromMonthsDaysMicros(
+        static_cast<int64_t>(months), static_cast<int64_t>(days), micros_value);
+  }
+  return IntervalValue::FromMonthsDaysNanos(
+      static_cast<int64_t>(months), static_cast<int64_t>(days), nanos_value);
 }
 
 std::string IntervalValue::SumAggregator::SerializeAsProtoBytes() const {
@@ -865,7 +871,7 @@ class ISO8601Parser {
       }
       // We now expect to see positive number (possibly with fractional digits)
       // followed by datetime part letter.
-      ZETASQL_RETURN_IF_ERROR(ParseNumber());
+      ZETASQL_RETURN_IF_ERROR(ParseNumber(input));
       int64_t number;
       if (!absl::SimpleAtoi(digits_, &number)) {
         return MakeIntervalParsingError(input)
@@ -965,13 +971,15 @@ class ISO8601Parser {
   }
 
  private:
-  absl::Status ParseNumber() {
+  absl::Status ParseNumber(absl::string_view full_input_for_error) {
     digits_ = {};
     decimal_point_ = {};
     decimal_digits_ = {};
     if (!RE2::Consume(&input_, *kRENumber, &digits_, &decimal_point_,
                       &decimal_digits_)) {
-      return MakeEvalError() << "Expected number";
+      return MakeIntervalParsingError(full_input_for_error)
+             << ": Expected number at "
+             << (input_.empty() ? "end of string" : PrintChar(input_[0]));
     }
     return absl::OkStatus();
   }

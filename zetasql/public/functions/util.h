@@ -84,6 +84,10 @@ extern template std::string BinaryOverflowMessage<float>(
 extern template std::string BinaryOverflowMessage<double>(
     double in1, double in2, absl::string_view operator_symbol);
 
+template <>
+std::string BinaryOverflowMessage<long double>(
+    long double in1, long double in2, absl::string_view operator_symbol);
+
 template <typename T>
 std::string DivisionByZeroMessage(T in1, T in2);
 
@@ -92,6 +96,9 @@ extern template std::string DivisionByZeroMessage<uint64_t>(uint64_t in1,
                                                           uint64_t in2);
 extern template std::string DivisionByZeroMessage<double>(double in1,
                                                           double in2);
+template <>
+std::string DivisionByZeroMessage<long double>(long double in1,
+                                               long double in2);
 
 // Updates `status` with `msg` and force code to kOutOfRange.
 // Additionally, coerces msg to be valid UTF-8 by replacing any

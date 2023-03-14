@@ -153,35 +153,34 @@ using MapUtilInitT = typename internal_map_util::InitType<M>::type;
 //
 // This version assumes the key is printable, and includes it in the fatal log
 // message.
-template <typename M>
-const MapUtilMappedT<M>& FindOrDie(const M& m, const MapUtilKeyT<M>& key) {
+template <typename M, typename KeyType = MapUtilKeyT<M>>
+const MapUtilMappedT<M>& FindOrDie(const M& m, const KeyType& key) {
   auto it = m.find(key);
   ZETASQL_CHECK(it != m.end()) << "Map key not found: " << key;
   return zetasql_base::subtle::GetMapped(*it);
 }
 
 // Same as above, but returns a non-const reference.
-template <typename M>
+template <typename M, typename KeyType = MapUtilKeyT<M>>
 MapUtilMappedT<M>& FindOrDie(M& m,  // NOLINT
-                             const MapUtilKeyT<M>& key) {
+                             const KeyType& key) {
   auto it = m.find(key);
   ZETASQL_CHECK(it != m.end()) << "Map key not found: " << key;
   return zetasql_base::subtle::GetMapped(*it);
 }
 
 // Same as FindOrDie above, but doesn't log the key on failure.
-template <typename M>
-const MapUtilMappedT<M>& FindOrDieNoPrint(const M& m,
-                                          const MapUtilKeyT<M>& key) {
+template <typename M, typename KeyType = MapUtilKeyT<M>>
+const MapUtilMappedT<M>& FindOrDieNoPrint(const M& m, const KeyType& key) {
   auto it = m.find(key);
   ZETASQL_CHECK(it != m.end()) << "Map key not found";
   return zetasql_base::subtle::GetMapped(*it);
 }
 
 // Same as above, but returns a non-const reference.
-template <typename M>
+template <typename M, typename KeyType = MapUtilKeyT<M>>
 MapUtilMappedT<M>& FindOrDieNoPrint(M& m,  // NOLINT
-                                    const MapUtilKeyT<M>& key) {
+                                    const KeyType& key) {
   auto it = m.find(key);
   ZETASQL_CHECK(it != m.end()) << "Map key not found";
   return zetasql_base::subtle::GetMapped(*it);
@@ -190,9 +189,8 @@ MapUtilMappedT<M>& FindOrDieNoPrint(M& m,  // NOLINT
 // Returns a const reference to the value associated with the given key if it
 // exists, otherwise returns a const reference to a value-initialized object
 // that is never destroyed.
-template <typename M>
-const MapUtilMappedT<M>& FindWithDefault(const M& m,
-                                         const MapUtilKeyT<M>& key) {
+template <typename M, typename KeyType = MapUtilKeyT<M>>
+const MapUtilMappedT<M>& FindWithDefault(const M& m, const KeyType& key) {
   auto it = m.find(key);
   if (it != m.end()) return zetasql_base::subtle::GetMapped(*it);
   return internal_map_util::ValueInitializedDefault<MapUtilMappedT<M>>();
@@ -222,8 +220,8 @@ const MapUtilMappedT<M>& FindWithDefault(const M& m, const MapUtilKeyT<M>& key,
 
 // Returns a pointer to the const value associated with the given key if it
 // exists, or null otherwise.
-template <typename M>
-const MapUtilMappedT<M>* FindOrNull(const M& m, const MapUtilKeyT<M>& key) {
+template <typename M, typename KeyType = MapUtilKeyT<M>>
+const MapUtilMappedT<M>* FindOrNull(const M& m, const KeyType& key) {
   auto it = m.find(key);
   if (it == m.end()) return nullptr;
   return &zetasql_base::subtle::GetMapped(*it);
@@ -231,9 +229,9 @@ const MapUtilMappedT<M>* FindOrNull(const M& m, const MapUtilKeyT<M>& key) {
 
 // Returns a pointer to the non-const value associated with the given key if it
 // exists, or null otherwise.
-template <typename M>
+template <typename M, typename KeyType = MapUtilKeyT<M>>
 MapUtilMappedT<M>* FindOrNull(M& m,  // NOLINT
-                              const MapUtilKeyT<M>& key) {
+                              const KeyType& key) {
   auto it = m.find(key);
   if (it == m.end()) return nullptr;
   return &zetasql_base::subtle::GetMapped(*it);
@@ -245,8 +243,8 @@ MapUtilMappedT<M>* FindOrNull(M& m,  // NOLINT
 //
 // This function does not distinguish between a missing key and a key mapped
 // to a null value.
-template <typename M>
-MapUtilMappedT<M> FindPtrOrNull(const M& m, const MapUtilKeyT<M>& key) {
+template <typename M, typename KeyType = MapUtilKeyT<M>>
+MapUtilMappedT<M> FindPtrOrNull(const M& m, const KeyType& key) {
   auto it = m.find(key);
   if (it == m.end()) return MapUtilMappedT<M>();
   return zetasql_base::subtle::GetMapped(*it);
@@ -256,9 +254,9 @@ MapUtilMappedT<M> FindPtrOrNull(const M& m, const MapUtilKeyT<M>& key) {
 //
 // This function is needed for containers that propagate constness to the
 // pointee, such as boost::ptr_map.
-template <typename M>
+template <typename M, typename KeyType = MapUtilKeyT<M>>
 MapUtilMappedT<M> FindPtrOrNull(M& m,  // NOLINT
-                                const MapUtilKeyT<M>& key) {
+                                const KeyType& key) {
   auto it = m.find(key);
   if (it == m.end()) return MapUtilMappedT<M>();
   return zetasql_base::subtle::GetMapped(*it);

@@ -69,6 +69,22 @@ SELECT value.string_int32_map[SAFE_KEY("bar")] FROM Table0;
 ARRAY<STRUCT<INT32>>[{456}]
 ==
 
+# This case repros a crash found in RQG
+# Even if this shape can't happen in "real protos" the code-path is still
+# reachable by user statements and we at least need it to not crash, having
+# a reasonable result is nice too.
+[name=map_array_with_a_null_entry]
+SELECT ARRAY<`zetasql_test__.MessageWithMapField.Uint64StringMapEntry`>[
+    NEW `zetasql_test__.MessageWithMapField.Uint64StringMapEntry`(
+      1 AS key,
+      "hello there" AS value
+    ),
+    NULL
+  ][SAFE_KEY(1)]
+--
+ARRAY<STRUCT<STRING>>[{"hello there"}]
+==
+
 [name=map_lookup_with_conflicting_values_for_key_takes_last_matching_value]
 (SELECT [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value),
          NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("bar" AS key, 456 AS value),
@@ -226,6 +242,16 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
+[name=modify_map_delete_duplicate_key]
+SELECT MODIFY_MAP((NEW zetasql_test__.MessageWithMapField(
+    [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 2 AS value),
+     NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 1 AS value)] AS string_int32_map)).string_int32_map, "foo", NULL);
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[]}
+]
+
+==
 [name=modify_map_delete_nonexistent_key]
 SELECT MODIFY_MAP(value.string_int32_map, "quux", NULL) FROM Table0;
 --
@@ -299,4 +325,82 @@ ARRAY<STRUCT<result PROTO<zetasql_test__.MessageWithMapField>>>[
        value: 5
      }
    }}
+]
+==
+
+[name=map_lookup_with_ordinal]
+[required_features=]
+# If we handle proto maps, the last entry should win.
+# If we do not, the order should be unaffected.
+# Therefore we make the first and last the same.
+SELECT NEW zetasql_test__.MessageWithMapField(
+    [
+      NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("foo" AS key, 789.0 AS value),
+      NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("foo" AS key, 456.0 AS value),
+      NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("foo" AS key, 789.0 AS value)
+    ] AS string_double_map).string_double_map[ORDINAL(1)]
+AS result
+--
+ARRAY<STRUCT<result PROTO<zetasql_test__.MessageWithMapField.StringDoubleMapEntry>>>[
+  {{
+     key: "foo"
+     value: 789
+   }}
+]
+==
+
+[name=map_deduplicate_and_preserve_each_key]
+[required_features=]
+# Whether or not proto maps are enabled, maps should be deduplicated by key,
+# with the last instance of a given key winning.
+SELECT NEW zetasql_test__.MessageWithMapField(
+    [
+      NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("foo" AS key, 123.0 AS value),
+      NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("bar" AS key, 456.0 AS value),
+      NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("foo" AS key, 456.0 AS value),
+      NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("foo" AS key, 789.0 AS value)
+    ] AS string_double_map) AS result;
+--
+ARRAY<STRUCT<result PROTO<zetasql_test__.MessageWithMapField>>>[
+  {{
+     string_double_map {
+       key: "bar"
+       value: 456
+     }
+     string_double_map {
+       key: "foo"
+       value: 789
+     }
+   }}
+]
+==
+
+[name=array_of_map_entry_does_not_deduplicate]
+[required_features=]
+# This test ensures that we don't interpret all arrays of map entries as
+# protobuf maps for the purpose of deduplication. In the code, an array of map
+# entries is considered to be *compatible* with proto maps. Be we want to make
+# sure that they aren't treated as identical.
+SELECT [
+  NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("foo" AS key, 123.0 AS value),
+  NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("foo" AS key, 456.0 AS value),
+  NEW zetasql_test__.MessageWithMapField.StringDoubleMapEntry("foo" AS key, 789.0 AS value)
+]
+AS result
+--
+ARRAY<STRUCT<result ARRAY<>>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringDoubleMapEntry>>[
+     {
+       key: "foo"
+       value: 123
+     },
+     {
+       key: "foo"
+       value: 456
+     },
+     {
+       key: "foo"
+       value: 789
+     }
+   ]}
 ]

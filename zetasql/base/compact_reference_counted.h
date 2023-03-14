@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 #include <atomic>
+#include <type_traits>
 
 namespace zetasql_base {
 namespace refcount {

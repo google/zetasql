@@ -65,7 +65,7 @@ class ErrorCatalog : public Catalog {
                         const Type** type,
                         const FindOptions& options = FindOptions()) override;
   absl::Status FindConstantWithPathPrefix(
-      const absl::Span<const std::string> path, int* num_names_consumed,
+      absl::Span<const std::string> path, int* num_names_consumed,
       const Constant** constant,
       const FindOptions& options = FindOptions()) override;
 

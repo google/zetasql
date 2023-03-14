@@ -68,11 +68,19 @@ class Value;
 // - 'field' = repeated NullableInt64 (wrapper for an optional int64_t)
 //             or optional NullableInt64Array (wrapper for a repeated int64_t)
 //   'value' has TYPE_INT64 or TYPE_ARRAY(INT64)
+//
+// If `match_struct_fields_by_name` is false, we iterate through proto fields in
+// descriptor field order and assume that the nth proto field matches the nth
+// STRUCT field, for any encountered STRUCT (whether top-level or encountered
+// recursively).  If true, we instead map proto fields to STRUCT fields by name,
+// failing if there is no proto field corresponding to the name of the field
+// in the corresponding `zetasql::StructType`.
 absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
                                const google::protobuf::FieldDescriptor* field, int index,
                                const Type* type,
                                bool use_wire_format_annotations,
-                               Value* value_out);
+                               Value* value_out,
+                               bool match_struct_fields_by_name = false);
 
 // Merges the data in 'value' into the specified 'field' of 'proto_out'.
 //
@@ -152,11 +160,20 @@ absl::Status ConvertStructOrArrayValueToProtoMessage(
     google::protobuf::Message* proto_out);
 
 // Converts 'proto' to a Value and returns it in 'value_out'.
-// The type of the returned Value will be 'type', which must have been
+// The type of the returned Value will be 'type', which should have been
 // created using TypeFactory::MakeUnwrappedTypeFromProto() on the
-// descriptor of 'proto'.
+// descriptor of 'proto' if zetasql wrapper annotations are present and
+// expected to be honored.
+//
+// If `match_struct_fields_by_name` is false, we iterate through proto fields in
+// descriptor field order and assume that the nth proto field matches the nth
+// STRUCT field, for any encountered STRUCT (whether top-level or encountered
+// recursively).  If true, we instead map proto fields to STRUCT fields by name,
+// failing if there is no proto field corresponding to the name of the field
+// in the corresponding `zetasql::StructType`.
 absl::Status ConvertProtoMessageToStructOrArrayValue(
-    const google::protobuf::Message& proto, const Type* type, Value* value_out);
+    const google::protobuf::Message& proto, const Type* type, Value* value_out,
+    bool match_struct_fields_by_name = false);
 
 }  // namespace zetasql
 

@@ -22,7 +22,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.zetasql.TypeTestBase.getDescriptorPoolWithTypeProtoAndTypeKind;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
@@ -706,35 +705,6 @@ public class PreparedExpressionTest {
       final int requestCount = 8;
       for (int i = 0; i < requestCount; i++) {
         futures.add(stream.execute(ImmutableMap.of(), ImmutableMap.of()));
-      }
-
-      for (int i = 0; i < requestCount; i++) {
-        try {
-          Future<Value> future = futures.remove();
-
-          future.get();
-        } catch (InterruptedException | ExecutionException e) {
-          throw new RuntimeException(e);
-        }
-      }
-    }
-  }
-
-  @Test
-  public void testStreamBigRequest() {
-    try (PreparedExpression exp = new PreparedExpression("a")) {
-      AnalyzerOptions options = new AnalyzerOptions();
-      options.addExpressionColumn("a", TypeFactory.createSimpleType(TypeKind.TYPE_STRING));
-      exp.prepare(options);
-
-      PreparedExpression.Stream stream = exp.stream();
-      Queue<Future<Value>> futures = new ArrayDeque<>();
-
-      final int requestCount = 8;
-      ImmutableMap<String, Value> columns =
-          ImmutableMap.of("a", Value.createStringValue(Strings.repeat("a", 1024 * 1024)));
-      for (int i = 0; i < requestCount; i++) {
-        futures.add(stream.execute(columns, ImmutableMap.of()));
       }
 
       for (int i = 0; i < requestCount; i++) {

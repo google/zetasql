@@ -27,7 +27,9 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/analyzer/resolver.h"
 #include "zetasql/common/evaluator_registration_utils.h"
+#include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/test_util.h"
@@ -52,6 +54,7 @@
 #include "zetasql/reference_impl/type_helpers.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/scripting/error_helpers.h"
@@ -85,6 +88,12 @@ ABSL_FLAG(bool, reference_driver_enable_anonymization, false,
           "If true, enable the ZetaSQL Anonymization feature. See "
           "(broken link).");
 
+// TODO: Remove when zetasql::FEATURE_DIFFERENTIAL_PRIVACY is no
+// longer marked as in_development.
+ABSL_FLAG(bool, reference_driver_enable_differential_privacy, false,
+          "If true, enable the ZetaSQL new Differential Privacy syntax"
+          "feature. See (broken link).");
+
 namespace zetasql {
 
 ReferenceDriver::ReferenceDriver()
@@ -96,6 +105,14 @@ ReferenceDriver::ReferenceDriver()
   language_options_.EnableMaximumLanguageFeatures();
   if (absl::GetFlag(FLAGS_reference_driver_enable_anonymization)) {
     language_options_.EnableLanguageFeature(zetasql::FEATURE_ANONYMIZATION);
+  }
+  if (absl::GetFlag(FLAGS_reference_driver_enable_differential_privacy)) {
+    // Named arguments are required for Differential_privacy
+    language_options_.EnableLanguageFeature(zetasql::FEATURE_NAMED_ARGUMENTS);
+    language_options_.EnableLanguageFeature(
+        zetasql::FEATURE_DIFFERENTIAL_PRIVACY);
+    language_options_.EnableLanguageFeature(
+        zetasql::FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
   }
   language_options_.SetSupportedStatementKinds(
       Algebrizer::GetSupportedStatementKinds());
@@ -126,6 +143,14 @@ ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
   }
   if (absl::GetFlag(FLAGS_reference_driver_enable_anonymization)) {
     language_options_.EnableLanguageFeature(zetasql::FEATURE_ANONYMIZATION);
+  }
+  if (absl::GetFlag(FLAGS_reference_driver_enable_differential_privacy)) {
+    // Named arguments are required for Differential_privacy
+    language_options_.EnableLanguageFeature(zetasql::FEATURE_NAMED_ARGUMENTS);
+    language_options_.EnableLanguageFeature(
+        zetasql::FEATURE_DIFFERENTIAL_PRIVACY);
+    language_options_.EnableLanguageFeature(
+        zetasql::FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
   }
   // Optional evaluator features need to be enabled "manually" here since we do
   // not go through the public PreparedExpression/PreparedQuery interface, which
@@ -403,6 +428,7 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     bool* is_deterministic_output, bool* uses_unsupported_type,
     TestDatabase* database, std::string* created_table_name,
     const AnalyzerOutput* analyzer_out) {
+
   ZETASQL_CHECK(is_deterministic_output != nullptr);
   ZETASQL_CHECK(uses_unsupported_type != nullptr);
   *uses_unsupported_type = false;
@@ -470,9 +496,9 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
   ParameterMap column_map;
   SystemVariablesAlgebrizerMap algebrizer_system_variables;
   ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeStatement(
-      analyzer_options.language(), algebrizer_options, catalog.get(),
-      type_factory, analyzed->resolved_statement(), &algebrized_tree,
-      &algebrizer_parameters, &column_map, &algebrizer_system_variables));
+      analyzer_options.language(), algebrizer_options, type_factory,
+      analyzed->resolved_statement(), &algebrized_tree, &algebrizer_parameters,
+      &column_map, &algebrizer_system_variables));
   ZETASQL_VLOG(1) << "Algebrized tree:\n"
           << algebrized_tree->DebugString(true /* verbose */);
   ZETASQL_RET_CHECK(column_map.empty());

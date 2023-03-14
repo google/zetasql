@@ -144,7 +144,7 @@ class StructType : public ContainerType {
   const Type* GetElementType(int index) const override;
 
   std::string GetFormatElementPrefix(
-      const int index, const bool is_null,
+      int index, bool is_null,
       const FormatValueContentOptions& options) const override;
 
  private:

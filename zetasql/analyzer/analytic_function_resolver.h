@@ -370,8 +370,8 @@ class AnalyticFunctionResolver {
 
   absl::Status ResolveWindowFrameExpr(
       const ASTWindowFrameExpr* ast_frame_expr,
-      const ResolvedWindowFrame::FrameUnit frame_unit,
-      const Type* target_expr_type, ExprResolutionInfo* expr_resolution_info,
+      ResolvedWindowFrame::FrameUnit frame_unit, const Type* target_expr_type,
+      ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedWindowFrameExpr>*
           resolved_window_frame_expr);
 
@@ -381,8 +381,7 @@ class AnalyticFunctionResolver {
   // is ROWS. Otherwise, it is <ordering_expr_type>.
   absl::Status ResolveWindowFrameOffsetExpr(
       const ASTWindowFrameExpr* ast_frame_expr,
-      const ResolvedWindowFrame::FrameUnit frame_unit,
-      const Type* ordering_expr_type,
+      ResolvedWindowFrame::FrameUnit frame_unit, const Type* ordering_expr_type,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_offset_expr);
 

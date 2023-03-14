@@ -4,7 +4,7 @@
 
 ZetaSQL supports the following debugging functions.
 
-### ERROR
+### `ERROR`
 
 ```sql
 ERROR(error_message)
@@ -64,7 +64,7 @@ WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));
 -- Error: x must be positive but is -1
 ```
 
-### IFERROR
+### `IFERROR`
 
 ```sql
 IFERROR(try_expression, catch_expression)
@@ -202,7 +202,7 @@ SELECT IFERROR(ERROR('a'), ERROR('b')) AS result
 
 [supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
-### ISERROR
+### `ISERROR`
 
 ```sql
 ISERROR(try_expression)
@@ -307,7 +307,7 @@ SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
 +----------+
 ```
 
-### NULLIFERROR
+### `NULLIFERROR`
 
 ```sql
 NULLIFERROR(try_expression)

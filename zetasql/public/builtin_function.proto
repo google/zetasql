@@ -50,12 +50,14 @@ enum FunctionSignatureId {
   // 1700-1799 Net functions                  (NextId: 1716)
   // 1800-1899 More time functions            (NextId: 1864)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
-  // 2000-2199 Geography functions            (NextId: 2088)
+  // 2000-2199 Geography functions            (NextId: 2090)
   // 2200-2231 Anonymization functions        (NextId: 2232)
   // 2300-2499 Numeric & more math functions  (NextId: 2325)
   // 2500-2599 Array and proto map functions  (NextId: 2542)
-  // 2600-2699 More misc functions.           (NextId: 2610)
-  // 2700-2799 Aggregate functions II         (NextId: 2701)
+  // 2600-2699 More misc functions.           (NextId: 2613)
+  // 2700-2799 Aggregate functions II         (NextId: 2746)
+  // 2800-2899 Differential Privacy functions (NextId: 2832)
+  // 2900-2999 Range functions                (NextId: 2916)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -905,10 +907,15 @@ enum FunctionSignatureId {
   // keys.rewrap_keyset(string, string, bytes)
   FN_KEYS_REWRAP_KEYSET = 1944;
 
-  FN_KMS_ENCRYPT_STRING = 1920;  // kms.encrypt(string, string)
-  FN_KMS_ENCRYPT_BYTES = 1921;   // kms.encrypt(string, bytes)
-  FN_KMS_DECRYPT_STRING = 1922;  // kms.decrypt_string(string, bytes)
-  FN_KMS_DECRYPT_BYTES = 1923;   // kms.decrypt_bytes(string, bytes)
+  // kms.* functions have been deprecated/removed from the language
+  reserved "FN_KMS_ENCRYPT_STRING";
+  reserved 1920;  // FN_KMS_ENCRYPT_STRING
+  reserved "FN_KMS_ENCRYPT_BYTES";
+  reserved 1921;  // FN_KMS_ENCRYPT_BYTES
+  reserved "FN_KMS_DECRYPT_STRING";
+  reserved 1922;  // FN_KMS_DECRYPT_STRING
+  reserved "FN_KMS_DECRYPT_BYTES";
+  reserved 1923;  // FN_KMS_DECRYPT_BYTES
 
   // TODO: Remove all envelop encryption expressions after disable
   // collapse encryption functions
@@ -1003,6 +1010,7 @@ enum FunctionSignatureId {
   FN_ST_END_POINT = 2077;
   FN_ST_IS_CLOSED = 2086;
   FN_ST_IS_RING = 2087;
+  FN_ST_DUMP_POINTS = 2088;
 
   // Measures
   FN_ST_LENGTH = 2040;
@@ -1012,6 +1020,7 @@ enum FunctionSignatureId {
   FN_ST_MAX_DISTANCE = 2044;
   FN_ST_AZIMUTH = 2080;
   FN_ST_ANGLE = 2081;
+  FN_ST_LINE_LOCATE_POINT = 2089;
 
   // Parsers/formatters
   FN_ST_GEOG_FROM_TEXT = 2050;
@@ -1088,6 +1097,46 @@ enum FunctionSignatureId {
   FN_ANON_AVG_DOUBLE_WITH_REPORT_JSON = 2230;
   FN_ANON_AVG_DOUBLE_WITH_REPORT_PROTO = 2231;
 
+  // Differentially privacy functions ((broken link)).
+  FN_DIFFERENTIAL_PRIVACY_COUNT = 2800;
+  FN_DIFFERENTIAL_PRIVACY_COUNT_STAR = 2801;
+  FN_DIFFERENTIAL_PRIVACY_SUM_INT64 = 2802;
+  FN_DIFFERENTIAL_PRIVACY_SUM_UINT64 = 2803;
+  FN_DIFFERENTIAL_PRIVACY_SUM_DOUBLE = 2804;
+  FN_DIFFERENTIAL_PRIVACY_SUM_NUMERIC = 2805;
+  FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE = 2806;
+  FN_DIFFERENTIAL_PRIVACY_AVG_NUMERIC = 2807;
+  FN_DIFFERENTIAL_PRIVACY_VAR_POP_DOUBLE = 2808;
+  // This is an internal function signature, and is not in the language.
+  FN_DIFFERENTIAL_PRIVACY_VAR_POP_DOUBLE_ARRAY = 2809;
+  FN_DIFFERENTIAL_PRIVACY_STDDEV_POP_DOUBLE = 2810;
+  // This is an internal function signature, and is not in the language.
+  FN_DIFFERENTIAL_PRIVACY_STDDEV_POP_DOUBLE_ARRAY = 2811;
+  FN_DIFFERENTIAL_PRIVACY_PERCENTILE_CONT_DOUBLE = 2812;
+  // This is an internal function signature, and is not in the language.
+  FN_DIFFERENTIAL_PRIVACY_PERCENTILE_CONT_DOUBLE_ARRAY = 2813;
+  FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_INT64 = 2814;
+  FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_DOUBLE = 2815;
+  FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_JSON_UINT64 = 2816;
+  FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_INT64 = 2817;
+  FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_DOUBLE = 2818;
+  FN_DIFFERENTIAL_PRIVACY_SUM_REPORT_PROTO_UINT64 = 2819;
+  FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE = 2820;
+  // This is an internal function signature, and is not in the language.
+  FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY = 2821;
+  FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_JSON = 2822;
+  FN_DIFFERENTIAL_PRIVACY_COUNT_REPORT_PROTO = 2823;
+  FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_JSON = 2824;
+  FN_DIFFERENTIAL_PRIVACY_COUNT_STAR_REPORT_PROTO = 2825;
+  FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_REPORT_JSON = 2826;
+  FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_REPORT_PROTO = 2827;
+  // This is an internal function signature, and is not in the language.
+  FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY_REPORT_JSON = 2828;
+  // This is an internal function signature, and is not in the language.
+  FN_DIFFERENTIAL_PRIVACY_QUANTILES_DOUBLE_ARRAY_REPORT_PROTO = 2829;
+  FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_JSON = 2830;
+  FN_DIFFERENTIAL_PRIVACY_AVG_DOUBLE_REPORT_PROTO = 2831;
+
   // Array and proto map functions.
   FN_FLATTEN = 2500;  // flatten(array path) -> array
   // TODO: Move these to the array function section (2500-2599).
@@ -1140,12 +1189,14 @@ enum FunctionSignatureId {
   FN_ARRAY_AVG_NUMERIC = 2533;     // ARRAY_AVG(array<NUMERIC>) -> NUMERIC
   FN_ARRAY_AVG_BIGNUMERIC = 2534;  // ARRAY_AVG(array<BIGNUMERIC>) -> BIGNUMERIC
   FN_ARRAY_AVG_INTERVAL = 2535;    // ARRAY_AVG(array<INTERVAL>) -> INTERVAL
-  FN_ARRAY_OFFSET = 2536;    // ARRAY_OFFSET(array<T>, T [, ENUM]) -> INT64
-  FN_ARRAY_OFFSETS = 2537;   // ARRAY_OFFSETS(array<T>, T) -> ARRAY<INT64>
-  FN_ARRAY_FIND = 2538;      // ARRAY_FIND(array<T>, T [, ENUM]) -> T
-  FN_ARRAY_FIND_ALL = 2539;  // ARRAY_FIND_ALL(array<T>, T) -> ARRAY<T>
-  FN_ARRAY_MIN = 2540;       // ARRAY_MIN(array<T>) -> T
-  FN_ARRAY_MAX = 2541;       // ARRAY_MAX(array<T>) -> T
+  FN_ARRAY_OFFSET = 2536;      // ARRAY_OFFSET(array<T>, T [, ENUM]) -> INT64
+  FN_ARRAY_OFFSETS = 2537;     // ARRAY_OFFSETS(array<T>, T) -> ARRAY<INT64>
+  FN_ARRAY_FIND = 2538;        // ARRAY_FIND(array<T>, T [, ENUM]) -> T
+  FN_ARRAY_FIND_ALL = 2539;    // ARRAY_FIND_ALL(array<T>, T) -> ARRAY<T>
+  FN_ARRAY_MIN = 2540;         // ARRAY_MIN(array<T>) -> T
+  FN_ARRAY_MAX = 2541;         // ARRAY_MAX(array<T>) -> T
+  FN_ARRAY_MAX_FLOAT = 2542;   // ARRAY_MAX(array<FLOAT>) -> FLOAT
+  FN_ARRAY_MAX_DOUBLE = 2543;  // ARRAY_MAX(array<DOUBLE>) -> DOUBLE
 
   // More misc functions
   FN_JSON_TO_INT64 = 2600;   // int64(json) -> int64
@@ -1160,5 +1211,34 @@ enum FunctionSignatureId {
   FN_JSON_LAX_TO_DOUBLE = 2609;  // lax_double(json) -> double
 
   // Range functions
-  FN_RANGE = 2605;  // RANGE(T start, T end) -> range
+  FN_RANGE = 2605;                     // RANGE(T start, T end) -> range
+  FN_RANGE_IS_START_UNBOUNDED = 2900;  // is_start_unbounded(range) -> bool
+  // This was added to handle untyped NULL for RANGE_IS_START_UNBOUNDED
+  FN_RANGE_IS_START_UNBOUNDED_INT64 =
+      2901;                          // is_start_unbounded(int64) -> bool
+  FN_RANGE_IS_END_UNBOUNDED = 2902;  // is_end_unbounded(range) -> bool
+  // This was added to handle untyped NULL for RANGE_IS_END_UNBOUNDED
+  FN_RANGE_IS_END_UNBOUNDED_INT64 = 2903;  // is_end_unbounded(int64) -> bool
+  FN_RANGE_START = 2904;                   // range_start(range<T>) -> T
+  // This was added to handle untyped NULL for FN_RANGE_START
+  FN_RANGE_START_INT64 = 2905;  // range_start(int64) -> int64
+  FN_RANGE_END = 2906;          // range_end(range<T>) -> T
+  // This was added to handle untyped NULL for FN_RANGE_END
+  FN_RANGE_END_INT64 = 2907;  // range_end(int64) -> int64
+  FN_RANGE_OVERLAPS = 2908;   // range_overlaps(range<T>, range<T>) -> bool
+  // These were added to handle untyped NULL for FN_RANGE_OVERLAPS
+  // range_overlaps(int64, range<T>) -> bool
+  FN_RANGE_OVERLAPS_LEFT_INT64 = 2909;
+  // range_overlaps(range<T>, int64) -> bool
+  FN_RANGE_OVERLAPS_RIGHT_INT64 = 2910;
+  // range_overlaps(int64, int64) -> bool
+  FN_RANGE_OVERLAPS_BOTH_INT64 = 2911;
+  FN_RANGE_INTERSECT = 2912;  // range_intersect(range<T>, range<T>) -> range<T>
+  // These were added to handle untyped NULL for FN_RANGE_INTERSECT
+  // range_intersect(int64, range<T>) -> int64
+  FN_RANGE_INTERSECT_LEFT_INT64 = 2913;
+  // range_intersect(range<T>, int64) -> int64
+  FN_RANGE_INTERSECT_RIGHT_INT64 = 2914;
+  // range_intersect(int64, int64) -> int64
+  FN_RANGE_INTERSECT_BOTH_INT64 = 2915;
 }

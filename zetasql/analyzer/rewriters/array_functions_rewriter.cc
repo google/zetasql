@@ -22,9 +22,7 @@
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
-#include "zetasql/public/builtin_function.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
@@ -38,7 +36,6 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -81,7 +78,7 @@ class ArrayFunctionRewriteVisitor : public ResolvedASTDeepCopyVisitor {
                 ARRAY(
                   SELECT element
                   FROM UNNEST(array_input) AS element WITH OFFSET off
-                  WHERE INVOKE(@lambda, element, off)
+                  WHERE lambda(element, off)
                   ORDER BY off
                 )
               )
@@ -95,7 +92,7 @@ class ArrayFunctionRewriteVisitor : public ResolvedASTDeepCopyVisitor {
             IF (array_input IS NULL,
                 NULL,
                 ARRAY(
-                  SELECT INVOKE(@lambda, element, off)
+                  SELECT lambda(element, off)
                   FROM UNNEST(array_input) AS element WITH OFFSET off
                   ORDER BY off
                 )
@@ -122,7 +119,7 @@ class ArrayFunctionRewriteVisitor : public ResolvedASTDeepCopyVisitor {
                 NULL,
                 EXISTS(SELECT 1
                        FROM UNNEST(array_input) AS element
-                       WHERE INVOKE(@lambda, element)
+                       WHERE lambda(element)
                 )
             )
           )";
@@ -210,6 +207,8 @@ class ArrayFunctionRewriteVisitor : public ResolvedASTDeepCopyVisitor {
     // Holds the value for chosen_template. Only computed if actually needed.
     std::string safe_template;
     if (node->error_mode() == ResolvedFunctionCall::SAFE_ERROR_MODE) {
+      ZETASQL_RETURN_IF_ERROR(CheckCatalogSupportsSafeMode(
+          node->function()->SQLName(), analyzer_options_, *catalog_));
       safe_template = absl::StrCat("NULLIFERROR(", unsafe_template, ")");
       chosen_temlpate = safe_template;
     }

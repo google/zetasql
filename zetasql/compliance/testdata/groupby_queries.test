@@ -2151,17 +2151,6 @@ ARRAY<STRUCT<
   {34, "1", -1}
 ]
 ==
-
-#
-# Negative cases
-#
-[name=groupby_non_groupby_column_in_select]
-SELECT int64_val, int32_val FROM AllTypesTable GROUP BY int64_val
---
-ERROR: generic::invalid_argument: SELECT list expression references column int32_val which is neither grouped nor aggregated [at 1:19]
-SELECT int64_val, int32_val FROM AllTypesTable GROUP BY int64_val
-                  ^
-==
 [name=groupby_expr_in_select]
 SELECT int64_val + 1 FROM AllTypesTable GROUP BY int64_val + 1
 --
@@ -2595,7 +2584,7 @@ ARRAY<STRUCT<row_id INT64, row_id INT64>>[
 # Grouping of doubles.
 # -------------------
 [name=groupby_zeroes]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DOUBLE
 from (select -0.0 DOUBLE union all
       select +0.0 union all
@@ -2617,17 +2606,11 @@ from (select -0.0 DOUBLE union all
       select cast("+0.0" as DOUBLE)) val
 GROUP BY DOUBLE
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{0}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 20:10]
-GROUP BY DOUBLE
-         ^
 ==
 
 [name=groupby_positive_infinities]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DOUBLE
 from (select IEEE_DIVIDE(1, 0) DOUBLE union all
       select POW(0.1, IEEE_DIVIDE(-1, 0)) union all
@@ -2638,17 +2621,11 @@ from (select IEEE_DIVIDE(1, 0) DOUBLE union all
       select CAST("Inf" as DOUBLE)) val
 GROUP BY DOUBLE
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 9:10]
-GROUP BY DOUBLE
-         ^
 ==
 
 [name=groupby_negative_infinities]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DOUBLE
 from (select IEEE_DIVIDE(-1, 0) DOUBLE union all
       select POW(IEEE_DIVIDE(-1, 0), 3) union all
@@ -2656,17 +2633,11 @@ from (select IEEE_DIVIDE(-1, 0) DOUBLE union all
       select CAST("-Inf" as DOUBLE)) val
 GROUP BY DOUBLE
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{-inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 6:10]
-GROUP BY DOUBLE
-         ^
 ==
 
 [name=groupby_nan]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT NAN
 from (select TAN(IEEE_DIVIDE(1, 0)) NAN union all
       select TAN(IEEE_DIVIDE(-1, 0)) union all
@@ -2679,17 +2650,11 @@ from (select TAN(IEEE_DIVIDE(1, 0)) NAN union all
       select -cast("NAN" as DOUBLE)) val
 GROUP BY NAN
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<NAN DOUBLE>>[{nan}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 11:10]
-GROUP BY NAN
-         ^
 ==
 
 [name=groupby_doubles]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DOUBLE
 from (select -0.0 DOUBLE union all
       select +0.0 union all
@@ -2739,17 +2704,11 @@ from (select -0.0 DOUBLE union all
       select -cast("NAN" as DOUBLE)) val
 GROUP BY DOUBLE
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{NULL}, {nan}, {-inf}, {-1}, {0}, {1}, {inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 48:10]
-GROUP BY DOUBLE
-         ^
 ==
 
 [name=groupby_orderby_desc_doubles]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DOUBLE
 from (select -0.0 DOUBLE union all
       select +0.0 union all
@@ -2799,20 +2758,14 @@ from (select -0.0 DOUBLE union all
       select -cast("NAN" as DOUBLE)) val
 GROUP BY DOUBLE ORDER BY DOUBLE DESC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{inf}, {1}, {0}, {-1}, {-inf}, {nan}, {NULL}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 48:10]
-GROUP BY DOUBLE ORDER BY DOUBLE DESC
-         ^
 ==
 
 # -------------------
 # Grouping of floats.
 # -------------------
 [name=groupby_zeroes_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT FLOAT
 from (select cast(-0.0 as float) FLOAT union all
       select cast(+0.0 as float) union all
@@ -2834,17 +2787,11 @@ from (select cast(-0.0 as float) FLOAT union all
       select cast("+0.0" as float)) val
 GROUP BY FLOAT
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{0}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type FLOAT is not allowed [at 20:10]
-GROUP BY FLOAT
-         ^
 ==
 
 [name=groupby_positive_infinities_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT FLOAT
 from (select cast(IEEE_DIVIDE(1, 0) as float) FLOAT union all
       select cast(POW(0.1, IEEE_DIVIDE(-1, 0)) as float) union all
@@ -2855,17 +2802,11 @@ from (select cast(IEEE_DIVIDE(1, 0) as float) FLOAT union all
       select CAST("Inf" as float)) val
 GROUP BY FLOAT
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type FLOAT is not allowed [at 9:10]
-GROUP BY FLOAT
-         ^
 ==
 
 [name=groupby_negative_infinities_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT FLOAT
 from (select cast(IEEE_DIVIDE(-1, 0) as float) FLOAT union all
       select cast(POW(IEEE_DIVIDE(-1, 0), 3) as float) union all
@@ -2873,17 +2814,11 @@ from (select cast(IEEE_DIVIDE(-1, 0) as float) FLOAT union all
       select CAST("-Inf" as float)) val
 GROUP BY FLOAT
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{-inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type FLOAT is not allowed [at 6:10]
-GROUP BY FLOAT
-         ^
 ==
 
 [name=groupby_nan_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT NAN
 from (select cast(TAN(IEEE_DIVIDE(1, 0)) as float) NAN union all
       select cast(TAN(IEEE_DIVIDE(-1, 0)) as float) union all
@@ -2896,17 +2831,11 @@ from (select cast(TAN(IEEE_DIVIDE(1, 0)) as float) NAN union all
       select -cast("NAN" as float)) val
 GROUP BY NAN
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<NAN FLOAT>>[{nan}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type FLOAT is not allowed [at 11:10]
-GROUP BY NAN
-         ^
 ==
 
 [name=groupby_floats]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT FLOAT
 from (select cast(-0.0 as float) FLOAT union all
       select cast(+0.0 as float) union all
@@ -2956,17 +2885,11 @@ from (select cast(-0.0 as float) FLOAT union all
       select -cast("NAN" as float)) val
 GROUP BY FLOAT
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{NULL}, {nan}, {-inf}, {-1}, {0}, {1}, {inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type FLOAT is not allowed [at 48:10]
-GROUP BY FLOAT
-         ^
 ==
 
 [name=groupby_orderby_desc_floats]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT FLOAT
 from (select cast(-0.0 as float) FLOAT union all
       select cast(+0.0 as float) union all
@@ -3016,13 +2939,7 @@ from (select cast(-0.0 as float) FLOAT union all
       select -cast("NAN" as float)) val
 GROUP BY FLOAT ORDER BY FLOAT DESC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{inf}, {1}, {0}, {-1}, {-inf}, {nan}, {NULL}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type FLOAT is not allowed [at 48:10]
-GROUP BY FLOAT ORDER BY FLOAT DESC
-         ^
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=group_by_nan_different_bitwise_representation]
@@ -3115,12 +3032,11 @@ ARRAY<STRUCT<uint64_val UINT64, cnt INT64>>[
 ]
 ==
 [name=groupby_single_base_column_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT float_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY float_val
 ORDER BY float_val ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<float_val FLOAT, cnt INT64>>[
   {NULL, 4},
   {nan, 2},
@@ -3138,19 +3054,13 @@ ARRAY<STRUCT<float_val FLOAT, cnt INT64>>[
   {0.75, 2},
   {inf, 2}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type FLOAT is not allowed [at 2:10]
-GROUP BY float_val
-         ^
 ==
 [name=groupby_single_base_column_double]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT double_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY double_val
 ORDER BY double_val ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<double_val DOUBLE, cnt INT64>>[
   {NULL, 4},
   {nan, 2},
@@ -3168,11 +3078,6 @@ ARRAY<STRUCT<double_val DOUBLE, cnt INT64>>[
   {0.625, 2},
   {inf, 2}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 2:10]
-GROUP BY double_val
-         ^
 ==
 [name=groupby_single_base_column_str]
 SELECT str_val, count(*) as cnt FROM AllTypesTable t
@@ -3455,12 +3360,11 @@ ARRAY<STRUCT<c1 UINT64, cnt INT64>>[
 ]
 ==
 [name=groupby_single_computed_column_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT float_val + 0.125 as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE, cnt INT64>>[
   {NULL, 4},
   {nan, 2},
@@ -3478,19 +3382,13 @@ ARRAY<STRUCT<c1 DOUBLE, cnt INT64>>[
   {0.875, 2},
   {inf, 2}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 2:10]
-GROUP BY c1
-         ^
 ==
 [name=groupby_single_computed_column_double]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT double_val * 2 as c1, count(*) as cnt FROM AllTypesTable t
 GROUP BY c1
 ORDER BY c1 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE, cnt INT64>>[
   {NULL, 4},
   {nan, 2},
@@ -3508,11 +3406,6 @@ ARRAY<STRUCT<c1 DOUBLE, cnt INT64>>[
   {1.25, 2},
   {inf, 2}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 2:10]
-GROUP BY c1
-         ^
 ==
 [name=groupby_single_computed_column_str]
 SELECT LTRIM(str_val) as c1, count(*) as cnt FROM AllTypesTable t
@@ -3732,12 +3625,11 @@ ARRAY<STRUCT<uint64_val UINT64, int32_val INT32, cnt INT64>>[
 ]
 ==
 [name=groupby_multi_base_column_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT float_val, double_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY float_val, double_val
 ORDER BY float_val ASC, double_val ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, cnt INT64>>[
   {NULL, NULL, 2},
   {NULL, -0, 2},
@@ -3757,19 +3649,13 @@ ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE, cnt INT64>>[
   {0.75, -0.25, 2},
   {inf, -inf, 2}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type FLOAT is not allowed [at 2:10]
-GROUP BY float_val, double_val
-         ^
 ==
 [name=groupby_multi_base_column_double]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT double_val, str_val, count(*) as cnt FROM AllTypesTable t
 GROUP BY double_val, str_val
 ORDER BY double_val ASC, str_val DESC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<double_val DOUBLE, str_val STRING, cnt INT64>>[
   {NULL, "1", 2},
   {NULL, NULL, 2},
@@ -3789,11 +3675,6 @@ ARRAY<STRUCT<double_val DOUBLE, str_val STRING, cnt INT64>>[
   {0.625, "6", 2},
   {inf, "1", 2}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 2:10]
-GROUP BY double_val, str_val
-         ^
 ==
 [required_features=NUMERIC_TYPE]
 [name=groupby_multi_base_column_numeric]
@@ -4042,15 +3923,13 @@ ARRAY<STRUCT<a ARRAY<>, INT64>>[
 ==
 
 [name=groupby_array_struct]
-[test_features1=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
-[test_features2=V_1_2_GROUP_BY_ARRAY]
+[required_features=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
 SELECT [(CAST(FLOOR(primary_key / 4) AS INT64), bool_val),
         (MOD(int64_val, 2), NOT(bool_val))] AS a,
        COUNT(*)
 FROM TableLarge
 GROUP BY a
 --
-WITH FEATURES: V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY
 ARRAY<STRUCT<a ARRAY<>, INT64>>[
   {
     ARRAY<STRUCT<INT64, BOOL>>[{0, NULL}, {NULL, NULL}],
@@ -4081,28 +3960,16 @@ ARRAY<STRUCT<a ARRAY<>, INT64>>[
     2
   }
 ]
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
-ERROR: generic::invalid_argument: Grouping by expressions of type ARRAY containing STRUCT is not allowed [at 5:10]
-GROUP BY a
-         ^
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Grouping by expressions of type ARRAY is not allowed [at 5:10]
-GROUP BY a
-         ^
 ==
 
 [name=groupby_array_struct_no_nulls_in_arrays]
-[test_features1=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
-[test_features2=V_1_2_GROUP_BY_ARRAY]
+[required_features=V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
 SELECT [(CAST(FLOOR(primary_key / 4) AS INT64), IFNULL(bool_val, false)),
         (IFNULL(MOD(int64_val, 2), -1), IFNULL(NOT(bool_val), false))] AS a,
        COUNT(*)
 FROM TableLarge
 GROUP BY a
 --
-WITH FEATURES: V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY
 ARRAY<STRUCT<a ARRAY<>, INT64>>[
   {
     ARRAY<STRUCT<INT64, BOOL>>[{0, false}, {-1, false}],
@@ -4133,28 +4000,16 @@ ARRAY<STRUCT<a ARRAY<>, INT64>>[
     2
   }
 ]
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
-ERROR: generic::invalid_argument: Grouping by expressions of type ARRAY containing STRUCT is not allowed [at 5:10]
-GROUP BY a
-         ^
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Grouping by expressions of type ARRAY is not allowed [at 5:10]
-GROUP BY a
-         ^
 ==
 
 [name=groupby_struct_array]
-[test_features1=V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
-[test_features2=V_1_2_GROUP_BY_STRUCT]
+[required_features=V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
 SELECT ([CAST(FLOOR(primary_key / 4) AS INT64), MOD(int64_val, 2)],
         bool_val) s,
        COUNT(*)
 FROM TableLarge
 GROUP BY s
 --
-WITH FEATURES: V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY
 ARRAY<STRUCT<
         s STRUCT<ARRAY<>, BOOL>,
         INT64
@@ -4190,21 +4045,10 @@ ARRAY<STRUCT<
    {ARRAY<INT64>[2, 1], true},
    2
  }]
---
-WITH FEATURES: V_1_2_GROUP_BY_STRUCT
-ERROR: generic::invalid_argument: Grouping by expressions of type STRUCT containing ARRAY is not allowed [at 5:10]
-GROUP BY s
-         ^
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Grouping by expressions of type STRUCT is not allowed [at 5:10]
-GROUP BY s
-         ^
 ==
 
 [name=groupby_struct_array_no_nulls_in_arrays]
-[test_features1=V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
-[test_features2=V_1_2_GROUP_BY_STRUCT]
+[required_features=V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY]
 SELECT ([CAST(FLOOR(primary_key / 4) AS INT64), MOD(int64_val, 2)],
         bool_val) s,
        COUNT(*)
@@ -4212,7 +4056,6 @@ FROM TableLarge
 WHERE int64_val IS NOT NULL
 GROUP BY s
 --
-WITH FEATURES: V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY
 ARRAY<STRUCT<
         s STRUCT<ARRAY<>, BOOL>,
         INT64
@@ -4233,13 +4076,3 @@ ARRAY<STRUCT<
    {ARRAY<INT64>[2, 1], true},
    2
  }]
---
-WITH FEATURES: V_1_2_GROUP_BY_STRUCT
-ERROR: generic::invalid_argument: Grouping by expressions of type STRUCT containing ARRAY is not allowed [at 6:10]
-GROUP BY s
-         ^
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Grouping by expressions of type STRUCT is not allowed [at 6:10]
-GROUP BY s
-         ^

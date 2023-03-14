@@ -199,6 +199,103 @@ public abstract class Catalog implements Serializable {
   }
 
   /**
+   * Look up an object of Function from this Catalog on {@code path}.
+   *
+   * <p>If a Catalog implementation supports looking up a Function by path, it
+   * should implement the findFunction method. Alternatively, a Catalog can
+   * also contain nested catalogs, and implement findFunction method on
+   * the inner-most Catalog.
+   *
+   * <p>The default findFunction implementation traverses nested Catalogs until it reaches
+   * a Catalog that overrides findFunction, or until it gets to the last level of the
+   * path and then calls getFunction.
+   *
+   * <p>NOTE: The findFunction method take precedence over the getFunction method and will always
+   * be called first. So getFunction method does not need to be implemented if findFunction
+   * method is implemented. If both getFunction and findFunction are implemented (though not
+   * recommended), it is the implementation's responsibility to keep them
+   * consistent.
+   *
+   * @throws NotFoundException if the Function can not be found
+   */
+  public Function findFunction(List<String> path) throws NotFoundException {
+    return findFunction(path, new FindOptions());
+  }
+
+  public Function findFunction(List<String> path, FindOptions options) throws NotFoundException {
+    Preconditions.checkNotNull(path, "Invalid null Function name path");
+    Preconditions.checkArgument(!path.isEmpty(), "Invalid empty Function name path");
+    final String name = path.get(0);
+    if (path.size() > 1) {
+      Catalog catalog = getCatalog(name, options);
+      if (catalog == null) {
+        throw new NotFoundException(String.format(
+            "Function not found: Catalog %s not found in Catalog %s",
+            ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+      }
+      final List<String> pathSuffix = path.subList(1, path.size());
+      return catalog.findFunction(pathSuffix, options);
+    } else {
+      Function function = getFunction(name, options);
+      if (function == null) {
+        throw new NotFoundException(String.format(
+            "Function not found: %s not found in Catalog %s",
+            ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+      }
+      return function;
+    }
+  }
+
+  /**
+   * Look up an object of TableValuedFunction from this Catalog on {@code path}.
+   *
+   * <p>If a Catalog implementation supports looking up a TableValuedFunction by path, it
+   * should implement the findTableValuedFunction method. Alternatively, a Catalog can
+   * also contain nested catalogs, and implement findTableValuedFunction method on
+   * the inner-most Catalog.
+   *
+   * <p>The default findTableValuedFunction implementation traverses nested Catalogs until it
+   * reaches a Catalog that overrides findTableValuedFunction, or until it gets to the last level of
+   * the path and then calls getTableValuedFunction.
+   *
+   * <p>NOTE: The findTableValuedFunction method take precedence over the getTableValuedFunction
+   * method and will always be called first. So getTableValuedFunction method does not need to be
+   * implemented if findTableValuedFunction method is implemented. If both getTableValuedFunction
+   * and findTableValuedFunction are implemented (though not recommended), it is the
+   * implementation's responsibility to keep them consistent.
+   *
+   * @throws NotFoundException if the TableValuedFunction can not be found
+   */
+  public TableValuedFunction findTableValuedFunction(List<String> path) throws NotFoundException {
+    return findTableValuedFunction(path, new FindOptions());
+  }
+
+  public TableValuedFunction findTableValuedFunction(List<String> path, FindOptions options)
+      throws NotFoundException {
+    Preconditions.checkNotNull(path, "Invalid null TableValuedFunction name path");
+    Preconditions.checkArgument(!path.isEmpty(), "Invalid empty TableValuedFunction name path");
+    final String name = path.get(0);
+    if (path.size() > 1) {
+      Catalog catalog = getCatalog(name, options);
+      if (catalog == null) {
+        throw new NotFoundException(String.format(
+            "TableValuedFunction not found: Catalog %s not found in Catalog %s",
+            ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+      }
+      final List<String> pathSuffix = path.subList(1, path.size());
+      return catalog.findTableValuedFunction(pathSuffix, options);
+    } else {
+      TableValuedFunction function = getTableValuedFunction(name, options);
+      if (function == null) {
+        throw new NotFoundException(String.format(
+            "TableValuedFunction not found: %s not found in Catalog %s",
+            ZetaSQLStrings.toIdentifierLiteral(name), getFullName()));
+      }
+      return function;
+    }
+  }
+
+  /**
    * Look up an object of Procedure from this Catalog on {@code path}.
    *
    * <p>If a Catalog implementation supports looking up Procedure by path, it
@@ -317,6 +414,67 @@ public abstract class Catalog implements Serializable {
    * @return Table object if found, NULL if not found
    */
   protected Table getTable(
+      @SuppressWarnings("unused") String name, @SuppressWarnings("unused") FindOptions options) {
+    return null;
+  }
+
+  /**
+   * Get an object of Function from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>A NULL pointer should be returned if the object doesn't exist.
+   *
+   * <p>The default implementations always return null.
+   *
+   * @return Function object if found, NULL if not found
+   */
+  protected final Function getFunction(String name) {
+    return getFunction(name, new FindOptions());
+  }
+
+  /**
+   * NOTE: If findFunction is implemented, there is no need to implement getFunction,
+   * as the findFunction method takes precedence over getFunction and is always called first.
+   *
+   * <p>Get a Function from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>A NULL pointer should be returned if the object doesn't exist.
+   *
+   * <p>This is normally overridden in subclasses. The default implementations always return null.
+   *
+   * @return Function object if found, NULL if not found
+   */
+  protected Function getFunction(
+      @SuppressWarnings("unused") String name, @SuppressWarnings("unused") FindOptions options) {
+    return null;
+  }
+
+  /**
+   * Get an object of TableValuedFunction from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>A NULL pointer should be returned if the object doesn't exist.
+   *
+   * <p>The default implementations always return null.
+   *
+   * @return TableValuedFunction object if found, NULL if not found
+   */
+  protected final TableValuedFunction getTableValuedFunction(String name) {
+    return getTableValuedFunction(name, new FindOptions());
+  }
+
+  /**
+   * NOTE: If findTableValuedFunction is implemented, there is no need to implement
+   * getTableValuedFunction, as the findTableValuedFunction method takes precedence over
+   * getTableValuedFunction and is always called first.
+   *
+   * <p>Get a TableValuedFunction from this Catalog, without looking at any nested Catalogs.
+   *
+   * <p>A NULL pointer should be returned if the object doesn't exist.
+   *
+   * <p>This is normally overridden in subclasses. The default implementations always return null.
+   *
+   * @return TableValuedFunction object if found, NULL if not found
+   */
+  protected TableValuedFunction getTableValuedFunction(
       @SuppressWarnings("unused") String name, @SuppressWarnings("unused") FindOptions options) {
     return null;
   }

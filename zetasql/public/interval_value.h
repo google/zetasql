@@ -266,6 +266,16 @@ class IntervalValue final {
   // Divide by integer operator
   absl::StatusOr<IntervalValue> operator/(int64_t v) const;
 
+  // Multiply by the given integer.
+  ABSL_ATTRIBUTE_ALWAYS_INLINE
+  absl::StatusOr<IntervalValue> Multiply(int64_t v) const {
+    return (*this) * v;
+  }
+
+  // Divide by the given integer.
+  ABSL_ATTRIBUTE_ALWAYS_INLINE
+  absl::StatusOr<IntervalValue> Divide(int64_t v) const { return (*this) / v; }
+
   // Aggregates multiple INTERVAL values and produces sum and average of all
   // values. This class handles a temporary overflow while adding values.
   // OUT_OF_RANGE error is generated only if the result is outside of the valid
@@ -286,8 +296,12 @@ class IntervalValue final {
     // Returns OUT_OF_RANGE error on overflow of the division result.
     // Note, that with the proper invocation of AVG function, overflow is not
     // possible.
-    // Caller must ensure that count is positive non-zero.
-    absl::StatusOr<IntervalValue> GetAverage(int64_t count) const;
+    // Caller must ensure that <count> is positive non-zero.
+    // When <round_to_micros> is true, do a rounding towards zero on trailing
+    // nanos precision digits. When the second argument is not set, its default
+    // value is false.
+    absl::StatusOr<IntervalValue> GetAverage(
+        int64_t count, bool round_to_micros = false) const;
 
     // Merges the state with other SumAggregator instance's state.
     void MergeWith(const SumAggregator& other);

@@ -149,6 +149,21 @@ public class ASTNodes {
    # endif
   # endfor
     }
+{{blank_line}}
+    @Override
+    public void accept(ParseTreeVisitor visitor) {
+      visitor.visit(this);
+    }
+{{blank_line}}
+    @Override
+    protected void acceptChildren(ParseTreeVisitor visitor) {
+      super.acceptChildren(visitor);
+  # for field in node.fields
+   # if field.is_node_ptr or field.is_node_vector
+      visitor.descend({{field.name|lower_camel_case}});
+   # endif
+  # endfor
+    }
   }
 # endfor
 {{blank_line}}

@@ -16,6 +16,7 @@
 
 #include "zetasql/public/function_signature.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -124,6 +125,12 @@ absl::Status FunctionSignatureOptions::Deserialize(
   (*result)->set_propagates_collation(proto.propagates_collation());
   (*result)->set_uses_operation_collation(proto.uses_operation_collation());
   (*result)->set_rejects_collation(proto.rejects_collation());
+  if (proto.has_rewrite_options()) {
+    FunctionSignatureRewriteOptions rewrite_options;
+    ZETASQL_RETURN_IF_ERROR(FunctionSignatureRewriteOptions::Deserialize(
+        proto.rewrite_options(), rewrite_options));
+    (*result)->set_rewrite_options(rewrite_options);
+  }
 
   return absl::OkStatus();
 }
@@ -150,6 +157,27 @@ void FunctionSignatureOptions::Serialize(
   if (rejects_collation()) {
     proto->set_rejects_collation(true);
   }
+  if (rewrite_options().has_value()) {
+    rewrite_options()->Serialize(proto->mutable_rewrite_options());
+  }
+}
+
+// static
+absl::Status FunctionSignatureRewriteOptions::Deserialize(
+    const FunctionSignatureRewriteOptionsProto& proto,
+    FunctionSignatureRewriteOptions& result) {
+  result.set_enabled(proto.enabled())
+      .set_rewriter(proto.rewriter())
+      .set_sql(proto.sql());
+  return absl::OkStatus();
+}
+
+void FunctionSignatureRewriteOptions::Serialize(
+    FunctionSignatureRewriteOptionsProto* proto) const {
+  ZETASQL_DCHECK(proto != nullptr);
+  proto->set_enabled(enabled());
+  proto->set_rewriter(rewriter());
+  proto->set_sql(sql_);
 }
 
 const FunctionEnums::ArgumentCardinality FunctionArgumentType::REQUIRED;
@@ -197,11 +225,17 @@ absl::Status FunctionArgumentTypeOptions::Deserialize(
         relation, options->extra_relation_input_columns_allowed());
   }
   if (options_proto.has_argument_name()) {
-    options->set_argument_name(options_proto.argument_name());
-  }
-  if (options_proto.has_argument_name_is_mandatory()) {
-    options->set_argument_name_is_mandatory(
-        options_proto.argument_name_is_mandatory());
+    NamedArgumentKind named_argument_kind = kPositionalOrNamed;
+    if (options_proto.has_named_argument_kind() &&
+        options_proto.named_argument_kind() !=
+            FunctionEnums::NAMED_ARGUMENT_KIND_UNSPECIFIED) {
+      named_argument_kind = options_proto.named_argument_kind();
+    } else if (options_proto.has_argument_name_is_mandatory() &&
+               options_proto.argument_name_is_mandatory()) {
+      named_argument_kind = kNamedOnly;
+    }
+    options->set_argument_name(options_proto.argument_name(),
+                               named_argument_kind);
   }
   ParseLocationRange location;
   if (options_proto.has_argument_name_parse_location()) {
@@ -363,9 +397,10 @@ absl::Status FunctionArgumentTypeOptions::Serialize(
   }
   if (has_argument_name()) {
     options_proto->set_argument_name(argument_name());
-  }
-  if (argument_name_is_mandatory()) {
-    options_proto->set_argument_name_is_mandatory(true);
+    options_proto->set_named_argument_kind(named_argument_kind());
+    if (named_argument_kind() == kNamedOnly) {
+      options_proto->set_argument_name_is_mandatory(true);
+    }
   }
   std::optional<ParseLocationRange> parse_location_range =
       argument_name_parse_location();
@@ -416,14 +451,23 @@ absl::Status FunctionArgumentType::Serialize(
 
 FunctionArgumentType FunctionArgumentType::Lambda(
     std::vector<FunctionArgumentType> lambda_argument_types,
-    FunctionArgumentType lambda_body_type) {
+    FunctionArgumentType lambda_body_type,
+    FunctionArgumentTypeOptions options) {
   // For now, we don't have the use cases of non REQUIRED values.
-  FunctionArgumentType arg_type = FunctionArgumentType(ARG_TYPE_LAMBDA);
+  FunctionArgumentType arg_type =
+      FunctionArgumentType(ARG_TYPE_LAMBDA, options);
   arg_type.lambda_ = std::make_shared<ArgumentTypeLambda>(
       std::move(lambda_argument_types), std::move(lambda_body_type));
   arg_type.num_occurrences_ = 1;
   arg_type.type_ = nullptr;
   return arg_type;
+}
+
+FunctionArgumentType FunctionArgumentType::Lambda(
+    std::vector<FunctionArgumentType> lambda_argument_types,
+    FunctionArgumentType lambda_body_type) {
+  return Lambda(std::move(lambda_argument_types), std::move(lambda_body_type),
+                FunctionArgumentTypeOptions());
 }
 
 // static
@@ -790,6 +834,8 @@ std::string FunctionArgumentType::UserFacingName(
         return "VOID";
       case ARG_TYPE_LAMBDA:
         return "LAMBDA";
+      case ARG_RANGE_TYPE_ANY:
+        return "RANGE";
       case ARG_TYPE_FIXED:
       default:
         // We really should have had type() != nullptr in this case.
@@ -802,9 +848,13 @@ std::string FunctionArgumentType::UserFacingName(
 }
 
 std::string FunctionArgumentType::UserFacingNameWithCardinality(
-    ProductMode product_mode) const {
+    ProductMode product_mode, NamePrintingStyle print_style) const {
   std::string arg_type_string = UserFacingName(product_mode);
-  if (options().argument_name_is_mandatory()) {
+  if (options().has_argument_name() &&
+      ((options().named_argument_kind() == kNamedOnly &&
+        print_style == NamePrintingStyle::kIfNamedOnly) ||
+       (options().named_argument_kind() != kPositionalOnly &&
+        print_style == NamePrintingStyle::kIfNotPositionalOnly))) {
     arg_type_string = absl::StrCat(argument_name(), " => ", arg_type_string);
   }
   if (optional()) {
@@ -924,16 +974,6 @@ FunctionSignature::FunctionSignature(FunctionArgumentType result_type,
       options_(std::move(options)) {
   ZETASQL_DCHECK_OK(IsValid(ProductMode::PRODUCT_EXTERNAL));
   ComputeConcreteArgumentTypes();
-}
-
-absl::Status FunctionSignature::Deserialize(
-    const FunctionSignatureProto& proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory,
-    std::unique_ptr<FunctionSignature>* result) {
-  ZETASQL_ASSIGN_OR_RETURN(*result,
-                   Deserialize(proto, TypeDeserializer(factory, pools)));
-  return absl::OkStatus();
 }
 
 absl::StatusOr<std::unique_ptr<FunctionSignature>>
@@ -1226,7 +1266,8 @@ bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
       (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_KEY_ANY) ||
       (kind == ARG_PROTO_MAP_ANY && kind_ == ARG_PROTO_MAP_VALUE_ANY) ||
       (kind_ == ARG_PROTO_MAP_ANY && kind == ARG_PROTO_MAP_VALUE_ANY) ||
-      (kind_ == ARG_TYPE_ANY_1 && kind == ARG_RANGE_TYPE_ANY)) {
+      (kind_ == ARG_TYPE_ANY_1 && kind == ARG_RANGE_TYPE_ANY) ||
+      (kind_ == ARG_RANGE_TYPE_ANY && kind == ARG_TYPE_ANY_1)) {
     return true;
   }
   return false;
@@ -1243,8 +1284,7 @@ absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
   // For other templated result types (such as ANY_TYPE_1, ANY_PROTO, etc.)
   // the result's templated kind must match a templated kind from an argument
   // since the result type will be determined based on an argument type.
-  if (result_type_.IsTemplated() &&
-      result_type_.kind() != ARG_TYPE_ARBITRARY &&
+  if (result_type_.IsTemplated() && result_type_.kind() != ARG_TYPE_ARBITRARY &&
       !result_type_.IsRelation()) {
     bool result_type_matches_an_argument_type = false;
     for (const auto& arg : arguments_) {
@@ -1498,6 +1538,12 @@ void FunctionSignature::SetConcreteResultType(const Type* type) {
   // Recompute <is_concrete_> since it now may have changed by setting a
   // concrete result type.
   is_concrete_ = ComputeIsConcrete();
+}
+
+bool FunctionSignature::HasEnabledRewriteImplementation() const {
+  const std::optional<FunctionSignatureRewriteOptions>& rewrite_opts =
+      options().rewrite_options();
+  return rewrite_opts.has_value() && rewrite_opts->enabled();
 }
 
 }  // namespace zetasql

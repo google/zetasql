@@ -26,6 +26,7 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/constant.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/parse_location.h"
@@ -41,9 +42,14 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
+
+#define RETURN_ERROR_IF_OUT_OF_STACK_SPACE() \
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(      \
+      "Out of stack space due to deeply nested query expression")
 
 // ResolvedNode::RestoreFrom is generated in resolved_node.cc.template.
 
@@ -86,8 +92,8 @@ void ResolvedNode::AppendAnnotations(
 
 void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
                                    absl::Span<const NodeAnnotation> annotations,
-                                   const std::string& prefix1,
-                                   const std::string& prefix2,
+                                   absl::string_view prefix1,
+                                   absl::string_view prefix2,
                                    std::string* output) {
   std::vector<DebugStringField> fields;
 
@@ -277,7 +283,7 @@ void ResolvedNode::CollectDebugStringFieldsWithNameFormat(
 }
 
 std::string ResolvedNode::GetNameForDebugStringWithNameFormat(
-    const std::string& name, const ResolvedNode* node) const {
+    absl::string_view name, const ResolvedNode* node) const {
   if (node == nullptr) {
     return absl::StrCat(name, " := <nullptr AST node>");
   } else if (node->HasDebugStringFieldsWithNodes()) {
@@ -362,7 +368,7 @@ void ResolvedSystemVariable::CollectDebugStringFields(
   SUPER::CollectDebugStringFields(fields);
   fields->emplace(fields->begin(), "",
                   absl::StrJoin(name_path(), ".",
-                                [](std::string* out, const std::string& in) {
+                                [](std::string* out, absl::string_view in) {
                                   absl::StrAppend(out, ToIdentifierLiteral(in));
                                 }));
 }
@@ -416,7 +422,7 @@ std::string ResolvedFunctionCallBase::GetNameForDebugString() const {
 void ResolvedCast::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
-  ZETASQL_DCHECK_LE(fields->size(), 2);  // type and parse location
+  ZETASQL_DCHECK_LE(fields->size(), 3);  // type, type_annotation_map and parse location
 
   // Clear the "type" field if present.
   fields->erase(std::remove_if(
@@ -651,6 +657,7 @@ std::string ResolvedImportStmt::GetImportKindString() const {
 
 absl::StatusOr<TypeParameters> ResolvedColumnAnnotations::GetFullTypeParameters(
     const Type* type) const {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   // We need Type* to figure out the size of TypeParameters.child_list since
   // TypeParameters.child_list.size() is not equals to
   // ResolvedColumnAnnotations.child_list.size().

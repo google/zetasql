@@ -2019,8 +2019,131 @@ QueryStmt
     +-recursive=TRUE
 ==
 
+[language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_3_INLINE_LAMBDA_ARGUMENT{{|,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS}}]
+[suppress_builtin_functions={{|NULLIFERROR|IFERROR}}]
 SELECT SAFE.ARRAY_FILTER([1,2,3], e -> e>0);
 --
-ERROR: Function calls with SAFE are not supported [at 1:8]
+ALTERNATION GROUPS:
+    <empty>
+    NULLIFERROR
+    IFERROR
+--
+ERROR: Function ARRAY_FILTER does not support SAFE error mode [at 1:8]
 SELECT SAFE.ARRAY_FILTER([1,2,3], e -> e>0);
        ^
+--
+ALTERNATION GROUP: ,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#1]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |               +-ColumnRef(type=INT64, column=$lambda_arg.e#1)
+    |               +-Literal(type=INT64, value=0)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT64>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#6]
+    |         +-expr_list=
+    |         | +-$col1#6 :=
+    |         |   +-FunctionCall(ZetaSQL:iferror(ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+    |         |     +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+    |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |         |     | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |         |     | +-Literal(type=ARRAY<INT64>, value=NULL)
+    |         |     | +-SubqueryExpr
+    |         |     |   +-type=ARRAY<INT64>
+    |         |     |   +-subquery_type=ARRAY
+    |         |     |   +-parameter_list=
+    |         |     |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |         |     |   +-subquery=
+    |         |     |     +-OrderByScan
+    |         |     |       +-column_list=[$array.element#4]
+    |         |     |       +-is_ordered=TRUE
+    |         |     |       +-input_scan=
+    |         |     |       | +-FilterScan
+    |         |     |       |   +-column_list=[$array.element#4, $array_offset.off#5]
+    |         |     |       |   +-input_scan=
+    |         |     |       |   | +-ArrayScan
+    |         |     |       |   |   +-column_list=[$array.element#4, $array_offset.off#5]
+    |         |     |       |   |   +-array_expr=
+    |         |     |       |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3, is_correlated=TRUE)
+    |         |     |       |   |   +-element_column=$array.element#4
+    |         |     |       |   |   +-array_offset_column=
+    |         |     |       |   |     +-ColumnHolder(column=$array_offset.off#5)
+    |         |     |       |   +-filter_expr=
+    |         |     |       |     +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |         |     |       |       +-ColumnRef(type=INT64, column=$array.element#4)
+    |         |     |       |       +-Literal(type=INT64, value=0)
+    |         |     |       +-order_by_item_list=
+    |         |     |         +-OrderByItem
+    |         |     |           +-column_ref=
+    |         |     |             +-ColumnRef(type=INT64, column=$array_offset.off#5)
+    |         |     +-Literal(type=ARRAY<INT64>, value=NULL, has_explicit_type=TRUE)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.array_input#3]
+    |             +-expr_list=
+    |             | +-array_input#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUPS:
+    ,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,NULLIFERROR
+    ,V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS,IFERROR
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#1]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+    |               +-ColumnRef(type=INT64, column=$lambda_arg.e#1)
+    |               +-Literal(type=INT64, value=0)
+    +-input_scan=
+      +-SingleRowScan
+
+Rewrite ERROR: generic::unimplemented: SAFE mode calls to ARRAY_FILTER are not supported.

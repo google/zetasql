@@ -702,21 +702,18 @@ QueryStatement [0-28] [select * from (((select 1)))]
           Star(*) [7-8] [*]
       FromClause [9-28] [from (((select 1)))]
         TableSubquery [14-28] [(((select 1)))]
-          Query [15-27] [((select 1))]
-            Query [16-26] [(select 1)]
-              Query [17-25] [select 1]
-                Select [17-25] [select 1]
-                  SelectList [24-25] [1]
-                    SelectColumn [24-25] [1]
-                      IntLiteral(1) [24-25] [1]
+          Query [17-25] [select 1]
+            Select [17-25] [select 1]
+              SelectList [24-25] [1]
+                SelectColumn [24-25] [1]
+                  IntLiteral(1) [24-25] [1]
 --
 SELECT
   *
 FROM
-  (((
+  (
     SELECT
       1
-    ))
   )
 ==
 

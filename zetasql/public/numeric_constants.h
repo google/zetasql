@@ -25,6 +25,18 @@
 // Common constants used by numeric_parser and numeric_value libraries.
 namespace zetasql {
 namespace internal {
+enum DigitTrimMode {
+  // error if the trailing digits are not all 0's.
+  kError,
+  // rounds halfway values away from zero
+  // i.e. 2.015 rounded to 2 decimal places rounds to 2.02
+  // and 2.025 rounded to 2 decimal places rounds away from zero to 2.03
+  kTrimRoundHalfAwayFromZero,
+  // rounds halfway values to the nearest even previous digit
+  // i.e. 2.015 rounded to 2 decimal places rounds to 2.02
+  // and 2.025 rounded to 2 decimal places also rounds to 2.02
+  kTrimRoundHalfEven
+};
 constexpr uint32_t k1e9 = 1000 * 1000 * 1000;
 constexpr uint64_t k1e10 = static_cast<uint64_t>(k1e9) * 10;
 constexpr uint64_t k1e16 = 10000000000000000ULL;

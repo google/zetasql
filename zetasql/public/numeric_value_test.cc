@@ -37,6 +37,7 @@
 
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/numeric_constants.h"
 #include "zetasql/public/numeric_value_test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -97,6 +98,8 @@ constexpr __int128 k1e10 = k1e9 * 10;
 constexpr uint64_t kuint64max = std::numeric_limits<uint64_t>::max();
 constexpr int64_t kint64min = std::numeric_limits<int64_t>::min();
 constexpr int64_t kint64max = std::numeric_limits<int64_t>::max();
+constexpr int32_t kint32min = std::numeric_limits<int32_t>::min();
+constexpr int32_t kint32max = std::numeric_limits<int32_t>::max();
 using uint128 = unsigned __int128;
 constexpr uint128 kuint128max = ~static_cast<uint128>(0);
 constexpr __int128 kint128max = kuint128max >> 1;
@@ -503,6 +506,7 @@ struct Error : absl::string_view {
       : absl::string_view(message_prefix) {}
 };
 
+constexpr Error kNumericInvalid("Invalid NUMERIC value: ");
 constexpr Error kNumericOverflow("numeric overflow: ");
 constexpr Error kNumericOutOfRange("numeric out of range: ");
 constexpr Error kDivisionByZero("division by zero: ");
@@ -603,6 +607,7 @@ absl::StatusOr<std::pair<BigNumericValue, BigNumericValue>> GetValue(
   return std::make_pair(first, second);
 }
 
+constexpr Error kBigNumericInvalid("Invalid BIGNUMERIC value: ");
 constexpr Error kBigNumericOverflow("BIGNUMERIC overflow: ");
 constexpr Error kBigNumericOutOfRange("BIGNUMERIC out of range: ");
 constexpr Error kBigNumericIllegalNonFinite(
@@ -627,6 +632,12 @@ struct BigNumericBinaryOpTestData {
   BigNumericValueWrapper input1;
   Input2 input2;
   Output expected_output;
+};
+
+struct BigNumericFromStringWithRoundingOpTestData {
+  absl::string_view input1;
+  int64_t input2;
+  BigNumericValueWrapper expected_output;
 };
 
 // Returns a value that can be used in absl::StrCat.
@@ -756,6 +767,12 @@ struct NumericBinaryOpTestData {
   NumericValueWrapper input1;
   Input2 input2;
   Output expected_output;
+};
+
+struct NumericFromStringWithRoundingOpTestData {
+  absl::string_view input1;
+  int64_t input2;
+  NumericValueWrapper expected_output;
 };
 
 struct NumericAddOp {
@@ -1052,6 +1069,40 @@ void TestBinaryOp(Op& op, const Input1& input_wrapper1,
         StatusIs(absl::StatusCode::kOutOfRange,
                  absl::StrCat(status_or_expected_output.status().message(),
                               expression)));
+  }
+}
+
+template <typename Output>
+void TestNumericFromStringWithRoundingOp(absl::string_view input1,
+                                         const int64_t decimal_places,
+                                         const bool round_half_even,
+                                         const Output& expected_output) {
+  auto status_or_result = NumericValue::FromStringWithRounding(
+      input1, decimal_places, round_half_even);
+  auto status_or_expected_output = GetValue(expected_output);
+  if (status_or_expected_output.ok()) {
+    EXPECT_EQ(status_or_expected_output.value(), status_or_result.value());
+  } else {
+    EXPECT_THAT(
+        status_or_result.status().message(),
+        absl::StrCat(status_or_expected_output.status().message(), input1));
+  }
+}
+
+template <typename Output>
+void TestBigNumericFromStringWithRoundingOp(absl::string_view input1,
+                                            const int64_t decimal_places,
+                                            const bool round_half_even,
+                                            const Output& expected_output) {
+  auto status_or_result = BigNumericValue::FromStringWithRounding(
+      input1, decimal_places, round_half_even);
+  auto status_or_expected_output = GetValue(expected_output);
+  if (status_or_expected_output.ok()) {
+    EXPECT_EQ(status_or_expected_output.value(), status_or_result.value());
+  } else {
+    EXPECT_THAT(
+        status_or_result.status().message(),
+        absl::StrCat(status_or_expected_output.status().message(), input1));
   }
 }
 
@@ -3426,61 +3477,34 @@ TEST_F(NumericValueTest, Format_Random) {
   TestFormatWithRandomValues<NumericValue>(&random_);
 }
 
-template <typename T, typename V>
-void AddValuesToAggregator(T* aggregator, const std::vector<V>& values) {
-  for (auto value : values) {
-    aggregator->Add(value);
-  }
-}
-
-template <>
-void AddValuesToAggregator<NumericValue::CovarianceAggregator>(
-    NumericValue::CovarianceAggregator* aggregator,
-    const std::vector<NumericValue>& values) {
-  for (auto value : values) {
-    aggregator->Add(value, value);
-  }
-}
-
-template <>
-void AddValuesToAggregator<NumericValue::CorrelationAggregator>(
-    NumericValue::CorrelationAggregator* aggregator,
-    const std::vector<NumericValue>& values) {
-  for (auto value : values) {
-    aggregator->Add(value, value);
-  }
-}
-
 struct SumAggregatorTestData {
-  int cumulative_count;  // defined only for easier verification of average
   NumericValueWrapper input;
   NumericValueWrapper expected_cumulative_sum;
   NumericValueWrapper expected_cumulative_avg;
 };
 
 static constexpr SumAggregatorTestData kSumAggregatorTestData[] = {
-    {1, 1, 1, 1},
-    {2, 0, 1, "0.5"},
-    {3, -2, -1, "-0.333333333"},
-    {4, "1e-9", "-0.999999999", "-0.25"},
-    {5, kMaxNumericValueStr, "99999999999999999999999999999",
+    {1, 1, 1},
+    {0, 1, "0.5"},
+    {-2, -1, "-0.333333333"},
+    {"1e-9", "-0.999999999", "-0.25"},
+    {kMaxNumericValueStr, "99999999999999999999999999999",
      "19999999999999999999999999999.8"},
-    {6, 1, kNumericOverflow /* actual sum = 1e29 */,
+    {1, kNumericOverflow /* actual sum = 1e29 */,
      "16666666666666666666666666666.666666667"},
-    {7, 0, kNumericOverflow /* actual sum = 1e29 */,
+    {0, kNumericOverflow /* actual sum = 1e29 */,
      "14285714285714285714285714285.714285714"},
-    {8, "-1e-9", kMaxNumericValueStr, "1.25e28"},
-    {9, kMaxNumericValueStr, kNumericOverflow /* actual sum = max * 2 */,
+    {"-1e-9", kMaxNumericValueStr, "1.25e28"},
+    {kMaxNumericValueStr, kNumericOverflow /* actual sum = max * 2 */,
      "22222222222222222222222222222.222222222"},
-    {10, kMaxNumericValueStr, kNumericOverflow /* actual sum = max * 3 */,
-     "3e28"},
-    {11, kMinNumericValueStr, kNumericOverflow /* actual sum = max * 2 */,
+    {kMaxNumericValueStr, kNumericOverflow /* actual sum = max * 3 */, "3e28"},
+    {kMinNumericValueStr, kNumericOverflow /* actual sum = max * 2 */,
      "18181818181818181818181818181.818181818"},
-    {12, kMinNumericValueStr, kMaxNumericValueStr,
+    {kMinNumericValueStr, kMaxNumericValueStr,
      "8333333333333333333333333333.333333333"},
-    {13, kMinNumericValueStr, 0, 0},
-    {14, "7e-9", "7e-9", "1e-9" /* rounded up from 5e-10 */},
-    {15, 0, "7e-9", 0 /* rounded down from 4.6666666...e-10 */},
+    {kMinNumericValueStr, 0, 0},
+    {"7e-9", "7e-9", "1e-9" /* rounded up from 5e-10 */},
+    {0, "7e-9", 0 /* rounded down from 4.6666666...e-10 */},
 };
 
 TEST(NumericSumAggregatorTest, Sum) {
@@ -4113,6 +4137,239 @@ TEST_F(NumericValueTest, Round) {
                  data.expected_output);
     TestBinaryOp(away_from_zero_op, -data.input1, data.input2,
                  -data.expected_output);
+  }
+}
+
+TEST_F(NumericValueTest, FromStringWithRounding) {
+  static constexpr NumericFromStringWithRoundingOpTestData kCommonTestData[] = {
+      {"0", kint32min, 0},
+      {"0", -30, 0},
+      {"0", -29, 0},
+      {"0", -1, 0},
+      {"0", 0, 0},
+      {"0", 1, 0},
+      {"0", 9, 0},
+      {"0", 10, 0},
+      {"0", kint32max, 0},
+      {"1.26520e3", 2, "1265.2"},
+      {"15.15", 9, "15.15"},
+      {"1500.00e-3", 0, "2"},
+      {"155000.00e-5", 1, "1.6"},
+      {"12345678912.00e-10", 10, "1.234567891"},
+      {"12.00e-10", 10, "0.000000001"},
+      {"1.00e-10", 10, 0},
+      {"12.00e-20", 10, 0},
+      {"12e3", 100, 12000},
+      {"12e10", -10, 120000000000},
+      {"12e9", -10, 10000000000},
+      {"1", -50, 0},
+      {"1", -3, 0},
+      {"1234567891234567891234567891", -27, "1000000000000000000000000000"},
+      {"1E4294967296", -4294967296, kNumericInvalid},
+      {"1e9223372036854775807", -9223372036854775807, kNumericInvalid},
+      {"1e9223372036854775807", std::numeric_limits<int64_t>::min(), 0},
+      {"1e9223372036854775808", std::numeric_limits<int64_t>::min(),
+       kNumericInvalid},
+      {"1e-9223372036854775808", 9223372036854775807, 0},
+
+      {"0.987654321", kint32min, 0},
+      {"0.987654321", -30, 0},
+      {"0.987654321", -1, 0},
+      {"0.987654321", 0, 1},
+      {"0.987654321", 1, 1},
+      {"0.987654321", 2, "0.99"},
+      {"0.987654321", 4, "0.9877"},
+      {"0.987654321", 5, "0.98765"},
+      {"0.987654321", 8, "0.98765432"},
+      {"0.987654321", 9, "0.987654321"},
+      {"0.987654321", 10, "0.987654321"},
+      {"0.987654321", kint32max, "0.987654321"},
+
+      {"1234567899876543210.123456789", kint32min, 0},
+      {"1234567899876543210.123456789", -30, 0},
+      {"1234567899876543210.123456789", -19, 0},
+      {"1234567899876543210.123456789", -18, 1000000000000000000LL},
+      {"1234567899876543210.123456789", -17, 1200000000000000000LL},
+      {"1234567899876543210.123456789", -16, 1230000000000000000LL},
+      {"1234567899876543210.123456789", -15, 1235000000000000000LL},
+      {"1234567899876543210.123456789", -14, 1234600000000000000LL},
+      {"1234567899876543210.123456789", -9, 1234567900000000000LL},
+      {"1234567899876543210.123456789", -8, 1234567899900000000LL},
+      {"1234567899876543210.123456789", -2, 1234567899876543200LL},
+      {"1234567899876543210.123456789", 0, 1234567899876543210LL},
+      {"1234567899876543210.123456789", 1, "1234567899876543210.1"},
+      {"1234567899876543210.123456789", 3, "1234567899876543210.123"},
+      {"1234567899876543210.123456789", 4, "1234567899876543210.1235"},
+      {"1234567899876543210.123456789", 8, "1234567899876543210.12345679"},
+      {"1234567899876543210.123456789", 9, "1234567899876543210.123456789"},
+      {"1234567899876543210.123456789", 10, "1234567899876543210.123456789"},
+      {"1234567899876543210.123456789", kint32max,
+       "1234567899876543210.123456789"},
+      {"56785678567856785678567856785.56785678885", 10,
+       "56785678567856785678567856785.567856789"},
+
+      {"12341234123412341234123412341.234123412", kint32min, 0},
+      {"12341234123412341234123412341.234123412", -30, 0},
+      {"12341234123412341234123412341.234123412", -29, 0},
+      {"12341234123412341234123412341.234123412", -28,
+       "10000000000000000000000000000"},
+      {"12341234123412341234123412341.234123412", -27,
+       "12000000000000000000000000000"},
+      {"12341234123412341234123412341.234123412", -1,
+       "12341234123412341234123412340"},
+      {"12341234123412341234123412341.234123412", 0,
+       "12341234123412341234123412341"},
+      {"12341234123412341234123412341.234123412", 1,
+       "12341234123412341234123412341.2"},
+      {"12341234123412341234123412341.234123412", 8,
+       "12341234123412341234123412341.23412341"},
+      {"12341234123412341234123412341.234123412", 9,
+       "12341234123412341234123412341.234123412"},
+      {"12341234123412341234123412341.234123412", 10,
+       "12341234123412341234123412341.234123412"},
+      {"12341234123412341234123412341.234123412", kint32max,
+       "12341234123412341234123412341.234123412"},
+
+      {"56785678567856785678567856785.567856785", kint32min, 0},
+      {"56785678567856785678567856785.567856785", -30, 0},
+      {"56785678567856785678567856785.567856785", -29, kNumericInvalid},
+      {"56785678567856785678567856785.567856785", -28,
+       "60000000000000000000000000000"},
+      {"56785678567856785678567856785.567856785", -27,
+       "57000000000000000000000000000"},
+      {"56785678567856785678567856785.567856785", -1,
+       "56785678567856785678567856790"},
+      {"56785678567856785678567856785.567856785", 0,
+       "56785678567856785678567856786"},
+      {"56785678567856785678567856785.567856785", 1,
+       "56785678567856785678567856785.6"},
+      {"56785678567856785678567856785.567856785", 7,
+       "56785678567856785678567856785.5678568"},
+      {"56785678567856785678567856785.567856785", 9,
+       "56785678567856785678567856785.567856785"},
+      {"56785678567856785678567856785.567856785", 10,
+       "56785678567856785678567856785.567856785"},
+      {"5678499991", -6, "5678000000"},
+      {"5678500001", -6, "5679000000"},
+      {"5678513123123123.1235001", 3, "5678513123123123.124"},
+      {"56785678567856785678567856785.567856785", kint32max,
+       "56785678567856785678567856785.567856785"},
+      {"99999999999999999999999999999.999999995", 8, kNumericInvalid},
+      {"99999999999999999999999999999.995", 2, kNumericInvalid},
+
+      {kMaxNumericValueStr, kint32min, 0},
+      {kMaxNumericValueStr, -30, 0},
+      {kMaxNumericValueStr, -29, kNumericInvalid},
+      {kMaxNumericValueStr, -28, kNumericInvalid},
+      {kMaxNumericValueStr, -1, kNumericInvalid},
+      {kMaxNumericValueStr, 0, kNumericInvalid},
+      {kMaxNumericValueStr, 1, kNumericInvalid},
+      {kMaxNumericValueStr, 8, kNumericInvalid},
+      {kMaxNumericValueStr, 9, kMaxNumericValueStr},
+      {kMaxNumericValueStr, 10, kMaxNumericValueStr},
+      {kMaxNumericValueStr, kint32max, kMaxNumericValueStr},
+  };
+
+  static constexpr NumericFromStringWithRoundingOpTestData
+      kRoundAwayFromZeroTestData[] = {
+          {"0.05", 1, "0.1"},
+          {"0.25", 1, "0.3"},
+          {"56785678567856785678567856785.567856785", 8,
+           "56785678567856785678567856785.56785679"},
+          {"5678499991", -6, "5678000000"},
+          {"5678500000", -6, "5679000000"},
+          {"5678513123123123.1225000", 3, "5678513123123123.123"},
+          {"56785678567856750000000000", -11, "56785678567856800000000000"},
+          {"56785678567856850000000000", -11, "56785678567856900000000000"},
+          {"0.987655000", 5, "0.98766"},
+          {"0.987665000", 5, "0.98767"},
+      };
+
+  static constexpr NumericFromStringWithRoundingOpTestData
+      kRoundToEvenTestData[] = {
+          {"0.05", 1, 0},
+          {"0.25", 1, "0.2"},
+          {"56785678567856750000000000", -11, "56785678567856800000000000"},
+          {"56785678567856850000000000", -11, "56785678567856800000000000"},
+          {"56785678500000000000000000", -18, "56785678000000000000000000"},
+          {"56785678567856850000000001", -11, "56785678567856900000000000"},
+          {"56785678500000000000000001", -18, "56785679000000000000000000"},
+          {"56785678567856785675000000000", -10,
+           "56785678567856785680000000000"},
+          {"5678499991", -6, "5678000000"},
+          {"5678500000", -6, "5678000000"},
+          {"5678513123123123.1225000", 3, "5678513123123123.122"},
+          {"56785678567856785678500000000", -9,
+           "56785678567856785678000000000"},
+          {"56785678567856785678550000000", -8,
+           "56785678567856785678600000000"},
+          {"56785678567856785678565000000", -7,
+           "56785678567856785678560000000"},
+          {"56785678567856785678567500000", -6,
+           "56785678567856785678568000000"},
+          {"56785678567856785678567850000", -5,
+           "56785678567856785678567800000"},
+          {"56785678567856785678567850001", -5,
+           "56785678567856785678567900000"},
+          {"56785678567856785678567855000", -4,
+           "56785678567856785678567860000"},
+          {"56785678567856785678567856500", -3,
+           "56785678567856785678567856000"},
+          {"56785678567856785678567856750", -2,
+           "56785678567856785678567856800"},
+          {"56785678567856785678567856785", -1,
+           "56785678567856785678567856780"},
+          {"56785678567856785678567856785.5", 0,
+           "56785678567856785678567856786"},
+          {"56785678567856785678567856785.65", 1,
+           "56785678567856785678567856785.6"},
+          {"56785678567856785678567856785.565", 2,
+           "56785678567856785678567856785.56"},
+          {"56785678567856785678567856785.5675", 3,
+           "56785678567856785678567856785.568"},
+          {"56785678567856785678567856785.56785", 4,
+           "56785678567856785678567856785.5678"},
+          {"56785678567856785678567856785.567855", 5,
+           "56785678567856785678567856785.56786"},
+          {"56785678567856785678567856785.56786501", 5,
+           "56785678567856785678567856785.56787"},
+          {"56785678567856785678567856785.5678565", 6,
+           "56785678567856785678567856785.567856"},
+          {"56785678567856785678567856785.56785685", 7,
+           "56785678567856785678567856785.5678568"},
+          {"56785678567856785678567856785.567856785", 8,
+           "56785678567856785678567856785.56785678"},
+          {"56785678567856785678567856785.5678567885", 9,
+           "56785678567856785678567856785.567856788"},
+          {"56785678567856785678567856785.56785678885", -30, 0},
+          {"0.987655000", 5, "0.98766"},
+          {"0.987665000", 5, "0.98766"},
+          {"5000015.000001", -1, "5000020"},
+          {"5000024.9999", -1, "5000020"},
+          {"5000025.0000", -1, "5000020"},
+      };
+
+  for (const NumericFromStringWithRoundingOpTestData data : kCommonTestData) {
+    TestNumericFromStringWithRoundingOp<NumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ true, data.expected_output);
+    TestNumericFromStringWithRoundingOp<NumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ false, data.expected_output);
+  }
+
+  for (const NumericFromStringWithRoundingOpTestData data :
+       kRoundAwayFromZeroTestData) {
+    TestNumericFromStringWithRoundingOp<NumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ false, data.expected_output);
+  }
+
+  for (const NumericFromStringWithRoundingOpTestData data :
+       kRoundToEvenTestData) {
+    TestNumericFromStringWithRoundingOp<NumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ true, data.expected_output);
   }
 }
 
@@ -5936,6 +6193,287 @@ TEST_F(BigNumericValueTest, Round) {
   }
 }
 
+TEST_F(BigNumericValueTest, FromStringWithRounding) {
+  constexpr absl::string_view kMaxDigitStr =
+      "123456789012345678901234567890123456789."
+      "12345678901234567890123456789012345678";
+
+  static constexpr BigNumericFromStringWithRoundingOpTestData
+      kCommonTestData[] = {
+          {"0", kint64min, 0},
+          {"0", -40, 0},
+          {"0", -39, 0},
+          {"0", -38, 0},
+          {"0", -32, 0},
+          {"0", -16, 0},
+          {"0", -8, 0},
+          {"0", -5, 0},
+          {"0", -4, 0},
+          {"0", -3, 0},
+          {"0", -1, 0},
+          {"0", 0, 0},
+          {"0", 1, 0},
+          {"0", 3, 0},
+          {"0", 4, 0},
+          {"0", 5, 0},
+          {"0", 8, 0},
+          {"0", 16, 0},
+          {"0", 32, 0},
+          {"0", 36, 0},
+          {"0", 37, 0},
+          {"0", 38, 0},
+          {"0", 39, 0},
+          {"0", kint64max, 0},
+
+          {kMaxDigitStr, kint64min, 0},
+          {kMaxDigitStr, -39, 0},
+          {kMaxDigitStr, -38, "100000000000000000000000000000000000000"},
+          {kMaxDigitStr, -37, "120000000000000000000000000000000000000"},
+          {kMaxDigitStr, -36, "123000000000000000000000000000000000000"},
+          {kMaxDigitStr, -32, "123456800000000000000000000000000000000"},
+          {kMaxDigitStr, -16, "123456789012345678901230000000000000000"},
+          {kMaxDigitStr, -8, "123456789012345678901234567890100000000"},
+          {kMaxDigitStr, -5, "123456789012345678901234567890123500000"},
+          {kMaxDigitStr, -4, "123456789012345678901234567890123460000"},
+          {kMaxDigitStr, -3, "123456789012345678901234567890123457000"},
+          {kMaxDigitStr, -1, "123456789012345678901234567890123456790"},
+          {kMaxDigitStr, 0, "123456789012345678901234567890123456789"},
+          {kMaxDigitStr, 1, "123456789012345678901234567890123456789.1"},
+          {kMaxDigitStr, 3, "123456789012345678901234567890123456789.123"},
+          {kMaxDigitStr, 4, "123456789012345678901234567890123456789.1235"},
+          {kMaxDigitStr, 5, "123456789012345678901234567890123456789.12346"},
+          {kMaxDigitStr, 8, "123456789012345678901234567890123456789.12345679"},
+          {kMaxDigitStr, 16,
+           "123456789012345678901234567890123456789.1234567890123457"},
+          {kMaxDigitStr, 32,
+           "123456789012345678901234567890123456789."
+           "12345678901234567890123456789012"},
+          {kMaxDigitStr, 36,
+           "123456789012345678901234567890123456789."
+           "123456789012345678901234567890123457"},
+          {kMaxDigitStr, 37,
+           "123456789012345678901234567890123456789."
+           "1234567890123456789012345678901234568"},
+          {kMaxDigitStr, 38, kMaxDigitStr},
+          {kMaxDigitStr, 39, kMaxDigitStr},
+          {kMaxDigitStr, kint64max, kMaxDigitStr},
+
+          {kMaxBigNumericValueStr, kint64min, 0},
+          {kMaxBigNumericValueStr, -40, 0},
+          {kMaxBigNumericValueStr, -39, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, -38, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, -37, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, -36, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, -32,
+           "578960400000000000000000000000000000000"},
+          {kMaxBigNumericValueStr, -16,
+           "578960446186580977117850000000000000000"},
+          {kMaxBigNumericValueStr, -8,
+           "578960446186580977117854925043400000000"},
+          {kMaxBigNumericValueStr, -5,
+           "578960446186580977117854925043439500000"},
+          {kMaxBigNumericValueStr, -4, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, -3,
+           "578960446186580977117854925043439539000"},
+          {kMaxBigNumericValueStr, -1, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, 0,
+           "578960446186580977117854925043439539266"},
+          {kMaxBigNumericValueStr, 1,
+           "578960446186580977117854925043439539266.3"},
+          {kMaxBigNumericValueStr, 3, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, 4,
+           "578960446186580977117854925043439539266.3499"},
+          {kMaxBigNumericValueStr, 5,
+           "578960446186580977117854925043439539266.34992"},
+          {kMaxBigNumericValueStr, 8, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, 16, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, 32, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, 36, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, 37, kBigNumericInvalid},
+          {kMaxBigNumericValueStr, 38, kMaxBigNumericValueStr},
+          {kMaxBigNumericValueStr, 39, kMaxBigNumericValueStr},
+          {kMaxBigNumericValueStr, kint64max, kMaxBigNumericValueStr},
+
+          {"578960446186580977117854925043439539266."
+           "34949999999999999999999999999999999999",
+           3, "578960446186580977117854925043439539266.349"},
+          {"578960446186580977117854925043439539266.3495", 3,
+           kBigNumericInvalid},
+          {"-578960446186580977117854925043439539266."
+           "34949999999999999999999999999999999999",
+           3, "-578960446186580977117854925043439539266.349"},
+          {"-578960446186580977117854925043439539266.3495", 3,
+           kBigNumericInvalid},
+
+          {"0.49999999999999999999999999999999999999", 0, 0},
+          {"0.49999999999999999999999999999999999999", 1, "0.5"},
+          {"0.49999999999999999999999999999999999999", 2, "0.5"},
+          {"0.49999999999999999999999999999999999999", 10, "0.5"},
+          {"0.49999999999999999999999999999999999999", 20, "0.5"},
+          {"0.49999999999999999999999999999999999999", 37, "0.5"},
+          {"0.49999999999999999999999999999999999999", 38,
+           "0.49999999999999999999999999999999999999"},
+          {"0.49999999999999999999999999999999999999", 39,
+           "0.49999999999999999999999999999999999999"},
+      };
+
+  static constexpr BigNumericFromStringWithRoundingOpTestData
+      kRoundAwayFromZeroTestData[] = {
+          {"0.45000000000000000000000000000000000000", 1, "0.5"},
+          {"0.45500000000000000000000000000000000000", 2, "0.46"},
+          {"0.46500000000000000000000000000000000000", 2, "0.47"},
+      };
+
+  static constexpr BigNumericFromStringWithRoundingOpTestData
+      kRoundToEvenTestData[] = {
+          {"56785678567856785675000000000", -10,
+           "56785678567856785680000000000"},
+          {"56785678567856785678500000000", -9,
+           "56785678567856785678000000000"},
+          {"56785678567856785678550000000", -8,
+           "56785678567856785678600000000"},
+          {"56785678567856785678565000000", -7,
+           "56785678567856785678560000000"},
+          {"56785678567856785678567500000", -6,
+           "56785678567856785678568000000"},
+          {"56785678567856785678567850000", -5,
+           "56785678567856785678567800000"},
+          {"56785678567856785678567850001", -5,
+           "56785678567856785678567900000"},
+          {"56785678567856785678567855000", -4,
+           "56785678567856785678567860000"},
+          {"56785678567856785678567856500", -3,
+           "56785678567856785678567856000"},
+          {"56785678567856785678567856750", -2,
+           "56785678567856785678567856800"},
+          {"56785678567856785678567856785", -1,
+           "56785678567856785678567856780"},
+          {"56785678567856785678567856785.5", 0,
+           "56785678567856785678567856786"},
+          {"56785678567856785678567856785.65", 1,
+           "56785678567856785678567856785.6"},
+          {"56785678567856785678567856785.565", 2,
+           "56785678567856785678567856785.56"},
+          {"56785678567856785678567856785.5675", 3,
+           "56785678567856785678567856785.568"},
+          {"56785678567856785678567856785.56785", 4,
+           "56785678567856785678567856785.5678"},
+          {"56785678567856785678567856785.567855", 5,
+           "56785678567856785678567856785.56786"},
+          {"56785678567856785678567856785.56786501", 5,
+           "56785678567856785678567856785.56787"},
+          {"56785678567856785678567856785.5678565", 6,
+           "56785678567856785678567856785.567856"},
+          {"56785678567856785678567856785.56785685", 7,
+           "56785678567856785678567856785.5678568"},
+          {"56785678567856785678567856785.567856785", 8,
+           "56785678567856785678567856785.56785678"},
+          {"56785678567856785678567856785.5678567885", 9,
+           "56785678567856785678567856785.567856788"},
+          {"56785678567856785678567856785.56785678885", 10,
+           "56785678567856785678567856785.5678567888"},
+          {"56785678567856785678567856785.567856788865", 11,
+           "56785678567856785678567856785.56785678886"},
+          {"0.49999999999999999999999999999999999450", 36,
+           "0.499999999999999999999999999999999994"},
+          {"0.49999999999999999999999999999999995490", 35,
+           "0.49999999999999999999999999999999995"},
+          {"0.49999999999999999999999999999999995499", 35,
+           "0.49999999999999999999999999999999995"},
+          {"0.49999999999999999999999999999999995510", 35,
+           "0.49999999999999999999999999999999996"},
+          {"0.49999999999999999999999999999999996501", 35,
+           "0.49999999999999999999999999999999997"},
+          {"0.49999999999999999999999999999999996500", 35,
+           "0.49999999999999999999999999999999996"},
+          {"0.49999999999999999999999999999999994500", 35,
+           "0.49999999999999999999999999999999994"},
+          {"0.49999999999999999999999999999999945000", 34,
+           "0.4999999999999999999999999999999994"},
+          {"0.49999999999999999999999999999999975000", 34,
+           "0.4999999999999999999999999999999998"},
+          {"0.49999999999999999999999999999999994490", 35,
+           "0.49999999999999999999999999999999994"},
+          {"56785678567856750000000000", -11, "56785678567856800000000000"},
+          {"56785678567856850000000000", -11, "56785678567856800000000000"},
+          {"56785678500000000000000000", -18, "56785678000000000000000000"},
+          {"56785678567856850000000001", -11, "56785678567856900000000000"},
+          {"56785678500000000000000001", -18, "56785679000000000000000000"},
+          {"0.445", 2, "0.44"},
+          {"0.005", 2, "0"},
+          {"0.49999999999999999999999999999999999999", 37, "0.5"},
+          {"0.49999999999999999999999999999999999999", 38,
+           "0.49999999999999999999999999999999999999"},
+          {"0.49999999999999999999999999999999999999", 39,
+           "0.49999999999999999999999999999999999999"},
+          {"0.45000000000000000000000000000000000000", 1, "0.4"},
+          {"0.45500000000000000000000000000000000000", 2, "0.46"},
+          {"0.46500000000000000000000000000000000000", 2, "0.46"},
+      };
+
+  static constexpr BigNumericFromStringWithRoundingOpTestData
+      kSpecialTestData[] = {
+          {kMinBigNumericValueStr, kint64min, 0},
+          {kMinBigNumericValueStr, -40, 0},
+          {kMinBigNumericValueStr, -39, kBigNumericInvalid},
+          {kMinBigNumericValueStr, -38, kBigNumericInvalid},
+          {kMinBigNumericValueStr, -37, kBigNumericInvalid},
+          {kMinBigNumericValueStr, -30,
+           "-578960446000000000000000000000000000000"},
+          {kMinBigNumericValueStr, -29, kBigNumericInvalid},
+          {kMinBigNumericValueStr, -28, kBigNumericInvalid},
+          {kMinBigNumericValueStr, -27, kBigNumericInvalid},
+          {kMinBigNumericValueStr, -1, kBigNumericInvalid},
+          {kMinBigNumericValueStr, 0, kMinBigNumericValueStr.substr(0, 41 + 0)},
+          {kMinBigNumericValueStr, 1, kMinBigNumericValueStr.substr(0, 41 + 1)},
+          {kMinBigNumericValueStr, 8, kBigNumericInvalid},
+          {kMinBigNumericValueStr, 9, kMinBigNumericValueStr.substr(0, 41 + 9)},
+          {kMinBigNumericValueStr, 10,
+           kMinBigNumericValueStr.substr(0, 41 + 10)},
+          {kMinBigNumericValueStr, 27, kBigNumericInvalid},
+          {kMinBigNumericValueStr, 28, kBigNumericInvalid},
+          {kMinBigNumericValueStr, 29, kBigNumericInvalid},
+          {kMinBigNumericValueStr, 30, kBigNumericInvalid},
+          {kMinBigNumericValueStr, 37, kBigNumericInvalid},
+          {kMinBigNumericValueStr, 38, kMinBigNumericValueStr},
+          {kMinBigNumericValueStr, kint64max, kMinBigNumericValueStr},
+      };
+
+  for (const BigNumericFromStringWithRoundingOpTestData data :
+       kCommonTestData) {
+    TestBigNumericFromStringWithRoundingOp<BigNumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ true, data.expected_output);
+    TestBigNumericFromStringWithRoundingOp<BigNumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ false, data.expected_output);
+  }
+
+  for (const BigNumericFromStringWithRoundingOpTestData data :
+       kRoundAwayFromZeroTestData) {
+    TestBigNumericFromStringWithRoundingOp<BigNumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ false, data.expected_output);
+  }
+
+  for (const BigNumericFromStringWithRoundingOpTestData data :
+       kRoundToEvenTestData) {
+    TestBigNumericFromStringWithRoundingOp<BigNumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ true, data.expected_output);
+  }
+
+  for (const BigNumericFromStringWithRoundingOpTestData data :
+       kSpecialTestData) {
+    TestBigNumericFromStringWithRoundingOp<BigNumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ true, data.expected_output);
+    TestBigNumericFromStringWithRoundingOp<BigNumericValueWrapper>(
+        data.input1, data.input2,
+        /** round_half_even */ false, data.expected_output);
+  }
+}
+
 TEST_F(BigNumericValueTest, Ceiling) {
   static constexpr BigNumericUnaryOpTestData<> kTestData[] = {
       {0, 0},
@@ -6783,7 +7321,6 @@ TEST_F(BigNumericValueTest, RescaleValueNoRounding) {
 }
 
 struct BigNumericSumAggregatorTestData {
-  int cumulative_count;  // defined only for easier verification of average
   BigNumericValueWrapper input;
   BigNumericValueWrapper expected_cumulative_sum;
   BigNumericValueWrapper expected_cumulative_avg;
@@ -6792,29 +7329,29 @@ struct BigNumericSumAggregatorTestData {
 // Cases without the min value and overflow.
 static constexpr BigNumericSumAggregatorTestData
     kBigNumericSumAggregatorTestData[] = {
-        {1, 1, 1, 1},
-        {2, 0, 1, "0.5"},
-        {3, -2, -1, "-0.33333333333333333333333333333333333333"},
-        {4, "1e-38", "-0.99999999999999999999999999999999999999", "-0.25"},
-        {5, "1.00000000000000000000000000000000000001", "2e-38",
+        {1, 1, 1},
+        {0, 1, "0.5"},
+        {-2, -1, "-0.33333333333333333333333333333333333333"},
+        {"1e-38", "-0.99999999999999999999999999999999999999", "-0.25"},
+        {"1.00000000000000000000000000000000000001", "2e-38",
          0 /* rounded down from 4e-39 */},
-        {6, "1e-38", "3e-38", "1e-38" /* rounded up from 5e-39 */},
-        {7, "-4e-38", "-1e-38", 0 /* rounded down from -1.4285714285...e-39 */},
-        {8, "1e-38", 0, 0},
-        {9, "-1e-38", "-1e-38", 0 /* rounded down from -1.11111...e-39 */},
-        {10, -1, "-1.00000000000000000000000000000000000001", "-0.1"},
-        {11, "1e-38", "-1", "-0.09090909090909090909090909090909090909"
+        {"1e-38", "3e-38", "1e-38" /* rounded up from 5e-39 */},
+        {"-4e-38", "-1e-38", 0 /* rounded down from -1.4285714285...e-39 */},
+        {"1e-38", 0, 0},
+        {"-1e-38", "-1e-38", 0 /* rounded down from -1.11111...e-39 */},
+        {-1, "-1.00000000000000000000000000000000000001", "-0.1"},
+        {"1e-38", "-1", "-0.09090909090909090909090909090909090909"
          /* rounded down from -0.090909... with repeating digit 09 */},
-        {12, "-999999999999999998.999999999999999999",
+        {"-999999999999999998.999999999999999999",
          "-999999999999999999.999999999999999999",
          "-83333333333333333.33333333333333333325"},
-        {13, "-999999999999999999.999999999999999999",
+        {"-999999999999999999.999999999999999999",
          "-1999999999999999999.999999999999999998",
          "-153846153846153846.153846153846153846"},
-        {14, "1999999999999999998.999999999999999998", "-1",
+        {"1999999999999999998.999999999999999998", "-1",
          "-0.07142857142857142857142857142857142857"
          /* rounded down from actual value with repeating digits 714285 */},
-        {15, "10000000000000000000000000000000000000",
+        {"10000000000000000000000000000000000000",
          "9999999999999999999999999999999999999",
          "666666666666666666666666666666666666.6"},
 };
@@ -6822,47 +7359,47 @@ static constexpr BigNumericSumAggregatorTestData
 // Cases with the min value and overflow.
 static constexpr BigNumericSumAggregatorTestData
     kBigNumericSumAggregatorSpecialTestData[] = {
-        {1, kMaxBigNumericValueStr, kMaxBigNumericValueStr,
+        {kMaxBigNumericValueStr, kMaxBigNumericValueStr,
          kMaxBigNumericValueStr},
         // Avg rounded up from 289480223093290488558927462521719769633.
         // 174961664101410098643960019782824099835
-        {2, 0, kMaxBigNumericValueStr,
+        {0, kMaxBigNumericValueStr,
          "289480223093290488558927462521719769633"
          ".17496166410141009864396001978282409984"},
-        {3, "1e-38", kBigNumericOverflow,
+        {"1e-38", kBigNumericOverflow,
          "192986815395526992372618308347813179755."
          "44997444273427339909597334652188273323"},
         // Actual sum = max * 2 + 1e-38
         // Avg rounded up from 289480223093290488558927462521719769633.
         // 1749616641014100986439600197828240998375
-        {4, kMaxBigNumericValueStr, kBigNumericOverflow,
+        {kMaxBigNumericValueStr, kBigNumericOverflow,
          "289480223093290488558927462521719769633."
          "174961664101410098643960019782824099838"},
         // Actual sum = max * 3 + 1e-38
-        {5, kMaxBigNumericValueStr, kBigNumericOverflow,
+        {kMaxBigNumericValueStr, kBigNumericOverflow,
          "347376267711948586270712955026063723559."
          "809953996921692118372752023739388919804"},
         // Actual sum = max * 2
         // Avg rounded down from 192986815395526992372618308347813179755.
         // 449974442734273399095973346521882733223333... with repeating digit 3
-        {6, kMinBigNumericValueStr, kBigNumericOverflow,
+        {kMinBigNumericValueStr, kBigNumericOverflow,
          "192986815395526992372618308347813179755."
          "449974442734273399095973346521882733223"},
         // Avg rounded up from 82708635169511568159693560720491362752.
         // 33570333260040288532684571993794974280857142857142... with
         // repeating digits 857142
-        {7, kMinBigNumericValueStr,
+        {kMinBigNumericValueStr,
          "578960446186580977117854925043439539266."
          "34992332820282019728792003956564819966",
          "82708635169511568159693560720491362752."
          "33570333260040288532684571993794974281"},
         // Avg rounded down from 2.5e-39
-        {8, kMinBigNumericValueStr, "-2e-38", 0},
+        {kMinBigNumericValueStr, "-2e-38", 0},
         // Avg rounded down from 1.1111...e-39 with repeating digits 1
-        {9, "1e-38", "-1e-38", 0},
+        {"1e-38", "-1e-38", 0},
         // Avg rounded up from -578960446186580977117854925043439539266.
         // 34992332820282019728792003956564819969
-        {10, kMinBigNumericValueStr,
+        {kMinBigNumericValueStr,
          kBigNumericOverflow /* actual sum = min - 1e-38*/,
          "-57896044618658097711785492504343953926."
          "63499233282028201972879200395656481997"},
@@ -6870,20 +7407,20 @@ static constexpr BigNumericSumAggregatorTestData
         // Avg rounded up from -105265535670287450385064531826079916230.
         // 24544060512778549041598546173920876357909090909090... with
         // repeating digits 90
-        {11, kMinBigNumericValueStr, kBigNumericOverflow,
+        {kMinBigNumericValueStr, kBigNumericOverflow,
          "-105265535670287450385064531826079916230."
          "2454406051277854904159854617392087635791"},
         // Actual sum = min - 2e-38
         // Avg rounded up from -48246703848881748093154577086953294938.
         // 8624936106835683497739933366304706833083333333... with repeating
         // digit 3
-        {12, kMaxBigNumericValueStr, kBigNumericOverflow,
+        {kMaxBigNumericValueStr, kBigNumericOverflow,
          "-48246703848881748093154577086953294938."
          "86249361068356834977399333663047068331"},
         // Avg rounded up from 44535418937429305932142686541803041482.
         // 02691717909252463056060923381274216920615384615384... with
         // repeating digits 615384
-        {13, "2e-38", kMinBigNumericValueStr,
+        {"2e-38", kMinBigNumericValueStr,
          "-44535418937429305932142686541803041482."
          "02691717909252463056060923381274216921"},
 };

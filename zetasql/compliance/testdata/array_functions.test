@@ -452,20 +452,6 @@ SELECT ARRAY[STRUCT(1 as i)] || ARRAY[STRUCT(2 as i)]
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<i INT64>>[{1}, {2}]}]
 ==
-[name=array_concat_array]
-SELECT ARRAY_CONCAT(ARRAY[ARRAY[1]], ARRAY[ARRAY[2]])
---
-ERROR: generic::invalid_argument: Cannot construct array with element type ARRAY<INT64> because nested arrays are not supported [at 1:27]
-SELECT ARRAY_CONCAT(ARRAY[ARRAY[1]], ARRAY[ARRAY[2]])
-                          ^
-==
-[name=array_concat_operator_array]
-SELECT ARRAY[ARRAY[1]] || ARRAY[ARRAY[2]]
---
-ERROR: generic::invalid_argument: Cannot construct array with element type ARRAY<INT64> because nested arrays are not supported [at 1:14]
-SELECT ARRAY[ARRAY[1]] || ARRAY[ARRAY[2]]
-             ^
-==
 [name=array_concat_proto]
 SELECT ARRAY_CONCAT(ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
@@ -576,14 +562,6 @@ SELECT GENERATE_DATE_ARRAY('2016-01-01', '2017-01-01', INTERVAL @step DAY)
 ERROR: generic::out_of_range: Sequence step cannot be 0.
 
 ==
-# b/38163191
-[name=generate_date_array_empty_args]
-SELECT GENERATE_DATE_ARRAY()
---
-ERROR: generic::invalid_argument: Expected either GENERATE_DATE_ARRAY(start, end) or GENERATE_DATE_ARRAY(start, end, INTERVAL int [date_part]) [at 1:8]
-SELECT GENERATE_DATE_ARRAY()
-       ^
-==
 # b/152971237
 [name=generate_date_array_by_row]
 SELECT GENERATE_DATE_ARRAY(start_day, end_day, INTERVAL days_step DAY)
@@ -601,14 +579,6 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<DATE>[2020-03-31]}
 ]
 ==
-[name=generate_timestamp_array_no_step]
-SELECT GENERATE_TIMESTAMP_ARRAY('2016-09-28', '2016-10-06')
---
-
-ERROR: generic::invalid_argument: Number of arguments does not match for function GENERATE_TIMESTAMP_ARRAY. Supported signature: GENERATE_TIMESTAMP_ARRAY(TIMESTAMP, TIMESTAMP, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
-SELECT GENERATE_TIMESTAMP_ARRAY('2016-09-28', '2016-10-06')
-       ^
-==
 [name=generate_timestamp_array_literal_zero_step]
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-01-01', '2017-01-01', INTERVAL 0 DAY)
 --
@@ -622,85 +592,17 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-01-01', '2017-01-01', INTERVAL @step DAY)
 ERROR: generic::out_of_range: Sequence step cannot be 0.
 
 ==
-[name=generate_timestamp_array_empty_args]
-SELECT GENERATE_TIMESTAMP_ARRAY()
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function GENERATE_TIMESTAMP_ARRAY. Supported signature: GENERATE_TIMESTAMP_ARRAY(TIMESTAMP, TIMESTAMP, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
-SELECT GENERATE_TIMESTAMP_ARRAY()
-       ^
-==
-[name=range_bucket_value_not_comparable]
-SELECT RANGE_BUCKET(STRUCT<INT64>(1), ARRAY<STRUCT<INT64>>[])
---
-ERROR: generic::invalid_argument: First argument to RANGE_BUCKET of type STRUCT<INT64> does not support ordering [at 1:8]
-SELECT RANGE_BUCKET(STRUCT<INT64>(1), ARRAY<STRUCT<INT64>>[])
-       ^
-==
-[name=range_bucket_value_and_array_not_compatible]
-SELECT RANGE_BUCKET("abc", ARRAY<INT64>[])
---
-ERROR: generic::invalid_argument: No matching signature for function RANGE_BUCKET for argument types: STRING, ARRAY<INT64>. Supported signature: RANGE_BUCKET(ANY, ARRAY) [at 1:8]
-SELECT RANGE_BUCKET("abc", ARRAY<INT64>[])
-       ^
-==
-[name=range_bucket_not_array_type]
-SELECT RANGE_BUCKET("abc", "def")
---
-ERROR: generic::invalid_argument: Second argument of RANGE_BUCKET must be an array but was STRING [at 1:8]
-SELECT RANGE_BUCKET("abc", "def")
-       ^
-==
-[name=range_bucket_wrong_number_of_arguments]
-SELECT RANGE_BUCKET(1, 2, 3)
---
-ERROR: generic::invalid_argument: Number of arguments does not match for function RANGE_BUCKET. Supported signature: RANGE_BUCKET(ANY, ARRAY) [at 1:8]
-SELECT RANGE_BUCKET(1, 2, 3)
-       ^
-==
-[name=range_bucket_untyped_array]
-SELECT RANGE_BUCKET(1, NULL)
---
-ERROR: generic::invalid_argument: Second argument of RANGE_BUCKET must be an array but was INT64 [at 1:8]
-SELECT RANGE_BUCKET(1, NULL)
-       ^
-==
 [name=concat_op_wrong_type_int_int]
-[test_features1=V_1_3_CONCAT_MIXED_TYPES]
+[required_features=V_1_3_CONCAT_MIXED_TYPES]
 SELECT 1 || 2
 --
-WITH FEATURES: V_1_3_CONCAT_MIXED_TYPES
 ARRAY<STRUCT<STRING>>[{"12"}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: No matching signature for operator || for argument types: INT64, INT64. Supported signatures: STRING || STRING; BYTES || BYTES; ARRAY || ARRAY [at 1:8]
-SELECT 1 || 2
-       ^
-==
-[name=concat_op_wrong_type_array_int]
-SELECT ARRAY<INT32>[1] || 2
---
-ERROR: generic::invalid_argument: No matching signature for operator || for argument types: ARRAY<INT32>, INT64. Supported signatures: STRING || STRING; BYTES || BYTES; ARRAY || ARRAY [at 1:8]
-SELECT ARRAY<INT32>[1] || 2
-       ^
 ==
 [name=concat_op_wrong_type_string_int]
-[test_features1=V_1_3_CONCAT_MIXED_TYPES]
+[required_features=V_1_3_CONCAT_MIXED_TYPES]
 SELECT "abc" || 2
 --
-WITH FEATURES: V_1_3_CONCAT_MIXED_TYPES
 ARRAY<STRUCT<STRING>>[{"abc2"}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: No matching signature for operator || for argument types: STRING, INT64. Supported signatures: STRING || STRING; BYTES || BYTES; ARRAY || ARRAY [at 1:8]
-SELECT "abc" || 2
-       ^
-==
-[name=concat_op_wrong_type_string_array_int_array]
-SELECT ["abc"] || [2]
---
-ERROR: generic::invalid_argument: No matching signature for operator || for argument types: ARRAY<STRING>, ARRAY<INT64>. Supported signatures: STRING || STRING; BYTES || BYTES; ARRAY || ARRAY [at 1:8]
-SELECT ["abc"] || [2]
-       ^
 ==
 [name=array_is_distinct_untyped_null_array]
 SELECT ARRAY_IS_DISTINCT(NULL)
@@ -723,63 +625,29 @@ SELECT ARRAY_IS_DISTINCT([NULL, 1])
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 [name=array_is_distinct_repeated_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT ARRAY_IS_DISTINCT([1.0, 1.0])
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<BOOL>>[{false}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: ARRAY_IS_DISTINCT cannot be used on argument of type ARRAY<DOUBLE> because the array's element type does not support grouping [at 1:8]
-SELECT ARRAY_IS_DISTINCT([1.0, 1.0])
-       ^
 ==
 [name=array_is_distinct_different_structs]
-[test_features1=V_1_2_GROUP_BY_STRUCT]
+[required_features=V_1_2_GROUP_BY_STRUCT]
 SELECT ARRAY_IS_DISTINCT([STRUCT(1), STRUCT(2)])
 --
-WITH FEATURES: V_1_2_GROUP_BY_STRUCT
 ARRAY<STRUCT<BOOL>>[{true}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: ARRAY_IS_DISTINCT cannot be used on argument of type ARRAY<STRUCT<INT64>> because the array's element type does not support grouping [at 1:8]
-SELECT ARRAY_IS_DISTINCT([STRUCT(1), STRUCT(2)])
-       ^
 ==
 [name=array_is_distinct_repeated_struct]
-[test_features1=V_1_2_GROUP_BY_STRUCT]
+[required_features=V_1_2_GROUP_BY_STRUCT]
 SELECT ARRAY_IS_DISTINCT([STRUCT(1), STRUCT(1)])
 --
-WITH FEATURES: V_1_2_GROUP_BY_STRUCT
 ARRAY<STRUCT<BOOL>>[{false}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: ARRAY_IS_DISTINCT cannot be used on argument of type ARRAY<STRUCT<INT64>> because the array's element type does not support grouping [at 1:8]
-SELECT ARRAY_IS_DISTINCT([STRUCT(1), STRUCT(1)])
-       ^
 ==
 [name=array_is_distinct_floating_point_struct]
-[test_features1=V_1_2_GROUP_BY_STRUCT]
-[test_features2=DISALLOW_GROUP_BY_FLOAT]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT ARRAY_IS_DISTINCT([STRUCT(1.0), STRUCT(1.0)])
 --
-WITH FEATURES: V_1_2_GROUP_BY_STRUCT
 ARRAY<STRUCT<BOOL>>[{false}]
---
-WITH FEATURES: <none>
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT,V_1_2_GROUP_BY_STRUCT
-ERROR: generic::invalid_argument: ARRAY_IS_DISTINCT cannot be used on argument of type ARRAY<STRUCT<DOUBLE>> because the array's element type does not support grouping [at 1:8]
-SELECT ARRAY_IS_DISTINCT([STRUCT(1.0), STRUCT(1.0)])
-       ^
-==
-[name=array_is_distinct_single_proto]
-SELECT ARRAY_IS_DISTINCT([
-  (SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2)])
---
-ERROR: generic::invalid_argument: ARRAY_IS_DISTINCT cannot be used on argument of type ARRAY<zetasql_test__.KitchenSinkPB> because the array's element type does not support grouping [at 1:8]
-SELECT ARRAY_IS_DISTINCT([
-       ^
 ==
 [required_features=BIGNUMERIC_TYPE]
 [name=array_concat_bignumeric]
@@ -835,4 +703,41 @@ WITH t AS (SELECT value FROM UNNEST([1, 2, 3, 4]) AS value)
 SELECT SAFE.ARRAY_LAST(ARRAY(SELECT value FROM t WHERE FALSE));
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
-
+==
+[name=array_avg_intervals_1]
+[required_features=INTERVAL_TYPE,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+[forbidden_features=TIMESTAMP_NANOS]
+SELECT ARRAY_AVG(ARRAY< INTERVAL >[INTERVAL "-7959-1 -153930 54938167:22:41.712081" YEAR TO SECOND,
+          INTERVAL "8630-9 3512412 62113018:54:19.721996" YEAR TO SECOND, INTERVAL "675-8 -224302 -58850294:15:14.439522" YEAR TO SECOND,
+          INTERVAL "2580-1 -200995 40403849:16:44.554610" YEAR TO SECOND])
+--
+ARRAY<STRUCT<INTERVAL>>[{981-10 733303 24651203:19:37.887291}]
+==
+[name=array_avg_intervals_1_nanos]
+[required_features=INTERVAL_TYPE,V_1_4_ARRAY_AGGREGATION_FUNCTIONS,TIMESTAMP_NANOS]
+SELECT ARRAY_AVG(ARRAY< INTERVAL >[INTERVAL "-7959-1 -153930 54938167:22:41.712081" YEAR TO SECOND,
+          INTERVAL "8630-9 3512412 62113018:54:19.721996" YEAR TO SECOND, INTERVAL "675-8 -224302 -58850294:15:14.439522" YEAR TO SECOND,
+          INTERVAL "2580-1 -200995 40403849:16:44.554610" YEAR TO SECOND])
+--
+ARRAY<STRUCT<INTERVAL>>[{981-10 733303 24651203:19:37.887291250}]
+==
+[name=array_avg_intervals_2]
+[required_features=INTERVAL_TYPE,V_1_1_HAVING_IN_AGGREGATE,V_1_4_ARRAY_AGGREGATION_FUNCTIONS]
+SELECT ARRAY_CONCAT_AGG(arr
+          HAVING MIN ARRAY_AVG(ARRAY< INTERVAL >[INTERVAL "-7959-1 -153930 54938167:22:41.712081" YEAR TO SECOND,
+            INTERVAL "8630-9 3512412 62113018:54:19.721996" YEAR TO SECOND,
+            INTERVAL "675-8 -224302 -58850294:15:14.439522" YEAR TO SECOND,
+            INTERVAL "2580-1 -200995 40403849:16:44.554610" YEAR TO SECOND])
+       )
+FROM (
+  SELECT [INTERVAL "8630-9 3512412 62113018:54:19.721996" YEAR TO SECOND] AS arr
+  UNION ALL
+  SELECT [INTERVAL "675-8 -224302 -58850294:15:14.439522" YEAR TO SECOND] AS arr
+) interval_arrays
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<INTERVAL>[
+     675-8 -224302 -58850294:15:14.439522,
+     8630-9 3512412 62113018:54:19.721996
+   ]}
+]

@@ -4,7 +4,7 @@
 
 ZetaSQL supports variables.
 
-## VARIABLE TYPES
+## Variable types
 
 There are three primary variable types: runtime variables, query parameters, and
 system variables. Each can be set and unset with the `SET` and `UNSET` commands.
@@ -13,7 +13,8 @@ variables are prefixed with @@.
 
 The variable names must be valid sql [identifiers][link-to-sql-identifiers].
 
-## SET
+## `SET`
+
 Sets a variable.
 
 ```
@@ -22,7 +23,8 @@ SET @query_parameter = constant_value;
 SET @@system_variable = constant_value;
 ```
 
-## UNSET
+## `UNSET`
+
 Unsets a variable.
 
 ```

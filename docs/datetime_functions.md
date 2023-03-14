@@ -4,7 +4,7 @@
 
 ZetaSQL supports the following datetime functions.
 
-### CURRENT_DATETIME
+### `CURRENT_DATETIME`
 
 ```sql
 CURRENT_DATETIME([time_zone])
@@ -16,7 +16,7 @@ Returns the current time as a `DATETIME` object. Parentheses are optional when
 called with no arguments.
 
 This function supports an optional `time_zone` parameter.
-See [Time zone definitions][datetime-link-to-timezone-definitions] for
+See [Time zone definitions][datetime-timezone-definitions] for
 information on how to specify a time zone.
 
 **Return Data Type**
@@ -38,7 +38,7 @@ SELECT CURRENT_DATETIME() as now;
 When a column named `current_datetime` is present, the column name and the
 function call without parentheses are ambiguous. To ensure the function call,
 add parentheses; to ensure the column name, qualify it with its
-[range variable][datetime-functions-link-to-range-variables]. For example, the
+[range variable][datetime-range-variables]. For example, the
 following query will select the function in the `now` column and the table
 column in the `current_datetime` column.
 
@@ -53,7 +53,11 @@ SELECT current_datetime() as now, t.current_datetime FROM t;
 +----------------------------+------------------+
 ```
 
-### DATETIME
+[datetime-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
+
+[datetime-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+
+### `DATETIME`
 
 ```sql
 1. DATETIME(year, month, day, hour, minute, second)
@@ -69,7 +73,7 @@ SELECT current_datetime() as now, t.current_datetime FROM t;
    object.
 3. Constructs a `DATETIME` object using a `TIMESTAMP` object. It supports an
    optional parameter to
-   [specify a time zone][datetime-link-to-timezone-definitions].
+   [specify a time zone][datetime-timezone-definitions].
    If no time zone is specified, the default time zone, which is implementation defined,
    is used.
 
@@ -91,7 +95,9 @@ SELECT
 +---------------------+---------------------+
 ```
 
-### EXTRACT
+[datetime-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+
+### `EXTRACT`
 
 ```sql
 EXTRACT(part FROM datetime_expression)
@@ -212,7 +218,11 @@ FROM table;
 +---------------------+-------------+---------------+
 ```
 
-### DATETIME_ADD
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+### `DATETIME_ADD`
 
 ```sql
 DATETIME_ADD(datetime_expression, INTERVAL int64_expression part)
@@ -260,7 +270,7 @@ SELECT
 +-----------------------------+------------------------+
 ```
 
-### DATETIME_SUB
+### `DATETIME_SUB`
 
 ```sql
 DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
@@ -308,7 +318,7 @@ SELECT
 +-----------------------------+------------------------+
 ```
 
-### DATETIME_DIFF
+### `DATETIME_DIFF`
 
 ```sql
 DATETIME_DIFF(datetime_expression_a, datetime_expression_b, part)
@@ -431,7 +441,11 @@ SELECT
 +-----------+-------------------+--------------+
 ```
 
-### DATETIME_TRUNC
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+### `DATETIME_TRUNC`
 
 ```sql
 DATETIME_TRUNC(datetime_expression, date_time_part)
@@ -536,7 +550,7 @@ SELECT
 +---------------------+----------------+
 ```
 
-### FORMAT_DATETIME
+### `FORMAT_DATETIME`
 
 ```sql
 FORMAT_DATETIME(format_string, datetime_expression)
@@ -590,7 +604,9 @@ SELECT
 +-------------+
 ```
 
-### LAST_DAY
+[datetime-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `LAST_DAY`
 
 ```sql
 LAST_DAY(datetime_expression[, date_part])
@@ -682,7 +698,11 @@ SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
 +------------+
 ```
 
-### PARSE_DATETIME
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+### `PARSE_DATETIME`
 
 ```sql
 PARSE_DATETIME(format_string, datetime_string)
@@ -711,9 +731,6 @@ SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 -- This works because %c can find all matching elements in datetime_string.
 SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008")
 ```
-
-The format string fully supports most format elements, except for
-`%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 `PARSE_DATETIME` parses `string` according to the following rules:
 
@@ -779,19 +796,9 @@ SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
 +---------------------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
 [datetime-format]: #format_datetime
 
 [datetime-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
-[datetime-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
-
-[datetime-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
-
-<!-- mdlint on -->
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
 

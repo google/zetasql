@@ -26,6 +26,7 @@
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/select_with_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
@@ -193,6 +194,8 @@ struct ExprResolutionInfo {
   // after DISTINCT.
   bool is_post_distinct() const;
 
+  SelectWithMode GetSelectWithMode() const;
+
   std::string DebugString() const;
 
   // Constant info.
@@ -314,13 +317,13 @@ class ResolvedTVFArg {
   bool IsConnection() const { return type_ == CONNECTION; }
   bool IsDescriptor() const { return type_ == DESCRIPTOR; }
 
-  absl::StatusOr<const ResolvedExpr*> GetExpr() const {
-    ZETASQL_RET_CHECK(IsExpr());
-    return expr_.get();
-  }
   absl::StatusOr<const ResolvedScan*> GetScan() const {
     ZETASQL_RET_CHECK(IsScan());
     return scan_.get();
+  }
+  absl::StatusOr<const ResolvedExpr*> GetExpr() const {
+    ZETASQL_RET_CHECK(IsExpr());
+    return expr_.get();
   }
   absl::StatusOr<const ResolvedModel*> GetModel() const {
     ZETASQL_RET_CHECK(IsModel());

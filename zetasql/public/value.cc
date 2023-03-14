@@ -23,45 +23,39 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <stack>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/timestamp.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
-#include "google/protobuf/util/message_differencer.h"
-#include "zetasql/common/string_util.h"
 #include "zetasql/public/functions/comparison.h"
-#include "zetasql/public/functions/convert_proto.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value_content.h"
-#include "absl/base/attributes.h"
-#include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
-#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
 #include "zetasql/base/ret_check.h"
@@ -177,15 +171,21 @@ Value::Value(DatetimeValue datetime)
   ZETASQL_CHECK(datetime.IsValid());
 }
 
-Value::Value(const EnumType* enum_type, int64_t value) {
+Value::Value(const EnumType* enum_type, int64_t value,
+             bool allow_unknown_enum_values) {
   const std::string* unused;
-  if (value >= std::numeric_limits<int32_t>::min() &&
-      value <= std::numeric_limits<int32_t>::max() &&
-      enum_type->FindName(value, &unused)) {
-    // As only int32_t range enum values are supported, value can safely be casted
-    // to int32_t once verified under enum range.
+
+  // We confirm immediately afterwards that the cast back works, so we can be
+  // sure no out of range integers are accepted.
+  const int32_t int32_value = static_cast<int32_t>(value);
+
+  if (static_cast<int64_t>(int32_value) == value &&
+      ((allow_unknown_enum_values &&
+        enum_type->enum_descriptor()->file()->syntax() !=
+            google::protobuf::FileDescriptor::SYNTAX_PROTO2) ||
+       enum_type->FindName(int32_value, &unused))) {
     SetMetadataForNonSimpleType(enum_type);
-    enum_value_ = static_cast<int32_t>(value);
+    enum_value_ = int32_value;
   } else {
     metadata_ = Metadata::Invalid();
   }
@@ -230,12 +230,10 @@ absl::StatusOr<Value> Value::MakeArrayInternal(bool already_validated,
     }
   }
 
-  std::unique_ptr<internal::ValueContentContainer> container =
-      std::make_unique<TypedList>(std::move(values));
-
   Value result(array_type, /*is_null=*/false, order_kind);
   result.container_ptr_ = new internal::ValueContentContainerRef(
-      std::move(container), order_kind == kPreservesOrder);
+      std::make_unique<TypedList>(std::move(values)),
+      order_kind == kPreservesOrder);
   return result;
 }
 
@@ -253,12 +251,10 @@ absl::StatusOr<Value> Value::MakeStructInternal(bool already_validated,
           << "\nvs\nValue type: " << value_type->DebugString();
     }
   }
-  std::unique_ptr<internal::ValueContentContainer> container =
-      std::make_unique<TypedList>(std::move(values));
 
   Value result(struct_type, /*is_null=*/false, kPreservesOrder);
   result.container_ptr_ = new internal::ValueContentContainerRef(
-      std::move(container), /*preserves_order=*/true);
+      std::make_unique<TypedList>(std::move(values)), /*preserves_order=*/true);
   return result;
 }
 
@@ -278,13 +274,44 @@ absl::StatusOr<Value> Value::MakeRange(const Value& start, const Value& end) {
   values.push_back(start);
   values.push_back(end);
 
-  std::unique_ptr<internal::ValueContentContainer> container =
-      std::make_unique<TypedList>(std::move(values));
-
   Value result(range_type, /*is_null=*/false, kPreservesOrder);
   result.container_ptr_ = new internal::ValueContentContainerRef(
-      std::move(container), /*preserves_order=*/true);
+      std::make_unique<TypedList>(std::move(values)), /*preserves_order=*/true);
   return result;
+}
+
+/* static */
+absl::StatusOr<Value> Value::MakeRangeDates(
+    const RangeValue<int32_t>& range_value) {
+  return Value::MakeRange(
+      range_value.start().has_value() ? Value::Date(range_value.start().value())
+                                      : Value::NullDate(),
+      range_value.end().has_value() ? Value::Date(range_value.end().value())
+                                    : Value::NullDate());
+}
+/* static */
+absl::StatusOr<Value> Value::MakeRangeDatetimes(
+    const RangeValue<int64_t>& range_value) {
+  return Value::MakeRange(
+      range_value.start().has_value()
+          ? values::Datetime(
+                DatetimeValue::FromPacked64Micros(range_value.start().value()))
+          : Value::NullDatetime(),
+      range_value.end().has_value()
+          ? values::Datetime(
+                DatetimeValue::FromPacked64Micros(range_value.end().value()))
+          : Value::NullDatetime());
+}
+/* static */
+absl::StatusOr<Value> Value::MakeRangeTimestamps(
+    const RangeValue<int64_t>& range_value) {
+  return Value::MakeRange(
+      range_value.start().has_value()
+          ? values::TimestampFromUnixMicros(range_value.start().value())
+          : Value::NullTimestamp(),
+      range_value.end().has_value()
+          ? values::TimestampFromUnixMicros(range_value.end().value())
+          : Value::NullTimestamp());
 }
 
 const Type* Value::type() const {
@@ -341,6 +368,30 @@ const std::string& Value::enum_name() const {
       << "Value " << enum_value() << " not in "
       << type()->AsEnum()->enum_descriptor()->DebugString();
   return *enum_name;
+}
+
+absl::StatusOr<std::string_view> Value::EnumName() const {
+  if (metadata_.type_kind() != TYPE_ENUM) {
+    return absl::InvalidArgumentError("Not an enum value");
+  }
+  if (is_null()) {
+    return absl::InvalidArgumentError("Null enum value");
+  }
+  const std::string* enum_name = nullptr;
+  if (!type()->AsEnum()->FindName(enum_value(), &enum_name)) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Value ", enum_value(), " not in ", type()->DebugString()));
+  }
+  return *enum_name;
+}
+std::string Value::EnumDisplayName() const {
+  ZETASQL_CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
+  ZETASQL_CHECK(!is_null()) << "Null value";
+  const std::string* enum_name = nullptr;
+  if (type()->AsEnum()->FindName(enum_value(), &enum_name)) {
+    return *enum_name;
+  }
+  return absl::StrCat(enum_value());
 }
 
 int64_t Value::ToInt64() const {
@@ -475,6 +526,53 @@ absl::Status Value::ToUnixNanos(int64_t* nanos) const {
 ValueContent Value::extended_value() const {
   ZETASQL_CHECK_EQ(type_kind(), TYPE_EXTENDED);
   return GetContent();
+}
+
+RangeValue<int32_t> Value::ToRangeValueDateValues() const {
+  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind()) << "Not a range type";
+  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  const TypeKind& element_type_kind =
+      metadata_.type()->AsRange()->element_type()->kind();
+  ZETASQL_CHECK_EQ(element_type_kind, TYPE_DATE)
+      << "Cannot create RangeValue<int32_t> from RANGE with element type "
+      << Type::TypeKindToString(element_type_kind, PRODUCT_EXTERNAL);
+  absl::StatusOr<RangeValue<int32_t>> range = RangeValueFromDates(
+      start().is_null() ? std::nullopt : std::optional{start().date_value()},
+      end().is_null() ? std::nullopt : std::optional{end().date_value()});
+
+  ZETASQL_CHECK_OK(range.status());
+  return *range;
+}
+
+RangeValue<int64_t> Value::ToRangeValuePacked64DatetimeMicros() const {
+  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind()) << "Not a range type";
+  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  const TypeKind& element_type_kind =
+      metadata_.type()->AsRange()->element_type()->kind();
+  ZETASQL_CHECK_EQ(element_type_kind, TYPE_DATETIME)
+      << "Cannot create RangeValue<int64_t> from RANGE with element type "
+      << Type::TypeKindToString(element_type_kind, PRODUCT_EXTERNAL);
+  absl::StatusOr<RangeValue<int64_t>> range = RangeValueFromDatetimeMicros(
+      start().is_null() ? std::nullopt
+                        : std::optional{start().datetime_value()},
+      end().is_null() ? std::nullopt : std::optional{end().datetime_value()});
+  ZETASQL_CHECK_OK(range.status());
+  return *range;
+}
+
+RangeValue<int64_t> Value::ToRangeValueTimestampUnixMicros() const {
+  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind()) << "Not a range type";
+  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
+  const TypeKind& element_type_kind =
+      metadata_.type()->AsRange()->element_type()->kind();
+  ZETASQL_CHECK_EQ(element_type_kind, TYPE_TIMESTAMP)
+      << "Cannot create RangeValue<int64_t> from RANGE with element type "
+      << Type::TypeKindToString(element_type_kind, PRODUCT_EXTERNAL);
+  absl::StatusOr<RangeValue<int64_t>> range = RangeValueFromTimestampMicros(
+      start().is_null() ? std::nullopt : std::optional{start().ToUnixMicros()},
+      end().is_null() ? std::nullopt : std::optional{end().ToUnixMicros()});
+  ZETASQL_CHECK_OK(range.status());
+  return *range;
 }
 
 google::protobuf::Message* Value::ToMessage(
@@ -943,7 +1041,7 @@ std::string Value::GetSQLInternal(ProductMode mode) const {
   return type->FormatValueContent(GetContent(), options);
 }
 
-std::string RepeatString(const std::string& text, int times) {
+std::string RepeatString(absl::string_view text, int times) {
   ZETASQL_CHECK_GE(times, 0);
   std::string result;
   result.reserve(text.size() * times);
@@ -971,7 +1069,7 @@ const int kMaxColumnIndent = 15;
 std::string Indent(int columns) { return RepeatString(kIndentChar, columns); }
 
 // Returns the length of the longest line in a multi line formatted string.
-size_t LongestLine(const std::string& formatted) {
+size_t LongestLine(absl::string_view formatted) {
   int64_t longest = 0;
   for (absl::string_view line : absl::StrSplit(formatted, '\n')) {
     int64_t line_length = line.size();
@@ -981,7 +1079,7 @@ size_t LongestLine(const std::string& formatted) {
 }
 
 // Add to the indentation of all lines other than the first.
-std::string ReIndentTail(const std::string& formatted, int added_depth) {
+std::string ReIndentTail(absl::string_view formatted, int added_depth) {
   std::vector<std::string> lines =
       absl::StrSplit(formatted, "\n  ", absl::SkipWhitespace());
   return absl::StrJoin(lines, absl::StrCat("\n", Indent(added_depth)));
@@ -1025,7 +1123,7 @@ static int FindSubstitutionMarker(absl::string_view block_template) {
 
 std::string FormatBlock(absl::string_view block_template,
                         const std::vector<std::string>& elements,
-                        const std::string& separator, int block_indent_cols,
+                        absl::string_view separator, int block_indent_cols,
                         WrapStyle wrap_style) {
   // The length of the template string preceding the substitution marker.
   // This prefix may or may not have line returns.

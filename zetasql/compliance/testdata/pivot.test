@@ -467,9 +467,7 @@ ARRAY<STRUCT<cs_yx_true DOUBLE,
              cs_yx_false DOUBLE,
              cp_yx_false DOUBLE,
              corr_xx_false DOUBLE,
-             corr_yy_false DOUBLE>>[
-  {0.25, 0.2, 0.99999999999999989, 1, 0.25, 0.2, 0.99999999999999989, 1}
-]
+             corr_yy_false DOUBLE>>[{0.25, 0.2, 1, 1, 0.25, 0.2, 1, 1}]
 ==
 
 [required_features=V_1_3_PIVOT]

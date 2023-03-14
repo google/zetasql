@@ -52,6 +52,7 @@
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -674,9 +675,8 @@ TEST_F(AnalyzerOptionsTest, LiteralReplacement) {
   std::string new_sql;
   LiteralReplacementMap literal_map;
   GeneratedParameterMap generated_parameters;
-  absl::node_hash_set<std::string> option_names_to_ignore;
   ZETASQL_ASSERT_OK(ReplaceLiteralsByParameters(
-      sql, option_names_to_ignore, options_, output.get(),
+      sql, LiteralReplacementOptions{}, options_, output->resolved_statement(),
       &literal_map, &generated_parameters, &new_sql));
   EXPECT_EQ(
       "   \tSELECT @_p0_INT64, @_p1_STRING, @_p2_STRING=@_p3_STRING "
@@ -712,9 +712,12 @@ TEST_F(AnalyzerOptionsTest, LiteralReplacementIgnoreAllowlistedOptions) {
   std::string new_sql;
   LiteralReplacementMap literal_map;
   GeneratedParameterMap generated_parameters;
+  // Ignore hint1 and hint3 but remove hint2
   ZETASQL_ASSERT_OK(ReplaceLiteralsByParameters(
-      sql, /* ignore hint1 and hint3 but remove hint2 */ {"hint1", "hint3"},
-      options_, output.get(), &literal_map, &generated_parameters, &new_sql));
+      sql,
+      LiteralReplacementOptions{.ignored_option_names = {"hint1", "hint3"}},
+      options_, output->resolved_statement(), &literal_map,
+      &generated_parameters, &new_sql));
   EXPECT_EQ(
       "   \t@{ hint1=1, hint2=@_p0_BOOL, hint3='foo' }SELECT @_p1_INT64, "
       "@_p2_STRING",
@@ -816,6 +819,45 @@ TEST_F(AnalyzerOptionsTest, DeprecationWarnings) {
   }
 }
 
+// When a built-in function that requires rewrite is hidden by a non-built-in
+// function, an error with status kNotFound is returned.
+TEST_F(AnalyzerOptionsTest, BuiltInHiddenByNonBuiltIn) {
+  // Hides the built-in `IF` function by a user-defined `IF`, equilvalent SQL:
+  // ```sql
+  //   CREATE TEMP FUNCTION `IF`(a BOOL, b BOOL, c BOOL)
+  //   AS (
+  //     CASE a WHEN TRUE THEN FALSE ELSE TRUE END
+  //   );
+  // ```
+  FunctionOptions function_options;
+  function_options.set_evaluator([](const absl::Span<const Value> args) {
+    bool condition = args[0].bool_value();
+    return Value::Bool(!condition);
+  });
+
+  SimpleCatalog catalog("catalog");
+  ZetaSQLBuiltinFunctionOptions options;
+  options.exclude_function_ids.insert(FN_IF);
+  catalog.AddZetaSQLFunctions(options);
+  catalog.AddOwnedFunction(
+      new Function("if", "test_group", Function::SCALAR,
+                   {{types::BoolType(),
+                     {types::BoolType(), types::BoolType(), types::BoolType()},
+                     1}},
+                   function_options));
+
+  // TYPEOF internally uses IF.
+  std::string expr = R"sql(
+    TYPEOF("hello")
+  )sql";
+  std::unique_ptr<const AnalyzerOutput> output;
+  absl::Status status =
+      AnalyzeExpression(expr, options_, &catalog, &type_factory_, &output);
+  EXPECT_EQ(status.code(), absl::StatusCode::kNotFound);
+  EXPECT_EQ(status.message(),
+            "Required built-in function \"if\" not available.");
+}
+
 TEST_F(AnalyzerOptionsTest, ResolvedASTRewrites) {
   // Should be on by default.
   EXPECT_TRUE(options_.rewrite_enabled(REWRITE_FLATTEN));
@@ -838,8 +880,8 @@ class MultiFileErrorCollector
   MultiFileErrorCollector() {}
   MultiFileErrorCollector(const MultiFileErrorCollector&) = delete;
   MultiFileErrorCollector& operator=(const MultiFileErrorCollector&) = delete;
-  void AddError(const std::string& filename, int line, int column,
-                const std::string& message) override {
+      void AddError(const std::string& filename, int line, int column,
+                    const std::string& message) override {
     absl::StrAppend(&error_, "Line ", line, " Column ", column, " :", message,
                     "\n");
   }
@@ -1073,9 +1115,12 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
                   ->second,
               IsNull());
   ASSERT_TRUE(generated_enum_type->Equals(options.allowed_hints_and_options()
-              .options_lower.find("option2")->second));
+                                              .options_lower.find("option2")
+                                              ->second.type));
   ASSERT_THAT(options.allowed_hints_and_options()
-              .options_lower.find("untyped_option")->second, IsNull());
+                  .options_lower.find("untyped_option")
+                  ->second.type,
+              IsNull());
 }
 
 TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
@@ -1157,11 +1202,11 @@ TEST_F(AnalyzerOptionsTest, AllowedHintsAndOptionsSerializeAndDeserialize) {
 TEST(AllowedHintsAndOptionsTest, ClassAndProtoSize) {
   EXPECT_EQ(8, sizeof(AllowedHintsAndOptions) - sizeof(std::set<std::string>) -
                    sizeof(absl::flat_hash_map<std::string, std::string>) -
-                   2 * sizeof(absl::flat_hash_map<std::string, const Type*>))
+                   3 * sizeof(absl::flat_hash_map<std::string, const Type*>))
       << "The size of AllowedHintsAndOptions class has changed, please also "
       << "update the proto and serialization code if you added/removed fields "
       << "in it.";
-  EXPECT_EQ(5, AllowedHintsAndOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(6, AllowedHintsAndOptionsProto::descriptor()->field_count())
       << "The number of fields in AllowedHintsAndOptionsProto has changed, "
       << "please also update the serialization code accordingly.";
 }

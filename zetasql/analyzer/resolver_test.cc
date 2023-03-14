@@ -16,8 +16,10 @@
 
 #include "zetasql/analyzer/resolver.h"
 
+#include <map>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -64,10 +66,10 @@
 
 namespace zetasql {
 
+using testing::_;
 using testing::HasSubstr;
 using testing::IsNull;
 using testing::NotNull;
-using testing::_;
 using zetasql_base::testing::StatusIs;
 
 class ResolverTest : public ::testing::Test {
@@ -2004,6 +2006,64 @@ TEST_F(ResolverTest, TestRangeLiteral) {
   // Range literal must have exactly one space after , and no other spaces
   TestRangeLiteralError(R"sql(RANGE<DATE> "[2022-01-01,2022-02-02)")sql");
   TestRangeLiteralError(R"sql(RANGE<DATE> "[ 2022-01-01 , 2022-02-02 )")sql");
+}
+
+TEST_F(ResolverTest, TestSpecialFunctionName) {
+  std::unique_ptr<ParserOutput> parser_output;
+  std::unique_ptr<const ResolvedStatement> resolved_statement;
+  std::string sql = "SELECT nested_catalog.udf.timestamp_add(1,2,3)";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+}
+
+TEST_F(ResolverTest, TestGetFunctionNameAndArguments) {
+  for (auto& [sql_in, expected_function_name_path,
+              expected_function_arguments] : {
+           std::make_tuple("COUNT(*)", std::vector<std::string>{"$count_star"},
+                           std::vector<std::string>{}),
+           std::make_tuple("CURRENT_DATE()",
+                           std::vector<std::string>{"CURRENT_DATE"},
+                           std::vector<std::string>{}),
+           std::make_tuple("COUNT(DISTINCT x)",
+                           std::vector<std::string>{"COUNT"},
+                           std::vector<std::string>{"x\n"}),
+           std::make_tuple("udfs.normalize(*)",
+                           std::vector<std::string>{"udfs", "normalize"},
+                           std::vector<std::string>{"*\n"}),
+           std::make_tuple(
+               "my_dataset.udfs.count(*)",
+               std::vector<std::string>{"my_dataset", "udfs", "count"},
+               std::vector<std::string>{"*\n"}),
+       }) {
+    SCOPED_TRACE(sql_in);
+
+    // Parse String query to ASTFunctionCall
+    std::unique_ptr<ParserOutput> parser_output;
+    ZETASQL_ASSERT_OK(ParseExpression(sql_in, ParserOptions(), &parser_output))
+        << sql_in;
+    const ASTExpression* parsed_expression = parser_output->expression();
+    ASSERT_EQ(parsed_expression->node_kind(), AST_FUNCTION_CALL);
+    const ASTFunctionCall* function_call =
+        parsed_expression->GetAsOrDie<ASTFunctionCall>();
+
+    // Use ASTFunctionCall to get function name and arguments
+    std::vector<std::string> function_name_path;
+    std::vector<const ASTExpression*> function_arguments;
+    std::map<int, Resolver::SpecialArgumentType> argument_option_map;
+    QueryResolutionInfo query_resolution_info(resolver_.get());
+    ZETASQL_EXPECT_OK(resolver_->GetFunctionNameAndArguments(
+        function_call, &function_name_path, &function_arguments,
+        &argument_option_map, &query_resolution_info));
+    EXPECT_THAT(function_name_path,
+                testing::ElementsAreArray(expected_function_name_path));
+
+    EXPECT_EQ(expected_function_arguments.size(), function_arguments.size());
+    for (int i = 0; i < expected_function_arguments.size(); ++i) {
+      EXPECT_EQ(expected_function_arguments[i], Unparse(function_arguments[i]));
+    }
+  }
 }
 
 TEST(FunctionArgumentInfoTest, BasicUse) {

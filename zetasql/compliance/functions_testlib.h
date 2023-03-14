@@ -133,6 +133,14 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArrayAvg(bool is_safe);
 // Test function for ARRAY_SLICE
 std::vector<QueryParamsWithResult> GetFunctionTestsArraySlice(bool is_safe);
 
+// Test function for ARRAY_OFFSET and ARRAY_FIND
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayOffset(bool is_safe);
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayFind(bool is_safe);
+
+// Test function for ARRAY_OFFSETS and ARRAY_FIND_ALL
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayOffsets(bool is_safe);
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayFindAll(bool is_safe);
+
 std::vector<QueryParamsWithResult> GetFunctionTestsLike();
 std::vector<QueryParamsWithResult> GetFunctionTestsLikeString();
 std::vector<QueryParamsWithResult> GetFunctionTestsLikeWithCollation();
@@ -290,6 +298,8 @@ std::vector<FunctionTestCall> GetFunctionTestsError();
 std::vector<FunctionTestCall> GetFunctionTestsBytesStringConversion();
 
 std::vector<FunctionTestCall> GetFunctionTestsRangeComparisons();
+std::vector<FunctionTestCall> GetFunctionTestsRangeOverlaps();
+std::vector<FunctionTestCall> GetFunctionTestsRangeIntersect();
 
 }  // namespace zetasql
 

@@ -693,7 +693,7 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function ST_GEOGFROMTEXT for argument types: STRING, BOOL. Supported signature: ST_GEOGFROMTEXT(STRING, [BOOL]) [at 1:8]
+ERROR: No matching signature for function ST_GEOGFROMTEXT for argument types: STRING, planar => BOOL. Supported signature: ST_GEOGFROMTEXT(STRING, [BOOL]) [at 1:8]
 select st_geogfromtext('point(0 0)', planar => TRUE)
        ^
 ==

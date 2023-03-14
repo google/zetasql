@@ -158,6 +158,19 @@ extern const char* const kPrivilegeRestrictionTableNotScanned;
 extern const char* const kPreserveUnnecessaryCast;
 extern const char* const kEnableSampleAnnotation;
 extern const char* const kAdditionalAllowedAnonymizationOptions;
+extern const char* const kSuppressBuiltinFunctions;
+extern const char* const kOptionNamesToIgnoreInLiteralReplacement;
+extern const char* const kScrubLimitOffsetInLiteralReplacement;
+
+// set_flag
+// Causes a command line flag to be set to a particular value during the run
+// of a given analyzer test. Each flag is set as though by
+// SetCommandLineOption(key, value);
+//
+// Format:
+// [set_flag=flag1=value1,flag2=value2,...]
+extern const char* const kSetFlag;
+
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options);
 

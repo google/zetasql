@@ -37,6 +37,7 @@
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/text_format.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/testdata/test_proto3.pb.h"
 #include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
@@ -276,7 +277,13 @@ class ValueTest : public ::testing::Test {
     ZETASQL_CHECK_OK(type_factory_.MakeEnumType(enum_descriptor, &enum_type));
     return enum_type;
   }
-
+  const EnumType* GetTestProto3EnumType() {
+    const EnumType* enum_type;
+    const google::protobuf::EnumDescriptor* enum_descriptor =
+        zetasql_test__::TestProto3Enum_descriptor();
+    ZETASQL_CHECK_OK(type_factory_.MakeEnumType(enum_descriptor, &enum_type));
+    return enum_type;
+  }
   const EnumType* GetOtherTestEnumType() {
     const EnumType* enum_type;
     const google::protobuf::EnumDescriptor* enum_descriptor =
@@ -523,6 +530,69 @@ TEST_F(ValueTest, SimpleRoundTrip) {
   EXPECT_EQ(123, Value::Date(123).date_value());
   int64_t min_micros = zetasql::types::kTimestampMin;
   EXPECT_EQ(min_micros, TimestampFromUnixMicros(min_micros).ToUnixMicros());
+}
+
+class TestRangeRoundtrip : public ::testing::TestWithParam<Value> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    RangeRoundtrip, TestRangeRoundtrip,
+    ::testing::Values(
+        Range(Value::Date(1), Value::Date(2)),
+        Range(Value::UnboundedStartDate(), Value::Date(4)),
+        Range(Value::Date(5), Value::UnboundedEndDate()),
+        Range(Value::UnboundedStartDate(), Value::UnboundedEndDate()),
+        // Ranges of datetimes
+        Range(Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(2020, 3, 3, 4,
+                                                                 5, 6, 7)),
+              Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(2021, 4, 3, 4,
+                                                                 5, 6, 7))),
+        Range(Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(2020, 2, 3, 4,
+                                                                 5, 6, 7)),
+              Value::UnboundedEndDatetime()),
+        Range(Value::UnboundedStartDatetime(),
+              Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(2021, 2, 3, 4,
+                                                                 5, 6, 7))),
+        Range(Value::UnboundedStartDatetime(), Value::UnboundedEndDatetime()),
+        // Ranges of timestamps
+        Range(Value::Timestamp(absl::FromCivil(absl::CivilSecond(2020, 01, 01,
+                                                                 0, 0, 0),
+                                               absl::UTCTimeZone())),
+              Value::Timestamp(absl::FromCivil(absl::CivilSecond(2021, 01, 01,
+                                                                 0, 0, 0),
+                                               absl::UTCTimeZone()))),
+        Range(Value::Timestamp(absl::FromCivil(absl::CivilSecond(2019, 01, 01,
+                                                                 0, 0, 0),
+                                               absl::UTCTimeZone())),
+              Value::UnboundedEndTimestamp()),
+        Range(Value::UnboundedStartTimestamp(),
+              Value::Timestamp(absl::FromCivil(absl::CivilSecond(2020, 01, 01,
+                                                                 0, 0, 0),
+                                               absl::UTCTimeZone()))),
+        Range(Value::UnboundedStartTimestamp(),
+              Value::UnboundedEndTimestamp())));
+
+absl::StatusOr<Value> MakeRoundtripRange(Value range) {
+  switch (range.type()->AsRange()->element_type()->kind()) {
+    case TypeKind::TYPE_DATE:
+      return Value::MakeRangeDates(range.ToRangeValueDateValues());
+    case TypeKind::TYPE_DATETIME:
+      return Value::MakeRangeDatetimes(
+          range.ToRangeValuePacked64DatetimeMicros());
+    case TypeKind::TYPE_TIMESTAMP:
+      return Value::MakeRangeTimestamps(
+          range.ToRangeValueTimestampUnixMicros());
+    default: {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Unsupported element type kind: %s",
+          range.type()->AsRange()->element_type()->DebugString()));
+    }
+  }
+}
+
+TEST_P(TestRangeRoundtrip, TestRangeRoundtrip) {
+  Value range = GetParam();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value roundrip_range, MakeRoundtripRange(range));
+  EXPECT_EQ(range, roundrip_range);
 }
 
 TEST_F(ValueTest, DateFormatting) {
@@ -2158,6 +2228,7 @@ TEST_F(ValueTest, NaN) {
 
 TEST_F(ValueTest, Enum) {
   const EnumType* enum_type = GetTestEnumType();
+  const EnumType* proto3_enum_type = GetTestProto3EnumType();
   EXPECT_TRUE(Value::Enum(enum_type, 0).type()->Equals(enum_type));
   EXPECT_TRUE(TestGetSQL(Value::Null(enum_type))
                   .type()
@@ -2165,9 +2236,21 @@ TEST_F(ValueTest, Enum) {
   EXPECT_EQ(0, TestGetSQL(Value::Enum(enum_type, 0)).enum_value());
   EXPECT_EQ(1, TestGetSQL(Value::Enum(enum_type, 1)).enum_value());
   EXPECT_EQ(2, TestGetSQL(Value::Enum(enum_type, 2)).enum_value());
-  EXPECT_EQ("TESTENUM2", Enum(enum_type, 2).enum_name());
+  EXPECT_EQ("TESTENUM2", Enum(enum_type, 2).EnumDisplayName());
+  EXPECT_EQ("ENUM1", Enum(proto3_enum_type, 1).EnumDisplayName());
   EXPECT_FALSE(Value::Enum(enum_type, 12345).is_valid());
+  EXPECT_DEATH(Value::Uint32(12345).enum_value(), "Not an enum value");
+  EXPECT_DEATH(Value::Uint32(12345).EnumDisplayName(), "Not an enum value");
   EXPECT_DEATH(Value::Enum(enum_type, 12345).enum_value(), "Not an enum value");
+  EXPECT_TRUE(
+      Value::Enum(proto3_enum_type, 2544, /*allow_unknown_enum_values=*/true)
+          .is_valid());
+  EXPECT_TRUE(
+      Value::Enum(proto3_enum_type, 2544, /*allow_unknown_enum_values=*/true)
+          .is_valid());
+  // proto2 enums cannot contain unnamed values, even if we ask for them.
+  EXPECT_FALSE(Value::Enum(enum_type, 2550, /*allow_unknown_enum_values=*/true)
+                   .is_valid());
   EXPECT_EQ(2147483647, Value::Enum(enum_type, 2147483647).enum_value());
   EXPECT_EQ(2147483647, Value::Enum(enum_type, 2147483647).ToInt64());
   EXPECT_EQ(2147483647.0, Value::Enum(enum_type, 2147483647).ToDouble());
@@ -2205,6 +2288,24 @@ TEST_F(ValueTest, Enum) {
   EXPECT_FALSE(enum_null_1.Equals(enum_null_2));
 }
 
+TEST_F(ValueTest, EnumName) {
+  const EnumType* enum_type = GetTestProto3EnumType();
+  EXPECT_THAT(Value::Null(enum_type).EnumName(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Null enum value")));
+  EXPECT_THAT(Value::Uint32(1).EnumName(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Not an enum value")));
+  EXPECT_THAT(Value::Enum(enum_type, 1).EnumName(),
+              ::zetasql_base::testing::IsOkAndHolds("ENUM1"));
+  Value unnamed_enum =
+      Value::Enum(enum_type, 2593, /*allow_unknown_enum_values=*/true);
+  EXPECT_THAT(unnamed_enum.EnumName(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Value 2593 not in")));
+  EXPECT_THAT(unnamed_enum.EnumDisplayName(), "2593");
+}
+
 TEST_F(ValueTest, EnumFormatting) {
   const EnumType* enum_type = GetTestEnumType();
   const Value enum_value = Value::Enum(enum_type, 0);
@@ -2216,6 +2317,20 @@ TEST_F(ValueTest, EnumFormatting) {
   EXPECT_EQ(enum_value.GetSQLLiteral(), R"sql("TESTENUM0")sql");
   EXPECT_EQ(enum_value.GetSQL(),
             R"sql(CAST("TESTENUM0" AS `zetasql_test__.TestEnum`))sql");
+}
+
+TEST_F(ValueTest, EnumFormattingUnknownEnum) {
+  const EnumType* enum_type = GetTestProto3EnumType();
+  const Value enum_value =
+      Value::Enum(enum_type, 2586, /*allow_unknown_enum_values=*/true);
+  EXPECT_EQ(enum_value.DebugString(/*verbose=*/true),
+            "Enum<zetasql_test__.TestProto3Enum>(2586)");
+  EXPECT_EQ(enum_value.DebugString(), "2586");
+  EXPECT_EQ(enum_value.Format(), "Enum<zetasql_test__.TestProto3Enum>(2586)");
+  EXPECT_EQ(enum_value.Format(/*print_top_level_type=*/false), "2586");
+  EXPECT_EQ(enum_value.GetSQLLiteral(), R"sql(2586)sql");
+  EXPECT_EQ(enum_value.GetSQL(),
+            R"sql(CAST(2586 AS `zetasql_test__.TestProto3Enum`))sql");
 }
 
 TEST_F(ValueTest, StructWithNanAndInf) {
@@ -4204,6 +4319,10 @@ TEST_F(ValueTest, Serialize) {
   const EnumType* enum_type = GetTestEnumType();
   SerializeDeserialize(Null(enum_type));
   SerializeDeserialize(Enum(enum_type, 1));
+
+  // Proto3 open enum with known value.
+  const EnumType* open_enum_type = GetTestProto3EnumType();
+  SerializeDeserialize(Enum(open_enum_type, 2));
 
   const ArrayType* array_enum_type = GetTestArrayEnumType();
   SerializeDeserialize(Null(array_enum_type));

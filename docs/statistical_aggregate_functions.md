@@ -6,7 +6,7 @@ ZetaSQL supports statistical aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
-### CORR
+### `CORR`
 
 ```sql
 CORR(
@@ -68,7 +68,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 [stat-agg-link-to-pearson-coefficient]: https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient
 
-### COVAR_POP
+### `COVAR_POP`
 
 ```sql
 COVAR_POP(
@@ -129,7 +129,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 [stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
-### COVAR_SAMP
+### `COVAR_SAMP`
 
 ```sql
 COVAR_SAMP(
@@ -190,7 +190,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 [stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
 
-### STDDEV_POP
+### `STDDEV_POP`
 
 ```sql
 STDDEV_POP(
@@ -245,16 +245,13 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
-`STDDEV_POP` can be used with differential privacy. To learn more, see
-[Differentially private aggregate functions][anonymization-functions].
-
 **Return Data Type**
 
 `DOUBLE`
 
 [anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-### STDDEV_SAMP
+### `STDDEV_SAMP`
 
 ```sql
 STDDEV_SAMP(
@@ -311,7 +308,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 `DOUBLE`
 
-### STDDEV
+### `STDDEV`
 
 ```sql
 STDDEV(
@@ -338,7 +335,7 @@ An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
 [stat-agg-link-to-stddev-samp]: #stddev_samp
 
-### VAR_POP
+### `VAR_POP`
 
 ```sql
 VAR_POP(
@@ -393,7 +390,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 [anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-### VAR_SAMP
+### `VAR_SAMP`
 
 ```sql
 VAR_SAMP(
@@ -450,7 +447,7 @@ To learn more about the `OVER` clause and how to use it, see
 
 `DOUBLE`
 
-### VARIANCE
+### `VARIANCE`
 
 ```sql
 VARIANCE(

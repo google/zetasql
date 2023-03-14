@@ -4,32 +4,38 @@
 
 ZetaSQL supports the following date functions.
 
-### CURRENT_DATE
+### `CURRENT_DATE`
 
 ```sql
-CURRENT_DATE([time_zone])
+CURRENT_DATE()
+```
+
+```sql
+CURRENT_DATE(time_zone_expression)
+```
+
+```sql
+CURRENT_DATE
 ```
 
 **Description**
 
-Returns the current date as of the specified or default time zone. Parentheses
-are optional when called with no
-arguments.
+Returns the current date.
 
- This function supports an optional
-`time_zone` parameter. This parameter is a string representing the time zone to
-use. If no time zone is specified, the default time zone,
-which is implementation defined, is used. See
-[Time zone definitions][date-functions-link-to-timezone-definitions]
-for information on how to specify a time zone.
+This function supports the following arguments:
 
-If the `time_zone` parameter evaluates to `NULL`, this function returns `NULL`.
++ `time_zone_expression`: A `STRING` expression that represents a
+  [time zone][date-timezone-definitions]. If no time zone is specified, the
+  default time zone, which is implementation defined, is used. If this expression is
+  used and it evaluates to `NULL`, this function returns `NULL`.
 
 **Return Data Type**
 
-DATE
+`DATE`
 
-**Example**
+**Examples**
+
+The following query produces the current date in the default time zone:
 
 ```sql
 SELECT CURRENT_DATE() AS the_date;
@@ -41,10 +47,45 @@ SELECT CURRENT_DATE() AS the_date;
 +--------------+
 ```
 
+The following queries produce the current date in a specified time zone:
+
+```sql
+SELECT CURRENT_DATE('America/Los_Angeles') AS the_date;
+
++--------------+
+| the_date     |
++--------------+
+| 2016-12-25   |
++--------------+
+```
+
+```sql
+SELECT CURRENT_DATE('-08') AS the_date;
+
++--------------+
+| the_date     |
++--------------+
+| 2016-12-25   |
++--------------+
+```
+
+The following query produces the current date in the default time zone.
+Parentheses are not needed if the function has no arguments.
+
+```sql
+SELECT CURRENT_DATE AS the_date;
+
++--------------+
+| the_date     |
++--------------+
+| 2016-12-25   |
++--------------+
+```
+
 When a column named `current_date` is present, the column name and the function
 call without parentheses are ambiguous. To ensure the function call, add
 parentheses; to ensure the column name, qualify it with its
-[range variable][date-functions-link-to-range-variables]. For example, the
+[range variable][date-range-variables]. For example, the
 following query will select the function in the `the_date` column and the table
 column in the `current_date` column.
 
@@ -59,7 +100,11 @@ SELECT current_date() AS the_date, t.current_date FROM t;
 +------------+--------------+
 ```
 
-### EXTRACT
+[date-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
+
+[date-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
+
+### `EXTRACT`
 
 ```sql
 EXTRACT(part FROM date_expression)
@@ -165,26 +210,47 @@ SELECT
 +------------+-------------+-------------+
 ```
 
-### DATE
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+### `DATE`
 
 ```sql
-1. DATE(year, month, day)
-2. DATE(timestamp_expression[, time_zone])
-3. DATE(datetime_expression)
+DATE(year, month, day)
+```
+
+```sql
+DATE(timestamp_expression)
+```
+
+```sql
+DATE(timestamp_expression, time_zone_expression)
+```
+
+```
+DATE(datetime_expression)
 ```
 
 **Description**
 
-1. Constructs a DATE from INT64 values representing
-   the year, month, and day.
-2. Extracts the DATE from a TIMESTAMP expression. It supports an
-   optional parameter to [specify a time zone][date-functions-link-to-timezone-definitions]. If no
-   time zone is specified, the default time zone, which is implementation defined, is used.
-3. Extracts the DATE from a DATETIME expression.
+Constructs or extracts a date.
+
+This function supports the following arguments:
+
++ `year`: The `INT64` value for year.
++ `month`: The `INT64` value for month.
++ `day`: The `INT64` value for day.
++ `timestamp_expression`: A `TIMESTAMP` expression that contains the date.
++ `time_zone_expression`: A `STRING` expression that represents a
+  [time zone][date-timezone-definitions]. If no time zone is specified with
+  `timestamp_expression`, the default time zone, which is implementation defined, is
+  used.
++ `datetime_expression`: A `DATETIME` expression that contains the date.
 
 **Return Data Type**
 
-DATE
+`DATE`
 
 **Example**
 
@@ -201,7 +267,9 @@ SELECT
 +------------+------------+------------+
 ```
 
-### DATE_ADD
+[date-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+
+### `DATE_ADD`
 
 ```sql
 DATE_ADD(date_expression, INTERVAL int64_expression date_part)
@@ -240,7 +308,7 @@ SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 +--------------------+
 ```
 
-### DATE_SUB
+### `DATE_SUB`
 
 ```sql
 DATE_SUB(date_expression, INTERVAL int64_expression date_part)
@@ -279,7 +347,7 @@ SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 +---------------+
 ```
 
-### DATE_DIFF
+### `DATE_DIFF`
 
 ```sql
 DATE_DIFF(date_expression_a, date_expression_b, date_part)
@@ -382,7 +450,11 @@ SELECT
 +-----------+-------------------+--------------+
 ```
 
-### DATE_TRUNC
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+### `DATE_TRUNC`
 
 ```sql
 DATE_TRUNC(date_expression, date_part)
@@ -477,7 +549,7 @@ SELECT
 +------------------+----------------+
 ```
 
-### DATE_FROM_UNIX_DATE
+### `DATE_FROM_UNIX_DATE`
 
 ```sql
 DATE_FROM_UNIX_DATE(int64_expression)
@@ -503,7 +575,7 @@ SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
 +-----------------+
 ```
 
-### FORMAT_DATE
+### `FORMAT_DATE`
 
 ```sql
 FORMAT_DATE(format_string, date_expr)
@@ -552,7 +624,9 @@ SELECT FORMAT_DATE('%b %Y', DATE '2008-12-25') AS formatted;
 +-------------+
 ```
 
-### LAST_DAY
+[date-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `LAST_DAY`
 
 ```sql
 LAST_DAY(date_expression[, date_part])
@@ -644,7 +718,11 @@ SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day
 +------------+
 ```
 
-### PARSE_DATE
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+### `PARSE_DATE`
 
 ```sql
 PARSE_DATE(format_string, date_string)
@@ -674,9 +752,6 @@ SELECT PARSE_DATE('%A %b %e', 'Thursday Dec 25 2008')
 -- This works because %F can find all matching elements in date_string.
 SELECT PARSE_DATE('%F', '2000-12-30')
 ```
-
-The format string fully supports most format elements except for
-`%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_DATE`, keep the following in mind:
 
@@ -721,7 +796,11 @@ SELECT PARSE_DATE('%Y%m%d', '20081225') AS parsed;
 +------------+
 ```
 
-### UNIX_DATE
+[date-format]: #format_date
+
+[date-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `UNIX_DATE`
 
 ```sql
 UNIX_DATE(date_expression)
@@ -746,20 +825,4 @@ SELECT UNIX_DATE(DATE '2008-12-25') AS days_from_epoch;
 | 14238           |
 +-----------------+
 ```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
-[date-format]: #format_date
-
-[date-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
-
-[date-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
-
-[date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
-
-<!-- mdlint on -->
 

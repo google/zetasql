@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <string>
 #include <type_traits>
 
 #include "zetasql/public/functions/arithmetics.h"
@@ -29,6 +30,7 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
@@ -300,7 +302,7 @@ bool Sqrt(T in, T* out, absl::Status* error) {
                 "T must be floating point type");
   if (ABSL_PREDICT_FALSE(in < 0)) {
     return internal::UpdateError(
-        error, absl::StrCat("Argument to SQRT cannot be negative: ", in));
+        error, absl::StrFormat("Argument to SQRT cannot be negative: %v", in));
   }
   *out = std::sqrt(in);
   return true;

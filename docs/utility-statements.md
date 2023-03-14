@@ -4,7 +4,7 @@
 
 ZetaSQL supports the following utility statements.
 
-## EXPLAIN
+## `EXPLAIN`
 
 ```
 EXPLAIN query;
@@ -13,7 +13,7 @@ EXPLAIN query;
 The `EXPLAIN` statement provides information on how ZetaSQL would
 execute a given query. This statement does not execute the query.
 
-## DESCRIBE/DESC
+## `DESCRIBE/DESC`
 
 ```
 DESCRIBE [object_type] object [FROM source];
@@ -46,7 +46,7 @@ The following example returns a description of a table named `foo`.
 DESCRIBE TABLE foo;
 ```
 
-## SHOW
+## `SHOW`
 
 ```
 SHOW object_type [FROM object] [LIKE pattern];

@@ -29,6 +29,7 @@
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
@@ -1416,6 +1417,8 @@ absl::StatusOr<std::vector<Token>> TokenizeNextStatement(
     ParseResumeLocation* parse_location, bool allow_invalid_tokens) {
   LanguageOptions language_options;
   language_options.EnableMaximumLanguageFeaturesForDevelopment();
+  // TODO Allow V_1_4_SQL_MACROS as well
+  language_options.DisableLanguageFeature(FEATURE_V_1_4_SQL_MACROS);
   ParseTokenOptions parser_options{.stop_at_end_of_statement = true,
                                    .include_comments = true,
                                    .language_options = language_options};
@@ -1573,6 +1576,11 @@ std::string Token::ImageForPrinting(const FormatterOptions& options,
                                     bool is_first_token, int new_column,
                                     int original_column) const {
   std::string result;
+
+  if (options.IsCapitalizeFunctions() && Is(Type::BUILTIN_FUNCTION)) {
+    return std::string(GetKeyword());
+  }
+
   if (options.IsCapitalizeKeywords() && !IsMacroCall()) {
     if (IsReservedKeyword() || UsedAsKeyword() || Is(Type::TOP_LEVEL_KEYWORD)) {
       // When the token is a reserved keyword, we use a canonical uppercase

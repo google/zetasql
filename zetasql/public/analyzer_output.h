@@ -28,8 +28,10 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/logging.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/base/macros.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
@@ -57,6 +59,8 @@ namespace zetasql {
 //          it will preserve the ParserRuntimeInfo if that was provided.
 //
 // Time spent in the validator is not counted in either rewriter or resolver.
+//
+// There overall_timer provides a measure of the total resources spent.
 class AnalyzerRuntimeInfo {
  public:
   AnalyzerRuntimeInfo() : impl_(std::make_unique<Impl>()) {}
@@ -71,11 +75,16 @@ class AnalyzerRuntimeInfo {
   // result in overcounting of parser time, as well as this value.
   // see parser_elapsed_duration for more information.
   absl::Duration sum_elapsed_duration() const {
-    return parser_elapsed_duration() + resolver_elapsed_duration() +
-           rewriters_elapsed_duration() + validator_elapsed_duration();
+    return parser_runtime_info().parser_elapsed_duration() +
+           resolver_timed_value().elapsed_duration() +
+           rewriters_timed_value().elapsed_duration() +
+           validator_timed_value().elapsed_duration();
   }
 
   const ParserRuntimeInfo& parser_runtime_info() const {
+    return impl_->parser_runtime_info;
+  }
+  ParserRuntimeInfo& parser_runtime_info() {
     return impl_->parser_runtime_info;
   }
 
@@ -85,30 +94,34 @@ class AnalyzerRuntimeInfo {
   // In the case the parser is run separately, it's possible this will
   // result in double counting, if the same parser output is used for multiple
   // analyzer calls.
+  ABSL_DEPRECATED("Inline me!")
   absl::Duration parser_elapsed_duration() const {
-    return impl_->parser_runtime_info.parser_elapsed_duration();
+    return parser_runtime_info().parser_elapsed_duration();
   }
 
-  ParserRuntimeInfo& parser_runtime_info() {
-    return impl_->parser_runtime_info;
+  // Total time in this ZetaSQL API call.
+  internal::TimedValue& overall_timed_value() const {
+    return impl_->overall_timed_value;
   }
 
   // Total elapsed time spent in resolver.
   // This will include time spent in catalog operations.
+  ABSL_DEPRECATED("Inline me!")
   absl::Duration resolver_elapsed_duration() const {
-    return impl_->resolver_timed_value.elapsed_duration();
+    return resolver_timed_value().elapsed_duration();
   }
-  internal::TimedValue& resolver_timed_value() {
+  internal::TimedValue& resolver_timed_value() const {
     return impl_->resolver_timed_value;
   }
 
   // Total elapsed duration spent processing rewriters; note this isn't quite
   // the same as the sum of time spent in rewriters, since there is some
   // overhead.
+  ABSL_DEPRECATED("Inline me!")
   absl::Duration rewriters_elapsed_duration() const {
-    return impl_->rewriters_timed_value.elapsed_duration();
+    return rewriters_timed_value().elapsed_duration();
   }
-  internal::TimedValue& rewriters_timed_value() {
+  internal::TimedValue& rewriters_timed_value() const {
     return impl_->rewriters_timed_value;
   }
 
@@ -129,15 +142,18 @@ class AnalyzerRuntimeInfo {
   // This includes both time spent in the post-resolver validation and
   // post-rewriter validation. Depending on analyzer flags, the validator
   // may not be run at all.
+  ABSL_DEPRECATED("Inline me!")
   absl::Duration validator_elapsed_duration() const {
-    return impl_->validator_timed_value.elapsed_duration();
+    return validator_timed_value().elapsed_duration();
   }
 
-  internal::TimedValue& validator_timed_value() {
+  internal::TimedValue& validator_timed_value() const {
     return impl_->validator_timed_value;
   }
 
   void AccumulateAll(const AnalyzerRuntimeInfo& rhs);
+
+  AnalyzerLogEntry log_entry() const;
 
   // Print a human readable representation of this object.
   // If total_runs is provided, printed information will be an average over the
@@ -158,13 +174,14 @@ class AnalyzerRuntimeInfo {
     absl::flat_hash_map<ResolvedASTRewrite, RewriterDetails> rewriters_details;
     internal::TimedValue rewriters_timed_value;
     internal::TimedValue validator_timed_value;
+    internal::TimedValue overall_timed_value;
   };
   std::unique_ptr<Impl> impl_;
+  friend class AnalyzerOutputMutator;
 };
 
 class AnalyzerOutput {
  public:
-  // TODO cleanup calls to make final argument non-optional.
   AnalyzerOutput(
       std::shared_ptr<IdStringPool> id_string_pool,
       std::shared_ptr<zetasql_base::UnsafeArena> arena,
@@ -174,8 +191,7 @@ class AnalyzerOutput {
       const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
       const std::vector<const Type*>& undeclared_positional_parameters,
-      int max_column_id, AnalyzerRuntimeInfo performance_stats = {});
-  // TODO cleanup calls to make final argument non-optional.
+      int max_column_id);
   AnalyzerOutput(
       std::shared_ptr<IdStringPool> id_string_pool,
       std::shared_ptr<zetasql_base::UnsafeArena> arena,
@@ -185,7 +201,7 @@ class AnalyzerOutput {
       const std::vector<absl::Status>& deprecation_warnings,
       const QueryParametersMap& undeclared_parameters,
       const std::vector<const Type*>& undeclared_positional_parameters,
-      int max_column_id, AnalyzerRuntimeInfo performance_stats = {});
+      int max_column_id);
   AnalyzerOutput(const AnalyzerOutput&) = delete;
   AnalyzerOutput& operator=(const AnalyzerOutput&) = delete;
   ~AnalyzerOutput();
@@ -212,9 +228,6 @@ class AnalyzerOutput {
   // DeprecationWarning::Kind, they will be deduplicated..
   const std::vector<absl::Status>& deprecation_warnings() const {
     return deprecation_warnings_;
-  }
-  void set_deprecation_warnings(const std::vector<absl::Status>& warnings) {
-    deprecation_warnings_ = warnings;
   }
 
   // Returns the undeclared query parameters found in the query and their
@@ -250,8 +263,6 @@ class AnalyzerOutput {
   int max_column_id() const { return max_column_id_; }
 
   const AnalyzerRuntimeInfo& runtime_info() const { return runtime_info_; }
-
-  AnalyzerRuntimeInfo& mutable_runtime_info() { return runtime_info_; }
 
  private:
   friend class AnalyzerOutputMutator;

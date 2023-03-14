@@ -1864,3 +1864,149 @@ QueryStatement [0-25] [select `collate`(x, y, z)]
 --
 SELECT
   `collate`(x, y, z)
+==
+
+# REPLACE is allowed to be a keyword after INSERT
+INSERT {{foo|REPLACE foo|REPLACE|replace.foo|`replace`.foo|UPDATE foo|UPDATE|update.foo|`update`.foo}} VALUES(1, 2, 3)
+--
+ALTERNATION GROUP: foo
+--
+InsertStatement [0-26] [INSERT foo VALUES(1, 2, 3)]
+  PathExpression [7-10] [foo]
+    Identifier(foo) [7-10] [foo]
+  InsertValuesRowList [11-26] [VALUES(1, 2, 3)]
+    InsertValuesRow [17-26] [(1, 2, 3)]
+      IntLiteral(1) [18-19] [1]
+      IntLiteral(2) [21-22] [2]
+      IntLiteral(3) [24-25] [3]
+--
+INSERT INTO foo
+VALUES
+  (1, 2, 3)
+--
+ALTERNATION GROUP: REPLACE foo
+--
+InsertStatement(insert_mode=REPLACE) [0-34] [INSERT REPLACE...LUES(1, 2, 3)]
+  PathExpression [15-18] [foo]
+    Identifier(foo) [15-18] [foo]
+  InsertValuesRowList [19-34] [VALUES(1, 2, 3)]
+    InsertValuesRow [25-34] [(1, 2, 3)]
+      IntLiteral(1) [26-27] [1]
+      IntLiteral(2) [29-30] [2]
+      IntLiteral(3) [32-33] [3]
+--
+INSERT OR REPLACE INTO foo
+VALUES
+  (1, 2, 3)
+--
+ALTERNATION GROUP: REPLACE
+--
+ERROR: Syntax error: Expected column name [at 1:23]
+INSERT REPLACE VALUES(1, 2, 3)
+                      ^
+--
+ALTERNATION GROUP: replace.foo
+--
+InsertStatement [0-34] [INSERT replace...LUES(1, 2, 3)]
+  PathExpression [7-18] [replace.foo]
+    Identifier(`replace`) [7-14] [replace]
+    Identifier(foo) [15-18] [foo]
+  InsertValuesRowList [19-34] [VALUES(1, 2, 3)]
+    InsertValuesRow [25-34] [(1, 2, 3)]
+      IntLiteral(1) [26-27] [1]
+      IntLiteral(2) [29-30] [2]
+      IntLiteral(3) [32-33] [3]
+--
+INSERT INTO `replace`.foo
+VALUES
+  (1, 2, 3)
+--
+ALTERNATION GROUP: `replace`.foo
+--
+InsertStatement [0-36] [INSERT `replace...UES(1, 2, 3)]
+  PathExpression [7-20] [`replace`.foo]
+    Identifier(`replace`) [7-16] [`replace`]
+    Identifier(foo) [17-20] [foo]
+  InsertValuesRowList [21-36] [VALUES(1, 2, 3)]
+    InsertValuesRow [27-36] [(1, 2, 3)]
+      IntLiteral(1) [28-29] [1]
+      IntLiteral(2) [31-32] [2]
+      IntLiteral(3) [34-35] [3]
+--
+INSERT INTO `replace`.foo
+VALUES
+  (1, 2, 3)
+--
+ALTERNATION GROUP: UPDATE foo
+--
+InsertStatement(insert_mode=UPDATE) [0-33] [INSERT UPDATE...ALUES(1, 2, 3)]
+  PathExpression [14-17] [foo]
+    Identifier(foo) [14-17] [foo]
+  InsertValuesRowList [18-33] [VALUES(1, 2, 3)]
+    InsertValuesRow [24-33] [(1, 2, 3)]
+      IntLiteral(1) [25-26] [1]
+      IntLiteral(2) [28-29] [2]
+      IntLiteral(3) [31-32] [3]
+--
+INSERT OR UPDATE INTO foo
+VALUES
+  (1, 2, 3)
+--
+ALTERNATION GROUP: UPDATE
+--
+ERROR: Syntax error: Expected column name [at 1:22]
+INSERT UPDATE VALUES(1, 2, 3)
+                     ^
+--
+ALTERNATION GROUP: update.foo
+--
+InsertStatement [0-33] [INSERT update...ALUES(1, 2, 3)]
+  PathExpression [7-17] [update.foo]
+    Identifier(`update`) [7-13] [update]
+    Identifier(foo) [14-17] [foo]
+  InsertValuesRowList [18-33] [VALUES(1, 2, 3)]
+    InsertValuesRow [24-33] [(1, 2, 3)]
+      IntLiteral(1) [25-26] [1]
+      IntLiteral(2) [28-29] [2]
+      IntLiteral(3) [31-32] [3]
+--
+INSERT INTO `update`.foo
+VALUES
+  (1, 2, 3)
+--
+ALTERNATION GROUP: `update`.foo
+--
+InsertStatement [0-35] [INSERT `update...LUES(1, 2, 3)]
+  PathExpression [7-19] [`update`.foo]
+    Identifier(`update`) [7-15] [`update`]
+    Identifier(foo) [16-19] [foo]
+  InsertValuesRowList [20-35] [VALUES(1, 2, 3)]
+    InsertValuesRow [26-35] [(1, 2, 3)]
+      IntLiteral(1) [27-28] [1]
+      IntLiteral(2) [30-31] [2]
+      IntLiteral(3) [33-34] [3]
+--
+INSERT INTO `update`.foo
+VALUES
+  (1, 2, 3)
+
+==
+
+# The parser gets further than we think it ought to in this case.
+# The interpretation is INSERT [or] REPLACE [into] `VALUES` (...
+# and then we get an expected-column-name in the parens.
+# This is possible because VALUES is a nonreserved keyword.
+# There may also be an artefact of Bison's default-reduce semantics here.
+INSERT REPLACE VALUES(1, 2, 3)
+--
+ERROR: Syntax error: Expected column name [at 1:23]
+INSERT REPLACE VALUES(1, 2, 3)
+                      ^
+==
+
+# This is related to the INSERT REPLACE VALUES(1) test.
+INSERT REPLACE SELECT 1
+--
+ERROR: Syntax error: Expecting INSERT target name [at 1:16]
+INSERT REPLACE SELECT 1
+               ^

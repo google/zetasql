@@ -32,6 +32,7 @@
 
 #include <cstdint>
 
+#include "zetasql/base/logging.h"
 #include "absl/base/config.h"
 #include "absl/base/port.h"
 #include "absl/numeric/int128.h"
@@ -152,6 +153,47 @@ inline uint16_t gntohs(uint16_t x) { return ghtons(x); }
 inline uint32_t gntohl(uint32_t x) { return ghtonl(x); }
 inline uint64_t gntohll(uint64_t x) { return ghtonll(x); }
 
+
+// We provide unified FromHost and ToHost APIs for all integral types.
+// If variable v's type is known to be one of these types, the
+// client can simply call the following function without worrying about its
+// return type.
+//     LittleEndian::FromHost(v)
+//     LittleEndian::ToHost(v)
+// This unified FromHost and ToHost APIs are useful inside a template when the
+// type of v is a template parameter.
+//
+// In order to unify all "IntType FromHostxx(ValueType)" and "IntType
+// ToHostxx(ValueType)" APIs, we use the following trait class to automatically
+// find the corresponding IntType given a ValueType, where IntType is an
+// unsigned integer type with the same size of ValueType. The supported
+// ValueTypes are uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t, int64_t.
+//
+// template <class ValueType>
+// struct tofromhost_value_type_traits {
+//   typedef ValueType value_type;
+//   typedef IntType int_type;
+// }
+//
+// We don't provide the default implementation for this trait struct.
+// So that if ValueType is not supported by the FromHost and ToHost APIs, it
+// will give a compile time error.
+template <class ValueType>
+struct tofromhost_value_type_traits;
+
+// General byte order converter class template. It provides a common
+// implementation for LittleEndian::FromHost(ValueType),
+// BigEndian::FromHost(ValueType), LittleEndian::ToHost(ValueType), and
+// BigEndian::ToHost(ValueType).
+template <typename ValueType>
+class GeneralFormatConverter {
+ public:
+  static typename tofromhost_value_type_traits<ValueType>::int_type FromHost(
+      ValueType v);
+  static typename tofromhost_value_type_traits<ValueType>::int_type ToHost(
+      ValueType v);
+};
+
 // Utilities to convert numbers between the current hosts's native byte
 // order and little-endian byte order
 //
@@ -193,6 +235,21 @@ class LittleEndian {
 
 #endif /* ENDIAN */
 
+  // Unified LittleEndian::FromHost(ValueType v) API.
+  template <class ValueType>
+  static typename tofromhost_value_type_traits<ValueType>::int_type FromHost(
+      ValueType v) {
+    return GeneralFormatConverter<ValueType>::FromHost(v);
+  }
+
+  // Unified LittleEndian::ToHost(ValueType v) API.
+  template <class ValueType>
+  static typename tofromhost_value_type_traits<ValueType>::value_type ToHost(
+      ValueType v) {
+    return GeneralFormatConverter<ValueType>::ToHost(v);
+  }
+
+
   // Functions to do unaligned loads and stores in little-endian order.
   static uint16_t Load16(const void* p) {
     return ToHost16(ZETASQL_INTERNAL_UNALIGNED_LOAD16(p));
@@ -229,7 +286,167 @@ class LittleEndian {
     ZETASQL_INTERNAL_UNALIGNED_STORE64(reinterpret_cast<uint64_t*>(p) + 1,
                                        FromHost64(absl::Uint128High64(v)));
   }
+
+  // Unified LittleEndian::Load/Store<T> API.
+
+  // Returns the T value encoded by the leading bytes of 'p', interpreted
+  // according to the format specified below. 'p' has no alignment restrictions.
+  //
+  // Type              Format
+  // ----------------  -------------------------------------------------------
+  // uint{8,16,32,64}  Little-endian binary representation.
+  // int{8,16,32,64}   Little-endian twos-complement binary representation.
+  // float,double      Little-endian IEEE-754 format.
+  // char              The raw byte.
+  // bool              A byte. 0 maps to false; all other values map to true.
+  template<typename T>
+  static T Load(const char* p);
+
+  // Encodes 'value' in the format corresponding to T. Supported types are
+  // described in Load<T>(). 'p' has no alignment restrictions. In-place Store
+  // is safe (that is, it is safe to call
+  // Store(x, reinterpret_cast<char*>(&x))).
+  template<typename T>
+  static void Store(T value, char* p);
 };
+
+
+//////////////////////////////////////////////////////////////////////
+// Implementation details: Clients can stop reading here.
+//
+// Define ValueType->IntType mapping for the unified
+// "IntType FromHost(ValueType)" API. The mapping is implemented via
+// tofromhost_value_type_traits trait struct. Every legal ValueType has its own
+// specialization. There is no default body for this trait struct, so that
+// any type that is not supported by the unified FromHost API
+// will trigger a compile time error.
+#define FROMHOST_TYPE_MAP(ITYPE, VTYPE)        \
+  template <>                                  \
+  struct tofromhost_value_type_traits<VTYPE> { \
+    typedef VTYPE value_type;                  \
+    typedef ITYPE int_type;                    \
+  }
+
+FROMHOST_TYPE_MAP(uint8_t, uint8_t);
+FROMHOST_TYPE_MAP(uint8_t, int8_t);
+FROMHOST_TYPE_MAP(uint16_t, uint16_t);
+FROMHOST_TYPE_MAP(uint16_t, int16_t);
+FROMHOST_TYPE_MAP(uint32_t, uint32_t);
+FROMHOST_TYPE_MAP(uint32_t, int32_t);
+FROMHOST_TYPE_MAP(uint64_t, uint64_t);
+FROMHOST_TYPE_MAP(uint64_t, int64_t);
+FROMHOST_TYPE_MAP(absl::uint128, absl::uint128);
+#undef FROMHOST_TYPE_MAP
+
+
+// Default implementation for the unified FromHost(ValueType) API, which
+// handles all integral types (ValueType is one of uint8_t, int8_t, uint16_t, int16_t,
+// uint32_t, int32_t, uint64_t, int64_t). The compiler will remove the switch case
+// branches and unnecessary static_cast, when the template is expanded.
+template <typename ValueType>
+typename tofromhost_value_type_traits<ValueType>::int_type
+GeneralFormatConverter<ValueType>::FromHost(ValueType v) {
+  switch (sizeof(ValueType)) {
+    case 1:
+      return static_cast<uint8_t>(v);
+      break;
+    case 2:
+      return LittleEndian::FromHost16(static_cast<uint16_t>(v));
+      break;
+    case 4:
+      return LittleEndian::FromHost32(static_cast<uint32_t>(v));
+      break;
+    case 8:
+      return LittleEndian::FromHost64(static_cast<uint64_t>(v));
+      break;
+    default:
+      ZETASQL_LOG(FATAL) << "Unexpected value size: " << sizeof(ValueType);
+  }
+}
+
+// Default implementation for the unified ToHost(ValueType) API, which handles
+// all integral types (ValueType is one of uint8_t, int8_t, uint16_t, int16_t, uint32_t,
+// int32_t, uint64_t, int64_t). The compiler will remove the switch case branches and
+// unnecessary static_cast, when the template is expanded.
+template <typename ValueType>
+typename tofromhost_value_type_traits<ValueType>::int_type
+GeneralFormatConverter<ValueType>::ToHost(ValueType v) {
+  switch (sizeof(ValueType)) {
+    case 1:
+      return static_cast<uint8_t>(v);
+      break;
+    case 2:
+      return LittleEndian::ToHost16(static_cast<uint16_t>(v));
+      break;
+    case 4:
+      return LittleEndian::ToHost32(static_cast<uint32_t>(v));
+      break;
+    case 8:
+      return LittleEndian::ToHost64(static_cast<uint64_t>(v));
+      break;
+    default:
+      ZETASQL_LOG(FATAL) << "Unexpected value size: " << sizeof(ValueType);
+  }
+}
+
+// Specialization of the unified FromHost(ValueType) API, which handles
+// uint128 types (ValueType is uint128).
+template <>
+class GeneralFormatConverter<absl::uint128> {
+ public:
+  static typename tofromhost_value_type_traits<absl::uint128>::int_type
+  FromHost(absl::uint128 v) {
+    return LittleEndian::FromHost128(v);
+  }
+  static typename tofromhost_value_type_traits<absl::uint128>::int_type ToHost(
+      absl::uint128 v) {
+    return LittleEndian::ToHost128(v);
+  }
+};
+
+// Which branch of the 'case' to use is decided at compile time, so despite the
+// apparent size of this function, it compiles into efficient code.
+template<typename T>
+inline T LittleEndian::Load(const char* p) {
+  static_assert(sizeof(T) <= 8 && std::is_integral<T>::value,
+                "T needs to be an integral type with size <= 8.");
+  switch (sizeof(T)) {
+    case 1: return *reinterpret_cast<const T*>(p);
+    case 2:
+      return LittleEndian::ToHost16(ZETASQL_INTERNAL_UNALIGNED_LOAD16(p));
+    case 4:
+      return LittleEndian::ToHost32(ZETASQL_INTERNAL_UNALIGNED_LOAD32(p));
+    case 8:
+      return LittleEndian::ToHost64(ZETASQL_INTERNAL_UNALIGNED_LOAD64(p));
+    default: {
+      ZETASQL_LOG(FATAL) << "Not reached!";
+      return 0;
+    }
+  }
+}
+
+// Which branch of the 'case' to use is decided at compile time, so despite the
+// apparent size of this function, it compiles into efficient code.
+template<typename T>
+inline void LittleEndian::Store(T value, char* p) {
+  static_assert(sizeof(T) <= 8 && std::is_integral<T>::value,
+                "T needs to be an integral type with size <= 8.");
+  switch (sizeof(T)) {
+    case 1: *reinterpret_cast<T*>(p) = value; break;
+    case 2:
+      LittleEndian::Store16(p, value);
+      break;
+    case 4:
+      LittleEndian::Store32(p, value);
+      break;
+    case 8:
+      LittleEndian::Store64(p, value);
+      break;
+    default: {
+      ZETASQL_LOG(FATAL) << "Not reached!";
+    }
+  }
+}
 
 }  // namespace zetasql_base
 

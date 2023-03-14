@@ -117,22 +117,22 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
     return VisitResult::VisitChildren(node);
   }
 
-  void AddInnerAlias(const ASTWithClauseEntry* entry) {
+  void AddInnerAlias(const ASTAliasedQuery* entry) {
     IdString alias_name = entry->alias()->GetAsIdString();
     if (inner_aliases_.contains(alias_name)) {
       ++inner_aliases_[alias_name];
     }
   }
 
-  void RemoveInnerAlias(const ASTWithClauseEntry* entry) {
+  void RemoveInnerAlias(const ASTAliasedQuery* entry) {
     IdString alias_name = entry->alias()->GetAsIdString();
     if (inner_aliases_.contains(alias_name)) {
       --inner_aliases_[alias_name];
     }
   }
 
-  absl::StatusOr<VisitResult> visitASTWithClauseEntry(
-      const ASTWithClauseEntry* node) override {
+  absl::StatusOr<VisitResult> visitASTAliasedQuery(
+      const ASTAliasedQuery* node) override {
     return VisitResult::VisitChildren(node, [this, node]() {
       if (node != static_cast<const ASTNode*>(root_node_) &&
           !node->parent()->GetAsOrDie<ASTWithClause>()->recursive()) {
@@ -152,7 +152,7 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
     if (node->with_clause() != nullptr) {
       return VisitResult::VisitChildren(node, [this, node]() {
         // Inner WITH entries are now out-of-scope.
-        for (const ASTWithClauseEntry* entry : node->with_clause()->with()) {
+        for (const ASTAliasedQuery* entry : node->with_clause()->with()) {
           RemoveInnerAlias(entry);
         }
         return absl::OkStatus();
@@ -167,7 +167,7 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
     // clause; for non-recursive WITH, inner aliases are added only when we're
     // about to traverse the entry that defines it.
     if (node->recursive()) {
-      for (const ASTWithClauseEntry* entry : node->with()) {
+      for (const ASTAliasedQuery* entry : node->with()) {
         AddInnerAlias(entry);
       }
     }
@@ -241,7 +241,7 @@ class WithEntrySorter {
   // Represents a task remaining in the work of sorting the WITH clause entries.
   struct Task {
     // The WITH clause entry to be processed.
-    const ASTWithClauseEntry* entry;
+    const ASTAliasedQuery* entry;
 
     // Indicates which processing stage we are in for the given entry.
     enum {
@@ -260,16 +260,16 @@ class WithEntrySorter {
       const ASTWithClause* with_clause);
 
   // Processes a WITH entry the first time we see it.
-  absl::Status StartWithEntry(const ASTWithClauseEntry* entry);
+  absl::Status StartWithEntry(const ASTAliasedQuery* entry);
 
   // Called after StartWithEntry() and FinishWithEntry() have completed for all
   // of the entry's direct and indirect dependencies, excluding itself.
   //
   // Appends <entry> to <sorted_entries_>, while also adding it to
   // <processed_entries_>.
-  absl::Status FinishWithEntry(const ASTWithClauseEntry* entry);
+  absl::Status FinishWithEntry(const ASTAliasedQuery* entry);
 
-  absl::Status PushCurrentChain(const ASTWithClauseEntry* entry);
+  absl::Status PushCurrentChain(const ASTAliasedQuery* entry);
   absl::Status PopCurrentChain();
 
   // The WITH clause whose entries are to be sorted in dependency order.
@@ -278,18 +278,18 @@ class WithEntrySorter {
   // List of sorted WITH clause entries. Each entry is added to the end from
   // inside FinishWithEntry(), guaranteeing that every entry appears after all
   // of its dependencies.
-  std::vector<const ASTWithClauseEntry*> sorted_entries_;
+  std::vector<const ASTAliasedQuery*> sorted_entries_;
 
   // WITH clause entries which have already been fully processed. Every element
   // in this set has had StartWithEntry() and FinishWithEntry() called on it,
   // plus all direct and indirect dependencies. These elements are the same as
   // those in <sorted_entries_>, but kept as a hash set for efficient lookup.
-  absl::flat_hash_set<const ASTWithClauseEntry*> processed_entries_;
+  absl::flat_hash_set<const ASTAliasedQuery*> processed_entries_;
 
   // Set of WITH clause entries which directly reference themselves. Such
   // clauses must resolve to a ResolvedRecursiveScan, rather than a normal query
   // scan.
-  absl::flat_hash_set<const ASTWithClauseEntry*> self_recursive_entries_;
+  absl::flat_hash_set<const ASTAliasedQuery*> self_recursive_entries_;
 
   // Stack containing each of the pending operations necessary to complete the
   // sort.
@@ -297,18 +297,18 @@ class WithEntrySorter {
 
   // Map associating each WITH clause with a list of WITH-clause entries
   // it directly references.
-  absl::flat_hash_map<const ASTWithClauseEntry*,
-                      std::vector<const ASTWithClauseEntry*>>
+  absl::flat_hash_map<const ASTAliasedQuery*,
+                      std::vector<const ASTAliasedQuery*>>
       references_;
 
   // Current chain of dependent elements being processed; each element in
   // current_chain_ has a direct dependency on the element following it. Used to
   // detect cycles.
-  std::vector<const ASTWithClauseEntry*> current_chain_;
+  std::vector<const ASTAliasedQuery*> current_chain_;
 
   // Set of elements in <current_chain_>, allowing for a quick determinination
   // whether an element is in the current chain (whether we have a cycle).
-  absl::flat_hash_set<const ASTWithClauseEntry*> current_chain_elements_;
+  absl::flat_hash_set<const ASTAliasedQuery*> current_chain_elements_;
 };
 
 absl::StatusOr<WithEntrySortResult> WithEntrySorter::Run(
@@ -321,17 +321,17 @@ absl::StatusOr<WithEntrySortResult> WithEntrySorter::RunInternal(
     const ASTWithClause* with_clause) {
   with_clause_ = with_clause;
 
-  using FindRefsInWithClause = FindTableReferencesVisitor<ASTWithClauseEntry>;
+  using FindRefsInWithClause = FindTableReferencesVisitor<ASTAliasedQuery>;
 
-  absl::flat_hash_map<const ASTWithClauseEntry*, std::vector<IdString>> roots;
-  for (const ASTWithClauseEntry* entry : with_clause_->with()) {
+  absl::flat_hash_map<const ASTAliasedQuery*, std::vector<IdString>> roots;
+  for (const ASTAliasedQuery* entry : with_clause_->with()) {
     roots[entry] = {entry->alias()->GetAsIdString()};
   }
   ZETASQL_ASSIGN_OR_RETURN(FindRefsInWithClause::NodeReferenceMap references,
                    FindRefsInWithClause::Run(roots));
 
-  absl::flat_hash_map<const ASTWithClauseEntry*, int> entry_index_map;
-  for (const ASTWithClauseEntry* entry : with_clause->with()) {
+  absl::flat_hash_map<const ASTAliasedQuery*, int> entry_index_map;
+  for (const ASTAliasedQuery* entry : with_clause->with()) {
     entry_index_map[entry] = entry_index_map.size();
   }
 
@@ -340,18 +340,18 @@ absl::StatusOr<WithEntrySortResult> WithEntrySorter::RunInternal(
     // order they are traversed in is stable; while not strictly necessary for
     // correctness, this step is necessary to keep test output stable, which
     // can be affected by the ordering through tree dumps and error messages.
-    std::vector<const ASTWithClauseEntry*> sorted_references(
-        pair.second.begin(), pair.second.end());
+    std::vector<const ASTAliasedQuery*> sorted_references(pair.second.begin(),
+                                                          pair.second.end());
     std::sort(sorted_references.begin(), sorted_references.end(),
-              [entry_index_map](const ASTWithClauseEntry* e1,
-                                const ASTWithClauseEntry* e2) -> bool {
+              [entry_index_map](const ASTAliasedQuery* e1,
+                                const ASTAliasedQuery* e2) -> bool {
                 return entry_index_map.at(e1) < entry_index_map.at(e2);
               });
 
     references_[pair.first] = sorted_references;
   }
 
-  for (const ASTWithClauseEntry* entry : with_clause_->with()) {
+  for (const ASTAliasedQuery* entry : with_clause_->with()) {
     stack_.push(Task{entry, Task::kStart});
   }
 
@@ -371,7 +371,7 @@ absl::StatusOr<WithEntrySortResult> WithEntrySorter::RunInternal(
                              std::move(self_recursive_entries_)};
 }
 
-absl::Status WithEntrySorter::StartWithEntry(const ASTWithClauseEntry* entry) {
+absl::Status WithEntrySorter::StartWithEntry(const ASTAliasedQuery* entry) {
   if (processed_entries_.contains(entry)) {
     return absl::OkStatus();  // Node already visited
   }
@@ -379,16 +379,16 @@ absl::Status WithEntrySorter::StartWithEntry(const ASTWithClauseEntry* entry) {
   if (current_chain_elements_.contains(entry)) {
     return MakeSqlErrorAt(with_clause_)
            << "Unsupported WITH entry dependency cycle: "
-           << absl::StrJoin(
-                  current_chain_, " => ",
-                  [](std::string* out, const ASTWithClauseEntry* entry) {
-                    absl::StrAppend(out, entry->alias()->GetAsString());
-                  })
+           << absl::StrJoin(current_chain_, " => ",
+                            [](std::string* out, const ASTAliasedQuery* entry) {
+                              absl::StrAppend(out,
+                                              entry->alias()->GetAsString());
+                            })
            << " => " << entry->alias()->GetAsString();
   }
   ZETASQL_RETURN_IF_ERROR(PushCurrentChain(entry));
   stack_.push(Task{entry, Task::kFinish});
-  for (const ASTWithClauseEntry* ref : references_.at(entry)) {
+  for (const ASTAliasedQuery* ref : references_.at(entry)) {
     if (ref == entry) {
       self_recursive_entries_.insert(ref);
     } else {
@@ -399,7 +399,7 @@ absl::Status WithEntrySorter::StartWithEntry(const ASTWithClauseEntry* entry) {
   return absl::OkStatus();
 }
 
-absl::Status WithEntrySorter::FinishWithEntry(const ASTWithClauseEntry* entry) {
+absl::Status WithEntrySorter::FinishWithEntry(const ASTAliasedQuery* entry) {
   ZETASQL_RET_CHECK_EQ(current_chain_.back(), entry);
   ZETASQL_RETURN_IF_ERROR(PopCurrentChain());
   processed_entries_.insert(entry);
@@ -407,8 +407,7 @@ absl::Status WithEntrySorter::FinishWithEntry(const ASTWithClauseEntry* entry) {
   return absl::OkStatus();
 }
 
-absl::Status WithEntrySorter::PushCurrentChain(
-    const ASTWithClauseEntry* entry) {
+absl::Status WithEntrySorter::PushCurrentChain(const ASTAliasedQuery* entry) {
   ZETASQL_RET_CHECK(!current_chain_elements_.contains(entry));
   current_chain_.push_back(entry);
   current_chain_elements_.insert(entry);

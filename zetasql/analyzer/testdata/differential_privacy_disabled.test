@@ -1,0 +1,6 @@
+# Anonymization query without the feature flag turned on
+select with differential_privacy sum() from table;
+--
+ERROR: Unexpected keyword WITH [at 1:8]
+select with differential_privacy sum() from table;
+       ^

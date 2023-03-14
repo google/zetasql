@@ -23,7 +23,6 @@
 #include <string>
 #include <vector>
 
-#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
@@ -31,7 +30,6 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_modifiers.h"
-#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -445,14 +443,18 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
     TypeFactory* type_factory);
 
 // Performs resolved AST rewrites as requested with the enabled rewrites in
-// 'analyzer_options'.
+// `analyzer_options`.
 //
 // Note that rewrites enabled in the AnalyzerOptions used for Analyzing are
 // already applied, so this should only be explicitly called for an engine that
 // wants rewrites to happen after analyzing or which wants to apply more
 // rewrites.
 //
-// *WARNING* On error, 'analyzer_output' may be in an inconsistent state with
+// The `analyzer_output` does not include the extra runtime in overall time, or
+// finalize warnings. We should consider reivisiting this if a use-case wants
+// those outputs.
+//
+// *WARNING* On error, `analyzer_output` may be in an inconsistent state with
 // some rewrites applied (or even partially applied).
 absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
                                 absl::string_view sql, Catalog* catalog,

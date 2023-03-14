@@ -1,6 +1,7 @@
 
 
-# HyperLogLog++ functions
+# HyperLogLog++ functions 
+<a id="hll_functions"></a>
 
 The [HyperLogLog++ algorithm (HLL++)][hll-sketches] estimates
 [cardinality][cardinality] from [sketches][hll-sketches].
@@ -21,7 +22,8 @@ and custom precision.
 
 ZetaSQL supports the following HLL++ functions:
 
-### HLL_COUNT.INIT
+### `HLL_COUNT.INIT`
+
 ```
 HLL_COUNT.INIT(input [, precision])
 ```
@@ -39,7 +41,7 @@ This function supports an optional parameter, `precision`. This parameter
 defines the accuracy of the estimate at the cost of additional memory required
 to process the sketches or store them on disk. The range for this value is
 `10` to `24`. The default value is `15`. For more information about precision,
-see [Precision for sketches][precision].
+see [Precision for sketches][precision_hll].
 
 If the input is `NULL`, this function returns `NULL`.
 
@@ -88,7 +90,12 @@ GROUP BY country;
 +---------+------------------------------------------------------------------------------------+
 ```
 
-### HLL_COUNT.MERGE
+[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+
+[precision_hll]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_hll
+
+### `HLL_COUNT.MERGE`
+
 ```
 HLL_COUNT.MERGE(sketch)
 ```
@@ -130,7 +137,7 @@ FROM
       HLL_COUNT.INIT(customer_id) AS hll_sketch
     FROM
       UNNEST(
-        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING, invoice_status STRING>>[
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
           ('UA', 'customer_id_1', 'invoice_id_11'),
           ('BR', 'customer_id_3', 'invoice_id_31'),
           ('CZ', 'customer_id_2', 'invoice_id_22'),
@@ -147,7 +154,10 @@ FROM
 +--------------------------------------+
 ```
 
-### HLL_COUNT.MERGE_PARTIAL
+[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+
+### `HLL_COUNT.MERGE_PARTIAL`
+
 ```
 HLL_COUNT.MERGE_PARTIAL(sketch)
 ```
@@ -191,7 +201,7 @@ FROM
       HLL_COUNT.INIT(customer_id) AS hll_sketch
     FROM
       UNNEST(
-        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING, invoice_status STRING>>[
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
           ('UA', 'customer_id_1', 'invoice_id_11'),
           ('BR', 'customer_id_3', 'invoice_id_31'),
           ('CZ', 'customer_id_2', 'invoice_id_22'),
@@ -208,7 +218,10 @@ FROM
 +----------------------------------------------------------------------------------------------+
 ```
 
-### HLL_COUNT.EXTRACT
+[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+
+### `HLL_COUNT.EXTRACT`
+
 ```
 HLL_COUNT.EXTRACT(sketch)
 ```
@@ -263,21 +276,15 @@ FROM
 +---------+--------------------------------------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[cardinality]: https://en.wikipedia.org/wiki/Cardinality
-
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
 
 [hll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_hll
 
-[precision]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_hll
-
-[approx-functions-reference]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md
+[cardinality]: https://en.wikipedia.org/wiki/Cardinality
 
 [count-distinct]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#count
 
 [approx-count-distinct]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md#approx-count-distinct
 
-<!-- mdlint on -->
+[approx-functions-reference]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md
 

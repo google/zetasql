@@ -125,7 +125,8 @@ class TokenizedStmt : public FilePart {
  private:
   // Groups tokens into chunks and chunks into block tree.
   absl::Status BuildChunksAndBlocks(
-      const ParseLocationTranslator& location_translator);
+      const ParseLocationTranslator& location_translator,
+      const FormatterOptions& otions);
 
   std::vector<Token> tokens_;
   TokensView tokens_view_;

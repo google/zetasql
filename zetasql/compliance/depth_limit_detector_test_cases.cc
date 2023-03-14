@@ -336,6 +336,21 @@ AllDepthLimitDetectorTestCases() {
                {
                    LanguageFeature::FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS,
                }},
+          {
+              .depth_limit_test_case_name = "nested_join_unnest",
+              .depth_limit_template =
+                  {
+                      "SELECT t.a FROM (SELECT 1 a, [1,2,3] b) t",
+                      R({" INNER JOIN UNNEST (t.b) AS j", N(), " ON (t.a = j",
+                         N(), ")"}),
+                  },
+          },
+          {
+              .depth_limit_test_case_name = "nested_unnest_struct",
+              .depth_limit_template =
+                  {R({"SELECT AS STRUCT * FROM UNNEST([STRUCT(1, ("}),
+                   "SELECT NULL", R({"))])"}), " AS c"},
+          },
           {.depth_limit_test_case_name = "nested_replace_fields",
            .depth_limit_template = {"SELECT ", R({"REPLACE_FIELDS("}),
                                     "CAST('int64_key_1: 1 int64_key_2: 2' AS "

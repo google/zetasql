@@ -28,6 +28,7 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
 #include "zetasql/base/logging.h"
 
@@ -37,10 +38,11 @@
 
 namespace zetasql_base {
 
-using testing::UnorderedElementsAre;
-using testing::ElementsAre;
-using testing::IsEmpty;
-using testing::Pair;
+using ::testing::ElementsAre;
+using ::testing::IsEmpty;
+using ::testing::Pair;
+using ::testing::Pointee;
+using ::testing::UnorderedElementsAre;
 
 TEST(MapUtil, ImplicitTypeConversion) {
   using Map = std::map<std::string, std::string>;
@@ -58,6 +60,48 @@ TEST(MapUtil, ImplicitTypeConversion) {
   EXPECT_TRUE(FindCopy(m, "foo", &str));
   EXPECT_EQ("bar", str);
   EXPECT_TRUE(ContainsKey(m, "foo"));
+}
+
+TEST(MapUtil, HeterogeneousLookup) {
+  absl::flat_hash_map<std::string, std::string> m;
+  const auto& const_m = m;
+
+  // Verify that I can use a key type that's appropriate for heterogeneous
+  // lookup, such as string_view -> string.
+  constexpr absl::string_view kLookupKey = "foo";
+  EXPECT_EQ(FindWithDefault(m, kLookupKey), "");
+  EXPECT_EQ(FindWithDefault(const_m, kLookupKey), "");
+
+  m["foo"] = "bar";
+
+  EXPECT_EQ(FindOrDie(m, kLookupKey), "bar");
+  EXPECT_EQ(FindOrDie(const_m, kLookupKey), "bar");
+
+  EXPECT_EQ(FindOrDieNoPrint(m, kLookupKey), "bar");
+  EXPECT_EQ(FindOrDieNoPrint(const_m, kLookupKey), "bar");
+
+  EXPECT_EQ(FindWithDefault(m, kLookupKey), "bar");
+  EXPECT_EQ(FindWithDefault(const_m, kLookupKey), "bar");
+
+  EXPECT_THAT(FindOrNull(m, kLookupKey), Pointee(testing::Eq("bar")));
+  EXPECT_THAT(FindOrNull(const_m, kLookupKey), Pointee(testing::Eq("bar")));
+
+  std::string str;
+  EXPECT_TRUE(FindCopy(m, kLookupKey, &str));
+  EXPECT_EQ(str, "bar");
+
+  std::string str_from_const;
+  EXPECT_TRUE(FindCopy(const_m, kLookupKey, &str_from_const));
+  EXPECT_EQ(str_from_const, "bar");
+
+  absl::flat_hash_map<std::string, void*> ptr_m;
+  const auto& const_ptr_m = ptr_m;
+
+  // Insert an arbitrary non-null pointer into the map.
+  ASSERT_TRUE(InsertOrUpdate(&ptr_m, "foo", &ptr_m));
+
+  EXPECT_EQ(FindPtrOrNull(ptr_m, kLookupKey), &ptr_m);
+  EXPECT_EQ(FindPtrOrNull(const_ptr_m, kLookupKey), &ptr_m);
 }
 
 TEST(MapUtil, SetOperations) {

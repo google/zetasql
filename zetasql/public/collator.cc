@@ -165,7 +165,7 @@ class ZetaSqlCollatorIcu : public ZetaSqlCollator {
       std::unique_ptr<const icu::RuleBasedCollator> icu_collator);
   ~ZetaSqlCollatorIcu() override {}
 
-  int64_t CompareUtf8(const absl::string_view s1, const absl::string_view s2,
+  int64_t CompareUtf8(absl::string_view s1, absl::string_view s2,
                       absl::Status* error) const override;
 
   absl::Status GetSortKeyUtf8(absl::string_view input,

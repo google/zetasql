@@ -89,7 +89,7 @@ FROM
 +---------------------------------------+
 ```
 
-### ARRAY subqueries 
+### Array subqueries 
 <a id="array_subquery_concepts"></a>
 
 ```sql
@@ -113,7 +113,7 @@ STRUCTs or PROTOs.
 Selecting multiple columns without using `SELECT AS` is an error.
 
 ARRAY subqueries can use `SELECT AS STRUCT` to build
-arrays of structs. 
+arrays of structs.
 ARRAY subqueries can use `SELECT AS ProtocolBufferName` to build arrays
 of PROTOs.
 
@@ -135,7 +135,7 @@ SELECT
 +-----------------+
 ```
 
-### IN subqueries 
+### `IN` subqueries 
 <a id="in_subquery_concepts"></a>
 
 ```sql
@@ -175,7 +175,7 @@ SELECT
 +--------+
 ```
 
-### EXISTS subqueries 
+### `EXISTS` subqueries 
 <a id="exists_subquery_concepts"></a>
 
 ```sql

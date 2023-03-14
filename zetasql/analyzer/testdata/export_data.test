@@ -179,6 +179,104 @@ ExportDataStmt
           +-SingleRowScan
 ==
 
+# Create a value table with UNION ALL of SELECT AS ProtoName.
+export data as
+select as `zetasql_test__.TestExtraPB` 55 int32_val1
+union all
+select as `zetasql_test__.TestExtraPB` 77 int32_val1
+--
+ExportDataStmt
++-output_column_list=
+| +-$union_all.$proto#5 AS `$proto` [PROTO<zetasql_test__.TestExtraPB>]
++-is_value_table=TRUE
++-query=
+  +-SetOperationScan
+    +-column_list=[$union_all.$proto#5]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[$make_proto.$proto#2]
+      | |   +-expr_list=
+      | |   | +-$proto#2 :=
+      | |   |   +-MakeProto
+      | |   |     +-type=PROTO<zetasql_test__.TestExtraPB>
+      | |   |     +-field_list=
+      | |   |       +-int32_val1 := Literal(type=INT32, value=55)
+      | |   +-input_scan=
+      | |     +-ProjectScan
+      | |       +-column_list=[$union_all1.int32_val1#1]
+      | |       +-expr_list=
+      | |       | +-int32_val1#1 := Literal(type=INT64, value=55)
+      | |       +-input_scan=
+      | |         +-SingleRowScan
+      | +-output_column_list=[$make_proto.$proto#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=[$make_proto.$proto#4]
+        |   +-expr_list=
+        |   | +-$proto#4 :=
+        |   |   +-MakeProto
+        |   |     +-type=PROTO<zetasql_test__.TestExtraPB>
+        |   |     +-field_list=
+        |   |       +-int32_val1 := Literal(type=INT32, value=77)
+        |   +-input_scan=
+        |     +-ProjectScan
+        |       +-column_list=[$union_all2.int32_val1#3]
+        |       +-expr_list=
+        |       | +-int32_val1#3 := Literal(type=INT64, value=77)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-output_column_list=[$make_proto.$proto#4]
+==
+
+# Create a value table with UNION ALL of SELECT AS VALUE.
+export data as
+select as value
+  new `zetasql_test__.TestExtraPB`(55 as int32_val1) f0_
+union all
+select as value
+  new `zetasql_test__.TestExtraPB`(77 as int32_val1) f1_
+--
+ExportDataStmt
++-output_column_list=
+| +-$union_all.$value_column#3 AS `$value_column` [PROTO<zetasql_test__.TestExtraPB>]
++-is_value_table=TRUE
++-query=
+  +-SetOperationScan
+    +-column_list=[$union_all.$value_column#3]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[$union_all1.f0_#1]
+      | |   +-expr_list=
+      | |   | +-f0_#1 :=
+      | |   |   +-MakeProto
+      | |   |     +-type=PROTO<zetasql_test__.TestExtraPB>
+      | |   |     +-field_list=
+      | |   |       +-int32_val1 := Literal(type=INT32, value=55)
+      | |   +-input_scan=
+      | |     +-SingleRowScan
+      | +-output_column_list=[$union_all1.f0_#1]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=[$union_all2.f1_#2]
+        |   +-expr_list=
+        |   | +-f1_#2 :=
+        |   |   +-MakeProto
+        |   |     +-type=PROTO<zetasql_test__.TestExtraPB>
+        |   |     +-field_list=
+        |   |       +-int32_val1 := Literal(type=INT32, value=77)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=[$union_all2.f1_#2]
+==
+
 [no_java]
 export data with connection connection1
 options (format=sstable, filename='/tmp/file.ss')

@@ -26,8 +26,6 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/public/builtin_function.pb.h"
-#include "zetasql/public/catalog.h"
-#include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
@@ -37,7 +35,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/status/statusor.h"
+#include "absl/functional/bind_front.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
@@ -929,6 +927,14 @@ void GetDatetimeBucketFunctions(TypeFactory* type_factory,
           {timestamp_type,
            {timestamp_type, interval_type, {timestamp_type, OPTIONAL}},
            FN_TIMESTAMP_BUCKET},
+          {datetime_type,
+           {datetime_type, interval_type, {datetime_type, OPTIONAL}},
+           FN_DATETIME_BUCKET,
+           extended_datetime_signatures},
+          {date_type,
+           {date_type, interval_type, {date_type, OPTIONAL}},
+           FN_DATE_BUCKET,
+           extended_datetime_signatures},
       });
 }
 

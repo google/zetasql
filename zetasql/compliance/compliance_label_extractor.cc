@@ -21,6 +21,7 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/common/function_utils.h"
 #include "zetasql/public/builtin_function.h"
@@ -145,6 +146,33 @@ struct FunctionSignatureLabel {
   std::string prefix = "";
   PrefixGroup prefix_group = PrefixGroup::kNone;
   bool is_operator;
+  bool include_safe_error_mode = false;
+  bool include_default_error_mode = false;
+};
+
+struct AggregateFunctionModifierLabel {
+  explicit AggregateFunctionModifierLabel(FunctionSignatureId signature_id)
+      : signature_id(signature_id) {}
+
+  FunctionSignatureId signature_id;
+  bool include_distinct = false;
+  bool include_ignore_nulls = false;
+  bool include_respect_nulls = false;
+  bool include_having_min = false;
+  bool include_having_max = false;
+  bool include_order_by = false;
+  bool include_limit = false;
+};
+
+struct WindowFunctionModifierLabel {
+  explicit WindowFunctionModifierLabel(FunctionSignatureId signature_id)
+      : signature_id(signature_id) {}
+
+  FunctionSignatureId signature_id;
+  bool include_partition_by = false;
+  bool include_order_by = false;
+  bool include_window_frame_rows = false;
+  bool include_window_frame_range = false;
 };
 
 struct TypeCastLabel {
@@ -192,8 +220,26 @@ class ComplianceLabelSets {
     return type_kinds_set_.insert(type_kind).second;
   }
 
-  bool AddFunctionSignatureLabel(FunctionSignatureId signature_id,
-                                 const Function* function) {
+  bool AddFunctionSignatureLabel(
+      FunctionSignatureId signature_id, const Function* function,
+      ResolvedFunctionCallBaseEnums_ErrorMode error_mode) {
+    bool include_safe_error_mode =
+        function->SupportsSafeErrorMode() &&
+        (error_mode == ResolvedFunctionCallBaseEnums::SAFE_ERROR_MODE);
+    bool include_default_error_mode =
+        function->SupportsSafeErrorMode() &&
+        (error_mode == ResolvedFunctionCallBaseEnums::DEFAULT_ERROR_MODE);
+    if (function_signatures_.contains(signature_id)) {
+      if (auto found = function_signatures_.find(signature_id);
+          found != function_signatures_.end()) {
+        if (include_safe_error_mode) {
+          found->second.include_safe_error_mode = true;
+        }
+        if (include_default_error_mode) {
+          found->second.include_default_error_mode = true;
+        }
+      }
+    }
     std::string sql_name = function->SQLName();
     PrefixGroup prefix_group = PrefixGroup::kNone;
     absl::string_view prefix = "";
@@ -203,8 +249,85 @@ class ComplianceLabelSets {
     }
     FunctionSignatureLabel signature_label = FunctionSignatureLabel(
         signature_id, sql_name, std::string(prefix), prefix_group, is_operator);
+    signature_label.include_safe_error_mode = include_safe_error_mode;
+    signature_label.include_default_error_mode = include_default_error_mode;
     return function_signatures_.try_emplace(signature_id, signature_label)
         .second;
+  }
+
+  bool AddAggregateFunctionModifierLabel(
+      FunctionSignatureId signature_id,
+      const ResolvedAggregateFunctionCall* node, const Function* function) {
+    if (!aggregate_function_modifiers_.contains(signature_id)) {
+      aggregate_function_modifiers_.try_emplace(
+          signature_id, AggregateFunctionModifierLabel(signature_id));
+    }
+
+    auto found = aggregate_function_modifiers_.find(signature_id);
+    ZETASQL_DCHECK(found != aggregate_function_modifiers_.end());
+    if (node->distinct() == true) {
+      found->second.include_distinct = true;
+    }
+    if (function->SupportsNullHandlingModifier() &&
+        node->null_handling_modifier() ==
+            ResolvedNonScalarFunctionCallBaseEnums::IGNORE_NULLS) {
+      found->second.include_ignore_nulls = true;
+    }
+    if (function->SupportsNullHandlingModifier() &&
+        node->null_handling_modifier() ==
+            ResolvedNonScalarFunctionCallBaseEnums::RESPECT_NULLS) {
+      found->second.include_respect_nulls = true;
+    }
+    if (function->SupportsHavingModifier() &&
+        node->having_modifier() != nullptr) {
+      if (node->having_modifier()->kind() ==
+          ResolvedAggregateHavingModifierEnums::MIN) {
+        found->second.include_having_min = true;
+      }
+      if (node->having_modifier()->kind() ==
+          ResolvedAggregateHavingModifierEnums::MAX) {
+        found->second.include_having_max = true;
+      }
+    }
+    if (node->order_by_item_list_size() > 0) {
+      found->second.include_order_by = true;
+    }
+    if (node->limit() != nullptr) {
+      found->second.include_limit = true;
+    }
+
+    return true;
+  }
+
+  bool AddWindowFunctionModifierLabel(FunctionSignatureId signature_id,
+                                      const ResolvedAnalyticFunctionCall* node,
+                                      const Function* function,
+                                      bool include_partition_by,
+                                      bool include_order_by) {
+    if (!window_function_modifiers_.contains(signature_id)) {
+      window_function_modifiers_.try_emplace(
+          signature_id, WindowFunctionModifierLabel(signature_id));
+    }
+    auto found = window_function_modifiers_.find(signature_id);
+    ZETASQL_DCHECK(found != window_function_modifiers_.end());
+    if (include_partition_by) {
+      found->second.include_partition_by = true;
+    }
+    if (include_order_by) {
+      found->second.include_order_by = true;
+    }
+    if (node->window_frame() != nullptr) {
+      if (node->window_frame()->frame_unit() ==
+          ResolvedWindowFrameEnums::ROWS) {
+        found->second.include_window_frame_rows = true;
+      }
+      if (node->window_frame()->frame_unit() ==
+          ResolvedWindowFrameEnums::RANGE) {
+        found->second.include_window_frame_range = true;
+      }
+    }
+
+    return true;
   }
 
   void GenerateLabelStrings(absl::btree_set<std::string>& output) {
@@ -235,11 +358,12 @@ class ComplianceLabelSets {
 
     // Generate function signature label for each signature.
     // Function label is in the following formats:
-    //   "FunctionSignature:<prefix>:<sql_name>:<signature_id_name>"
-    //   "FunctionSignature:<prefix>:<sql_name>"
-    //   "FunctionSignature:<prefix>"
+    //  "FunctionErrorMode:<prefix>:<sql_name>:<signature_id_name>:<error_mode>"
+    //  "FunctionSignature:<prefix>:<sql_name>:<signature_id_name>"
+    //  "FunctionName:<prefix>:<sql_name>"
+    //  "FunctionFamily:<prefix>"
     // Operator label is in the following formats:
-    //   "OperatorSignature:<sql_name>:<signature_id_name>"
+    //  "OperatorSignature:<sql_name>:<signature_id_name>"
     for (const auto& fn_signature : function_signatures_) {
       const FunctionSignatureLabel& signature_label = fn_signature.second;
       if (signature_label.is_operator) {
@@ -252,12 +376,91 @@ class ComplianceLabelSets {
             "FunctionSignature:", signature_label.prefix, ":",
             signature_label.sql_name, ":",
             FunctionSignatureId_Name(signature_label.signature_id)));
+        if (signature_label.include_default_error_mode) {
+          output.insert(absl::StrCat(
+              "FunctionErrorMode:", signature_label.prefix, ":",
+              signature_label.sql_name, ":",
+              FunctionSignatureId_Name(signature_label.signature_id), ":",
+              "DEFAULT_ERROR_MODE"));
+        }
+        if (signature_label.include_safe_error_mode) {
+          output.insert(absl::StrCat(
+              "FunctionErrorMode:", signature_label.prefix, ":",
+              signature_label.sql_name, ":",
+              FunctionSignatureId_Name(signature_label.signature_id), ":",
+              "SAFE_ERROR_MODE"));
+        }
         output.insert(absl::StrCat("FunctionName:", signature_label.prefix, ":",
                                    signature_label.sql_name));
         // Exclude prefix label for functions with empty prefix group.
         if (signature_label.prefix_group != PrefixGroup::kNone) {
           output.insert(
               absl::StrCat("FunctionFamily:", signature_label.prefix));
+        }
+      }
+      if (auto found =
+              aggregate_function_modifiers_.find(signature_label.signature_id);
+          found != aggregate_function_modifiers_.end()) {
+        output.insert(absl::StrCat(
+            "AggregateFunctionSignature:", signature_label.prefix, ":",
+            signature_label.sql_name, ":",
+            FunctionSignatureId_Name(signature_label.signature_id)));
+        absl::flat_hash_set<absl::string_view> supported_modifiers = {};
+        if (found->second.include_distinct) {
+          supported_modifiers.insert("DISTINCT");
+        }
+        if (found->second.include_ignore_nulls) {
+          supported_modifiers.insert("IGNORE_NULLS");
+        }
+        if (found->second.include_respect_nulls) {
+          supported_modifiers.insert("RESPECT_NULLS");
+        }
+        if (found->second.include_having_min) {
+          supported_modifiers.insert("HAVING_MIN");
+        }
+        if (found->second.include_having_max) {
+          supported_modifiers.insert("HAVING_MAX");
+        }
+        if (found->second.include_order_by) {
+          supported_modifiers.insert("ORDER_BY");
+        }
+        if (found->second.include_limit) {
+          supported_modifiers.insert("LIMIT");
+        }
+        for (const absl::string_view& modifier : supported_modifiers) {
+          output.insert(absl::StrCat(
+              "AggregateFunctionModifier:", signature_label.prefix, ":",
+              signature_label.sql_name, ":",
+              FunctionSignatureId_Name(signature_label.signature_id), ":",
+              modifier));
+        }
+      }
+      if (auto found =
+              window_function_modifiers_.find(signature_label.signature_id);
+          found != window_function_modifiers_.end()) {
+        output.insert(absl::StrCat(
+            "WindowFunctionSignature:", signature_label.prefix, ":",
+            signature_label.sql_name, ":",
+            FunctionSignatureId_Name(signature_label.signature_id)));
+        absl::flat_hash_set<absl::string_view> supported_modifiers = {};
+        if (found->second.include_partition_by) {
+          supported_modifiers.insert("PARTITION_BY");
+        }
+        if (found->second.include_order_by) {
+          supported_modifiers.insert("ORDER_BY");
+        }
+        if (found->second.include_window_frame_rows) {
+          supported_modifiers.insert("WINDOW_FRAME_UNIT_ROWS");
+        }
+        if (found->second.include_window_frame_range) {
+          supported_modifiers.insert("WINDOW_FRAME_UNIT_RANGE");
+        }
+        for (const absl::string_view& modifier : supported_modifiers) {
+          output.insert(absl::StrCat(
+              "WindowFunctionModifier:", signature_label.prefix, ":",
+              signature_label.sql_name, ":",
+              FunctionSignatureId_Name(signature_label.signature_id), ":",
+              modifier));
         }
       }
     }
@@ -271,6 +474,10 @@ class ComplianceLabelSets {
   absl::flat_hash_set<TypeKind> type_kinds_set_;
   absl::flat_hash_map<FunctionSignatureId, FunctionSignatureLabel>
       function_signatures_;
+  absl::flat_hash_map<FunctionSignatureId, AggregateFunctionModifierLabel>
+      aggregate_function_modifiers_;
+  absl::flat_hash_map<FunctionSignatureId, WindowFunctionModifierLabel>
+      window_function_modifiers_;
 };
 
 class ComplianceLabelExtractor : public ResolvedASTVisitor {
@@ -308,7 +515,7 @@ class ComplianceLabelExtractor : public ResolvedASTVisitor {
     if (function->IsZetaSQLBuiltin()) {
       compliance_labels_.AddFunctionSignatureLabel(
           static_cast<FunctionSignatureId>(node->signature().context_id()),
-          function);
+          function, node->error_mode());
       ZETASQL_VLOG(5) << "Inserted function id: "
               << FunctionSignatureId_Name(static_cast<FunctionSignatureId>(
                      node->signature().context_id()))
@@ -324,6 +531,13 @@ class ComplianceLabelExtractor : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedAggregateFunctionCall(
       const ResolvedAggregateFunctionCall* node) override {
+    auto* function = node->function();
+    ZETASQL_RET_CHECK_NE(function, nullptr);
+    if (function->IsZetaSQLBuiltin()) {
+      compliance_labels_.AddAggregateFunctionModifierLabel(
+          static_cast<FunctionSignatureId>(node->signature().context_id()),
+          node, function);
+    }
     return ExtractSignatureIdAndDefaultVisit<ResolvedAggregateFunctionCall>(
         node);
   }
@@ -332,6 +546,32 @@ class ComplianceLabelExtractor : public ResolvedASTVisitor {
       const ResolvedAnalyticFunctionCall* node) override {
     return ExtractSignatureIdAndDefaultVisit<ResolvedAnalyticFunctionCall>(
         node);
+  }
+
+  absl::Status VisitResolvedAnalyticFunctionGroup(
+      const ResolvedAnalyticFunctionGroup* node) override {
+    for (const auto& computed_col_ptr : node->analytic_function_list()) {
+      const ResolvedComputedColumn* computed_col = computed_col_ptr.get();
+      if (computed_col == nullptr) {
+        return DefaultVisit(node);
+      }
+      if (computed_col->expr()->Is<ResolvedAnalyticFunctionCall>()) {
+        const ResolvedAnalyticFunctionCall* analytic_function_node =
+            computed_col->expr()->GetAs<ResolvedAnalyticFunctionCall>();
+        auto* function = analytic_function_node->function();
+        ZETASQL_RET_CHECK_NE(function, nullptr);
+        if (function->IsZetaSQLBuiltin()) {
+          bool include_partition_by = node->partition_by() != nullptr;
+          bool include_order_by = node->order_by() != nullptr;
+          compliance_labels_.AddWindowFunctionModifierLabel(
+              static_cast<FunctionSignatureId>(
+                  analytic_function_node->signature().context_id()),
+              analytic_function_node, function, include_partition_by,
+              include_order_by);
+        }
+      }
+    }
+    return DefaultVisit(node);
   }
 
   absl::Status VisitResolvedCast(const ResolvedCast* node) override {

@@ -48,6 +48,9 @@ message FormatterOptionsProto {
   // If true, formatter replaces doubles quotes to single quotes for enclosing
   // string literals.
   optional bool enforce_single_quotes = 8;
+
+  // If true, formatter capitalizes reserved ZetaSQL builtin functions.
+  optional bool capitalize_functions = 9;
 }
 
 // Represents a byte range [start, end) in the input to be formatted.

@@ -113,3 +113,21 @@ java_proto_library(
     name = "anon_output_with_report_java_proto",
     deps = [":anon_output_with_report_proto"],
 )
+
+proto_library(
+    name = "placeholder_descriptor_proto",
+    srcs = ["placeholder_descriptor.proto"],
+    deps = [
+        "@com_google_protobuf//:descriptor_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "placeholder_descriptor_cc_proto",
+    deps = [":placeholder_descriptor_proto"],
+)
+
+java_proto_library(
+    name = "placeholder_descriptor_java_proto",
+    deps = [":placeholder_descriptor_proto"],
+)

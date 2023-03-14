@@ -30,6 +30,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/json_parser.h"
 #include "zetasql/common/json_util.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/base/string_numbers.h"  
 #include "absl/base/attributes.h"
 #include "absl/memory/memory.h"
@@ -155,6 +156,12 @@ class JSONPathExtractor : public zetasql::JSONParser {
     escape_special_characters_ = escape_special_characters;
   }
 
+  // Sets JSON key escaping. Will only escape keys if
+  // `set_special_character_escaping(true)` is called.
+  void set_special_character_key_escaping(bool enable_key_escaping) {
+    enable_key_escaping_ = enable_key_escaping;
+  }
+
   // Sets the callback to be invoked when a string with special characters was
   // parsed, but special character escaping was turned off.  The caller is
   // responsible for ensuring that the lifetime of the callback object lasts as
@@ -165,12 +172,18 @@ class JSONPathExtractor : public zetasql::JSONParser {
     escaping_needed_callback_ = callback;
   }
 
-  bool Extract(std::string* result, bool* is_null) {
+  bool Extract(std::string* result, bool* is_null,
+               std::optional<std::function<void(absl::Status)>> issue_warning =
+                   std::nullopt) {
     bool parse_success = zetasql::JSONParser::Parse() || stop_on_first_match_;
 
     // Parse-failed OR no-match-found OR null-Value
     *is_null = !parse_success || !stop_on_first_match_ || parsed_null_result_;
     if (parse_success) {
+      if (result_contains_unescaped_key_ && issue_warning.has_value()) {
+        (*issue_warning)(
+            absl::OutOfRangeError("The JSON value contains an unescaped key"));
+      }
       result->assign(result_json_);
     }
     return parse_success;
@@ -240,7 +253,7 @@ class JSONPathExtractor : public zetasql::JSONParser {
 
   bool BeginMember(const std::string& key) override {
     if (accept_) {
-      absl::StrAppend(&result_json_, "\"", key, "\":");
+      JsonEscapeAndAppendString</*is_key=*/true>(key);
     } else if (extend_match_) {
       MatchAndMaintainInvariant(key, false);
     }
@@ -282,18 +295,7 @@ class JSONPathExtractor : public zetasql::JSONParser {
 
   bool ParsedString(const std::string& str) override {
     if (AcceptableLeaf()) {
-      if (escape_special_characters_) {
-        std::string s;
-        JsonEscapeString(str, &s);
-        absl::StrAppend(&result_json_, s);  // EscapeString adds quotes.
-      } else {
-        if (escaping_needed_callback_ != nullptr &&
-            *escaping_needed_callback_ /* contains a callable target */ &&
-            JsonStringNeedsEscaping(str)) {
-          (*escaping_needed_callback_)(str);
-        }
-        absl::StrAppend(&result_json_, "\"", str, "\"");
-      }
+      JsonEscapeAndAppendString</*is_key=*/false>(str);
     }
     return !stop_on_first_match_;
   }
@@ -369,6 +371,37 @@ class JSONPathExtractor : public zetasql::JSONParser {
     }
   }
 
+  // Escapes and appends `val` to `result_json_` based on different conditions.
+  // `is_key` indicates if we're appending a key or value to result.
+  // 1) If no escaping is needed, simply appends `val` to `result_json_`.
+  // 2) If `is_key`, all escaping is enabled, and any characters need escaping,
+  //    escapes `val` in JSON style and appends it to `result_json_`.
+  // 3) If `!is_key`, value escaping is enabled, and any characters need
+  //    escaping, escapes `val` in JSON style and appends it to `result_json_`.
+  // 4) If escaping is disabled and any characters need escaping, use custom
+  //    escaping callback if provided. Else appends unescaped `val`.
+  template <bool is_key>
+  inline void JsonEscapeAndAppendString(absl::string_view val) {
+    if (zetasql::JsonStringNeedsEscaping(val)) {
+      if (is_key && !enable_key_escaping_ && escape_special_characters_) {
+        result_contains_unescaped_key_ = true;
+        absl::StrAppend(&result_json_, "\"", val, "\":");
+      } else if (escape_special_characters_) {
+        std::string escaped;
+        zetasql::JsonEscapeString(val, &escaped);
+        absl::StrAppend(&result_json_, escaped, is_key ? ":" : "");
+      } else {
+        if (escaping_needed_callback_ != nullptr &&
+            *escaping_needed_callback_ /* contains a callable target */) {
+          (*escaping_needed_callback_)(val);
+        }
+        absl::StrAppend(&result_json_, "\"", val, "\"", is_key ? ":" : "");
+      }
+    } else {
+      absl::StrAppend(&result_json_, "\"", val, "\"", is_key ? ":" : "");
+    }
+  }
+
   // To accept the leaf its either in an acceptable sub-tree or a having
   // a parent with a matching token.
   bool AcceptableLeaf() {
@@ -399,6 +432,12 @@ class JSONPathExtractor : public zetasql::JSONParser {
   unsigned int index_token_;
   // Whether to escape special JSON characters (e.g. newlines).
   bool escape_special_characters_;
+  // Whether to escape special JSON characters in JSON keys.
+  bool enable_key_escaping_ = false;
+  // Whether the result contains an unescaped key when
+  // `escape_special_characters_`. This can be used as a potential warning
+  // for inconsistent behavior.
+  bool result_contains_unescaped_key_ = false;
   // Callback to pass any strings that needed escaping when escaping special
   // characters is turned off.  No callback needed if set to nullptr.
   const std::function<void(absl::string_view)>* escaping_needed_callback_;
@@ -466,13 +505,19 @@ class JSONPathArrayExtractor final : public JSONPathExtractor {
   JSONPathArrayExtractor(absl::string_view json, ValidJSONPathIterator* iter)
       : JSONPathExtractor(json, iter) {}
 
-  bool ExtractArray(std::vector<std::string>* result, bool* is_null) {
+  bool ExtractArray(std::vector<std::string>* result, bool* is_null,
+                    std::optional<std::function<void(absl::Status)>>
+                        issue_warning = std::nullopt) {
     bool parse_success = zetasql::JSONParser::Parse() || stop_on_first_match_;
 
     // Parse-failed OR no-match-found OR null-Value OR not-an-array
     *is_null = !parse_success || !stop_on_first_match_ || parsed_null_result_ ||
                !array_accepted_;
     if (parse_success) {
+      if (result_contains_unescaped_key_ && issue_warning.has_value()) {
+        (*issue_warning)(
+            absl::OutOfRangeError("The JSON value contains an unescaped key"));
+      }
       result->assign(result_array_.begin(), result_array_.end());
     }
     return parse_success;

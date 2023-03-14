@@ -480,6 +480,9 @@ absl::Status ProtoType::ValidateTypeAnnotations(
           if (field_format != FieldFormat::ST_GEOGRAPHY_ENCODED &&
               field_format != FieldFormat::NUMERIC &&
               field_format != FieldFormat::BIGNUMERIC &&
+              field_format != FieldFormat::RANGE_DATES_ENCODED &&
+              field_format != FieldFormat::RANGE_DATETIMES_ENCODED &&
+              field_format != FieldFormat::RANGE_TIMESTAMPS_ENCODED &&
               field_format != FieldFormat::INTERVAL) {
             return MakeSqlError()
                    << "Proto " << field->containing_type()->full_name()

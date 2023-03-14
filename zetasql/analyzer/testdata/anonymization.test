@@ -532,6 +532,18 @@ select with anonymization options(delta=0, epsilon=0, kappa=0, k_threshold=0)
                                  ^
 ==
 
+# Same as the previous test, but with all-caps anonymization options
+[enabled_ast_rewrites=DEFAULTS]
+[language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+select with anonymization options(DELTA=1, EPSILON=2, KAPPA=3, K_THRESHOLD=4)
+       anon_count(* CLAMPED BETWEEN 0 AND 100)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: The anonymization options specify all of (epsilon, delta, and k_threshold), but must only specify (epsilon, delta) or (epsilon, k_threshold) [at 1:34]
+select with anonymization options(DELTA=1, EPSILON=2, KAPPA=3, K_THRESHOLD=4)
+                                 ^
+==
+
 # Invalid option name
 select with anonymization options(foo=0)
        anon_count(* CLAMPED BETWEEN 0 AND 100)
@@ -663,6 +675,13 @@ QueryStmt
         |     +-Literal(type=INT64, value=100)
         +-anonymization_option_list=
           +-kappa := Parameter(type=INT64, name="test_param_int64")
+
+
+DEPRECATION WARNING:
+Anonymization option kappa is deprecated, instead use max_groups_contributed [at 1:34]
+select with anonymization options(
+                                 ^
+[zetasql.DeprecationWarning] { kind: DEPRECATED_ANONYMIZATION_OPTION_KAPPA }
 --
 ALTERNATION GROUP: k_threshold
 --
@@ -823,6 +842,13 @@ QueryStmt
             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
               +-Literal(type=INT64, value=1)
               +-Literal(type=INT64, value=2)
+
+
+DEPRECATION WARNING:
+Anonymization option kappa is deprecated, instead use max_groups_contributed [at 1:34]
+select with anonymization options(kappa=1+2)
+                                 ^
+[zetasql.DeprecationWarning] { kind: DEPRECATED_ANONYMIZATION_OPTION_KAPPA }
 --
 ALTERNATION GROUP: k_threshold
 --
@@ -912,7 +938,7 @@ QueryStmt
 select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
 from SimpleTypes;
 
-Rewrite ERROR: A SELECT WITH ANONYMIZATION query must query at least one table containing user data [at 1:1]
+Rewrite ERROR: A SELECT WITH ANONYMIZATION query must query data with a specified privacy unit column [at 1:1]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 ^
 ==
@@ -2448,9 +2474,9 @@ QueryStmt
 
 # Anonymize node saves hint list
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
-select @{hint=1} with anonymization string
+select @{hint_a=1} with anonymization string
 from SimpleTypesWithAnonymizationUid
-group by string;
+group @{hint_b=2} by string;
 --
 QueryStmt
 +-output_column_list=
@@ -2459,13 +2485,15 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$groupby.string#13]
     +-hint_list=
-    | +-hint := Literal(type=INT64, value=1)
+    | +-hint_a := Literal(type=INT64, value=1)
     +-input_scan=
       +-ProjectScan
         +-column_list=[$groupby.string#13]
         +-input_scan=
           +-AnonymizedAggregateScan
             +-column_list=[$groupby.string#13]
+            +-hint_list=
+            | +-hint_b := Literal(type=INT64, value=2)
             +-input_scan=
             | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.string#5], table=SimpleTypesWithAnonymizationUid, column_index_list=[4])
             +-group_by_list=
@@ -2479,13 +2507,15 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$groupby.string#13]
     +-hint_list=
-    | +-hint := Literal(type=INT64, value=1)
+    | +-hint_a := Literal(type=INT64, value=1)
     +-input_scan=
       +-ProjectScan
         +-column_list=[$groupby.string#13]
         +-input_scan=
           +-AnonymizedAggregateScan
             +-column_list=[$groupby.string#13]
+            +-hint_list=
+            | +-hint_b := Literal(type=INT64, value=2)
             +-input_scan=
             | +-AggregateScan
             |   +-column_list=[$groupby.string_partial#15, $group_by.$uid#16]
@@ -8186,39 +8216,58 @@ QueryStmt
         +-column_list=$aggregate.[$agg1#13, $agg2#14]
         +-input_scan=
         | +-AggregateScan
-        |   +-column_list=[$aggregate.$agg1_partial#17, $aggregate.$agg2_partial#19, $group_by.$uid#20]
+        |   +-column_list=[$aggregate.$agg1_partial#18, $aggregate.$agg2_partial#20, $group_by.$uid#21]
         |   +-input_scan=
-        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
+        |   | +-ProjectScan
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.double#9, SimpleTypesWithAnonymizationUid.uid#15, $orderby.$orderbycol1#17]
+        |   |   +-expr_list=
+        |   |   | +-$orderbycol1#17 := FunctionCall(ZetaSQL:rand() -> DOUBLE)
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
         |   +-group_by_list=
-        |   | +-$uid#20 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#15)
+        |   | +-$uid#21 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#15)
         |   +-aggregate_list=
-        |     +-$agg1_partial#17 :=
+        |     +-$agg1_partial#18 :=
         |     | +-AggregateFunctionCall(ZetaSQL:array_agg(DOUBLE) -> ARRAY<DOUBLE>)
         |     |   +-Cast(INT64 -> DOUBLE)
         |     |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
-        |     +-$agg2_partial#19 :=
+        |     |   +-null_handling_modifier=IGNORE_NULLS
+        |     |   +-order_by_item_list=
+        |     |   | +-OrderByItem
+        |     |   |   +-column_ref=
+        |     |   |     +-ColumnRef(type=DOUBLE, column=$orderby.$orderbycol1#17)
+        |     |   +-limit=
+        |     |     +-Literal(type=INT64, value=5)
+        |     +-$agg2_partial#20 :=
         |       +-AggregateFunctionCall(ZetaSQL:array_agg(DOUBLE) -> ARRAY<DOUBLE>)
         |         +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+        |         +-null_handling_modifier=IGNORE_NULLS
+        |         +-order_by_item_list=
+        |         | +-OrderByItem
+        |         |   +-column_ref=
+        |         |     +-ColumnRef(type=DOUBLE, column=$orderby.$orderbycol1#17)
+        |         +-limit=
+        |           +-Literal(type=INT64, value=5)
         +-aggregate_list=
         | +-$agg1#13 :=
         | | +-AggregateFunctionCall(ZetaSQL:$anon_quantiles_with_report_proto(ARRAY<DOUBLE>, INT64, DOUBLE, DOUBLE) -> PROTO<zetasql.AnonOutputWithReport>)
-        | |   +-ColumnRef(type=ARRAY<DOUBLE>, column=$aggregate.$agg1_partial#17)
+        | |   +-ColumnRef(type=ARRAY<DOUBLE>, column=$aggregate.$agg1_partial#18)
         | |   +-Literal(type=INT64, value=4)
         | |   +-Literal(type=DOUBLE, value=2)
         | |   +-Literal(type=DOUBLE, value=3)
         | +-$agg2#14 :=
         | | +-AggregateFunctionCall(ZetaSQL:$anon_quantiles_with_report_json(ARRAY<DOUBLE>, INT64, DOUBLE, DOUBLE) -> JSON)
-        | |   +-ColumnRef(type=ARRAY<DOUBLE>, column=$aggregate.$agg2_partial#19)
+        | |   +-ColumnRef(type=ARRAY<DOUBLE>, column=$aggregate.$agg2_partial#20)
         | |   +-Literal(type=INT64, value=6)
         | |   +-Literal(type=DOUBLE, value=1)
         | |   +-Literal(type=DOUBLE, value=4)
-        | +-$k_threshold_col#24 :=
+        | +-$k_threshold_col#25 :=
         |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
         |     +-Literal(type=INT64, value=1)
         |     +-Literal(type=INT64, value=0)
         |     +-Literal(type=INT64, value=1)
         +-k_threshold_expr=
-          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#24)
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
 
 [TableScan Groups]
 {

@@ -26,9 +26,16 @@ option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSQLValue";
 
 // ValueProto represents the serialized form of the zetasql::Value.
-// Unlike zetasql::Value, ValueProto does not carry full type information with
-// every instance, and therefore can only be fully interpreted with accompanying
-// TypeProto.
+//
+// The intention is to support multiple languages including Java and C++, so we
+// must be sensitive to the distinction between Java Strings and byte arrays or
+// ByteStrings.
+//
+// We also want to support use-cases which do not want to serialize a copy of
+// the ZetaSQL type for every instance (which might be very repetitive).
+// Therefore, unlike zetasql::Value, ValueProto does not carry full type
+// information with every instance, and can only be fully interpreted with an
+// associated TypeProto.
 message ValueProto {
   // An ordered collection of elements of arbitrary count.
   message Array {

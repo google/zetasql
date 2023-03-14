@@ -21,35 +21,35 @@
 #include <limits>
 
 #include "zetasql/public/type.h"
-#include "zetasql/base/case.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_join.h"
 #include "algorithms/partition-selection.h"
 
 namespace zetasql {
 namespace anonymization {
 
-absl::StatusOr<Value> ComputeKThresholdFromEpsilonDeltaKappa(
+absl::StatusOr<Value> ComputeLaplaceThresholdFromDelta(
     Value epsilon_value, Value delta_value,
-    Value kappa_value) {
-  if (!kappa_value.is_valid()) {
-    // Invalid kappa indicates unset.  Unset kappa implies contributions are not
-    // being bounded across GROUP BY groups.  Setting kappa to 1 is equivalent
-    // to removing it from the threshold calculation.
-    kappa_value = Value::Int64(1);
+    Value max_groups_contributed_value) {
+  if (!max_groups_contributed_value.is_valid()) {
+    // Invalid max_groups_contributed_value indicates unset.  Unset
+    // max_groups_contributed_value implies contributions are not being bounded
+    // across GROUP BY groups.  Setting max_groups_contributed_value to 1 is
+    // equivalent to removing it from the threshold calculation.
+    max_groups_contributed_value = Value::Int64(1);
   }
   ZETASQL_RET_CHECK_EQ(epsilon_value.type_kind(), TYPE_DOUBLE);
   ZETASQL_RET_CHECK_EQ(delta_value.type_kind(), TYPE_DOUBLE);
-  ZETASQL_RET_CHECK_EQ(kappa_value.type_kind(), TYPE_INT64);
+  ZETASQL_RET_CHECK_EQ(max_groups_contributed_value.type_kind(), TYPE_INT64);
 
   const double epsilon = epsilon_value.double_value();
   const double delta = delta_value.double_value();
-  const int64_t kappa = kappa_value.int64_value();
+  const int64_t max_groups_contributed =
+      max_groups_contributed_value.int64_value();
 
   // The caller should have verified that epsilon and delta are not infinity
   // or nan.  The caller should also have verified that epsilon > 0, and that
-  // delta is in the range [0, 1]. Kappa must also be > 0.
+  // delta is in the range [0, 1]. max_groups_contributed must also be > 0.
   ZETASQL_RET_CHECK(!std::isnan(epsilon));
   ZETASQL_RET_CHECK(!std::isnan(delta));
   ZETASQL_RET_CHECK(!std::isinf(epsilon));
@@ -57,61 +57,65 @@ absl::StatusOr<Value> ComputeKThresholdFromEpsilonDeltaKappa(
   ZETASQL_RET_CHECK_GT(epsilon, 0);
   ZETASQL_RET_CHECK_GE(delta, 0);
   ZETASQL_RET_CHECK_LE(delta, 1);
-  ZETASQL_RET_CHECK_GT(kappa, 0);
+  ZETASQL_RET_CHECK_GT(max_groups_contributed, 0);
 
   ZETASQL_ASSIGN_OR_RETURN(
-      double double_k_threshold,
+      double double_laplace_threshold,
       differential_privacy::LaplacePartitionSelection::CalculateThreshold(
-          epsilon, delta, kappa));
+          epsilon, delta, max_groups_contributed));
 
-  double_k_threshold = ceil(double_k_threshold);
-  int64_t k_threshold;
-  if (double_k_threshold >= std::numeric_limits<int64_t>::max()) {
-    k_threshold = std::numeric_limits<int64_t>::max();
-  } else if (double_k_threshold <= std::numeric_limits<int64_t>::lowest()) {
-    k_threshold = std::numeric_limits<int64_t>::lowest();
+  double_laplace_threshold = ceil(double_laplace_threshold);
+  int64_t laplace_threshold;
+  if (double_laplace_threshold >= std::numeric_limits<int64_t>::max()) {
+    laplace_threshold = std::numeric_limits<int64_t>::max();
+  } else if (double_laplace_threshold <=
+             std::numeric_limits<int64_t>::lowest()) {
+    laplace_threshold = std::numeric_limits<int64_t>::lowest();
   } else {
-    k_threshold = static_cast<int64_t>(double_k_threshold);
+    laplace_threshold = static_cast<int64_t>(double_laplace_threshold);
   }
 
-  return Value::Int64(k_threshold);
+  return Value::Int64(laplace_threshold);
 }
 
-absl::StatusOr<Value> ComputeDeltaFromEpsilonKThresholdKappa(
-    Value epsilon_value, Value k_threshold_value,
-    Value kappa_value) {
-  if (!kappa_value.is_valid()) {
-    // Invalid kappa indicates unset.  Unset kappa implies contributions are not
-    // being bounded across GROUP BY groups.  Setting kappa to 1 is equivalent
-    // to removing it from the delta calculation.
-    kappa_value = Value::Int64(1);
+absl::StatusOr<Value> ComputeDeltaFromLaplaceThreshold(
+    Value epsilon_value, Value laplace_threshold_value,
+    Value max_groups_contributed_value) {
+  if (!max_groups_contributed_value.is_valid()) {
+    // Invalid max_groups_contributed_value indicates unset.  Unset
+    // max_groups_contributed_value implies contributions are not being bounded
+    // across GROUP BY groups.  Setting max_groups_contributed_value to 1 is
+    // equivalent to removing it from the delta calculation.
+    max_groups_contributed_value = Value::Int64(1);
   }
   ZETASQL_RET_CHECK_EQ(epsilon_value.type_kind(), TYPE_DOUBLE);
-  ZETASQL_RET_CHECK_EQ(k_threshold_value.type_kind(), TYPE_INT64);
-  ZETASQL_RET_CHECK_EQ(kappa_value.type_kind(), TYPE_INT64);
+  ZETASQL_RET_CHECK_EQ(laplace_threshold_value.type_kind(), TYPE_INT64);
+  ZETASQL_RET_CHECK_EQ(max_groups_contributed_value.type_kind(), TYPE_INT64);
 
   const double epsilon = epsilon_value.double_value();
-  const double k_threshold = k_threshold_value.int64_value();
-  const int64_t kappa = kappa_value.int64_value();
+  const double laplace_threshold = laplace_threshold_value.int64_value();
+  const int64_t max_groups_contributed =
+      max_groups_contributed_value.int64_value();
 
   // The caller should have verified that epsilon is not infinity or nan.
   // The caller should have also verified that epsilon is greater than 0.
-  // Note that k_threshold is allowed to be negative.  Kappa must also be
-  // greater than 0.
+  // Note that laplace_threshold is allowed to be negative.
+  // max_groups_contributed must also be greater than 0.
   ZETASQL_RET_CHECK(!std::isnan(epsilon));
   ZETASQL_RET_CHECK(!std::isinf(epsilon));
   ZETASQL_RET_CHECK_GT(epsilon, 0);
-  ZETASQL_RET_CHECK_GT(kappa, 0);
+  ZETASQL_RET_CHECK_GT(max_groups_contributed, 0);
 
   ZETASQL_ASSIGN_OR_RETURN(
       double delta,
       differential_privacy::LaplacePartitionSelection::CalculateDelta(
-          epsilon, k_threshold, kappa));
+          epsilon, laplace_threshold, max_groups_contributed));
 
   if (std::isnan(delta) || delta < 0.0 || delta > 1.0) {
     ZETASQL_RET_CHECK_FAIL() << "Invalid computed delta; delta: " << delta
-      << ", epsilon: " << epsilon << ", k_threshold: " << k_threshold
-      << ", kappa: " << kappa;
+                     << ", epsilon: " << epsilon
+                     << ", laplace_threshold: " << laplace_threshold
+                     << ", max_groups_contributed: " << max_groups_contributed;
   }
 
   return Value::Double(delta);

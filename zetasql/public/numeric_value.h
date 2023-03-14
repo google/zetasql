@@ -51,7 +51,7 @@ class NumericValue final {
  public:
   // Must use integral_constant to utilize the optimizations for integer
   // divisions with constant 64-bit divisors.
-  static constexpr std::integral_constant<uint32_t, internal::k1e9>
+  static constexpr std::integral_constant<uint64_t, internal::k1e9>
       kScalingFactor{};
   static constexpr int kMaxIntegerDigits = 29;
   static constexpr int kMaxFractionalDigits = 9;
@@ -122,6 +122,12 @@ class NumericValue final {
   // Like FromStringStrict() but accepts more than 9 digits after the point
   // rounding the number half away from zero.
   static absl::StatusOr<NumericValue> FromString(absl::string_view str);
+
+  // Like FromString() but accepts more than 9 digits after the point
+  // and rounds to the desired decimal_places using the rounding_mode specified.
+  // Decimal_places is max_clamped at scale (9).
+  static absl::StatusOr<NumericValue> FromStringWithRounding(
+      absl::string_view str, int64_t decimal_places, bool round_half_even);
 
   // Constructs a NumericValue from a double. This method might return an error
   // if the given value cannot be converted to a NUMERIC (e.g. NaN).
@@ -519,8 +525,9 @@ class NumericValue final {
   NumericValue(uint64_t high_bits, uint64_t low_bits);
   explicit constexpr NumericValue(__int128 value);
 
-  template <bool is_strict>
-  static absl::StatusOr<NumericValue> FromStringInternal(absl::string_view str);
+  template <internal::DigitTrimMode trim_mode>
+  static absl::StatusOr<NumericValue> FromStringInternal(
+      absl::string_view str, int64_t decimal_places);
 
   template <int kNumBitsPerWord, int kNumWords>
   static absl::StatusOr<NumericValue> FromFixedUint(
@@ -530,7 +537,7 @@ class NumericValue final {
       const FixedInt<kNumBitsPerWord, kNumWords>& val);
 
   // Returns the scaled fractional digits.
-  int32_t GetFractionalPart() const;
+  int64_t GetFractionalPart() const;
 
   // A NUMERIC value is stored as a scaled integer, the original NUMERIC value
   // is multiplied by the scaling factor 10^9. The intended representation is
@@ -616,6 +623,12 @@ class BigNumericValue final {
   // Like FromStringStrict() but accepts more than 38 digits after the point
   // rounding the number to the nearest and ties away from zero.
   static absl::StatusOr<BigNumericValue> FromString(absl::string_view str);
+
+  // Like FromString() but accepts more than 38 digits after the point
+  // and rounds to the desired decimal_places using the rounding_mode specified.
+  // Decimal_places is max_clamped at scale (38).
+  static absl::StatusOr<BigNumericValue> FromStringWithRounding(
+      absl::string_view str, int64_t decimal_places, bool round_half_even);
 
   // Constructs a BigNumericValue from a double. This method might return an
   // error if the given value cannot be converted to a BIGNUMERIC (e.g. NaN).
@@ -956,10 +969,9 @@ class BigNumericValue final {
  private:
   explicit constexpr BigNumericValue(const FixedInt<64, 4>& value);
   explicit constexpr BigNumericValue(const std::array<uint64_t, 4>& uint_array);
-  template <bool is_strict>
+  template <internal::DigitTrimMode trim_mode>
   static absl::StatusOr<BigNumericValue> FromStringInternal(
-      absl::string_view str);
-  static double RemoveScaleAndConvertToDouble(const FixedInt<64, 4>& value);
+      absl::string_view str, int64_t decimal_places);
 
   FixedInt<64, 4> value_;
 };
@@ -969,7 +981,7 @@ class BigNumericValue final {
 // worse than NumericValue and BigNumericValue.
 class VarNumericValue {
  public:
-  VarNumericValue() {}
+  VarNumericValue() = default;
   // Returns a value representing little_endian_value / pow(10, scale), where
   // little_endian_value represents an integer in serialized binary format
   // in little endian byte order, using 2's complement encoding for negative
@@ -1007,17 +1019,6 @@ namespace internal {
 
 constexpr __int128 kNumericMax = k1e38 - 1;
 constexpr __int128 kNumericMin = -kNumericMax;
-constexpr uint32_t k5to9 = k1e9 >> 9;
-constexpr uint32_t k5to10 = k5to9 * 5;
-constexpr uint32_t k5to11 = k5to10 * 5;
-constexpr uint32_t k5to12 = k5to11 * 5;
-constexpr uint32_t k5to13 = k5to12 * 5;
-constexpr uint64_t k5to19 = static_cast<uint64_t>(k5to10) * k5to9;
-constexpr uint64_t k1e11 = k1e10 * 10;
-constexpr uint64_t k1e12 = k1e11 * 10;
-constexpr uint64_t k1e13 = k1e12 * 10;
-constexpr std::integral_constant<int32_t, internal::k1e9>
-    kSignedScalingFactor{};
 
 }  // namespace internal
 
@@ -1205,8 +1206,7 @@ inline absl::StatusOr<T> NumericValue::To() const {
       "int32, int64_t, uint32_t or uint64");
 
   __int128 rounded_value = static_cast<__int128>(
-      FixedInt<64, 2>(as_packed_int())
-          .DivAndRoundAwayFromZero(internal::kSignedScalingFactor));
+      FixedInt<64, 2>(as_packed_int()).DivAndRoundAwayFromZero(kScalingFactor));
   T result = static_cast<T>(rounded_value);
   if (rounded_value == result) {
     return result;
@@ -1222,10 +1222,9 @@ inline constexpr uint64_t NumericValue::high_bits() const { return high_bits_; }
 
 inline constexpr uint64_t NumericValue::low_bits() const { return low_bits_; }
 
-inline int32_t NumericValue::GetFractionalPart() const {
-  int32_t remainder;
-  FixedInt<64, 2>(as_packed_int())
-      .DivMod(internal::kSignedScalingFactor, nullptr, &remainder);
+inline int64_t NumericValue::GetFractionalPart() const {
+  int64_t remainder;
+  FixedInt<64, 2>(as_packed_int()).DivMod(kScalingFactor, nullptr, &remainder);
   return remainder;
 }
 
@@ -1252,7 +1251,7 @@ inline constexpr BigNumericValue::BigNumericValue(
 inline constexpr BigNumericValue::BigNumericValue(const FixedInt<64, 4>& value)
     : value_(value) {}
 
-inline constexpr BigNumericValue::BigNumericValue() {}
+inline constexpr BigNumericValue::BigNumericValue() = default;
 
 inline BigNumericValue::BigNumericValue(int value)
     : BigNumericValue(static_cast<long long>(value)) {}  // NOLINT
@@ -1373,10 +1372,6 @@ inline absl::StatusOr<BigNumericValue> BigNumericValue::Abs() const {
     return BigNumericValue(result.number());
   }
   return MakeEvalError() << "BIGNUMERIC overflow: ABS(" << ToString() << ")";
-}
-
-inline double BigNumericValue::ToDouble() const {
-  return BigNumericValue::RemoveScaleAndConvertToDouble(value_);
 }
 
 inline std::string BigNumericValue::ToString() const {

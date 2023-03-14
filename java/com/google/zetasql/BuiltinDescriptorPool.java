@@ -30,6 +30,7 @@ import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import com.google.zetasql.functions.ZetaSQLArrayFindMode.ArrayFindEnums.ArrayFindMode;
 import com.google.zetasql.functions.ZetaSQLDateTime.DateTimestampPart;
+import com.google.zetasql.functions.ZetaSQLDifferentialPrivacy;
 import com.google.zetasql.functions.ZetaSQLNormalizeMode.NormalizeMode;
 import com.google.zetasql.functions.ZetaSQLRoundingMode.RoundingMode;
 import com.google.type.Date;
@@ -62,6 +63,7 @@ final class BuiltinDescriptorPool {
           .importFileDescriptor(StringValue.getDescriptor().getFile())
           .importFileDescriptor(BytesValue.getDescriptor().getFile())
           .importFileDescriptor(ZetaSQLAnonOutputWithReport.getDescriptor().getFile())
+          .importFileDescriptor(ZetaSQLDifferentialPrivacy.getDescriptor().getFile())
           .importFileDescriptor(EnumValueDescriptorProto.getDescriptor().getFile())
           .build();
 

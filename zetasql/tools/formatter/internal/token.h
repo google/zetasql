@@ -117,6 +117,9 @@ class Token : public ParseToken {
     DDL_KEYWORD,
     // Marks keywords inside CASE operator (WHEN, THEN, ELSE, END).
     CASE_KEYWORD,
+    // Marks builtin-functions, some of which may be multipart, e.g.
+    // D3A_COUNT.INIT()
+    BUILTIN_FUNCTION,
     // Curly brace that starts a braced constructor. Braced constructors
     // allow textproto-like syntax inside, with pairs "field_name: value".
     STARTS_BRACED_CONSTR,

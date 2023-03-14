@@ -978,9 +978,9 @@ QueryStmt
 # more than one output columns.
 select (select AS STRUCT 1, 2) IN ( (select 1, 2) )
 --
-ERROR: Subquery of type IN must have only one output column [at 1:37]
+ERROR: Subquery of type IN must have only one output column [at 1:38]
 select (select AS STRUCT 1, 2) IN ( (select 1, 2) )
-                                    ^
+                                     ^
 ==
 
 select (select AS STRUCT 1, 2) IN ( (select AS STRUCT 1, 2) )

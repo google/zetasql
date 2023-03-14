@@ -20,6 +20,7 @@ package zetasql;
 
 import "zetasql/public/annotation.proto";
 import "zetasql/public/options.proto";
+
 import "zetasql/public/type.proto";
 import "zetasql/public/value.proto";
 
@@ -32,7 +33,7 @@ message TestDatabaseProto {
   repeated string proto_names = 3;  // Set of proto type names.
   repeated string enum_names = 4;   // Set of enum type names.
 
-  // test_table.name should be unique with this list.
+  // test_table.name should be unique within this list.
   repeated TestTableProto test_tables = 5;
 }
 

@@ -214,7 +214,7 @@ the functions in the previous table.
   </tbody>
 </table>
 
-### JSON_EXTRACT
+### `JSON_EXTRACT`
 
 Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
 
@@ -363,7 +363,11 @@ SELECT JSON_EXTRACT(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
 SELECT JSON_EXTRACT(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
 ```
 
-### JSON_QUERY
+[json-query]: #json_query
+
+[JSONPath-format]: #JSONPath_format
+
+### `JSON_QUERY`
 
 ```sql
 JSON_QUERY(json_string_expr, json_path)
@@ -510,7 +514,9 @@ SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
 SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
 ```
 
-### JSON_EXTRACT_SCALAR
+[JSONPath-format]: #JSONPath_format
+
+### `JSON_EXTRACT_SCALAR`
 
 Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
 
@@ -607,7 +613,11 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 +-------+
 ```
 
-### JSON_VALUE
+[json-value]: #json_value
+
+[JSONPath-format]: #JSONPath_format
+
+### `JSON_VALUE`
 
 ```sql
 JSON_VALUE(json_string_expr[, json_path])
@@ -702,7 +712,9 @@ SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 +-------+
 ```
 
-### JSON_QUERY_ARRAY
+[JSONPath-format]: #JSONPath_format
+
+### `JSON_QUERY_ARRAY`
 
 ```sql
 JSON_QUERY_ARRAY(json_string_expr[, json_path])
@@ -887,7 +899,9 @@ SELECT JSON_QUERY_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 +--------+
 ```
 
-### JSON_VALUE_ARRAY
+[JSONPath-format]: #JSONPath_format
+
+### `JSON_VALUE_ARRAY`
 
 ```sql
 JSON_VALUE_ARRAY(json_string_expr[, json_path])
@@ -1100,7 +1114,9 @@ SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 
 ```
 
-### PARSE_JSON
+[JSONPath-format]: #JSONPath_format
+
+### `PARSE_JSON`
 
 ```sql
 PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' }])
@@ -1175,7 +1191,7 @@ SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'round') AS 
 +--------------------------------+
 ```
 
-### TO_JSON
+### `TO_JSON`
 
 ```sql
 TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE }])
@@ -1300,7 +1316,9 @@ FROM T1 AS t;
 +------------------------------+
 ```
 
-### TO_JSON_STRING
+[json-encodings]: #json_encodings
+
+### `TO_JSON_STRING`
 
 ```sql
 TO_JSON_STRING(value[, pretty_print])
@@ -1372,8 +1390,9 @@ FROM CoordinatesTable AS t;
 +----+-------------+--------------------+
 ```
 
- 
-### STRING 
+[json-encodings]: #json_encodings
+
+### `STRING` 
 <a id="string_for_json"></a>
 
 ```sql
@@ -1427,7 +1446,7 @@ SELECT STRING(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
 ```
 
-### BOOL 
+### `BOOL` 
 <a id="bool_for_json"></a>
 
 ```sql
@@ -1481,7 +1500,7 @@ SELECT BOOL(JSON 'null') AS result; -- Throw an error
 SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
 ```
 
-### INT64 
+### `INT64` 
 <a id="int64_for_json"></a>
 
 ```sql
@@ -1548,7 +1567,7 @@ SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 
 ```
 
-### DOUBLE 
+### `DOUBLE` 
 <a id="double_for_json"></a>
 
 ```sql
@@ -1644,7 +1663,7 @@ SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'exact') as result;
 SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
 ```
 
-### JSON_TYPE 
+### `JSON_TYPE` 
 <a id="json_type"></a>
 
 ```sql
@@ -2243,19 +2262,5 @@ a JSON-formatted string. If the selected value for a scalar function is not
 scalar, such as an object or an array, the function returns `NULL`. If the
 JSONPath format is invalid, an error is produced.
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[json-query]: #json_query
-
-[json-value]: #json_value
-
-[json-query-array]: #json_query_array
-
-[json-value-array]: #json_value_array
-
-[json-encodings]: #json_encodings
-
 [JSONPath-format]: #JSONPath_format
-
-<!-- mdlint on -->
 

@@ -47,6 +47,8 @@
 
 namespace zetasql {
 
+namespace {
+
 // Compares ResolvedLiterals by parse location. The ParseLocationRange must be
 // set on all compared literals.
 struct LiteralParseLocationComparator {
@@ -62,7 +64,7 @@ struct LiteralParseLocationComparator {
 // Returns true if the given literals occur at the same location and have the
 // same value (and hence type). Such literals are created in analytical
 // functions. The ParseLocationRange must be set on all compared literals.
-static bool IsSameLiteral(const ResolvedLiteral* a, const ResolvedLiteral* b) {
+bool IsSameLiteral(const ResolvedLiteral* a, const ResolvedLiteral* b) {
   ZETASQL_DCHECK(a->GetParseLocationRangeOrNULL() != nullptr);
   ZETASQL_DCHECK(b->GetParseLocationRangeOrNULL() != nullptr);
   const ParseLocationRange& location_a = *a->GetParseLocationRangeOrNULL();
@@ -70,9 +72,9 @@ static bool IsSameLiteral(const ResolvedLiteral* a, const ResolvedLiteral* b) {
   return location_a == location_b && a->value() == b->value();
 }
 
-static std::string GenerateParameterName(
-    const ResolvedLiteral* literal, const AnalyzerOptions& analyzer_options,
-    int* index) {
+std::string GenerateParameterName(const ResolvedLiteral* literal,
+                                  const AnalyzerOptions& analyzer_options,
+                                  int* index) {
   std::string type_name = Type::TypeKindToString(
       literal->type()->kind(), analyzer_options.language().product_mode());
   std::string param_name;
@@ -85,30 +87,30 @@ static std::string GenerateParameterName(
 }
 
 template <typename T>
-static absl::Status AddCollationLiteralToIgnoringSetIfPresent(
+absl::Status AddCollationLiteralToIgnoringSetIfPresent(
     const T* node,
-    absl::flat_hash_set<const ResolvedLiteral*>* ignore_literals) {
+    absl::flat_hash_set<const ResolvedLiteral*>& ignore_literals) {
   if (node->collation_name() != nullptr) {
     ZETASQL_RET_CHECK_EQ(node->collation_name()->node_kind(), RESOLVED_LITERAL);
     // <collation_name> may be generated from CTAS query and doesn't have a
     // parse location attached.
     if (node->collation_name()->GetParseLocationRangeOrNULL() != nullptr) {
-      ignore_literals->insert(
+      ignore_literals.insert(
           node->collation_name()->template GetAs<ResolvedLiteral>());
     }
   }
     return absl::OkStatus();
 }
 
-static absl::Status AddAnnotationLiteralsToIgnoringSet(
-    absl::flat_hash_set<const ResolvedLiteral*>* ignore_literals,
-    std::vector<const ResolvedNode*>* annotation_nodes) {
-  std::queue<const ResolvedColumnAnnotations*> annotation_nodes_queue;
-  for (const ResolvedNode* node : *annotation_nodes) {
+absl::Status AddAnnotationLiteralsToIgnoringSet(
+    const std::vector<const ResolvedNode*>& annotation_nodes,
+    absl::flat_hash_set<const ResolvedLiteral*>& ignore_literals) {
+    std::queue<const ResolvedColumnAnnotations*> annotation_nodes_queue;
+    for (const ResolvedNode* node : annotation_nodes) {
     const ResolvedColumnAnnotations* annotation_node =
         node->GetAs<ResolvedColumnAnnotations>();
     annotation_nodes_queue.push(annotation_node);
-  }
+    }
   std::vector<const ResolvedNode*> tmp_vector;
   while (!annotation_nodes_queue.empty()) {
     const ResolvedColumnAnnotations* node = annotation_nodes_queue.front();
@@ -129,9 +131,9 @@ static absl::Status AddAnnotationLiteralsToIgnoringSet(
   return absl::OkStatus();
 }
 
-static absl::Status AddDefaultCollationLiteralToIgnoringSet(
-    absl::flat_hash_set<const ResolvedLiteral*>* ignore_literals,
-    const ResolvedStatement* stmt) {
+absl::Status AddDefaultCollationLiteralToIgnoringSet(
+    const ResolvedStatement* stmt,
+    absl::flat_hash_set<const ResolvedLiteral*>& ignore_literals) {
   switch (stmt->node_kind()) {
     case RESOLVED_CREATE_TABLE_STMT: {
       const ResolvedCreateTableStmt* create_table_stmt =
@@ -194,9 +196,30 @@ static absl::Status AddDefaultCollationLiteralToIgnoringSet(
   return absl::OkStatus();
 }
 
+absl::Status AddLimitOffsetLiteralsToIgnoringSet(
+    const std::vector<const ResolvedNode*>& limit_offset_nodes,
+    absl::flat_hash_set<const ResolvedLiteral*>& ignore_literals) {
+  for (const ResolvedNode* node : limit_offset_nodes) {
+    const auto* limit_offset_scan = node->GetAs<ResolvedLimitOffsetScan>();
+    if (const ResolvedNode* limit = limit_offset_scan->limit();
+        limit != nullptr && limit->node_kind() == RESOLVED_LITERAL &&
+        limit->GetParseLocationRangeOrNULL() != nullptr) {
+      ignore_literals.insert(limit->GetAs<ResolvedLiteral>());
+    }
+    if (const ResolvedNode* offset = limit_offset_scan->offset();
+        offset != nullptr && offset->node_kind() == RESOLVED_LITERAL &&
+        offset->GetParseLocationRangeOrNULL() != nullptr) {
+      ignore_literals.insert(offset->GetAs<ResolvedLiteral>());
+    }
+  }
+  return absl::OkStatus();
+}
+
+}  // namespace
+
 absl::Status ReplaceLiteralsByParameters(
     const std::string& sql,
-    const absl::node_hash_set<std::string>& option_names_to_ignore,
+    const LiteralReplacementOptions& literal_replacement_options,
     const AnalyzerOptions& analyzer_options, const ResolvedStatement* stmt,
     LiteralReplacementMap* literal_map,
     GeneratedParameterMap* generated_parameters, std::string* result_sql) {
@@ -216,7 +239,8 @@ absl::Status ReplaceLiteralsByParameters(
         option->value()->GetParseLocationRangeOrNULL() != nullptr) {
       const ResolvedLiteral* option_literal =
           option->value()->GetAs<ResolvedLiteral>();
-      if (option_names_to_ignore.contains(option->name())) {
+      if (literal_replacement_options.ignored_option_names.contains(
+              option->name())) {
         ignore_literals.insert(option_literal);
       }
     }
@@ -226,10 +250,20 @@ absl::Status ReplaceLiteralsByParameters(
   std::vector<const ResolvedNode*> annotation_nodes;
   stmt->GetDescendantsWithKinds({RESOLVED_COLUMN_ANNOTATIONS},
                                 &annotation_nodes);
-  ZETASQL_RETURN_IF_ERROR(AddAnnotationLiteralsToIgnoringSet(&ignore_literals,
-                                                     &annotation_nodes));
   ZETASQL_RETURN_IF_ERROR(
-      AddDefaultCollationLiteralToIgnoringSet(&ignore_literals, stmt));
+      AddAnnotationLiteralsToIgnoringSet(annotation_nodes, ignore_literals));
+  ZETASQL_RETURN_IF_ERROR(
+      AddDefaultCollationLiteralToIgnoringSet(stmt, ignore_literals));
+
+  if (!literal_replacement_options.scrub_limit_offset) {
+    // Collect all <literals> that appearing in LIMIT, OFFSET clauses that have
+    // parse locations.
+    std::vector<const ResolvedNode*> limit_offset_nodes;
+    stmt->GetDescendantsWithKinds({RESOLVED_LIMIT_OFFSET_SCAN},
+                                  &limit_offset_nodes);
+    ZETASQL_RETURN_IF_ERROR(AddLimitOffsetLiteralsToIgnoringSet(limit_offset_nodes,
+                                                        ignore_literals));
+  }
 
   // Collect all <literals> that have a parse location and not marked to be
   // preserved.
@@ -294,29 +328,6 @@ absl::Status ReplaceLiteralsByParameters(
   }
   absl::StrAppend(result_sql, sql.substr(prefix_offset));
   return absl::OkStatus();
-}
-
-absl::Status ReplaceLiteralsByParameters(
-    const std::string& sql,
-    const absl::node_hash_set<std::string>& option_names_to_ignore,
-    const AnalyzerOptions& analyzer_options,
-    const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
-    GeneratedParameterMap* generated_parameters, std::string* result_sql) {
-  ZETASQL_CHECK_NE(analyzer_output, nullptr);
-  return ReplaceLiteralsByParameters(
-      sql, option_names_to_ignore, analyzer_options,
-      analyzer_output->resolved_statement(), literal_map, generated_parameters,
-      result_sql);
-}
-
-absl::Status ReplaceLiteralsByParameters(
-    const std::string& sql, const AnalyzerOptions& analyzer_options,
-    const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
-    GeneratedParameterMap* generated_parameters, std::string* result_sql) {
-  return ReplaceLiteralsByParameters(
-      sql, /*option_names_to_ignore=*/{}, analyzer_options,
-      analyzer_output->resolved_statement(), literal_map, generated_parameters,
-      result_sql);
 }
 
 }  // namespace zetasql

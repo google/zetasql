@@ -118,6 +118,13 @@ using zetasql_bison_parser::BisonParserImpl;
 
 constexpr char ::zetasql::parser::ZetaSqlFlexTokenizer::kEofSentinelInput[];
 
+#define RETURN_ILLEGAL_CHARACTER_ERROR \
+  SetOverrideError( \
+      *yylloc, \
+      absl::StrFormat(R"(Syntax error: Illegal input character "%s")", \
+                   absl::CEscape(absl::string_view(YYText(), 1)))); \
+  yyterminate();
+
 %}
 
 %option c++ 8bit noyywrap nounput case-insensitive never-interactive
@@ -391,6 +398,7 @@ and {
 }
 anonymization { return BisonParserImpl::token::KW_ANONYMIZATION; }
 any { return BisonParserImpl::token::KW_ANY; }
+are { return BisonParserImpl::token::KW_ARE; }
 array { return BisonParserImpl::token::KW_ARRAY; }
 as { return BisonParserImpl::token::KW_AS; }
 asc { return BisonParserImpl::token::KW_ASC; }
@@ -538,6 +546,7 @@ limit { return BisonParserImpl::token::KW_LIMIT; }
 load { return BisonParserImpl::token::KW_LOAD; }
 lookup { return BisonParserImpl::token::KW_LOOKUP; }
 loop { return BisonParserImpl::token::KW_LOOP; }
+macro { return BisonParserImpl::token::KW_MACRO; }
 match { return BisonParserImpl::token::KW_MATCH; }
 matched { return BisonParserImpl::token::KW_MATCHED; }
 materialized  { return BisonParserImpl::token::KW_MATERIALIZED; }
@@ -582,15 +591,16 @@ output { return BisonParserImpl::token::KW_OUTPUT; }
 over { return BisonParserImpl::token::KW_OVER; }
 overwrite { return BisonParserImpl::token::KW_OVERWRITE; }
 partition { return BisonParserImpl::token::KW_PARTITION; }
+partitions { return BisonParserImpl::token::KW_PARTITIONS; }
 percent { return BisonParserImpl::token::KW_PERCENT; }
 policies { return BisonParserImpl::token::KW_POLICIES; }
 policy { return BisonParserImpl::token::KW_POLICY; }
 preceding { return BisonParserImpl::token::KW_PRECEDING; }
-procedure { return BisonParserImpl::token::KW_PROCEDURE; }
 primary { return BisonParserImpl::token::KW_PRIMARY; }
 private { return BisonParserImpl::token::KW_PRIVATE; }
 privilege { return BisonParserImpl::token::KW_PRIVILEGE; }
 privileges { return BisonParserImpl::token::KW_PRIVILEGES; }
+procedure { return BisonParserImpl::token::KW_PROCEDURE; }
 proto { return BisonParserImpl::token::KW_PROTO; }
 public { return BisonParserImpl::token::KW_PUBLIC; }
 qualify {
@@ -643,6 +653,7 @@ struct { return BisonParserImpl::token::KW_STRUCT; }
 system { return BisonParserImpl::token::KW_SYSTEM; }
 system_time { return BisonParserImpl::token::KW_SYSTEM_TIME; }
 table { return BisonParserImpl::token::KW_TABLE; }
+tables { return BisonParserImpl::token::KW_TABLES; }
 tablesample { return BisonParserImpl::token::KW_TABLESAMPLE; }
 pivot { return BisonParserImpl::token::KW_PIVOT; }
 unpivot { return BisonParserImpl::token::KW_UNPIVOT; }
@@ -660,6 +671,7 @@ true { return BisonParserImpl::token::KW_TRUE; }
 truncate { return BisonParserImpl::token::KW_TRUNCATE; }
 type { return BisonParserImpl::token::KW_TYPE; }
 unbounded { return BisonParserImpl::token::KW_UNBOUNDED; }
+undrop { return BisonParserImpl::token::KW_UNDROP; }
 union { return BisonParserImpl::token::KW_UNION; }
 unknown { return BisonParserImpl::token::KW_UNKNOWN; }
 unnest { return BisonParserImpl::token::KW_UNNEST; }
@@ -807,6 +819,8 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   yyterminate();
 }
 
+ /* When adding a new symbol, ensure that it is included in the list of symbols
+    allowed in macro bodies (see the `macro_token` rule in bison_parser.y) */
  /* Open parentheses/brackets. The { rule is for parity with the JavaCC
     tokenizer and for use by clients that use the ZetaSQL tokenizer. We don't
     use it in the grammar. */
@@ -952,6 +966,29 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   return ';';
 }
 
+ /* These are used only during macro expansions */
+"$"{unquoted_identifier} {
+  if (AreMacrosEnabled()) {
+    return BisonParserImpl::token::MACRO_INVOCATION;
+  } else {
+    RETURN_ILLEGAL_CHARACTER_ERROR
+  }
+}
+"$"{decimal_digits} {
+  if (AreMacrosEnabled()) {
+    return BisonParserImpl::token::MACRO_ARGUMENT_REFERENCE;
+  } else {
+    RETURN_ILLEGAL_CHARACTER_ERROR
+  }
+}
+"$" {
+  if (AreMacrosEnabled()) {
+    return BisonParserImpl::token::DOLLAR_SIGN;
+  } else {
+    RETURN_ILLEGAL_CHARACTER_ERROR
+  }
+}
+
  /* Whitespace and EOF rule.
 
     We append a \n to every input. This ensures that we will encounter a
@@ -1028,9 +1065,5 @@ zone { return BisonParserImpl::token::KW_ZONE; }
  /* Catchall rule. This rule should also work in exclusive tokenizer states such
     as STACK_BOTTOM. */
 <*>.                      {
-  SetOverrideError(
-      *yylloc,
-      absl::StrCat("Syntax error: Illegal input character \"",
-                   absl::CEscape(absl::string_view(YYText(), 1)), "\""));
-  yyterminate();
+  RETURN_ILLEGAL_CHARACTER_ERROR
 }

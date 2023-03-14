@@ -87,6 +87,16 @@ ABSL_FLAG(std::optional<zetasql::internal::EnabledLanguageFeatures>,
           enabled_language_features, std::nullopt,
           zetasql::internal::EnabledLanguageFeatures::kFlagDescription);
 
+ABSL_FLAG(std::string, parameters, {},
+          zetasql::internal::kQueryParameterMapHelpstring);
+
+ABSL_FLAG(bool, strict_name_resolution_mode, false,
+          "Sets LanguageOptions::strict_resolution_mode.");
+
+ABSL_FLAG(bool, evaluator_scramble_undefined_orderings, false,
+          "When true, shuffle the order of rows in intermediate reults that "
+          "are unordered.");
+
 ABSL_FLAG(std::string, table_spec, "",
           "The table spec to use for building the ZetaSQL Catalog. This is a "
           "comma-delimited list of strings of the form <table_name>=<spec>, "
@@ -207,6 +217,17 @@ static absl::Status SetProductModeFromFlags(ExecuteQueryConfig& config) {
   }
   return zetasql_base::InvalidArgumentErrorBuilder()
          << "Invalid --product_mode:'" << product_mode << "'";
+}
+
+static absl::Status SetNameResolutionModeFromFlags(ExecuteQueryConfig& config) {
+  config.mutable_analyzer_options()
+      .mutable_language()
+      ->set_name_resolution_mode(
+          absl::GetFlag(FLAGS_strict_name_resolution_mode)
+              ? NAME_RESOLUTION_STRICT
+              : NAME_RESOLUTION_DEFAULT);
+
+  return absl::OkStatus();
 }
 
 absl::Status SetDescriptorPoolFromFlags(ExecuteQueryConfig& config) {
@@ -341,6 +362,7 @@ absl::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
 
 absl::Status SetLanguageOptionsFromFlags(ExecuteQueryConfig& config) {
   ZETASQL_RETURN_IF_ERROR(SetProductModeFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(SetNameResolutionModeFromFlags(config));
   return SetLanguageFeaturesFromFlags(config);
 }
 
@@ -357,6 +379,25 @@ absl::Status SetEvaluatorOptionsFromFlags(ExecuteQueryConfig& config) {
       val != -1) {
     config.mutable_evaluator_options().max_intermediate_byte_size = val;
   }
+  config.mutable_evaluator_options().scramble_undefined_orderings =
+      absl::GetFlag(FLAGS_evaluator_scramble_undefined_orderings);
+  return absl::OkStatus();
+}
+
+absl::Status SetQueryParametersFromFlags(ExecuteQueryConfig& config) {
+  ParameterValueMap parameters;
+  std::string err;
+  if (!internal::ParseQueryParameterFlag(
+          absl::GetFlag(FLAGS_parameters), config.analyzer_options(),
+          &config.mutable_catalog(), &parameters, &err)) {
+    return absl::InvalidArgumentError(err);
+  }
+  for (const auto& [name, value] : parameters) {
+    ZETASQL_RETURN_IF_ERROR(config.mutable_analyzer_options().AddQueryParameter(
+        name, value.type()));
+  }
+
+  config.mutable_query_parameter_values() = std::move(parameters);
   return absl::OkStatus();
 }
 
@@ -460,7 +501,8 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
       }
       case ToolMode::kExecute: {
         ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
-                         query.ExecuteAfterPrepare());
+                         query.ExecuteAfterPrepare(
+                             {.parameters = config.query_parameter_values()}));
 
         return writer.executed(*resolved_node, std::move(iter));
       }
@@ -485,7 +527,10 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
         return writer.explained(*resolved_node, explain);
       }
       case ToolMode::kExecute: {
-        ZETASQL_ASSIGN_OR_RETURN(Value value, expression.ExecuteAfterPrepare());
+        PreparedExpressionBase::ExpressionOptions expression_options;
+        expression_options.parameters = config.query_parameter_values();
+        ZETASQL_ASSIGN_OR_RETURN(Value value, expression.ExecuteAfterPrepare(
+                                          std::move(expression_options)));
 
         return writer.ExecutedExpression(*resolved_node, value);
       }

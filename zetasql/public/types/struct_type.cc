@@ -278,10 +278,24 @@ const StructType::StructField* StructType::FindField(absl::string_view name,
     return nullptr;
   }
 
-  int field_index;
+  int field_index = -2;  // -1 used for ambiguous fields
   {
+    // Use a shared lock for the common case of access after lazy
+    // initialization, to avoid contention
+    absl::ReaderMutexLock rlock(&mutex_);
+    if (!ABSL_PREDICT_FALSE(field_name_to_index_map_.empty())) {
+      const auto iter = field_name_to_index_map_.find(name);
+      if (ABSL_PREDICT_FALSE(iter == field_name_to_index_map_.end())) {
+        return nullptr;
+      }
+      field_index = iter->second;
+    }
+  }
+  if (field_index == -2) {
+    // Use an exclusive lock to guard lazy initialization of the cache
+    // (field_name_to_index_map_)
     absl::MutexLock lock(&mutex_);
-    if (ABSL_PREDICT_FALSE(field_name_to_index_map_.empty())) {
+    if (field_name_to_index_map_.empty()) {
       for (int i = 0; i < num_fields(); ++i) {
         const std::string& field_name = field(i).name;
         // Empty names indicate unnamed fields, not fields which can be looked

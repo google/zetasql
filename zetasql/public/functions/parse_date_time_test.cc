@@ -1825,6 +1825,41 @@ TEST(ParseFormatDateTimestampTests, ISOandNonISOTests) {
   EXPECT_EQ(datetime_string, formatted_string);
 }
 
+TEST(ParseFormatDateTimestampTests, ParseMeridianIndicatorTests) {
+  // The %p element parses meridian indicators ("am","pm") in a case
+  // insensitive manner. For parse_version2, %P behaves the same as %p.
+
+  const std::string format_strings[] = {"%p", "%P"};
+  const std::string datetime_strings[] = {"am", "pm", "AM", "aM",
+                                          "Am", "pM", "Pm"};
+  for (const std::string& format_string : format_strings) {
+    for (const std::string& datetime_string : datetime_strings) {
+      TimeValue time;
+      ZETASQL_EXPECT_OK(ParseStringToTime(format_string, datetime_string, kMicroseconds,
+                                  &time));
+      EXPECT_EQ(time.Packed64TimeMicros(),
+                TimeValue::FromHMSAndMicros(0, 0, 0, 0).Packed64TimeMicros());
+
+      DatetimeValue datetime;
+      ZETASQL_EXPECT_OK(ParseStringToDatetime(format_string, datetime_string,
+                                      kMicroseconds,
+                                      /*parse_version2=*/true, &datetime));
+      EXPECT_EQ(datetime.Packed64DatetimeMicros(),
+                DatetimeValue::FromYMDHMSAndMicros(1970, 01, 01, 00, 00, 00, 0)
+                    .Packed64DatetimeMicros());
+
+      absl::Time result_timestamp;
+      ZETASQL_EXPECT_OK(ParseStringToTimestamp(format_string, datetime_string, "UTC",
+                                       /*parse_version2=*/true,
+                                       &result_timestamp));
+      ZETASQL_EXPECT_OK(ConvertTimestampToDatetime(result_timestamp, "UTC", &datetime));
+      EXPECT_EQ(datetime.Packed64DatetimeMicros(),
+                DatetimeValue::FromYMDHMSAndMicros(1970, 01, 01, 00, 00, 00, 0)
+                    .Packed64DatetimeMicros());
+    }
+  }
+}
+
 }  // namespace
 }  // namespace functions
 }  // namespace zetasql

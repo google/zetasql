@@ -261,7 +261,7 @@ Value StructArray(absl::Span<const std::string> names,
                   TypeFactory* type_factory = nullptr);
 
 // Creates a range with values 'start' and 'end'.
-Value Range(const ValueConstructor start, const ValueConstructor end);
+Value Range(ValueConstructor start, ValueConstructor end);
 
 // If type_factory is not provided the function will use the default static type
 // factory (see: static_type_factory())

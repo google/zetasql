@@ -67,8 +67,7 @@ class ZetaSqlCollator {
   //
   // If an error occurs, <*error> will be updated.
   // Errors will never occur if <s1> and <s2> are valid UTF-8.
-  virtual int64_t CompareUtf8(const absl::string_view s1,
-                              const absl::string_view s2,
+  virtual int64_t CompareUtf8(absl::string_view s1, absl::string_view s2,
                               absl::Status* error) const = 0;
 
   // Generates the sort key from <input> as an array of bytes, and returns it in

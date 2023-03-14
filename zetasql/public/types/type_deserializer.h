@@ -71,6 +71,12 @@ class ExtendedTypeDeserializer {
 // references to deserialized types.
 class TypeDeserializer {
  public:
+  // Create a TypeDeserializer.
+  // `type_factory` must be non-null and outlive this object.
+  // `descriptor_pools` and it's backing container and contents, must outlive
+  //    this object. It may be empty.
+  // `extended_type_deserializer` is optional, but if provided, must outlive
+  //    this object.
   constexpr TypeDeserializer(
       TypeFactory* type_factory,
       absl::Span<const google::protobuf::DescriptorPool* const> descriptor_pools,
@@ -82,6 +88,11 @@ class TypeDeserializer {
     // Deserialize.
     ZETASQL_DCHECK(type_factory);
   }
+
+  // Create a TypeDeserializer.
+  // `type_factory` must be non-null and outlive this object.
+  // `extended_type_deserializer` is optional, but if provided, must outlive
+  //    this object.
   constexpr explicit TypeDeserializer(
       TypeFactory* type_factory,
       const ExtendedTypeDeserializer* extended_type_deserializer = nullptr)
@@ -114,8 +125,11 @@ class TypeDeserializer {
   }
 
  private:
+  // Not owned.
   TypeFactory* type_factory_;
+  // Not owned.
   absl::Span<const google::protobuf::DescriptorPool* const> descriptor_pools_;
+  // Not owned.
   const ExtendedTypeDeserializer* extended_type_deserializer_ = nullptr;
 };
 

@@ -24,11 +24,15 @@ namespace zetasql {
 enum class SelectWithMode {
   // Represents regular SELECT query.
   NONE,
-  // Represents SELECT WITH ANONMIZATION query - Differential Privacy query.
+  // Represents SELECT WITH ANONYMIZATION query - Differential Privacy query.
   // Although ANONYMIZATION and DIFFERENTIAL_PRIVACY are semantically similar in
   // most ways, there are a couple of differences e.g. list of valid options are
   // different and so we need to be able to distinguish between them.
   ANONYMIZATION,
+  // Represents SELECT WITH DIFFERENTIAL_PRIVACY query - Differential Privacy
+  // query. See comment above for why we have ANONYMIZATION and
+  // DIFFERENTIAL_PRIVACY.
+  DIFFERENTIAL_PRIVACY,
 };
 
 }  // namespace zetasql

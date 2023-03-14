@@ -28,12 +28,14 @@
 #include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/location.hh"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser_runtime_info.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
@@ -268,10 +270,25 @@ class BisonParser {
   absl::string_view GetFirstTokenOfNode(
       const zetasql_bison_parser::location& bison_location) const;
 
+  absl::Status GenerateWarningForFutureKeywordReservation(
+      const absl::string_view keyword, const int byte_offset) {
+    return MakeSqlErrorAtPoint(zetasql::ParseLocationPoint::FromByteOffset(
+               filename_.ToStringView(), byte_offset))
+           << absl::Substitute(
+                  "$0 is used as an identifier. $0 may become a reserved word "
+                  "in the future. To make this statement robust, add backticks "
+                  "around $0 to make the identifier unambiguous",
+                  keyword);
+  }
+
   void AddWarning(const absl::Status& status) { warnings_->push_back(status); }
 
   std::unique_ptr<std::vector<absl::Status>> release_warnings() {
     return std::move(warnings_);
+  }
+
+  ParserRuntimeInfo&& release_runtime_info() {
+    return std::move(parser_runtime_info_);
   }
 
  private:
@@ -310,7 +327,15 @@ class BisonParser {
   // syntax usage (e.g., to assess the impact of reserving a keyword)
   std::unique_ptr<std::vector<absl::Status>> warnings_ =
       std::make_unique<std::vector<absl::Status>>();
+
+  ParserRuntimeInfo parser_runtime_info_;
 };
+
+// These are defined here because some of our tests rely on grabbing quoted
+// words in order to ensure test completeness of tokens. Indirecting these
+// strings as globals here allows us to use them in generating warnings without
+// interrupting those tests.
+inline constexpr absl::string_view kQualify = "QUALIFY";
 
 }  // namespace parser
 }  // namespace zetasql

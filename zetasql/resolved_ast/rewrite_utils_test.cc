@@ -37,6 +37,10 @@
 namespace zetasql {
 namespace {
 
+using ::testing::Not;
+using ::zetasql_base::testing::IsOk;
+using ::zetasql_base::testing::StatusIs;
+
 TEST(ColumnFactory, NoSequence) {
   ColumnFactory factory(10);
   ResolvedColumn column =
@@ -216,6 +220,73 @@ TEST(RewriteUtilsTest, SortUniqueColumnRefs) {
   EXPECT_TRUE(column_refs[3]->is_correlated());
 }
 
+TEST(RewriteUtilsTest, SafePreconditionWithIferrorOverride) {
+  SimpleCatalog catalog("test_catalog");
+  catalog.AddZetaSQLFunctions();
+  AnalyzerOptions analyzer_options;
+
+  ZETASQL_EXPECT_OK(
+      CheckCatalogSupportsSafeMode("whatever", analyzer_options, catalog));
+
+  // If we remove IFEROR from the catalog, we should fail the precondition
+  // checks.
+  auto is_iferror = [](const Function* fn) {
+    return zetasql_base::CaseEqual(fn->Name(), "iferror");
+  };
+  std::vector<std::unique_ptr<const Function>> removed;
+  catalog.RemoveFunctions(is_iferror, removed);
+  ASSERT_EQ(removed.size(), 1);
+
+  EXPECT_THAT(
+      CheckCatalogSupportsSafeMode("whatever", analyzer_options, catalog),
+      Not(zetasql_base::testing::IsOk()));
+
+  // Adding the function back to the catalog should still work.
+  const Function* iferror = removed.back().get();
+  catalog.AddFunction(iferror);
+  ZETASQL_EXPECT_OK(
+      CheckCatalogSupportsSafeMode("whatever", analyzer_options, catalog));
+
+  // Replacing iferror with an identical copy should still satisfy the
+  // preconditions.
+  Function iferror_copy(iferror->Name(), iferror->GetGroup(), iferror->mode(),
+                        iferror->signatures(), iferror->function_options());
+  ASSERT_EQ(catalog.RemoveFunctions(is_iferror), 1);
+  catalog.AddFunction(&iferror_copy);
+  ZETASQL_EXPECT_OK(
+      CheckCatalogSupportsSafeMode("whatever", analyzer_options, catalog));
+
+  // Replacing iferror with a non-builtin group copy should not satisfy the
+  // preconditions.
+  Function non_builtin_iferror(iferror->Name(), /*group=*/"non-builtin",
+                               iferror->mode(), iferror->signatures(),
+                               iferror->function_options());
+  ASSERT_EQ(catalog.RemoveFunctions(is_iferror), 1);
+  catalog.AddFunction(&non_builtin_iferror);
+  EXPECT_THAT(
+      CheckCatalogSupportsSafeMode("whatever", analyzer_options, catalog),
+      Not(IsOk()));
+}
+
+TEST(RewriteUtilsTest, SafePreconditionWithIferrorLookupFailure) {
+  class ErrorThrowingCatalog : public SimpleCatalog {
+   public:
+    ErrorThrowingCatalog() : SimpleCatalog("error_throwing_catalog") {
+      AddZetaSQLFunctions();
+    }
+    absl::Status GetFunction(
+        const std::string& name, const Function** function,
+        const FindOptions& options = FindOptions()) override {
+      ZETASQL_RET_CHECK_FAIL() << "fail-for-test";
+    }
+  };
+  ErrorThrowingCatalog catalog;
+  AnalyzerOptions analyzer_options;
+  EXPECT_THAT(
+      CheckCatalogSupportsSafeMode("whatever", analyzer_options, catalog),
+      StatusIs(absl::StatusCode::kInternal));
+}
+
 class FunctionCallBuilderTest : public ::testing::Test {
  public:
   FunctionCallBuilderTest()
@@ -314,6 +385,104 @@ TEST_F(FunctionCallBuilderTest, NotTest) {
 FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
 +-Literal(type=BOOL, value=true, has_explicit_type=TRUE)
 )"));
+}
+
+TEST_F(FunctionCallBuilderTest, EqualTest) {
+  std::unique_ptr<ResolvedExpr> input =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("true"),
+                          /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("false"),
+                          /*has_explicit_type=*/true);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> equal_fn,
+                       fn_builder_.Equal(std::move(input), std::move(input2)));
+  EXPECT_EQ(equal_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
++-Literal(type=STRING, value="true", has_explicit_type=TRUE)
++-Literal(type=STRING, value="false", has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, EqualArgumentTypeMismatchTest) {
+  std::unique_ptr<ResolvedExpr> input = MakeResolvedLiteral(
+      types::BoolType(), Value::Bool(true), /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("true"),
+                          /*has_explicit_type=*/true);
+
+  EXPECT_THAT(fn_builder_.Equal(std::move(input), std::move(input2)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(FunctionCallBuilderTest, EqualArgumentTypeDoesNotSupportEqualityTest) {
+  std::unique_ptr<ResolvedExpr> input = MakeResolvedLiteral(
+      types::JsonType(), Value::NullJson(), /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 =
+      MakeResolvedLiteral(types::JsonType(), Value::NullJson(),
+                          /*has_explicit_type=*/true);
+
+  EXPECT_THAT(fn_builder_.Equal(std::move(input), std::move(input2)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(FunctionCallBuilderTest, AndTest) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> expressions;
+  std::unique_ptr<ResolvedExpr> input = MakeResolvedLiteral(
+      types::BoolType(), Value::Bool(true), /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 = MakeResolvedLiteral(
+      types::BoolType(), Value::Bool(false), /*has_explicit_type=*/true);
+  expressions.push_back(std::move(input));
+  expressions.push_back(std::move(input2));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> and_fn,
+                       fn_builder_.And(std::move(expressions)));
+  EXPECT_EQ(and_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$and(repeated(2) BOOL) -> BOOL)
++-Literal(type=BOOL, value=true, has_explicit_type=TRUE)
++-Literal(type=BOOL, value=false, has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, OrTest) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> expressions;
+  std::unique_ptr<ResolvedExpr> input = MakeResolvedLiteral(
+      types::BoolType(), Value::Bool(true), /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 = MakeResolvedLiteral(
+      types::BoolType(), Value::Bool(false), /*has_explicit_type=*/true);
+  expressions.push_back(std::move(input));
+  expressions.push_back(std::move(input2));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> or_fn,
+                       fn_builder_.Or(std::move(expressions)));
+  EXPECT_EQ(or_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
++-Literal(type=BOOL, value=true, has_explicit_type=TRUE)
++-Literal(type=BOOL, value=false, has_explicit_type=TRUE)
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, AndTooFewExpressionsTest) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> expressions;
+  std::unique_ptr<ResolvedExpr> input = MakeResolvedLiteral(
+      types::BoolType(), Value::Bool(true), /*has_explicit_type=*/true);
+  expressions.push_back(std::move(input));
+
+  EXPECT_THAT(fn_builder_.And(std::move(expressions)),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(FunctionCallBuilderTest, AndInvalidExpressionsTest) {
+  std::vector<std::unique_ptr<const ResolvedExpr>> expressions;
+  std::unique_ptr<ResolvedExpr> input = MakeResolvedLiteral(
+      types::BoolType(), Value::Bool(true), /*has_explicit_type=*/true);
+  std::unique_ptr<ResolvedExpr> input2 = MakeResolvedLiteral(
+      types::Int64Type(), Value::Int64(1), /*has_explicit_type=*/true);
+  expressions.push_back(std::move(input));
+  expressions.push_back(std::move(input2));
+
+  EXPECT_THAT(fn_builder_.And(std::move(expressions)),
+              StatusIs(absl::StatusCode::kInternal));
 }
 
 class LikeAnyAllSubqueryScanBuilderTest

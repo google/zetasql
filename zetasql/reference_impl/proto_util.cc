@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
@@ -26,11 +27,13 @@
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
+#include "zetasql/public/proto_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/base/casts.h"
 #include <cstdint>
+#include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "google/protobuf/io/coded_stream.h"
@@ -43,8 +46,8 @@
 #include "zetasql/base/status_macros.h"
 
 using google::protobuf::FieldDescriptor;
-using google::protobuf::io::CodedOutputStream;
 using google::protobuf::internal::WireFormatLite;
+using google::protobuf::io::CodedOutputStream;
 
 namespace zetasql {
 
@@ -61,8 +64,7 @@ static bool IsInt64FieldType(FieldDescriptor::Type type) {
 }
 
 absl::Status ProtoUtil::CheckIsSupportedFieldFormat(
-    FieldFormat::Format format,
-    const google::protobuf::FieldDescriptor* field) {
+    FieldFormat::Format format, const google::protobuf::FieldDescriptor* field) {
   // NOTE: This should match ProtoType::ValidateTypeAnnotations.
   switch (format) {
     case FieldFormat::DEFAULT_FORMAT:
@@ -72,8 +74,7 @@ absl::Status ProtoUtil::CheckIsSupportedFieldFormat(
 
     case FieldFormat::DATE:
     case FieldFormat::DATE_DECIMAL:
-      if (IsInt32FieldType(field->type()) ||
-          IsInt64FieldType(field->type())) {
+      if (IsInt32FieldType(field->type()) || IsInt64FieldType(field->type())) {
         return absl::OkStatus();
       }
       break;
@@ -151,9 +152,8 @@ static absl::Status TimestampValueToAdjustedInt64(FieldFormat::Format format,
 #define PAIR(proto_type, zetasql_type) \
   ((static_cast<uint64_t>(proto_type) << 32) + zetasql_type)
 
-static absl::Status WriteScalarValue(
-    const google::protobuf::FieldDescriptor* field_descr, const Value& v,
-    CodedOutputStream* dst) {
+static absl::Status WriteScalarValue(const google::protobuf::FieldDescriptor* field_descr,
+                                     const Value& v, CodedOutputStream* dst) {
   // Compatibility of date/timestamp field types is managed by the analyzer,
   // driven by ZetaSQL annotations.
   switch (PAIR(field_descr->type(), v.type_kind())) {
@@ -231,21 +231,17 @@ static absl::Status WriteScalarValue(
       dst->WriteVarint32SignExtended(v.enum_value());
       break;
     case PAIR(FieldDescriptor::TYPE_SINT32, TYPE_INT32):
-      dst->WriteVarint32(
-          WireFormatLite::ZigZagEncode32(v.int32_value()));
+      dst->WriteVarint32(WireFormatLite::ZigZagEncode32(v.int32_value()));
       break;
     case PAIR(FieldDescriptor::TYPE_SINT32, TYPE_DATE):
-      dst->WriteVarint32(
-          WireFormatLite::ZigZagEncode32(v.date_value()));
+      dst->WriteVarint32(WireFormatLite::ZigZagEncode32(v.date_value()));
       break;
     case PAIR(FieldDescriptor::TYPE_SINT64, TYPE_INT64):
-      dst->WriteVarint64(
-          WireFormatLite::ZigZagEncode64(v.int64_value()));
+      dst->WriteVarint64(WireFormatLite::ZigZagEncode64(v.int64_value()));
       break;
     case PAIR(FieldDescriptor::TYPE_SINT64, TYPE_DATE):
     case PAIR(FieldDescriptor::TYPE_SINT64, TYPE_TIMESTAMP):
-      dst->WriteVarint64(
-          WireFormatLite::ZigZagEncode64(v.ToInt64()));
+      dst->WriteVarint64(WireFormatLite::ZigZagEncode64(v.ToInt64()));
       break;
     case PAIR(FieldDescriptor::TYPE_SINT64, TYPE_TIME):
       dst->WriteVarint64(
@@ -293,9 +289,15 @@ static absl::Status WriteValue(const google::protobuf::FieldDescriptor* field_de
       static_cast<WireFormatLite::FieldType>(field_descr->type()));
   if (wire_type == WireFormatLite::WIRETYPE_LENGTH_DELIMITED) {
     switch (value.type_kind()) {
-      case TYPE_STRING: dst->WriteVarint32(value.string_value().size()); break;
-      case TYPE_BYTES: dst->WriteVarint32(value.bytes_value().size()); break;
-      case TYPE_PROTO: dst->WriteVarint32(value.ToCord().size()); break;
+      case TYPE_STRING:
+        dst->WriteVarint32(value.string_value().size());
+        break;
+      case TYPE_BYTES:
+        dst->WriteVarint32(value.bytes_value().size());
+        break;
+      case TYPE_PROTO:
+        dst->WriteVarint32(value.ToCord().size());
+        break;
       default:
         // This can happen for some FieldFormat annotations. Ultimately the
         // value will be written with a different wire type.
@@ -345,8 +347,8 @@ static absl::Status WriteValue(const google::protobuf::FieldDescriptor* field_de
     // below, which will detect any type incompatibility and provide an
     // appropriate error if so.
     int64_t adjusted_int64;
-    ZETASQL_RETURN_IF_ERROR(TimestampValueToAdjustedInt64(format, value,
-                                                  &adjusted_int64));
+    ZETASQL_RETURN_IF_ERROR(
+        TimestampValueToAdjustedInt64(format, value, &adjusted_int64));
     Value adjusted_value;
     if (field_descr->type() == google::protobuf::FieldDescriptor::TYPE_UINT64) {
       adjusted_value = Value::Uint64(absl::bit_cast<uint64_t>(adjusted_int64));
@@ -403,42 +405,51 @@ absl::Status ProtoUtil::WriteField(const WriteFieldOptions& options,
            << " in protocol message field " << field_descr->full_name()
            << " of type " << FieldDescriptor::TypeName(field_descr->type());
   }
-  if (field_descr->is_repeated()) {
-    if (!value.is_null()) {
-      // The proto field is assumed ordered. If the array is not, set the
-      // non-determinism bit.
-      if (InternalValue::GetOrderKind(value) !=
-          InternalValue::kPreservesOrder) {
-        *nondeterministic = true;
-      }
 
-      if (field_descr->is_packed()) {
-        // Serialize all the values into a Cord, then write the Cord using the
-        // LENGTH_DELIMITED wire type.
-        std::string packed_contents;
-        {
-          // The cord cannot be read directly until the streams are destroyed.
-          google::protobuf::io::StringOutputStream cord_stream(&packed_contents);
-          CodedOutputStream coded_cord_stream(&cord_stream);
-          for (const Value& v : value.elements()) {
-            ZETASQL_RETURN_IF_ERROR(
-                WriteValue(field_descr, format, v, &coded_cord_stream));
-          }
-          coded_cord_stream.Trim();
-        }
-        dst->WriteVarint32(WireFormatLite::MakeTag(
-            field_descr->number(), WireFormatLite::WIRETYPE_LENGTH_DELIMITED));
-        dst->WriteVarint32(packed_contents.size());
-        dst->WriteString(packed_contents);
-      } else {
-        for (const Value& v : value.elements()) {
-          ZETASQL_RETURN_IF_ERROR(WriteTagAndValue(field_descr, format, v, dst));
-        }
-      }
+  if (!field_descr->is_repeated()) {
+    return WriteTagAndValue(field_descr, format, value, dst);
+  }
+
+  // Nothing to do if the value is null.
+  if (value.is_null()) return absl::OkStatus();
+
+  // The proto field is assumed ordered. If the array is not, set the
+  // non-determinism bit.
+  if (InternalValue::GetOrderKind(value) != InternalValue::kPreservesOrder) {
+    *nondeterministic = true;
+  }
+
+  if (!field_descr->is_packed()) {
+    const std::vector<Value>* values_to_write = &value.elements();
+    std::vector<Value> deduped_map_values;
+    if (field_descr->is_map()) {
+      deduped_map_values = *values_to_write;
+      ZETASQL_RETURN_IF_ERROR(RemoveDupsByKeyIfProtoMap(deduped_map_values));
+      values_to_write = &deduped_map_values;
+    }
+    for (const Value& v : *values_to_write) {
+      ZETASQL_RETURN_IF_ERROR(WriteTagAndValue(field_descr, format, v, dst));
     }
     return absl::OkStatus();
   }
-  return WriteTagAndValue(field_descr, format, value, dst);
+
+  // For packed fields, serialize all the values into a Cord, then write the
+  // Cord using the LENGTH_DELIMITED wire type.
+  std::string packed_contents;
+  {
+    // The cord cannot be read directly until the streams are destroyed.
+    google::protobuf::io::StringOutputStream cord_stream(&packed_contents);
+    CodedOutputStream coded_cord_stream(&cord_stream);
+    for (const Value& v : value.elements()) {
+      ZETASQL_RETURN_IF_ERROR(WriteValue(field_descr, format, v, &coded_cord_stream));
+    }
+    coded_cord_stream.Trim();
+  }
+  dst->WriteVarint32(WireFormatLite::MakeTag(
+      field_descr->number(), WireFormatLite::WIRETYPE_LENGTH_DELIMITED));
+  dst->WriteVarint32(packed_contents.size());
+  dst->WriteString(packed_contents);
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

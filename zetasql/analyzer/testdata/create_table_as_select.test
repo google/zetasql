@@ -1435,3 +1435,132 @@ create table t1
 ERROR: Unrecognized name: key [at 3:10]
   check (key < 100),
          ^
+==
+
+create table tt
+with connection connection2
+as select 1 a, 2 b;
+--
+ERROR: WITH CONNECTION clause is unsupported for CREATE TABLE [at 2:1]
+with connection connection2
+^
+==
+
+# TODO: Make these no_java tests work in java
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table tt
+with connection connection2
+as select 1 a, 2 b;
+--
+CreateTableAsSelectStmt
++-name_path=tt
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=tt.a#3)
+| +-ColumnDefinition(name="b", type=INT64, column=tt.b#4)
++-connection=
+| +-Connection(connection=connection2)
++-output_column_list=
+| +-$create_as.a#1 AS a [INT64]
+| +-$create_as.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$create_as.[a#1, b#2]
+    +-expr_list=
+    | +-a#1 := Literal(type=INT64, value=1)
+    | +-b#2 := Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table tt
+with connection conn
+as select 1 a, 2 b;
+--
+ERROR: Connection not found: conn [at 2:17]
+with connection conn
+                ^
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table tt
+with connection `connection2`
+as select 1 a, 2 b;
+--
+CreateTableAsSelectStmt
++-name_path=tt
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=tt.a#3)
+| +-ColumnDefinition(name="b", type=INT64, column=tt.b#4)
++-connection=
+| +-Connection(connection=connection2)
++-output_column_list=
+| +-$create_as.a#1 AS a [INT64]
+| +-$create_as.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$create_as.[a#1, b#2]
+    +-expr_list=
+    | +-a#1 := Literal(type=INT64, value=1)
+    | +-b#2 := Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table tt
+with connection nested_catalog.connection2
+as select 1 a, 2 b;
+--
+CreateTableAsSelectStmt
++-name_path=tt
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=tt.a#3)
+| +-ColumnDefinition(name="b", type=INT64, column=tt.b#4)
++-connection=
+| +-Connection(connection=connection2)
++-output_column_list=
+| +-$create_as.a#1 AS a [INT64]
+| +-$create_as.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$create_as.[a#1, b#2]
+    +-expr_list=
+    | +-a#1 := Literal(type=INT64, value=1)
+    | +-b#2 := Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table tt
+with connection connection2
+options(x=5, y='abc')
+as select 1 a, 2 b;
+--
+CreateTableAsSelectStmt
++-name_path=tt
++-option_list=
+| +-x := Literal(type=INT64, value=5)
+| +-y := Literal(type=STRING, value="abc")
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=tt.a#3)
+| +-ColumnDefinition(name="b", type=INT64, column=tt.b#4)
++-connection=
+| +-Connection(connection=connection2)
++-output_column_list=
+| +-$create_as.a#1 AS a [INT64]
+| +-$create_as.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$create_as.[a#1, b#2]
+    +-expr_list=
+    | +-a#1 := Literal(type=INT64, value=1)
+    | +-b#2 := Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan

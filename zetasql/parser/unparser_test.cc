@@ -18,11 +18,13 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parser.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -30,8 +32,8 @@ using testing::NotNull;
 
 static void CompareParseTrees(const ASTNode* expected_tree,
                               const ASTNode* unparsed_tree,
-                              const std::string& expected_string,
-                              const std::string& unparsed_string) {
+                              absl::string_view expected_string,
+                              absl::string_view unparsed_string) {
   std::string expected = expected_tree->DebugString();
   std::string from_unparsed = unparsed_tree->DebugString();
   EXPECT_EQ(expected, from_unparsed)
@@ -43,25 +45,33 @@ static void CompareParseTrees(const ASTNode* expected_tree,
       << from_unparsed;
 }
 
-TEST(TestUnparser, QueryTest) {
-  std::string query_string(
-      "SELECT\n"
-      "  *\n"
-      "FROM\n"
-      "  foo\n");
+class UnparserQueryTest : public testing::TestWithParam<std::string_view> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    UnparserQueryTestSuite, UnparserQueryTest,
+    testing::Values(
+        // These testcases must as be formatted as from the unparser
+        "SELECT\n"
+        "  *\n"
+        "FROM\n"
+        "  foo\n",
+        "SELECT\n"
+        "  (0).`0`\n"));
+
+TEST_P(UnparserQueryTest, QueryStatementParsesThenUnparses) {
+  std::string_view query_string = GetParam();
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_EXPECT_OK(ParseStatement(query_string, ParserOptions(), &parser_output));
   ASSERT_THAT(parser_output->statement(), NotNull());
-  std::string unparsed_string = Unparse(parser_output->statement());
-  // Cannot generally do string equality because of capitalization and white
-  // space issues, so we will reparse and also compare the parse trees.
-  EXPECT_EQ(query_string, unparsed_string);
+  std::string unparsed_string = Unparse(parser_output->node());
+
   std::unique_ptr<ParserOutput> unparsed_query_parser_output;
   ZETASQL_EXPECT_OK(ParseStatement(unparsed_string, ParserOptions(),
                            &unparsed_query_parser_output));
-  CompareParseTrees(parser_output->statement(),
-                    unparsed_query_parser_output->statement(), query_string,
-                    unparsed_string);
+  // This checks that the input and output are effectively the same, or least
+  // all tokens have the exact same source locations.
+  CompareParseTrees(parser_output->node(), unparsed_query_parser_output->node(),
+                    query_string, unparsed_string);
 }
 
 TEST(TestUnparser, ExpressionTest) {

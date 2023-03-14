@@ -19,7 +19,7 @@ syntax = "proto2";
 package zetasql;
 
 option java_package = "com.google.zetasql";
-option java_outer_classname = "Collation";
+option java_outer_classname = "ZetaSQLCollation";
 
 // Proto representation of zetasql::Collation.
 message CollationProto {

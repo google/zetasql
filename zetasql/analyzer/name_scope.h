@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/path_expression_span.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -168,7 +169,7 @@ struct NamedColumn {
   NamedColumn(const NamedColumn& other) = default;
   NamedColumn& operator=(const NamedColumn& other) = default;
 
-  std::string DebugString(const absl::string_view prefix = "") const;
+  std::string DebugString(absl::string_view prefix = "") const;
 
   IdString name;
 
@@ -303,7 +304,7 @@ class NameTarget {
   // 'name_target' Kind is stored for later use during error messaging.
   // If non-empty, 'access_error_message' indicates the error message
   // associated with this NameTarget.
-  void SetAccessError(const Kind original_kind,
+  void SetAccessError(Kind original_kind,
                       const std::string& access_error_message = "");
 
   Kind kind() const { return kind_; }
@@ -347,12 +348,6 @@ class NameTarget {
   bool IsAccessError() const {
     return IsAccessErrorKind(kind_);
   }
-  static bool IsImplicitColumnKind(Kind kind) {
-    return kind == IMPLICIT_COLUMN;
-  }
-  bool IsImplicitColumn() const {
-    return IsImplicitColumnKind(kind_);
-  }
 
   bool IsExplicit() const {
     return kind_ == RANGE_VARIABLE || kind_ == EXPLICIT_COLUMN;
@@ -389,15 +384,6 @@ class NameTarget {
   void set_valid_name_path_list(
       const ValidNamePathList& valid_name_path_list) {
     valid_name_path_list_ = valid_name_path_list;
-  }
-
-  // The NameTarget must be an ACCESS_ERROR, and the 'original_kind_'
-  // must not be AMBIGUOUS since if the original NameTarget was
-  // AMBIGUOUS then accessing fields from it cannot be valid.
-  void AddNamePathToColumn(const ValidNamePath& info) {
-    ZETASQL_DCHECK(IsAccessError()) << DebugString();
-    ZETASQL_DCHECK(!IsAmbiguousKind(original_kind_)) << DebugString();
-    valid_name_path_list_.push_back(info);
   }
 
   // The NameTarget must be an ACCESS_ERROR, and the 'original_kind_'
@@ -566,7 +552,8 @@ class NameScope {
       CorrelatedColumnsSetList* correlated_columns_sets = nullptr) const;
 
   // Similar to the previous <LookupName> function, but allows multi-part
-  // names to be looked up.  Looks into underlying scopes if necessary.
+  // names to be looked up, and takes a PathExpressionSpan as input instead.
+  // Looks into underlying scopes if necessary.
   //
   // Returns error status if the name path is ambiguous, is an access
   // error, or includes an invalid field reference.
@@ -595,7 +582,7 @@ class NameScope {
   // 'in_strict_mode' identifies whether unqualified names are valid
   // to access.  'clause_name' and 'is_post_distinct' are only used for
   // error messaging.
-  absl::Status LookupNamePath(const ASTPathExpression* path_expr,
+  absl::Status LookupNamePath(const PathExpressionSpan& path_expr,
                               const char* clause_name, bool is_post_distinct,
                               bool in_strict_mode,
                               CorrelatedColumnsSetList* correlated_columns_sets,

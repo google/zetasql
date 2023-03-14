@@ -56,9 +56,9 @@ gen_resolved_ast_files(
         "resolved_ast_builder.h.template",
         "resolved_ast_deep_copy_visitor.cc.template",
         "resolved_ast_deep_copy_visitor.h.template",
+        "resolved_ast_rewrite_visitor.cc.template",
+        "resolved_ast_rewrite_visitor.h.template",
         "resolved_ast_visitor.h.template",
-        "resolved_ast_zero_copy_visitor.cc.template",
-        "resolved_ast_zero_copy_visitor.h.template",
         "resolved_node_kind.h.template",
     ],
     outs = [
@@ -67,9 +67,9 @@ gen_resolved_ast_files(
         "resolved_ast_builder.h",
         "resolved_ast_deep_copy_visitor.cc",
         "resolved_ast_deep_copy_visitor.h",
+        "resolved_ast_rewrite_visitor.cc",
+        "resolved_ast_rewrite_visitor.h",
         "resolved_ast_visitor.h",
-        "resolved_ast_zero_copy_visitor.cc",
-        "resolved_ast_zero_copy_visitor.h",
         "resolved_node_kind.h",
     ],
     data = [
@@ -174,10 +174,17 @@ cc_library(
 )
 
 cc_library(
-    name = "resolved_ast_zero_copy_visitor",
-    srcs = ["resolved_ast_zero_copy_visitor.cc"],
+    name = "resolved_ast_rewrite_visitor",
+    srcs = ["resolved_ast_rewrite_visitor.cc"],
     hdrs = [
-        "resolved_ast_zero_copy_visitor.h",
+        "resolved_ast_rewrite_visitor.h",
+    ],
+    # Debug builds create particularly degenerate stack frames for Dispatch
+    # 8000b stack frames in dbg vs 100b in copt
+    # So we force this to always build optimized.
+    copts = [
+        "-O3",
+        "-Wframe-larger-than=4000",
     ],
     deps = [
         ":resolved_ast",
@@ -185,7 +192,6 @@ cc_library(
         "//zetasql/base:logging",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/common:status_payload_utils",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
     ],
@@ -229,6 +235,7 @@ cc_library(
         "//zetasql/base:case",
         "//zetasql/base:status",
         "//zetasql/common:errors",
+        "//zetasql/common:thread_stack",
         "//zetasql/public:catalog",
         "@com_google_absl//absl/status:statusor",
         "@com_google_protobuf//:protobuf",
@@ -255,6 +262,7 @@ cc_library(
         "//zetasql/base:strings",
         "//zetasql/base:varsetter",
         "//zetasql/common:errors",
+        "//zetasql/common:thread_stack",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:catalog",
         "//zetasql/public:constant",
@@ -270,7 +278,9 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/annotation:collation",
         "//zetasql/public/types",
+        "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/cleanup",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
@@ -301,6 +311,7 @@ cc_library(
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:strings",
+        "//zetasql/common:thread_stack",
         "//zetasql/public:analyzer",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
@@ -310,8 +321,10 @@ cc_library(
         "//zetasql/public:strings",
         "//zetasql/public:type",
         "//zetasql/public:value",
+        "//zetasql/public/annotation:collation",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
+        "//zetasql/public/functions:differential_privacy_cc_proto",
         "//zetasql/public/functions:normalize_mode_cc_proto",
         "//zetasql/public/functions:rounding_mode_cc_proto",
         "@com_google_absl//absl/base:core_headers",
@@ -419,13 +432,13 @@ cc_test(
 )
 
 cc_test(
-    name = "resolved_ast_zero_copy_visitor_test",
+    name = "resolved_ast_rewrite_visitor_test",
     size = "small",
-    srcs = ["resolved_ast_zero_copy_visitor_test.cc"],
+    srcs = ["resolved_ast_rewrite_visitor_test.cc"],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
-        ":resolved_ast_zero_copy_visitor",
+        ":resolved_ast_rewrite_visitor",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -583,7 +596,9 @@ cc_library(
         "//zetasql/public:function",
         "//zetasql/public/types",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
     ],
 )
 

@@ -26,6 +26,7 @@
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -35,7 +36,7 @@ namespace zetasql {
 // as an alias to the first element.
 static std::string JoinListWithAliases(
     const std::vector<std::pair<std::string, std::string>>& list,
-    const std::string& delimiter) {
+    absl::string_view delimiter) {
   std::string list_str;
   bool first = true;
   for (const auto& entry : list) {
@@ -102,7 +103,14 @@ std::string QueryExpression::GetSQLQuery() const {
     ZETASQL_DCHECK(select_list_.empty());
     ZETASQL_DCHECK(from_.empty() && where_.empty() && group_by_list_.empty());
     for (int i = 0; i < set_op_scan_list_.size(); ++i) {
-      const auto& qe = set_op_scan_list_[i];
+      QueryExpression* qe = set_op_scan_list_[i].get();
+      if (!select_as_modifier_.empty()) {
+        if (qe->select_as_modifier_.empty()) {
+          qe->SetSelectAsModifier(select_as_modifier_);
+        } else {
+          ZETASQL_DCHECK_EQ(qe->select_as_modifier_, select_as_modifier_);
+        }
+      }
       if (i > 0) {
         absl::StrAppend(&sql, " ", set_op_type_);
         if (i == 1) {
@@ -179,7 +187,7 @@ bool QueryExpression::CanFormSQLQuery() const {
   return !CanSetSelectClause();
 }
 
-void QueryExpression::Wrap(const std::string& alias) {
+void QueryExpression::Wrap(absl::string_view alias) {
   ZETASQL_DCHECK(CanFormSQLQuery());
   ZETASQL_DCHECK(!alias.empty());
   const std::string sql = GetSQLQuery();

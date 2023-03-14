@@ -4,7 +4,7 @@
 
 ZetaSQL supports the following protocol buffer functions.
 
-### PROTO_DEFAULT_IF_NULL
+### `PROTO_DEFAULT_IF_NULL`
 
 ```sql
 PROTO_DEFAULT_IF_NULL(proto_field_expression)
@@ -71,7 +71,7 @@ default value for `country`.
 +-----------------+
 ```
 
-### FILTER_FIELDS
+### `FILTER_FIELDS`
 
 ```sql
 FILTER_FIELDS(proto_expression, proto_field_list)
@@ -247,12 +247,12 @@ FROM MusicAwards
 +---------------------------------+
 | {                               |
 |   year: 2001                    |
-|   type { award_name: "Artist" } |
-|   type { award_name: "Album" }  |
+|   type { category: "Artist" }   |
+|   type { category: "Album" }    |
 | }                               |
 | {                               |
 |   year: 2001                    |
-|   type { award_name: "Song" }   |
+|   type { category: "Song" }     |
 | }                               |
 +---------------------------------+
 ```
@@ -278,7 +278,9 @@ FROM MusicAwards
 -- Error
 ```
 
-### FROM_PROTO
+[querying-proto-extensions]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#extensions
+
+### `FROM_PROTO`
 
 ```sql
 FROM_PROTO(expression)
@@ -468,7 +470,7 @@ SELECT FROM_PROTO(DATE '2019-10-30')
 +------------+
 ```
 
-### TO_PROTO
+### `TO_PROTO`
 
 ```
 TO_PROTO(expression)
@@ -636,7 +638,7 @@ SELECT TO_PROTO(
 +--------------------------------+
 ```
 
-### EXTRACT {#proto_extract}
+### `EXTRACT` {#proto_extract}
 
 ```sql
 EXTRACT( extraction_type (proto_field) FROM proto_expression )
@@ -797,7 +799,11 @@ FROM AlbumList;
 +-------------+
 ```
 
-### REPLACE_FIELDS
+[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
+
+[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
+
+### `REPLACE_FIELDS`
 
 ```sql
 REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
@@ -887,15 +893,123 @@ AS proto;
 +-----------------------------------------------------------------------------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+### `CONTAINS_KEY`
 
-[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
+```sql
+CONTAINS_KEY(proto_map_field_expression, key)
+```
 
-[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
+**Description**
 
-[querying-proto-extensions]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#extensions
+Returns whether a [protocol buffer map field][proto-map] contains a given key.
 
-[field-access-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#field-access-operator
+Input values:
 
-<!-- mdlint on -->
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key`: A key in the protocol buffer map field.
+
+`NULL` handling:
+
++ If `map_field` is `NULL`, returns `NULL`.
++ If `key` is `NULL`, returns `FALSE`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the function returns `TRUE` when the key is
+present, `FALSE` otherwise.
+
+```sql
+SELECT
+  CONTAINS_KEY(m.purchased, 'A') AS contains_a,
+  CONTAINS_KEY(m.purchased, 'B') AS contains_b
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
++------------+------------+
+| contains_a | contains_b |
++------------+------------+
+| TRUE       | FALSE      |
++------------+------------+
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
+
+### `MODIFY_MAP`
+
+```sql
+MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
+
+key_value_pair:
+  key, value
+```
+
+**Description**
+
+Modifies a [protocol buffer map field][proto-map] and returns the modified map
+field.
+
+Input values:
+
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key_value_pair`: A key-value pair in the protocol buffer map field.
+
+Modification behavior:
+
++ If the key is not already in the map field, adds the key and its value to the
+  map field.
++ If the key is already in the map field, replaces its value.
++ If the key is in the map field and the value is `NULL`, removes the key and
+  its value from the map field.
+
+`NULL` handling:
+
++ If `key` is `NULL`, produces an error.
++ If the same `key` appears more than once, produces an error.
++ If `map` is `NULL`, `map` is treated as empty.
+
+**Return type**
+
+In the input protocol buffer map field, `V` as represented in `map<K,V>`.
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the query deletes key `A`, replaces `B`, and adds
+`C` in a map field called `purchased`.
+
+```sql
+SELECT
+  MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
+
++---------------------------------------------+
+| result_map                                  |
++---------------------------------------------+
+| { key: 'B' value: 4 } { key: 'C' value: 6 } |
++---------------------------------------------+
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 

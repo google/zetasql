@@ -53,20 +53,21 @@ namespace functions {
 //    %W - week number (00-53, Monday is the first day of the week)
 //    %j - day of year (001-365 or 001-366)
 //    %u - weekday 1-7 (Monday is the first day of the week)
-//    %w - weekday 0-6 (Sunday is hte first day of the week)
+//    %w - weekday 0-6 (Sunday is the first day of the week)
 //    %A - full weekday name
 //    %a - abbreviated weekday name
+//    %P - Meridian indicator (am, pm), equivalent to %p
 //
 // Note: The methods in cast_date_time.h, such as CastStringToTimestamp use a
 // different format style.
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
-                                    const absl::TimeZone default_timezone,
+                                    absl::TimeZone default_timezone,
                                     bool parse_version2, int64_t* timestamp);
 ABSL_DEPRECATED("Inline me!")
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
-                                    const absl::TimeZone default_timezone,
+                                    absl::TimeZone default_timezone,
                                     int64_t* timestamp,
                                     bool parse_version2 = false);
 
@@ -98,12 +99,12 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
 
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
-                                    const absl::TimeZone default_timezone,
+                                    absl::TimeZone default_timezone,
                                     bool parse_version2, absl::Time* timestamp);
 ABSL_DEPRECATED("Inline me!")
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
-                                    const absl::TimeZone default_timezone,
+                                    absl::TimeZone default_timezone,
                                     absl::Time* timestamp,
                                     bool parse_version2 = false);
 

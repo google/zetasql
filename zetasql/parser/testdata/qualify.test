@@ -481,4 +481,18 @@ QUALIFY sum_f2 IN (
 )
 ==
 
+[language_features=]
+SELECT * FROM t qualify PIVOT(x+x+x+x FOR y IN (3,4))
+--
+ERROR: Syntax error: Expected ")" but got keyword FOR [at 1:39]
+SELECT * FROM t qualify PIVOT(x+x+x+x FOR y IN (3,4))
+                                      ^
+==
+
+[language_features=]
+SELECT * FROM t qualify PIVOT(x+x+x+x)
+--
+ERROR: QUALIFY is not supported [at 1:17]
+SELECT * FROM t qualify PIVOT(x+x+x+x)
+                ^
 

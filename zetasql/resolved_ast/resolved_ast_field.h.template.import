@@ -101,12 +101,19 @@ import directive. Example:
   # endif
  # else
   # if field.is_node_ptr
+   # if field.propagate_order
+  void set_{{field.name}}({{field.setter_arg_type}} v,
+                          bool propagate_order=true) {
+    {{field.member_name}} = std::move(v);
+    if (propagate_order) {
+      set_is_ordered({{field.member_name}}->is_ordered());
+    }
+  }
+   # else
   void set_{{field.name}}({{field.setter_arg_type}} v) {
     {{field.member_name}} = std::move(v);
-   # if field.propagate_order
-    set_is_ordered({{field.member_name}}->is_ordered());
-   # endif
   }
+   # endif
 
   # if not is_from_builder
   # endif

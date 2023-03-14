@@ -163,13 +163,6 @@ SELECT CAST(4294967296 AS UINT32)
 --
 ERROR: generic::out_of_range: uint32 out of range: 4294967296
 ==
-[name=cast_bounds_int64_too_small]
-SELECT CAST(-9223372036854775809 AS int64)
---
-ERROR: generic::invalid_argument: Invalid integer literal: -9223372036854775809 [at 1:13]
-SELECT CAST(-9223372036854775809 AS int64)
-            ^
-==
 [name=cast_bounds_int64_min]
 SELECT CAST(-9223372036854775808 AS INT64)
 --
@@ -194,13 +187,6 @@ ERROR: generic::out_of_range: uint64 out of range: -1
 SELECT CAST(18446744073709551615 AS UINT64)
 --
 ARRAY<STRUCT<UINT64>>[{18446744073709551615}]
-==
-[name=cast_bounds_uint64_too_big]
-SELECT CAST(18446744073709551616 AS UINT64)
---
-ERROR: generic::invalid_argument: Invalid integer literal: 18446744073709551616 [at 1:13]
-SELECT CAST(18446744073709551616 AS UINT64)
-            ^
 ==
 # We get an inaccurate CAST result because double precision cannot represent
 # the given number precisely. The string is represented as closely as possible,
@@ -310,29 +296,19 @@ SELECT CAST(timestamp '2000-01-23 07:13:14+00' AS string)
 ARRAY<STRUCT<STRING>>[{"2000-01-22 23:13:14-08"}]
 ==
 [name=null_to_datetime]
+[required_features=V_1_2_CIVIL_TIME]
 SELECT CAST(null AS datetime)
 --
-ERROR: generic::invalid_argument: Type not found: datetime [at 1:21]
-SELECT CAST(null AS datetime)
-                    ^
-==
-[name=integer_to_datetime]
-SELECT CAST(123 AS datetime)
---
-ERROR: generic::invalid_argument: Type not found: datetime [at 1:20]
-SELECT CAST(123 AS datetime)
-                   ^
+ARRAY<STRUCT<DATETIME>>[{NULL}]
 ==
 [name=null_to_time]
+[required_features=V_1_2_CIVIL_TIME]
 SELECT CAST(null AS time)
 --
-ERROR: generic::invalid_argument: Type not found: time [at 1:21]
-SELECT CAST(null AS time)
-                    ^
+ARRAY<STRUCT<TIME>>[{NULL}]
 ==
 [name=cast_string_to_time_and_back]
-[test_features1=V_1_2_CIVIL_TIME]
-[test_features2=TIMESTAMP_NANOS]
+[required_features=V_1_2_CIVIL_TIME]
 SELECT CAST(null AS TIME),
        CAST('12:34:56.123456' AS TIME),
        CAST(CAST(null AS TIME) AS STRING),
@@ -340,8 +316,6 @@ SELECT CAST(null AS TIME),
        CAST(TIME '12:34:56.123456' AS STRING),
        CAST(CAST(TIME '12:34:56.123456' AS STRING) AS TIME)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME, TIME, STRING, STRING, STRING, TIME>>[
   {NULL,
    12:34:56.123456,
@@ -350,16 +324,9 @@ ARRAY<STRUCT<TIME, TIME, STRING, STRING, STRING, TIME>>[
    "12:34:56.123456",
    12:34:56.123456}
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 1:21]
-SELECT CAST(null AS TIME),
-                    ^
 ==
 [name=cast_string_to_time_and_back_nanos]
-[test_features1=V_1_2_CIVIL_TIME]
-[test_features2=TIMESTAMP_NANOS]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT CAST(null AS TIME),
        CAST('12:34:56.123456789' AS TIME),
        CAST(CAST(null AS TIME) AS STRING),
@@ -367,7 +334,6 @@ SELECT CAST(null AS TIME),
        CAST(TIME '12:34:56.123456789' AS STRING),
        CAST(CAST(TIME '12:34:56.123456789' AS STRING) AS TIME)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<TIME, TIME, STRING, STRING, STRING, TIME>>[
   {NULL,
    12:34:56.123456789,
@@ -376,21 +342,9 @@ ARRAY<STRUCT<TIME, TIME, STRING, STRING, STRING, TIME>>[
    "12:34:56.123456789",
    12:34:56.123456789}
 ]
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid TIME literal [at 5:13]
-       CAST(TIME '12:34:56.123456789' AS STRING),
-            ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: TIME [at 1:21]
-SELECT CAST(null AS TIME),
-                    ^
 ==
 [name=cast_string_to_datetime_and_back]
-[test_features1=V_1_2_CIVIL_TIME]
-[test_features2=TIMESTAMP_NANOS]
+[required_features=V_1_2_CIVIL_TIME]
 SELECT CAST(null AS DATETIME),
        CAST('2006-01-02 03:04:05.123456' AS DATETIME),
        CAST(CAST(null AS DATETIME) AS STRING),
@@ -398,8 +352,6 @@ SELECT CAST(null AS DATETIME),
        CAST(DATETIME '2006-01-02 03:04:05.123456' AS STRING),
        CAST(CAST(DATETIME '2006-01-02 03:04:05.123456' AS STRING) AS DATETIME)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
-WITH FEATURES: V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME, DATETIME, STRING, STRING, STRING, DATETIME>>[
   {
     NULL,
@@ -410,16 +362,9 @@ ARRAY<STRUCT<DATETIME, DATETIME, STRING, STRING, STRING, DATETIME>>[
     2006-01-02 03:04:05.123456
   }
 ]
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 1:21]
-SELECT CAST(null AS DATETIME),
-                    ^
 ==
 [name=cast_string_to_datetime_and_back_nanos]
-[test_features1=V_1_2_CIVIL_TIME]
-[test_features2=TIMESTAMP_NANOS]
+[required_features=V_1_2_CIVIL_TIME,TIMESTAMP_NANOS]
 SELECT CAST(null AS DATETIME),
        CAST('2006-01-02 03:04:05.123456789' AS DATETIME),
        CAST(CAST(null AS DATETIME) AS STRING),
@@ -427,7 +372,6 @@ SELECT CAST(null AS DATETIME),
        CAST(DATETIME '2006-01-02 03:04:05.123456789' AS STRING),
        CAST(CAST(DATETIME '2006-01-02 03:04:05.123456789' AS STRING) AS DATETIME)
 --
-WITH FEATURES: TIMESTAMP_NANOS,V_1_2_CIVIL_TIME
 ARRAY<STRUCT<DATETIME, DATETIME, STRING, STRING, STRING, DATETIME>>[
   {
     NULL,
@@ -438,17 +382,6 @@ ARRAY<STRUCT<DATETIME, DATETIME, STRING, STRING, STRING, DATETIME>>[
     2006-01-02 03:04:05.123456789
   }
 ]
---
-WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Invalid DATETIME literal [at 5:13]
-       CAST(DATETIME '2006-01-02 03:04:05.123456789' AS STRING),
-            ^
---
-WITH FEATURES: <none>
-WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Type not found: DATETIME [at 1:21]
-SELECT CAST(null AS DATETIME),
-                    ^
 ==
 
 [name=cast_invalid_utf8_bytes_to_string_1]
@@ -1621,23 +1554,64 @@ SELECT CAST(CAST(-0 AS UINT32) AS STRING);
 ARRAY<STRUCT<STRING>>[{"0"}]
 ==
 
-[name=roundtrip_cast_negative_numeric_zero_to_uint32_2]
-SELECT CAST(-CAST(0 AS UINT32) AS STRING);
---
-ERROR: generic::invalid_argument: No matching signature for operator - for argument types: UINT32. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:13]
-SELECT CAST(-CAST(0 AS UINT32) AS STRING);
-            ^
-==
-
 [name=roundtrip_cast_negative_numeric_zero_to_uint64_1]
 SELECT CAST(CAST(-0 AS UINT64) AS STRING);
 --
 ARRAY<STRUCT<STRING>>[{"0"}]
 ==
 
-[name=roundtrip_cast_negative_numeric_zero_to_uint64_2]
-SELECT CAST(-CAST(0 AS UINT64) AS STRING);
+# Casting with type parameters and collation name succeeds.
+[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[name=cast_string_type_parameters_and_collation_valid_input]
+select
+  cast('abcde' as STRING(5) COLLATE 'und:ci') = 'ABCDE',
+  cast('abcde' as STRING(5) COLLATE 'binary') = 'ABCDE';
 --
-ERROR: generic::invalid_argument: No matching signature for operator - for argument types: UINT64. Supported signatures: -(INT32); -(INT64); -(FLOAT); -(DOUBLE) [at 1:13]
-SELECT CAST(-CAST(0 AS UINT64) AS STRING);
-            ^
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+# Casting to STRING(L) fails if the casted string is longer than L.
+[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[name=cast_string_type_parameters_and_collation_invalid_input]
+select cast('abcdef' as STRING(5) COLLATE 'und:ci');
+--
+ERROR: generic::out_of_range: STRING(5) has maximum length 5 but got a value with length 6
+==
+
+# Casting with type parameters and collation name succeeds.
+[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[name=cast_array_type_parameters_and_collation_valid_input]
+select
+  'hi' in unnest(cast(['h', 'HI'] as ARRAY<STRING(2) COLLATE 'und:ci'>)),
+  'hi' in unnest(cast(['h', 'HI'] as ARRAY<STRING(2) COLLATE 'binary'>)),
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+# Casting to an ARRAY fails if the elements of the ARRAY have type parameters
+# that are violated.
+[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[name=cast_array_type_parameters_and_collation_invalid_input]
+select cast(['hello', 'hi'] as ARRAY<STRING(2) COLLATE 'und:ci'>);
+--
+ERROR: generic::out_of_range: STRING(2) has maximum length 2 but got a value with length 5
+==
+
+# Casting with type parameters and collation name succeeds.
+[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[name=cast_struct_type_parameters_and_collation_valid_input]
+select
+  cast(STRUCT<a BYTES, b STRING>(b'hey', 'abc') as STRUCT<a BYTES(4), b STRING COLLATE 'und:ci'>).b = 'ABC',
+  cast(STRUCT<a BYTES, b STRING>(b'hey', 'abc') as STRUCT<a BYTES(4), b STRING COLLATE 'binary'>).b = 'ABC';
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+# Casting to an STRUCT fails if the field of the STRUCT have type parameters
+# that are violated.
+[required_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK,V_1_4_COLLATION_IN_EXPLICIT_CAST]
+[name=cast_struct_type_parameters_and_collation_invalid_input]
+select
+  cast((b'hey', 'abc') as STRUCT<BYTES(2), STRING COLLATE 'und:ci'>);
+--
+ERROR: generic::out_of_range: BYTES(2) has maximum length 2 but got a value with length 3

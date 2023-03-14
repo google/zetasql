@@ -68,13 +68,6 @@ struct FieldPathHashOperator {
   }
 };
 
-// Field path equality operator for containers.
-struct FieldPathEqualsOperator {
-  bool operator()(const ResolvedExpr* expr1, const ResolvedExpr* expr2) const {
-    return IsSameFieldPath(expr1, expr2, FieldPathMatchingOption::kFieldPath);
-  }
-};
-
 // Field path expression equality operator for containers.
 struct FieldPathExpressionEqualsOperator {
   bool operator()(const ResolvedExpr* expr1, const ResolvedExpr* expr2) const {

@@ -41,6 +41,9 @@ CreateViewStmt
 |     +-SingleRowScan
 +-sql="select 1 a, 2 b"
 +-recursive=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=tt.a#3)
+  +-ColumnDefinition(name="b", type=INT64, column=tt.b#4)
 ==
 
 # Actually-recursive view.
@@ -82,7 +85,7 @@ CreateMaterializedViewStmt
 |       |   +-input_scan=
 |       |     +-RecursiveRefScan(column_list=[$view.n#3])
 |       +-output_column_list=[$union_all2.$col1#4]
-+-sql="(\n  SELECT 1 AS n UNION ALL SELECT n + 1 FROM t\n)"
++-sql="SELECT 1 AS n UNION ALL SELECT n + 1 FROM t"
 +-recursive=TRUE
 +-column_definition_list=
   +-ColumnDefinition(name="n", type=INT64, column=t.n#5)
@@ -120,8 +123,10 @@ CreateViewStmt
 |       |   +-input_scan=
 |       |     +-RecursiveRefScan(column_list=[$view.n#3])
 |       +-output_column_list=[$union_all2.$col1#4]
-+-sql="(\n  SELECT 1 AS n UNION ALL SELECT n + 1 FROM t\n)"
++-sql="SELECT 1 AS n UNION ALL SELECT n + 1 FROM t"
 +-recursive=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="n", type=INT64, column=t.n#5)
 ==
 
 # Not-recursive view, but uses RECURSIVE keyword and has multi-part name.
@@ -166,6 +171,9 @@ CreateViewStmt
 |     +-SingleRowScan
 +-sql="select 1 x, 2 y"
 +-recursive=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="x", type=INT64, column=a.b.c.x#3)
+  +-ColumnDefinition(name="y", type=INT64, column=a.b.c.y#4)
 ==
 
 # Actually-recursive view with multi-part name
@@ -213,7 +221,7 @@ CreateMaterializedViewStmt
 |       |   +-input_scan=
 |       |     +-RecursiveRefScan(column_list=[$view.n#3])
 |       +-output_column_list=[$union_all2.$col1#4]
-+-sql="(\n  -- Throw in some inner WITH aliases matching parts of the outer query name to\n  -- make sure they don't affect the result.\n  WITH\n    a AS (SELECT 1),\n    b AS (SELECT 2),\n    c AS (SELECT 3)\n  SELECT 1 AS n UNION ALL SELECT n + 1 FROM a.b.c\n)"
++-sql="WITH\n    a AS (SELECT 1),\n    b AS (SELECT 2),\n    c AS (SELECT 3)\n  SELECT 1 AS n UNION ALL SELECT n + 1 FROM a.b.c"
 +-recursive=TRUE
 +-column_definition_list=
   +-ColumnDefinition(name="n", type=INT64, column=a.b.c.n#5)
@@ -251,8 +259,10 @@ CreateViewStmt
 |       |   +-input_scan=
 |       |     +-RecursiveRefScan(column_list=[$view.n#3])
 |       +-output_column_list=[$union_all2.$col1#4]
-+-sql="(\n  -- Throw in some inner WITH aliases matching parts of the outer query name to\n  -- make sure they don't affect the result.\n  WITH\n    a AS (SELECT 1),\n    b AS (SELECT 2),\n    c AS (SELECT 3)\n  SELECT 1 AS n UNION ALL SELECT n + 1 FROM a.b.c\n)"
++-sql="WITH\n    a AS (SELECT 1),\n    b AS (SELECT 2),\n    c AS (SELECT 3)\n  SELECT 1 AS n UNION ALL SELECT n + 1 FROM a.b.c"
 +-recursive=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="n", type=INT64, column=a.b.c.n#5)
 ==
 
 # View is not, itself, recursive, but has an inner subquery of the same name,
@@ -308,7 +318,7 @@ CreateMaterializedViewStmt
 |   |   +-input_scan=
 |   |     +-WithRefScan(column_list=[a.n#5], with_query_name="a")
 |   +-recursive=TRUE
-+-sql="(\n  WITH RECURSIVE a AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM a)\n  SELECT n AS view_n FROM a\n)"
++-sql="WITH RECURSIVE a AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM a)\n  SELECT n AS view_n FROM a"
 +-recursive=TRUE
 +-column_definition_list=
   +-ColumnDefinition(name="view_n", type=INT64, column=a.view_n#6)
@@ -358,8 +368,10 @@ CreateViewStmt
 |   |   +-input_scan=
 |   |     +-WithRefScan(column_list=[a.n#5], with_query_name="a")
 |   +-recursive=TRUE
-+-sql="(\n  WITH RECURSIVE a AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM a)\n  SELECT n AS view_n FROM a\n)"
++-sql="WITH RECURSIVE a AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM a)\n  SELECT n AS view_n FROM a"
 +-recursive=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="view_n", type=INT64, column=a.view_n#6)
 ==
 
 # ERROR: Recursive view is actually recursive, but not a UNION
@@ -468,7 +480,7 @@ CreateMaterializedViewStmt
 |       |   |           +-ColumnRef(type=INT64, column=$view.n#8)
 |       |   +-recursive=TRUE
 |       +-output_column_list=[x-y.z.n#7]
-+-sql="(\n  SELECT 1 AS n\n  UNION ALL (\n    WITH RECURSIVE `x-y.z` AS (\n       SELECT 1 AS n\n       UNION ALL\n       SELECT n + 1 FROM `x-y.z`\n    ) SELECT * FROM `x-y.z` INNER JOIN `a-b.c`.d USING (n)\n  )\n)"
++-sql="SELECT 1 AS n\n  UNION ALL (\n    WITH RECURSIVE `x-y.z` AS (\n       SELECT 1 AS n\n       UNION ALL\n       SELECT n + 1 FROM `x-y.z`\n    ) SELECT * FROM `x-y.z` INNER JOIN `a-b.c`.d USING (n)\n  )"
 +-recursive=TRUE
 +-column_definition_list=
   +-ColumnDefinition(name="n", type=INT64, column=`a-b.c`.d.n#9)

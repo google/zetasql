@@ -11,7 +11,7 @@ Numbering functions assign integer values to each row based on their position
 within the specified window. The `OVER` clause syntax varies across
 numbering functions.
 
-### RANK
+### `RANK`
 
 ```sql
 RANK()
@@ -108,7 +108,7 @@ FROM finishers;
 +-----------------+------------------------+----------+-------------+
 ```
 
-### DENSE_RANK
+### `DENSE_RANK`
 
 ```sql
 DENSE_RANK()
@@ -204,7 +204,7 @@ FROM finishers;
 +-----------------+------------------------+----------+-------------+
 ```
 
-### PERCENT_RANK
+### `PERCENT_RANK`
 
 ```sql
 PERCENT_RANK()
@@ -273,7 +273,7 @@ FROM finishers;
 +-----------------+------------------------+----------+---------------------+
 ```
 
-### CUME_DIST
+### `CUME_DIST`
 
 ```sql
 CUME_DIST()
@@ -342,7 +342,7 @@ FROM finishers;
 +-----------------+------------------------+----------+-------------+
 ```
 
-### NTILE
+### `NTILE`
 
 ```sql
 NTILE(constant_integer_expression)
@@ -415,7 +415,7 @@ FROM finishers;
 +-----------------+------------------------+----------+-------------+
 ```
 
-### ROW_NUMBER
+### `ROW_NUMBER`
 
 ```sql
 ROW_NUMBER()

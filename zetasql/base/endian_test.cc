@@ -34,6 +34,7 @@ const uint64_t k64Value{kInitialNumber};
 const int64_t k64IValue = static_cast<int64_t>(0xa123456789abcdef);
 const uint32_t k32Value{0x01234567};
 const uint16_t k16Value{0x0123};
+const uint8_t k8Value{0x12};
 const int kNumValuesToTest = 1000000;
 const int kRandomSeed = 12345;
 const absl::uint128 k128Value = absl::MakeUint128(k64Value, k64IValue);
@@ -44,6 +45,7 @@ const uint64_t k64ValueLE{0xefcdab8967452301};
 const uint64_t k64IValueLE{0xefcdab89674523a1};
 const uint32_t k32ValueLE{0x67452301};
 const uint16_t k16ValueLE{0x2301};
+const uint8_t k8ValueLE = k8Value;
 const absl::uint128 k128ValueLE = absl::MakeUint128(k64IValueLE, k64ValueLE);
 
 const uint64_t k64ValueBE{kInitialNumber};
@@ -56,6 +58,7 @@ const uint64_t k64ValueLE{kInitialNumber};
 const uint64_t k64IValueLE = static_cast<int64_t>(0xa123456789abcdef);
 const uint32_t k32ValueLE{k32Value};
 const uint16_t k16ValueLE{k16Value};
+const uint8_t k8ValueLE = k8Value;
 const absl::uint128 k128ValueLE = absl::MakeUint128(k64ValueLE, k64IValueLE);
 
 const uint64_t k64ValueBE{0xefcdab8967452301};
@@ -84,6 +87,48 @@ std::vector<T> GenerateRandomIntegers(size_t numValuesToTest) {
     result.push_back(rng());
   }
   return result;
+}
+
+template<typename T>
+std::vector<T> GenerateRandomFloatingPointNumbers(size_t numValuesToTest) {
+  std::vector<T> result;  // For RVO.
+  std::mt19937_64 rng(kRandomSeed);
+  std::uniform_real_distribution<double> real_distribution;
+  for (size_t i = 0; i < numValuesToTest; ++i) {
+    result.push_back(real_distribution(rng));
+  }
+  return result;
+}
+
+template <typename T, typename ByteSwapper>
+static void GenericLoadStoreHelper(const std::vector<T>& host_values_to_test,
+                                   const ByteSwapper& byte_swapper) {
+  // Compare the result of LittleEndian::Store<T> to blob of
+  // independently-calculated bytes.
+  for (const T host_value : host_values_to_test) {
+    // Perform LittleEndian conversion.
+    char le_wire_value[sizeof(host_value)];
+    LittleEndian::Store(host_value, le_wire_value);
+
+    // Calculate expected results for LittleEndian conversion.
+    char expected_le_wire_value[sizeof(host_value)];
+    memcpy(expected_le_wire_value, &host_value, sizeof(host_value));
+
+    // These are asserts rather than expects because if they fail, a *lot* of
+    // them will fail, and there's no point in wading through bazillions of
+    // pages of logs.
+    ASSERT_EQ(0, memcmp(le_wire_value,
+                        expected_le_wire_value,
+                        sizeof(le_wire_value)));
+  }
+
+  // Round-trip test.
+  for (const T host_value : host_values_to_test) {
+    char le_wire_value[sizeof(host_value)];
+    LittleEndian::Store(host_value, le_wire_value);
+    T host_from_le = LittleEndian::Load<T>(le_wire_value);
+    ASSERT_EQ(host_value, host_from_le);
+  }
 }
 
 void ManualByteSwap(char* bytes, int length) {
@@ -139,6 +184,10 @@ static void GBSwapHelper(const std::vector<T>& host_values_to_test,
   }
 }
 
+void Swap8(char* bytes) {
+  /* do nothing */
+}
+
 void Swap16(char* bytes) {
   ZETASQL_INTERNAL_UNALIGNED_STORE16(
       bytes, gbswap_16(ZETASQL_INTERNAL_UNALIGNED_LOAD16(bytes)));
@@ -189,9 +238,40 @@ TEST(EndianessTest, ghtonll_gntohll) {
   }
 }
 
+TEST(GenericLoadStore, Test8BitTypes) {
+  GenericLoadStoreHelper(GenerateAllValuesForType<uint8_t>(), &Swap8);
+  GenericLoadStoreHelper(GenerateAllValuesForType<int8_t>(), &Swap8);
+}
+
+TEST(GenericLoadStore, Test16BitTypes) {
+  GenericLoadStoreHelper(GenerateAllValuesForType<uint16_t>(), &Swap16);
+  GenericLoadStoreHelper(GenerateAllValuesForType<int16_t>(), &Swap16);
+}
+
+TEST(GenericLoadStore, Test32BitTypes) {
+  GenericLoadStoreHelper(GenerateRandomIntegers<uint32_t>(kNumValuesToTest),
+                         &Swap32);
+  GenericLoadStoreHelper(GenerateRandomIntegers<int32_t>(kNumValuesToTest),
+                         &Swap32);
+}
+
+TEST(GenericLoadStore, Test64BitTypes) {
+  GenericLoadStoreHelper(GenerateRandomIntegers<uint64_t>(kNumValuesToTest),
+                         &Swap64);
+  GenericLoadStoreHelper(GenerateRandomIntegers<int64_t>(kNumValuesToTest),
+                         &Swap64);
+}
+
+
 TEST(EndianessTest, LittleEndian) {
+  // Check LittleEndian uint8_t.
+  uint64_t comp = LittleEndian::FromHost<uint8_t>(k8Value);
+  EXPECT_EQ(comp, k8Value);
+  comp = LittleEndian::ToHost<uint8_t>(k8Value);
+  EXPECT_EQ(comp, k8Value);
+
   // Check LittleEndian uint16_t.
-  uint64_t comp = LittleEndian::FromHost16(k16Value);
+  comp = LittleEndian::FromHost16(k16Value);
   EXPECT_EQ(comp, k16ValueLE);
   comp = LittleEndian::ToHost16(k16ValueLE);
   EXPECT_EQ(comp, k16Value);

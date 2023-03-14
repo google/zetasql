@@ -18,6 +18,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -55,7 +56,6 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
-#include "absl/strings/str_split.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
@@ -996,7 +996,7 @@ absl::StatusOr<Value> CastContext::CastValue(
     }
 
     case FCT(TYPE_ENUM, TYPE_STRING):
-      return Value::String(v.enum_name());
+      return Value::String(v.EnumDisplayName());
 
     case FCT(TYPE_ENUM, TYPE_INT32):
       return Value::Int32(v.enum_value());

@@ -88,7 +88,7 @@ class QueryParamsWithResult {
 
   QueryParamsWithResult(const std::vector<ValueConstructor>& arguments,
                         const ValueConstructor& result,
-                        const std::string& error_substring);
+                        absl::string_view error_substring);
 
   QueryParamsWithResult(const std::vector<ValueConstructor>& params,
                         absl::StatusOr<Value>, const Type* output_type);

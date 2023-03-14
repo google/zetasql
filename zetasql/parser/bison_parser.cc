@@ -25,12 +25,14 @@
 #include <vector>
 
 #include "zetasql/common/errors.h"
+#include "zetasql/common/timer_util.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/parser/bison_parser.bison.h"
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/id_string.h"
 #include <cstdint>
 #include "absl/cleanup/cleanup.h"
+#include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -57,8 +59,8 @@ constexpr int kBisonParseSuccess = 0;
 constexpr int kBisonParseError = 1;
 constexpr int kBisonMemoryExhausted = 2;
 
-BisonParser::BisonParser() {}
-BisonParser::~BisonParser() {}
+BisonParser::BisonParser() = default;
+BisonParser::~BisonParser() = default;
 
 static std::string GetBisonParserModeName(BisonParserMode mode) {
   switch (mode) {
@@ -336,6 +338,8 @@ absl::Status BisonParser::Parse(
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
     ASTStatementProperties* ast_statement_properties,
     int* statement_end_byte_offset) {
+  auto parser_timer = internal::MakeScopedTimerStarted(
+      &parser_runtime_info_.parser_timed_value());
   id_string_pool_ = id_string_pool;
   arena_ = arena;
   language_options_ = &language_options;
@@ -363,6 +367,7 @@ absl::Status BisonParser::Parse(
       &error_message, &error_location, &move_error_location_past_whitespace,
       statement_end_byte_offset);
   const int parse_status_code = bison_parser_impl.parse();
+  parser_runtime_info_.add_lexical_tokens(tokenizer_->num_lexical_tokens());
   if (parse_status_code == kBisonParseSuccess &&
       tokenizer_->GetOverrideError().ok()) {
     // Make sure InitFields() is called for all ASTNodes that were created.

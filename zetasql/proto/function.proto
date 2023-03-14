@@ -82,7 +82,10 @@ message FunctionArgumentTypeOptionsProto {
   optional ParseLocationRangeProto argument_name_parse_location = 12;
   optional ParseLocationRangeProto argument_type_parse_location = 13;
   optional FunctionEnums.ProcedureArgumentMode procedure_argument_mode = 14;
-  optional bool argument_name_is_mandatory = 15 [default = false];
+  // Replaced by named_argument_kind, tag #25.
+  // TODO: Change to reserved id after June 19, 2023
+  optional bool argument_name_is_mandatory = 15
+      [default = false, deprecated = true];
   optional int32 descriptor_resolution_table_offset = 16 [default = -1];
   optional ValueProto default_value = 17;
   // Type of `default_value`. Only serialized for templated arguments. For fixed
@@ -97,6 +100,12 @@ message FunctionArgumentTypeOptionsProto {
   optional bool array_element_must_support_equality = 22;
   optional bool array_element_must_support_ordering = 23;
   optional bool array_element_must_support_grouping = 24;
+  // Indicates how the argument name can be used in calls to the function.
+  // This field must always be set when `argument_name` is non-empty. Protos
+  // serialized before this field was added used `argument_name_is_mandatory`
+  // and deserialization must consult that field in case `argument_name` is
+  // non-empty and this field is not set.
+  optional FunctionEnums.NamedArgumentKind named_argument_kind = 25;
 }
 
 message ArgumentTypeLambdaProto {
@@ -114,6 +123,12 @@ message FunctionArgumentTypeProto {
   optional ArgumentTypeLambdaProto lambda = 5;
 }
 
+message FunctionSignatureRewriteOptionsProto {
+  optional bool enabled = 1;
+  optional ResolvedASTRewrite rewriter = 2;
+  optional string sql = 3;
+}
+
 message FunctionSignatureOptionsProto {
   // optional uint64 timestamp_modes = 1;  bitset<TimestampMode>
   optional bool is_deprecated = 2 [default = false];
@@ -123,6 +138,7 @@ message FunctionSignatureOptionsProto {
   optional bool propagates_collation = 6 [default = true];
   optional bool uses_operation_collation = 7 [default = false];
   optional bool rejects_collation = 8 [default = false];
+  optional FunctionSignatureRewriteOptionsProto rewrite_options = 9;
 }
 
 message FunctionSignatureProto {

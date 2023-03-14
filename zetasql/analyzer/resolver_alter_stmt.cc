@@ -370,11 +370,14 @@ absl::Status Resolver::ResolveAlterActions(
         alter_actions->push_back(std::move(resolved_action));
         break;
       }
-      case AST_ALTER_COLUMN_OPTIONS_ACTION:
-      case AST_ALTER_COLUMN_DROP_NOT_NULL_ACTION: {
-        if (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
-          // Views, models, etc don't support ALTER COLUMN ... SET OPTIONS/DROP
-          // NOT NULL ...
+      case AST_ALTER_COLUMN_OPTIONS_ACTION: {
+        bool is_alter_column_options_allowed =
+            ast_statement->node_kind() == AST_ALTER_TABLE_STATEMENT ||
+            (ast_statement->node_kind() == AST_ALTER_VIEW_STATEMENT &&
+             language().LanguageFeatureEnabled(
+                 FEATURE_ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS));
+        if (!is_alter_column_options_allowed) {
+          // Models, schemas, etc don't support ALTER COLUMN ... SET OPTIONS ...
           return MakeSqlErrorAt(action)
                  << "ALTER " << alter_statement_kind << " does not support "
                  << action->GetSQLForAlterAction();
@@ -383,17 +386,27 @@ absl::Status Resolver::ResolveAlterActions(
           ZETASQL_RETURN_IF_ERROR(table_status);
         }
         std::unique_ptr<const ResolvedAlterAction> resolved_action;
-        if (action->node_kind() == AST_ALTER_COLUMN_OPTIONS_ACTION) {
-          ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnOptionsAction(
-              altered_table, action->GetAsOrDie<ASTAlterColumnOptionsAction>(),
-              &resolved_action));
-        } else if (action->node_kind() ==
-                   AST_ALTER_COLUMN_DROP_NOT_NULL_ACTION) {
-          ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnDropNotNullAction(
-              altered_table,
-              action->GetAsOrDie<ASTAlterColumnDropNotNullAction>(),
-              &resolved_action));
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnOptionsAction(
+            altered_table, action->GetAsOrDie<ASTAlterColumnOptionsAction>(),
+            &resolved_action));
+        alter_actions->push_back(std::move(resolved_action));
+        break;
+      }
+      case AST_ALTER_COLUMN_DROP_NOT_NULL_ACTION: {
+        if (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
+          // Views, models, etc don't support ALTER COLUMN ... DROP NOT NULL ...
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
         }
+        if (!is_if_exists) {
+          ZETASQL_RETURN_IF_ERROR(table_status);
+        }
+        std::unique_ptr<const ResolvedAlterAction> resolved_action;
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnDropNotNullAction(
+            altered_table,
+            action->GetAsOrDie<ASTAlterColumnDropNotNullAction>(),
+            &resolved_action));
         alter_actions->push_back(std::move(resolved_action));
       } break;
       case AST_ALTER_COLUMN_SET_DEFAULT_ACTION:
@@ -672,7 +685,8 @@ absl::Status Resolver::ResolveAddColumnAction(
     // can't reference these columns.
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<NameScope> access_error_name_scope,
                      CreateNameScopeWithAccessErrorForDefaultExpr(
-                         table_name_id_string, all_column_names));
+                         table_name_id_string, all_column_names,
+                         /*allow_duplicates=*/action->is_if_not_exists()));
     // Set default_expr_access_error_name_scope_ activates all default value
     // validation logic, which relies on the existence of this variable.
     zetasql_base::VarSetter<std::optional<const NameScope*>> var_setter(

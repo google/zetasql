@@ -54,24 +54,24 @@ message ASTBinaryExpressionEnums {
   // All supported operators.
   enum Op {
     NOT_SET = 0;
-    LIKE = 1;          // "LIKE"
-    IS = 2;            // "IS"
-    EQ = 3;            // "="
-    NE = 4;            // "!="
-    NE2 = 5;           // "<>"
-    GT = 6;            // ">"
-    LT = 7;            // "<"
-    GE = 8;            // ">="
-    LE = 9;            // "<="
-    BITWISE_OR = 10;   // "|"
-    BITWISE_XOR = 11;  // "^"
-    BITWISE_AND = 12;  // "&"
-    PLUS = 13;         // "+"
-    MINUS = 14;        // "-"
-    MULTIPLY = 15;     // "*"
-    DIVIDE = 16;       // "/"
-    CONCAT_OP = 17;    // "||"
-    DISTINCT = 18;     // "IS DISTINCT FROM"
+    LIKE = 1;             // "LIKE"
+    IS = 2;               // "IS"
+    EQ = 3;               // "="
+    NE = 4;               // "!="
+    NE2 = 5;              // "<>"
+    GT = 6;               // ">"
+    LT = 7;               // "<"
+    GE = 8;               // ">="
+    LE = 9;               // "<="
+    BITWISE_OR = 10;      // "|"
+    BITWISE_XOR = 11;     // "^"
+    BITWISE_AND = 12;     // "&"
+    PLUS = 13;            // "+"
+    MINUS = 14;           // "-"
+    MULTIPLY = 15;        // "*"
+    DIVIDE = 16;          // "/"
+    CONCAT_OP = 17;       // "||"
+    DISTINCT = 18;        // "IS DISTINCT FROM"
   }
 }
 
@@ -135,6 +135,11 @@ message ASTSetOperationEnums {
     UNION = 1;      // UNION ALL/DISTINCT
     EXCEPT = 2;     // EXCEPT ALL/DISTINCT
     INTERSECT = 4;  // INTERSECT ALL/DISTINCT
+  }
+  enum AllOrDistinct {
+    ALL_OR_DISTINCT_NOT_SET = 0;
+    ALL = 1;
+    DISTINCT = 2;
   }
 }
 message ASTUnaryExpressionEnums {

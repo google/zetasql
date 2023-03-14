@@ -33,6 +33,11 @@ absl::StatusOr<const ArrayType*> CreateTableArrayType(
     const ResolvedColumnList& table_columns, bool is_value_table,
     TypeFactory* type_factory);
 
+// Same as the above, but uses 'const Column*' instead of ResolvedColumnList.
+absl::StatusOr<const ArrayType*> CreateTableArrayType(
+    const std::vector<const Column*>& table_columns, bool is_value_table,
+    TypeFactory* type_factory);
+
 // Names of DML output columns used by CreateDMLOutputType().
 extern const char* kDMLOutputNumRowsModifiedColumnName;
 extern const char* kDMLOutputAllRowsColumnName;

@@ -15,9 +15,9 @@
 //
 
 
-// resolved_ast_zero_copy_visitor.cc GENERATED FROM resolved_ast_zero_copy_visitor.cc.template
+// resolved_ast_rewrite_visitor.cc GENERATED FROM resolved_ast_rewrite_visitor.cc.template
 
-#include "zetasql/resolved_ast/resolved_ast_zero_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
 
 #include <algorithm>
 #include <memory>
@@ -37,7 +37,7 @@ namespace zetasql {
 
 template <typename ResolvedNodeT>
 absl::StatusOr<std::vector<std::unique_ptr<const ResolvedNodeT>>>
-ResolvedASTZeroCopyVisitor::DispatchNodeList(
+ResolvedASTRewriteVisitor::DispatchNodeList(
     std::vector<std::unique_ptr<const ResolvedNodeT>> nodes) {
   for (std::unique_ptr<const ResolvedNodeT>& node : nodes) {
     absl::StatusOr<std::unique_ptr<const ResolvedNodeT>> result =
@@ -52,7 +52,7 @@ ResolvedASTZeroCopyVisitor::DispatchNodeList(
 
 # for node in nodes if not node.is_abstract
 absl::StatusOr<std::unique_ptr<const ResolvedNode>>
-ResolvedASTZeroCopyVisitor::DefaultVisit(
+ResolvedASTRewriteVisitor::DefaultVisit(
     std::unique_ptr<const {{node.name}}> node) {
   ZETASQL_RETURN_IF_ERROR(PreVisit{{node.name}}(*node));
  {# Use jinja namespace variable to avoid creating a builder if we don't
@@ -76,7 +76,15 @@ ResolvedASTZeroCopyVisitor::DefaultVisit(
     if (!result.ok()) {
       return std::move(result).status();
     }
+    # if field.propagate_order
+    {# Default behavior is to change the existing value. We must prevent this
+       propagation explicitly. Otherwise, a no-op 'copy' will result in changing
+       the ast.
+     #}
+    builder.set_{{field.name}}(*std::move(result), /*propagate_order=*/false);
+    # else
     builder.set_{{field.name}}(*std::move(result));
+    # endif
   }
   # elif field.is_node_vector:
   if (!builder.{{field.name}}().empty()) {

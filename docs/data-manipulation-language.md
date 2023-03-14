@@ -202,7 +202,9 @@ message Album {
 </tbody>
 </table>
 
-## INSERT statement
+## `INSERT` statement
+
+Note: Table hints support has been added, but documentation is pending.
 
 Use the `INSERT` statement when you want to add new rows to a table.
 
@@ -307,10 +309,10 @@ can insert the default value explicitly using the `DEFAULT` keyword.
 `NULL`.
 
 The following example inserts default values for all unspecified columns.
-For example, the [Singers table][singers-table] has two columns that have
-defined default values&mdash;the `SingerId` column, which is auto-incremented;
- and the `Status` column, which has a default value of `active`. For all other
-columns, the default value is `NULL`.
+For example, the [Singers table][singers-table] has one column that has a
+defined default value&mdash;the `Status` column, which has a default value of
+`active`. The `SingerId` column is defined `NOT NULL` and so has no implicit
+default value. For all other columns, the default value is `NULL`.
 
 ```
 INSERT INTO Singers
@@ -390,7 +392,7 @@ ignored.
 + For `INSERT UPDATE` statements, updates are applied sequentially, ending with
 the last update.
 
-#### INSERT IGNORE
+#### `INSERT IGNORE`
 
 You can instruct your `INSERT` statement to skip any rows that have duplicate
 primary keys by using the `IGNORE` keyword.
@@ -408,7 +410,7 @@ VALUES ("Catalina", "Smith", "1990-08-17", DEFAULT, "nationality:'U.S.A.'");
 ZetaSQL raises an error if any other constraint violation occurs, including
 duplicate keys in unique indexes.
 
-#### INSERT REPLACE
+#### `INSERT REPLACE`
 
 You can instruct your `INSERT` statement to replace any rows that have duplicate
 primary keys by using the `REPLACE` statement. Replaced rows have the same
@@ -429,7 +431,7 @@ replacement row are cleared and replaced with their default values. If you want
 your statement to preserve the values of unspecified columns, use
 `INSERT UPDATE`.
 
-#### INSERT UPDATE
+#### `INSERT UPDATE`
 
 With an `INSERT UPDATE` statement, the statement updates the columns specified
 for one or more rows. Columns that are not listed in the `INSERT` statement
@@ -451,7 +453,7 @@ corresponding defaults.
 When you use the `UPDATE` keyword, any column that you do not specify remains
 unchanged.
 
-### INSERT and ASSERT_ROWS_MODIFIED
+### `INSERT` and `ASSERT_ROWS_MODIFIED`
 
 With ZetaSQL, you can confirm how many rows are added each time you
 use an `INSERT` statement by using the `ASSERT_ROWS_MODIFIED` keyword.
@@ -517,7 +519,7 @@ In this case, there is a collision when inserting a new row with a `SingerId` of
 `5`, because a row with that `SingerId` value already exists. This statement
 inserts one row, which matches the `ASSERT_ROWS_MODIFIED 1` statement.
 
-### INSERT and THEN RETURN 
+### `INSERT` and `THEN RETURN` 
 <a id="dml_then_return_clause"></a>
 
 Use the `THEN RETURN` clause to return the results of the `INSERT` operation and
@@ -603,7 +605,7 @@ THEN RETURN WITH ACTION product, quantity * 10 AS new_quantity;
 +---------+--------------+--------+
 ```
 
-### INSERT examples
+### `INSERT` examples
 
 Add a new row to the `Singers` table.
 
@@ -658,7 +660,9 @@ LastName, BirthDate, Status, SingerInfo) VALUES (6, "Michael", "Leon",
 **RESULT:** The database adds a new row to the `Singer` table and returns the
 value `active` of its `Status` column.
 
-## DELETE statement
+## `DELETE` statement
+
+Note: Table hints support has been added, but documentation is pending.
 
 Use the `DELETE` statement when you want to delete rows from a table.
 
@@ -685,7 +689,7 @@ replace_clause ::=
 **Note**: `DELETE` statements must comply with all
 [statement rules][statement-rules].
 
-### WHERE keyword
+### `WHERE` keyword
 
 Each time you construct a `DELETE` statement, you must use the `WHERE` keyword,
 followed by a condition. For example:
@@ -715,7 +719,7 @@ DELETE FROM Singers s
 WHERE true;
 ```
 
-### DELETE and ASSERT_ROWS_MODIFIED
+### `DELETE` and `ASSERT_ROWS_MODIFIED`
 
 With ZetaSQL, you can confirm how many rows were deleted each time
 you use a `DELETE` statement. You implement this confirmation through the
@@ -734,7 +738,7 @@ to the database. If the row count matches, ZetaSQL commits the
 changes. Otherwise, ZetaSQL returns an error and rolls back the
 statement.
 
-### DELETE and THEN RETURN
+### `DELETE` and `THEN RETURN`
 
 With `THEN RETURN`, you can obtain data from rows that are being removed from a
 table. To learn more about the values you can use in this clause, see [INSERT
@@ -757,7 +761,9 @@ THEN RETURN *;
 +---------+----------+--------------------+
 ```
 
-## UPDATE statement
+## `UPDATE` statement
+
+Note: Table hints support has been added, but documentation is pending.
 
 Use the `UPDATE` statement when you want to update existing rows within a table.
 
@@ -797,7 +803,7 @@ dml_stmt ::= { insert_statement | update_statement | delete_statement }
 [statement rules][statement-rules] and use
 [compatible types][compatible-types].
 
-### FROM keyword
+### `FROM` keyword
 
 An `UPDATE` statement can optionally include a `FROM` clause.
 
@@ -894,7 +900,7 @@ After:
 +-------------------+----------+--------------------+
 ```
 
-### WHERE keyword
+### `WHERE` keyword
 
 Each `UPDATE` statement must include the `WHERE` keyword, followed by a
 condition. For example, the following statement illustrates an `UPDATE`
@@ -915,7 +921,7 @@ SET s.SingerInfo = DEFAULT
 WHERE true;
 ```
 
-### UPDATE and ASSERT_ROWS_MODIFIED
+### `UPDATE` and `ASSERT_ROWS_MODIFIED`
 
 With ZetaSQL, you can confirm how many rows were added each time you
 use an `UPDATE` statement. You implement this confirmation through the
@@ -940,7 +946,7 @@ WHERE s.SingerId = 5
 ASSERT_ROWS_MODIFIED 1;
 ```
 
-### UPDATE and THEN RETURN
+### `UPDATE` and `THEN RETURN`
 
 With `THEN RETURN`, you can obtain data from rows that are being updated in a
 table. To learn more about the values you can use in this clause, see [INSERT
@@ -1304,7 +1310,7 @@ SET
 
 [from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from-clause
 
-## MERGE statement
+## `MERGE` statement
 
 Use the `MERGE` statement when you want to merge rows from a source table or
 subquery into a target table.

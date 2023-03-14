@@ -23,6 +23,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <limits>
 #include <map>
@@ -69,10 +70,12 @@ MATCHER_P(JsonEq, expected, expected.ToString()) {
 
 // Note that the compliance tests below are more exhaustive.
 TEST(JsonTest, StringJsonExtract) {
-  const std::string json = R"({"a": {"b": [ { "c" : "foo" } ] } })";
+  const std::string json =
+      R"({"a": {"b": [ { "c" : "foo" } ], "d": {"b\"ar": "q\"w"} } })";
   const std::vector<std::pair<std::string, std::string>> inputs_and_outputs = {
-      {"$", R"({"a":{"b":[{"c":"foo"}]}})"},
-      {"$.a", R"({"b":[{"c":"foo"}]})"},
+      // This output contains an unescaped key and value because escaping is
+      // disabled.
+      {"$.a", R"({"b":[{"c":"foo"}],"d":{"b"ar":"q"w"}})"},
       {"$.a.b", R"([{"c":"foo"}])"},
       {"$.a.b[0]", R"({"c":"foo"})"},
       {"$.a.b[0].c", R"("foo")"}};
@@ -81,13 +84,160 @@ TEST(JsonTest, StringJsonExtract) {
                                   input_and_output.first));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         const std::unique_ptr<JsonPathEvaluator> evaluator,
-        JsonPathEvaluator::Create(input_and_output.first,
-                                  /*sql_standard_mode=*/false));
+        JsonPathEvaluator::Create(
+            input_and_output.first,
+            /*sql_standard_mode=*/false,
+            /*enable_special_character_escaping_in_values=*/false,
+            /*enable_special_character_escaping_in_keys=*/false));
     std::string value;
     bool is_null;
-    ZETASQL_ASSERT_OK(evaluator->Extract(json, &value, &is_null));
-    EXPECT_EQ(input_and_output.second, value);
+    bool is_warning_called = false;
+    ZETASQL_ASSERT_OK(evaluator->Extract(
+        json, &value, &is_null,
+        [&](absl::Status status) { is_warning_called = true; }));
     EXPECT_FALSE(is_null);
+    EXPECT_FALSE(is_warning_called);
+    EXPECT_EQ(input_and_output.second, value);
+  }
+}
+
+TEST(JsonTest, StringJsonExtractKeyEscapingDisabled) {
+  const std::string json =
+      R"({"foo": {"b\"ar": "q\"w"}, "foo_array": [{"b\"ar": "q\"w"}] })";
+  {
+    // Only enable value escaping and not key escaping. This should result in
+    // unescaped keys.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const std::unique_ptr<JsonPathEvaluator> evaluator,
+        JsonPathEvaluator::Create(
+            "$.foo",
+            /*sql_standard_mode=*/true,
+            /*enable_special_character_escaping_in_values=*/true,
+            /*enable_special_character_escaping_in_keys=*/false));
+    std::string value;
+    bool is_null;
+    absl::Status result_status = absl::OkStatus();
+    ZETASQL_ASSERT_OK(evaluator->Extract(
+        json, &value, &is_null,
+        [&](absl::Status status) { result_status = status; }));
+    EXPECT_FALSE(is_null);
+    EXPECT_TRUE(!result_status.ok());
+    EXPECT_EQ(R"({"b"ar":"q\"w"})", value);
+  }
+  {
+    // Only enable value escaping and not key escaping. This should result in
+    // unescaped keys.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const std::unique_ptr<JsonPathEvaluator> evaluator,
+        JsonPathEvaluator::Create(
+            "$.foo_array",
+            /*sql_standard_mode=*/true,
+            /*enable_special_character_escaping_in_values=*/true,
+            /*enable_special_character_escaping_in_keys=*/false));
+    std::vector<std::string> result;
+    bool is_null;
+    absl::Status result_status = absl::OkStatus();
+    ZETASQL_ASSERT_OK(evaluator->ExtractArray(
+        json, &result, &is_null,
+        [&](absl::Status status) { result_status = status; }));
+    EXPECT_FALSE(is_null);
+    EXPECT_TRUE(!result_status.ok());
+    EXPECT_THAT(result, ::testing::ElementsAre(R"({"b"ar":"q\"w"})"));
+  }
+}
+
+TEST(JsonTest, StringJsonExtractKeyEscapingEnabledValueDisabled) {
+  const std::string json =
+      R"({"foo": {"b\"ar": "q\"w"}, "foo_array": [{"b\"ar": "q\"w"}] })";
+  {
+    // Only enable key escaping. Because value escaping is not enabled there
+    // should be no escaping of keys or values.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const std::unique_ptr<JsonPathEvaluator> evaluator,
+        JsonPathEvaluator::Create(
+            "$.foo",
+            /*sql_standard_mode=*/true,
+            /*enable_special_character_escaping_in_values=*/false,
+            /*enable_special_character_escaping_in_keys=*/true));
+    std::string value;
+    bool is_null;
+    bool is_warning_called = false;
+    ZETASQL_ASSERT_OK(evaluator->Extract(
+        json, &value, &is_null,
+        [&](absl::Status status) { is_warning_called = true; }));
+    EXPECT_FALSE(is_null);
+    EXPECT_FALSE(is_warning_called);
+    ZETASQL_ASSERT_OK(evaluator->Extract(json, &value, &is_null,
+                                 [&is_warning_called](absl::Status status) {
+                                   is_warning_called = true;
+                                 }));
+    EXPECT_FALSE(is_null);
+    EXPECT_FALSE(is_warning_called);
+    EXPECT_EQ(value, R"({"b"ar":"q"w"})");
+  }
+  {
+    // Only enable key escaping. Because value escaping is not enabled there
+    // should be no escaping of keys or values.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const std::unique_ptr<JsonPathEvaluator> evaluator,
+        JsonPathEvaluator::Create(
+            "$.foo_array",
+            /*sql_standard_mode=*/true,
+            /*enable_special_character_escaping_in_values=*/false,
+            /*enable_special_character_escaping_in_keys=*/true));
+    std::vector<std::string> result;
+    bool is_null;
+    bool is_warning_called = false;
+    ZETASQL_ASSERT_OK(evaluator->ExtractArray(
+        json, &result, &is_null, [&is_warning_called](absl::Status status) {
+          is_warning_called = true;
+        }));
+    EXPECT_FALSE(is_null);
+    EXPECT_FALSE(is_warning_called);
+    EXPECT_THAT(result, ::testing::ElementsAre(R"({"b"ar":"q"w"})"));
+  }
+}
+
+TEST(JsonTest, StringJsonExtractKeyAndValueEscapingEnabled) {
+  const std::string json =
+      R"({"foo": {"b\"ar": "q\"w"}, "foo_array": [{"b\"ar": "q\"w"}] })";
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const std::unique_ptr<JsonPathEvaluator> evaluator,
+        JsonPathEvaluator::Create(
+            "$.foo",
+            /*sql_standard_mode=*/true,
+            /*enable_special_character_escaping_in_values=*/true,
+            /*enable_special_character_escaping_in_keys=*/true));
+    std::string value;
+    bool is_null;
+    bool is_warning_called = false;
+    ZETASQL_ASSERT_OK(evaluator->Extract(json, &value, &is_null,
+                                 [&is_warning_called](absl::Status status) {
+                                   is_warning_called = true;
+                                 }));
+    EXPECT_FALSE(is_null);
+    EXPECT_FALSE(is_warning_called);
+    EXPECT_EQ(R"({"b\"ar":"q\"w"})", value);
+  }
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        const std::unique_ptr<JsonPathEvaluator> evaluator,
+        JsonPathEvaluator::Create(
+            "$.foo_array",
+            /*sql_standard_mode=*/true,
+            /*enable_special_character_escaping_in_values=*/true,
+            /*enable_special_character_escaping_in_keys=*/true));
+    std::vector<std::string> result;
+    bool is_null;
+    bool is_warning_called = false;
+    ZETASQL_ASSERT_OK(evaluator->ExtractArray(
+        json, &result, &is_null, [&is_warning_called](absl::Status status) {
+          is_warning_called = true;
+        }));
+    EXPECT_FALSE(is_null);
+    EXPECT_FALSE(is_warning_called);
+    EXPECT_THAT(result, ::testing::ElementsAre(R"({"b\"ar":"q\"w"})"));
   }
 }
 
@@ -103,9 +253,13 @@ TEST(JsonTest, JsonEscapingNeededCallback) {
 
   SCOPED_TRACE(absl::Substitute("JSON_EXTRACT('$0', '$1')", json, input));
   MockEscapingNeededCallback callback;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<JsonPathEvaluator> evaluator,
-                       JsonPathEvaluator::Create(input,
-                                                 /*sql_standard_mode=*/false));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const std::unique_ptr<JsonPathEvaluator> evaluator,
+      JsonPathEvaluator::Create(
+          input,
+          /*sql_standard_mode=*/false,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false));
   evaluator->set_escaping_needed_callback(
       [&](absl::string_view str) { callback.Call(str); });
   EXPECT_CALL(callback, Call("\t"));
@@ -132,8 +286,11 @@ TEST(JsonTest, NativeJsonExtract) {
                                   json_ref.ToString(), input));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         const std::unique_ptr<JsonPathEvaluator> evaluator,
-        JsonPathEvaluator::Create(input,
-                                  /*sql_standard_mode=*/false));
+        JsonPathEvaluator::Create(
+            input,
+            /*sql_standard_mode=*/false,
+            /*enable_special_character_escaping_in_values=*/false,
+            /*enable_special_character_escaping_in_keys=*/false));
 
     std::optional<JSONValueConstRef> result = evaluator->Extract(json_ref);
     EXPECT_TRUE(result.has_value());
@@ -158,8 +315,11 @@ TEST(JsonTest, StringJsonExtractScalar) {
                                   input_and_output.first));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         const std::unique_ptr<JsonPathEvaluator> evaluator,
-        JsonPathEvaluator::Create(input_and_output.first,
-                                  /*sql_standard_mode=*/false));
+        JsonPathEvaluator::Create(
+            input_and_output.first,
+            /*sql_standard_mode=*/false,
+            /*enable_special_character_escaping_in_values=*/false,
+            /*enable_special_character_escaping_in_keys=*/false));
     std::string value;
     bool is_null;
     ZETASQL_ASSERT_OK(evaluator->ExtractScalar(json, &value, &is_null));
@@ -180,22 +340,19 @@ TEST(JsonTest, NativeJsonExtractScalar) {
           .value();
   JSONValueConstRef json_ref = json.GetConstRef();
   const std::vector<std::pair<std::string, std::string>> inputs_and_outputs = {
-      {"$", ""},
-      {"$.a", ""},
-      {"$.a.d", "1"},
-      {"$.a.e", "-5"},
-      {"$.a.f", "true"},
-      {"$.a.g", "4.2"},
-      {"$.a.b", ""},
-      {"$.a.b[0]", ""},
-      {"$.a.b[0].c", "foo"}};
+      {"$", ""},       {"$.a", ""},       {"$.a.d", "1"},
+      {"$.a.e", "-5"}, {"$.a.f", "true"}, {"$.a.g", "4.2"},
+      {"$.a.b", ""},   {"$.a.b[0]", ""},  {"$.a.b[0].c", "foo"}};
   for (const auto& [input, output] : inputs_and_outputs) {
     SCOPED_TRACE(absl::Substitute("JSON_EXTRACT_SCALAR('$0', '$1')",
                                   json_ref.ToString(), input));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         const std::unique_ptr<JsonPathEvaluator> evaluator,
-        JsonPathEvaluator::Create(input,
-                                  /*sql_standard_mode=*/false));
+        JsonPathEvaluator::Create(
+            input,
+            /*sql_standard_mode=*/false,
+            /*enable_special_character_escaping_in_values=*/false,
+            /*enable_special_character_escaping_in_keys=*/false));
 
     std::optional<std::string> result = evaluator->ExtractScalar(json_ref);
     if (!output.empty()) {
@@ -208,10 +365,9 @@ TEST(JsonTest, NativeJsonExtractScalar) {
 }
 
 TEST(JsonTest, NativeJsonExtractJsonArray) {
-  auto json_value =
-      JSONValue::ParseJSONString(
-          R"({"a": {"b": [ { "c" : "foo" }, 15, null, "bar", )"
-          R"([ 20, { "a": "baz" } ] ] } })");
+  auto json_value = JSONValue::ParseJSONString(
+      R"({"a": {"b": [ { "c" : "foo" }, 15, null, "bar", )"
+      R"([ 20, { "a": "baz" } ] ] } })");
   ZETASQL_ASSERT_OK(json_value.status());
   JSONValueConstRef json_ref = json_value->GetConstRef();
 
@@ -229,8 +385,11 @@ TEST(JsonTest, NativeJsonExtractJsonArray) {
                                   json_ref.ToString(), input));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         const std::unique_ptr<JsonPathEvaluator> evaluator,
-        JsonPathEvaluator::Create(input,
-                                  /*sql_standard_mode=*/false));
+        JsonPathEvaluator::Create(
+            input,
+            /*sql_standard_mode=*/false,
+            /*enable_special_character_escaping_in_values=*/false,
+            /*enable_special_character_escaping_in_keys=*/false));
 
     std::optional<std::vector<JSONValueConstRef>> result =
         evaluator->ExtractArray(json_ref);
@@ -257,10 +416,9 @@ TEST(JsonTest, NativeJsonExtractJsonArray) {
 }
 
 TEST(JsonTest, NativeJsonExtractStringArray) {
-  auto json_value =
-      JSONValue::ParseJSONString(
-          R"({"a": {"b": [ { "c" : "foo" }, 15, null, "bar", )"
-          R"([ 20, "a", true ] ] } })");
+  auto json_value = JSONValue::ParseJSONString(
+      R"({"a": {"b": [ { "c" : "foo" }, 15, null, "bar", )"
+      R"([ 20, "a", true ] ] } })");
   ZETASQL_ASSERT_OK(json_value.status());
   JSONValueConstRef json_ref = json_value->GetConstRef();
   const std::vector<
@@ -275,8 +433,11 @@ TEST(JsonTest, NativeJsonExtractStringArray) {
                                   json_ref.ToString(), input));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         const std::unique_ptr<JsonPathEvaluator> evaluator,
-        JsonPathEvaluator::Create(input,
-                                  /*sql_standard_mode=*/false));
+        JsonPathEvaluator::Create(
+            input,
+            /*sql_standard_mode=*/false,
+            /*enable_special_character_escaping_in_values=*/false,
+            /*enable_special_character_escaping_in_keys=*/false));
     std::optional<std::vector<std::optional<std::string>>> result =
         evaluator->ExtractStringArray(json_ref);
     if (output.has_value()) {
@@ -293,7 +454,10 @@ void ExpectExtractScalar(absl::string_view json, absl::string_view path,
   SCOPED_TRACE(absl::Substitute("JSON_EXTRACT_SCALAR('$0', '$1')", json, path));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const std::unique_ptr<JsonPathEvaluator> evaluator,
-      JsonPathEvaluator::Create(path, /*sql_standard_mode=*/true));
+      JsonPathEvaluator::Create(
+          path, /*sql_standard_mode=*/true,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false));
   std::string value;
   bool is_null;
   ZETASQL_ASSERT_OK(evaluator->ExtractScalar(json, &value, &is_null));
@@ -350,15 +514,24 @@ TEST(JsonTest, StringJsonCompliance) {
       absl::Status status;
       bool sql_standard_mode = test.function_name == "json_query" ||
                                test.function_name == "json_value";
-      auto evaluator_status =
-          JsonPathEvaluator::Create(json_path, sql_standard_mode);
+      auto evaluator_status = JsonPathEvaluator::Create(
+          json_path, sql_standard_mode,
+          /*enable_special_character_escaping_in_values=*/true,
+          /*enable_special_character_escaping_in_keys=*/true);
       if (evaluator_status.ok()) {
         const std::unique_ptr<JsonPathEvaluator>& evaluator =
             evaluator_status.value();
-        evaluator->enable_special_character_escaping();
         if (test.function_name == "json_extract" ||
             test.function_name == "json_query") {
-          status = evaluator->Extract(json, &value, &is_null);
+          bool is_warning_called = false;
+          status =
+              evaluator->Extract(json, &value, &is_null,
+                                 [&is_warning_called](absl::Status status) {
+                                   is_warning_called = true;
+                                 });
+          // Because key_escaping is enabled a warning should never be
+          // triggered.
+          EXPECT_FALSE(is_warning_called);
         } else {
           status = evaluator->ExtractScalar(json, &value, &is_null);
         }
@@ -404,8 +577,10 @@ TEST(JsonTest, NativeJsonCompliance) {
       absl::Status status;
       bool sql_standard_mode = test.function_name == "json_query" ||
                                test.function_name == "json_value";
-      auto evaluator_status =
-          JsonPathEvaluator::Create(json_path, sql_standard_mode);
+      auto evaluator_status = JsonPathEvaluator::Create(
+          json_path, sql_standard_mode,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false);
       if (evaluator_status.ok()) {
         const std::unique_ptr<JsonPathEvaluator>& evaluator =
             evaluator_status.value();
@@ -452,8 +627,7 @@ TEST(JsonTest, NativeJsonArrayCompliance) {
         // tests.
         continue;
       }
-      const JSONValueConstRef json =
-          test.params.param(0).json_value();
+      const JSONValueConstRef json = test.params.param(0).json_value();
       const std::string json_path = test.params.param(1).string_value();
       SCOPED_TRACE(absl::Substitute("$0('$1', '$2')", test.function_name,
                                     json.ToString(), json_path));
@@ -461,13 +635,15 @@ TEST(JsonTest, NativeJsonArrayCompliance) {
       absl::Status status;
       bool sql_standard_mode = test.function_name == "json_query_array" ||
                                test.function_name == "json_value_array";
-      auto evaluator_status =
-          JsonPathEvaluator::Create(json_path, sql_standard_mode);
+      auto evaluator_status = JsonPathEvaluator::Create(
+          json_path, sql_standard_mode,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false);
       if (evaluator_status.ok()) {
         std::unique_ptr<JsonPathEvaluator> evaluator =
             std::move(evaluator_status).value();
         if (test.function_name == "json_extract_array" ||
-            test.function_name == "json_query_array")  {
+            test.function_name == "json_query_array") {
           std::optional<std::vector<JSONValueConstRef>> result =
               evaluator->ExtractArray(json);
 
@@ -521,8 +697,11 @@ TEST(JsonPathTest, JsonPathEndedWithDotNonStandardMode) {
                                   input_and_output.first));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         const std::unique_ptr<JsonPathEvaluator> evaluator,
-        JsonPathEvaluator::Create(input_and_output.first,
-                                  /*sql_standard_mode=*/false));
+        JsonPathEvaluator::Create(
+            input_and_output.first,
+            /*sql_standard_mode=*/false,
+            /*enable_special_character_escaping_in_values=*/false,
+            /*enable_special_character_escaping_in_keys=*/false));
     std::string value;
     bool is_null;
     ZETASQL_ASSERT_OK(evaluator->Extract(json, &value, &is_null));
@@ -543,8 +722,11 @@ TEST(JsonPathTest, JsonPathEndedWithDotStandardMode) {
     SCOPED_TRACE(absl::Substitute("JSON_QUERY('$0', '$1')", json,
                                   input_and_output.first));
 
-    EXPECT_THAT(JsonPathEvaluator::Create(input_and_output.first,
-                                          /*sql_standard_mode=*/true),
+    EXPECT_THAT(JsonPathEvaluator::Create(
+                    input_and_output.first,
+                    /*sql_standard_mode=*/true,
+                    /*enable_special_character_escaping_in_values=*/false,
+                    /*enable_special_character_escaping_in_keys=*/false),
                 StatusIs(absl::StatusCode::kOutOfRange,
                          HasSubstr("Invalid token in JSONPath at:")));
   }
@@ -2015,18 +2197,21 @@ TEST(ValidJSONPathIterator, InvalidEmptyJSONPathCreation) {
                                HasSubstr("JSONPath must start with '$'")));
 }
 
-void ExtractArrayOrStringArray(JSONPathArrayExtractor* parser,
-                               std::vector<std::optional<std::string>>* output,
-                               bool* is_null) {
+void ExtractArrayOrStringArray(
+    JSONPathArrayExtractor* parser,
+    std::vector<std::optional<std::string>>* output, bool* is_null,
+    std::optional<std::function<void(absl::Status)>> issue_warning) {
   parser->set_special_character_escaping(true);
+  parser->set_special_character_key_escaping(true);
   std::vector<std::string> result;
-  parser->ExtractArray(&result, is_null);
+  parser->ExtractArray(&result, is_null, issue_warning);
   output->assign(result.begin(), result.end());
 }
 
-void ExtractArrayOrStringArray(JSONPathStringArrayExtractor* parser,
-                               std::vector<std::optional<std::string>>* output,
-                               bool* is_null) {
+void ExtractArrayOrStringArray(
+    JSONPathStringArrayExtractor* parser,
+    std::vector<std::optional<std::string>>* output, bool* is_null,
+    std::optional<std::function<void(absl::Status)>> ignored) {
   parser->ExtractStringArray(output, is_null);
 }
 
@@ -2049,10 +2234,17 @@ void ComplianceJSONExtractArrayTest(const std::vector<FunctionTestCall>& tests,
     auto evaluator_status =
         ValidJSONPathIterator::Create(json_path, sql_standard_mode);
     if (evaluator_status.ok()) {
+      bool is_warning_called = false;
       const std::unique_ptr<ValidJSONPathIterator>& path_itr =
           evaluator_status.value();
       ParserClass parser(json, path_itr.get());
-      ExtractArrayOrStringArray(&parser, &output, &is_null);
+      // Because key_escaping is enabled a warning should never be
+      // triggered.
+      ExtractArrayOrStringArray(&parser, &output, &is_null,
+                                [&is_warning_called](absl::Status status) {
+                                  is_warning_called = true;
+                                });
+      EXPECT_FALSE(is_warning_called);
     } else {
       status = evaluator_status.status();
     }
@@ -2062,7 +2254,7 @@ void ComplianceJSONExtractArrayTest(const std::vector<FunctionTestCall>& tests,
     } else {
       for (const auto& element : output) {
         result_array.push_back(element.has_value() ? values::String(*element)
-                                             : values::NullString());
+                                                   : values::NullString());
       }
       Value result = values::UnsafeArray(types::StringArrayType(),
                                          std::move(result_array));
@@ -2116,21 +2308,28 @@ TEST(JsonPathEvaluatorTest, ExtractingArrayCloseToLimitSucceeds) {
   bool is_null = true;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<JsonPathEvaluator> path_evaluator,
-      JsonPathEvaluator::Create("$", /*sql_standard_mode=*/true));
+      JsonPathEvaluator::Create(
+          "$", /*sql_standard_mode=*/true,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false));
   // Extracting should succeed, but the result is null since the arrays are not
   // closed.
   ZETASQL_EXPECT_OK(path_evaluator->Extract(nested_array_json, &value, &is_null));
   EXPECT_TRUE(is_null);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      path_evaluator,
-      JsonPathEvaluator::Create("$", /*sql_standard_mode=*/true));
+      path_evaluator, JsonPathEvaluator::Create(
+                          "$", /*sql_standard_mode=*/true,
+                          /*enable_special_character_escaping_in_values=*/false,
+                          /*enable_special_character_escaping_in_keys=*/false));
   // Extracting should succeed, but the result is null since the arrays are not
   // closed.
   ZETASQL_EXPECT_OK(path_evaluator->ExtractScalar(nested_array_json, &value, &is_null));
   EXPECT_TRUE(is_null);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      path_evaluator,
-      JsonPathEvaluator::Create("$", /*sql_standard_mode=*/false));
+      path_evaluator, JsonPathEvaluator::Create(
+                          "$", /*sql_standard_mode=*/false,
+                          /*enable_special_character_escaping_in_values=*/false,
+                          /*enable_special_character_escaping_in_keys=*/false));
   // Extracting should succeed, but the result is null since the arrays are not
   // closed.
   ZETASQL_EXPECT_OK(
@@ -2150,7 +2349,10 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedArrayCausesFailure) {
   }
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<JsonPathEvaluator> path_evaluator,
-      JsonPathEvaluator::Create(json_path, /*sql_standard_mode=*/true));
+      JsonPathEvaluator::Create(
+          json_path, /*sql_standard_mode=*/true,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false));
   std::string value;
   std::vector<std::string> array_value;
   std::vector<std::optional<std::string>> scalar_array_value;
@@ -2167,8 +2369,10 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedArrayCausesFailure) {
                "Maximum nesting depth is 1000"));
   EXPECT_TRUE(is_null);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      path_evaluator,
-      JsonPathEvaluator::Create(json_path, /*sql_standard_mode=*/false));
+      path_evaluator, JsonPathEvaluator::Create(
+                          json_path, /*sql_standard_mode=*/false,
+                          /*enable_special_character_escaping_in_values=*/false,
+                          /*enable_special_character_escaping_in_keys=*/false));
   EXPECT_THAT(
       path_evaluator->ExtractArray(nested_array_json, &array_value, &is_null),
       StatusIs(absl::StatusCode::kOutOfRange,
@@ -2195,22 +2399,29 @@ TEST(JsonPathEvaluatorTest, ExtractingObjectCloseToLimitSucceeds) {
   bool is_null = true;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<JsonPathEvaluator> path_evaluator,
-      JsonPathEvaluator::Create("$", /*sql_standard_mode=*/true));
+      JsonPathEvaluator::Create(
+          "$", /*sql_standard_mode=*/true,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false));
   // Extracting should succeed, but the result is null since the objects are not
   // closed.
   ZETASQL_EXPECT_OK(path_evaluator->Extract(nested_object_json, &value, &is_null));
   EXPECT_TRUE(is_null);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      path_evaluator,
-      JsonPathEvaluator::Create("$", /*sql_standard_mode=*/true));
+      path_evaluator, JsonPathEvaluator::Create(
+                          "$", /*sql_standard_mode=*/true,
+                          /*enable_special_character_escaping_in_values=*/false,
+                          /*enable_special_character_escaping_in_keys=*/false));
   // Extracting should succeed, but the result is null since the objects are not
   // closed.
   ZETASQL_EXPECT_OK(
       path_evaluator->ExtractScalar(nested_object_json, &value, &is_null));
   EXPECT_TRUE(is_null);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      path_evaluator,
-      JsonPathEvaluator::Create("$", /*sql_standard_mode=*/false));
+      path_evaluator, JsonPathEvaluator::Create(
+                          "$", /*sql_standard_mode=*/false,
+                          /*enable_special_character_escaping_in_values=*/false,
+                          /*enable_special_character_escaping_in_keys=*/false));
   // Extracting should succeed, but the result is null since the objects are not
   // closed.
   ZETASQL_EXPECT_OK(
@@ -2233,7 +2444,10 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedObjectCausesFailure) {
   }
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<JsonPathEvaluator> path_evaluator,
-      JsonPathEvaluator::Create(json_path, /*sql_standard_mode=*/true));
+      JsonPathEvaluator::Create(
+          json_path, /*sql_standard_mode=*/true,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false));
 
   std::string value;
   std::vector<std::string> array_value;
@@ -2251,8 +2465,10 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedObjectCausesFailure) {
                "Maximum nesting depth is 1000"));
   EXPECT_TRUE(is_null);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      path_evaluator,
-      JsonPathEvaluator::Create(json_path, /*sql_standard_mode=*/false));
+      path_evaluator, JsonPathEvaluator::Create(
+                          json_path, /*sql_standard_mode=*/false,
+                          /*enable_special_character_escaping_in_values=*/false,
+                          /*enable_special_character_escaping_in_keys=*/false));
   EXPECT_THAT(
       path_evaluator->ExtractArray(nested_object_json, &array_value, &is_null),
       StatusIs(absl::StatusCode::kOutOfRange,
@@ -2336,18 +2552,16 @@ TEST(JsonConversionTest, ConvertJsonToBool) {
 TEST(JsonConversionTest, ConvertJsonToString) {
   std::vector<std::pair<JSONValue, std::optional<std::string>>>
       inputs_and_expected_outputs;
-  inputs_and_expected_outputs.emplace_back(
-      JSONValue(std::string{"test"}), "test");
-  inputs_and_expected_outputs.emplace_back(
-      JSONValue(std::string{"abc123"}), "abc123");
-  inputs_and_expected_outputs.emplace_back(
-      JSONValue(std::string{"TesT"}), "TesT");
-  inputs_and_expected_outputs.emplace_back(
-      JSONValue(std::string{"1"}), "1");
-  inputs_and_expected_outputs.emplace_back(
-      JSONValue(std::string{""}), "");
-  inputs_and_expected_outputs.emplace_back(
-      JSONValue(std::string{"12¿©?Æ"}), "12¿©?Æ");
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"test"}),
+                                           "test");
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"abc123"}),
+                                           "abc123");
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"TesT"}),
+                                           "TesT");
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1"}), "1");
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{""}), "");
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"12¿©?Æ"}),
+                                           "12¿©?Æ");
   // Other types should return an error
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
@@ -2361,8 +2575,8 @@ TEST(JsonConversionTest, ConvertJsonToString) {
     SCOPED_TRACE(
         absl::Substitute("STRING('$0')", input.GetConstRef().ToString()));
 
-    absl::StatusOr<std::string> output = ConvertJsonToString(
-        input.GetConstRef());
+    absl::StatusOr<std::string> output =
+        ConvertJsonToString(input.GetConstRef());
     EXPECT_EQ(output.ok(), expected_output.has_value());
     if (output.ok() && expected_output.has_value()) {
       EXPECT_EQ(*output, *expected_output);
@@ -2430,8 +2644,7 @@ TEST(JsonConversionTest, ConvertJsonToDoubleFailInExactOnly) {
   inputs_and_expected_outputs.emplace_back(
       JSONValue(int64_t{-9007199254740993}), double{-9007199254740992});
 
-  for (const auto& [input, expected_output] :
-       inputs_and_expected_outputs) {
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'round')",
                                   input.GetConstRef().ToString()));
     absl::StatusOr<double> output = ConvertJsonToDouble(
@@ -2496,7 +2709,7 @@ TEST(JsonConversionTest, GetJsonType) {
 }
 
 TEST(JsonLaxConversionTest, Bool) {
-  std::vector<std::pair<JSONValue, absl::StatusOr<bool>>>
+  std::vector<std::pair<JSONValue, std::optional<bool>>>
       inputs_and_expected_outputs;
   // Bools
   inputs_and_expected_outputs.emplace_back(JSONValue(true), true);
@@ -2511,7 +2724,7 @@ TEST(JsonLaxConversionTest, Bool) {
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"FaLse"}),
                                            false);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
-                                           absl::OutOfRangeError(""));
+                                           std::nullopt);
   // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{0}), false);
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{10}), true);
@@ -2535,26 +2748,23 @@ TEST(JsonLaxConversionTest, Bool) {
   inputs_and_expected_outputs.emplace_back(
       JSONValue::ParseJSONString("-0.0e2").value(), false);
   // Object/Array/Null
-  inputs_and_expected_outputs.emplace_back(JSONValue(),
-                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(JSONValue(), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue::ParseJSONString(R"({"a": 1})").value(),
-      absl::OutOfRangeError(""));
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue::ParseJSONString("[true]").value(), absl::OutOfRangeError(""));
+      JSONValue::ParseJSONString("[true]").value(), std::nullopt);
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(
         absl::Substitute("LAX_BOOL($0)", input.GetConstRef().ToString()));
-    absl::StatusOr<bool> result = LaxConvertJsonToBool(input.GetConstRef());
-    EXPECT_EQ(result.status().code(), expected_output.status().code());
-    if (result.ok() && expected_output.ok()) {
-      EXPECT_EQ(*result, *expected_output);
-    }
+    absl::StatusOr<std::optional<bool>> result =
+        LaxConvertJsonToBool(input.GetConstRef());
+    ZETASQL_ASSERT_OK(result);
+    EXPECT_EQ(*result, expected_output);
   }
 }
 
 TEST(JsonLaxConversionTest, Int64) {
-  std::vector<std::pair<JSONValue, absl::StatusOr<int64_t>>>
+  std::vector<std::pair<JSONValue, std::optional<int64_t>>>
       inputs_and_expected_outputs;
   // Bools
   inputs_and_expected_outputs.emplace_back(JSONValue(true), 1);
@@ -2568,9 +2778,9 @@ TEST(JsonLaxConversionTest, Int64) {
   inputs_and_expected_outputs.emplace_back(
       JSONValue(std::string{"123456789012345678.0"}), 123456789012345678);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"1e100"}),
-                                           absl::OutOfRangeError(""));
+                                           std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
-                                           absl::OutOfRangeError(""));
+                                           std::nullopt);
   // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{10}), 10);
   inputs_and_expected_outputs.emplace_back(
@@ -2580,8 +2790,7 @@ TEST(JsonLaxConversionTest, Int64) {
       JSONValue(int64_t{std::numeric_limits<int64_t>::max()}),
       std::numeric_limits<int64_t>::max());
   inputs_and_expected_outputs.emplace_back(
-      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}),
-      absl::OutOfRangeError(""));
+      JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1}), 1);
   inputs_and_expected_outputs.emplace_back(JSONValue(double{3.5}), 4);
   inputs_and_expected_outputs.emplace_back(JSONValue(double{1.1e2}), 110);
@@ -2590,40 +2799,33 @@ TEST(JsonLaxConversionTest, Int64) {
   inputs_and_expected_outputs.emplace_back(
       JSONValue(double{std::numeric_limits<double>::min()}), 0);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue(double{std::numeric_limits<double>::lowest()}),
-      absl::OutOfRangeError(""));
+      JSONValue(double{std::numeric_limits<double>::lowest()}), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue(double{std::numeric_limits<double>::max()}),
-      absl::OutOfRangeError(""));
+      JSONValue(double{std::numeric_limits<double>::max()}), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue::ParseJSONString("1e100").value(), absl::OutOfRangeError(""));
+      JSONValue::ParseJSONString("1e100").value(), std::nullopt);
   // Object/Array/Null
-  inputs_and_expected_outputs.emplace_back(JSONValue(),
-                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(JSONValue(), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue::ParseJSONString(R"({"a": 1})").value(),
-      absl::OutOfRangeError(""));
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue::ParseJSONString("[1]").value(), absl::OutOfRangeError(""));
+      JSONValue::ParseJSONString("[1]").value(), std::nullopt);
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(
         absl::Substitute("LAX_INT64('$0')", input.GetConstRef().ToString()));
-    absl::StatusOr<int64_t> result = LaxConvertJsonToInt64(input.GetConstRef());
-    EXPECT_EQ(result.status().code(), expected_output.status().code());
-    if (result.ok() && expected_output.ok()) {
-      EXPECT_EQ(*result, *expected_output);
-    }
+    absl::StatusOr<std::optional<int64_t>> result =
+        LaxConvertJsonToInt64(input.GetConstRef());
+    ZETASQL_ASSERT_OK(result);
+    EXPECT_EQ(*result, expected_output);
   }
 }
 
 TEST(JsonLaxConversionTest, Float) {
-  std::vector<std::pair<JSONValue, absl::StatusOr<double>>>
+  std::vector<std::pair<JSONValue, std::optional<double>>>
       inputs_and_expected_outputs;
   // Bools
-  inputs_and_expected_outputs.emplace_back(JSONValue(true),
-                                           absl::OutOfRangeError(""));
-  inputs_and_expected_outputs.emplace_back(JSONValue(false),
-                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(false), std::nullopt);
   // Strings
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}), 10.0);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"-10"}),
@@ -2635,7 +2837,7 @@ TEST(JsonLaxConversionTest, Float) {
       JSONValue(std::string{"9007199254740993"}), 9007199254740992.0);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"+1.5"}), 1.5);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"foo"}),
-                                           absl::OutOfRangeError(""));
+                                           std::nullopt);
   // Numbers. Note that -inf, inf, and NaN are not valid JSON numeric values.
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-10}), -10);
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{9007199254740993}),
@@ -2665,41 +2867,40 @@ TEST(JsonLaxConversionTest, Float) {
   inputs_and_expected_outputs.emplace_back(
       JSONValue::ParseJSONString("1e100").value(), 1e+100);
   // Object/Array/Null
-  inputs_and_expected_outputs.emplace_back(JSONValue(),
-                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(JSONValue(), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue::ParseJSONString(R"({"a": 1})").value(),
-      absl::OutOfRangeError(""));
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue::ParseJSONString("[1]").value(), absl::OutOfRangeError(""));
+      JSONValue::ParseJSONString("[1]").value(), std::nullopt);
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(
         absl::Substitute("LAX_FLOAT64('$0')", input.GetConstRef().ToString()));
-    absl::StatusOr<double> result =
+    absl::StatusOr<std::optional<double>> result =
         LaxConvertJsonToFloat64(input.GetConstRef());
-    EXPECT_EQ(result.status().code(), expected_output.status().code());
-    if (result.ok() && expected_output.ok()) {
-      EXPECT_EQ(*result, *expected_output);
-    }
+    ZETASQL_ASSERT_OK(result);
+    EXPECT_EQ(*result, expected_output);
   }
 
   // Special cases.
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      double result,
+      std::optional<double> result,
       LaxConvertJsonToFloat64(JSONValue(std::string{"NaN"}).GetConstRef()));
-  EXPECT_TRUE(std::isnan(result));
+  ASSERT_TRUE(result.has_value());
+  EXPECT_TRUE(std::isnan(*result));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       result,
       LaxConvertJsonToFloat64(JSONValue(std::string{"Inf"}).GetConstRef()));
-  EXPECT_TRUE(std::isinf(result));
+  ASSERT_TRUE(result.has_value());
+  EXPECT_TRUE(std::isinf(*result));
   ZETASQL_ASSERT_OK_AND_ASSIGN(result,
                        LaxConvertJsonToFloat64(
                            JSONValue(std::string{"-InfiNiTY"}).GetConstRef()));
-  EXPECT_TRUE(std::isinf(result));
+  ASSERT_TRUE(result.has_value());
+  EXPECT_TRUE(std::isinf(*result));
 }
 
 TEST(JsonLaxConversionTest, String) {
-  std::vector<std::pair<JSONValue, absl::StatusOr<std::string>>>
+  std::vector<std::pair<JSONValue, std::optional<std::string>>>
       inputs_and_expected_outputs;
   // Bools
   inputs_and_expected_outputs.emplace_back(JSONValue(true), "true");
@@ -2733,22 +2934,18 @@ TEST(JsonLaxConversionTest, String) {
   inputs_and_expected_outputs.emplace_back(
       JSONValue::ParseJSONString("1e100").value(), "1e+100");
   // Object/Array/Null
-  inputs_and_expected_outputs.emplace_back(JSONValue(),
-                                           absl::OutOfRangeError(""));
+  inputs_and_expected_outputs.emplace_back(JSONValue(), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue::ParseJSONString(R"({"a": 1})").value(),
-      absl::OutOfRangeError(""));
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
-      JSONValue::ParseJSONString("[1]").value(), absl::OutOfRangeError(""));
+      JSONValue::ParseJSONString("[1]").value(), std::nullopt);
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(
         absl::Substitute("LAX_STRING('$0')", input.GetConstRef().ToString()));
-    absl::StatusOr<std::string> result =
+    absl::StatusOr<std::optional<std::string>> result =
         LaxConvertJsonToString(input.GetConstRef());
-    EXPECT_EQ(result.status().code(), expected_output.status().code());
-    if (result.ok() && expected_output.ok()) {
-      EXPECT_EQ(*result, *expected_output);
-    }
+    ZETASQL_ASSERT_OK(result);
+    EXPECT_EQ(*result, expected_output);
   }
 }
 

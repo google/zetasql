@@ -159,7 +159,7 @@ public final class SimpleTable implements Table {
     table.setAllowAnonymousColumnName(proto.getAllowAnonymousColumnName());
     table.setAllowDuplicateColumnNames(proto.getAllowDuplicateColumnNames());
     for (SimpleColumnProto column : proto.getColumnList()) {
-      table.addSimpleColumn(SimpleColumn.deserialize(column, table.getName(), pools, factory));
+      table.addSimpleColumn(SimpleColumn.deserialize(column, table.getFullName(), pools, factory));
     }
     if (proto.getPrimaryKeyColumnIndexCount() > 0) {
       table.setPrimaryKey(proto.getPrimaryKeyColumnIndexList());

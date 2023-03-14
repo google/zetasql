@@ -252,4 +252,22 @@ message FunctionEnums {
     // AFFECTS_PROPAGATION.
     AFFECTS_OPERATION_AND_PROPAGATION = 3;
   }
+
+  // Describes how an argument's name may be used when calling a function and
+  // supplying a value for the argument.
+  enum NamedArgumentKind {
+    // Satisfies proto best practices.
+    NAMED_ARGUMENT_KIND_UNSPECIFIED = 0;
+
+    // The argument can be passed as a positional argument only.
+    // We can add names to positional-only arguments for documentation purposes,
+    // including error messages, but they cannot be used in SQL.
+    POSITIONAL_ONLY = 1;
+
+    // The argument can be passed as either a positional or named argument.
+    POSITIONAL_OR_NAMED = 2;
+
+    // The argument can be passed as a named argument only.
+    NAMED_ONLY = 3;
+  }
 }

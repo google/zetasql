@@ -19,7 +19,8 @@
 // zetasql::parser::BisonParser.
 //
 // To debug the state machine in case of conflicts, run (locally):
-// $ bison bison_parser.y -r all --report-file=$HOME/bison_report.txt
+// $ bison bison_parser.y -Wprecedence -Wcounterexamples -b tmp_prefix -r all \
+//     --report-file=$HOME/bison_report.txt
 // (Do NOT set the --report-file to a path on citc, because then the file will
 // be truncated at 1MB for some reason.)
 
@@ -37,6 +38,9 @@
 #include "absl/status/status.h"
 
 #define YYINITDEPTH 50
+#ifndef YYDEBUG
+#define YYDEBUG 0
+#endif
 
 // Shorthand to call parser->CreateASTNode<>(). The "node_type" must be a
 // AST... class from the zetasql namespace. The "..." are the arguments to
@@ -180,6 +184,12 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 %skeleton "lalr1.cc"
 %define parse.error verbose
 %define api.parser.class {BisonParserImpl}
+%initial-action
+{
+#if YYDEBUG
+   set_debug_level(absl::GetFlag(FLAGS_zetasql_bison_parserdebug));
+#endif
+}
 
 // This uses a generated "position" and "location" class, where "location" is a
 // range of positions. "position" keeps track of the file name, line and column.
@@ -375,7 +385,6 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
       templated_parameter_kind;
   zetasql::ASTBinaryExpression::Op binary_op;
   zetasql::ASTUnaryExpression::Op unary_op;
-  zetasql::ASTSetOperation::OperationType set_operation_type;
   zetasql::ASTJoin::JoinType join_type;
   zetasql::ASTJoin::JoinHint join_hint;
   zetasql::ASTSampleSize::Unit sample_size_unit;
@@ -417,6 +426,8 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   SeparatedIdentifierTmpNode* slashed_identifier;
   zetasql::ASTPivotClause* pivot_clause;
   zetasql::ASTUnpivotClause* unpivot_clause;
+  zetasql::ASTSetOperationType* set_operation_type;
+  zetasql::ASTSetOperationAllOrDistinct* set_operation_all_or_distinct;
   struct {
     zetasql::ASTPivotClause* pivot_clause;
     zetasql::ASTUnpivotClause* unpivot_clause;
@@ -447,10 +458,19 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
     zetasql::ASTIdentifier* language;
     zetasql::ASTNode* code;
   } begin_end_block_or_language_as_code;
+  struct {
+    zetasql::ASTExpression* maybe_dashed_path_expression;
+    bool is_temp_table;
+  } path_expression_with_scope;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
 %token YYEOF 0 "end of input"
+
+// These tokens are only used by the macro expander
+%token DOLLAR_SIGN "$"
+%token MACRO_INVOCATION "macro invocation"
+%token MACRO_ARGUMENT_REFERENCE "macro argument reference"
 
 // Literals and identifiers. String, bytes and identifiers are not unescaped by
 // the tokenizer. This is done in the parser so that we can give better error
@@ -522,15 +542,18 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // precedence is defined by the order of the declarations here, with tokens
 // specified in the same declaration having the same precedence.
 //
+// Precedences are a total order, so resolving any conflict using precedence has
+// non-local effects. Only use precedences that are widely globally accepted,
+// like multiplication binding tighter than addition.
+//
 // The fake DOUBLE_AT_PRECEDENCE symbol is introduced to resolve a shift/reduce
 // conflict in the system_variable_expression rule. A potentially ambiguous
 // input is "@@a.b". Without modifying the rule's precedence, this could be
 // parsed as a system variable named "a" of type STRUCT or as a system variable
-// named "a.b".
-%left ".*"
+// named "a.b" (the ZetaSQL language chooses the latter).
 %left "OR"
 %left "AND"
-%left UNARY_NOT_PRECEDENCE
+%precedence UNARY_NOT_PRECEDENCE
 %nonassoc "=" "<>" ">" "<" ">=" "<=" "!=" "LIKE" "IN" "DISTINCT" "BETWEEN" "IS" "NOT_SPECIAL"
 %left "|"
 %left "^"
@@ -539,11 +562,19 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 %left "+" "-"
 %left "||"
 %left "*" "/"
-%left UNARY_PRECEDENCE  // For all unary operators
+%precedence UNARY_PRECEDENCE  // For all unary operators
 %precedence DOUBLE_AT_PRECEDENCE // Needs to appear before "."
-%left PRIMARY_PRECEDENCE "(" ")" "[" "]" "." // For ., .(...), [], etc.
+
+// We need "." to have high precedence for generalised names, but giving ( and [
+// a precedence leads to burying some complex shift-reduce conflicts.
+%left PRIMARY_PRECEDENCE "(" "[" "."
 
 %code {
+// NOYACC-START
+#if YYDEBUG
+ABSL_FLAG(bool, zetasql_bison_parserdebug, true, "Print traces for the ZetaSQL parser.");
+#endif
+// NOYACC-END
 
 inline int zetasql_bison_parserlex(
     zetasql_bison_parser::BisonParserImpl::semantic_type* yylval,
@@ -586,6 +617,18 @@ inline int zetasql_bison_parserlex(
               label_node->GetAsStringView(), ", got ", \
               end_label_node->GetAsStringView())); \
     } \
+
+// Generates a parse error if there are spaces between location <left> and
+// location <right>.
+// For example, this is used when we composite multiple existing tokens to
+// match a complex symbol without reserving it as a new token.
+#define YYERROR_AND_ABORT_AT_WHITESPACE(left, right)                         \
+  if (parser->HasWhitespace(left, right)) {                                  \
+    YYERROR_AND_ABORT_AT(                                                    \
+        left, absl::StrCat("Syntax error: Unexpected whitespace between \"", \
+                           parser->GetInputText(left), "\" and \"",          \
+                           parser->GetInputText(right), "\""));              \
+  }
 
 // Adds 'children' to 'node' and then returns 'node'.
 template <typename ASTNodeType>
@@ -789,6 +832,7 @@ using zetasql::ASTDropStatement;
 %token KW_ALTER "ALTER"
 %token KW_ANONYMIZATION "ANONYMIZATION"
 %token KW_ANALYZE "ANALYZE"
+%token KW_ARE "ARE"
 %token KW_ASSERT "ASSERT"
 %token KW_BATCH "BATCH"
 %token KW_BEGIN "BEGIN"
@@ -860,6 +904,7 @@ using zetasql::ASTDropStatement;
 %token KW_LEVEL "LEVEL"
 %token KW_LOAD "LOAD"
 %token KW_LOOP "LOOP"
+%token KW_MACRO "MACRO"
 %token KW_MATCH "MATCH"
 %token KW_MATCHED "MATCHED"
 %token KW_MATERIALIZED "MATERIALIZED"
@@ -875,6 +920,7 @@ using zetasql::ASTDropStatement;
 %token KW_OUT "OUT"
 %token KW_OUTPUT "OUTPUT"
 %token KW_OVERWRITE "OVERWRITE"
+%token KW_PARTITIONS "PARTITIONS"
 %token KW_PERCENT "PERCENT"
 %token KW_PIVOT "PIVOT"
 %token KW_POLICIES "POLICIES"
@@ -921,6 +967,7 @@ using zetasql::ASTDropStatement;
 %token KW_SYSTEM "SYSTEM"
 %token KW_SYSTEM_TIME "SYSTEM_TIME"
 %token KW_TABLE "TABLE"
+%token KW_TABLES "TABLES"
 %token KW_TARGET "TARGET"
 %token KW_TRANSFORM "TRANSFORM"
 %token KW_TEMP "TEMP"
@@ -930,6 +977,7 @@ using zetasql::ASTDropStatement;
 %token KW_TRANSACTION "TRANSACTION"
 %token KW_TRUNCATE "TRUNCATE"
 %token KW_TYPE "TYPE"
+%token KW_UNDROP "UNDROP"
 %token KW_UNIQUE "UNIQUE"
 %token KW_UNKNOWN "UNKNOWN"
 %token KW_UNPIVOT "UNPIVOT"
@@ -982,6 +1030,9 @@ using zetasql::ASTDropStatement;
 %type <node> begin_statement
 %type <node> aux_load_data_from_files_options_list
 %type <node> aux_load_data_statement
+%type <node> opt_load_data_partitions_clause
+%type <node> load_data_partitions_clause
+%type <path_expression_with_scope> maybe_dashed_path_expression_with_scope
 %type <expression> bignumeric_literal
 %type <expression> boolean_literal
 %type <expression> bytes_literal
@@ -1016,6 +1067,7 @@ using zetasql::ASTDropStatement;
 %type <node> create_table_statement
 %type <node> create_view_statement
 %type <node> create_entity_statement
+%type <node> undrop_statement
 %type <node> column_with_options
 %type <node> column_with_options_list
 %type <node> column_with_options_list_prefix
@@ -1139,6 +1191,8 @@ using zetasql::ASTDropStatement;
 %type <expression> json_literal
 %type <expression> lambda_argument
 %type <node> lambda_argument_list
+%type <node> define_macro_statement
+%type <node> macro_body
 %type <node> merge_action
 %type <node> merge_insert_value_list_or_source_row
 %type <node> merge_source
@@ -1422,9 +1476,10 @@ using zetasql::ASTDropStatement;
 %type <node> opt_column_position
 %type <expression> fill_using_expression
 %type <expression> opt_fill_using_expression
-%type <all_or_distinct_keyword> all_or_distinct
+%type <set_operation_all_or_distinct> all_or_distinct
 %type <all_or_distinct_keyword> opt_all_or_distinct
 %type <schema_object_kind_keyword> schema_object_kind
+%type <node> range_column_schema_inner
 
 %type <not_keyword_presence> between_operator
 %type <not_keyword_presence> in_operator
@@ -1450,6 +1505,7 @@ using zetasql::ASTDropStatement;
 %type <boolean> opt_natural
 %type <boolean> opt_not_aggregate
 %type <boolean> opt_or_replace
+%type <boolean> opt_overwrite
 %type <boolean> opt_recursive
 %type <boolean> opt_unique
 %type <boolean> opt_search
@@ -1643,6 +1699,7 @@ sql_statement_body:
     | create_table_statement
     | create_view_statement
     | create_entity_statement
+    | define_macro_statement
     | define_table_statement
     | describe_statement
     | execute_immediate
@@ -1659,6 +1716,105 @@ sql_statement_body:
     | call_statement
     | import_statement
     | module_statement
+    | undrop_statement
+    ;
+
+define_macro_statement:
+    "DEFINE" "MACRO" identifier macro_body
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_4_SQL_MACROS)) {
+          YYERROR_AND_ABORT_AT(@2,
+            "Macros are not supported.");
+        }
+        $$ = MAKE_NODE(ASTDefineMacroStatement, @$, { $3, $4 });
+      }
+    ;
+
+macro_body:
+    macro_token_list
+      {
+        // We are using the tokenizer to find the end of the DEFINE MACRO
+        // statement. We need to store the body. Ideally, we would keep the
+        // tokens to avoid having to re-tokenize the body when processing an
+        // invocation of this macro. However, current frameworks and APIs
+        // represent macros as strings. More importantly, comments may still be
+        // needed as they are used by some environments as a workaround for the
+        // lack of annotations. Consequently, after finding the full macro_body,
+        // we discard the tokens, and just store the input text, including
+        // whitespace and comments.
+        // When the environment has been upgraded to store tokens (which would
+        // require us to standardize token kinds and codes since they will be
+        // stored externally), we can store the tokens themselves.
+        auto* macro_body = MAKE_NODE(ASTMacroBody, @$);
+        macro_body->set_image(std::string(parser->GetInputText(@1)));
+        $$ = macro_body;
+      }
+    ;
+
+macro_token_list:
+    macro_token
+    | macro_token_list macro_token
+    ;
+
+// A macro token can be anything *except* a semicolon: a reserved keyword,
+// non-reserved keyword, a symbol, an operator, a literal, or even macro tokens
+// like $ or $1.
+// It is difficult to list them all here in the grammar. Whenever we add new
+// tokens, they should be reflected here.
+// Instead of creating mirror lexer rules, and duplicating all lexer states to
+// have a "macro-mode", we choose to list all tokens here in the parser, for
+// multiple reasons:
+//   1. The parser rule is more readable.
+//   2. Adding a token to the "duplicated" lexer becoems a lot more complicated,
+//      and clever tests need to be added to ensure that the new token has a
+//      rule in macro-mode as well.
+//   3. At the lexer level, all tokens would look like "MACRO_TOKEN", without
+//      distinguishing the actual token type.
+//      If we ever want to restrict a token from being used in macros, or if we
+//      later want to limit macros to take a specific grammar, then this
+//      allowlist facilitates this because we can see the actual tokens.
+//   4. We do not expect new token types to be added frequently. All reserved
+//      and unreserved keywords are automatically added here thanks to the
+//      reserved_keyword_rule.
+macro_token:
+    reserved_keyword_rule
+    | identifier
+    | integer_literal
+    | string_literal
+    | bytes_literal
+    | floating_point_literal
+    | DOLLAR_SIGN
+    | MACRO_INVOCATION
+    | MACRO_ARGUMENT_REFERENCE
+    // Symbols: all except the semicolon
+    // TODO: Add a test to ensure all tokens except ';' are allowed
+    // in macros.
+    | "*"
+    | "/"
+    | "+"
+    | "-"
+    | "="
+    | "<<"
+    | ">>"
+    | "^"
+    | "||"
+    | "["
+    | "]"
+    | "("
+    | ")"
+    | "<"
+    | ">"
+    | "<="
+    | ">="
+    | "!="
+    | "<>"
+    | "->"
+    | "@"
+    | "@@"
+    | "%"
+    | ","
+    | "."
     ;
 
 query_statement:
@@ -2903,6 +3059,20 @@ create_schema_statement:
       }
     ;
 
+undrop_statement:
+    "UNDROP" schema_object_kind opt_if_not_exists path_expression
+    opt_at_system_time
+      {
+        if ($schema_object_kind != zetasql::SchemaObjectKind::kSchema) {
+          YYERROR_AND_ABORT_AT(@schema_object_kind, absl::StrCat("UNDROP ", absl::AsciiStrToUpper(
+            parser->GetInputText(@schema_object_kind)), " is not supported"));
+        }
+        auto* undrop = MAKE_NODE(ASTUndropStatement, @$, {$path_expression, $opt_at_system_time});
+        undrop->set_schema_object_kind($schema_object_kind);
+        undrop->set_is_if_not_exists($opt_if_not_exists);
+        $$ = undrop;
+      }
+    ;
 create_snapshot_table_statement:
     "CREATE" opt_or_replace "SNAPSHOT" "TABLE" opt_if_not_exists maybe_dashed_path_expression
      "CLONE" clone_data_source opt_options_list
@@ -2956,7 +3126,8 @@ create_table_statement:
     maybe_dashed_path_expression opt_table_element_list
     opt_spanner_table_options opt_like_path_expression opt_clone_table
     opt_copy_table opt_default_collate_clause opt_partition_by_clause_no_hint
-    opt_cluster_by_clause_no_hint opt_ttl_clause opt_options_list opt_as_query
+    opt_cluster_by_clause_no_hint opt_ttl_clause opt_with_connection_clause
+    opt_options_list opt_as_query
       {
         zetasql::ASTCreateStatement* create =
             MAKE_NODE(ASTCreateTableStatement, @$, {
@@ -2970,6 +3141,7 @@ create_table_statement:
               $opt_partition_by_clause_no_hint,
               $opt_cluster_by_clause_no_hint,
               $opt_ttl_clause,
+              $opt_with_connection_clause,
               $opt_options_list,
               $opt_as_query,
             });
@@ -2996,9 +3168,57 @@ aux_load_data_from_files_options_list:
       }
     ;
 
+opt_overwrite:
+    "OVERWRITE" { $$ = true; }
+    | %empty { $$ = false; }
+    ;
+
+load_data_partitions_clause:
+    opt_overwrite "PARTITIONS" "(" expression ")"
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_V_1_4_LOAD_DATA_PARTITIONS)) {
+            YYERROR_AND_ABORT_AT(
+              @2,
+              "LOAD DATA statement with PARTITIONS is not supported");
+        }
+        zetasql::ASTAuxLoadDataPartitionsClause* partitions_clause =
+            MAKE_NODE(ASTAuxLoadDataPartitionsClause, @$, {$4});
+        partitions_clause->set_is_overwrite($1);
+        $$ = partitions_clause;
+      }
+    ;
+
+opt_load_data_partitions_clause:
+    load_data_partitions_clause
+    | %empty { $$ = nullptr; }
+    ;
+
+maybe_dashed_path_expression_with_scope:
+    "TEMP" "TABLE" maybe_dashed_path_expression
+      {
+        $$.maybe_dashed_path_expression =
+            $3->GetAsOrDie<zetasql::ASTExpression>();
+        $$.is_temp_table = true;
+      }
+    | "TEMPORARY" "TABLE" maybe_dashed_path_expression
+      {
+        $$.maybe_dashed_path_expression =
+            $3->GetAsOrDie<zetasql::ASTExpression>();
+        $$.is_temp_table = true;
+      }
+    | maybe_dashed_path_expression
+      {
+        $$.maybe_dashed_path_expression =
+            $1->GetAsOrDie<zetasql::ASTExpression>();
+        $$.is_temp_table = false;
+      }
+    ;
+
 aux_load_data_statement:
     "LOAD" "DATA" append_or_overwrite
-    maybe_dashed_path_expression opt_table_element_list
+    maybe_dashed_path_expression_with_scope opt_table_element_list
+    opt_load_data_partitions_clause
     opt_collate_clause
     opt_partition_by_clause_no_hint
     opt_cluster_by_clause_no_hint
@@ -3009,9 +3229,19 @@ aux_load_data_statement:
         zetasql::ASTAuxLoadDataStatement* statement =
             MAKE_NODE(
                 ASTAuxLoadDataStatement, @$,
-                {$4, $5, $6, $7, $8, $9, $10, $11.with_partition_columns_clause,
-                 $11.with_connection_clause});
+                {$4.maybe_dashed_path_expression,
+                 $5, $6, $7, $8, $9, $10, $11,
+                 $12.with_partition_columns_clause,
+                 $12.with_connection_clause});
         statement->set_insertion_mode($3);
+        if (!parser->language_options().LanguageFeatureEnabled(
+            zetasql::FEATURE_V_1_4_LOAD_DATA_TEMP_TABLE)
+            && $4.is_temp_table) {
+            YYERROR_AND_ABORT_AT(
+              @4,
+              "LOAD DATA statement with TEMP TABLE is not supported");
+        }
+        statement->set_is_temp_table($4.is_temp_table);
         $$ = statement;
       }
     ;
@@ -3238,6 +3468,13 @@ array_column_schema_inner:
       }
     ;
 
+range_column_schema_inner:
+    "RANGE" "<" field_schema ">"
+      {
+        $$ = MAKE_NODE(ASTRangeColumnSchema, @$, {$3});
+      }
+    ;
+
 struct_column_field:
     // Unnamed fields cannot have OPTIONS annotation, because OPTIONS is not
     // a reserved keyword. More specifically, both
@@ -3293,6 +3530,7 @@ raw_column_schema_inner:
     simple_column_schema_inner
     | array_column_schema_inner
     | struct_column_schema_inner
+    | range_column_schema_inner
     ;
 
 column_schema_inner:
@@ -3719,7 +3957,7 @@ constraint_enforcement:
     | "NOT" "ENFORCED" { $$ = false; }
     ;
 
-// Matches either "TABLE" or "TABLE FUNCTION'. This encounters a shift/reduce
+// Matches either "TABLE" or "TABLE FUNCTION". This encounters a shift/reduce
 // conflict as noted in AMBIGUOUS CASE 3 in the file-level comment.
 table_or_table_function:
     "TABLE" "FUNCTION"
@@ -3773,7 +4011,7 @@ create_view_statement:
     opt_options_list as_query
       {
         auto* create =
-            MAKE_NODE(ASTCreateViewStatement, @$, {$7, $8, $8, $10, $11});
+            MAKE_NODE(ASTCreateViewStatement, @$, {$7, $8, $10, $11});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_recursive($4);
@@ -3788,7 +4026,7 @@ create_view_statement:
     opt_cluster_by_clause_no_hint opt_options_list as_query
       {
         auto* create = MAKE_NODE(
-          ASTCreateMaterializedViewStatement, @$, {$7, $8, $8, $10, $11, $12, $13});
+          ASTCreateMaterializedViewStatement, @$, {$7, $8, $10, $11, $12, $13});
         create->set_is_or_replace($2);
         create->set_recursive($4);
         create->set_scope(zetasql::ASTCreateStatement::DEFAULT_SCOPE);
@@ -3815,7 +4053,7 @@ opt_as_query_or_string :
 opt_as_query_or_aliased_query_list:
     as_query { $$ = $1; }
     | "AS" "(" aliased_query_list ")" { $$ = $3; }
-    | /* Nothing */ { $$ = nullptr; }
+    | /* Nothing */  %empty { $$ = nullptr; }
     ;
 
 opt_if_not_exists:
@@ -4100,7 +4338,7 @@ column_with_options_list:
 
 opt_column_with_options_list:
     column_with_options_list
-    | /* Nothing */ { $$ = nullptr; }
+    | /* Nothing */  %empty { $$ = nullptr; }
     ;
 
 grantee_list:
@@ -4186,10 +4424,15 @@ opt_copy_table:
     | %empty { $$ = nullptr; }
     ;
 
-// Returns AllOrDistinctKeyword::kDistinct for DISTINCT, kAllKeyword for ALL.
 all_or_distinct:
-    "ALL" { $$ = AllOrDistinctKeyword::kAll; }
-    | "DISTINCT" { $$ = AllOrDistinctKeyword::kDistinct; }
+    "ALL" {
+      $$ = MAKE_NODE(ASTSetOperationAllOrDistinct, @$, {});
+      $$->set_value(zetasql::ASTSetOperation::ALL);
+    }
+    | "DISTINCT" {
+      $$ = MAKE_NODE(ASTSetOperationAllOrDistinct, @$, {});
+      $$->set_value(zetasql::ASTSetOperation::DISTINCT);
+    }
     ;
 
 // Returns the token for a set operation as expected by
@@ -4197,15 +4440,18 @@ all_or_distinct:
 query_set_operation_type:
     "UNION"
       {
-        $$ = zetasql::ASTSetOperation::UNION;
+        $$ = MAKE_NODE(ASTSetOperationType, @$, {});
+        $$->set_value(zetasql::ASTSetOperation::UNION);
       }
     | KW_EXCEPT_IN_SET_OP
       {
-        $$ = zetasql::ASTSetOperation::EXCEPT;
+        $$ = MAKE_NODE(ASTSetOperationType, @$, {});
+        $$->set_value(zetasql::ASTSetOperation::EXCEPT);
       }
     | "INTERSECT"
       {
-        $$ = zetasql::ASTSetOperation::INTERSECT;
+        $$ = MAKE_NODE(ASTSetOperationType, @$, {});
+        $$->set_value(zetasql::ASTSetOperation::INTERSECT);
       }
     ;
 
@@ -4249,10 +4495,12 @@ query:
       {
         zetasql::ASTQuery* query = $query_primary->GetAsOrNull<
           zetasql::ASTQuery>();
-        // We could further reduce wrapping ASTQueries in each other but do not
-        // because it affects customary output and tests.
         if (query && !query->parenthesized()) {
           $$ = WithExtraChildren(query, {$order_by, $offset});
+        } else if (query && !$order_by && !$offset) {
+          // This means it is a query originally and there are no other clauses.
+          // So then wrapping it is semantically useless.
+          $$ = query;
         } else {
           $$ = MAKE_NODE(ASTQuery, @$, {$query_primary, $order_by, $offset});
         }
@@ -4267,32 +4515,29 @@ query:
 // operations but parentheses are supported to disambiguate.
 //
 query_set_operation_prefix:
-    query_primary query_set_operation_type opt_hint all_or_distinct
-    query_primary
+    query_primary[left_query] query_set_operation_type opt_hint all_or_distinct
+    query_primary[right_query]
       {
-        auto* set_op = MAKE_NODE(ASTSetOperation, @$, {$3, $1, $5});
-        set_op->set_op_type($2);
-        set_op->set_distinct($4 == AllOrDistinctKeyword::kDistinct);
-        $$ = set_op;
+        auto* metadata = MAKE_NODE(
+              ASTSetOperationMetadata, @query_set_operation_type, @all_or_distinct,
+              {$query_set_operation_type, $all_or_distinct, $opt_hint});
+
+        auto* metadata_list =
+            MAKE_NODE(ASTSetOperationMetadataList, @query_set_operation_type,
+                      @all_or_distinct, {metadata});
+
+        $$ = MAKE_NODE(ASTSetOperation, @$,
+                      {metadata_list, $left_query, $right_query});
       }
-    | query_set_operation_prefix query_set_operation_type opt_hint all_or_distinct
-      query_primary
+    | query_set_operation_prefix[prefix] query_set_operation_type opt_hint
+      all_or_distinct query_primary
       {
-        zetasql::ASTSetOperation* set_op = $1;
-        if (set_op->op_type() != $2 ||
-            set_op->distinct() != ($4 == AllOrDistinctKeyword::kDistinct)) {
-          YYERROR_AND_ABORT_AT(
-              @2,
-              "Syntax error: Different set operations cannot be used in the "
-              "same query without using parentheses for grouping");
-        }
-        if (/*hint*/$3) {
-          YYERROR_AND_ABORT_AT(
-              @3,
-              "Syntax error: Hints on set operations must appear on the first "
-              " operation.");
-        }
-        $$ = WithExtraChildren(set_op, {$5});
+        auto* metadata = MAKE_NODE(
+              ASTSetOperationMetadata, @query_set_operation_type, @all_or_distinct,
+              {$query_set_operation_type, $all_or_distinct, $opt_hint});
+
+        $prefix->mutable_child(0)->AddChild(metadata);
+        $$ = WithExtraChildren($prefix, {$query_primary});
       }
     ;
 
@@ -4901,6 +5146,10 @@ table_subquery:
           query->set_is_pivot_input(true);
         }
         query->set_is_nested(true);
+        // As we set is_nested true, if parenthesized is also true, then
+        // we print two sets of brackets in very disorderly way.
+        // So set parenthesized to false.
+        query->set_parenthesized(false);
         $$ = MAKE_NODE(ASTTableSubquery, @$, {
             $query, $clauses.alias, $clauses.pivot_clause, $clauses.unpivot_clause, $sample});
       }
@@ -5611,7 +5860,7 @@ opt_null_handling_modifier:
 aliased_query:
     identifier "AS" parenthesized_query[query]
       {
-        $$ = MAKE_NODE(ASTWithClauseEntry, @$, {$1, $query});
+        $$ = MAKE_NODE(ASTAliasedQuery, @$, {$1, $query});
       }
     ;
 
@@ -5960,19 +6209,10 @@ expression:
     { $$ = $e; }
   | parenthesized_query[query]
     {
-      // Unwrap a stack of meaningless empty queries
-      zetasql::ASTQuery* query = $query;
-      while (query->IsTrivialWrapperQuery()) {
-        zetasql::ASTQuery* child = query->mutable_child(0)
-          ->GetAsOrNull<zetasql::ASTQuery>();
-        if (child) {
-          query = child;
-        } else {
-          break;
-        }
-      }
-      query->set_parenthesized(false);
-      $$ = MAKE_NODE(ASTExpressionSubquery, @query, {query});
+      // As the query ASTExpressionSubquery already has parentheses, set this
+      // flag to false to avoid a double nesting like SELECT ((SELECT 1)).
+      $query->set_parenthesized(false);
+      $$ = MAKE_NODE(ASTExpressionSubquery, @query, {$query});
     }
   ;
 
@@ -7161,6 +7401,10 @@ braced_constructor_field:
       {
         $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$1, $2});
       }
+    | label braced_constructor_field_value
+      {
+        $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$1, $2});
+      }
     ;
 
 braced_constructor_start:
@@ -8203,6 +8447,7 @@ keyword_as_identifier:
     | "ALTER"
     | "ANONYMIZATION"
     | "ANALYZE"
+    | "ARE"
     | "ASSERT"
     | "BATCH"
     | "BEGIN"
@@ -8275,6 +8520,7 @@ keyword_as_identifier:
     | "LEVEL"
     | "LOAD"
     | "LOOP"
+    | "MACRO"
     | "MATCH"
     | "MATCHED"
     | "MATERIALIZED"
@@ -8290,6 +8536,7 @@ keyword_as_identifier:
     | "OUT"
     | "OUTPUT"
     | "OVERWRITE"
+    | "PARTITIONS"
     | "PERCENT"
     | "PIVOT"
     | "POLICIES"
@@ -8301,6 +8548,13 @@ keyword_as_identifier:
     | "PROCEDURE"
     | "PUBLIC"
     | KW_QUALIFY_NONRESERVED
+      {
+          // TODO: this warning should point to documentation once
+          // we have the engine-specific root URI to use.
+          parser->AddWarning(parser->GenerateWarningForFutureKeywordReservation(
+                                        zetasql::parser::kQualify,
+                                        (@1).begin.column));
+      }
     | "RAISE"
     | "READ"
     | "REFERENCES"
@@ -8336,6 +8590,7 @@ keyword_as_identifier:
     | "SYSTEM"
     | "SYSTEM_TIME"
     | "TABLE"
+    | "TABLES"
     | "TARGET"
     | "TEMP"
     | "TEMPORARY"
@@ -8345,6 +8600,7 @@ keyword_as_identifier:
     | "TRANSFORM"
     | "TRUNCATE"
     | "TYPE"
+    | "UNDROP"
     | "UNIQUE"
     | "UNKNOWN"
     | "UNPIVOT"
@@ -9789,6 +10045,8 @@ next_statement_kind_without_hint:
     | next_statement_kind_parenthesized_select
     | "DEFINE" "TABLE"
       { $$ = zetasql::ASTDefineTableStatement::kConcreteNodeKind; }
+    | "DEFINE" "MACRO"
+      { $$ = zetasql::ASTDefineMacroStatement::kConcreteNodeKind; }
     | "EXECUTE" "IMMEDIATE"
       { $$ = zetasql::ASTExecuteImmediateStatement::kConcreteNodeKind; }
     | "EXPORT" "DATA"
@@ -9918,7 +10176,7 @@ next_statement_kind_without_hint:
       opt_like_path_expression opt_clone_table opt_copy_table
       opt_default_collate_clause
       opt_partition_by_clause_no_hint
-      opt_cluster_by_clause_no_hint opt_options_list
+      opt_cluster_by_clause_no_hint opt_with_connection_clause opt_options_list
       next_statement_kind_create_table_opt_as_or_semicolon
       {
         $$ = zetasql::ASTCreateTableStatement::kConcreteNodeKind;
@@ -9996,6 +10254,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTForInStatement::kConcreteNodeKind; }
     | label ":" "REPEAT"
       { $$ = zetasql::ASTRepeatStatement::kConcreteNodeKind; }
+    | "UNDROP" schema_object_kind
+      { $$ = zetasql::ASTUndropStatement::kConcreteNodeKind; }
     ;
 
 // Spanner-specific non-terminal definitions

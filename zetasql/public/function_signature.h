@@ -28,7 +28,6 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/function.pb.h"
@@ -39,8 +38,7 @@
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
-#include <cstdint>
-#include "absl/memory/memory.h"
+#include "absl/base/macros.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
@@ -59,6 +57,10 @@ class TVFRelation;
 
 typedef std::vector<FunctionArgumentType> FunctionArgumentTypeList;
 
+constexpr static auto kPositionalOnly = FunctionEnums::POSITIONAL_ONLY;
+constexpr static auto kPositionalOrNamed = FunctionEnums::POSITIONAL_OR_NAMED;
+constexpr static auto kNamedOnly = FunctionEnums::NAMED_ONLY;
+
 // This class specifies options on a function argument, including
 // argument cardinality.  This includes some options that are used to specify
 // argument values that are illegal and should cause an analysis error.
@@ -67,6 +69,7 @@ class FunctionArgumentTypeOptions {
   typedef FunctionEnums::ProcedureArgumentMode ProcedureArgumentMode;
   typedef FunctionEnums::ArgumentCardinality ArgumentCardinality;
   typedef FunctionEnums::ArgumentCollationMode ArgumentCollationMode;
+  typedef FunctionEnums::NamedArgumentKind NamedArgumentKind;
 
   FunctionArgumentTypeOptions() = default;
 
@@ -137,9 +140,12 @@ class FunctionArgumentTypeOptions {
     ZETASQL_DCHECK(has_argument_name());
     return argument_name_;
   }
-  bool argument_name_is_mandatory() const {
-    return argument_name_is_mandatory_;
-  }
+
+  // Determines whether the argument name must or must not be specified when the
+  // associated function is called. When not <has_argument_name()>, this is
+  // irrelevant.
+  NamedArgumentKind named_argument_kind() const { return named_argument_kind_; }
+
   ProcedureArgumentMode procedure_argument_mode() const {
     return procedure_argument_mode_;
   }
@@ -207,13 +213,15 @@ class FunctionArgumentTypeOptions {
     extra_relation_input_columns_allowed_ = v;
     return *this;
   }
-  FunctionArgumentTypeOptions& set_argument_name(absl::string_view name) {
+  FunctionArgumentTypeOptions& set_argument_name(absl::string_view name,
+                                                 NamedArgumentKind kind) {
     argument_name_ = name;
+    named_argument_kind_ = kind;
     return *this;
   }
-  FunctionArgumentTypeOptions& set_argument_name_is_mandatory(bool value) {
-    argument_name_is_mandatory_ = value;
-    return *this;
+  ABSL_DEPRECATED("Inline me!")
+  FunctionArgumentTypeOptions& set_argument_name(absl::string_view name) {
+    return set_argument_name(name, zetasql::kPositionalOrNamed);
   }
   FunctionArgumentTypeOptions& set_procedure_argument_mode(
       ProcedureArgumentMode mode) {
@@ -401,6 +409,10 @@ class FunctionArgumentTypeOptions {
   ArgumentCollationMode argument_collation_mode_ =
       FunctionEnums::AFFECTS_OPERATION_AND_PROPAGATION;
 
+  // Determines whether the argument name must or must not be specified when the
+  // associated function is called.
+  NamedArgumentKind named_argument_kind_ = FunctionEnums::POSITIONAL_ONLY;
+
   // If true on function input argument, uses the array element's collation when
   // calculating the function's propagation or operation collation.
   // If true on function's result_type, the propagation collation should be set
@@ -459,11 +471,6 @@ class FunctionArgumentTypeOptions {
   // those required in 'relation_input_schema_'. Otherwise, ZetaSQL rejects
   // the query if the provided relation contains such extra columns.
   bool extra_relation_input_columns_allowed_ = true;
-
-  // If true, and the 'argument_name_' field is non-empty, the function call
-  // must refer to the argument by name only. The resolver will return an error
-  // if the function call attempts to refer to the argument positionally.
-  bool argument_name_is_mandatory_ = false;
 
   // Copyable
 };
@@ -544,6 +551,14 @@ class FunctionArgumentType {
   static FunctionArgumentType Lambda(
       FunctionArgumentTypeList lambda_argument_types,
       FunctionArgumentType lambda_body_type);
+
+  // Construct a lambda argument type with lambda_argument_types,
+  // lambda_body_type and options. This argument will accept
+  // lambdas with the specified argument types and body type.
+  static FunctionArgumentType Lambda(
+      FunctionArgumentTypeList lambda_argument_types,
+      FunctionArgumentType lambda_body_type,
+      FunctionArgumentTypeOptions options);
 
   // Construct a relation argument type for a table-valued function.
   //
@@ -665,12 +680,25 @@ class FunctionArgumentType {
   // allowed.
   std::string UserFacingName(ProductMode product_mode) const;
 
+  // When printing the argument with cardinality, this enum controls whether
+  // argument names are printed.
+  enum class NamePrintingStyle {
+    // Prints argument names with their type when `named_argument_kind()` is
+    // not `POSITIONAL_ONLY`.
+    kIfNotPositionalOnly,
+
+    // Prints argument names with their type when `named_argument_kind()` is
+    // `NAMED_ONLY`.
+    kIfNamedOnly,
+  };
+
   // Returns user facing text for the argument including argument cardinality
   // (to be used in error message):
   //   - required, just argument type, e.g. INT64
   //   - optional, argument type enclosed in [], e.g. [INT64]
   //   - repeated, argument type enclosed in [] with ..., e.g. [INT64, ...]
-  std::string UserFacingNameWithCardinality(ProductMode product_mode) const;
+  std::string UserFacingNameWithCardinality(
+      ProductMode product_mode, NamePrintingStyle print_style) const;
 
   // Checks concrete arguments to validate the number of occurrences.
   absl::Status IsValid(ProductMode product_mode) const;
@@ -747,6 +775,143 @@ class FunctionArgumentType::ArgumentTypeLambda {
   FunctionArgumentType body_type_;
 };
 
+// Configures a built-in ResolvedAST rewriter to replace calls to a function
+// signature with a `ResolvedExpr` that expresses the function logic. Rewriting
+// typically happens as the last step in statement analysis. Some clients
+// disable rewriting during analysis and separately run `RewriteResolvedAST`.
+// See ./analyzer.h for more details.
+//
+// Glossary:
+// 'direct implementation': An implementation of a SQL function's logic in C++
+//     or whatever language the query engine is implemented in.
+// 'rewrite implementation': An implementation of a SQL function's logic by
+//     replacing the `ResolvedFunctionCall` with a `ResolvedExpr` that
+//     implements the appropriate logic.
+// 'ResolvedAST rewriter': A component of the analyzer that transforms one
+//     ResolvedAST shape into another semantically equivalent ResolvedAST shape.
+//
+// Configuring rewrite implementations is appropriate for built-in functions
+// that are part of ZetaSQL's core function library.
+//
+// For now (Q1'23) these options should only be used for ZetaSQL core library
+// functions because the APIs are still in development and are not yet stable.
+// TODO: Replace the above paragraph with a link to the user
+//     documentation for engines once it is published.
+//
+// The `rewrite` field identifies which ResolvedAST rewriter will be used to
+// implement this function. See `ResolvedASTRewite` and files in
+// '../analyzer/rewriters/*' for more.
+//
+// The `enabled` field controls whether the analyzer performs the rewriting for
+// this `FunctionSignature`. The `false` state is set for built-in functions to
+// provide off-by-default rewrite implementations. Engines can also set
+// `enabled` to `false` to disable the rewrite implementation for this
+// `FunctionSignature` when they provide an optimized direct implementation.
+// TODO: Document enabling and disabling rewrites once mutable
+//     accessors are checked in.
+//
+// ## Inspecting rewrite configuration of built-in functions for an engine.
+//
+// Engine code that sets up a ZetaSQL `Catalog` typically calls
+// `GetZetaSQLFunctionsAndTypes` (found in ./builtin_function.h) to get the
+// function signatures for ZetaSQL core library functions. Some engines add
+// all the returned `FunctionSignature`s to the catalog, while other engines
+// filter the set to only implemented functions. Engines that filter might want
+// to consider the rewrite configuration in the filter. For example, an engine
+// that wants to allow functions it has direct evaluators for and functions with
+// rewrite implementations, might write code like this:
+//
+// ```c++
+// zetasql::LanguageOptions language_opts = GetLanguageOptions();
+// zetasql::TypeFactory* type_factory = GetTypeFactory();
+// zetasql::ZetaSQLBuiltinFunctionOptions function_opts(language_opts);
+// zetasql::NameToFunctionMap function_map;
+// zetasql::NameToTypeMap types_map;
+// ZETASQL_CHECK_OK(zetasql::GetZetaSQLFunctionsAndTypes(
+//     &type_factory, function_opts, &function_map, &types_map));
+//
+// for (const auto& [name, function] : function_map) {
+//   std::vector<zetasql::FunctionSignature> allowed_signatures;
+//   for (int i = 0; i < function->NumSignatures(); ++i) {
+//     const zetasql::FunctionSignature* signature =
+//         function->GetSignature(i);
+//     bool has_rewrite_impl = signature->HasEnabledRewriteImplementation();
+//     bool has_direct_impl = my_engine::HasDirectEvaluator(signature);
+//     if (has_rewrite_impl || has_direct_impl) {
+//       allowed_signatures.push_back(*signature);
+//     }
+//   }
+//   if (!allowed_signatures.empty()) {
+//     AddToCatalog(function, allowed_signatures);
+//   }
+// }
+// ```
+//
+// ## Adjusting rewrite configuration of built-in functions for an engine.
+//
+// Engine code that sets up a ZetaSQL `Catalog` typically calls
+// `GetZetaSQLFunctionsAndTypes` (found in ./builtin_function.h) to get all
+// the function signatures for ZetaSQL core library functions. Some engines
+// might want to change some of the fields in `FunctionSignatureRewriteOptions`
+// to enable/disable the rewrite implementation for the function signature or to
+// change other fields in this configuration. The `FunctionSignature` API is not
+// conducive to adjusting rewrite configuration right now because it doesn't
+// have getters for mutable access.
+// TODO: Add mutable getters to enable this usecase and
+//     provide an example use here.
+class FunctionSignatureRewriteOptions {
+ public:
+  FunctionSignatureRewriteOptions() = default;
+
+  // When true, and the AnalyzerOptions enable `rewrite()`, the rewriting phase
+  // of the analyzer will attempt to replace calls to this function signature
+  // with a ResolvedAST fragment that implements it. If this is false, or if
+  // `rewrite()` is not enabled, this function signature is not subject to
+  // rewrite implementation.
+  bool enabled() const { return enabled_; }
+  FunctionSignatureRewriteOptions& set_enabled(bool value) {
+    enabled_ = value;
+    return *this;
+  }
+
+  // Identify the ResolvedAST rewriter used to implement this function
+  // signature.
+  ResolvedASTRewrite rewriter() const { return rewriter_; }
+  FunctionSignatureRewriteOptions& set_rewriter(ResolvedASTRewrite rewriter) {
+    rewriter_ = rewriter;
+    return *this;
+  }
+
+  // SQL expression implementing the logic of this function. Depending on which
+  // ResolvedAST rewriter is used, it may or may not expect this field to be
+  // filled. See the ResolvedAST rewriter specified in `rewrite()` for
+  // specific documentation reguarding the requirements of this SQL.
+  //
+  // For example, the `REWRITE_BUILTIN_FUNCTION_INLINER` ResolvedAST rewriter
+  // requires a SQL definition of the function to be specified here. The SQL
+  // definition does not need to handle as-if-once semantics of arguments or
+  // differentiation of SAFE mode calls. It does need to do any appropriate
+  // handling of `NULL` argument values and should produce runtime errors using
+  // the `ERROR(...)` function. Arguments are referenced by the name supplied in
+  // the `FunctionArgumentTypeOptions`.
+  absl::string_view sql() const { return sql_; }
+  FunctionSignatureRewriteOptions& set_sql(absl::string_view sql) {
+    sql_ = std::string(sql);
+    return *this;
+  }
+
+  static absl::Status Deserialize(
+      const FunctionSignatureRewriteOptionsProto& proto,
+      FunctionSignatureRewriteOptions& result);
+
+  void Serialize(FunctionSignatureRewriteOptionsProto* proto) const;
+
+ private:
+  bool enabled_ = true;
+  ResolvedASTRewrite rewriter_ = ResolvedASTRewrite::REWRITE_INVALID_DO_NOT_USE;
+  std::string sql_;
+};
+
 // Returns whether the concrete argument list is valid for a matched concrete
 // FunctionSignature.
 // It is guaranteed that the passed in signature is concrete and the input
@@ -776,8 +941,8 @@ class FunctionSignatureOptions {
   bool is_deprecated() const { return is_deprecated_; }
 
   // Setter/getter for whether this is an internal function signature. If so,
-  // the analyzer won't match the function call with it when the related
-  // function is called by a user.
+  // the analyzer won't match this signature when the function name is called
+  // by a user.
   FunctionSignatureOptions& set_is_internal(bool value) {
     is_internal_ = value;
     return *this;
@@ -882,6 +1047,26 @@ class FunctionSignatureOptions {
     return *this;
   }
 
+  // Sets options related to a rewrite implementation of this function
+  // signature.
+  FunctionSignatureOptions& set_rewrite_options(
+      FunctionSignatureRewriteOptions options) {
+    rewrite_options_ = options;
+    return *this;
+  }
+
+  // Returns options related to a rewrite implementation of this function
+  // signature.
+  const std::optional<FunctionSignatureRewriteOptions>& rewrite_options()
+      const {
+    return rewrite_options_;
+  }
+
+  // Returns a non-const reference to the function inlining configuration.
+  std::optional<FunctionSignatureRewriteOptions>& mutable_rewrite_options() {
+    return rewrite_options_;
+  }
+
   static absl::Status Deserialize(
       const FunctionSignatureOptionsProto& proto,
       std::unique_ptr<FunctionSignatureOptions>* result);
@@ -944,6 +1129,9 @@ class FunctionSignatureOptions {
   // of the function has collation.
   bool rejects_collation_ = false;
 
+  // Configures a rewrite implementation of this function signature.
+  std::optional<FunctionSignatureRewriteOptions> rewrite_options_;
+
   // Copyable.
 };
 
@@ -1000,13 +1188,6 @@ class FunctionSignature {
   }
 
   ~FunctionSignature() {}
-
-  ABSL_DEPRECATED("Inline me!")
-  static absl::Status Deserialize(
-      const FunctionSignatureProto& proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      TypeFactory* factory,
-      std::unique_ptr<FunctionSignature>* result);
 
   static absl::StatusOr<std::unique_ptr<FunctionSignature>> Deserialize(
       const FunctionSignatureProto& proto,
@@ -1143,6 +1324,9 @@ class FunctionSignature {
     return options_.additional_deprecation_warnings();
   }
 
+  // Returns a non-const reference to the function signature options.
+  FunctionSignatureOptions& mutable_options() { return options_; }
+
   void SetAdditionalDeprecationWarnings(
       const std::vector<FreestandingDeprecationWarning>& warnings) {
     options_.set_additional_deprecation_warnings(warnings);
@@ -1168,6 +1352,11 @@ class FunctionSignature {
                             return arg_type.HasDefault();
                           });
   }
+
+  // Returns true if a rewrite implementatation is configured for this
+  // function signature (when `rewrite_options` has a value) and it is enabled.
+  // See `FunctionSignatureRewriteOptions` for details.
+  bool HasEnabledRewriteImplementation() const;
 
  private:
   bool ComputeIsConcrete() const;

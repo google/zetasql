@@ -23,6 +23,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -32,6 +33,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/filter_fields_path_validator.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/constant.h"
@@ -51,7 +53,9 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "zetasql/base/case.h"
+#include "absl/algorithm/container.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -83,6 +87,25 @@
 #define VALIDATOR_RET_CHECK_OK(s) ZETASQL_RET_CHECK_OK(s) << RecordContext()
 
 namespace zetasql {
+
+static absl::Status GetStackOverflowStatus() {
+  // Status object returned when the stack overflows. Used to avoid
+  // RETURN_ERROR, which may end up calling GoogleOnceInit methods on
+  // GenericErrorSpace, which in turn would require more stack while the
+  // stack is already overflowed.
+  static absl::Status* overflow = new absl::Status(
+      absl::StatusCode::kResourceExhausted,
+      "Out of stack space due to deeply nested query expression during query"
+      " validation");
+  return *overflow;
+}
+
+#define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()                                 \
+  if (!::zetasql::ThreadHasEnoughStack()) {                                \
+    ZETASQL_LOG(INFO) << "Out of stack space due to deeply nested query expression " \
+              << "during query validation";                                  \
+    return ::zetasql::GetStackOverflowStatus();                            \
+  }
 
 Validator::Validator(const LanguageOptions& language_options,
                      ValidatorOptions validator_options)
@@ -169,6 +192,7 @@ absl::Status Validator::ValidateResolvedExprList(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const std::vector<std::unique_ptr<const ResolvedExpr>>& expr_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   for (const auto& expr_iter : expr_list) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                          expr_iter.get()));
@@ -181,6 +205,7 @@ absl::Status Validator::ValidateResolvedFunctionArgumentList(
     const std::set<ResolvedColumn>& visible_parameters,
     const std::vector<std::unique_ptr<const ResolvedFunctionArgument>>&
         expr_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   for (const auto& expr_iter : expr_list) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedFunctionArgument(
         visible_columns, visible_parameters, expr_iter.get()));
@@ -192,6 +217,7 @@ absl::Status Validator::ValidateResolvedCast(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedCast* resolved_cast) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, resolved_cast);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                        resolved_cast->expr()));
@@ -241,6 +267,7 @@ absl::Status Validator::ValidateResolvedConstant(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedConstant* resolved_constant) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, resolved_constant);
 
   VALIDATOR_RET_CHECK(resolved_constant->constant() != nullptr)
@@ -340,6 +367,7 @@ absl::Status Validator::ValidateResolvedFunctionCallBase(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedFunctionCallBase* resolved_function_call) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, resolved_function_call);
 
   VALIDATOR_RET_CHECK(resolved_function_call->function() != nullptr)
@@ -441,6 +469,7 @@ absl::Status Validator::ValidateResolvedExpr(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedExpr* expr) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, expr);
 
   VALIDATOR_RET_CHECK(nullptr != expr);
@@ -732,7 +761,8 @@ absl::Status Validator::ValidateResolvedGetProtoFieldExpr(
                                   ->descriptor()
                                   ->file()
                                   ->syntax() ==
-                              google::protobuf::FileDescriptor::SYNTAX_PROTO3);
+                              google::protobuf::FileDescriptor::SYNTAX_PROTO3
+      );
     }
     VALIDATOR_RET_CHECK(get_proto_field->default_value().is_valid());
     VALIDATOR_RET_CHECK(get_proto_field->type()->Equals(
@@ -1042,6 +1072,7 @@ absl::Status Validator::ValidateResolvedComputedColumn(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedComputedColumn* computed_column) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   VALIDATOR_RET_CHECK(nullptr != computed_column);
   PushErrorContext push(this, computed_column);
 
@@ -1071,6 +1102,7 @@ absl::Status Validator::ValidateResolvedComputedColumnList(
     const std::set<ResolvedColumn>& visible_parameters,
     const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
         computed_column_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   for (const auto& computed_column : computed_column_list) {
     ZETASQL_RETURN_IF_ERROR(
         ValidateResolvedComputedColumn(visible_columns, visible_parameters,
@@ -1082,6 +1114,7 @@ absl::Status Validator::ValidateResolvedComputedColumnList(
 absl::Status Validator::ValidateResolvedOutputColumn(
     const std::set<ResolvedColumn>& visible_columns,
     const ResolvedOutputColumn* output_column) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   VALIDATOR_RET_CHECK(nullptr != output_column);
   PushErrorContext push(this, output_column);
   ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(
@@ -1094,6 +1127,7 @@ absl::Status Validator::ValidateResolvedOutputColumnList(
     const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
         output_column_list,
     bool is_value_table) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   VALIDATOR_RET_CHECK(!output_column_list.empty())
       << "Statement must produce at least one output column";
   const std::set<ResolvedColumn> visible_columns_set(
@@ -1168,6 +1202,7 @@ absl::Status Validator::AddColumnsFromComputedColumnList(
 absl::Status Validator::ValidateResolvedTableScan(
     const ResolvedTableScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   const Table* table = scan->table();
@@ -1216,6 +1251,7 @@ absl::Status Validator::ValidateResolvedTableScan(
 absl::Status Validator::ValidateResolvedJoinScan(
     const ResolvedJoinScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK(nullptr != scan->left_scan());
@@ -1252,6 +1288,7 @@ absl::Status Validator::ValidateResolvedJoinScan(
 absl::Status Validator::ValidateResolvedArrayScan(
     const ResolvedArrayScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   std::set<ResolvedColumn> visible_columns;
@@ -1290,6 +1327,7 @@ absl::Status Validator::ValidateResolvedArrayScan(
 absl::Status Validator::ValidateResolvedFilterScan(
     const ResolvedFilterScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK(nullptr != scan->input_scan());
@@ -1310,6 +1348,7 @@ absl::Status Validator::ValidateResolvedAggregateComputedColumn(
     const ResolvedComputedColumn* computed_column,
     const std::set<ResolvedColumn>& input_scan_visible_columns,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, computed_column);
   VALIDATOR_RET_CHECK_EQ(computed_column->expr()->node_kind(),
                          RESOLVED_AGGREGATE_FUNCTION_CALL);
@@ -1324,6 +1363,7 @@ absl::Status Validator::ValidateResolvedAggregateScanBase(
     const ResolvedAggregateScanBase* scan,
     const std::set<ResolvedColumn>& visible_parameters,
     std::set<ResolvedColumn>* input_scan_visible_columns) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK(nullptr != scan->input_scan());
@@ -1362,6 +1402,7 @@ absl::Status Validator::ValidateResolvedAggregateScanBase(
 absl::Status Validator::ValidateResolvedAggregateScan(
     const ResolvedAggregateScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   std::set<ResolvedColumn> input_scan_visible_columns;
@@ -1429,6 +1470,7 @@ absl::Status Validator::ValidateResolvedAggregateScan(
 absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
     const ResolvedAnonymizedAggregateScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   std::set<ResolvedColumn> input_scan_visible_columns;
@@ -1439,8 +1481,68 @@ absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
                                                    &visible_columns));
   if (scan->k_threshold_expr() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(
-        scan->k_threshold_expr()->column(), visible_columns));
+    VALIDATOR_RET_CHECK(scan->k_threshold_expr()->Is<ResolvedExpr>());
+    if (scan->k_threshold_expr()->Is<ResolvedColumnRef>()) {
+      ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(
+          scan->k_threshold_expr()->GetAs<ResolvedColumnRef>()->column(),
+          visible_columns));
+    } else if (scan->k_threshold_expr()->Is<ResolvedGetProtoField>()) {
+      // We expect k_threshold_expr be exactly of the following structure:
+      // ResolvedGetProtoField -> ResolvedGetProtoField -> ResolvedColumnRef.
+      // This structure is guaranteed because k_threshold_expr of this form is
+      // being constructed in th anonymization_rewriter in the cases when
+      // the user query contains unique users count in it and the output type is
+      // report (format=PROTO).
+      VALIDATOR_RET_CHECK(scan->k_threshold_expr()
+                              ->GetAs<ResolvedGetProtoField>()
+                              ->expr()
+                              ->Is<ResolvedGetProtoField>());
+      VALIDATOR_RET_CHECK(scan->k_threshold_expr()
+                              ->GetAs<ResolvedGetProtoField>()
+                              ->expr()
+                              ->GetAs<ResolvedGetProtoField>()
+                              ->expr()
+                              ->Is<ResolvedColumnRef>());
+      ZETASQL_RETURN_IF_ERROR(
+          CheckColumnIsPresentInColumnSet(scan->k_threshold_expr()
+                                              ->GetAs<ResolvedGetProtoField>()
+                                              ->expr()
+                                              ->GetAs<ResolvedGetProtoField>()
+                                              ->expr()
+                                              ->GetAs<ResolvedColumnRef>()
+                                              ->column(),
+                                          visible_columns));
+    } else if (scan->k_threshold_expr()->Is<ResolvedFunctionCall>()) {
+      // We expect k_threshold_expr have exactly the following structure:
+      // ResolvedFunctionCall -> ResolvedFunctionCall  -> ResolvedColumnRef.
+      // This structure is guaranteed because k_threshold_expr of this form is
+      // being constructed in the anonymization_rewriter in the cases when the
+      // user query contains unique users count in it and the output type is
+      // report (format=JSON).
+      VALIDATOR_RET_CHECK(scan->k_threshold_expr()
+                              ->GetAs<ResolvedFunctionCall>()
+                              ->argument_list(0)
+                              ->Is<ResolvedFunctionCall>());
+      VALIDATOR_RET_CHECK(scan->k_threshold_expr()
+                              ->GetAs<ResolvedFunctionCall>()
+                              ->argument_list(0)
+                              ->GetAs<ResolvedFunctionCall>()
+                              ->argument_list(0)
+                              ->Is<ResolvedColumnRef>());
+      ZETASQL_RETURN_IF_ERROR(
+          CheckColumnIsPresentInColumnSet(scan->k_threshold_expr()
+                                              ->GetAs<ResolvedFunctionCall>()
+                                              ->argument_list(0)
+                                              ->GetAs<ResolvedFunctionCall>()
+                                              ->argument_list(0)
+                                              ->GetAs<ResolvedColumnRef>()
+                                              ->column(),
+                                          visible_columns));
+    } else {
+      VALIDATOR_RET_CHECK_FAIL()
+          << "Unexpected expression type for k_threshold_expr: "
+          << scan->k_threshold_expr()->node_kind_string();
+    }
   }
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->group_by_list(),
                                                    &visible_columns));
@@ -1464,7 +1566,7 @@ absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
       VALIDATOR_RET_CHECK_FAIL()
           << "Invalid anonymization option name: " << option->name();
     }
-    const Type* expected_option_type = iter->second;
+    const Type* expected_option_type = iter->second.type;
     if (expected_option_type != nullptr) {
       VALIDATOR_RET_CHECK(
           option->value()->type()->Equals(expected_option_type));
@@ -1473,6 +1575,65 @@ absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
                                          option->value()));
   }
 
+  VALIDATOR_RET_CHECK(
+      language_options_.LanguageFeatureEnabled(FEATURE_ANONYMIZATION))
+      << "SELECT WITH ANONYMIZATION is not supported";
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedDifferentialPrivacyAggregateScan(
+    const ResolvedDifferentialPrivacyAggregateScan* scan,
+    const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  PushErrorContext push(this, scan);
+
+  std::set<ResolvedColumn> input_scan_visible_columns;
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedAggregateScanBase(
+      scan, visible_parameters, &input_scan_visible_columns));
+
+  std::set<ResolvedColumn> visible_columns;
+  ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
+                                                   &visible_columns));
+  if (scan->group_selection_threshold_expr() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        ValidateResolvedExpr(visible_columns, visible_parameters,
+                             scan->group_selection_threshold_expr()));
+    VALIDATOR_RET_CHECK_EQ(scan->group_selection_threshold_expr()->type(),
+                           types::Int64Type());
+  }
+  ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->group_by_list(),
+                                                   &visible_columns));
+  ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
+
+  for (const auto& computed_column : scan->aggregate_list()) {
+    VALIDATOR_RET_CHECK_EQ(computed_column->expr()->node_kind(),
+                           RESOLVED_AGGREGATE_FUNCTION_CALL);
+  }
+
+  for (const auto& option : scan->option_list()) {
+    VALIDATOR_RET_CHECK(option->qualifier().empty())
+        << "Differential privacy options must not have a qualifier, but found "
+        << option->qualifier();
+    auto iter =
+        options_.allowed_hints_and_options.differential_privacy_options_lower
+            .find(absl::AsciiStrToLower(option->name()));
+    if (iter == options_.allowed_hints_and_options
+                    .differential_privacy_options_lower.end()) {
+      VALIDATOR_RET_CHECK_FAIL()
+          << "Invalid differential privacy option name: " << option->name();
+    }
+    const Type* expected_option_type = iter->second.type;
+    if (expected_option_type != nullptr) {
+      VALIDATOR_RET_CHECK(
+          option->value()->type()->Equals(expected_option_type));
+    }
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(input_scan_visible_columns,
+                                         visible_parameters, option->value()));
+  }
+
+  VALIDATOR_RET_CHECK(
+      language_options_.LanguageFeatureEnabled(FEATURE_DIFFERENTIAL_PRIVACY))
+      << "SELECT WITH DIFFERENTIAL_PRIVACY is not supported";
   return absl::OkStatus();
 }
 
@@ -1511,6 +1672,7 @@ absl::Status Validator::ValidatePercentArgument(const ResolvedExpr* expr) {
 absl::Status Validator::ValidateResolvedSampleScan(
     const ResolvedSampleScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK(nullptr != scan->input_scan());
@@ -1565,6 +1727,7 @@ absl::Status Validator::CheckUniqueColumnId(const ResolvedColumn& column) {
 absl::Status Validator::ValidateResolvedAnalyticScan(
     const ResolvedAnalyticScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK(nullptr != scan->input_scan());
@@ -1594,6 +1757,7 @@ absl::Status Validator::ValidateResolvedAnalyticFunctionGroup(
     const ResolvedAnalyticFunctionGroup* group,
     const std::set<ResolvedColumn>& input_visible_columns,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, group);
 
   for (const auto& computed_column : group->analytic_function_list()) {
@@ -1717,6 +1881,7 @@ absl::Status Validator::ValidateResolvedWindowFrame(
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedWindowOrdering* window_ordering,
     const ResolvedWindowFrame* window_frame) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, window_frame);
   VALIDATOR_RET_CHECK(window_frame->start_expr() != nullptr &&
                       window_frame->end_expr() != nullptr)
@@ -1879,6 +2044,7 @@ absl::Status Validator::ValidateResolvedSetOperationItem(
 absl::Status Validator::ValidateResolvedSetOperationScan(
     const ResolvedSetOperationScan* set_op_scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, set_op_scan);
   VALIDATOR_RET_CHECK_GE(set_op_scan->input_item_list_size(), 2);
 
@@ -1940,6 +2106,7 @@ absl::Status Validator::ValidateTableValuedFunction(
 absl::Status Validator::ValidateResolvedLimitOffsetScan(
     const ResolvedLimitOffsetScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK(scan->limit() != nullptr);
@@ -1958,6 +2125,7 @@ absl::Status Validator::ValidateResolvedLimitOffsetScan(
 absl::Status Validator::ValidateResolvedProjectScan(
     const ResolvedProjectScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK(nullptr != scan->input_scan());
@@ -1979,6 +2147,7 @@ absl::Status Validator::ValidateResolvedProjectScan(
 absl::Status Validator::ValidateResolvedTVFScan(
     const ResolvedTVFScan* resolved_tvf_scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, resolved_tvf_scan);
 
   VALIDATOR_RET_CHECK_EQ(
@@ -2175,6 +2344,7 @@ absl::Status Validator::ValidateResolvedTVFScan(
 absl::Status Validator::ValidateResolvedExecuteAsRoleScan(
     const ResolvedExecuteAsRoleScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK(scan->input_scan() != nullptr);
@@ -2247,6 +2417,7 @@ absl::Status Validator::ValidateResolvedRelationArgumentScan(
 absl::Status Validator::ValidateResolvedWithScan(
     const ResolvedWithScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK_NE(scan->query(), nullptr);
@@ -2329,6 +2500,7 @@ absl::Status Validator::ValidateResolvedWithRefScan(
 absl::Status Validator::ValidateResolvedReturningClause(
     const ResolvedReturningClause* returning,
     std::set<ResolvedColumn>& visible_columns) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, returning);
 
   for (const auto& computed_column : returning->expr_list()) {
@@ -2671,6 +2843,7 @@ absl::Status Validator::ValidateResolvedStatementInternal(
 
 absl::Status Validator::ValidateResolvedCreateDatabaseStmt(
     const ResolvedCreateDatabaseStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
   return absl::OkStatus();
@@ -2678,6 +2851,7 @@ absl::Status Validator::ValidateResolvedCreateDatabaseStmt(
 
 absl::Status Validator::ValidateResolvedIndexStmt(
     const ResolvedCreateIndexStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
 
@@ -2729,6 +2903,7 @@ absl::Status Validator::ValidateResolvedIndexStmt(
 
 absl::Status Validator::ValidateResolvedCreateSchemaStmt(
     const ResolvedCreateSchemaStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   if (stmt->collation_name() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ValidateCollateExpr(stmt->collation_name()));
@@ -2790,6 +2965,7 @@ absl::Status Validator::ValidateResolvedPrimaryKey(
     const std::vector<const Type*>& resolved_column_types,
     const ResolvedPrimaryKey* primary_key,
     absl::flat_hash_set<std::string>* seen_constraint_names) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, primary_key);
 
   if (!primary_key->constraint_name().empty()) {
@@ -2862,6 +3038,7 @@ absl::Status Validator::ValidateColumnDefinitions(
 absl::Status Validator::ValidateResolvedCreateTableStmtBase(
     const ResolvedCreateTableStmtBase* stmt,
     std::set<ResolvedColumn>* visible_columns) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
   ZETASQL_RETURN_IF_ERROR(ValidateColumnDefinitions(stmt->column_definition_list(),
@@ -2974,6 +3151,7 @@ absl::Status Validator::ValidateResolvedCreateTableStmt(
 
 absl::Status Validator::ValidateResolvedCreateSnapshotTableStmt(
     const ResolvedCreateSnapshotTableStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
 
   VALIDATOR_RET_CHECK(stmt->clone_from() != nullptr)
@@ -3004,6 +3182,7 @@ absl::Status Validator::ValidateResolvedGeneratedColumnInfo(
 
 absl::Status Validator::ValidateResolvedCreateTableAsSelectStmt(
     const ResolvedCreateTableAsSelectStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(
       stmt->query(), {} /* visible_parameters */));
@@ -3055,6 +3234,7 @@ absl::Status Validator::ValidateResolvedCreateTableAsSelectStmt(
 
 absl::Status Validator::ValidateResolvedCreateModelStmt(
     const ResolvedCreateModelStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
 
   auto validate_input_output_columns = [this, stmt]() -> absl::Status {
@@ -3163,6 +3343,7 @@ absl::Status Validator::ValidateResolvedCreateModelStmt(
 
 absl::Status Validator::ValidateResolvedCreateViewStmt(
     const ResolvedCreateViewStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   if (stmt->recursive()) {
     ++nested_recursive_context_count_;
@@ -3181,6 +3362,7 @@ absl::Status Validator::ValidateResolvedCreateViewStmt(
 
 absl::Status Validator::ValidateResolvedCreateMaterializedViewStmt(
     const ResolvedCreateMaterializedViewStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   if (stmt->recursive()) {
     ++nested_recursive_context_count_;
@@ -3235,6 +3417,7 @@ absl::Status Validator::ValidateResolvedCreateExternalTableStmt(
 
 absl::Status Validator::ValidateResolvedCreatePrivilegeRestrictionStmt(
     const ResolvedCreatePrivilegeRestrictionStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK(!stmt->column_privilege_list().empty());
   VALIDATOR_RET_CHECK(!stmt->name_path().empty());
@@ -3245,6 +3428,7 @@ absl::Status Validator::ValidateResolvedCreatePrivilegeRestrictionStmt(
 
 absl::Status Validator::ValidateResolvedCreateRowAccessPolicyStmt(
     const ResolvedCreateRowAccessPolicyStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
 
   VALIDATOR_RET_CHECK(stmt->table_scan() != nullptr);
@@ -3267,6 +3451,7 @@ absl::Status Validator::ValidateResolvedCreateRowAccessPolicyStmt(
 
 absl::Status Validator::ValidateResolvedCreateConstantStmt(
     const ResolvedCreateConstantStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK(stmt->expr() != nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
@@ -3276,6 +3461,7 @@ absl::Status Validator::ValidateResolvedCreateConstantStmt(
 
 absl::Status Validator::ValidateResolvedCreateFunctionStmt(
     const ResolvedCreateFunctionStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   bool contains_templated_args =
       std::any_of(stmt->signature().arguments().begin(),
@@ -3293,7 +3479,9 @@ absl::Status Validator::ValidateResolvedCreateFunctionStmt(
       VALIDATOR_RET_CHECK_EQ("SQL", stmt->language());
     }
     VALIDATOR_RET_CHECK(stmt->function_expression() == nullptr);
-    VALIDATOR_RET_CHECK(!stmt->code().empty());
+    if (!stmt->is_remote()) {
+      VALIDATOR_RET_CHECK(!stmt->code().empty());
+    }
   } else {
     // This function declaration did not contain any templated argument types.
     // In this case the function should have a concrete return type.
@@ -3386,6 +3574,7 @@ absl::Status Validator::CheckFunctionArgumentType(
 
 absl::Status Validator::ValidateResolvedCreateTableFunctionStmt(
     const ResolvedCreateTableFunctionStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK_EQ(stmt->argument_name_list().size(),
                          stmt->signature().arguments().size());
@@ -3421,6 +3610,7 @@ absl::Status Validator::ValidateResolvedCreateTableFunctionStmt(
 
 absl::Status Validator::ValidateResolvedCreateProcedureStmt(
     const ResolvedCreateProcedureStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
   VALIDATOR_RET_CHECK_EQ(stmt->argument_name_list().size(),
@@ -3446,6 +3636,7 @@ absl::Status Validator::ValidateResolvedCreateProcedureStmt(
 
 absl::Status Validator::ValidateResolvedCreateEntityStmt(
     const ResolvedCreateEntityStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK(!stmt->entity_type().empty());
   VALIDATOR_RET_CHECK(stmt->entity_body_json().empty() ||
@@ -3457,6 +3648,7 @@ absl::Status Validator::ValidateResolvedCreateEntityStmt(
 
 absl::Status Validator::ValidateResolvedAlterEntityStmt(
     const ResolvedAlterEntityStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK(!stmt->entity_type().empty());
   for (const auto& action : stmt->alter_action_list()) {
@@ -3526,6 +3718,7 @@ absl::Status Validator::ValidateResolvedCloneDataSource(
 
 absl::Status Validator::ValidateResolvedCloneDataStmt(
     const ResolvedCloneDataStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedTableScan(stmt->target_table(),
                                             /*visible_parameters=*/{}));
@@ -3535,6 +3728,7 @@ absl::Status Validator::ValidateResolvedCloneDataStmt(
 
 absl::Status Validator::ValidateResolvedExportDataStmt(
     const ResolvedExportDataStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(
       stmt->query(), {} /* visible_parameters */));
@@ -3547,12 +3741,14 @@ absl::Status Validator::ValidateResolvedExportDataStmt(
 
 absl::Status Validator::ValidateResolvedExportModelStmt(
     const ResolvedExportModelStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedCallStmt(const ResolvedCallStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
 
   VALIDATOR_RET_CHECK(stmt->procedure() != nullptr)
@@ -3575,6 +3771,7 @@ absl::Status Validator::ValidateResolvedCallStmt(const ResolvedCallStmt* stmt) {
 
 absl::Status Validator::ValidateResolvedDefineTableStmt(
     const ResolvedDefineTableStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
   return absl::OkStatus();
@@ -3582,64 +3779,75 @@ absl::Status Validator::ValidateResolvedDefineTableStmt(
 
 absl::Status Validator::ValidateResolvedDescribeStmt(
     const ResolvedDescribeStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedShowStmt(const ResolvedShowStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedBeginStmt(
     const ResolvedBeginStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedSetTransactionStmt(
     const ResolvedSetTransactionStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedCommitStmt(
     const ResolvedCommitStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedRollbackStmt(
     const ResolvedRollbackStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedStartBatchStmt(
     const ResolvedStartBatchStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedRunBatchStmt(
     const ResolvedRunBatchStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedAbortBatchStmt(
     const ResolvedAbortBatchStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedDropStmt(const ResolvedDropStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedDropFunctionStmt(
     const ResolvedDropFunctionStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK_EQ(stmt->signature() == nullptr,
                          stmt->arguments() == nullptr);
@@ -3663,23 +3871,27 @@ absl::Status Validator::ValidateResolvedDropFunctionStmt(
 
 absl::Status Validator::ValidateResolvedDropTableFunctionStmt(
     const ResolvedDropTableFunctionStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedDropSnapshotTableStmt(
     const ResolvedDropSnapshotTableStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedDropMaterializedViewStmt(
     const ResolvedDropMaterializedViewStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedDropPrivilegeRestrictionStmt(
     const ResolvedDropPrivilegeRestrictionStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   VALIDATOR_RET_CHECK(!stmt->column_privilege_list().empty());
   VALIDATOR_RET_CHECK(absl::AsciiStrToLower(stmt->object_type()) == "table" ||
                       absl::AsciiStrToLower(stmt->object_type()) == "view");
@@ -3690,6 +3902,7 @@ absl::Status Validator::ValidateResolvedDropPrivilegeRestrictionStmt(
 
 absl::Status Validator::ValidateResolvedDropRowAccessPolicyStmt(
     const ResolvedDropRowAccessPolicyStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK(!(stmt->is_drop_all() && stmt->is_if_exists()));
   return absl::OkStatus();
@@ -3697,16 +3910,19 @@ absl::Status Validator::ValidateResolvedDropRowAccessPolicyStmt(
 
 absl::Status Validator::ValidateResolvedDropSearchIndexStmt(
     const ResolvedDropSearchIndexStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   return absl::OkStatus();
 }
 absl::Status Validator::ValidateResolvedGrantStmt(
     const ResolvedGrantStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedRevokeStmt(
     const ResolvedRevokeStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
@@ -3714,6 +3930,7 @@ absl::Status Validator::ValidateResolvedRevokeStmt(
 absl::Status Validator::ValidateResolvedOrderByScan(
     const ResolvedOrderByScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
   VALIDATOR_RET_CHECK(nullptr != scan->input_scan());
@@ -3783,6 +4000,7 @@ absl::Status Validator::ValidateResolvedQueryStmt(
 absl::Status Validator::ValidateResolvedScan(
     const ResolvedScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   VALIDATOR_RET_CHECK(nullptr != scan);
   PushErrorContext push(this, scan);
 
@@ -3823,6 +4041,11 @@ absl::Status Validator::ValidateResolvedScan(
     case RESOLVED_ANONYMIZED_AGGREGATE_SCAN:
       scan_subtype_status = ValidateResolvedAnonymizedAggregateScan(
           scan->GetAs<ResolvedAnonymizedAggregateScan>(), visible_parameters);
+      break;
+    case RESOLVED_DIFFERENTIAL_PRIVACY_AGGREGATE_SCAN:
+      scan_subtype_status = ValidateResolvedDifferentialPrivacyAggregateScan(
+          scan->GetAs<ResolvedDifferentialPrivacyAggregateScan>(),
+          visible_parameters);
       break;
     case RESOLVED_SET_OPERATION_SCAN:
       scan_subtype_status = ValidateResolvedSetOperationScan(
@@ -3903,6 +4126,7 @@ absl::Status Validator::ValidateResolvedScan(
 absl::Status Validator::ValidateResolvedRecursiveScan(
     const ResolvedRecursiveScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
   VALIDATOR_RET_CHECK(
       language_options_.LanguageFeatureEnabled(FEATURE_V_1_3_WITH_RECURSIVE))
@@ -3934,6 +4158,7 @@ absl::Status Validator::ValidateResolvedRecursiveScan(
 
 absl::Status Validator::ValidateResolvedRecursiveRefScan(
     const ResolvedRecursiveRefScan* scan) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
   VALIDATOR_RET_CHECK(!nested_recursive_scans_.empty())
       << "ResolvedRecursiveRefScan() detected outside a recursive UNION term";
@@ -3950,6 +4175,7 @@ absl::Status Validator::ValidateResolvedRecursiveRefScan(
 }
 
 absl::Status Validator::ValidateResolvedScanOrdering(const ResolvedScan* scan) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   VALIDATOR_RET_CHECK(nullptr != scan);
   PushErrorContext push(this, scan);
 
@@ -3994,6 +4220,7 @@ absl::Status Validator::ValidateResolvedScanOrdering(const ResolvedScan* scan) {
 
 absl::Status Validator::ValidateGroupRowsScan(
     const ResolvedGroupRowsScan* scan) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   VALIDATOR_RET_CHECK_NE(nullptr, scan);
   PushErrorContext push(this, scan);
 
@@ -4086,6 +4313,7 @@ absl::Status Validator::ValidateResolvedTableAndColumnInfoList(
 
 absl::Status Validator::ValidateCollateExpr(
     const ResolvedExpr* resolved_collate) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, resolved_collate);
   VALIDATOR_RET_CHECK(resolved_collate != nullptr);
   VALIDATOR_RET_CHECK(resolved_collate->node_kind() == RESOLVED_LITERAL)
@@ -4097,6 +4325,7 @@ absl::Status Validator::ValidateCollateExpr(
 
 absl::Status Validator::ValidateColumnAnnotations(
     const ResolvedColumnAnnotations* annotations) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, annotations);
   VALIDATOR_RET_CHECK(annotations != nullptr);
   if (annotations->collation_name() != nullptr) {
@@ -4112,6 +4341,7 @@ absl::Status Validator::ValidateColumnAnnotations(
 
 absl::Status Validator::ValidateUpdatedAnnotations(
     const ResolvedColumnAnnotations* annotations) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, annotations);
   VALIDATOR_RET_CHECK(annotations != nullptr);
   VALIDATOR_RET_CHECK_EQ(annotations->option_list_size(), 0);
@@ -4310,6 +4540,7 @@ absl::Status Validator::ValidateResolvedDeleteStmt(
 
 absl::Status Validator::CheckExprIsPath(const ResolvedExpr* expr,
                                         const ResolvedColumnRef** ref) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, expr);
   switch (expr->node_kind()) {
     case RESOLVED_COLUMN_REF:
@@ -4394,6 +4625,7 @@ absl::Status Validator::ValidateResolvedUpdateItem(
     const ResolvedColumn* array_element_column,
     const std::set<ResolvedColumn>& target_visible_columns,
     const std::set<ResolvedColumn>& offset_and_where_visible_columns) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, item);
 
   VALIDATOR_RET_CHECK(item->target() != nullptr);
@@ -4618,6 +4850,7 @@ absl::Status Validator::ValidateResolvedMergeStmt(
 // enforced by the parser.
 absl::Status Validator::ValidateResolvedTruncateStmt(
     const ResolvedTruncateStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK_NE(nullptr, stmt->table_scan());
   ZETASQL_RETURN_IF_ERROR(
@@ -4639,6 +4872,7 @@ absl::Status Validator::ValidateResolvedTruncateStmt(
 
 absl::Status Validator::ValidateResolvedAlterTableSetOptionsStmt(
     const ResolvedAlterTableSetOptionsStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
   return absl::OkStatus();
@@ -4646,6 +4880,7 @@ absl::Status Validator::ValidateResolvedAlterTableSetOptionsStmt(
 
 absl::Status Validator::ValidateResolvedAlterPrivilegeRestrictionStmt(
     const ResolvedAlterPrivilegeRestrictionStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK(!stmt->column_privilege_list().empty());
   VALIDATOR_RET_CHECK(absl::AsciiStrToLower(stmt->object_type()) == "table" ||
@@ -4657,6 +4892,7 @@ absl::Status Validator::ValidateResolvedAlterPrivilegeRestrictionStmt(
 
 absl::Status Validator::ValidateResolvedAlterRowAccessPolicyStmt(
     const ResolvedAlterRowAccessPolicyStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
 
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedTableScan(stmt->table_scan(),
@@ -4678,6 +4914,7 @@ absl::Status Validator::ValidateResolvedAlterRowAccessPolicyStmt(
 
 absl::Status Validator::ValidateResolvedAlterAllRowAccessPoliciesStmt(
     const ResolvedAlterAllRowAccessPoliciesStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
 
   VALIDATOR_RET_CHECK(!stmt->name_path().empty());
@@ -4702,12 +4939,14 @@ absl::Status Validator::ValidateResolvedAlterAllRowAccessPoliciesStmt(
 
 absl::Status Validator::ValidateResolvedRenameStmt(
     const ResolvedRenameStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
 
 absl::Status Validator::ValidateResolvedImportStmt(
     const ResolvedImportStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
 
   if (stmt->import_kind() == ResolvedImportStmt::MODULE) {
@@ -4736,6 +4975,7 @@ absl::Status Validator::ValidateResolvedImportStmt(
 
 absl::Status Validator::ValidateResolvedModuleStmt(
     const ResolvedModuleStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
 
   VALIDATOR_RET_CHECK(!stmt->name_path().empty());
@@ -4746,6 +4986,7 @@ absl::Status Validator::ValidateResolvedModuleStmt(
 
 absl::Status Validator::ValidateResolvedAssignmentStmt(
     const ResolvedAssignmentStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK(stmt->target() != nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
@@ -4777,6 +5018,7 @@ absl::Status Validator::ValidateResolvedAssignmentStmt(
 
 absl::Status Validator::ValidateResolvedAnalyzeStmt(
     const ResolvedAnalyzeStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   if (!stmt->option_list().empty()) {
     ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
@@ -4790,6 +5032,7 @@ absl::Status Validator::ValidateResolvedAnalyzeStmt(
 
 absl::Status Validator::ValidateResolvedAssertStmt(
     const ResolvedAssertStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   VALIDATOR_RET_CHECK(stmt->expression() != nullptr);
   VALIDATOR_RET_CHECK(stmt->expression()->type()->IsBool());
@@ -4802,6 +5045,7 @@ absl::Status Validator::ValidateResolvedFunctionArgument(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedFunctionArgument* resolved_arg) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, resolved_arg);
   VALIDATOR_RET_CHECK(resolved_arg != nullptr);
   int fields_set = 0;
@@ -4871,6 +5115,7 @@ absl::Status Validator::ValidateResolvedFunctionArgument(
 absl::Status Validator::ValidateRelationSchemaInResolvedFunctionArgument(
     const TVFRelation& required_input_schema, const TVFRelation& input_relation,
     const ResolvedFunctionArgument* resolved_arg) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, resolved_arg);
   VALIDATOR_RET_CHECK(resolved_arg != nullptr);
   VALIDATOR_RET_CHECK(resolved_arg->scan() != nullptr);
@@ -4908,6 +5153,7 @@ absl::Status Validator::ValidateRelationSchemaInResolvedFunctionArgument(
 
 absl::Status Validator::ValidateResolvedAlterObjectStmt(
     const ResolvedAlterObjectStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   for (const auto& alter_action : stmt->alter_action_list()) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedAlterAction(alter_action.get()));
@@ -4978,6 +5224,7 @@ absl::Status Validator::ValidateAddForeignKeyAction(
 
 absl::Status Validator::ValidateResolvedAlterAction(
     const ResolvedAlterAction* action) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, action);
   absl::flat_hash_set<std::string> seen_constraints;
   switch (action->node_kind()) {
@@ -5172,6 +5419,7 @@ absl::Status Validator::ValidateResolvedColumnDefaultValue(
 
 absl::Status Validator::ValidateResolvedExecuteImmediateStmt(
     const ResolvedExecuteImmediateStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
 
   VALIDATOR_RET_CHECK(stmt->sql()->type()->IsString())
@@ -5296,6 +5544,7 @@ absl::Status Validator::ValidateResolvedUnpivotScan(
     const ResolvedUnpivotScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
   VALIDATOR_RET_CHECK_NE(scan, nullptr);
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->input_scan(), visible_parameters));
 
@@ -5408,8 +5657,20 @@ absl::Status Validator::ValidateResolvedUnpivotScan(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedAuxLoadDataPartitionFilter(
+    const std::set<ResolvedColumn>& visible_columns,
+    const ResolvedAuxLoadDataPartitionFilter* partition_filter) {
+  VALIDATOR_RET_CHECK(partition_filter->filter()->type()->IsBool())
+      << "PARTITIONS expects a boolean expression";
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns,
+                                       {} /* visible_parameters */,
+                                       partition_filter->filter()));
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedAuxLoadDataStmt(
       const ResolvedAuxLoadDataStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
   ZETASQL_RETURN_IF_ERROR(ValidateOptionsList(stmt->option_list()));
   std::set<ResolvedColumn> visible_columns;
@@ -5430,6 +5691,10 @@ absl::Status Validator::ValidateResolvedAuxLoadDataStmt(
       return InternalErrorBuilder()
              << "Column already used: " << pseudo_column.DebugString();
     }
+  }
+  if (stmt->partition_filter() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedAuxLoadDataPartitionFilter(
+        visible_columns, stmt->partition_filter()));
   }
   for (const auto& partition_by_expr : stmt->partition_by_list()) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
@@ -5453,6 +5718,7 @@ absl::Status Validator::ValidateBoolExpr(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
     const ResolvedExpr* expr) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RETURN_IF_ERROR(
       ValidateResolvedExpr(visible_columns, visible_parameters, expr));
   VALIDATOR_RET_CHECK(expr->type()->IsBool())

@@ -161,6 +161,13 @@ absl::Status ParseProtoMap(const Value& array_of_map_entry,
                            const Type* key_type, const Type* value_type,
                            std::vector<std::pair<Value, Value>>& output);
 
+// If values are protobuf map entries, remove any duplicate keys.
+//
+// This should only be used when reading from or writing to the map entry field.
+// It is possible to have arrays of map entries with duplicate keys, they just
+// aren't allowed to be read from or written to an actual protocol buffer.
+absl::Status RemoveDupsByKeyIfProtoMap(std::vector<Value>& values);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_PROTO_UTIL_H_

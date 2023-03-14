@@ -1,0 +1,316 @@
+[default language_features=ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS]
+alter {{table|view|model}} KeyValue alter column key set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+--
+ALTERNATION GROUP: model
+--
+ERROR: ALTER MODEL does not support ALTER COLUMN SET OPTIONS [at 1:22]
+alter model KeyValue alter column key set options (description="new descripti...
+                     ^
+
+==
+
+alter {{table|view}} if exists KeyValue alter column key set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+==
+
+alter {{table|view}} KeyValue alter column key set options (description="description1"), alter column value set options(description="description2");
+--
+ALTERNATION GROUP: table
+
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+  | +-column="key"
+  | +-option_list=
+  |   +-description := Literal(type=STRING, value="description1")
+  +-AlterColumnOptionsAction
+    +-column="value"
+    +-option_list=
+      +-description := Literal(type=STRING, value="description2")
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+  | +-column="key"
+  | +-option_list=
+  |   +-description := Literal(type=STRING, value="description1")
+  +-AlterColumnOptionsAction
+    +-column="value"
+    +-option_list=
+      +-description := Literal(type=STRING, value="description2")
+
+==
+
+alter {{table|view}} KeyValue alter column not_a_column set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+
+ERROR: Column not found: not_a_column [at 1:35]
+alter table KeyValue alter column not_a_column set options (description="new ...
+                                  ^
+--
+ALTERNATION GROUP: view
+--
+
+ERROR: Column not found: not_a_column [at 1:34]
+alter view KeyValue alter column not_a_column set options (description="new d...
+                                 ^
+
+==
+
+alter {{table|view}} not_a_table alter column not_a_column set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+
+ERROR: Table not found: not_a_table [at 1:13]
+alter table not_a_table alter column not_a_column set options (description="n...
+            ^
+--
+ALTERNATION GROUP: view
+--
+ERROR: Table not found: not_a_table [at 1:12]
+alter view not_a_table alter column not_a_column set options (description="ne...
+           ^
+
+==
+
+alter {{table|view}} if exists KeyValue alter column not_a_column set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+
+ERROR: Column not found: not_a_column [at 1:45]
+alter table if exists KeyValue alter column not_a_column set options (descrip...
+                                            ^
+--
+ALTERNATION GROUP: view
+--
+
+ERROR: Column not found: not_a_column [at 1:44]
+alter view if exists KeyValue alter column not_a_column set options (descript...
+                                           ^
+
+==
+
+alter {{table|view}} KeyValue alter column if exists key set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-is_if_exists=TRUE
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-is_if_exists=TRUE
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+
+==
+
+alter {{table|view}} KeyValue alter column if exists not_a_column set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-is_if_exists=TRUE
+    +-column="not_a_column"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-is_if_exists=TRUE
+    +-column="not_a_column"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+
+==
+
+alter {{table|view}} if exists KeyValue alter column if exists key set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+==
+
+alter {{table|view}} if exists KeyValue alter column if exists not_a_column set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="not_a_column"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="not_a_column"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+==
+
+alter {{table|view}} if exists not_a_table alter column if exists key set options (description="new description");
+--
+ALTERNATION GROUP: table
+
+--
+AlterTableStmt
++-name_path=not_a_table
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=not_a_table
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+==
+
+# Alter view alter column set options with ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS enabled/disabled.
+[language_features={{ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS|}}]
+alter view KeyValue alter column key set options (description="new description");
+--
+ALTERNATION GROUP: ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS
+
+--
+AlterViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: ALTER VIEW does not support ALTER COLUMN SET OPTIONS [at 1:21]
+alter view KeyValue alter column key set options (description="new descriptio...
+                    ^
+
+==

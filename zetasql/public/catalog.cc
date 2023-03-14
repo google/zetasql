@@ -196,6 +196,33 @@ absl::Status Catalog::FindConnection(const absl::Span<const std::string>& path,
   }
 }
 
+absl::Status Catalog::FindSequence(const absl::Span<const std::string>& path,
+                                   const Sequence** sequence,
+                                   const FindOptions& options) {
+  *sequence = nullptr;
+  if (path.empty()) {
+    return EmptyNamePathInternalError("Sequence");
+  }
+
+  const std::string& name = path.front();
+  if (path.size() > 1) {
+    Catalog* catalog = nullptr;
+    ZETASQL_RETURN_IF_ERROR(GetCatalog(name, &catalog, options));
+    if (catalog == nullptr) {
+      return SequenceNotFoundError(path);
+    }
+    const absl::Span<const std::string> path_suffix =
+        path.subspan(1, path.size() - 1);
+    return catalog->FindSequence(path_suffix, sequence, options);
+  } else {
+    ZETASQL_RETURN_IF_ERROR(GetSequence(name, sequence, options));
+    if (*sequence == nullptr) {
+      return SequenceNotFoundError(path);
+    }
+    return absl::OkStatus();
+  }
+}
+
 absl::Status Catalog::FindFunction(const absl::Span<const std::string>& path,
                                    const Function** function,
                                    const FindOptions& options) {
@@ -428,6 +455,11 @@ absl::Status Catalog::FindObject(absl::Span<const std::string> path,
   return FindConnection(path, object, options);
 }
 absl::Status Catalog::FindObject(absl::Span<const std::string> path,
+                                 const Sequence** object,
+                                 const FindOptions& options) {
+  return FindSequence(path, object, options);
+}
+absl::Status Catalog::FindObject(absl::Span<const std::string> path,
                                  const Procedure** object,
                                  const FindOptions& options) {
   return FindProcedure(path, object, options);
@@ -517,6 +549,13 @@ absl::Status Catalog::GetConnection(const std::string& name,
   return absl::OkStatus();
 }
 
+absl::Status Catalog::GetSequence(const std::string& name,
+                                  const Sequence** sequence,
+                                  const FindOptions& options) {
+  *sequence = nullptr;
+  return absl::OkStatus();
+}
+
 absl::Status Catalog::GetFunction(const std::string& name,
                                   const Function** function,
                                   const FindOptions& options) {
@@ -583,6 +622,11 @@ absl::Status Catalog::ModelNotFoundError(
 absl::Status Catalog::ConnectionNotFoundError(
     absl::Span<const std::string> path) const {
   return GenericNotFoundError("Connection", path);
+}
+
+absl::Status Catalog::SequenceNotFoundError(
+    absl::Span<const std::string> path) const {
+  return GenericNotFoundError("Sequence", path);
 }
 
 absl::Status Catalog::FunctionNotFoundError(

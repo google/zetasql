@@ -321,6 +321,7 @@ cc_test(
         ":test_driver",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/common:thread_stack",
         "//zetasql/parser",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",

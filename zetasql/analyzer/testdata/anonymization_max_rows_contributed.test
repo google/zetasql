@@ -1,0 +1,96 @@
+# max_rows_contributed added to anonymization options
+# Should not cause any compilation errors.
+[default language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization options(max_rows_contributed = 5)
+anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        +-aggregate_list=
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-max_rows_contributed := Literal(type=INT64, value=5)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+        | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+        +-anonymization_option_list=
+          +-max_rows_contributed := Literal(type=INT64, value=5)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+}
+==
+
+# Invalid max_rows_contributed, specified twice
+[language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization options(max_rows_contributed = 5, MAX_ROWS_CONTRIBUTED = 5)
+anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+ERROR: Duplicate anonymization option specified for 'MAX_ROWS_CONTRIBUTED' [at 1:61]
+...anonymization options(max_rows_contributed = 5, MAX_ROWS_CONTRIBUTED = 5)
+                                                   ^
+==
+
+# Invalid max_rows_contributed, because max_groups_contributed is also specified
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization options(max_rows_contributed = 5, max_groups_contributed = 3)
+anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+ERROR: At most one of the options kappa, max_groups_contributed, and max_rows_contributed may be specified in anonymization options, instead got: max_groups_contributed, max_rows_contributed [at 1:34]
+select with anonymization options(max_rows_contributed = 5, max_groups_contri...
+                                 ^
+==
+
+# Invalid max_rows_contributed, because kappa is also specified
+[language_features=ANONYMIZATION,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization options(MAX_ROWS_CONTRIBUTED = 5, KAPPA = 2)
+anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+ERROR: At most one of the options kappa, max_groups_contributed, and max_rows_contributed may be specified in anonymization options, instead got: kappa, max_rows_contributed [at 1:34]
+select with anonymization options(MAX_ROWS_CONTRIBUTED = 5, KAPPA = 2)
+                                 ^

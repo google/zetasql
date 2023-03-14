@@ -206,10 +206,6 @@ class SampleCatalog {
   // Manages the lifetime of ResolvedAST objects for SQL defined statements like
   // views, SQL functions, column expressions, or SQL TVFs.
   std::vector<std::unique_ptr<const AnalyzerOutput>> sql_object_artifacts_;
-
-  // Manages the lifetime of ResolvedAST objects that reference a catalog Column
-  std::vector<std::unique_ptr<const ResolvedCatalogColumnRef>>
-      catalog_col_refs_;
 };
 
 }  // namespace zetasql

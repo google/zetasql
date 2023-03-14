@@ -20,6 +20,7 @@
 #include <string>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "absl/strings/string_view.h"
@@ -134,7 +135,7 @@ class Unparser : public ParseTreeVisitor {
   // Shorthand for calling methods in formatter_.
   void print(absl::string_view s) { formatter_.Format(s); }
 
-  void println(const std::string& s = "") { formatter_.FormatLine(s); }
+  void println(absl::string_view s = "") { formatter_.FormatLine(s); }
 
   void FlushLine() { formatter_.FlushLine(); }
 
@@ -192,6 +193,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTCreatePrivilegeRestrictionStatement* node, void* data) override;
   void visitASTCreateRowAccessPolicyStatement(
       const ASTCreateRowAccessPolicyStatement* node, void* data) override;
+  void visitASTUndropStatement(const ASTUndropStatement* node,
+                               void* data) override;
   void visitASTExportDataStatement(const ASTExportDataStatement* node,
                                    void* data) override;
   void visitASTExportModelStatement(const ASTExportModelStatement* node,
@@ -264,8 +267,6 @@ class Unparser : public ParseTreeVisitor {
   void visitASTModuleStatement(const ASTModuleStatement* node,
                                void* data) override;
   void visitASTWithClause(const ASTWithClause* node, void* data) override;
-  void visitASTWithClauseEntry(const ASTWithClauseEntry* node,
-                               void* data) override;
   void visitASTQuery(const ASTQuery* node, void* data) override;
   void visitASTSetOperation(const ASTSetOperation* node, void* data) override;
   void visitASTSelect(const ASTSelect* node, void* data) override;
@@ -274,6 +275,7 @@ class Unparser : public ParseTreeVisitor {
   void visitASTSelectWith(const ASTSelectWith* node, void* data) override;
   void visitASTSelectColumn(const ASTSelectColumn* node, void* data) override;
   void visitASTAlias(const ASTAlias* node, void* data) override;
+  void visitASTAliasedQuery(const ASTAliasedQuery* node, void* data) override;
   void visitASTAliasedQueryList(const ASTAliasedQueryList* node,
                                 void* data) override;
   void visitASTIntoAlias(const ASTIntoAlias* node, void* data) override;
@@ -350,6 +352,8 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTAuxLoadDataFromFilesOptionsList(
       const ASTAuxLoadDataFromFilesOptionsList* node, void* data) override;
+  void visitASTAuxLoadDataPartitionsClause(
+      const ASTAuxLoadDataPartitionsClause* node, void* data) override;
   void visitASTAuxLoadDataStatement(const ASTAuxLoadDataStatement* node,
                                     void* data) override;
   void visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
@@ -362,6 +366,8 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTNullLiteral(const ASTNullLiteral* node, void* data) override;
   void visitASTDateOrTimeLiteral(const ASTDateOrTimeLiteral* node,
+                                 void* data) override;
+  void visitASTRangeColumnSchema(const ASTRangeColumnSchema* node,
                                  void* data) override;
   void visitASTRangeLiteral(const ASTRangeLiteral* node, void* data) override;
   void visitASTRangeType(const ASTRangeType* node, void* data) override;
@@ -711,6 +717,22 @@ class Unparser : public ParseTreeVisitor {
   // By default, just do nothing.
   void visitASTLocation(const ASTLocation* node, void* data) override {}
 
+  void visitASTDefineMacroStatement(const ASTDefineMacroStatement* node,
+                                    void* data) override;
+  void visitASTMacroBody(const ASTMacroBody* node, void* data) override;
+
+  void visitASTSetOperationMetadataList(const ASTSetOperationMetadataList* node,
+                                        void* data) override;
+
+  void visitASTSetOperationMetadata(const ASTSetOperationMetadata* node,
+                                    void* data) override;
+
+  void visitASTSetOperationAllOrDistinct(
+      const ASTSetOperationAllOrDistinct* node, void* data) override;
+
+  void visitASTSetOperationType(const ASTSetOperationType* node,
+                                void* data) override;
+
   // Spanner-related nodes
   void visitASTSpannerAlterColumnAction(const ASTSpannerAlterColumnAction* node,
                                         void* data) override;
@@ -734,7 +756,11 @@ class Unparser : public ParseTreeVisitor {
 
   template <class NodeType>
   void UnparseVectorWithSeparator(absl::Span<const NodeType* const> node_vector,
-                                  void* data, const std::string& separator) {
+                                  void* data, absl::string_view separator) {
+    if (!ThreadHasEnoughStack()) {
+      println("<Complex nested expression truncated>");
+      return;
+    }
     bool first = true;
     for (const NodeType* node : node_vector) {
       if (first) {
@@ -749,6 +775,11 @@ class Unparser : public ParseTreeVisitor {
   void PrintOpenParenIfNeeded(const ASTNode* node);
   void PrintCloseParenIfNeeded(const ASTNode* node);
 
+  static std::string GetCreateStatementPrefix(
+      const ASTCreateStatement* node, absl::string_view create_object_type);
+
+  Formatter formatter_;
+
  private:
   void UnparseASTTableDataSource(const ASTTableDataSource* node, void* data);
   void VisitCheckConstraintSpec(const ASTCheckConstraint* node, void* data);
@@ -756,8 +787,6 @@ class Unparser : public ParseTreeVisitor {
   void UnparseLeafNode(const ASTLeaf* leaf_node);
   void UnparseColumnSchema(const ASTColumnSchema* node, void* data);
   void VisitAlterStatementBase(const ASTAlterStatementBase* node, void* data);
-
-  Formatter formatter_;
 };
 
 }  // namespace parser

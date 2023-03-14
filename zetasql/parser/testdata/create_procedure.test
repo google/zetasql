@@ -439,27 +439,35 @@ BEGIN
      ^
 ==
 
+# valid parameter, no body
+CREATE PROCEDURE procedure_name( OUT param int32 );
+--
+ERROR: Syntax error: Expected keyword BEGIN or keyword LANGUAGE but got ";" [at 1:51]
+CREATE PROCEDURE procedure_name( OUT param int32 );
+                                                  ^
+==
+
 # invalid parameter missing parameter name
-CREATE PROCEDURE procedure_name( OUT int32 );
+CREATE PROCEDURE procedure_name( OUT int32 ) BEGIN END;
 --
 ERROR: Syntax error: Unexpected end of parameter. Parameters should be in the format [<parameter mode>] <parameter name> <type>. If IN/OUT/INOUT is intended to be the name of a parameter, it must be escaped with backticks [at 1:44]
-CREATE PROCEDURE procedure_name( OUT int32 );
+CREATE PROCEDURE procedure_name( OUT int32 ) BEGIN END;
                                            ^
 ==
 
 # invalid parameter missing parameter name
-CREATE PROCEDURE procedure_name(OUT int32, param_a int32 );
+CREATE PROCEDURE procedure_name(OUT int32, param_a int32 ) BEGIN END;
 --
 ERROR: Syntax error: Unexpected end of parameter. Parameters should be in the format [<parameter mode>] <parameter name> <type>. If IN/OUT/INOUT is intended to be the name of a parameter, it must be escaped with backticks [at 1:42]
-CREATE PROCEDURE procedure_name(OUT int32, param_a int32 );
+CREATE PROCEDURE procedure_name(OUT int32, param_a int32 ) BEGIN END;
                                          ^
 ==
 
 # invalid parameter missing parameter name
-CREATE PROCEDURE procedure_name(OUT TABLE<int32>);
+CREATE PROCEDURE procedure_name(OUT TABLE<int32>) BEGIN END;
 --
 ERROR: Syntax error: Unexpected "<" [at 1:42]
-CREATE PROCEDURE procedure_name(OUT TABLE<int32>);
+CREATE PROCEDURE procedure_name(OUT TABLE<int32>) BEGIN END;
                                          ^
 ==
 

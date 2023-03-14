@@ -40,6 +40,7 @@ class ColumnFilter;
 //   while (true) {
 //     if (!iter->NextRow()) {
 //       ZETASQL_RETURN_IF_ERROR(iter->Status());
+//       break;
 //     }
 //     ... Do something with 'iter->GetValue(...)' ...
 //   }

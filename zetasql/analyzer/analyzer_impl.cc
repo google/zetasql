@@ -27,9 +27,9 @@
 #include <thread>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/analyzer_output_mutator.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/rewrite_resolved_ast.h"
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/common/timer_util.h"
@@ -62,26 +62,34 @@ namespace zetasql {
 
 namespace {
 
-absl::Status AnalyzeExpressionImpl(
-    absl::string_view sql, const AnalyzerOptions& options_in, Catalog* catalog,
-    TypeFactory* type_factory, const Type* target_type,
-    std::unique_ptr<const AnalyzerOutput>* output) {
+absl::Status AnalyzeExpressionImpl(absl::string_view sql,
+                                   const AnalyzerOptions& options_in,
+                                   Catalog* catalog, TypeFactory* type_factory,
+                                   const Type* target_type,
+                                   std::unique_ptr<AnalyzerOutput>* output) {
   output->reset();
+  internal::TimedValue overall_timed_value;
+  {
+    auto scoped_timer = internal::MakeScopedTimerStarted(&overall_timed_value);
 
-  ZETASQL_VLOG(1) << "Parsing expression:\n" << sql;
-  std::unique_ptr<AnalyzerOptions> copy;
-  const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
+    ZETASQL_VLOG(1) << "Parsing expression:\n" << sql;
+    std::unique_ptr<AnalyzerOptions> copy;
+    const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
+    ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
 
-  std::unique_ptr<ParserOutput> parser_output;
-  ParserOptions parser_options = options.GetParserOptions();
-  ZETASQL_RETURN_IF_ERROR(ParseExpression(sql, parser_options, &parser_output));
-  const ASTExpression* expression = parser_output->expression();
-  ZETASQL_VLOG(5) << "Parsed AST:\n" << expression->DebugString();
+    std::unique_ptr<ParserOutput> parser_output;
+    ParserOptions parser_options = options.GetParserOptions();
+    ZETASQL_RETURN_IF_ERROR(ParseExpression(sql, parser_options, &parser_output));
+    const ASTExpression* expression = parser_output->expression();
+    ZETASQL_VLOG(5) << "Parsed AST:\n" << expression->DebugString();
 
-  return InternalAnalyzeExpressionFromParserAST(
-      *expression, std::move(parser_output), sql, options, catalog,
-      type_factory, target_type, output);
+    ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpressionFromParserAST(
+        *expression, std::move(parser_output), sql, options, catalog,
+        type_factory, target_type, output));
+  }
+  AnalyzerOutputMutator(*output).overall_timed_value().Accumulate(
+      overall_timed_value);
+  return absl::OkStatus();
 }
 
 }  // namespace
@@ -89,7 +97,7 @@ absl::Status AnalyzeExpressionImpl(
 absl::Status InternalAnalyzeExpression(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
-    std::unique_ptr<const AnalyzerOutput>* output) {
+    std::unique_ptr<AnalyzerOutput>* output) {
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql,
       AnalyzeExpressionImpl(sql, options, catalog, type_factory, target_type,
@@ -112,7 +120,7 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression,
     std::unique_ptr<ParserOutput> parser_output, absl::string_view sql,
     const AnalyzerOptions& options, Catalog* catalog, TypeFactory* type_factory,
-    const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output) {
+    const Type* target_type, std::unique_ptr<AnalyzerOutput>* output) {
   AnalyzerRuntimeInfo analyzer_runtime_info;
   if (parser_output != nullptr) {
     // Add in the parser output, we _assume_ this is semantically part of this
@@ -120,58 +128,65 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
     // see AnalyzerRuntimeInfo for more docs.
     analyzer_runtime_info.parser_runtime_info() = parser_output->runtime_info();
   }
+  {
+    auto overall_timer = internal::MakeScopedTimerStarted(
+        &analyzer_runtime_info.overall_timed_value());
 
-  internal::ElapsedTimer resolver_timer = internal::MakeTimerStarted();
-  std::unique_ptr<const ResolvedExpr> resolved_expr;
-  Resolver resolver(catalog, type_factory, &options);
-  ZETASQL_RETURN_IF_ERROR(
-      resolver.ResolveStandaloneExpr(sql, &ast_expression, &resolved_expr));
-  ZETASQL_VLOG(3) << "Resolved AST:\n" << resolved_expr->DebugString();
+    std::unique_ptr<const ResolvedExpr> resolved_expr;
+    Resolver resolver(catalog, type_factory, &options);
+    {
+      auto resolver_timer = internal::MakeScopedTimerStarted(
+          &analyzer_runtime_info.resolver_timed_value());
+      ZETASQL_RETURN_IF_ERROR(
+          resolver.ResolveStandaloneExpr(sql, &ast_expression, &resolved_expr));
+      ZETASQL_VLOG(3) << "Resolved AST:\n" << resolved_expr->DebugString();
 
-  if (target_type != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ConvertExprToTargetType(ast_expression, sql, options,
-                                            catalog, type_factory, target_type,
-                                            &resolved_expr));
+      if (target_type != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(ConvertExprToTargetType(ast_expression, sql, options,
+                                                catalog, type_factory,
+                                                target_type, &resolved_expr));
+      }
+    }
+
+    if (InternalAnalyzerOptions::GetValidateResolvedAST(options)) {
+      internal::ScopedTimer scoped_validator_timer = MakeScopedTimerStarted(
+          &analyzer_runtime_info.validator_timed_value());
+      Validator validator(options.language());
+      ZETASQL_RETURN_IF_ERROR(
+          validator.ValidateStandaloneResolvedExpr(resolved_expr.get()));
+    }
+
+    if (absl::GetFlag(FLAGS_zetasql_print_resolved_ast)) {
+      std::cout << "Resolved AST from thread "
+                << std::this_thread::get_id()
+                << ":" << std::endl
+                << resolved_expr->DebugString() << std::endl;
+    }
+
+    if (options.language().error_on_deprecated_syntax() &&
+        !resolver.deprecation_warnings().empty()) {
+      return resolver.deprecation_warnings().front();
+    }
+
+    // Make sure we're starting from a clean state for CheckFieldsAccessed.
+    resolved_expr->ClearFieldsAccessed();
+
+    ZETASQL_ASSIGN_OR_RETURN(const QueryParametersMap& type_assignments,
+                     resolver.AssignTypesToUndeclaredParameters());
+
+    *output = std::make_unique<AnalyzerOutput>(
+        options.id_string_pool(), options.arena(), std::move(resolved_expr),
+        resolver.analyzer_output_properties(), std::move(parser_output),
+        ConvertInternalErrorLocationsAndAdjustErrorStrings(
+            options.error_message_mode(), sql, resolver.deprecation_warnings()),
+        type_assignments, resolver.undeclared_positional_parameters(),
+        resolver.max_column_id());
+    ZETASQL_RETURN_IF_ERROR(InternalRewriteResolvedAst(options, sql, catalog,
+                                               type_factory, **output));
   }
-  analyzer_runtime_info.resolver_timed_value().Accumulate(resolver_timer);
 
-  if (InternalAnalyzerOptions::GetValidateResolvedAST(options)) {
-    internal::ScopedTimer scoped_validator_timer =
-        MakeScopedTimerStarted(&analyzer_runtime_info.validator_timed_value());
-    Validator validator(options.language());
-    ZETASQL_RETURN_IF_ERROR(
-        validator.ValidateStandaloneResolvedExpr(resolved_expr.get()));
-  }
-
-  if (absl::GetFlag(FLAGS_zetasql_print_resolved_ast)) {
-    std::cout << "Resolved AST from thread "
-              << std::this_thread::get_id()
-              << ":" << std::endl
-              << resolved_expr->DebugString() << std::endl;
-  }
-
-  if (options.language().error_on_deprecated_syntax() &&
-      !resolver.deprecation_warnings().empty()) {
-    return resolver.deprecation_warnings().front();
-  }
-
-  // Make sure we're starting from a clean state for CheckFieldsAccessed.
-  resolved_expr->ClearFieldsAccessed();
-
-  ZETASQL_ASSIGN_OR_RETURN(const QueryParametersMap& type_assignments,
-                   resolver.AssignTypesToUndeclaredParameters());
-
-  auto original_output = std::make_unique<AnalyzerOutput>(
-      options.id_string_pool(), options.arena(), std::move(resolved_expr),
-      resolver.analyzer_output_properties(), std::move(parser_output),
-      ConvertInternalErrorLocationsAndAdjustErrorStrings(
-          options.error_message_mode(), sql, resolver.deprecation_warnings()),
-      type_assignments, resolver.undeclared_positional_parameters(),
-      resolver.max_column_id(), std::move(analyzer_runtime_info));
-  ZETASQL_RETURN_IF_ERROR(InternalRewriteResolvedAst(options, sql, catalog,
-                                             type_factory, *original_output));
-
-  *output = std::move(original_output);
+  AnalyzerOutputMutator(*output).mutable_runtime_info().AccumulateAll(
+      analyzer_runtime_info);
   return absl::OkStatus();
 }
 }  // namespace zetasql

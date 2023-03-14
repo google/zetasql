@@ -19,6 +19,7 @@ package com.google.zetasql;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.protobuf.TextFormat;
@@ -153,24 +154,66 @@ public class AllowedHintsAndOptionsTest {
             + "}\n"
             + "option {\n"
             + "  name: \"option1\"\n"
+            + "  resolving_kind: CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER"
             + "}\n"
             + "anonymization_option {\n"
             + "  name: \"anonymization_option1\"\n"
             + "  type {\n"
             + "    type_kind: TYPE_INT64\n"
             + "  }\n"
+            + "  resolving_kind: CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER"
+            + "}\n",
+        protoBuilder);
+    AllowedHintsAndOptionsProto proto =
+        AllowedHintsAndOptions.deserialize(
+                protoBuilder.build(), builder.getDescriptorPools(), factory)
+            .serialize(builder);
+    assertThat(proto).ignoringRepeatedFieldOrder().isEqualTo(protoBuilder.build());
+  }
+
+  @Test
+  public void testSerializeAndDeserializeDifferentialPrivacyOptionsFromClass()
+      throws ParseException {
+    TypeFactory factory = TypeFactory.nonUniqueNames();
+    AllowedHintsAndOptions allowed = new AllowedHintsAndOptions("Qual");
+    allowed.addDifferentialPrivacyOption("dp_option", null);
+    allowed.addDifferentialPrivacyOption(
+        "dp_option_with_type", TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE));
+    FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
+    AllowedHintsAndOptions allowed2 =
+        AllowedHintsAndOptions.deserialize(
+            allowed.serialize(builder), builder.getDescriptorPools(), factory);
+    assertThat(allowed2.getDifferentialPrivacyOptionType("dp_option"))
+        .isEqualTo(allowed.getDifferentialPrivacyOptionType("dp_option"));
+    assertThat(allowed2.getDifferentialPrivacyOptionType("dp_option_with_type"))
+        .isEqualTo(allowed.getDifferentialPrivacyOptionType("dp_option_with_type"));
+    assertThat(allowed2.getDifferentialPrivacyOptionNameList())
+        .containsExactlyElementsIn(allowed.getDifferentialPrivacyOptionNameList());
+  }
+
+  @Test
+  public void testSerializeAndDeserializeDifferentialPrivacyOptionsFromProto()
+      throws ParseException {
+    FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
+    TypeFactory factory = TypeFactory.nonUniqueNames();
+    AllowedHintsAndOptionsProto.Builder protoBuilder = AllowedHintsAndOptionsProto.newBuilder();
+    TextFormat.merge(
+        "disallow_unknown_options: true\n"
+            + "disallow_unknown_hints_with_qualifier: \"qual\"\n"
+            + "disallow_unknown_hints_with_qualifier: \"\"\n"
+            + "differential_privacy_option {\n"
+            + "  name: \"dp_option1\"\n"
+            + "  type {\n"
+            + "    type_kind: TYPE_INT64\n"
+            + "  }\n"
+            + "  resolving_kind: CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER"
             + "}",
         protoBuilder);
     AllowedHintsAndOptionsProto proto =
         AllowedHintsAndOptions.deserialize(
                 protoBuilder.build(), builder.getDescriptorPools(), factory)
             .serialize(builder);
-    assertThat(proto.getDisallowUnknownHintsWithQualifierList()).hasSize(2);
-    assertThat(proto.getHint(0)).isEqualTo(protoBuilder.build().getHint(0));
-    assertThat(proto.getOption(0)).isEqualTo(protoBuilder.build().getOption(0));
-    assertThat(proto.getAnonymizationOption(0))
-        .isEqualTo(protoBuilder.build().getAnonymizationOption(0));
-    assertThat(proto.getDisallowUnknownOptions()).isTrue();
+    assertThat(proto).ignoringRepeatedFieldOrder().isEqualTo(protoBuilder.build());
   }
 
   @Test
@@ -205,14 +248,31 @@ public class AllowedHintsAndOptionsTest {
     assertThat(allowed.getOptionType("Option2")).isNull();
     assertThat(allowed.getOptionType("noOption")).isNull();
 
-    assertThat(allowed.getAnonymizationOptionNameList()).hasSize(6);
+    assertThat(allowed.getAnonymizationOptionNameList()).hasSize(7);
     assertThat(allowed.getAnonymizationOptionType("anonymization_option1").isInt64()).isTrue();
     assertThat(allowed.getAnonymizationOptionType("anonymization_option2")).isNull();
     assertThat(allowed.getAnonymizationOptionType("epsilon").isDouble()).isTrue();
     assertThat(allowed.getAnonymizationOptionType("delta").isDouble()).isTrue();
     assertThat(allowed.getAnonymizationOptionType("kappa").isInt64()).isTrue();
     assertThat(allowed.getAnonymizationOptionType("k_threshold").isInt64()).isTrue();
+    assertThat(allowed.getAnonymizationOptionType("max_rows_contributed").isInt64()).isTrue();
     assertThat(allowed.getAnonymizationOptionType("noOption")).isNull();
+  }
+
+  @Test
+  public void testDifferentialPrivacyOptionGets() {
+    AllowedHintsAndOptions allowed = new AllowedHintsAndOptions("qual");
+    allowed.addDifferentialPrivacyOption(
+        "dp_option1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
+
+    assertThat(allowed.getDifferentialPrivacyOptionNameList()).hasSize(5);
+    assertThat(allowed.getDifferentialPrivacyOptionType("dp_option1").isInt64()).isTrue();
+    assertThat(allowed.getDifferentialPrivacyOptionType("epsilon").isDouble()).isTrue();
+    assertThat(allowed.getDifferentialPrivacyOptionType("delta").isDouble()).isTrue();
+    assertThat(allowed.getDifferentialPrivacyOptionType("max_groups_contributed").isInt64())
+        .isTrue();
+    assertThat(allowed.getDifferentialPrivacyOptionType("max_rows_contributed").isInt64()).isTrue();
+    assertThat(allowed.getDifferentialPrivacyOptionType("noOption")).isNull();
   }
 
   @Test
@@ -221,11 +281,11 @@ public class AllowedHintsAndOptionsTest {
             "The number of fields of AllowedHintsAndOptionsProto has changed, please also update "
                 + "the serialization code accordingly.")
         .that(AllowedHintsAndOptionsProto.getDescriptor().getFields())
-        .hasSize(5);
+        .hasSize(6);
     assertWithMessage(
             "The number of fields in AllowedHintsAndOptions class has changed, please also update "
                 + "the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(AllowedHintsAndOptions.class))
-        .isEqualTo(5);
+        .isEqualTo(6);
   }
 }

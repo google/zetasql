@@ -1,0 +1,88 @@
+[default language_features=V_1_4_SQL_MACROS]
+DEFINE MACRO m1 FROM $group.tbl_$suffix a, r'b;"c'
+--
+DefineMacroStatement [0-50] [DEFINE MACRO...a, r'b;"c']
+  Identifier(m1) [13-15] [m1]
+  MacroBody(FROM $group.tbl_$suffix a, r'b;"c') [16-50] [FROM $group...a, r'b;"c']
+--
+DEFINE MACRO m1 FROM $group.tbl_$suffix a, r'b;"c'
+==
+
+# With semicolon at the end
+DEFINE MACRO m1 FROM $group.tbl_$suffix a, r'b;"c';
+--
+DefineMacroStatement [0-50] [DEFINE MACRO...a, r'b;"c']
+  Identifier(m1) [13-15] [m1]
+  MacroBody(FROM $group.tbl_$suffix a, r'b;"c') [16-50] [FROM $group...a, r'b;"c']
+--
+DEFINE MACRO m1 FROM $group.tbl_$suffix a, r'b;"c'
+==
+
+# Complex case with multiline, comments, and symbols
+DEFINE MACRO m a$1$other$2, "a$3;" -- Ignore the rest of this line
+# hash comment
+$x + /* ;intermediate comment; */ $y
+--
+DefineMacroStatement [0-118] [DEFINE MACRO...comment; */ $y]
+  Identifier(m) [13-14] [m]
+  MacroBody(a$1$other$2, "a$3;" -- Ignore the rest of this line
+\# hash comment
+$x + /* ;intermediate comment; */ $y) [15-118] [a$1$other$...comment; */ $y]
+--
+DEFINE MACRO m a$1$other$2, "a$3;" -- Ignore the rest of this line
+\# hash comment
+$x + /* ;intermediate comment; */ $y
+==
+
+# Invalid tokens are still invalid in macros
+DEFINE MACRO m1 "unfinished literal
+--
+ERROR: Syntax error: Unclosed string literal [at 1:17]
+DEFINE MACRO m1 "unfinished literal
+                ^
+==
+
+# Unfinished comment in macro
+DEFINE MACRO m1 /* unfinished comment
+--
+
+ERROR: Syntax error: Unclosed comment [at 1:17]
+DEFINE MACRO m1 /* unfinished comment
+                ^
+==
+
+# Invalid tokens are still invalid in macros
+DEFINE MACRO m1 3m
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:18]
+DEFINE MACRO m1 3m
+                 ^
+==
+
+# Tokens do now splice, so * and / are acceptable as 2 tokens here
+DEFINE MACRO m1 */
+--
+
+DefineMacroStatement [0-18] [DEFINE MACRO m1 */]
+  Identifier(m1) [13-15] [m1]
+  MacroBody(*/) [16-18] [*/]
+--
+DEFINE MACRO m1 */
+==
+
+# Disabling the flag disallows '$'
+[language_features=]
+DEFINE MACRO add $1 + $2
+--
+ERROR: Syntax error: Illegal input character "$" [at 1:18]
+DEFINE MACRO add $1 + $2
+                 ^
+==
+
+# This looks like a bug. The EXCEPT keyword has some special magic in the lexer
+# that accomodates statement kind, but not macros.
+DEFINE macro EXCEPT $subquery;
+--
+ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 1:14]
+DEFINE macro EXCEPT $subquery;
+             ^

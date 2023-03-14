@@ -27,6 +27,7 @@
 
 #include "zetasql/base/arena_allocator.h"
 #include "zetasql/parser/ast_enums.pb.h"
+#include "zetasql/parser/ast_node_internal.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/base/status.h"
@@ -127,11 +128,20 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
 
   // Return this node cast as a NodeType, or null if this is not possible.
   template <typename NodeType>
-  const NodeType* GetAsOrNull() const;
+  const NodeType* GetAsOrNull() const {
+    static_assert(std::is_base_of<ASTNode, NodeType>::value,
+                  "NodeType must be a member of the ASTNode class hierarchy");
+    return ast_node_internal::GetAsOrNullImpl<const NodeType, const ASTNode>(
+        this);
+  }
 
   // Return this node cast as a NodeType, or null if this is not possible.
   template <typename NodeType>
-  NodeType* GetAsOrNull();
+  NodeType* GetAsOrNull() {
+    static_assert(std::is_base_of<ASTNode, NodeType>::value,
+                  "NodeType must be a member of the ASTNode class hierarchy");
+    return ast_node_internal::GetAsOrNullImpl<NodeType, ASTNode>(this);
+  }
 
   // Return this node cast as a NodeType.
   // Use only when this node is known to be that type, otherwise it will crash.

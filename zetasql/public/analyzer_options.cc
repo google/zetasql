@@ -51,37 +51,45 @@ bool StringVectorCaseLess::operator()(
   return (v1.size() < v2.size());
 }
 
-void AllowedHintsAndOptions::AddOption(const std::string& name,
+void AllowedHintsAndOptions::AddOption(absl::string_view name,
                                        const Type* type) {
   ZETASQL_CHECK_OK(AddOptionImpl(options_lower, name, type));
 }
 
-void AllowedHintsAndOptions::AddAnonymizationOption(const std::string& name,
+void AllowedHintsAndOptions::AddAnonymizationOption(absl::string_view name,
                                                     const Type* type) {
   ZETASQL_CHECK_OK(AddOptionImpl(anonymization_options_lower, name, type));
 }
 
-absl::Status AllowedHintsAndOptions::AddOptionImpl(
-    absl::flat_hash_map<std::string, const Type*>& options_map,
+void AllowedHintsAndOptions::AddDifferentialPrivacyOption(
     const std::string& name, const Type* type) {
+  ZETASQL_CHECK_OK(AddOptionImpl(differential_privacy_options_lower, name, type));
+}
+
+absl::Status AllowedHintsAndOptions::AddOptionImpl(
+    absl::flat_hash_map<std::string, AllowedOptionProperties>& options_map,
+    absl::string_view name, const Type* type,
+    AllowedHintsAndOptionsProto::OptionProto::ResolvingKind resolving_kind) {
   if (name.empty()) {
     return MakeSqlError() << "Option name should not be empty.";
   }
-  if (!zetasql_base::InsertIfNotPresent(&options_map, absl::AsciiStrToLower(name),
-                               type)) {
+  if (!zetasql_base::InsertIfNotPresent(
+          &options_map, absl::AsciiStrToLower(name),
+          AllowedOptionProperties{.type = type,
+                                  .resolving_kind = resolving_kind})) {
     return MakeSqlError() << "Duplicate option: " << name;
   }
   return absl::OkStatus();
 }
 
-void AllowedHintsAndOptions::AddHint(const std::string& qualifier,
-                                     const std::string& name, const Type* type,
+void AllowedHintsAndOptions::AddHint(absl::string_view qualifier,
+                                     absl::string_view name, const Type* type,
                                      bool allow_unqualified) {
   ZETASQL_CHECK_OK(AddHintImpl(qualifier, name, type, allow_unqualified));
 }
 
-absl::Status AllowedHintsAndOptions::AddHintImpl(const std::string& qualifier,
-                                                 const std::string& name,
+absl::Status AllowedHintsAndOptions::AddHintImpl(absl::string_view qualifier,
+                                                 absl::string_view name,
                                                  const Type* type,
                                                  bool allow_unqualified) {
   if (name.empty()) {
@@ -114,9 +122,10 @@ absl::Status AllowedHintsAndOptions::Deserialize(
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory, AllowedHintsAndOptions* result) {
   *result = AllowedHintsAndOptions();
-  // We need to clear anonymization_options_lower since they are filled in
-  // constructor.
+  // We need to clear anonymization_options_lower and
+  // differential_privacy_options_lower since they are filled in constructor.
   result->anonymization_options_lower.clear();
+  result->differential_privacy_options_lower.clear();
   for (const auto& qualifier : proto.disallow_unknown_hints_with_qualifier()) {
     if (!zetasql_base::InsertIfNotPresent(
             &(result->disallow_unknown_hints_with_qualifiers), qualifier)) {
@@ -142,16 +151,23 @@ absl::Status AllowedHintsAndOptions::Deserialize(
           const google::protobuf::RepeatedPtrField<
               ::zetasql::AllowedHintsAndOptionsProto_OptionProto>&
               options_proto,
-          absl::flat_hash_map<std::string, const Type*>& options)
+          absl::flat_hash_map<std::string, AllowedOptionProperties>& options)
       -> absl::Status {
     for (const auto& option : options_proto) {
+      AllowedHintsAndOptionsProto::OptionProto::ResolvingKind resolving_kind =
+          option.has_resolving_kind()
+              ? option.resolving_kind()
+              : AllowedHintsAndOptionsProto::OptionProto::
+                    CONSTANT_OR_EMPTY_NAME_SCOPE_IDENTIFIER;
       if (option.has_type()) {
         const Type* type;
         ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
             option.type(), pools, &type));
-        ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(options, option.name(), type));
+        ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(options, option.name(), type,
+                                              resolving_kind));
       } else {
-        ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(options, option.name(), nullptr));
+        ZETASQL_RETURN_IF_ERROR(result->AddOptionImpl(options, option.name(), nullptr,
+                                              resolving_kind));
       }
     }
 
@@ -160,6 +176,9 @@ absl::Status AllowedHintsAndOptions::Deserialize(
   ZETASQL_RETURN_IF_ERROR(deserialize_options(proto.option(), result->options_lower));
   ZETASQL_RETURN_IF_ERROR(deserialize_options(proto.anonymization_option(),
                                       result->anonymization_options_lower));
+  ZETASQL_RETURN_IF_ERROR(
+      deserialize_options(proto.differential_privacy_option(),
+                          result->differential_privacy_options_lower));
   return absl::OkStatus();
 }
 
@@ -238,24 +257,29 @@ absl::Status AllowedHintsAndOptions::Serialize(
   }
   auto serialize_options =
       [file_descriptor_set_map](
-          const absl::flat_hash_map<std::string, const Type*>& options,
+          const absl::flat_hash_map<std::string, AllowedOptionProperties>&
+              options,
           google::protobuf::RepeatedPtrField<
               ::zetasql::AllowedHintsAndOptionsProto_OptionProto>&
               options_proto) -> absl::Status {
-    for (const auto& option : options) {
+    for (const auto& [name, properties] : options) {
       auto* option_proto = options_proto.Add();
-      option_proto->set_name(option.first);
-      if (option.second != nullptr) {
+      option_proto->set_name(name);
+      if (properties.type != nullptr) {
         ZETASQL_RETURN_IF_ERROR(
-            option.second->SerializeToProtoAndDistinctFileDescriptors(
+            properties.type->SerializeToProtoAndDistinctFileDescriptors(
                 option_proto->mutable_type(), file_descriptor_set_map));
       }
+      option_proto->set_resolving_kind(properties.resolving_kind);
     }
     return absl::OkStatus();
   };
   ZETASQL_RETURN_IF_ERROR(serialize_options(options_lower, *proto->mutable_option()));
   ZETASQL_RETURN_IF_ERROR(serialize_options(anonymization_options_lower,
                                     *proto->mutable_anonymization_option()));
+  ZETASQL_RETURN_IF_ERROR(
+      serialize_options(differential_privacy_options_lower,
+                        *proto->mutable_differential_privacy_option()));
   return absl::OkStatus();
 }
 
@@ -482,7 +506,7 @@ absl::Status AnalyzerOptions::AddSystemVariable(
   if (name_path.empty()) {
     return MakeSqlError() << "System variable cannot have empty name path";
   }
-  for (const std::string& name_path_part : name_path) {
+  for (absl::string_view name_path_part : name_path) {
     if (name_path_part.empty()) {
       return MakeSqlError()
              << "System variable cannot have empty string as path part";
@@ -504,7 +528,7 @@ absl::Status AnalyzerOptions::AddSystemVariable(
   return absl::OkStatus();
 }
 
-absl::Status AnalyzerOptions::AddQueryParameter(const std::string& name,
+absl::Status AnalyzerOptions::AddQueryParameter(absl::string_view name,
                                                 const Type* type) {
   if (type == nullptr) {
     return MakeSqlError()
@@ -553,7 +577,7 @@ absl::Status AnalyzerOptions::AddPositionalQueryParameter(const Type* type) {
   return absl::OkStatus();
 }
 
-absl::Status AnalyzerOptions::AddExpressionColumn(const std::string& name,
+absl::Status AnalyzerOptions::AddExpressionColumn(absl::string_view name,
                                                   const Type* type) {
   if (type == nullptr) {
     return MakeSqlError()
@@ -578,8 +602,8 @@ absl::Status AnalyzerOptions::AddExpressionColumn(const std::string& name,
   return absl::OkStatus();
 }
 
-absl::Status AnalyzerOptions::SetInScopeExpressionColumn(
-    const std::string& name, const Type* type) {
+absl::Status AnalyzerOptions::SetInScopeExpressionColumn(absl::string_view name,
+                                                         const Type* type) {
   if (type == nullptr) {
     return MakeSqlError()
            << "Type associated with in-scope expression column cannot be NULL";

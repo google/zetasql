@@ -31,6 +31,7 @@ import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.zetasql.ZetaSQLType.EnumTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
+import com.google.zetasql.functions.ZetaSQLRoundingMode.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -236,12 +237,11 @@ public class EnumTypeTest {
                 + "serialization code accordingly.")
         .that(EnumTypeProto.getDescriptor().getFields())
         .hasSize(5);
-    // TODO: Implement java opaque enum support.
 
     assertWithMessage(
             "The number of fields in EnumType class has changed, please also update the proto and "
                 + "serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(EnumType.class))
-        .isEqualTo(2);
+        .isEqualTo(3);
   }
 }

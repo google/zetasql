@@ -44,10 +44,12 @@ namespace zetasql {
 //
 // If 'target_type' is non-null, coerces the expression to be of type
 // 'target_type'.
-absl::Status InternalAnalyzeExpression(
-    absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
-    TypeFactory* type_factory, const Type* target_type,
-    std::unique_ptr<const AnalyzerOutput>* output);
+absl::Status InternalAnalyzeExpression(absl::string_view sql,
+                                       const AnalyzerOptions& options,
+                                       Catalog* catalog,
+                                       TypeFactory* type_factory,
+                                       const Type* target_type,
+                                       std::unique_ptr<AnalyzerOutput>* output);
 
 // Coerces <resolved_expr> to <target_type>, using assignment semantics
 // For details, see Coercer::AssignableTo() in
@@ -65,7 +67,7 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression,
     std::unique_ptr<ParserOutput> parser_output, absl::string_view sql,
     const AnalyzerOptions& options, Catalog* catalog, TypeFactory* type_factory,
-    const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output);
+    const Type* target_type, std::unique_ptr<AnalyzerOutput>* output);
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_ANALYZER_IMPL_H_

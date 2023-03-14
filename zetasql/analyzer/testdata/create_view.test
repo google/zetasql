@@ -18,6 +18,9 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 1 a, 2 b"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=tt.a#3)
+  +-ColumnDefinition(name="b", type=INT64, column=tt.b#4)
 ==
 
 create temp view MyView as select * from KeyValue
@@ -34,6 +37,9 @@ CreateViewStmt
 |   +-input_scan=
 |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-sql="select * from KeyValue"
++-column_definition_list=
+  +-ColumnDefinition(name="Key", type=INT64, column=MyView.Key#3)
+  +-ColumnDefinition(name="Value", type=STRING, column=MyView.Value#4)
 ==
 
 [statement_context={{|module}}]
@@ -133,6 +139,11 @@ CreateViewStmt
 |   +-limit=
 |     +-Literal(type=INT64, value=5)
 +-sql="select key, key k1, key k2, key+1 k3 from keYvalue limit 5"
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=X.key#4)
+  +-ColumnDefinition(name="k1", type=INT64, column=X.k1#5)
+  +-ColumnDefinition(name="k2", type=INT64, column=X.k2#6)
+  +-ColumnDefinition(name="k3", type=INT64, column=X.k3#7)
 --
 ALTERNATION GROUP: temporary
 --
@@ -165,6 +176,11 @@ CreateViewStmt
 |   +-limit=
 |     +-Literal(type=INT64, value=5)
 +-sql="select key, key k1, key k2, key+1 k3 from keYvalue limit 5"
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=X.key#4)
+  +-ColumnDefinition(name="k1", type=INT64, column=X.k1#5)
+  +-ColumnDefinition(name="k2", type=INT64, column=X.k2#6)
+  +-ColumnDefinition(name="k3", type=INT64, column=X.k3#7)
 --
 ALTERNATION GROUP: materialized
 --
@@ -221,6 +237,8 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 1 c"
++-column_definition_list=
+  +-ColumnDefinition(name="c", type=INT64, column=Z.c#2)
 --
 ALTERNATION GROUP: materialized
 --
@@ -264,6 +282,8 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 1 c"
++-column_definition_list=
+  +-ColumnDefinition(name="c", type=INT64, column=a.b.`c.d`.`e f g`.kk.c#2)
 ==
 
 # Anonymous columns not allowed.
@@ -336,6 +356,8 @@ CreateViewStmt
 |         +-SingleRowScan
 +-sql="select as struct 1 a, 2, 3 c, 4 c"
 +-is_value_table=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="$struct", type=STRUCT<a INT64, INT64, c INT64, c INT64>, column=tt.$struct#6)
 --
 ALTERNATION GROUP: materialized
 --
@@ -399,6 +421,8 @@ CreateViewStmt
 |         +-SingleRowScan
 +-sql="select as `zetasql_test__.TestExtraPB` 55 int32_val1"
 +-is_value_table=TRUE
++-column_definition_list=
+  +-ColumnDefinition(name="$proto", type=PROTO<zetasql_test__.TestExtraPB>, column=tt.$proto#3)
 --
 ALTERNATION GROUP: materialized
 --
@@ -444,7 +468,9 @@ CreateViewStmt
 |   | +-a#1 := Literal(type=INT64, value=1)
 |   +-input_scan=
 |     +-SingleRowScan
-+-sql="(select 1 a)"
++-sql="select 1 a"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=x.y.a#2)
 --
 ALTERNATION GROUP: materialized
 --
@@ -460,7 +486,7 @@ CreateMaterializedViewStmt
 |   | +-a#1 := Literal(type=INT64, value=1)
 |   +-input_scan=
 |     +-SingleRowScan
-+-sql="(select 1 a)"
++-sql="select 1 a"
 +-column_definition_list=
   +-ColumnDefinition(name="a", type=INT64, column=x.y.a#2)
 ==
@@ -481,7 +507,9 @@ CreateViewStmt
 |   | +-a#1 := Literal(type=INT64, value=1)
 |   +-input_scan=
 |     +-SingleRowScan
-+-sql="(select 1 a)"
++-sql="select 1 a"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=x.y.a#2)
 ==
 
 create or replace {{|materialized}} view if not exists T as (select 1 a)
@@ -565,6 +593,8 @@ CreateViewStmt
 |               +-ColumnRef(type=INT64, column=t3.key#7)
 |               +-Literal(type=INT64, value=5)
 +-sql="WITH t1 as (select 1 key),\n     t2 as (select key from KeyValue),\n     t3 as (select * from t1 union all select * from t2)\nselect * from t3 where key=5"
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=T.key#8)
 ==
 
 # Create view with a WITH statement with an error in a with subquery.
@@ -630,6 +660,8 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 1 a"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=T.a#2)
 --
 ALTERNATION GROUP: materialized
 --
@@ -710,6 +742,8 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 1 a"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=T.a#2)
 ==
 
 [parse_multiple]
@@ -755,6 +789,8 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 1 a"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=T1.a#2)
 --
 QueryStmt
 +-output_column_list=
@@ -790,6 +826,8 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 2 a"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=T2.a#2)
 --
 QueryStmt
 +-output_column_list=
@@ -845,23 +883,84 @@ create  view tt(a, b)
                ^
 ==
 
-# Create view with explicit column list with column options is unsupported.
-# TODO: Add test when creating views with column options is
-# supported.
-create {{materialized|}} view tt(a OPTIONS(description="test view"), b)
-as select 1, 2
+# Create view with explicit column list with column options.
+[default language_features={{CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS|CREATE_VIEW_WITH_COLUMN_LIST}}]
+create {{materialized|}} view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
+as select 1, 2, 3
 --
-ALTERNATION GROUP: materialized
+ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS,materialized
 --
-ERROR: CREATE MATERIALIZED VIEW with column options not supported [at 1:38]
-create materialized view tt(a OPTIONS(description="test view"), b)
-                                     ^
+CreateMaterializedViewStmt
++-name_path=tt
++-output_column_list=
+| +-$view.$col1#1 AS c1 [INT64]
+| +-$view.$col2#2 AS c2 [INT64]
+| +-$view.$col3#3 AS c3 [INT64]
++-has_explicit_columns=TRUE
++-query=
+| +-ProjectScan
+|   +-column_list=$view.[$col1#1, $col2#2, $col3#3]
+|   +-expr_list=
+|   | +-$col1#1 := Literal(type=INT64, value=1)
+|   | +-$col2#2 := Literal(type=INT64, value=2)
+|   | +-$col3#3 := Literal(type=INT64, value=3)
+|   +-input_scan=
+|     +-SingleRowScan
++-sql="select 1, 2, 3"
++-column_definition_list=
+  +-ColumnDefinition
+  | +-name="c1"
+  | +-type=INT64
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-option_list=
+  | |     +-description := Literal(type=STRING, value="col1")
+  | +-column=tt.$col1#4
+  +-ColumnDefinition(name="c2", type=INT64, column=tt.$col2#5)
+  +-ColumnDefinition(name="c3", type=INT64, column=tt.$col3#6)
 --
-ALTERNATION GROUP: <empty>
+ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,CREATE_VIEWS_WITH_COLUMN_OPTIONS,
 --
-ERROR: CREATE VIEW with column options not supported [at 1:26]
-create  view tt(a OPTIONS(description="test view"), b)
-                         ^
+CreateViewStmt
++-name_path=tt
++-output_column_list=
+| +-$view.$col1#1 AS c1 [INT64]
+| +-$view.$col2#2 AS c2 [INT64]
+| +-$view.$col3#3 AS c3 [INT64]
++-has_explicit_columns=TRUE
++-query=
+| +-ProjectScan
+|   +-column_list=$view.[$col1#1, $col2#2, $col3#3]
+|   +-expr_list=
+|   | +-$col1#1 := Literal(type=INT64, value=1)
+|   | +-$col2#2 := Literal(type=INT64, value=2)
+|   | +-$col3#3 := Literal(type=INT64, value=3)
+|   +-input_scan=
+|     +-SingleRowScan
++-sql="select 1, 2, 3"
++-column_definition_list=
+  +-ColumnDefinition
+  | +-name="c1"
+  | +-type=INT64
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-option_list=
+  | |     +-description := Literal(type=STRING, value="col1")
+  | +-column=tt.$col1#4
+  +-ColumnDefinition(name="c2", type=INT64, column=tt.$col2#5)
+  +-ColumnDefinition(name="c3", type=INT64, column=tt.$col3#6)
+--
+ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,materialized
+--
+ERROR: CREATE MATERIALIZED VIEW with column options not supported [at 1:39]
+create materialized view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
+                                      ^
+--
+ALTERNATION GROUP: CREATE_VIEW_WITH_COLUMN_LIST,
+--
+ERROR: CREATE VIEW with column options not supported [at 1:27]
+create  view tt(c1 OPTIONS(description="col1"), c2, c3 OPTIONS())
+                          ^
 ==
 
 # Create view with or without explicit column.
@@ -887,6 +986,9 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 1 a, 2 b"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=v.a#3)
+  +-ColumnDefinition(name="b", type=INT64, column=v.b#4)
 --
 ALTERNATION GROUP: (a,b)
 --
@@ -905,6 +1007,9 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 1 a, 2 b"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=v.a#3)
+  +-ColumnDefinition(name="b", type=INT64, column=v.b#4)
 ==
 
 # Create view with column name list, view sql columns have no name.
@@ -950,6 +1055,9 @@ CreateViewStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-sql="select 1, 2"
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=tt.$col1#3)
+  +-ColumnDefinition(name="b", type=INT64, column=tt.$col2#4)
 ==
 
 # Create view with column name list size < view sql column count
@@ -1116,6 +1224,9 @@ CreateViewStmt
 |   +-input_scan=
 |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-sql="select * from KeyValue"
++-column_definition_list=
+  +-ColumnDefinition(name="k", type=INT64, column=tt.Key#3)
+  +-ColumnDefinition(name="v", type=STRING, column=tt.Value#4)
 
 ==
 
@@ -1155,6 +1266,9 @@ CreateViewStmt
 |   +-input_scan=
 |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-sql="select key AS value, value AS key from KeyValue"
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.value#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.key#4)
 
 ==
 
@@ -1194,3 +1308,6 @@ CreateViewStmt
 |   +-input_scan=
 |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-sql="select key AS value, value from KeyValue"
++-column_definition_list=
+  +-ColumnDefinition(name="key", type=INT64, column=tt.value#3)
+  +-ColumnDefinition(name="value", type=STRING, column=tt.value#4)

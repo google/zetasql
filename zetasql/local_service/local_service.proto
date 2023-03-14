@@ -45,6 +45,7 @@ option java_outer_classname = "LocalService";
 // since we cannot allow random users to run queries over data accessible by
 // the (different) user that started the ZetaSql service.
 service ZetaSqlLocalService {
+
   // Prepare the sql expression in PrepareRequest with given columns and
   // parameters with zetasql::PreparedExpression and return the result
   // type as PrepareResponse. The prepared expression will be kept at server
@@ -738,6 +739,7 @@ message UnregisterRequest {
 
 message GetBuiltinFunctionsResponse {
   repeated FunctionProto function = 1;
+  map<string, TypeProto> types = 2;
   // This implicitly requires the builtin descriptor pool for deserialization.
 }
 
@@ -750,13 +752,24 @@ message AnalyzerOptionsRequest {}
 
 message ParseRequest {
   oneof target {
+    // Single statement.
     string sql_statement = 1;
+    // Multiple statements.
+    ParseResumeLocationProto parse_resume_location = 3;
   }
+
   optional LanguageOptionsProto options = 2;
+
+  // sql_statement is interpreted as a script rather than a single statement.
+  // parse_resume_location is allowed to contain script statements.
+  optional bool allow_script = 4;
 }
 
 message ParseResponse {
   oneof result {
     AnyASTStatementProto parsed_statement = 1;
+    ASTScriptProto parsed_script = 3;
   }
+  // Set only if the request had parse_resume_location.
+  optional int32 resume_byte_position = 2;
 }

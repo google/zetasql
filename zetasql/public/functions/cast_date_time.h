@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/functions/date_time_util.h"
@@ -48,8 +49,8 @@ namespace functions {
 // (broken link).
 absl::Status CastStringToTimestamp(absl::string_view format_string,
                                    absl::string_view timestamp_string,
-                                   const absl::TimeZone default_timezone,
-                                   const absl::Time current_timestamp,
+                                   absl::TimeZone default_timezone,
+                                   absl::Time current_timestamp,
                                    int64_t* timestamp_micros);
 
 // Invokes MakeTimeZone() on <default_timezone_string> and invokes the prior
@@ -58,21 +59,21 @@ absl::Status CastStringToTimestamp(absl::string_view format_string,
 absl::Status CastStringToTimestamp(absl::string_view format_string,
                                    absl::string_view timestamp_string,
                                    absl::string_view default_timezone_string,
-                                   const absl::Time current_timestamp,
+                                   absl::Time current_timestamp,
                                    int64_t* timestamp_micros);
 
 // The 2 functions below are similar to the above functions but support
 // nanoseconds precision.
 absl::Status CastStringToTimestamp(absl::string_view format_string,
                                    absl::string_view timestamp_string,
-                                   const absl::TimeZone default_timezone,
-                                   const absl::Time current_timestamp,
+                                   absl::TimeZone default_timezone,
+                                   absl::Time current_timestamp,
                                    absl::Time* timestamp);
 
 absl::Status CastStringToTimestamp(absl::string_view format_string,
                                    absl::string_view timestamp_string,
                                    absl::string_view default_timezone_string,
-                                   const absl::Time current_timestamp,
+                                   absl::Time current_timestamp,
                                    absl::Time* timestamp);
 
 // CastStringToDate function is used for CAST(input AS Date FORMAT '...')
@@ -333,6 +334,26 @@ absl::StatusOr<std::vector<DateTimeFormatElement>> GetDateTimeFormatElements(
     absl::string_view format_str);
 
 }  // namespace cast_date_time_internal
+
+class StringToDateCaster {
+ public:
+  StringToDateCaster& operator=(const StringToDateCaster&) = delete;
+
+  static absl::StatusOr<StringToDateCaster> Create(
+      absl::string_view format_string);
+
+  // Cast the string to Date using the format string.
+  absl::Status Cast(absl::string_view date_string, int32_t current_date,
+                    int32_t* date) const;
+
+ private:
+  explicit StringToDateCaster(
+      std::vector<cast_date_time_internal::DateTimeFormatElement>
+          format_elements)
+      : format_elements_(std::move(format_elements)) {}
+
+  std::vector<cast_date_time_internal::DateTimeFormatElement> format_elements_;
+};
 
 }  // namespace functions
 }  // namespace zetasql

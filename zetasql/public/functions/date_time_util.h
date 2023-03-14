@@ -118,6 +118,10 @@ ABSL_MUST_USE_RESULT absl::Time MakeTime(int64_t timestamp,
 ABSL_MUST_USE_RESULT bool FromTime(absl::Time base_time, TimestampScale scale,
                                    int64_t* output);
 
+// Returns the absl::Weekday corresponding to `part`, which must be one of the
+// WEEK values.
+absl::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(DateTimestampPart part);
+
 // Returns a string of format "YYYY-MM-DD" for this date.  Returns error
 // status if conversion fails.
 absl::Status ConvertDateToString(int32_t date, std::string* out);

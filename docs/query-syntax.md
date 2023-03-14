@@ -137,7 +137,7 @@ WITH TeamMascot AS
 SELECT * FROM TeamMascot
 ```
 
-## SELECT statement 
+## `SELECT` statement 
 <a id="select_list"></a>
 
 <pre>
@@ -169,7 +169,7 @@ Each item in the `SELECT` list is one of:
 +  `expression`
 +  `expression.*`
 
-### SELECT *
+### `SELECT *`
 
 `SELECT *`, often referred to as *select star*, produces one output column for
 each column that is visible after executing the full query.
@@ -184,7 +184,7 @@ SELECT * FROM (SELECT "apple" AS fruit, "carrot" AS vegetable);
 +-------+-----------+
 ```
 
-### SELECT `expression` 
+### `SELECT expression` 
 <a id="select_expression"></a>
 
 Items in a `SELECT` list can be expressions. These expressions evaluate to a
@@ -195,7 +195,7 @@ according to the rules for [implicit aliases][implicit-aliases], if possible.
 Otherwise, the column is anonymous and you cannot refer to it by name elsewhere
 in the query.
 
-### SELECT `expression.*` 
+### `SELECT expression.*` 
 <a id="select_expression_star"></a>
 
 An item in a `SELECT` list can also take the form of `expression.*`. This
@@ -253,7 +253,7 @@ FROM locations l;
 +---------+------------+
 ```
 
-### SELECT * EXCEPT
+### `SELECT * EXCEPT`
 
 A `SELECT * EXCEPT` statement specifies the names of one or more columns to
 exclude from the result. All matching column names are omitted from the output.
@@ -275,7 +275,7 @@ FROM orders;
 
 Note: `SELECT * EXCEPT` does not exclude columns that do not have names.
 
-### SELECT * REPLACE
+### `SELECT * REPLACE`
 
 A `SELECT * REPLACE` statement specifies one or more
 `expression AS identifier` clauses. Each identifier must match a column name
@@ -316,18 +316,19 @@ FROM orders;
 
 Note: `SELECT * REPLACE` does not replace columns that do not have names.
 
-### SELECT DISTINCT
+### `SELECT DISTINCT`
 
 A `SELECT DISTINCT` statement discards duplicate rows and returns only the
 remaining rows. `SELECT DISTINCT` cannot return columns of the following types:
 
 +  `PROTO`
 
-### SELECT ALL
+### `SELECT ALL`
+
 A `SELECT ALL` statement returns all rows, including duplicate rows.
 `SELECT ALL` is the default behavior of `SELECT`.
 
-### SELECT AS STRUCT
+### `SELECT AS STRUCT`
 
 ```sql
 SELECT AS STRUCT expr [[AS] struct_field_name1] [,...]
@@ -388,7 +389,7 @@ using a struct constructor:
 SELECT AS VALUE STRUCT(1 AS x, 2 AS y, 3 AS x)
 ```
 
-### SELECT AS typename 
+### `SELECT AS typename` 
 <a id="select_as_typename"></a>
 
 ```sql
@@ -428,7 +429,7 @@ the `mytable.name` column are stored in the `string_val` protocol buffer field.
 To learn more about protocol buffers, see
 [Work with protocol buffers][proto-buffers].
 
-### SELECT AS VALUE
+### `SELECT AS VALUE`
 
 `SELECT AS VALUE` produces a [value table][value-tables] from any
 `SELECT` list that produces exactly one column. Instead of producing an
@@ -466,7 +467,7 @@ then the output table schema would differ from the input table schema because
 the output table would be a regular table with a column named `v` containing the
 input value.
 
-## FROM clause
+## `FROM` clause
 
 <pre>
 FROM <span class="var">from_clause</span>[, ...]
@@ -494,17 +495,17 @@ The `FROM` clause indicates the table or tables from which to retrieve rows,
 and specifies how to join those rows together to produce a single stream of
 rows for processing in the rest of the query.
 
-#### unpivot_operator 
+#### `unpivot_operator` 
 <a id="unpivot_operator_stub"></a>
 
 See [UNPIVOT operator][unpivot-operator].
 
-#### tablesample_operator 
+#### `tablesample_operator` 
 <a id="tablesample_operator_clause"></a>
 
 See [TABLESAMPLE operator][tablesample-operator].
 
-#### table_name
+#### `table_name`
 
 The name (optionally qualified) of an existing table.
 
@@ -513,15 +514,15 @@ SELECT * FROM Roster;
 SELECT * FROM db.Roster;
 </pre>
 
-#### join_operation
+#### `join_operation`
 
-See [JOIN operation][query-joins].
+See [Join operation][query-joins].
 
-#### query_expr
+#### `query_expr`
 
 `( query_expr ) [ [ AS ] alias ]` is a [table subquery][table-subquery-concepts].
 
-#### field_path
+#### `field_path`
 
 In the `FROM` clause, `field_path` is any path that
 resolves to a field within a data type. `field_path` can go
@@ -556,12 +557,12 @@ Note: If a path has more than one name, and it matches a field
 name, it is interpreted as a field name. To force the path to be interpreted as
 a table name, wrap the path using <code>`</code>.
 
-#### unnest_operator 
+#### `unnest_operator` 
 <a id="unnest_operator_clause"></a>
 
 See [UNNEST operator][unnest-operator].
 
-#### cte_name
+#### `cte_name`
 
 Common table expressions (CTEs) in a [`WITH` Clause][with-clause] act like
 temporary tables that you can reference anywhere in the `FROM` clause.
@@ -581,7 +582,7 @@ for the duration of the query, unless you qualify the table name, for example:
 
  `db.Roster`.
 
-## UNNEST operator 
+## `UNNEST` operator 
 <a id="unnest_operator"></a>
 
 <pre>
@@ -598,12 +599,12 @@ for the duration of the query, unless you qualify the table name, for example:
     [AS] <span class="var">alias</span>
 </pre>
 
-The `UNNEST` operator takes an `ARRAY` and returns a
-table, with one row for each element in the `ARRAY`.
+The `UNNEST` operator takes an array and returns a
+table, with one row for each element in the array.
 You can also use `UNNEST` outside of the `FROM` clause with the
 [`IN` operator][in-operator].
 
-For input `ARRAY`s of most element types, the output of `UNNEST` generally has
+For input arrays of most element types, the output of `UNNEST` generally has
 one column. This single column has an optional `alias`, which you can use to
 refer to the column elsewhere in the query. `ARRAYS` with these element types
 return multiple columns:
@@ -612,16 +613,16 @@ return multiple columns:
 + PROTO
 
 `UNNEST` destroys the order of elements in the input
-`ARRAY`. Use the optional `WITH OFFSET` clause to
+array. Use the optional `WITH OFFSET` clause to
 return a second column with the array element indexes.
 
 For several ways to use `UNNEST`, including construction, flattening, and
 filtering, see [Work with arrays][working-with-arrays].
 
-### UNNEST and STRUCTs
-For an input `ARRAY` of `STRUCT`s, `UNNEST`
-returns a row for each `STRUCT`, with a separate column for each field in the
-`STRUCT`. The alias for each column is the name of the corresponding `STRUCT`
+### `UNNEST` and structs
+For an input array of structs, `UNNEST`
+returns a row for each struct, with a separate column for each field in the
+struct. The alias for each column is the name of the corresponding struct
 field.
 
 Example:
@@ -649,8 +650,8 @@ Because the `UNNEST` operator returns a
 [value table][value-tables],
 you can alias `UNNEST` to define a range variable that you can reference
 elsewhere in the query. If you reference the range variable in the `SELECT`
-list, the query returns a `STRUCT` containing all of the fields of the original
-`STRUCT` in the input table.
+list, the query returns a struct containing all of the fields of the original
+struct in the input table.
 
 Example:
 
@@ -672,11 +673,11 @@ FROM UNNEST(
 +---+-----+--------------+
 ```
 
-### UNNEST and PROTOs
-For an input `ARRAY` of `PROTO`s, `UNNEST`
-returns a row for each `PROTO`, with a separate column for each field in the
-`PROTO`. The alias for each column is the name of the corresponding `PROTO`
-field.
+### `UNNEST` and protocol buffers
+For an input array of protocol buffers, `UNNEST` returns a row for each
+protocol buffer, with a separate column for each field in the
+protocol buffer. The alias for each column is the name of the corresponding
+protocol buffer field.
 
 Example:
 
@@ -697,9 +698,9 @@ FROM UNNEST(
 +-------------------------+--------+----------------------------------+
 ```
 
-As with `STRUCT`s, you can alias `UNNEST` here to define a range variable. You
+As with structs, you can alias `UNNEST` here to define a range variable. You
 can reference this alias in the `SELECT` list to return a value table where each
-row is a `PROTO` element from the `ARRAY`.
+row is a protocol buffer element from the array.
 
 ```sql
 SELECT proto_value
@@ -718,11 +719,11 @@ FROM UNNEST(
 +---------------------------------------------------------------------+
 ```
 
-### Explicit and implicit UNNEST
+### Explicit and implicit `UNNEST`
 
-`ARRAY` unnesting can be either explicit or implicit.
+Array unnesting can be either explicit or implicit.
 In explicit unnesting, `array_expression` must return an
-`ARRAY` value but does not need to resolve to an `ARRAY`, and the `UNNEST`
+array value but does not need to resolve to an array, and the `UNNEST`
 keyword is required.
 
 Example:
@@ -731,7 +732,7 @@ Example:
 SELECT * FROM UNNEST ([1, 2, 3]);
 ```
 
-In implicit unnesting, `array_path` must resolve to an `ARRAY` and the
+In implicit unnesting, `array_path` must resolve to an array and the
 `UNNEST` keyword is optional.
 
 Example:
@@ -743,11 +744,11 @@ FROM mytable AS t,
 ```
 
 In this scenario, `array_path` can go arbitrarily deep into a data
-structure, but the last field must be `ARRAY`-typed. No previous field in the
-expression can be `ARRAY`-typed because it is not possible to extract a named
-field from an `ARRAY`.
+structure, but the last field must be array-typed. No previous field in the
+expression can be array-typed because it is not possible to extract a named
+field from an array.
 
-### UNNEST and FLATTEN
+### `UNNEST` and `FLATTEN`
 
 The `UNNEST` operator can accept an array with nested data and flatten a
 specific part of the data into a table with one row for each element. To do
@@ -815,14 +816,15 @@ To learn more about the ways you can use `UNNEST` explicitly and implicitly
 to flatten nested data into a table, see
 [Flattening nested data into a table][flattening-trees-into-table].
 
-### UNNEST and NULLs
+### `UNNEST` and `NULL` values 
+<a id="unnest_and_nulls"></a>
 
-`UNNEST` treats `NULL`s as follows:
+`UNNEST` treats `NULL` values as follows:
 
 +  `NULL` and empty arrays produce zero rows.
-+  An array containing `NULL`s produces rows containing `NULL` values.
++  An array containing `NULL` values produces rows containing `NULL` values.
 
-### UNNEST and WITH OFFSET
+### `UNNEST` and `WITH OFFSET`
 
 The optional `WITH OFFSET` clause returns a separate column containing the
 _offset_ value, in which counting starts at zero for each row produced by the
@@ -843,7 +845,7 @@ SELECT * FROM UNNEST ([10,20,30]) as numbers WITH OFFSET;
 +---------+--------+
 ```
 
-## UNPIVOT operator 
+## `UNPIVOT` operator 
 <a id="unpivot_operator"></a>
 
 <pre class="lang-sql prettyprint">
@@ -1019,7 +1021,7 @@ Rules for `unpivot_column`:
 <a id="rules_for_row_value_alias"></a>
 Rules for `row_value_alias`:
 
-+ This can be a `STRING` or an `INT64` literal.
++ This can be a string or an `INT64` literal.
 + The data type for all `row_value_alias` clauses must be the same.
 + If the value is an `INT64`, the `row_value_alias` for each `unpivot_column`
   must be specified.
@@ -1085,7 +1087,7 @@ UNPIVOT(
 +---------+------------------+-------------------+------------+
 ```
 
-## TABLESAMPLE operator
+## `TABLESAMPLE` operator
 
 ```sql
 tablesample_clause:
@@ -1322,7 +1324,7 @@ As a result, the output of the second query does not contain the `SUM` estimate
 for the group `VN`. We refer to this as the _missing-group problem_, which
 can be solved with [stratified sampling][stratified-sampling].
 
-## JOIN operation 
+## Join operation 
 <a id="join_types"></a>
 
 <pre class="lang-sql prettyprint">
@@ -1346,26 +1348,26 @@ can be solved with [stratified sampling][stratified-sampling].
       | <a href="#right_outer_join">RIGHT [OUTER] JOIN</a>
     }
 
-<span class="var">join_condition</span>:
+<a href="#join_conditions"><span class="var">join_condition</span></a>:
     { <a href="#on_clause"><span class="var">on_clause</span></a> | <a href="#using_clause"><span class="var">using_clause</span></a> }
 
-<span class="var">on_clause</span>:
+<a href="#on_clause"><span class="var">on_clause</span></a>:
     ON <span class="var">bool_expression</span>
 
-<span class="var">using_clause</span>:
-    USING ( <span class="var">join_column</span> [, ...] )
+<a href="#using_clause"><span class="var">using_clause</span></a>:
+    USING ( <span class="var">column_list</span> )
 </pre>
 
 The `JOIN` operation merges two `from_item`s so that the `SELECT` clause can
-query them as one source. The `join_type` and `ON` or `USING` clause (a
-"join condition") specify how to combine and discard rows from the two
-`from_item`s to form a single source.
+query them as one source. The join operator and join condition specify how to
+combine and discard rows from the two `from_item`s to form a single source.
 
-### [INNER] JOIN
+### `[INNER] JOIN` 
+<a id="inner_join"></a>
 
 An `INNER JOIN`, or simply `JOIN`, effectively calculates the Cartesian product
 of the two `from_item`s and discards all rows that do not meet the join
-condition. "Effectively" means that it is possible to implement an `INNER JOIN`
+condition. _Effectively_ means that it is possible to implement an `INNER JOIN`
 without actually calculating the Cartesian product.
 
 ```sql
@@ -1417,15 +1419,15 @@ FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 +---------------------------+
 ```
 
-### CROSS JOIN
+### `CROSS JOIN`
 
 `CROSS JOIN` returns the Cartesian product of the two `from_item`s. In other
 words, it combines each row from the first `from_item` with each row from the
 second `from_item`.
 
-If the rows of the two `from_item`s are independent, then the result has *M* *
-*N* rows, given *M* rows in one `from_item` and *N* in the other. Note that this
-still holds for the case when either `from_item` has zero rows.
+If the rows of the two `from_item`s are independent, then the result has
+_M * N_ rows, given _M_ rows in one `from_item` and _N_ in the other. Note that
+this still holds for the case when either `from_item` has zero rows.
 
 In a `FROM` clause, a `CROSS JOIN` can be written like this:
 
@@ -1444,7 +1446,7 @@ Table A       Table B       Result
 ```
 
 You can use a [correlated][correlated-join] cross join to convert or
-flatten an `ARRAY` into a set of rows. To learn more, see
+flatten an array into a set of rows. To learn more, see
 [Convert elements in an array to rows in a table][flattening-arrays].
 
 **Examples**
@@ -1501,7 +1503,7 @@ FROM (A, B)  // INVALID
 ```
 
 You can use a [correlated][correlated-join] comma cross join to convert or
-flatten an `ARRAY` into a set of rows. To learn more, see
+flatten an array into a set of rows. To learn more, see
 [Convert elements in an array to rows in a table][flattening-arrays].
 
 **Examples**
@@ -1528,17 +1530,13 @@ FROM Roster, TeamMascot;
 +---------------------------+
 ```
 
-### FULL [OUTER] JOIN
+### `FULL [OUTER] JOIN` 
+<a id="full_join"></a>
 
-A `FULL OUTER JOIN` (or simply `FULL JOIN`) returns all fields for all rows in
-both `from_item`s that meet the join condition.
-
-`FULL` indicates that _all rows_ from both `from_item`s are
-returned, even if they do not meet the join condition.
-
-`OUTER` indicates that if a given row from one `from_item` does not
-join to any row in the other `from_item`, the row will return with NULLs
-for all columns from the other `from_item`.
+A `FULL OUTER JOIN` (or simply `FULL JOIN`) returns all fields for all matching
+rows in both `from_items` that meet the join condition. If a given row from one
+`from_item` does not join to any row in the other `from_item`, the row returns
+with `NULL` values for all columns from the other `from_item`.
 
 ```sql
 FROM A FULL OUTER JOIN B ON A.w = B.y
@@ -1595,18 +1593,19 @@ FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 +---------------------------+
 ```
 
-### LEFT [OUTER] JOIN
+### `LEFT [OUTER] JOIN` 
+<a id="left_join"></a>
 
 The result of a `LEFT OUTER JOIN` (or simply `LEFT JOIN`) for two
 `from_item`s always retains all rows of the left `from_item` in the
 `JOIN` operation, even if no rows in the right `from_item` satisfy the join
 predicate.
 
-`LEFT` indicates that all rows from the _left_ `from_item` are
-returned; if a given row from the left `from_item` does not join to any row
-in the _right_ `from_item`, the row will return with NULLs for all
-columns from the right `from_item`.  Rows from the right `from_item` that
-do not join to any row in the left `from_item` are discarded.
+All rows from the _left_ `from_item` are retained;
+if a given row from the left `from_item` does not join to any row
+in the _right_ `from_item`, the row will return with `NULL` values for all
+columns exclusively from the right `from_item`. Rows from the right
+`from_item` that do not join to any row in the left `from_item` are discarded.
 
 ```sql
 FROM A LEFT OUTER JOIN B ON A.w = B.y
@@ -1660,10 +1659,19 @@ FROM Roster LEFT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 +---------------------------+
 ```
 
-### RIGHT [OUTER] JOIN
+### `RIGHT [OUTER] JOIN` 
+<a id="right_join"></a>
 
-The result of a `RIGHT OUTER JOIN` (or simply `RIGHT JOIN`) is similar and
-symmetric to that of `LEFT OUTER JOIN`.
+The result of a `RIGHT OUTER JOIN` (or simply `RIGHT JOIN`) for two
+`from_item`s always retains all rows of the right `from_item` in the
+`JOIN` operation, even if no rows in the left `from_item` satisfy the join
+predicate.
+
+All rows from the _right_ `from_item` are returned;
+if a given row from the right `from_item` does not join to any row
+in the _left_ `from_item`, the row will return with `NULL` values for all
+columns exclusively from the left `from_item`. Rows from the left `from_item`
+that do not join to any row in the right `from_item` are discarded.
 
 ```sql
 FROM A RIGHT OUTER JOIN B ON A.w = B.y
@@ -1717,7 +1725,18 @@ FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 +---------------------------+
 ```
 
-### ON clause 
+### Join conditions 
+<a id="join_conditions"></a>
+
+In a [join operation][query-joins], a join condition helps specify how to
+combine rows in two `from_items` to form a single source.
+
+The two types of join conditions are the [`ON` clause][on-clause] and
+[`USING` clause][using-clause]. You must use a join condition when you perform a
+conditional join operation. You can't use a join condition when you perform a
+cross join operation.
+
+#### `ON` clause 
 <a id="on_clause"></a>
 
 A combined row (the result of joining two rows) meets the `ON` join condition
@@ -1755,7 +1774,7 @@ FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 +---------------------------+
 ```
 
-### USING clause 
+#### `USING` clause 
 <a id="using_clause"></a>
 
 The `USING` clause requires a column list of one or more columns which
@@ -1801,7 +1820,7 @@ SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
 +----------------------------------------+
 ```
 
-### ON and USING equivalency
+### `ON` and `USING` equivalency
 
 The `ON` and `USING` keywords are not equivalent, but they are similar.
 `ON` returns multiple columns, and `USING` returns one.
@@ -1902,7 +1921,7 @@ FROM A JOIN B USING (x) JOIN C USING (x), D
 ```
 
 There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma cross join unless it
-is parenthsized:
+is parenthesized:
 
 ```sql {.bad}
 FROM A, B RIGHT JOIN C ON TRUE // INVALID
@@ -2079,7 +2098,7 @@ CROSS JOIN
 +-------+------+
 ```
 
-## WHERE clause 
+## `WHERE` clause 
 <a id="where_clause"></a>
 
 ```sql
@@ -2144,7 +2163,7 @@ FROM Roster CROSS JOIN TeamMascot
 WHERE Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
-## GROUP BY clause 
+## `GROUP BY` clause 
 <a id="group_by_clause"></a>
 
 <pre>
@@ -2201,7 +2220,7 @@ FROM PlayerStats
 GROUP BY last_name;
 ```
 
-`GROUP BY` can group rows by the value of an `ARRAY`.
+`GROUP BY` can group rows by the value of an array.
 `GROUP BY` will group two arrays if they have the same number of elements and
 all corresponding elements are in the same groups, or if both arrays are null.
 
@@ -2310,7 +2329,7 @@ grand total:
 +------+------+-------+
 ```
 
-## HAVING clause 
+## `HAVING` clause 
 <a id="having_clause"></a>
 
 ```sql
@@ -2378,7 +2397,7 @@ GROUP BY LastName
 HAVING total > 15;
 ```
 
-#### Aggregation function in the 'HAVING' clause.
+#### Aggregation function in the `HAVING` clause.
 
 ```sql
 SELECT LastName
@@ -2402,7 +2421,7 @@ HAVING SUM(PointsScored) > 15;
 ```
 
 <a id="collate_clause"></a>
-## ORDER BY clause 
+## `ORDER BY` clause 
 <a id="order_by_clause"></a>
 
 <pre>
@@ -2433,7 +2452,7 @@ override names in the corresponding `FROM` clause. The data type of
   case-insensitivity. You can use `COLLATE` only on columns of type `STRING`.
 
   `collation_specification` represents the collation specification for the
-  `COLLATE` clause. The collation specification can be a `STRING` literal or
+  `COLLATE` clause. The collation specification can be a string literal or
    a query parameter. To learn more see
    [collation specification details][collation-spec].
 +  `NULLS FIRST | NULLS LAST`:
@@ -2444,8 +2463,8 @@ override names in the corresponding `FROM` clause. The data type of
     default value. If null ordering is not specified
     with `NULLS FIRST` or `NULLS LAST`:
     +  `NULLS FIRST` is applied by default if the sort order is ascending.
-    +  `NULLS LAST` is applied by default if the sort order is descending.
-    
+    +  `NULLS LAST` is applied by default if the sort order is
+       descending.
 
 **Examples**
 
@@ -2624,7 +2643,7 @@ FROM Locations
 ORDER BY Place COLLATE "und:ci"
 ```
 
-## QUALIFY clause
+## `QUALIFY` clause
 
 ```sql
 QUALIFY bool_expression
@@ -2694,7 +2713,7 @@ QUALIFY RANK() OVER (PARTITION BY category ORDER BY purchases DESC) <= 3
 +---------+
 ```
 
-## WINDOW clause 
+## `WINDOW` clause 
 <a id="window_clause"></a>
 
 <pre>
@@ -2821,21 +2840,21 @@ query1 UNION ALL query2 UNION DISTINCT query3
 query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
 ```
 
-### UNION 
+### `UNION` 
 <a id="union"></a>
 
 The `UNION` operator combines the result sets of two or more input queries by
 pairing columns from the result set of each query and vertically concatenating
 them.
 
-### INTERSECT 
+### `INTERSECT` 
 <a id="intersect"></a>
 
 The `INTERSECT` operator returns rows that are found in the result sets of both
 the left and right input queries. Unlike `EXCEPT`, the positioning of the input
 queries (to the left versus right of the `INTERSECT` operator) does not matter.
 
-### EXCEPT 
+### `EXCEPT` 
 <a id="except"></a>
 
 The `EXCEPT` operator returns rows from the left input query that are
@@ -2855,7 +2874,7 @@ EXCEPT DISTINCT SELECT 1;
 +--------+
 ```
 
-## LIMIT and OFFSET clauses 
+## `LIMIT` and `OFFSET` clauses 
 <a id="limit_and_offset_clause"></a>
 
 ```sql
@@ -2904,7 +2923,7 @@ ORDER BY letter ASC LIMIT 3 OFFSET 1
 +---------+
 ```
 
-## WITH clause 
+## `WITH` clause 
 <a id="with_clause"></a>
 
 <pre class="lang-sql prettyprint">
@@ -2927,7 +2946,7 @@ You can include the `RECURSIVE` keyword in a `WITH` clause even if no
 recursive CTEs are present. You can learn more about the `RECURSIVE` keyword
 [here][recursive-keyword].
 
-### RECURSIVE keyword 
+### `RECURSIVE` keyword 
 <a id="recursive_keyword"></a>
 
 A `WITH` clause can optionally include the `RECURSIVE` keyword, which does
@@ -3530,7 +3549,9 @@ SELECT * FROM B
 <a id="anon_clause"></a>
 
 <pre class="lang-sql prettyprint">
-WITH ANONYMIZATION OPTIONS( privacy_parameters )
+WITH
+  { DIFFERENTIAL_PRIVACY | ANONYMIZATION }
+  OPTIONS( privacy_parameters )
 </pre>
 
 This clause lets you transform the results of a query with differentially
@@ -3600,21 +3621,20 @@ following rules apply:
   <li>
     If there is an expression that does not have an explicit alias,
     ZetaSQL assigns an implicit alias in these cases:
-  </li>
-<ul>
-  <li>
-    For identifiers, the alias is the identifier. For example,
-    <code>FROM abc</code> implies <code>AS abc</code>.
-  </li>
-  <li>
-    For path expressions, the alias is the last identifier in the path. For
-    example, <code>FROM abc.def.ghi</code> implies <code>AS ghi</code>
-  </li>
-  <li>
-    The column produced using <code>WITH OFFSET</code> has the implicit alias
-    <code>offset</code>.
-  </li>
-</ul>
+    <ul>
+    <li>
+      For identifiers, the alias is the identifier. For example,
+      <code>FROM abc</code> implies <code>AS abc</code>.
+    </li>
+    <li>
+      For path expressions, the alias is the last identifier in the path. For
+      example, <code>FROM abc.def.ghi</code> implies <code>AS ghi</code>
+    </li>
+    <li>
+      The column produced using <code>WITH OFFSET</code> has the implicit alias
+      <code>offset</code>.
+    </li>
+  </ul>
   <li>
     Table subqueries do not have implicit aliases.
   </li>
@@ -3630,7 +3650,7 @@ After you introduce an explicit alias in a query, there are restrictions on
 where else in the query you can reference that alias. These restrictions on
 alias visibility are the result of ZetaSQL name scoping rules.
 
-#### Visibility in the FROM clause 
+#### Visibility in the `FROM` clause 
 <a id="from_clause_aliases"></a>
 
 ZetaSQL processes aliases in a `FROM` clause from left to right,
@@ -3694,7 +3714,7 @@ SELECT * FROM Singers as s, Songs as s2
 ORDER BY Singers.LastName;  // INVALID.
 ```
 
-#### Visibility in the SELECT list 
+#### Visibility in the `SELECT` list 
 <a id="select-list_aliases"></a>
 
 Aliases in the `SELECT` list are visible only to the following clauses:
@@ -3711,7 +3731,7 @@ FROM Singers
 ORDER BY last;
 ```
 
-#### Visibility in the GROUP BY, ORDER BY, and HAVING clauses 
+#### Visibility in the `GROUP BY`, `ORDER BY`, and `HAVING` clauses 
 <a id="aliases_clauses"></a>
 
 These three clauses, `GROUP BY`, `ORDER BY`, and `HAVING`, can refer to only the
@@ -3841,7 +3861,7 @@ the result of a table expression is the row type of the related table.
 Value tables have explicit row types, so for range variables related
 to value tables, the result type is the value table's row type. Other tables
 do not have explicit row types, and for those tables, the range variable
-type is a dynamically defined `STRUCT` that includes all of the
+type is a dynamically defined struct that includes all of the
 columns in the table.
 
 **Examples**
@@ -3881,7 +3901,7 @@ SELECT Coordinate.* FROM Grid AS Coordinate;
 
 The following example selects the range variable `Coordinate`, which is a
 reference to rows in table `Grid`.  Since `Grid` is not a value table,
-the result type of `Coordinate` is a `STRUCT` that contains all the columns
+the result type of `Coordinate` is a struct that contains all the columns
 from `Grid`.
 
 ```sql
@@ -3954,7 +3974,7 @@ These examples include statements which perform queries on the
 [`Roster`][roster-table] and [`TeamMascot`][teammascot-table],
 and [`PlayerStats`][playerstats-table] tables.
 
-### GROUP BY clause 
+### `GROUP BY` clause 
 <a id="group_by_clause_example"></a>
 
 Example:
@@ -3988,7 +4008,7 @@ GROUP BY LastName;
 </tbody>
 </table>
 
-### UNION 
+### `UNION` 
 <a id="union_example"></a>
 
 The `UNION` operator combines the result sets of two or more `SELECT` statements
@@ -4054,7 +4074,7 @@ Results:
 </tbody>
 </table>
 
-### INTERSECT 
+### `INTERSECT` 
 <a id="intersect_example"></a>
 
 This query returns the last names that are present in both Roster and
@@ -4089,7 +4109,7 @@ Results:
 </tbody>
 </table>
 
-### EXCEPT 
+### `EXCEPT` 
 <a id="except_example"></a>
 
 The query below returns last names in Roster that are **not** present in
@@ -4189,6 +4209,10 @@ Results:
 [cross-join]: #cross_join
 
 [correlated-join]: #correlated_join
+
+[on-clause]: #on_clause
+
+[using-clause]: #using_clause
 
 [unpivot-operator]: #unpivot_operator
 

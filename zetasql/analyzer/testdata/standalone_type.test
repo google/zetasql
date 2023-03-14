@@ -733,6 +733,14 @@ STRING COLLATE 'und:ci'
 ==
 
 [language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+string collate 'und:ci' COLLATE 'binary'
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 1:25]
+string collate 'und:ci' COLLATE 'binary'
+                        ^
+==
+
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
 double collate 'und:ci'
 --
 ERROR: Type DOUBLE does not support collation name [at 1:8]

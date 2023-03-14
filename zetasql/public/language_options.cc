@@ -48,6 +48,9 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_4_WITH_EXPRESSION);
       features.insert(FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS);
       features.insert(FEATURE_V_1_4_STRUCT_POSITIONAL_ACCESSOR);
+      features.insert(FEATURE_V_1_4_LOAD_DATA_PARTITIONS);
+      features.insert(FEATURE_V_1_4_LOAD_DATA_TEMP_TABLE);
+      features.insert(FEATURE_V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH);
       ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
       // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are

@@ -80,6 +80,15 @@ TEST(CollationTest, Creation) {
     EXPECT_EQ(collation.CollationName(), "");
     ASSERT_TRUE(collation.Empty());
     EXPECT_EQ(collation.DebugString(), "_");
+    // Test ToAnnotationMap.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<AnnotationMap> to_annotation_map,
+                         collation.ToAnnotationMap(types::StringType()));
+    EXPECT_NE(to_annotation_map, nullptr);
+    EXPECT_TRUE(to_annotation_map->HasCompatibleStructure(types::StringType()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        bool equals_collation_annotation,
+        collation.EqualsCollationAnnotation(to_annotation_map.get()));
+    EXPECT_TRUE(equals_collation_annotation);
   }
   {
     std::unique_ptr<AnnotationMap> annotation_map =
@@ -99,13 +108,23 @@ TEST(CollationTest, Creation) {
     EXPECT_EQ(collation.CollationName(), "unicode:ci");
     EXPECT_EQ(collation.num_children(), 0);
     EXPECT_EQ(collation.DebugString(), "unicode:ci");
+    // Test ToAnnotationMap.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<AnnotationMap> to_annotation_map,
+                         collation.ToAnnotationMap(types::StringType()));
+    EXPECT_NE(to_annotation_map, nullptr);
+    EXPECT_TRUE(to_annotation_map->HasCompatibleStructure(types::StringType()));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        bool equals_collation_annotation,
+        collation.EqualsCollationAnnotation(to_annotation_map.get()));
+    EXPECT_TRUE(equals_collation_annotation);
   }
   {
     // Test empty nested annotation map.
     TypeFactory type_factory;
     // STRUCT< a STRING, b ARRAY < STRUCT < a STRING, b INT64 > > >
+    const Type* struct_type = MakeNestedStructType(&type_factory);
     std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(MakeNestedStructType(&type_factory));
+        AnnotationMap::Create(struct_type);
     ZETASQL_ASSERT_OK_AND_ASSIGN(Collation collation,
                          Collation::MakeCollation(*annotation_map));
     EXPECT_TRUE(collation.Empty());
@@ -117,13 +136,23 @@ TEST(CollationTest, Creation) {
                          Collation::Deserialize(proto));
     ASSERT_TRUE(collation.Equals(deserialized_collation));
     EXPECT_EQ(collation.DebugString(), "_");
+    // Test ToAnnotationMap.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<AnnotationMap> to_annotation_map,
+                         collation.ToAnnotationMap(struct_type));
+    EXPECT_NE(to_annotation_map, nullptr);
+    EXPECT_TRUE(to_annotation_map->HasCompatibleStructure(struct_type));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        bool equals_collation_annotation,
+        collation.EqualsCollationAnnotation(to_annotation_map.get()));
+    EXPECT_TRUE(equals_collation_annotation);
   }
   {
     // Test struct with the first field having collation.
     TypeFactory type_factory;
     // STRUCT< a STRING, b ARRAY < STRUCT < a STRING, b INT64 > > >
+    const Type* nested_struct_type = MakeNestedStructType(&type_factory);
     std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(MakeNestedStructType(&type_factory));
+        AnnotationMap::Create(nested_struct_type);
     // Set collation on a.
     annotation_map->AsStructMap()->mutable_field(0)->SetAnnotation(
         static_cast<int>(AnnotationKind::kCollation),
@@ -146,14 +175,24 @@ TEST(CollationTest, Creation) {
                          Collation::Deserialize(proto));
     ASSERT_TRUE(collation.Equals(deserialized_collation));
     EXPECT_EQ(collation.DebugString(), "[unicode:ci,_]");
+    // Test ToAnnotationMap.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<AnnotationMap> to_annotation_map,
+                         collation.ToAnnotationMap(nested_struct_type));
+    EXPECT_NE(to_annotation_map, nullptr);
+    EXPECT_TRUE(to_annotation_map->HasCompatibleStructure(nested_struct_type));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        bool equals_collation_annotation,
+        collation.EqualsCollationAnnotation(to_annotation_map.get()));
+    EXPECT_TRUE(equals_collation_annotation);
   }
 
   {
     // Test struct with nested array child having collation.
     TypeFactory type_factory;
     // STRUCT< a STRING, b ARRAY < STRUCT < a STRING, b INT64 > > >
+    const Type* nested_struct_type = MakeNestedStructType(&type_factory);
     std::unique_ptr<AnnotationMap> annotation_map =
-        AnnotationMap::Create(MakeNestedStructType(&type_factory));
+        AnnotationMap::Create(nested_struct_type);
     // Set collation on b.[].a
     annotation_map->AsStructMap()
         ->mutable_field(1)
@@ -184,6 +223,15 @@ TEST(CollationTest, Creation) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(Collation deserialized_collation,
                          Collation::Deserialize(proto));
     ASSERT_TRUE(collation.Equals(deserialized_collation));
+    // Test ToAnnotationMap.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<AnnotationMap> to_annotation_map,
+                         collation.ToAnnotationMap(nested_struct_type));
+    EXPECT_NE(to_annotation_map, nullptr);
+    EXPECT_TRUE(to_annotation_map->HasCompatibleStructure(nested_struct_type));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        bool equals_collation_annotation,
+        collation.EqualsCollationAnnotation(to_annotation_map.get()));
+    EXPECT_TRUE(equals_collation_annotation);
   }
   {
     // Test creating collation with empty child list.

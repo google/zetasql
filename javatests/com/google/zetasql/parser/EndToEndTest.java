@@ -25,6 +25,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.zetasql.LanguageOptions;
+import com.google.zetasql.ParseResumeLocation;
 import com.google.zetasql.Parser;
 import com.google.zetasql.SqlException;
 import com.google.zetasql.parser.ASTBinaryExpressionEnums.Op;
@@ -37,6 +38,9 @@ import com.google.zetasql.parser.ASTNodes.ASTFromClause;
 import com.google.zetasql.parser.ASTNodes.ASTGroupBy;
 import com.google.zetasql.parser.ASTNodes.ASTGroupingItem;
 import com.google.zetasql.parser.ASTNodes.ASTIdentifier;
+import com.google.zetasql.parser.ASTNodes.ASTInsertStatement;
+import com.google.zetasql.parser.ASTNodes.ASTInsertValuesRow;
+import com.google.zetasql.parser.ASTNodes.ASTInsertValuesRowList;
 import com.google.zetasql.parser.ASTNodes.ASTIntLiteral;
 import com.google.zetasql.parser.ASTNodes.ASTJoin;
 import com.google.zetasql.parser.ASTNodes.ASTLimitOffset;
@@ -49,13 +53,16 @@ import com.google.zetasql.parser.ASTNodes.ASTQuery;
 import com.google.zetasql.parser.ASTNodes.ASTQueryExpression;
 import com.google.zetasql.parser.ASTNodes.ASTQueryStatement;
 import com.google.zetasql.parser.ASTNodes.ASTRollup;
+import com.google.zetasql.parser.ASTNodes.ASTScript;
 import com.google.zetasql.parser.ASTNodes.ASTSelect;
 import com.google.zetasql.parser.ASTNodes.ASTSelectColumn;
 import com.google.zetasql.parser.ASTNodes.ASTSelectList;
 import com.google.zetasql.parser.ASTNodes.ASTStatement;
+import com.google.zetasql.parser.ASTNodes.ASTStatementList;
 import com.google.zetasql.parser.ASTNodes.ASTStringLiteral;
 import com.google.zetasql.parser.ASTNodes.ASTTableExpression;
 import com.google.zetasql.parser.ASTNodes.ASTTablePathExpression;
+import com.google.zetasql.parser.ASTNodes.ASTVariableDeclaration;
 import com.google.zetasql.parser.ASTNodes.ASTWhereClause;
 import com.google.zetasql.parser.ASTOrderingExpressionEnums.OrderingSpec;
 
@@ -439,6 +446,119 @@ public class EndToEndTest {
             + "    +-is_nested=false\n"
             + "    +-is_pivot_input=false\n";
     assertThat(statement.toString()).isEqualTo(expectedToString);
+  }
+
+  @Test
+  public void testScript() {
+    String scriptContent =
+        "DECLARE variable INT64 DEFAULT 5;\n" + "SELECT * FROM table WHERE column = variable;";
+
+    ASTScript script = Parser.parseScript(scriptContent, languageOptions);
+    ASTStatementList astStementList = script.getStatementListNode();
+    ImmutableList<ASTStatement> statementList = astStementList.getStatementList();
+
+    // Validate there are two statements in the script
+    assertThat(statementList).hasSize(2);
+
+    // Validate the first statement is a variable decalaration
+    // with default value 5
+    ASTVariableDeclaration variableDeclaration =
+        assertAndCast(ASTVariableDeclaration.class, statementList.get(0));
+    ASTIntLiteral defaultValue =
+        assertAndCast(ASTIntLiteral.class, variableDeclaration.getDefaultValue());
+    assertThat(defaultValue.getImage()).isEqualTo("5");
+
+    // Validate the second statement is a SELECT statement
+    ASTQueryStatement queryStatement = assertAndCast(ASTQueryStatement.class, statementList.get(1));
+    assertThat(queryStatement.getQuery().getQueryExpr()).isInstanceOf(ASTSelect.class);
+  }
+
+  @Test
+  public void testScriptInvalid() {
+    String scriptContent = "invalid script body";
+    assertThrows(SqlException.class, () -> Parser.parseScript(scriptContent, languageOptions));
+  }
+
+  @Test
+  public void testScriptStatementNotAllowed() {
+    String scriptStatement = "DECLARE variable INT64 DEFAULT 5;";
+    assertThrows(SqlException.class, () -> Parser.parseStatement(scriptStatement, languageOptions));
+  }
+
+  @Test
+  public void testParseNextStatement() {
+    String scriptContent =
+        "INSERT INTO table VALUES (5);\n" + "SELECT * FROM table WHERE column = variable;";
+    ParseResumeLocation parseResumeLocation = new ParseResumeLocation(scriptContent);
+
+    // Parse and validate first statement
+    ASTStatement statement = Parser.parseNextStatement(parseResumeLocation, languageOptions);
+
+    assertThat(parseResumeLocation.getBytePosition()).isEqualTo(29);
+    ASTInsertStatement insertStatement = assertAndCast(ASTInsertStatement.class, statement);
+    ASTInsertValuesRowList insertValues = insertStatement.getRows();
+    assertThat(insertValues).isNotNull();
+    ImmutableList<ASTInsertValuesRow> rows = insertValues.getRows();
+    assertThat(rows).hasSize(1);
+    ImmutableList<ASTExpression> insertExpressions = rows.get(0).getValues();
+    assertThat(insertExpressions).hasSize(1);
+    ASTIntLiteral insertValue = assertAndCast(ASTIntLiteral.class, insertExpressions.get(0));
+    assertThat(insertValue.getImage()).isEqualTo("5");
+
+    // Parse and validate second statement
+    statement = Parser.parseNextStatement(parseResumeLocation, languageOptions);
+
+    assertThat(parseResumeLocation.getBytePosition()).isEqualTo(74);
+    ASTQueryStatement queryStatement = assertAndCast(ASTQueryStatement.class, statement);
+    ASTQuery query = queryStatement.getQuery();
+    ASTQueryExpression queryExpression = query.getQueryExpr();
+    ASTSelect select = assertAndCast(ASTSelect.class, queryExpression);
+    ASTFromClause fromClause = select.getFromClause();
+    ASTTablePathExpression tablePathExpression = assertAndCast(ASTTablePathExpression.class,
+        fromClause.getTableExpression());
+    validatePathexpression(tablePathExpression.getPathExpr(), ImmutableList.of("table"));
+  }
+
+  @Test
+  public void testParseNextScriptStatement() {
+    String scriptContent =
+        "DECLARE variable INT64 DEFAULT 5;\n" + "SELECT * FROM table WHERE column = variable;";
+    ParseResumeLocation parseResumeLocation = new ParseResumeLocation(scriptContent);
+
+    // Parse and validate first script statement
+    ASTStatement statement = Parser.parseNextScriptStatement(parseResumeLocation, languageOptions);
+
+    assertThat(parseResumeLocation.getBytePosition()).isEqualTo(33);
+    ASTVariableDeclaration variableDeclaration = assertAndCast(ASTVariableDeclaration.class,
+        statement);
+    ASTIntLiteral defaultValue = assertAndCast(ASTIntLiteral.class,
+        variableDeclaration.getDefaultValue());
+    assertThat(defaultValue.getImage()).isEqualTo("5");
+
+    // Parse and validate second script statement
+    statement = Parser.parseNextScriptStatement(parseResumeLocation, languageOptions);
+
+    assertThat(parseResumeLocation.getBytePosition()).isEqualTo(78);
+    ASTQueryStatement queryStatement = assertAndCast(ASTQueryStatement.class, statement);
+    ASTQuery query = queryStatement.getQuery();
+    ASTQueryExpression queryExpression = query.getQueryExpr();
+    ASTSelect select = assertAndCast(ASTSelect.class, queryExpression);
+    ASTFromClause fromClause = select.getFromClause();
+    ASTTablePathExpression tablePathExpression = assertAndCast(ASTTablePathExpression.class,
+        fromClause.getTableExpression());
+    validatePathexpression(tablePathExpression.getPathExpr(), ImmutableList.of("table"));
+  }
+
+  @Test
+  public void testParseNextInvalid() {
+    // The script is missing the semicolon separating statements
+    String scriptContent =
+        "DECLARE variable INT64 DEFAULT 5\n" + "SELECT * FROM table WHERE column = variable";
+    ParseResumeLocation parseResumeLocation = new ParseResumeLocation(scriptContent);
+
+    assertThrows(
+        SqlException.class,
+        () -> Parser.parseNextScriptStatement(parseResumeLocation, languageOptions));
   }
 
   private static <T> T assertAndCast(Class<T> clazz, Object obj) {

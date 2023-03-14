@@ -75,11 +75,10 @@ void CompareResult(const QueryParamsWithResult& param,
     }
   } else {
     // Check for the first parameter in the error message.
-    EXPECT_THAT(
-        actual_status,
-        ::zetasql_base::testing::StatusIs(
-            absl::StatusCode::kOutOfRange,
-            ::testing::HasSubstr(absl::StrCat(param.param(0).Get<T>()))));
+    EXPECT_THAT(actual_status, ::zetasql_base::testing::StatusIs(
+                                   absl::StatusCode::kOutOfRange,
+                                   ::testing::HasSubstr(absl::StrFormat(
+                                       "%v", param.param(0).Get<T>()))));
   }
 }
 

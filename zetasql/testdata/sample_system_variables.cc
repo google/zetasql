@@ -21,6 +21,7 @@
 
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/proto_type.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/status.h"
@@ -56,15 +57,27 @@ void SetupSampleSystemVariables(TypeFactory* type_factory,
   const StructType* struct_type;
   const StructType* nested_struct_type;
   const StructType* foo_struct_type;
+  const StructType* with_struct_type;
   const ProtoType* proto_type;
+  const ProtoType* proto_map_element_type;
+  const Type* array_of_map_element_type;
   ZETASQL_CHECK_OK(type_factory->MakeStructType({{"a", int32_type}, {"b", string_type}},
                                         &struct_type));
   ZETASQL_CHECK_OK(type_factory->MakeStructType({{"c", int32_type}, {"d", struct_type}},
                                         &nested_struct_type));
   ZETASQL_CHECK_OK(
       type_factory->MakeStructType({{"bar", int32_type}}, &foo_struct_type));
+  ZETASQL_CHECK_OK(
+      type_factory->MakeStructType({{"with", int32_type}}, &with_struct_type));
   ZETASQL_CHECK_OK(type_factory->MakeProtoType(
       zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
+  ZETASQL_CHECK_OK(type_factory->MakeProtoType(
+      zetasql_test__::MessageWithMapField::descriptor()
+          ->FindFieldByName("string_int32_map")
+          ->message_type(),
+      &proto_map_element_type));
+  ZETASQL_CHECK_OK(type_factory->MakeArrayType(proto_map_element_type,
+                                       &array_of_map_element_type));
 
   ZETASQL_CHECK_OK(AddSystemVariable({"int32_system_variable"}, int32_type, options));
   ZETASQL_CHECK_OK(AddSystemVariable({"int64_array_system_variable"}, int64_array_type,
@@ -82,10 +95,33 @@ void SetupSampleSystemVariables(TypeFactory* type_factory,
   ZETASQL_CHECK_OK(AddSystemVariable({"sysvar.with.dots"}, string_type, options));
   ZETASQL_CHECK_OK(AddSystemVariable({"namespace.with.dots", "sysvar"}, string_type,
                              options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"map_system_variable"}, array_of_map_element_type,
+                             options));
   ZETASQL_CHECK_OK(AddSystemVariable({"sysvar.part1.part2"}, string_type, options));
   ZETASQL_CHECK_OK(
       AddSystemVariable({"sysvar", "part1", "part2"}, string_type, options));
   ZETASQL_CHECK_OK(AddSystemVariable({"timestamp_system_variable"}, timestamp_type,
                              options));
+  // System var names that are reserved keywords are supported.
+  ZETASQL_CHECK_OK(AddSystemVariable({"from"}, nested_struct_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"where", "d"}, nested_struct_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"where"}, nested_struct_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"union", "d.with"}, with_struct_type, options));
+  ZETASQL_CHECK_OK(
+      AddSystemVariable({"group", "with_dots"}, nested_struct_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"having"}, with_struct_type, options));
+  ZETASQL_CHECK_OK(
+      AddSystemVariable({"order.with", "dots"}, nested_struct_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"order.w", "dots"}, nested_struct_type, options));
+  // Not reserved, just used to compare to the reserved keyword case
+  ZETASQL_CHECK_OK(AddSystemVariable({"fromx"}, nested_struct_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"wherex", "d"}, nested_struct_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"wherex"}, nested_struct_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"unionx", "d.with"}, with_struct_type, options));
+  ZETASQL_CHECK_OK(
+      AddSystemVariable({"groupx", "with_dots"}, nested_struct_type, options));
+  ZETASQL_CHECK_OK(AddSystemVariable({"havingx"}, with_struct_type, options));
+  ZETASQL_CHECK_OK(
+      AddSystemVariable({"orderx.w", "dots"}, nested_struct_type, options));
 }
 }  // namespace zetasql

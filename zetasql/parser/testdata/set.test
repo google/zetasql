@@ -490,3 +490,43 @@ set ? = 1;
 ERROR: Syntax error: Unexpected "?" [at 1:5]
 set ? = 1;
     ^
+
+==
+
+SET @@map_system_variable["proto_map_key"] = 78;
+--
+
+ERROR: Syntax error: Expected "=" but got "[" [at 1:26]
+SET @@map_system_variable["proto_map_key"] = 78;
+                         ^
+
+==
+
+SET map_variable["proto_map_key"] = 78;
+--
+
+ERROR: Syntax error: Expected "," or "=" but got "[" [at 1:17]
+SET map_variable["proto_map_key"] = 78;
+                ^
+
+==
+
+SET a.b = 3;
+--
+ERROR: Syntax error: Expected "," or "=" but got "." [at 1:6]
+SET a.b = 3;
+     ^
+==
+
+SET x.proto_field.(extension_field).int32_field = 7;
+--
+ERROR: Syntax error: Expected "," or "=" but got "." [at 1:6]
+SET x.proto_field.(extension_field).int32_field = 7;
+     ^
+==
+
+SET @@x.proto_field.(extension_field).int32_field = 7;
+--
+ERROR: Syntax error: Unexpected "(" [at 1:21]
+SET @@x.proto_field.(extension_field).int32_field = 7;
+                    ^

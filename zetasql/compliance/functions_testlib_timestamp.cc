@@ -2108,8 +2108,8 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampAdd() {
       functions::DateTimestampPart_descriptor();
   ZETASQL_CHECK_OK(type_factory()->MakeEnumType(enum_descriptor, &part_enum));
 
-  auto timestamp_add = [part_enum](const std::string& timestamp, int64_t interval,
-                                   const std::string& part,
+  auto timestamp_add = [part_enum](const std::string& timestamp,
+                                   int64_t interval, const std::string& part,
                                    const std::string& result) {
     return FunctionTestCall(
         "timestamp_add",
@@ -4698,14 +4698,8 @@ GetParseDateTimestampCommonTests() {
       // Periods not allowed in am/pm.
       {"%p", TEST_FORMAT_TIME, "a.m.", EXPECT_ERROR},
       {"%p", TEST_FORMAT_TIME, "P.M.", EXPECT_ERROR},
-
-      // %P is a valid element for FORMAT_TIMESTAMP, but not PARSE_TIMESTAMP.
-      // TODO: We might want to let %P behave the same way as
-      // %p in ZetaSQL, and let it parse uppercase/lowercase equivalents
-      // of am/pm.  The implementation looks like it would get messy though,
-      // so we probably don't need to do this unless we get a firm requirement
-      // for it.
-      {"%P", TEST_FORMAT_TIME, "am", EXPECT_ERROR},
+      {"%P", TEST_FORMAT_TIME, "a.m.", EXPECT_ERROR},
+      {"%P", TEST_FORMAT_TIME, "P.M.", EXPECT_ERROR},
 
       {"%Y9", TEST_FORMAT_DATE, "009999", "0999-01-01"},
       {"%EY9", TEST_FORMAT_DATE, "009999", "0999-01-01"},
@@ -5228,13 +5222,11 @@ GetParseDateTimestampCommonTests() {
     tests.push_back({minute, TEST_FORMAT_TIME, "60", EXPECT_ERROR});
   }
 
-  // %p - locale's equivalent of AM/PM
+  // %p, %P - locale's equivalent of AM/PM
   // Note that alone it has no impact on the timestamp.  It only affects
   // the timestamp when in combination with a non-default 1-12 based hour.
   // Those are tested together in the CombinationTests.
-  // Note that %P does not work at all as an parse format element, even though
-  // it is used as a format element for FORMAT_TIMESTAMP.
-  const std::string ampm_elements[] = {"%p"};
+  const std::string ampm_elements[] = {"%p", "%P"};
   for (const std::string& ampm : ampm_elements) {
     // Parses both upper and lowercase.
     tests.push_back({ampm, TEST_FORMAT_TIME, "am", "00:00:00"});
@@ -7099,7 +7091,8 @@ struct CastStringToDateTest : ParseDateTest {
   int32_t current_date;
 
   CastStringToDateTest(const std::string& format_string_in,
-                       const std::string& date_string_in, int32_t current_date_in,
+                       const std::string& date_string_in,
+                       int32_t current_date_in,
                        const std::string& expected_result_in)
       : ParseDateTest{format_string_in, date_string_in, expected_result_in},
         current_date(current_date_in) {}

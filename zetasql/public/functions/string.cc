@@ -46,6 +46,7 @@
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
@@ -2092,6 +2093,11 @@ void EightBase8DigitsToThreeBytes(const char* in, unsigned char* bytes_out) {
   //       0   1   2     3   4     5   6   7
   //
   const unsigned char* inval = reinterpret_cast<const unsigned char*>(in);
+  for (int i = 0; i < 8; ++i) {
+    ZETASQL_DCHECK_GE(inval[i], '0') << "Byte " << i << ", input = " << in;
+    ZETASQL_DCHECK_LE(inval[i], '7') << "Byte " << i << ", input = " << in;
+  }
+
   bytes_out[2] =
       (inval[7] - '0') | ((inval[6] - '0') << 3) | ((inval[5] - '0') << 6);
   bytes_out[1] = ((inval[5] - '0') >> 2) | ((inval[4] - '0') << 1) |
@@ -2175,7 +2181,10 @@ bool FromBase8(absl::string_view str, std::string* out, absl::Status* error) {
   if (src_size > 0) {
     // Copy the remaining part of source string (first < 8 digits) to
     // escaped_bytes buffer, left padded with '0', then convert to bytes
-    char escaped_bytes[8] = {'0'};
+    char escaped_bytes[8];
+    for (int i = 0; i < 8 - src_size; i++) {
+      escaped_bytes[i] = '0';
+    }
     unsigned char unescaped_bytes[3];
     const int num_unescaped = kBase8NumUnescapedBytes[src_size];
 

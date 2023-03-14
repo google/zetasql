@@ -189,6 +189,7 @@ absl::Status TestDatabaseCatalog::SetTestDatabase(const TestDatabase& test_db) {
     const TestTable& test_table = t.second;
     AddTable(table_name, test_table);
   }
+
   // Add functions to the catalog.
   return absl::OkStatus();
 }

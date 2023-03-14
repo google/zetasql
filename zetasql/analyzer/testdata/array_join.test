@@ -194,15 +194,42 @@ QueryStmt
         +-element_column=$array.ri#4
 ==
 
-# TODO We may want to make this work.
-# TODO Bad error message right now. Should identify that a prefix is
-# a table.
+[language_features={{|V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH}}]
 select ri
 from TestTable.KitchenSink.nested_value.nested_repeated_int64 ri;
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: Table not found: TestTable.KitchenSink.nested_value.nested_repeated_int64 [at 2:6]
 from TestTable.KitchenSink.nested_value.nested_repeated_int64 ri;
      ^
+--
+ALTERNATION GROUP: V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH
+--
+QueryStmt
++-output_column_list=
+| +-$array.ri#4 AS ri [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.ri#4]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[$array.ri#4]
+        +-input_scan=
+        | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="TestTable")
+        +-array_expr=
+        | +-GetProtoField
+        |   +-type=ARRAY<INT64>
+        |   +-expr=
+        |   | +-GetProtoField
+        |   |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
+        |   |   +-expr=
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   +-field_descriptor=nested_value
+        |   |   +-default_value=NULL
+        |   +-field_descriptor=nested_repeated_int64
+        |   +-default_value=[]
+        +-element_column=$array.ri#4
 ==
 
 # Expand multiple arrays, making cross products.

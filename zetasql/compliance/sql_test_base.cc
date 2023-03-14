@@ -37,7 +37,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
-#include "google/protobuf/text_format.h"
+#include "google/protobuf/text_format.h"     
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -157,6 +157,31 @@ class AutoLanguageOptions {
 constexpr char kSafeChar = '@';
 constexpr absl::string_view kSafeString(&kSafeChar, 1);
 
+// A compliance label for tests that require legacy behavior according to
+// the LanguageFeatureOptions::ideally_enabled annotation.
+constexpr absl::string_view kLegacyBehaviorLabel = "Special:LegacyBehavior";
+// A compliance label for tests that require an in_development LanguageFeature.
+constexpr absl::string_view kInDevelopmentLabel = "Special:InDevelopment";
+// A compliance label for tests where the refernece impl returns kUnimplemented.
+constexpr absl::string_view kNoReferenceLabel = "Special:NoReference";
+// A compliance label that is attached to tests that do not compile for the
+// reference implementation. Such tests aren't useful for validating engine
+// implementation completeness.
+constexpr absl::string_view kNoCompileLabel = "Special:NoCompileTest";
+// Labels that indicate which product modes a test expected to work on.
+constexpr absl::string_view kProductModeInternalAndExternalLabel =
+    "ProductMode:InternalAndExternal";
+constexpr absl::string_view kProductModeInternalLabel =
+    "ProductMode:InternalOnly";
+constexpr absl::string_view kProductModeExternalLabel =
+    "ProductMode:ExternalOnly";
+// Labels that indicate which time resolution a test expected to work on.
+constexpr absl::string_view kTimeResolutionAnyLabel = "TimeResolution:Any";
+constexpr absl::string_view kTimeResolutionNanosLabel =
+    "TimeResolution:NanosOnly";
+constexpr absl::string_view kTimeResolutionMicrosLabel =
+    "TimeResolution:MicrosOnly";
+
 // For a long string, a signature is generated, which is the left 8
 // characters of the string, followed by the fingerprint of the string,
 // followed by the right 8 characters of the string.
@@ -192,7 +217,7 @@ class Stats {
 
   // A to-be-removed-from-known-errors statement was in `was_mode`.
   void RecordToBeRemovedFromKnownErrorsStatement(const std::string& full_name,
-                                                 const KnownErrorMode was_mode);
+                                                 KnownErrorMode was_mode);
 
   // As above, but a no-op if `check_only` is true.
   void RecordToBeRemovedFromKnownErrorsStatement(const std::string& full_name,
@@ -206,8 +231,8 @@ class Stats {
   // A to-be-upgraded statement was in `was_mode`, and will
   // upgrade to `new_mode`.
   void RecordToBeUpgradedStatement(const std::string& full_name,
-                                   const KnownErrorMode was_mode,
-                                   const KnownErrorMode new_mode);
+                                   KnownErrorMode was_mode,
+                                   KnownErrorMode new_mode);
 
   // As above, but a no-op if `check_only` is true.
   void RecordToBeUpgradedStatement(const std::string& full_name,
@@ -224,8 +249,7 @@ class Stats {
   void RecordFailedStatement(const std::string& msg,
                              const std::string& location,
                              const std::string& full_name,
-                             const KnownErrorMode was_mode,
-                             const KnownErrorMode new_mode);
+                             KnownErrorMode was_mode, KnownErrorMode new_mode);
 
   // As above, but a no-op if `check_only` is true.
   void RecordFailedStatement(const std::string& msg,
@@ -241,15 +265,15 @@ class Stats {
   // Composes a cancellation report, records it as a failure.
   void RecordCancelledStatement(const std::string& location,
                                 const std::string& full_name,
-                                const KnownErrorMode was_mode,
-                                const KnownErrorMode new_mode,
+                                KnownErrorMode was_mode,
+                                KnownErrorMode new_mode,
                                 const std::string& reason,
                                 const std::string& detail);
 
   // Records a known error statement with its mode and the set of labels that
   // caused it to fail.
   void RecordKnownErrorStatement(const std::string& location,
-                                 const KnownErrorMode mode,
+                                 KnownErrorMode mode,
                                  const absl::btree_set<std::string>& by_set);
 
   // Record the runtime duration of a executed statement.
@@ -266,23 +290,49 @@ class Stats {
   // In both reference implementation test and engine test, compliance labels
   // will be extracted and written to undeclared output file.
   // This function can only be called after matchers are invoked by EXPECT_THAT.
-  // It only takes effect when the global flag is on, in order to prevent
-  // long-running RQG from consuming too much memory. See b/238890147.
   void RecordComplianceTestsLabelsProto(
       absl::string_view test_name, absl::string_view sql,
+      const std::map<std::string, Value>& params, absl::string_view location,
       KnownErrorMode actual_error_mode,
       const absl::btree_set<std::string>& label_set,
       absl::StatusCode expected_error_code,
       absl::StatusCode actual_error_code) {
-    if (absl::GetFlag(FLAGS_zetasql_compliance_write_labels_to_file)) {
-      ComplianceTestCaseLabels* test_case = labels_proto_.add_test_cases();
-      test_case->set_test_name(std::string(test_name));
-      test_case->set_test_query(std::string(sql));
-      test_case->set_test_error_mode(actual_error_mode);
-      for (const std::string& label : label_set) {
-        test_case->add_compliance_labels(label);
-      }
+    // Skip building the protos when not requested to prevent long-running RQG
+    // tests from consuming too much memory.
+    // See b/238890147
+    if (!absl::GetFlag(FLAGS_zetasql_compliance_write_labels_to_file)) {
+      return;
     }
+    static const LazyRE2 kExtractLocation = {R"(FILE-(.+\.\w+)-LINE-(\d+).*)"};
+    absl::string_view file = "";
+    int line = -1;
+    if (!location.empty()) {
+      bool matched = RE2::FullMatch(location, *kExtractLocation, &file, &line);
+      ZETASQL_DCHECK(matched) << "Failed to find filename and line in " << location;
+    }
+
+    ComplianceTestCaseLabels* test_case = labels_proto_.add_test_cases();
+    test_case->set_test_name(std::string(test_name));
+    test_case->set_test_query(std::string(sql));
+    test_case->mutable_test_location()->set_file(std::string(file));
+    test_case->mutable_test_location()->set_line(line);
+    for (auto& [param_name, param_value] : params) {
+      ComplianceTestCaseLabels::Param* param = test_case->add_param();
+      param->set_param_name(param_name);
+      param->set_param_value_literal(
+          param_value.GetSQLLiteral(PRODUCT_EXTERNAL));
+    }
+    test_case->set_test_error_mode(actual_error_mode);
+    for (const std::string& label : label_set) {
+      test_case->add_compliance_labels(label);
+    }
+  }
+
+  // Gets the most recently appended test case to the labels proto. This should
+  // only be used for testing SqlTestBase, not by other clients.
+  const ComplianceTestCaseLabels& GetLastComplianceTestCaseLabels() {
+    ZETASQL_DCHECK(!labels_proto_.test_cases().empty());
+    return labels_proto_.test_cases().Get(labels_proto_.test_cases_size() - 1);
   }
 
   void LogGoogletestProperties() const;
@@ -315,9 +365,8 @@ class Stats {
 
   // Composes the following string.
   //   "label: <label>    # was: <was_mode> - new mode: <new_mode>"
-  std::string LabelString(const std::string& label,
-                          const KnownErrorMode was_mode,
-                          const KnownErrorMode new_mode) const;
+  std::string LabelString(const std::string& label, KnownErrorMode was_mode,
+                          KnownErrorMode new_mode) const;
 
   int num_executed_ = 0;
   std::vector<std::string> failures_;
@@ -520,6 +569,22 @@ std::unique_ptr<MatcherCollection<absl::Status>>
     SQLTestBase::legal_runtime_errors_;
 
 SQLTestBase::TestCaseInspectorFn* SQLTestBase::test_case_inspector_ = nullptr;
+
+const ComplianceTestCaseLabels&
+SQLTestBase::TESTONLY_ComplianceTestCaseLabels() {
+  return stats_->GetLastComplianceTestCaseLabels();
+}
+
+void SQLTestBase::TESTONLY_ForceDisableIsTestingReferenceImpl(bool value) {
+  ZETASQL_DCHECK(driver() != nullptr && driver()->IsReferenceImplementation());
+  force_disabled_is_testing_reference_impl_ = value;
+  reference_driver_ = value ? static_cast<ReferenceDriver*>(driver()) : nullptr;
+}
+
+void SQLTestBase::TESTONLY_SetTestFileOptions(
+    std::unique_ptr<FilebasedSQLTestFileOptions> test_file_options) {
+  test_file_options_ = std::move(test_file_options);
+}
 
 // gMock matcher that checkes if a statement result (StatusOr<Value>) has OK
 // status.
@@ -785,9 +850,9 @@ class KnownErrorFilter : public ::testing::MatcherInterface<
     }
     // Record actual error mode of current test case to global stats.
     sql_test_->stats_->RecordComplianceTestsLabelsProto(
-        sql_test_->full_name_, sql_test_->sql_, to_mode,
-        sql_test_->compliance_labels_, expected_status_.code(),
-        result.status().code());
+        sql_test_->full_name_, sql_test_->sql_, sql_test_->parameters_,
+        sql_test_->location(), to_mode, sql_test_->compliance_labels_,
+        expected_status_.code(), result.status().code());
     if (to_mode > from_mode) {
       // 1. to_mode > 0 = from_mode: A failed non-known-error statement.
       // 2. to_mode > from_mode > 0: A known-error statement failed in a more
@@ -952,8 +1017,7 @@ static bool IsOnResolverErrorFilebasedAllowList(absl::string_view full_name) {
   // preventing new files from including such tests.
   // TODO: Clean up the ~900 tests, burn down this list.
   for (absl::string_view prefix :
-       {"aggregation_order_by_queries_test:",
-        "aggregation_queries_test:aggregation_string_agg_error_",
+       {"aggregation_queries_test:aggregation_string_agg_error_",
         "analytic_cume_dist_test:cume_dist_",
         "analytic_dense_rank_test:dense_rank_",
         "analytic_hll_count_test:analytic_hll_count_merge_partial_over_unbound",
@@ -969,14 +1033,10 @@ static bool IsOnResolverErrorFilebasedAllowList(absl::string_view full_name) {
         "anonymization_test:",
         "arithmetic_functions_test:arithmetic_functions_3",
         "array_aggregation_test:array_concat_agg_array",
-        "array_functions_test:",
         "array_joins_test:array_",
         "array_queries_test:select_array_equality_",
         "bytes_test:",
-        "cast_function_test:",
-        "civil_time_test:",
         "collation_test:",
-        "concat_function_test:",
         "constant_queries_test:",
         "d3a_count_test:",
         "dml_delete_test:",
@@ -985,14 +1045,11 @@ static bool IsOnResolverErrorFilebasedAllowList(absl::string_view full_name) {
         "dml_returning_test:",
         "dml_update_proto_test:",
         "dml_update_struct_test:",
-        "dml_update_test",
         "dml_value_table_test:",
         "except_intersect_queries_test:",
-        "float_and_double_queries_test:",
         "geography_analytic_functions_test:st_clusterdbscan_",
         "geography_functions_test:st_geogfrom",
         "geography_queries_2_test:",
-        "groupby_queries_test:",
         "groupby_queries_2_test:",
         "hll_count_test:",
         "in_queries_test:in_",
@@ -1010,14 +1067,12 @@ static bool IsOnResolverErrorFilebasedAllowList(absl::string_view full_name) {
         "proto3_fields_test:has_repeated_scalar_fields",
         "replace_fields_test:replace_fields_proto_named_extension",
         "select_distinct_test:",
-        "safe_function_test:",
         "strings_test:",
         "timestamp_test:",
         "union_distinct_queries_test:",
         "unionall_queries_test:unionall_",
         "unnest_queries_test:",
-        "with_queries_test:",
-        "with_recursive_test:"}) {
+        "with_queries_test:"}) {
     if (absl::StartsWith(full_name, prefix)) {
       return true;
     }
@@ -1037,6 +1092,44 @@ static bool IsOnResolverErrorCodebasedAllowList(absl::string_view full_name) {
          absl::StartsWith(full_name, "code:Like_with_constant_pattern_");
 }
 
+static bool IsIdeallyEnabled(LanguageFeature feature) {
+  using FeatureToEnabledMap = absl::flat_hash_map<LanguageFeature, bool>;
+  static const FeatureToEnabledMap* kIsEnabledMap = []() {
+    auto* is_enabled_map = new FeatureToEnabledMap;
+    const google::protobuf::EnumDescriptor* enum_desc =
+        google::protobuf::GetEnumDescriptor<LanguageFeature>();
+    for (int i = 0; i < enum_desc->value_count(); ++i) {
+      const google::protobuf::EnumValueDescriptor* value_desc = enum_desc->value(i);
+      const LanguageFeatureOptions& feature_options =
+          value_desc->options().GetExtension(language_feature_options);
+      is_enabled_map->emplace(
+          static_cast<LanguageFeature>(value_desc->number()),
+          feature_options.ideally_enabled());
+    }
+    return is_enabled_map;
+  }();
+  return kIsEnabledMap->at(feature);
+}
+
+static bool IsInDevelopment(LanguageFeature feature) {
+  using FeatureToInDevelopmentMap = absl::flat_hash_map<LanguageFeature, bool>;
+  static const FeatureToInDevelopmentMap* kIsInDevelopmentMap = []() {
+    auto* is_in_development = new FeatureToInDevelopmentMap;
+    const google::protobuf::EnumDescriptor* enum_desc =
+        google::protobuf::GetEnumDescriptor<LanguageFeature>();
+    for (int i = 0; i < enum_desc->value_count(); ++i) {
+      const google::protobuf::EnumValueDescriptor* value_desc = enum_desc->value(i);
+      const LanguageFeatureOptions& feature_options =
+          value_desc->options().GetExtension(language_feature_options);
+      is_in_development->emplace(
+          static_cast<LanguageFeature>(value_desc->number()),
+          feature_options.in_development());
+    }
+    return is_in_development;
+  }();
+  return kIsInDevelopmentMap->at(feature);
+}
+
 static void ExtractComplianceLabelsFromResolvedAST(
     absl::string_view sql, const std::map<std::string, Value>& parameters,
     bool require_resolver_success, absl::string_view test_name,
@@ -1046,10 +1139,30 @@ static void ExtractComplianceLabelsFromResolvedAST(
     const absl::btree_set<std::string>& explicit_labels,
     absl::btree_set<std::string>& compliance_labels) {
   compliance_labels.clear();
+  absl::string_view time_resolution_label = kTimeResolutionAnyLabel;
   for (const LanguageFeature feature : required_features) {
+    if (!IsIdeallyEnabled(feature)) {
+      compliance_labels.emplace(kLegacyBehaviorLabel);
+    }
+    if (IsInDevelopment(feature)) {
+      compliance_labels.emplace(kInDevelopmentLabel);
+    }
     compliance_labels.insert(
         absl::StrCat("LanguageFeature:", LanguageFeature_Name(feature)));
+    if (feature == FEATURE_TIMESTAMP_NANOS) {
+      time_resolution_label = kTimeResolutionNanosLabel;
+    }
   }
+  for (const LanguageFeature feature : forbidden_features) {
+    if (IsIdeallyEnabled(feature) && feature != FEATURE_TIMESTAMP_NANOS) {
+      compliance_labels.emplace(kLegacyBehaviorLabel);
+    }
+    // We don't do anything with in development features that are forbidden.
+    if (feature == FEATURE_TIMESTAMP_NANOS) {
+      time_resolution_label = kTimeResolutionMicrosLabel;
+    }
+  }
+  compliance_labels.emplace(time_resolution_label);
   for (const std::string& label : explicit_labels) {
     if (label != test_name) {
       compliance_labels.insert(label);
@@ -1064,7 +1177,8 @@ static void ExtractComplianceLabelsFromResolvedAST(
   // for only supported by PRODUCT_INTERNAL, only supported by PRODUCT_EXTERNAL,
   // or supported in all product modes.
   AutoLanguageOptions options_cleanup(reference_driver);
-  LanguageOptions language_options;
+  LanguageOptions language_options = reference_driver->language_options();
+  language_options.SetEnabledLanguageFeatures({});
   language_options.EnableMaximumLanguageFeaturesForDevelopment();
   for (LanguageFeature feature : required_features) {
     language_options.EnableLanguageFeature(feature);
@@ -1116,8 +1230,15 @@ static void ExtractComplianceLabelsFromResolvedAST(
                            product_external_analyze_status.ok();
   const ResolvedStatement* statement = nullptr;
   if (!internal_compiles && !external_compiles) {
-    compliance_labels.insert("Special:NoCompileTest");
+    compliance_labels.emplace(kNoCompileLabel);
     if (require_resolver_success) {
+      // We want to show at least one of the errors with the failure report to
+      // help folks debug when they see this failure.
+      absl::Status to_report = absl::OkStatus();
+      to_report.Update(product_internal_analyzer_options_or_err.status());
+      to_report.Update(product_internal_analyze_status);
+      to_report.Update(product_external_analyzer_options_or_err.status());
+      to_report.Update(product_external_analyze_status);
       ADD_FAILURE()
           << "Test '" << test_name << "' does not successfully compile for "
           << "with maximum features plus required less forbidden. This test is "
@@ -1126,17 +1247,18 @@ static void ExtractComplianceLabelsFromResolvedAST(
           << "compliance tests, please move the test there. Another less "
           << "common possibility, is that the test case should have forbidden "
           << "features that aren't currently explicit. In that case, "
-          << "annotate the test with the apporpriate forbidden feature.";
+          << "annotate the test with the apporpriate forbidden feature.\n"
+          << to_report << "\n";
     }
   } else if (internal_compiles && external_compiles) {
-    compliance_labels.insert("ProductMode:InternalAndExternal");
+    compliance_labels.emplace(kProductModeInternalAndExternalLabel);
     // This is an arbitrary choice.
     statement = product_internal_analyzer_out->resolved_statement();
   } else if (internal_compiles && !external_compiles) {
-    compliance_labels.insert("ProductMode:InternalOnly");
+    compliance_labels.emplace(kProductModeInternalLabel);
     statement = product_internal_analyzer_out->resolved_statement();
   } else if (!internal_compiles && external_compiles) {
-    compliance_labels.insert("ProductMode:ExternalOnly");
+    compliance_labels.emplace(kProductModeExternalLabel);
     statement = product_external_analyzer_out->resolved_statement();
   } else {
     ZETASQL_LOG(FATAL) << "Unreachable";
@@ -1244,9 +1366,9 @@ void SQLTestBase::RunSQLOnFeaturesAndValidateResult(
 
     if (!driver_enables_right_features) {
       stats_->RecordComplianceTestsLabelsProto(
-          full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
-          compliance_labels_, expected_status.code(),
-          absl::StatusCode::kUnimplemented);
+          full_name_, sql_, parameters_, location_,
+          KnownErrorMode::ALLOW_UNIMPLEMENTED, compliance_labels_,
+          expected_status.code(), absl::StatusCode::kUnimplemented);
       return;  // Skip this test.
     }
     // Only run once. Use reference engine to check result. We don't compare
@@ -1260,11 +1382,14 @@ void SQLTestBase::RunSQLOnFeaturesAndValidateResult(
         reference_driver()->ExecuteStatementForReferenceDriver(
             sql_, params, GetExecuteStatementOptions(), &type_factory,
             &is_deterministic_output, &uses_unsupported_type);
+    if (absl::IsUnimplemented(reference_result.status())) {
+      compliance_labels_.emplace(kNoReferenceLabel);
+    }
     if (uses_unsupported_type) {
       stats_->RecordComplianceTestsLabelsProto(
-          full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
-          compliance_labels_, expected_status.code(),
-          absl::StatusCode::kUnimplemented);
+          full_name_, sql_, parameters_, location_,
+          KnownErrorMode::ALLOW_UNIMPLEMENTED, compliance_labels_,
+          expected_status.code(), absl::StatusCode::kUnimplemented);
       return;  // Skip this test. It uses types not supported by the driver.
     }
     SCOPED_TRACE(sql);
@@ -1451,8 +1576,8 @@ void SQLTestBase::RunTestFromFile(
     absl::string_view sql,
     file_based_test_driver::RunTestCaseResult* test_result) {
   InitStatementState(sql, test_result);
-  StepSkipUnsupportedTest();
   StepPrepareTimeZoneProtosEnums();
+  StepSkipUnsupportedTest();
   StepPrepareDatabase();
   StepCheckKnownErrors();
   StepCreateDatabase();
@@ -1578,7 +1703,6 @@ void SQLTestBase::StepPrepareDatabase() {
   if (statement_workflow_ != NORMAL) return;
 
   if (test_case_options_->prepare_database()) {
-    std::string table_name;
     if (CREATE_DATABASE != file_workflow_) {
       absl::Status status(absl::StatusCode::kInvalidArgument,
                           "All [prepare_database] must be placed at the top "
@@ -1586,6 +1710,7 @@ void SQLTestBase::StepPrepareDatabase() {
       CheckCancellation(status, "Wrong placement of prepare_database");
       return;
     }
+
     if (GetStatementKind(sql_) == RESOLVED_CREATE_FUNCTION_STMT) {
       if (!IsTestingReferenceImpl() &&
           test_case_options_->name() != "skip_failed_reference_setup") {
@@ -1625,6 +1750,7 @@ void SQLTestBase::StepPrepareDatabase() {
       }
     }
 
+    std::string table_name;
     bool is_deterministic_output;
     bool uses_unsupported_type = false;  // unused
     CheckCancellation(
@@ -1734,14 +1860,14 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
 
   if (statement_workflow_ == FEATURE_MISMATCH) {
     stats_->RecordComplianceTestsLabelsProto(
-        full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
-        compliance_labels_, absl::StatusCode::kOk,
-        absl::StatusCode::kUnimplemented);
+        full_name_, sql_, parameters_, location_,
+        KnownErrorMode::ALLOW_UNIMPLEMENTED, compliance_labels_,
+        absl::StatusCode::kOk, absl::StatusCode::kUnimplemented);
   } else if (statement_workflow_ == KNOWN_CRASH) {
     stats_->RecordComplianceTestsLabelsProto(
-        full_name_, sql_, KnownErrorMode::CRASHES_DO_NOT_RUN,
-        compliance_labels_, absl::StatusCode::kOk,
-        absl::StatusCode::kUnavailable);
+        full_name_, sql_, parameters_, location_,
+        KnownErrorMode::CRASHES_DO_NOT_RUN, compliance_labels_,
+        absl::StatusCode::kOk, absl::StatusCode::kUnavailable);
   }
 
   if (statement_workflow_ != NORMAL) {
@@ -1757,14 +1883,13 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
 
     // Check results against golden files.
     // All features in [required_features] will be turned on.
-    // If the test has [test_features1] or [test_features2], the test will run
+    // If the test has [test_features1], the test will run
     // multiple times with each of those features sets all enabled or disabled,
     // and will generate a test output for each, prefixed with
     // "WITH FEATURES: ..." to show which features were set to get that output.
 
     absl::btree_set<std::set<LanguageFeature>> features_sets =
         ExtractFeatureSets(test_case_options_->test_features1(),
-                           test_case_options_->test_features2(),
                            test_case_options_->required_features());
 
     absl::btree_map<std::string, TestResults> test_results =
@@ -1798,20 +1923,23 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
           execute_statement_type_factory(), &is_deterministic_output,
           &uses_unsupported_type);
     }
+    if (absl::IsUnimplemented(ref_result.status())) {
+      compliance_labels_.emplace(kNoReferenceLabel);
+    }
     if (uses_unsupported_type) {
       stats_->RecordComplianceTestsLabelsProto(
-          full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
-          compliance_labels_, absl::StatusCode::kOk,
-          absl::StatusCode::kUnimplemented);
+          full_name_, sql_, parameters_, location_,
+          KnownErrorMode::ALLOW_UNIMPLEMENTED, compliance_labels_,
+          absl::StatusCode::kOk, absl::StatusCode::kUnimplemented);
       return;  // Skip this test. It uses types not supported by the driver.
     }
     if (absl::IsUnimplemented(ref_result.status())) {
       // This test is not implemented by the reference implementation. Skip
       // checking the results because we have no results to check against.
       stats_->RecordComplianceTestsLabelsProto(
-          full_name_, sql_, KnownErrorMode::ALLOW_UNIMPLEMENTED,
-          compliance_labels_, absl::StatusCode::kUnimplemented,
-          absl::StatusCode::kUnimplemented);
+          full_name_, sql_, parameters_, location_,
+          KnownErrorMode::ALLOW_UNIMPLEMENTED, compliance_labels_,
+          absl::StatusCode::kUnimplemented, absl::StatusCode::kUnimplemented);
       return;
     }
     absl::StatusOr<ComplianceTestCaseResult> actual_result = ExecuteTestCase();
@@ -1822,7 +1950,6 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
 
 absl::btree_set<std::set<LanguageFeature>> SQLTestBase::ExtractFeatureSets(
     const std::set<LanguageFeature>& test_features1,
-    const std::set<LanguageFeature>& test_features2,
     const std::set<LanguageFeature>& required_features) {
   absl::btree_set<std::set<LanguageFeature>> features_sets;
   for (int include1 = 0; include1 <= 1; ++include1) {
@@ -1830,9 +1957,6 @@ absl::btree_set<std::set<LanguageFeature>> SQLTestBase::ExtractFeatureSets(
       std::set<LanguageFeature> features_set = required_features;
       if (include1 == 1) {
         features_set.insert(test_features1.begin(), test_features1.end());
-      }
-      if (include2 == 1) {
-        features_set.insert(test_features2.begin(), test_features2.end());
       }
       features_sets.insert(std::move(features_set));
     }
@@ -2574,6 +2698,9 @@ absl::Status SQLTestBase::ParseFeatures(const std::string& features_str,
 }
 
 bool SQLTestBase::IsTestingReferenceImpl() const {
+  if (force_disabled_is_testing_reference_impl_) {
+    return false;
+  }
   return driver()->IsReferenceImplementation();
 }
 

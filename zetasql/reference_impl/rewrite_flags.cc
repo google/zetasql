@@ -19,48 +19,38 @@
 #include <string>
 #include <vector>
 
-#include "google/protobuf/descriptor.h"
 #include "zetasql/common/options_utils.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/flags/flag.h"
-#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
 
-namespace {
-// Rewrites for constructs which the reference implementation is able to
-// successfully execute using a native implementation, even without the rewrite.
-// These rewrites are turned off when using the reference impl as a baseline
-// for compliance tests, so that the result of executing the query through the
-// rewriter can be compared to it.
-constexpr ResolvedASTRewrite kReferenceImplOptionalRewrites[] = {
-    REWRITE_FLATTEN,        REWRITE_PROTO_MAP_FNS,
-    REWRITE_PIVOT,          REWRITE_ARRAY_FILTER_TRANSFORM,
-    REWRITE_ARRAY_INCLUDES, REWRITE_UNPIVOT,
-    REWRITE_WITH_EXPR,      REWRITE_UNARY_FUNCTIONS,
-    REWRITE_LIKE_ANY_ALL,   REWRITE_TERNARY_FUNCTIONS};
-
-RewriteSet DefaultRewrites() {
+static RewriteSet DefaultRewrites() {
   return RewriteSet(AnalyzerOptions().enabled_rewrites());
 }
 
-RewriteSet MinimalRewrites() {
-  RewriteSet minimal_rewrites(DefaultRewrites());
-  for (ResolvedASTRewrite rewrite : zetasql::kReferenceImplOptionalRewrites) {
-    minimal_rewrites.erase(rewrite);
-  }
-  // The reference implementation uses this rewriter, which is non-default for
-  // engines, as its implementation of SQL UDFs. It is part of the minimal set
-  // required for the reference implementation to be fully functional even
-  // though its off by default for other engines.
-  minimal_rewrites.insert(REWRITE_INLINE_SQL_FUNCTIONS);
-  return minimal_rewrites;
+// Rewrites for constructs which the reference implementation is not able to
+// successfully execute using a direct implementation, and thus requires the
+// rewriter. These rewrites are enabled for the reference even when using the
+// reference impl as a baseline for compliance tests.
+static const RewriteSet& MinimalRewrites() {
+  static const auto* minimal_rewrites = new RewriteSet({
+      // Probably don't add to this list without a very good reason to do so.
+      // Features that are rewrite *only* without direct implementation support
+      // in the reference implementation are not as well tested as features with
+      // both implementations.
+      // clang-format off
+      // (broken link) start
+      REWRITE_INLINE_SQL_FUNCTIONS,
+      REWRITE_INLINE_SQL_TVFS,
+      REWRITE_INLINE_SQL_VIEWS,
+      // (broken link) end
+      // clang-format on
+  });
+  return *minimal_rewrites;
 }
-
-}  // namespace
 
 // Returns a textual flag value corresponding to a rewrite set.
 std::string AbslUnparseFlag(RewriteSet set) {
@@ -100,28 +90,13 @@ bool AbslParseFlag(absl::string_view text, RewriteSet* set,
     *set = RewriteSet(internal::GetAllRewrites());
     return true;
   }
-
-  // Anything not one of the predefined values above is parsed as a
-  // comma-delimited list of rewrite names.
-  RewriteSet explicit_rewrites;
-  const google::protobuf::EnumDescriptor* descriptor =
-      google::protobuf::GetEnumDescriptor<ResolvedASTRewrite>();
-  std::vector<absl::string_view> rewrite_names = absl::StrSplit(text, ',');
-  for (absl::string_view rewrite_name : rewrite_names) {
-    const google::protobuf::EnumValueDescriptor* value_descriptor =
-        descriptor->FindValueByName(std::string(rewrite_name));
-    if (value_descriptor == nullptr) {
-      *error = absl::StrCat("Invalid rewrite: ", rewrite_name);
-      return false;
-    }
-    explicit_rewrites.insert(static_cast<ResolvedASTRewrite>(
-        descriptor
-            ->FindValueByName(
-                std::string(absl::StripAsciiWhitespace(rewrite_name)))
-            ->number()));
+  auto statusor_parsed_rewrites = internal::ParseEnabledAstRewrites(text);
+  if (statusor_parsed_rewrites.ok()) {
+    *set = RewriteSet(statusor_parsed_rewrites->options);
+    return true;
   }
-  *set = explicit_rewrites;
-  return true;
+  *error = statusor_parsed_rewrites.status().message();
+  return false;
 }
 }  // namespace zetasql
 
@@ -133,4 +108,4 @@ ABSL_FLAG(
     "  default: Enable only rewrites which are on by default\n"
     "  none: Disable all rewrites\n"
     "  all: Enable all rewrites\n"
-    "  REWRITE_FOO,REWRITE_BAR,...: Enable only rewrites in the explcit list");
+    "  REWRITE_FOO,REWRITE_BAR,...: Enable only rewrites in the explicit list");

@@ -26,6 +26,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/thread_stack.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -46,9 +47,9 @@ class StringAppendErrorCollector :
   StringAppendErrorCollector& operator=(const StringAppendErrorCollector&)
       = delete;
 
-  void AddError(const std::string& filename, const std::string& element_name,
-                const google::protobuf::Message* descriptor, ErrorLocation location,
-                const std::string& message) override {
+    void AddError(const std::string& filename, const std::string& element_name,
+                  const google::protobuf::Message* descriptor, ErrorLocation location,
+                  const std::string& message) override {
     absl::StrAppend(&error_, HasError() ? "\n" : "", filename, ": ",
                     element_name, ": ", message);
   }
@@ -91,6 +92,7 @@ absl::Status PopulateFileDescriptorSet(
 absl::Status AddFileDescriptorSetToPool(
     const google::protobuf::FileDescriptorSet* file_descriptor_set,
     google::protobuf::DescriptorPool* pool) {
+
   StringAppendErrorCollector error_collector;
   for (int idx = 0; idx < file_descriptor_set->file_size(); ++idx) {
     pool->BuildFileCollectingErrors(file_descriptor_set->file(idx),

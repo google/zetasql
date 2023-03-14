@@ -28,7 +28,7 @@
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/base/enum_utils.h"
-#include "google/protobuf/descriptor.h"
+#include "zetasql/analyzer/analyzer_output_mutator.h"
 #include "zetasql/analyzer/analyzer_test_options.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"  
@@ -81,16 +81,17 @@
 #include "absl/algorithm/container.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/node_hash_set.h"
+#include "absl/flags/commandlineflag.h"
 #include "absl/flags/flag.h"
+#include "absl/flags/reflection.h"
 #include "absl/functional/bind_front.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -245,37 +246,40 @@ namespace {
 absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
     const AnalyzerOutput& output) {
   ResolvedASTDeepCopyVisitor visitor;
+  std::unique_ptr<AnalyzerOutput> ret;
   if (output.resolved_statement() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(output.resolved_statement()->Accept(&visitor));
-    return std::make_unique<AnalyzerOutput>(
+    ret = std::make_unique<AnalyzerOutput>(
         output.id_string_pool(), output.arena(),
         *visitor.ConsumeRootNode<ResolvedStatement>(),
         output.analyzer_output_properties(),
         /*parser_output=*/nullptr, output.deprecation_warnings(),
         output.undeclared_parameters(),
-        output.undeclared_positional_parameters(), output.max_column_id(),
-        output.runtime_info());
+        output.undeclared_positional_parameters(), output.max_column_id());
   } else if (output.resolved_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(output.resolved_expr()->Accept(&visitor));
-    return std::make_unique<AnalyzerOutput>(
+    ret = std::make_unique<AnalyzerOutput>(
         output.id_string_pool(), output.arena(),
         *visitor.ConsumeRootNode<ResolvedExpr>(),
         output.analyzer_output_properties(),
         /*parser_output=*/nullptr, output.deprecation_warnings(),
         output.undeclared_parameters(),
-        output.undeclared_positional_parameters(), output.max_column_id(),
-        output.runtime_info());
+        output.undeclared_positional_parameters(), output.max_column_id());
   }
-  ZETASQL_RET_CHECK_FAIL() << "No resolved AST in AnalyzerOutput";
+
+  ZETASQL_RET_CHECK(ret) << "No resolved AST in AnalyzerOutput";
+
+  AnalyzerOutputMutator(ret).mutable_runtime_info() = output.runtime_info();
+  return ret;
 }
 
 }  // namespace
 
 namespace {
 // Adds information from 'table_scan_groups' (if not empty) to '*output'.
+template <class NodeType>
 void OutputAnonymizationTableScanGroups(
-    const absl::flat_hash_map<const ResolvedTableScan*,
-                              const ResolvedAnonymizedAggregateScan*>&
+    const absl::flat_hash_map<const ResolvedTableScan*, const NodeType*>&
         table_scan_groups,
     std::string* output) {
   if (table_scan_groups.empty()) return;
@@ -285,7 +289,6 @@ void OutputAnonymizationTableScanGroups(
   // here.
   absl::btree_map<const std::string, std::multiset<std::string>>
       table_scan_string_map;
-
   for (auto resolved_table_scan_map_entry : table_scan_groups) {
     const std::string table_scan =
         resolved_table_scan_map_entry.first->DebugString();
@@ -333,20 +336,31 @@ class AnalyzerTestRunner {
   // depending on the value of catalog_name.
   class CatalogHolder {
    public:
+    // "suppressed_functions" is a comma separated list of built-in function
+    // names to exclude when using "SampleCatalog".
     CatalogHolder(const std::string& catalog_name,
+                  absl::string_view suppressed_functions,
                   const AnalyzerOptions& analyzer_options,
                   TypeFactory* type_factory) {
-      Init(catalog_name, analyzer_options, type_factory);
+      Init(catalog_name, suppressed_functions, analyzer_options, type_factory);
     }
     Catalog* catalog() { return catalog_; }
 
    private:
     void Init(const std::string& catalog_name,
+              absl::string_view suppressed_functions,
               const AnalyzerOptions& analyzer_options,
               TypeFactory* type_factory) {
       if (catalog_name == "SampleCatalog") {
         sample_catalog_ = std::make_unique<SampleCatalog>(
             analyzer_options.language(), type_factory);
+        for (absl::string_view fn_name :
+             absl::StrSplit(suppressed_functions, ',', absl::SkipEmpty())) {
+          sample_catalog_->catalog()->RemoveFunctions(
+              [fn_name](const Function* fn) {
+                return zetasql_base::CaseEqual(fn->Name(), fn_name);
+              });
+        }
         catalog_ = sample_catalog_->catalog();
       } else if (catalog_name == "SpecialCatalog") {
         special_catalog_ = GetSpecialCatalog();
@@ -368,9 +382,19 @@ class AnalyzerTestRunner {
       const AnalyzerOptions& analyzer_options,
       TypeFactory* type_factory) {
     const std::string catalog_name = test_case_options_.GetString(kUseCatalog);
+    absl::string_view suppressed_functions =
+        test_case_options_.GetString(kSuppressBuiltinFunctions);
     auto holder = std::make_unique<CatalogHolder>(
-        catalog_name, analyzer_options, type_factory);
+        catalog_name, suppressed_functions, analyzer_options, type_factory);
     return holder;
+  }
+
+  void InitializeLiteralReplacementOptions() {
+    literal_replacement_options_.ignored_option_names = absl::StrSplit(
+        test_case_options_.GetString(kOptionNamesToIgnoreInLiteralReplacement),
+        ',');
+    literal_replacement_options_.scrub_limit_offset =
+        test_case_options_.GetBool(kScrubLimitOffsetInLiteralReplacement);
   }
 
   void RunTest(absl::string_view test_case_input,
@@ -384,6 +408,9 @@ class AnalyzerTestRunner {
                        internal::StatusToString(options_status)));
       return;
     }
+
+    InitializeLiteralReplacementOptions();
+
     const std::string& mode = test_case_options_.GetString(kModeOption);
 
     TypeFactory type_factory;
@@ -498,6 +525,30 @@ class AnalyzerTestRunner {
     } else {
       FAIL() << "Unsupported error message mode '" << error_message_mode_string
              << "'";
+    }
+
+    absl::FlagSaver saver;
+    if (const std::string flags = test_case_options_.GetString(kSetFlag);
+        !flags.empty()) {
+      if (test_case_options_.GetBool(kRunInJava)) {
+        FAIL() << "Tests with set_flag should also be marked with no_java, "
+               << "because set_flag is not implemented in the Java analyzer "
+               << "test.";
+      }
+      for (const absl::string_view flag : absl::StrSplit(flags, ',')) {
+        const std::pair<absl::string_view, absl::string_view> split =
+            absl::StrSplit(flag, '=');
+        const absl::string_view key = split.first;
+        const absl::string_view value = split.second;
+        absl::CommandLineFlag* const flag_ref = absl::FindCommandLineFlag(key);
+        if (flag_ref == nullptr) {
+          FAIL() << "set_flag: no such flag: " << key;
+        }
+        if (std::string err; !flag_ref->ParseFrom(value, &err)) {
+          FAIL() << "set_flag: error parsing " << key << "=" << value << ": "
+                 << err;
+        }
+      }
     }
 
     const zetasql::Type* proto_type;
@@ -674,8 +725,8 @@ class AnalyzerTestRunner {
       for (const auto& option : absl::StrSplit(
                additional_allowed_anonymization_options_string, ',')) {
         if (option.empty()) continue;
-        updated_hints_and_options.AddAnonymizationOption(std::string(option),
-                                                         types::StringType());
+        updated_hints_and_options.AddAnonymizationOption(option,
+                                                         /*type=*/nullptr);
       }
       options.set_allowed_hints_and_options(updated_hints_and_options);
     }
@@ -1219,7 +1270,8 @@ class AnalyzerTestRunner {
       absl::StripAsciiWhitespace(&test_result_string);
     }
 
-    if (!test_case_options_.GetString(kParseLocationRecordType).empty() &&
+    if (mode == "statement" &&
+        !test_case_options_.GetString(kParseLocationRecordType).empty() &&
         !zetasql_base::CaseEqual(
             test_case_options_.GetString(kParseLocationRecordType),
             ParseLocationRecordType_Name(PARSE_LOCATION_RECORD_NONE)) &&
@@ -1271,6 +1323,7 @@ class AnalyzerTestRunner {
         rewrite_options.set_enabled_rewrites(rewrites);
         outcome.status = RewriteResolvedAst(rewrite_options, test_case, catalog,
                                             type_factory, *rewrite_output);
+
         if (outcome.status.ok() &&
             rewrite_output->resolved_statement() != nullptr) {
           outcome.ast_debug =
@@ -1294,10 +1347,16 @@ class AnalyzerTestRunner {
                           rewrite_output.get(), &outcome.unparsed);
           }
         }
-        OutputAnonymizationTableScanGroups(
-            rewrite_output->analyzer_output_properties()
-                .resolved_table_scan_to_anonymized_aggregate_scan_map,
-            &outcome.anon_table_scan_groups);
+        if (outcome.status.ok()) {
+          OutputAnonymizationTableScanGroups(
+              rewrite_output->analyzer_output_properties()
+                  .resolved_table_scan_to_anonymized_aggregate_scan_map,
+              &outcome.anon_table_scan_groups);
+          OutputAnonymizationTableScanGroups(
+              rewrite_output->analyzer_output_properties()
+                  .resolved_table_scan_to_dp_aggregate_scan_map,
+              &outcome.anon_table_scan_groups);
+        }
         std::string outcome_key = outcome.key();
         size_t outcome_index = 0;
         if (rewrite_group_result_map.contains(outcome_key)) {
@@ -2258,8 +2317,9 @@ class AnalyzerTestRunner {
     LiteralReplacementMap literal_map;
     GeneratedParameterMap generated_parameters;
     absl::Status status = ReplaceLiteralsByParameters(
-        sql, analyzer_options, analyzer_output,
-        &literal_map, &generated_parameters, &new_sql);
+        sql, literal_replacement_options_, analyzer_options,
+        analyzer_output->resolved_statement(), &literal_map,
+        &generated_parameters, &new_sql);
     if (status.ok()) {
       absl::StrAppend(result_string, "[REPLACED_LITERALS]\n", new_sql, "\n\n");
     } else {
@@ -2357,8 +2417,9 @@ class AnalyzerTestRunner {
     LiteralReplacementMap literal_map;
     GeneratedParameterMap generated_parameters;
     absl::Status status = ReplaceLiteralsByParameters(
-        sql, options, analyzer_output.get(),
-        &literal_map, &generated_parameters, &new_sql);
+        sql, literal_replacement_options_, options,
+        analyzer_output->resolved_statement(), &literal_map,
+        &generated_parameters, &new_sql);
     ZETASQL_EXPECT_OK(status) << dbg_info;
     ZETASQL_RETURN_IF_ERROR(status);
 
@@ -2420,8 +2481,9 @@ class AnalyzerTestRunner {
     LiteralReplacementMap new_literal_map;
     GeneratedParameterMap new_generated_parameters;
     status = ReplaceLiteralsByParameters(
-        new_sql, new_options, new_analyzer_output.get(),
-        &new_literal_map, &new_generated_parameters, &new_new_sql);
+        new_sql, literal_replacement_options_, new_options,
+        new_analyzer_output->resolved_statement(), &new_literal_map,
+        &new_generated_parameters, &new_new_sql);
     ZETASQL_EXPECT_OK(status) << dbg_info;
     ZETASQL_RETURN_IF_ERROR(status);
     EXPECT_EQ(new_sql, new_new_sql) << dbg_info;
@@ -2577,6 +2639,7 @@ class AnalyzerTestRunner {
   std::vector<std::unique_ptr<AnnotationSpec>>
       engine_specific_annotation_specs_;
   std::vector<AnalyzerRuntimeInfo> runtime_info_list_;
+  LiteralReplacementOptions literal_replacement_options_;
 };
 
 void ValidateRuntimeInfo(const AnalyzerRuntimeInfo& info) {
@@ -2591,7 +2654,12 @@ void ValidateRuntimeInfo(const AnalyzerRuntimeInfo& info) {
       EXPECT_GE(info.rewriters_details(rewriter).count, 0);
     }
   }
-  EXPECT_GE(info.sum_elapsed_duration(), absl::Duration{});
+  EXPECT_GT(info.sum_elapsed_duration(), absl::ZeroDuration());
+  EXPECT_GT(info.parser_runtime_info().parser_elapsed_duration(),
+            absl::ZeroDuration());
+  EXPECT_GT(info.overall_timed_value().elapsed_duration(),
+            absl::ZeroDuration());
+  EXPECT_GT(info.log_entry().num_lexical_tokens(), 0);
 }
 
 bool RunAllTests(TestDumperCallback callback) {

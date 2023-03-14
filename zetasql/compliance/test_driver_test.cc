@@ -64,7 +64,8 @@ TEST(TestDriverTest, ClassAndProtoSize) {
                 "Please change SerializeTestDatabase (test_driver.cc) and "
                 "TestDatabaseProto (test_driver.proto) tests if TestDatabase "
                 "is modified.");
-  EXPECT_EQ(5, TestDatabaseProto::descriptor()->field_count());
+  EXPECT_EQ(TestDatabaseProto::descriptor()->field_count(),
+              5);
   EXPECT_EQ(7, TestTableOptionsProto::descriptor()->field_count());
   EXPECT_EQ(3, TestTableProto::descriptor()->field_count());
 }

@@ -53,7 +53,7 @@ cc_library(
         "//zetasql/public:simple_catalog",
         "//zetasql/public:simple_table_cc_proto",
         "//zetasql/public:sql_formatter",
-        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public:templated_sql_tvf",  # buildcleaner: keep
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
@@ -63,6 +63,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/functional:bind_front",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",

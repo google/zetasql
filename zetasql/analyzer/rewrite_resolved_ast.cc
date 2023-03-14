@@ -24,6 +24,7 @@
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/analyzer_output_mutator.h"
 #include "zetasql/analyzer/rewriters/registration.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/rewriters/rewriter_relevance_checker.h"
@@ -32,7 +33,6 @@
 #include "zetasql/common/timer_util.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
-#include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -41,7 +41,6 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/validator.h"
 #include "absl/algorithm/container.h"
-#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -130,34 +129,6 @@ std::unique_ptr<AnalyzerOptions> AnalyzerOptionsForRewrite(
 
 }  // namespace
 
-// Helper to allow mutating AnalyzerOutput.
-class AnalyzerOutputMutator {
- public:
-  // 'column_factory' and 'output' must outlive AnalyzerOutputMutator.
-  explicit AnalyzerOutputMutator(AnalyzerOutput* output) : output_(*output) {}
-
-  // Updates the output with the new ResolvedNode (and new max column id).
-  absl::Status Update(std::unique_ptr<const ResolvedNode> node,
-                      zetasql_base::SequenceNumber& column_id_seq_num) {
-    output_.max_column_id_ = static_cast<int>(column_id_seq_num.GetNext() - 1);
-    if (output_.statement_ != nullptr) {
-      ZETASQL_RET_CHECK(node->IsStatement());
-      output_.statement_.reset(node.release()->GetAs<ResolvedStatement>());
-    } else {
-      ZETASQL_RET_CHECK(node->IsExpression());
-      output_.expr_.reset(node.release()->GetAs<ResolvedExpr>());
-    }
-    return absl::OkStatus();
-  }
-
-  AnalyzerOutputProperties& mutable_output_properties() {
-    return output_.analyzer_output_properties_;
-  }
-
- private:
-  AnalyzerOutput& output_;
-};
-
 namespace {
 absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
@@ -165,12 +136,13 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
   internal::ElapsedTimer rewriter_timer = internal::MakeTimerStarted();
 
   AnalyzerOutputMutator output_mutator(&analyzer_output);
-  AnalyzerRuntimeInfo& runtime_info = analyzer_output.mutable_runtime_info();
+  AnalyzerRuntimeInfo& runtime_info = output_mutator.mutable_runtime_info();
 
   zetasql_base::SequenceNumber fallback_sequence_number;
-  // Lazy initialize this only if we are actually doing some rewriting.
+  // Lazy initialize these only if we are actually doing some rewriting.
   // We might actually be able to drop this completely with a larger effort.
   std::unique_ptr<AnalyzerOptions> options_for_rewrite;
+  std::unique_ptr<const ResolvedNode> last_rewrite_result;
 
   ZETASQL_VLOG(3) << "Enabled rewriters: "
           << absl::StrJoin(analyzer_options.enabled_rewrites(), " ",
@@ -178,14 +150,13 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
                              absl::StrAppend(s, ResolvedASTRewrite_Name(r));
                            });
 
-  std::unique_ptr<const ResolvedNode> last_rewrite_result;
-  const ResolvedNode* rewrite_input = NodeFromAnalyzerOutput(analyzer_output);
-
   // TODO: Make this a const reference and remove the modification when
   //     we support multiple rewrite passes. (broken link)
   const absl::btree_set<ResolvedASTRewrite>& resolver_detected_rewrites =
       output_mutator.mutable_output_properties().relevant_rewrites();
   if (ZETASQL_DEBUG_MODE) {
+    const ResolvedNode* rewrite_input = NodeFromAnalyzerOutput(analyzer_output);
+    ZETASQL_RET_CHECK(rewrite_input != nullptr);
     // This check is trying to catch any cases where the resolver is updated to
     // identify an applicable rewrite but FindApplicableRewrites is not. The
     // resolver's output is used on the first rewrite pass, but
@@ -200,6 +171,7 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
         << "\nChecker: " << absl::StrJoin(checker_detected_rewrites, ", ");
   }
   if (resolver_detected_rewrites.empty()) {
+    // No rewriters required, return.
     runtime_info.rewriters_timed_value().Accumulate(rewriter_timer);
     return absl::OkStatus();
   }
@@ -210,6 +182,12 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
   absl::c_set_intersection(
       analyzer_options.enabled_rewrites(), resolver_detected_rewrites,
       std::inserter(rewrites_to_apply, rewrites_to_apply.end()));
+
+  if (rewrites_to_apply.empty()) {
+    // No _enabled_ rewriters, return.
+    runtime_info.rewriters_timed_value().Accumulate(rewriter_timer);
+    return absl::OkStatus();
+  }
 
   const RewriteRegistry& rewrite_registry = RewriteRegistry::global_instance();
   int64_t iterations = 0;
@@ -236,6 +214,7 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
       if (options_for_rewrite == nullptr) {
         options_for_rewrite = AnalyzerOptionsForRewrite(
             analyzer_options, analyzer_output, fallback_sequence_number);
+        last_rewrite_result = output_mutator.release_output_node();
       }
       const Rewriter* rewriter =
           RewriteRegistry::global_instance().Get(ast_rewrite);
@@ -252,13 +231,13 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
       ZETASQL_VLOG(2) << "Running rewriter " << rewriter->Name();
       ZETASQL_ASSIGN_OR_RETURN(
           last_rewrite_result,
-          rewriter->Rewrite(*options_for_rewrite, *rewrite_input, *catalog,
-                            *type_factory,
-                            output_mutator.mutable_output_properties()));
+          rewriter->Rewrite(
+              *options_for_rewrite, std::move(last_rewrite_result), *catalog,
+              *type_factory, output_mutator.mutable_output_properties()));
+
       ZETASQL_RET_CHECK(last_rewrite_result != nullptr)
-          << "Rewriter " << rewriter->Name() << " returned nullptr on input\n"
-          << rewrite_input->DebugString();
-      rewrite_input = last_rewrite_result.get();
+          << "Rewriter " << rewriter->Name() << " returned nullptr on input\n";
+
       // For the time being, any rewriter that we call Rewrite on is making
       // meaningful changes to the ResolvedAST tree, so we unconditionally
       // record that it activates. When rewriters are cheaper on no-op, that
@@ -268,10 +247,11 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
       // TODO: Add a way for Rewrite to signal that it made no
       //     meaningful change.
     }
+
     rewrites_to_apply.clear();
     ZETASQL_ASSIGN_OR_RETURN(
         absl::btree_set<ResolvedASTRewrite> checker_detected_rewrites,
-        FindRelevantRewriters(rewrite_input));
+        FindRelevantRewriters(last_rewrite_result.get()));
     absl::c_set_intersection(
         analyzer_options.enabled_rewrites(), checker_detected_rewrites,
         std::inserter(rewrites_to_apply, rewrites_to_apply.end()));
@@ -306,15 +286,13 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
       }
     }
   }
-
+  ZETASQL_RET_CHECK(analyzer_output.resolved_statement() != nullptr ||
+            analyzer_output.resolved_expr() != nullptr);
   return absl::OkStatus();
 }
 
 }  // namespace
 
-// For now each rewrite that activates requires copying the AST. As we add more
-// we'll likely want to improve the rewrite capactiy of the resolved AST so we
-// can do this efficiently without needing unnecessary copies / allocations.
 absl::Status InternalRewriteResolvedAst(const AnalyzerOptions& analyzer_options,
                                         absl::string_view sql, Catalog* catalog,
                                         TypeFactory* type_factory,

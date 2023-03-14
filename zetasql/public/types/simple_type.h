@@ -67,7 +67,7 @@ class SimpleType : public Type {
   // If 'language_features' is null, then assume all language features are
   // enabled.
   static TypeKind GetTypeKindIfSimple(
-      const absl::string_view type_name, ProductMode mode,
+      absl::string_view type_name, ProductMode mode,
       const LanguageOptions::LanguageFeatureSet* language_features = nullptr);
 
   // Validate and resolve type parameters for SimpleTypes.

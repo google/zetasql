@@ -541,6 +541,54 @@ select ANON_SUM(DISTINCT int32 clamped between 0 and 1) from SimpleTypes
        ^
 ==
 
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+SELECT
+ANON_SUM(numeric CLAMPED BETWEEN 1.9 AND 3.5)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_sum(NUMERIC, optional(1) NUMERIC, optional(1) NUMERIC) -> NUMERIC)
+              +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+              +-Literal(type=NUMERIC, value=1.9)
+              +-Literal(type=NUMERIC, value=3.5)
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+SELECT
+ANON_SUM(numeric CLAMPED BETWEEN 0.999999999 AND 1.000000001)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_sum(NUMERIC, optional(1) NUMERIC, optional(1) NUMERIC) -> NUMERIC)
+              +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+              +-Literal(type=NUMERIC, value=0.999999999)
+              +-Literal(type=NUMERIC, value=1.000000001)
+==
+
 # Valid ANON_AVG function call
 [language_features=ANONYMIZATION,V_1_2_SAFE_FUNCTION_CALL]
 select {{|WITH ANONYMIZATION}} safe.ANON_AVG(int64 clamped between 0 and 1)
@@ -573,6 +621,54 @@ select ANON_AVG(DISTINCT int32 clamped between 0 and 1) from SimpleTypes
 ERROR: Aggregate function ANON_AVG does not support DISTINCT in arguments [at 1:8]
 select ANON_AVG(DISTINCT int32 clamped between 0 and 1) from SimpleTypes
        ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+SELECT
+ANON_AVG(numeric CLAMPED BETWEEN 0.999999999 AND 1.000000001)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_avg(NUMERIC, optional(1) NUMERIC, optional(1) NUMERIC) -> NUMERIC)
+              +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+              +-Literal(type=NUMERIC, value=0.999999999)
+              +-Literal(type=NUMERIC, value=1.000000001)
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+SELECT
+ANON_AVG(numeric CLAMPED BETWEEN 1.9 AND 3.5)
+FROM SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_avg(NUMERIC, optional(1) NUMERIC, optional(1) NUMERIC) -> NUMERIC)
+              +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+              +-Literal(type=NUMERIC, value=1.9)
+              +-Literal(type=NUMERIC, value=3.5)
 ==
 
 # ANON_VAR_POP(ARRAY<DOUBLE>) is an internal signature and cannot be used by

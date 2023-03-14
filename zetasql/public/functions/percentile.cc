@@ -106,7 +106,7 @@ size_t PercentileHelper<NumericValue>::ComputePercentileIndex(
     NumericValue* right_weight) const {
   FixedUint<64, 2> scaled_index(static_cast<uint64_t>(max_index));
   scaled_index *= scaled_percentile_;
-  uint32_t scaled_mod;
+  uint64_t scaled_mod;
   scaled_index.DivMod(NumericValue::kScalingFactor, &scaled_index, &scaled_mod);
   *left_weight =
       NumericValue::FromScaledValue(NumericValue::kScalingFactor - scaled_mod);

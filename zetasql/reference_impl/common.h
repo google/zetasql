@@ -45,6 +45,13 @@ GetCollationNameFromResolvedCollation(
 absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
 GetCollatorFromResolvedCollation(const ResolvedCollation& resolved_collation);
 
+// Returns a ZetaSqlCollator with the collation name from the input collation
+// list with one collation. Returns nullptr when the collation_list is empty.
+// Returns error when the collation list has more than one collation.
+absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+GetCollatorFromResolvedCollationList(
+    const std::vector<ResolvedCollation>& collation_list);
+
 // Returns a collator from a value representing a ResolvedCollation object.
 // An error will be returned if the input <collation_value> cannot be converted
 // to a ResolvedCollation object.

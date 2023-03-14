@@ -75,6 +75,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/float_margin.h"
+#include "zetasql/compliance/compliance_label.pb.h"
 #include "zetasql/compliance/known_error.pb.h"
 #include "zetasql/compliance/matchers.h"
 #include "zetasql/compliance/test_driver.h"
@@ -90,6 +91,7 @@
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/node_hash_set.h"
+#include "absl/functional/bind_front.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "file_based_test_driver/file_based_test_driver.h"  
@@ -240,7 +242,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
       const std::string& result);
   ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
-      const ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
+      ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
           matcher);
   // A googletest matcher that only checks if the result has OK status.
   ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
@@ -550,9 +552,31 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   SQLTestBase& operator=(const SQLTestBase&) = delete;
   ~SQLTestBase() override;
 
-  const absl::btree_set<std::string>& compliance_labels() {
-    return compliance_labels_;
-  }
+  //////
+  // The TESTONLY_ functions below are used to give the unit test limited
+  // access to the internal state of this class. Needing access to the internal
+  // state is already a symptom of poorly factored code, but the cost to
+  // clean up the testing framework appears quite high. The TESTONLY_ accessors
+  // protect encapsulation better than making the entire unit test harness a
+  // friend.
+  //
+  // These functions should only be used by SqlTestBaseTest and any other code
+  // accessing them risks breakage when these functions go away.
+  //////
+
+  // Get the compliance test labels proto computed for the most recently
+  // compiled test case.
+  const ComplianceTestCaseLabels& TESTONLY_ComplianceTestCaseLabels();
+
+  // There is different behavior when "testing the reference impl" because we
+  // validate against the files and not against the reference impl. This lets
+  // the unit test of SqlTestBase access both codepaths.
+  void TESTONLY_ForceDisableIsTestingReferenceImpl(bool value);
+
+  // Allows unit test to set `test_file_options_` so that it can exercise
+  // filebased test code paths from a non-file driven unit test.
+  void TESTONLY_SetTestFileOptions(
+      std::unique_ptr<FilebasedSQLTestFileOptions> test_file_options);
 
   void ClearParameters() { parameters_.clear(); }
 
@@ -694,6 +718,11 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // If true, queries are executed as scripts, rather than standalone
   // statements.
   bool script_mode_ = false;
+
+  // Used by unit tests to force SqlTestBase into the mode it uses for
+  // non-reference tests even when the driver is the reference driver. This lets
+  // the unit test access code paths it otherwise couldn't.
+  bool force_disabled_is_testing_reference_impl_ = false;
 
   // NULL if this object does not own 'test_driver_'.
   std::unique_ptr<TestDriver> test_driver_owner_;
@@ -878,7 +907,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // we'll try the statement with those features on or off.
   absl::btree_set<std::set<LanguageFeature>> ExtractFeatureSets(
       const std::set<LanguageFeature>& test_features1,
-      const std::set<LanguageFeature>& test_features2,
       const std::set<LanguageFeature>& required_features);
 
   struct TestResults {

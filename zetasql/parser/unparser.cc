@@ -21,7 +21,9 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/id_string.h"
@@ -184,11 +186,6 @@ void Unparser::PrintOpenParenIfNeeded(const ASTNode* node) {
   } else if (node->IsQueryExpression() &&
              node->GetAsOrDie<ASTQueryExpression>()->parenthesized()) {
     print("(");
-  } else if (node->node_kind() == AST_SYSTEM_VARIABLE_EXPR &&
-             node->parent() != nullptr &&
-             node->parent()->node_kind() == AST_DOT_IDENTIFIER) {
-    // "." takes precedence over "@@".
-    print("(");
   }
 }
 
@@ -200,11 +197,6 @@ void Unparser::PrintCloseParenIfNeeded(const ASTNode* node) {
     print(")");
   } else if (node->IsQueryExpression() &&
              node->GetAsOrDie<ASTQueryExpression>()->parenthesized()) {
-    print(")");
-  } else if (node->node_kind() == AST_SYSTEM_VARIABLE_EXPR &&
-             node->parent() != nullptr &&
-             node->parent()->node_kind() == AST_DOT_IDENTIFIER) {
-    // "." takes precedence over "@@".
     print(")");
   }
 }
@@ -226,6 +218,10 @@ void Unparser::UnparseChildrenWithSeparator(const ASTNode* node, void* data,
                                             int begin, int end,
                                             const std::string& separator,
                                             bool break_line) {
+  if (!ThreadHasEnoughStack()) {
+    println("<Complex nested expression truncated>");
+    return;
+  }
   for (int i = begin; i < end; i++) {
     if (i > begin) {
       if (break_line) {
@@ -406,8 +402,8 @@ void Unparser::visitASTTVFSchemaColumn(const ASTTVFSchemaColumn* node,
   UnparseChildrenWithSeparator(node, data, "");
 }
 
-static std::string GetCreateStatementPrefix(
-    const ASTCreateStatement* node, const std::string& create_object_type) {
+std::string Unparser::GetCreateStatementPrefix(
+    const ASTCreateStatement* node, absl::string_view create_object_type) {
   std::string output("CREATE");
   if (node->is_or_replace()) absl::StrAppend(&output, " OR REPLACE");
   if (node->is_private()) absl::StrAppend(&output, " PRIVATE");
@@ -542,6 +538,15 @@ void Unparser::visitASTAuxLoadDataFromFilesOptionsList(
   node->options_list()->Accept(this, data);
 }
 
+void Unparser::visitASTAuxLoadDataPartitionsClause(
+    const ASTAuxLoadDataPartitionsClause* node, void* data) {
+  if (node->is_overwrite()) print("OVERWRITE");
+  print("PARTITIONS");
+  print("(");
+  node->partition_filter()->Accept(this, data);
+  print(")");
+}
+
 void Unparser::visitASTAuxLoadDataStatement(
     const ASTAuxLoadDataStatement* node, void* data) {
   print("LOAD DATA");
@@ -555,9 +560,15 @@ void Unparser::visitASTAuxLoadDataStatement(
     default:
       break;
   }
+  if (node->is_temp_table()) {
+    print("TEMP TABLE");
+  }
   node->name()->Accept(this, data);
   if (node->table_element_list() != nullptr) {
     node->table_element_list()->Accept(this, data);
+  }
+  if (node->load_data_partitions_clause() != nullptr) {
+    node->load_data_partitions_clause()->Accept(this, data);
   }
   if (node->collate() != nullptr) {
     visitASTCollate(node->collate(), data);
@@ -623,6 +634,9 @@ void Unparser::visitASTCreateTableStatement(
   }
   if (node->ttl() != nullptr) {
     node->ttl()->Accept(this, data);
+  }
+  if (node->with_connection_clause() != nullptr) {
+    node->with_connection_clause()->Accept(this, data);
   }
   if (node->options_list() != nullptr) {
     print("OPTIONS");
@@ -1143,6 +1157,21 @@ void Unparser::visitASTAbortBatchStatement(const ASTAbortBatchStatement* node,
   print("ABORT BATCH");
 }
 
+void Unparser::visitASTUndropStatement(const ASTUndropStatement* node,
+                                       void* data) {
+  print("UNDROP");
+  print(SchemaObjectKindToName(node->schema_object_kind()));
+  if (node->is_if_not_exists()) {
+    print("IF NOT EXISTS");
+  }
+  node->name()->Accept(this, data);
+  if (node->for_system_time() != nullptr) {
+    println();
+    Formatter::Indenter indenter(&formatter_);
+    node->for_system_time()->Accept(this, data);
+  }
+}
+
 void Unparser::visitASTDropStatement(const ASTDropStatement* node, void* data) {
   print("DROP");
   print(SchemaObjectKindToName(node->schema_object_kind()));
@@ -1312,19 +1341,6 @@ void Unparser::visitASTWithClause(const ASTWithClause* node,
   }
 }
 
-void Unparser::visitASTWithClauseEntry(const ASTWithClauseEntry* node,
-                                       void *data) {
-  println();
-  node->alias()->Accept(this, data);
-  println("AS (");
-  {
-    Formatter::Indenter indenter(&formatter_);
-    visitASTQuery(node->query(), data);
-  }
-  println();
-  print(")");
-}
-
 void Unparser::visitASTQuery(const ASTQuery* node, void* data) {
   PrintOpenParenIfNeeded(node);
   if (node->is_nested()) {
@@ -1344,23 +1360,35 @@ void Unparser::visitASTQuery(const ASTQuery* node, void* data) {
 
 void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
   PrintOpenParenIfNeeded(node);
+  if (node->metadata() == nullptr) {
+    // `node` uses the legacy node structure with one single set operation.
+    int start = node->hint() == nullptr ? 0 : 1;
 
-  int start = node->hint() == nullptr ? 0 : 1;
-
-  for (int i = start; i < node->num_children(); ++i) {
-    if (i > start) {
-      if (i == start + 1) {
-        const auto& pair = node->GetSQLForOperationPair();
-        print(pair.first);
-        if (node->hint()) {
-          node->hint()->Accept(this, data);
+    for (int i = start; i < node->num_children(); ++i) {
+      if (i > start) {
+        if (i == start + 1) {
+            const auto& pair = node->GetSQLForOperationPair();
+            print(pair.first);
+            if (node->hint()) {
+              node->hint()->Accept(this, data);
+            }
+            print(pair.second);
+        } else {
+            print(node->GetSQLForOperation());
         }
-        print(pair.second);
-      } else {
-        print(node->GetSQLForOperation());
       }
+      node->child(i)->Accept(this, data);
     }
-    node->child(i)->Accept(this, data);
+  } else {
+    // `node` uses the new node structure with metadata list for set operations.
+    for (int i = 0; i < node->inputs().size(); ++i) {
+      if (i > 0) {
+        // The i-th query is preceded by the (i-1)-th operator.
+        node->metadata()->set_operation_metadata_list(i - 1)->Accept(this,
+                                                                     data);
+      }
+      node->inputs(i)->Accept(this, data);
+    }
   }
   PrintCloseParenIfNeeded(node);
 }
@@ -1440,6 +1468,18 @@ void Unparser::visitASTSelectColumn(const ASTSelectColumn* node, void* data) {
 void Unparser::visitASTAlias(const ASTAlias* node, void* data) {
   print(absl::StrCat("AS ",
                      ToIdentifierLiteral(node->identifier()->GetAsIdString())));
+}
+
+void Unparser::visitASTAliasedQuery(const ASTAliasedQuery* node, void* data) {
+  println();
+  node->alias()->Accept(this, data);
+  println("AS (");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    visitASTQuery(node->query(), data);
+  }
+  println();
+  print(")");
 }
 
 void Unparser::visitASTAliasedQueryList(const ASTAliasedQueryList* node,
@@ -1891,6 +1931,14 @@ void Unparser::visitASTDateOrTimeLiteral(const ASTDateOrTimeLiteral* node,
   UnparseChildrenWithSeparator(node, data, "");
 }
 
+void Unparser::visitASTRangeColumnSchema(const ASTRangeColumnSchema* node,
+                                         void* data) {
+  print("RANGE<");
+  node->element_schema()->Accept(this, data);
+  print(">");
+  UnparseColumnSchema(node, data);
+}
+
 void Unparser::visitASTRangeLiteral(const ASTRangeLiteral* node, void* data) {
   node->type()->Accept(this, data);
   node->range_value()->Accept(this, data);
@@ -1972,7 +2020,24 @@ void Unparser::visitASTIntervalExpr(const ASTIntervalExpr* node, void* data) {
 void Unparser::visitASTDotIdentifier(const ASTDotIdentifier* node,
                                      void* data) {
   PrintOpenParenIfNeeded(node);
+
+  // We need an inner paren to avoid the dot (.) binding tightly to the inner
+  // expression for @@ variables or numbers. Without brackets, the dot turns
+  // integers into floats.
+  bool non_parenthesized_system_variable =
+      node->expr()->node_kind() == AST_SYSTEM_VARIABLE_EXPR &&
+      !node->expr()->parenthesized();
+  bool print_inner_paren = non_parenthesized_system_variable ||
+                           // Literals do not honour the parenthesized flag.
+                           node->expr()->node_kind() == AST_INT_LITERAL ||
+                           node->expr()->node_kind() == AST_FLOAT_LITERAL;
+  if (print_inner_paren) {
+    print("(");
+  }
   node->expr()->Accept(this, data);
+  if (print_inner_paren) {
+    print(")");
+  }
   print(".");
   node->name()->Accept(this, data);
   PrintCloseParenIfNeeded(node);
@@ -4017,6 +4082,60 @@ void Unparser::visitASTSpannerSetOnDeleteAction(
     const ASTSpannerSetOnDeleteAction* node, void* data) {
   print("SET ON DELETE");
   print(ASTForeignKeyActions::GetSQLForAction(node->action()));
+}
+
+void Unparser::visitASTDefineMacroStatement(const ASTDefineMacroStatement* node,
+                                            void* data) {
+  print("DEFINE MACRO ");
+  node->name()->Accept(this, data);
+  node->body()->Accept(this, data);
+}
+
+void Unparser::visitASTSetOperationMetadataList(
+    const ASTSetOperationMetadataList* node, void* data) {}
+
+void Unparser::visitASTSetOperationMetadata(const ASTSetOperationMetadata* node,
+                                            void* data) {
+  node->op_type()->Accept(this, data);
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
+  node->all_or_distinct()->Accept(this, data);
+}
+
+void Unparser::visitASTSetOperationAllOrDistinct(
+    const ASTSetOperationAllOrDistinct* node, void* data) {
+  switch (node->value()) {
+    case ASTSetOperation::ALL:
+      print("ALL");
+      break;
+    case ASTSetOperation::DISTINCT:
+      print("DISTINCT");
+      break;
+    case ASTSetOperation::ALL_OR_DISTINCT_NOT_SET:
+      print("<UNKNOWN ALL_OR_DISTINCT>");
+  }
+}
+
+void Unparser::visitASTSetOperationType(const ASTSetOperationType* node,
+                                        void* data) {
+  switch (node->value()) {
+    case ASTSetOperation::UNION:
+      print("UNION");
+      break;
+    case ASTSetOperation::EXCEPT:
+      print("EXCEPT");
+      break;
+    case ASTSetOperation::INTERSECT:
+      print("INTERSECT");
+      break;
+    case ASTSetOperation::NOT_SET:
+      print("<UNKNOWN SET OPERATOR>");
+  }
+}
+
+void Unparser::visitASTMacroBody(const ASTMacroBody* node, void* data) {
+  UnparseLeafNode(node);
 }
 
 }  // namespace parser

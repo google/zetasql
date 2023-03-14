@@ -39,6 +39,9 @@ class ParseTreeSerializer {
   // Serialize an ASTType to proto.
   static absl::Status Serialize(const ASTType* node, AnyASTTypeProto* proto);
 
+  // Serialize an ASTScript to proto.
+  static absl::Status Serialize(const ASTScript* node, ASTScriptProto* proto);
+
   // Deserialize a proto back to an ASTStatement, which can be retrieved
   // from output->statement().
   // ParserOptions can be used to set the Arena and IdStringPool to use.
@@ -72,7 +75,7 @@ class ParseTreeSerializer {
   //   Serialize(const ASTFoo*, AnyASTFooProto* proto)
   //
   // The public API comprises only the Serialize() and Deserialize() methods
-  // for ASTStatement, ASTExpression and ASTTypes.
+  // for ASTStatements, ASTExpressions, ASTTypes and ASTScript.
   //
   // Each class ASTFoo also has a Deserialize() method. If ASTFoo is abstract,
   // the signature takes AnyASTFooProto&, if final it uses ASTFooProto&.
@@ -87,8 +90,10 @@ class ParseTreeSerializer {
       std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes);
 # for node in nodes
 {{blank_line}}
+ # if node.name not in ['ASTScript']
   static absl::Status Serialize(const {{node.name}}* node,
                                 {{node.proto_type}}* proto);
+ # endif
  # for tag_id, ancestor in node.ancestors|dictsort
   static absl::Status Serialize(const {{node.name}}* node,
                                 {{ancestor.proto_field_type}}* proto);

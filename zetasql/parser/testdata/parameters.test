@@ -109,6 +109,168 @@ WHERE
   @@aId = @@bId
 ==
 
+# This test is here to document current behavior and notice regressions in case
+# some customer has started doing this. We suspect the authors never intended
+# the @ or @@ token to be separated from the variable name by whitespace.
+select * from T where {{@|@@}} aId = {{@|@@}} bId
+--
+ALTERNATION GROUP: @,@
+--
+QueryStatement [0-35] [select * from...aId = @ bId]
+  Query [0-35] [select * from...aId = @ bId]
+    Select [0-35] [select * from...aId = @ bId]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-15] [from T]
+        TablePathExpression [14-15] [T]
+          PathExpression [14-15] [T]
+            Identifier(T) [14-15] [T]
+      WhereClause [16-35] [where @ aId = @ bId]
+        BinaryExpression(=) [22-35] [@ aId = @ bId]
+          ParameterExpr [22-27] [@ aId]
+            Identifier(aId) [24-27] [aId]
+          ParameterExpr [30-35] [@ bId]
+            Identifier(bId) [32-35] [bId]
+--
+SELECT
+  *
+FROM
+  T
+WHERE
+  @aId = @bId
+--
+ALTERNATION GROUP: @,@@
+--
+QueryStatement [0-36] [select * from...aId = @@ bId]
+  Query [0-36] [select * from...aId = @@ bId]
+    Select [0-36] [select * from...aId = @@ bId]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-15] [from T]
+        TablePathExpression [14-15] [T]
+          PathExpression [14-15] [T]
+            Identifier(T) [14-15] [T]
+      WhereClause [16-36] [where @ aId = @@ bId]
+        BinaryExpression(=) [22-36] [@ aId = @@ bId]
+          ParameterExpr [22-27] [@ aId]
+            Identifier(aId) [24-27] [aId]
+          SystemVariableExpr [30-36] [@@ bId]
+            PathExpression [33-36] [bId]
+              Identifier(bId) [33-36] [bId]
+--
+SELECT
+  *
+FROM
+  T
+WHERE
+  @aId = @@bId
+--
+ALTERNATION GROUP: @@,@
+--
+QueryStatement [0-36] [select * from...aId = @ bId]
+  Query [0-36] [select * from...aId = @ bId]
+    Select [0-36] [select * from...aId = @ bId]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-15] [from T]
+        TablePathExpression [14-15] [T]
+          PathExpression [14-15] [T]
+            Identifier(T) [14-15] [T]
+      WhereClause [16-36] [where @@ aId = @ bId]
+        BinaryExpression(=) [22-36] [@@ aId = @ bId]
+          SystemVariableExpr [22-28] [@@ aId]
+            PathExpression [25-28] [aId]
+              Identifier(aId) [25-28] [aId]
+          ParameterExpr [31-36] [@ bId]
+            Identifier(bId) [33-36] [bId]
+--
+SELECT
+  *
+FROM
+  T
+WHERE
+  @@aId = @bId
+--
+ALTERNATION GROUP: @@,@@
+--
+QueryStatement [0-37] [select * from...aId = @@ bId]
+  Query [0-37] [select * from...aId = @@ bId]
+    Select [0-37] [select * from...aId = @@ bId]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-15] [from T]
+        TablePathExpression [14-15] [T]
+          PathExpression [14-15] [T]
+            Identifier(T) [14-15] [T]
+      WhereClause [16-37] [where @@ aId = @@ bId]
+        BinaryExpression(=) [22-37] [@@ aId = @@ bId]
+          SystemVariableExpr [22-28] [@@ aId]
+            PathExpression [25-28] [aId]
+              Identifier(aId) [25-28] [aId]
+          SystemVariableExpr [31-37] [@@ bId]
+            PathExpression [34-37] [bId]
+              Identifier(bId) [34-37] [bId]
+--
+SELECT
+  *
+FROM
+  T
+WHERE
+  @@aId = @@bId
+==
+
+# This shows an error that is an unfortunate consequence of the allowed
+# whitespace separation following @ or @@
+select * from T where @{{|@}}
+select user_intended_two_statements
+--
+ERROR: Syntax error: Expected end of input but got identifier "user_intended_two_statements" [at 2:8]
+select user_intended_two_statements
+       ^
+==
+
+# These two cases parse differently. I think thats a bug.
+SELECT @@FROM{{|x}}.fieldname.subsequent_field
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-40] [SELECT @@FROM...bsequent_field]
+  Query [0-40] [SELECT @@FROM...bsequent_field]
+    Select [0-40] [SELECT @@FROM...bsequent_field]
+      SelectList [7-40] [@@FROM.fieldname...quent_field]
+        SelectColumn [7-40] [@@FROM.fieldname...quent_field]
+          DotIdentifier [7-40] [@@FROM.fieldname...quent_field]
+            DotIdentifier [7-23] [@@FROM.fieldname]
+              SystemVariableExpr [7-13] [@@FROM]
+                PathExpression [7-13] [@@FROM]
+                  Identifier(`FROM`) [9-13] [FROM]
+              Identifier(fieldname) [14-23] [fieldname]
+            Identifier(subsequent_field) [24-40] [subsequent_field]
+--
+SELECT
+  (@@`FROM`).fieldname.subsequent_field
+--
+ALTERNATION GROUP: x
+--
+QueryStatement [0-41] [SELECT @@FROMx...sequent_field]
+  Query [0-41] [SELECT @@FROMx...sequent_field]
+    Select [0-41] [SELECT @@FROMx...sequent_field]
+      SelectList [7-41] [@@FROMx.fieldname...uent_field]
+        SelectColumn [7-41] [@@FROMx.fieldname...uent_field]
+          SystemVariableExpr [7-41] [@@FROMx.fieldname...uent_field]
+            PathExpression [9-41] [FROMx.fieldname...equent_field]
+              Identifier(FROMx) [9-14] [FROMx]
+              Identifier(fieldname) [15-24] [fieldname]
+              Identifier(subsequent_field) [25-41] [subsequent_field]
+--
+SELECT
+  @@FROMx.fieldname.subsequent_field
+==
+
 select {{@|@@}}ValidIds from T
 --
 ALTERNATION GROUP: @
@@ -543,3 +705,41 @@ SELECT
   @@b
 FROM
   T
+
+==
+
+# This looks like a bug. Query parameters are supposed to accept reseved
+# keywords.
+SELECT @{{UNION|INTERSECT|EXCEPT}};
+--
+ALTERNATION GROUP: UNION
+--
+QueryStatement [0-13] [SELECT @UNION]
+  Query [0-13] [SELECT @UNION]
+    Select [0-13] [SELECT @UNION]
+      SelectList [7-13] [@UNION]
+        SelectColumn [7-13] [@UNION]
+          ParameterExpr [7-13] [@UNION]
+            Identifier(`UNION`) [8-13] [UNION]
+--
+SELECT
+  @`UNION`
+--
+ALTERNATION GROUP: INTERSECT
+--
+QueryStatement [0-17] [SELECT @INTERSECT]
+  Query [0-17] [SELECT @INTERSECT]
+    Select [0-17] [SELECT @INTERSECT]
+      SelectList [7-17] [@INTERSECT]
+        SelectColumn [7-17] [@INTERSECT]
+          ParameterExpr [7-17] [@INTERSECT]
+            Identifier(`INTERSECT`) [8-17] [INTERSECT]
+--
+SELECT
+  @`INTERSECT`
+--
+ALTERNATION GROUP: EXCEPT
+--
+ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 1:9]
+SELECT @EXCEPT;
+        ^

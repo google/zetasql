@@ -47,8 +47,8 @@ class MultiFileErrorCollector
   MultiFileErrorCollector() {}
   MultiFileErrorCollector(const MultiFileErrorCollector&) = delete;
   MultiFileErrorCollector& operator=(const MultiFileErrorCollector&) = delete;
-  void AddError(const std::string& filename, int line, int column,
-                const std::string& message) override {
+      void AddError(const std::string& filename, int line, int column,
+                    const std::string& message) override {
     absl::StrAppend(&error_, "Line ", line, " Column ", column, " :", message,
                     "\n");
   }

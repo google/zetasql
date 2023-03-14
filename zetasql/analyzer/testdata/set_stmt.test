@@ -494,3 +494,27 @@ AssignmentStmt
     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
       +-Constant(TestConstantInt64, type=INT64, value=1)
       +-Literal(type=INT64, value=1)
+
+==
+
+SET @@map_system_variable = []
+--
+
+AssignmentStmt
++-target=
+| +-SystemVariable(map_system_variable, type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>)
++-expr=
+  +-Literal(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, value=[])
+==
+
+[language_features=V_1_3_PROTO_MAPS]
+SET @@map_system_variable = MODIFY_MAP(@@map_system_variable, "hello", 3)
+--
+AssignmentStmt
++-target=
+| +-SystemVariable(map_system_variable, type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>)
++-expr=
+  +-FunctionCall(ZetaSQL:modify_map(ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, repeated(1) STRING, repeated(1) INT32) -> ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>)
+    +-SystemVariable(map_system_variable, type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>)
+    +-Literal(type=STRING, value="hello")
+    +-Literal(type=INT32, value=3)

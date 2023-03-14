@@ -25,7 +25,6 @@
 #include "zetasql/base/varsetter.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
-#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
@@ -307,6 +306,8 @@ class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
                          *fn_expression, *column_factory_, column_map));
 
     if (call->error_mode() == ResolvedFunctionCall::SAFE_ERROR_MODE) {
+      ZETASQL_RETURN_IF_ERROR(
+          fn_builder_.CheckCatalogSupportsSafeMode(call->function()->Name()));
       Value null_value = Value::Null(body_expr->type());
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> iferror_call,
                        fn_builder_.IfError(std::move(body_expr),

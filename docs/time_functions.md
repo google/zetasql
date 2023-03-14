@@ -4,7 +4,7 @@
 
 ZetaSQL supports the following time functions.
 
-### CURRENT_TIME
+### `CURRENT_TIME`
 
 ```sql
 CURRENT_TIME([time_zone])
@@ -53,7 +53,11 @@ SELECT current_time() as now, t.current_time FROM t;
 +-----------------+--------------+
 ```
 
-### TIME
+[time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
+
+[time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+
+### `TIME`
 
 ```sql
 1. TIME(hour, minute, second)
@@ -101,7 +105,9 @@ SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
 +----------+
 ```
 
-### EXTRACT
+[time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+
+### `EXTRACT`
 
 ```sql
 EXTRACT(part FROM time_expression)
@@ -144,7 +150,7 @@ SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 +------------------+
 ```
 
-### TIME_ADD
+### `TIME_ADD`
 
 ```sql
 TIME_ADD(time_expression, INTERVAL int64_expression part)
@@ -186,7 +192,7 @@ SELECT
 +-----------------------------+------------------------+
 ```
 
-### TIME_SUB
+### `TIME_SUB`
 
 ```sql
 TIME_SUB(time_expression, INTERVAL int64_expression part)
@@ -228,7 +234,7 @@ SELECT
 +-----------------------------+------------------------+
 ```
 
-### TIME_DIFF
+### `TIME_DIFF`
 
 ```sql
 TIME_DIFF(time_expression_a, time_expression_b, part)
@@ -273,7 +279,7 @@ SELECT
 +----------------------------+------------------------+------------------------+
 ```
 
-### TIME_TRUNC
+### `TIME_TRUNC`
 
 ```sql
 TIME_TRUNC(time_expression, time_part)
@@ -310,7 +316,7 @@ SELECT
 +----------------------------+------------------------+
 ```
 
-### FORMAT_TIME
+### `FORMAT_TIME`
 
 ```sql
 FORMAT_TIME(format_string, time_object)
@@ -337,7 +343,9 @@ SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 +----------------+
 ```
 
-### PARSE_TIME
+[time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `PARSE_TIME`
 
 ```sql
 PARSE_TIME(format_string, time_string)
@@ -367,8 +375,6 @@ SELECT PARSE_TIME("%I:%M", "07:30:00")
 -- This works because %T can find all matching elements in time_string.
 SELECT PARSE_TIME("%T", "07:30:00")
 ```
-
-The format string fully supports most format elements except for `%P`.
 
 When using `PARSE_TIME`, keep the following in mind:
 
@@ -409,17 +415,9 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 +-------------+
 ```
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
 [time-format]: #format_time
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
-[time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
-
-[time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
-
 [time-to-string]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#cast
-
-<!-- mdlint on -->
 

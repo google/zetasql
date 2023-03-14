@@ -115,6 +115,11 @@ known_errors {
   label: "anonymization_test:anonymization_basic_anon_percentile_cont_implicit_bounds_with_params_with_delta"
   label: "anonymization_test:anonymization_verify_non_randomness_of_anon_percentile_cont_implicit_bounds_with_delta"
   label: "anonymization_test:anonymization_verify_non_randomness_of_anon_percentile_cont_implicit_bounds_2_with_delta"
+  label: "differential_privacy_test:differential_privacy_basic_percentile_cont_implicit_bounds"
+  label: "differential_privacy_test:differential_privacy_basic_percentile_cont_implicit_bounds_with_params"
+  label: "differential_privacy_test:differential_privacy_basic_percentile_cont_explicit_bounds"
+  label: "differential_privacy_test:differential_privacy_verify_non_randomness_of_percentile_cont_implicit_bounds"
+  label: "differential_privacy_test:differential_privacy_verify_non_randomness_of_percentile_cont_implicit_bounds_2"
 }
 known_errors {
   mode: ALLOW_ERROR

@@ -32,9 +32,6 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/dynamic_message.h"
-#include "google/protobuf/message.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -46,7 +43,6 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/operator.h"
-#include "zetasql/reference_impl/parameters.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -54,7 +50,6 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
-#include <cstdint>
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
@@ -254,7 +249,7 @@ bool NewArrayExpr::Eval(absl::Span<const TupleData* const> params,
     }
     values_size += element->physical_byte_size();
     if (values_size >= context->options().max_value_byte_size) {
-      *status = zetasql_base::OutOfRangeErrorBuilder()
+      *status = zetasql_base::ResourceExhaustedErrorBuilder()
                 << "Cannot construct array Value larger than "
                 << context->options().max_value_byte_size << " bytes";
       return false;
@@ -372,7 +367,7 @@ bool ArrayNestExpr::Eval(absl::Span<const TupleData* const> params,
 
     if (!builder.PushBackUnsafe(std::move(*slot.mutable_value()), status)) {
       if (!is_with_table_) {
-        *status = zetasql_base::OutOfRangeErrorBuilder()
+        *status = zetasql_base::ResourceExhaustedErrorBuilder()
                   << "Cannot construct array Value larger than "
                   << context->options().max_value_byte_size << " bytes";
       }
@@ -1326,6 +1321,8 @@ bool IfErrorExpr::Eval(absl::Span<const TupleData* const> params,
 
   // We are handling this error. Do not forget to reset the status back to OK
   // to reflect the result of the evaluation of handle_expr
+  // TODO: Change this logging to ZETASQL_VLOG(2).
+  ZETASQL_LOG(INFO) << "IFERROR is suprressing error: " << *status;
   *status = absl::OkStatus();
   return handle_value()->Eval(params, context, result, status);
 }
@@ -1395,6 +1392,8 @@ bool IsErrorExpr::Eval(absl::Span<const TupleData* const> params,
   // We are handling this error. Do not forget to reset the status back to OK
   // to reflect that ISERROR() itself successfully finished and return true as
   // the result.
+  // TODO: Change this logging to ZETASQL_VLOG(2).
+  ZETASQL_LOG(INFO) << "ISERROR is suprressing error: " << *status;
   *status = absl::OkStatus();
   result->SetValue(Value::Bool(true));
   return true;
@@ -1418,6 +1417,112 @@ const ValueExpr* IsErrorExpr::try_value() const {
 
 ValueExpr* IsErrorExpr::mutable_try_value() {
   return GetMutableArg(kTryValue)->mutable_node()->AsMutableValueExpr();
+}
+
+// -------------------------------------------------------
+// TypeofExpr
+// -------------------------------------------------------
+
+class TypeofExpr final : public ValueExpr {
+ public:
+  static constexpr int kArgIndex = 0;
+
+  explicit TypeofExpr(std::unique_ptr<ValueExpr> arg)
+      : ValueExpr(types::StringType()) {
+    SetArg(kArgIndex, std::make_unique<ExprArg>(std::move(arg)));
+  }
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override {
+    // We aren't actually going to evaluate the argument, but we do want to
+    // return any errors that bubble up through this path.
+    return GetMutableArg(kArgIndex)
+        ->mutable_node()
+        ->AsMutableValueExpr()
+        ->SetSchemasForEvaluation(params_schemas);
+  }
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override {
+    const Type* type = GetArg(kArgIndex)->node()->AsValueExpr()->output_type();
+    ProductMode product_mode = context->GetLanguageOptions().product_mode();
+    result->SetValue(Value::String(type->TypeName(product_mode)));
+    return true;
+  }
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override {
+    return absl::StrCat("TypeofExpr(",
+                        ArgDebugString({"arg"}, {k1}, indent, verbose), ")");
+  }
+};
+
+// Operator backing TYPEOF. 'arg' is not evaluated at all. Its output type if
+// it was evaluated is all that is needed.
+absl::StatusOr<std::unique_ptr<ValueExpr>> CreateTypeofExpr(
+    std::vector<std::unique_ptr<ValueExpr>> args) {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  return std::make_unique<TypeofExpr>(std::move(args[0]));
+}
+
+// -------------------------------------------------------
+// NullIfErrorExpr
+// -------------------------------------------------------
+
+class NullIfErrorExpr final : public ValueExpr {
+ public:
+  static constexpr int kArgIndex = 0;
+
+  explicit NullIfErrorExpr(std::unique_ptr<ValueExpr> arg)
+      : ValueExpr(arg->output_type()) {
+    SetArg(kArgIndex, std::make_unique<ExprArg>(std::move(arg)));
+  }
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override {
+    // We aren't actually going to evaluate the argument, but we do want to
+    // return any errors that bubble up through this path.
+    return GetMutableArg(kArgIndex)
+        ->mutable_node()
+        ->AsMutableValueExpr()
+        ->SetSchemasForEvaluation(params_schemas);
+  }
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override {
+    if (GetArg(kArgIndex)->node()->AsValueExpr()->Eval(params, context, result,
+                                                       status)) {
+      ZETASQL_DCHECK_OK(*status) << "Eval of the try_expr in NullIfError returned true "
+                            "but status is not OK.";
+      return status->ok();
+    }
+
+    if (!ShouldSuppressError(*status,
+                             ResolvedFunctionCallBase::SAFE_ERROR_MODE)) {
+      // The error is not convertible to NULL in SAFE mode, propagate it.
+      return false;
+    }
+
+    // TODO: Change this logging to ZETASQL_VLOG(2).
+    ZETASQL_LOG(INFO) << "NULLIFERROR is suprressing error: " << *status;
+    *status = absl::OkStatus();
+    result->SetValue(Value::Null(output_type()));
+    return true;
+  }
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override {
+    return absl::StrCat("NullIfErrorExpr(",
+                        ArgDebugString({"arg"}, {k1}, indent, verbose), ")");
+  }
+};
+
+absl::StatusOr<std::unique_ptr<ValueExpr>> CreateNullIfErrorExpr(
+    std::vector<std::unique_ptr<ValueExpr>> args) {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  return std::make_unique<NullIfErrorExpr>(std::move(args[0]));
 }
 
 // -------------------------------------------------------

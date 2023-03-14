@@ -22,6 +22,7 @@ import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.Descriptors.EnumDescriptor;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
+import com.google.zetasql.ZetaSQLType.OpaqueEnumTypeOptions;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import java.io.IOException;
@@ -37,6 +38,9 @@ import java.util.Objects;
 @Immutable
 public class EnumType extends Type {
   static boolean equalsImpl(EnumType type1, EnumType type2, boolean equivalent) {
+    if (type1.isOpaque != type2.isOpaque) {
+      return false;
+    }
     if (type1.enumDescriptor == type2.enumDescriptor) {
       return true;
     }
@@ -46,7 +50,7 @@ public class EnumType extends Type {
 
   @SuppressWarnings("Immutable") // only non-final for deserialization
   private transient EnumDescriptor enumDescriptor;
-
+  
   /**
    * Must keep a reference to the descriptorPool so that the same descriptor in the same pool will
    * only be serialized once.
@@ -68,17 +72,24 @@ public class EnumType extends Type {
   @SuppressWarnings("Immutable")
   private final DescriptorPool descriptorPool;
 
+  private final boolean isOpaque;
+
   /** Package private constructor, instances must be created with {@link TypeFactory} */
-  EnumType(EnumDescriptor enumDescriptor, DescriptorPool pool) {
+  EnumType(EnumDescriptor enumDescriptor, DescriptorPool pool, boolean isOpaque) {
     super(TypeKind.TYPE_ENUM);
     Preconditions.checkNotNull(enumDescriptor);
     Preconditions.checkNotNull(pool);
     this.enumDescriptor = enumDescriptor;
     this.descriptorPool = pool;
+    this.isOpaque = isOpaque;
   }
 
   public EnumDescriptor getDescriptor() {
     return enumDescriptor;
+  }
+
+  public boolean isOpaque() {
+    return this.isOpaque;
   }
 
   @Override
@@ -89,10 +100,12 @@ public class EnumType extends Type {
         fileDescriptorSetsBuilder.getOrAddFileDescriptorIndex(
             enumDescriptor.getFile(), descriptorPool);
     typeProtoBuilder.setTypeKind(getKind());
-    typeProtoBuilder.getEnumTypeBuilder()
+    typeProtoBuilder
+        .getEnumTypeBuilder()
         .setEnumFileName(enumDescriptor.getFile().getFullName())
         .setEnumName(enumDescriptor.getFullName())
-        .setFileDescriptorSetIndex(index);
+        .setFileDescriptorSetIndex(index)
+        .setIsOpaque(isOpaque);
   }
 
   @Override
@@ -113,21 +126,36 @@ public class EnumType extends Type {
 
   @Override
   public int hashCode() {
-    return Objects.hash(enumDescriptor, getKind());
+    return Objects.hash(enumDescriptor, getKind(), isOpaque);
+  }
+
+  private String rawTypeName() {
+    if (this.isOpaque) {
+      OpaqueEnumTypeOptions opaqueEnumOptions =
+          enumDescriptor.getOptions().getExtension(ZetaSQLType.opaqueEnumTypeOptions);
+      if (!opaqueEnumOptions.getSqlOpaqueEnumName().isEmpty()) {
+        return opaqueEnumOptions.getSqlOpaqueEnumName();
+      }
+    }
+    return enumDescriptor.getFullName();
   }
 
   @Override
   public String typeName(ProductMode productMode) {
-    return ZetaSQLStrings.toIdentifierLiteral(enumDescriptor.getFullName());
+    return ZetaSQLStrings.toIdentifierLiteral(rawTypeName());
   }
 
   @Override
   public String debugString(boolean details) {
     if (details) {
-      return String.format("ENUM<%s, file name: %s, <%s>>", enumDescriptor.getFullName(),
-          enumDescriptor.getFile().getName(), enumDescriptor.getName());
+      return String.format(
+          "ENUM<%s, file name: %s, <%s>%s>",
+          rawTypeName(),
+          enumDescriptor.getFile().getName(),
+          enumDescriptor.getName(),
+          this.isOpaque ? "is_opaque: true" : "");
     }
-    return String.format("ENUM<%s>", enumDescriptor.getFullName());
+    return String.format("ENUM<%s>", rawTypeName());
   }
 
   @Override

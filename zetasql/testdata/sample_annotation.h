@@ -70,6 +70,12 @@ class SampleAnnotation : public AnnotationSpec {
       const std::vector<AnnotationMap*>& result_annotation_maps) override {
     return absl::OkStatus();
   }
+
+  absl::Status CheckAndPropagateForRecursiveScan(
+      const ResolvedRecursiveScan& recursive_scan,
+      const std::vector<AnnotationMap*>& result_annotation_maps) override {
+    return absl::OkStatus();
+  }
 };
 
 }  // namespace zetasql

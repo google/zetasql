@@ -89,8 +89,7 @@ SampleCatalog::SampleCatalog(const LanguageOptions& language_options,
   LoadCatalog(language_options);
 }
 
-SampleCatalog::~SampleCatalog() {
-}
+SampleCatalog::~SampleCatalog() = default;
 
 SimpleTable* SampleCatalog::GetTableOrDie(const std::string& name) {
   return zetasql_base::FindOrDie(tables_, name);
@@ -739,6 +738,25 @@ void SampleCatalog::LoadTables() {
   ZETASQL_CHECK_OK(complex_collated_table->AddColumn(struct_with_string_ci_binary,
                                              /*is_owned=*/true));
   AddOwnedTable(complex_collated_table);
+
+  auto collated_table_with_proto = new SimpleTable("CollatedTableWithProto");
+  const AnnotationMap* annotation_map_proto;
+  {
+    std::unique_ptr<AnnotationMap> annotation_map =
+        AnnotationMap::Create(proto_KitchenSinkPB_);
+    annotation_map->SetAnnotation<CollationAnnotation>(
+        SimpleValue::String("und:ci"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(annotation_map_proto,
+                         types_->TakeOwnership(std::move(annotation_map)));
+  }
+
+  auto proto_with_collation = new SimpleColumn(
+      collated_table_with_proto->Name(), "proto_with_collation",
+      AnnotatedType(proto_KitchenSinkPB_, annotation_map_proto));
+
+  ZETASQL_CHECK_OK(collated_table_with_proto->AddColumn(proto_with_collation,
+                                                /*is_owned=*/true));
+  AddOwnedTable(collated_table_with_proto);
 
   auto generic_annotation_test_table = new SimpleTable("AnnotatedTable");
 
@@ -1552,6 +1570,17 @@ void SampleCatalog::LoadNestedCatalogs() {
         &rounding_mode_constant));
     nested_catalog->AddOwnedConstant(std::move(rounding_mode_constant));
   }
+
+  auto udf_catalog = nested_catalog->MakeOwnedSimpleCatalog("udf");
+  function =
+      new Function("timestamp_add", "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {types_->get_int64(),
+       {{types_->get_int64(), FunctionArgumentType::REQUIRED},
+        {types_->get_int64(), FunctionArgumentType::REQUIRED},
+        {types_->get_int64(), FunctionArgumentType::REQUIRED}},
+       /*context_id=*/-1});
+  udf_catalog->AddOwnedFunction(function);
 }
 
 static FreestandingDeprecationWarning CreateDeprecationWarning(
@@ -1979,21 +2008,20 @@ void SampleCatalog::LoadFunctions() {
                                 .set_argument_name("date_string"));
   const auto named_required_format_arg_error_if_positional =
       zetasql::FunctionArgumentType(
-          types_->get_string(), zetasql::FunctionArgumentTypeOptions()
-                                    .set_argument_name("format_string")
-                                    .set_argument_name_is_mandatory(true));
+          types_->get_string(),
+          zetasql::FunctionArgumentTypeOptions().set_argument_name(
+              "format_string", kNamedOnly));
   const auto named_required_date_arg_error_if_positional =
       zetasql::FunctionArgumentType(
-          types_->get_string(), zetasql::FunctionArgumentTypeOptions()
-                                    .set_argument_name("date_string")
-                                    .set_argument_name_is_mandatory(true));
+          types_->get_string(),
+          zetasql::FunctionArgumentTypeOptions().set_argument_name(
+              "date_string", kNamedOnly));
   const auto named_optional_date_arg_error_if_positional =
       zetasql::FunctionArgumentType(
           types_->get_string(),
           zetasql::FunctionArgumentTypeOptions()
               .set_cardinality(FunctionArgumentType::OPTIONAL)
-              .set_argument_name("date_string")
-              .set_argument_name_is_mandatory(true));
+              .set_argument_name("date_string", kNamedOnly));
   const auto named_optional_format_arg = zetasql::FunctionArgumentType(
       types_->get_string(), zetasql::FunctionArgumentTypeOptions()
                                 .set_cardinality(FunctionArgumentType::OPTIONAL)
@@ -2027,8 +2055,7 @@ void SampleCatalog::LoadFunctions() {
           zetasql::FunctionArgumentTypeOptions()
               .set_cardinality(FunctionArgumentType::OPTIONAL)
               .set_must_be_non_null()
-              .set_argument_name("arg")
-              .set_argument_name_is_mandatory(true));
+              .set_argument_name("arg", kNamedOnly));
   const auto mode = Function::SCALAR;
 
   function = new Function("fn_named_args", "sample_functions", mode);
@@ -3051,6 +3078,62 @@ void SampleCatalog::LoadTemplatedSQLUDFs() {
       ResolvedCreateStatementEnums::SQL_SECURITY_DEFINER);
   catalog_->AddOwnedFunction(
       std::move(templated_scalar_definer_rights_function));
+
+  // Add a templated UDF whose function body returns collated value by calling
+  // COLLATE function.
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"udf_templated_collate_function"},
+      FunctionSignature(result_type,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/{"x"},
+      ParseResumeLocation::FromString("collate(x, 'und:ci')")));
+
+  // Add a templated UDF whose function body returns collated array value by
+  // using COLLATE function result as an array element.
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"udf_templated_collate_function_in_array"},
+      FunctionSignature(result_type,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/{"x"},
+      ParseResumeLocation::FromString("[collate(x, 'und:ci')]")));
+
+  // Add a templated UDF whose function body returns collated struct value by
+  // using COLLATE function result as a struct field.
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"udf_templated_collate_function_in_struct"},
+      FunctionSignature(result_type,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/{"x"},
+      ParseResumeLocation::FromString("(collate(x, 'und:ci'), 1)")));
+
+  // Add a templated UDF whose function body calls COLLATE function but has an
+  // explicit STRING return type without collation.
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"udf_templated_collate_function_return_string"},
+      FunctionSignature(types::StringType(),
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/{"x"},
+      ParseResumeLocation::FromString("collate(x, 'und:ci')")));
+
+  // Add a templated SQL UDA which calls MIN aggregate function with COLLATE
+  // function inside.
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"uda_templated_aggregate_with_min_collate_function"},
+      FunctionSignature(result_type,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/{"x"},
+      ParseResumeLocation::FromString("min(collate(x, 'und:ci'))"),
+      Function::AGGREGATE));
 }
 
 namespace {
@@ -4441,8 +4524,7 @@ void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {
            FunctionArgumentType(
                ARG_TYPE_RELATION,
                FunctionArgumentTypeOptions()
-                   .set_argument_name("table2")
-                   .set_argument_name_is_mandatory(true)
+                   .set_argument_name("table2", kNamedOnly)
                    .set_cardinality(FunctionArgumentType::REQUIRED)),
            FunctionArgumentType(
                ARG_TYPE_RELATION,
@@ -4452,8 +4534,7 @@ void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {
            FunctionArgumentType(
                ARG_TYPE_RELATION,
                FunctionArgumentTypeOptions()
-                   .set_argument_name("table4")
-                   .set_argument_name_is_mandatory(true)
+                   .set_argument_name("table4", kNamedOnly)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
           context_id++),
       output_schema_two_types));
@@ -4506,8 +4587,7 @@ void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {
            FunctionArgumentType(
                zetasql::types::StringType(),
                FunctionArgumentTypeOptions()
-                   .set_argument_name("foobar")
-                   .set_argument_name_is_mandatory(true)
+                   .set_argument_name("foobar", kNamedOnly)
                    .set_default(zetasql::values::String("default"))
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
           context_id++),
@@ -4678,6 +4758,15 @@ void SampleCatalog::LoadNonTemplatedSqlTableValuedFunctions(
             ignored_param ANY TYPE)
           AS SELECT * FROM UnaryAbTableArgWithScalarArgsTempl(
               1, (SELECT 1 a, "2" b, DATE '2020-08-22' AS c), "b");
+      )sql",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+          CREATE TABLE FUNCTION JoinsTableArgToScannedTable(
+            arg_table TABLE<key INT64, value INT64>, arg_scalar STRING
+          )
+          AS SELECT arg_scalar AS c, *
+          FROM TwoIntegers JOIN arg_table USING (key, value);
       )sql",
       language_options);
 

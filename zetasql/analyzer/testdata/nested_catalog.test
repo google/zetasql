@@ -95,17 +95,33 @@ QueryStmt
           +-TableScan(table=KeyValue, alias="kv3")
 ==
 
+[language_features={{|V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH}}]
 select 1 from KeyValue.nested.key;
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: Table not found: KeyValue.nested.key [at 1:15]
 select 1 from KeyValue.nested.key;
               ^
+--
+ALTERNATION GROUP: V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH
+--
+ERROR: Name nested not found inside KeyValue [at 1:24]
+select 1 from KeyValue.nested.key;
+                       ^
 ==
 
-# TODO Should have better error here that says column Key cannot
-# be referenced in FROM clause.
+[language_features={{|V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH}}]
 select 1 from KeyValue.Key;
 --
+ALTERNATION GROUP: <empty>
+--
 ERROR: Table not found: KeyValue.Key [at 1:15]
+select 1 from KeyValue.Key;
+              ^
+--
+ALTERNATION GROUP: V_1_4_SINGLE_TABLE_NAME_ARRAY_PATH
+--
+ERROR: Values referenced in FROM clause must be arrays. KeyValue.Key has type INT64 [at 1:15]
 select 1 from KeyValue.Key;
               ^

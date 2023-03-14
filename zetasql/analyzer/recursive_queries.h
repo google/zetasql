@@ -34,11 +34,11 @@ struct WithEntrySortResult {
   // This list determines the order that WITH entries resolve in, since
   // resolving a WITH entry requires that all of its dependencies already be
   // resolved.
-  std::vector<const ASTWithClauseEntry*> sorted_entries;
+  std::vector<const ASTAliasedQuery*> sorted_entries;
 
   // The subset of WITH entries in <sorted_entries> which reference themself at
   // least once.
-  absl::flat_hash_set<const ASTWithClauseEntry*> self_recursive_entries;
+  absl::flat_hash_set<const ASTAliasedQuery*> self_recursive_entries;
 };
 
 // Sorts the entries in <with_clause> in dependency order, so that each entry

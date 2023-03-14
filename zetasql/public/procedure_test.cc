@@ -54,25 +54,25 @@ TEST(ProcedureTest, SerializeDeserializeTest) {
   ProcedureProto proto;
   ZETASQL_EXPECT_OK(procedure.Serialize(&file_descriptor_set_map, &proto));
   EXPECT_THAT(proto, testing::EqualsProto(
-      "name_path: 'catalog' "
-      "name_path: 'procedure_name' "
-      "signature {"
-      "  return_type {"
-      "    kind: ARG_TYPE_FIXED"
-      "    type {"
-      "      type_kind: TYPE_INT64"
-      "    }"
-      "    options {"
-      "      cardinality: REQUIRED"
-      "      extra_relation_input_columns_allowed: true"
-      "    }"
-      "    num_occurrences: -1"
-      "  }"
-      "  context_id: -1"
-      "  options {"
-      "    is_deprecated: false"
-      "  }"
-      "}"));
+                         "name_path: 'catalog' "
+                         "name_path: 'procedure_name' "
+                         "signature {"
+                         "  return_type {"
+                         "    kind: ARG_TYPE_FIXED"
+                         "    type {"
+                         "      type_kind: TYPE_INT64"
+                         "    }"
+                         "    options {"
+                         "      cardinality: REQUIRED"
+                         "      extra_relation_input_columns_allowed: true"
+                         "    }"
+                         "    num_occurrences: -1"
+                         "  }"
+                         "  context_id: -1"
+                         "  options {"
+                         "    is_deprecated: false"
+                         "  }"
+                         "}"));
 
   std::vector<const google::protobuf::DescriptorPool*> pools(
       file_descriptor_set_map.size());

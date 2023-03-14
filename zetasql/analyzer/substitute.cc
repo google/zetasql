@@ -57,6 +57,10 @@ namespace zetasql {
 
 namespace {
 
+// A constant that represents the context_id used to build function signatures
+// for lambda functions used in AnalyzeSubstitute.
+static const int kSubstitutionLambdaContextId = -1000;
+
 // A ColumnRefLayer represents the columns, keyed by column id, referred to by
 // subqueries below a certain subquery. These references end up getting added to
 // the parameter list of the corresponding subquery.
@@ -101,14 +105,15 @@ class ScopedColumnRefLayer {
 };
 
 // For the lambda body, we only need to replace column refs with the
-// corresponding invoke args. This is separate from the
-// VariableReplacementInserter to avoid unintended interactions.
+// corresponding arguments from the substitution template. This is separate from
+// the VariableReplacementInserter to avoid unintended interactions.
+// TODO: Migrate to ResolvedASTRewriteVisitor.
 class ColumnRefReplacer : public ResolvedASTDeepCopyVisitor {
  public:
   // 'column_ref_map' is a map of column IDs to the column that should replace
   // references to that column ID. The column IDs will be the IDs of the
   // lambda's args columns. The ResolvedColumns will be the corresponding args
-  // to the INVOKE function from the expression.
+  // to the named lambda function from the expression.
   explicit ColumnRefReplacer(
       const absl::flat_hash_map<int, const ResolvedColumnRef*>& column_ref_map)
       : lambda_column_ref_map_(column_ref_map) {}
@@ -149,13 +154,13 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ReplaceColumnRefs(
   return column_map_replacer.ConsumeRootNode<ResolvedExpr>();
 }
 
+// TODO: Migrate to ResolvedASTRewriteVisitor.
 class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
  public:
   // 'referenced_columns' is inserted into the parameter list for the
   // outermost subquery.
   //
-  // We use named parameters as placeholders where we incorporate 'lambdas' by
-  // name. This deep copy visitor does that replacement work. We use
+  // This deep copy visitor does that replacement work. We use
   // AnalyzerOptions::lookup_expression_callback_ for in-place ResolvedExpr
   // substitution based on column name lookup. We use in-place substitution for
   // 'lambdas' as they need to be evaluated at the location specified by
@@ -163,7 +168,6 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
   VariableReplacementInserter(
       const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
           referenced_columns,
-      const Function* invoke_function,
       const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
           lambdas);
 
@@ -187,7 +191,6 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
 
   const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
       referenced_columns_;
-  const Function* invoke_function_;
   const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>& lambdas_;
 
   // A stack of ColumnRef collection for recording lambda column refs.
@@ -210,21 +213,22 @@ class ExpressionSubstitutor {
           lambdas);
 
  private:
-  // Sets up the invoke catalog for invoking lambda.
-  absl::Status SetupInvokeCatalog();
+  // Sets up the catalog with injected lambda functions.
+  absl::Status SetupLambdasCatalog(
+      const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
+          lambdas);
 
   AnalyzerOptions options_;
   TypeFactory& type_factory_;
 
-  // The following are used to setup a catalog for INVOKE function. INVOKE
-  // function is initialized only when lambdas are involved.
-  std::unique_ptr<Function> invoke_function_;
-  std::unique_ptr<SimpleCatalog> invoke_catalog_;
-  std::unique_ptr<MultiCatalog> catalog_with_invoke_;
+  // The following are used to setup a catalog with lambda functions.
+  // They are not initialized when there is no lambda involved.
+  std::unique_ptr<SimpleCatalog> lambdas_catalog_;
+  std::unique_ptr<MultiCatalog> multi_catalog_with_lambdas_;
 
   // Points the catalog in for methods of this class.
-  // Points to input_catalog if there is no lambdas or the lazily initialized
-  // catalog_with_invoke_ if there is any lambda.
+  // Points to the input catalog if there are no lambdas or the lazily
+  // initialized multi_catalog_with_lambdas_ if there is any lambda.
   Catalog* catalog_;
 };
 
@@ -248,28 +252,40 @@ ExpressionSubstitutor::ExpressionSubstitutor(AnalyzerOptions options,
   options_.set_record_parse_locations(false);
 }
 
-// Lambdas are invoked with a INVOKE function call in 'expression' parameter of
-// AnalyzeSubstitute. INVOKE function is a implementation detail of this file
-// and not a ZetaSQL standard function. A catalog has to be setup before
+// Lambdas are invoked by name in the 'expression' parameter of
+// AnalyzeSubstitute. Since these lambdas are not built in functions, a catalog
+// has to be setup that injects these lambdas as named functions before
 // analyzing the input expression.
-absl::Status ExpressionSubstitutor::SetupInvokeCatalog() {
-  ZETASQL_RETURN_IF_ERROR(MultiCatalog::Create(catalog_->FullName(), {catalog_},
-                                       &catalog_with_invoke_));
-  invoke_function_ = std::make_unique<Function>("invoke", "", Function::SCALAR,
-                                                FunctionOptions());
-  invoke_function_->AddSignature(FunctionSignature(
-      /*result_type=*/{SignatureArgumentKind::ARG_TYPE_ANY_1},
-      /*arguments=*/
-      {{SignatureArgumentKind::ARG_TYPE_ANY_1, FunctionArgumentType::REQUIRED},
-       {SignatureArgumentKind::ARG_TYPE_ARBITRARY,
-        FunctionArgumentType::REPEATED}},
-      /*context_id=*/-1));
+absl::Status ExpressionSubstitutor::SetupLambdasCatalog(
+    const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
+        lambdas) {
+  lambdas_catalog_ = std::make_unique<SimpleCatalog>("lambdas_catalog");
+  for (const auto& [name, lambda] : lambdas) {
+    // The function group is set to 'SubstitutionLambda' to differentiate it
+    // as an injected lambda function.
+    auto lambda_function = std::make_unique<Function>(
+        /*name=*/name, /*group=*/"SubstitutionLambda", Function::SCALAR,
+        FunctionOptions());
 
-  invoke_catalog_ = std::make_unique<SimpleCatalog>("invoke_catalog");
-  invoke_catalog_->AddFunction(invoke_function_.get());
-  catalog_with_invoke_->AppendCatalog(invoke_catalog_.get());
+    // We add a signature for the injected lambda function with the following
+    // properties. The context_id is set to kSubstitutionLambdaContextId
+    // in order to differentiate it as an injected lambda function. The result
+    // type is set to the type of the lambda body expression.
+    lambda_function->AddSignature(FunctionSignature(
+        /*result_type=*/{lambda->body()->type()},
+        /*arguments=*/
+        {{SignatureArgumentKind::ARG_TYPE_ARBITRARY,
+          FunctionArgumentType::REPEATED}},
+        /*context_id=*/kSubstitutionLambdaContextId));
+    lambdas_catalog_->AddOwnedFunction(std::move(lambda_function));
+  }
+
+  ZETASQL_RETURN_IF_ERROR(MultiCatalog::Create(catalog_->FullName(),
+                                       {lambdas_catalog_.get(), catalog_},
+                                       &multi_catalog_with_lambdas_));
   // Point the catalog in use to the new catalog.
-  catalog_ = catalog_with_invoke_.get();
+  catalog_ = multi_catalog_with_lambdas_.get();
+
   return absl::OkStatus();
 }
 
@@ -278,9 +294,9 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
         lambdas) {
-  // Set up catalog making INVOKE available if there is any lambda.
+  // Set up catalog with function signatures added for each named lambda.
   if (!lambdas.empty()) {
-    ZETASQL_RETURN_IF_ERROR(SetupInvokeCatalog());
+    ZETASQL_RETURN_IF_ERROR(SetupLambdasCatalog(lambdas));
   }
 
   // This select list introduces the aliases for the 'variables' that are in
@@ -332,13 +348,6 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
   // duplicates.
   SortUniqueColumnRefs(referenced_columns);
 
-  // In 'expression', lambdas are referenced as named parameters instead of
-  // columns.
-  for (const auto& lambda : lambdas) {
-    ZETASQL_RETURN_IF_ERROR(options_.AddQueryParameter(lambda.first,
-                                               lambda.second->body()->type()));
-  }
-
   // Sort <select_list> so that the AST we generate is stable.
   std::sort(select_list.begin(), select_list.end());
   // Produces:
@@ -354,8 +363,8 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
                        absl::StrJoin(select_list, ", "), " ) )");
   }
 
-  // Without setting prune_unused_columns, the columns generated by lambda's
-  // rewritten INVOKE() function, e.g. `$array.element#x` and
+  // Without setting prune_unused_columns, the columns generated by rewritten
+  // lambda functions, e.g. `$array.element#x` and
   // `$array_offset.off#y` in <column_list> section does not belong to
   // Resolver::referenced_column_access_ and will be removed from table scan by
   // Resolver::PruneColumnLists at the end of expression analysis.
@@ -375,14 +384,13 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
     InternalAnalyzerOptions::SetValidateResolvedAST(options_, validate_ast);
   };
   InternalAnalyzerOptions::SetValidateResolvedAST(options_, false);
-  std::unique_ptr<const AnalyzerOutput> output;
+  std::unique_ptr<AnalyzerOutput> output;
   ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(sql, options_, catalog_,
                                             &type_factory_, nullptr, &output))
       << "while parsing substitution sql: " << sql;
   ZETASQL_VLOG(1) << "Initial ast: " << output->resolved_expr()->DebugString();
 
-  VariableReplacementInserter replacer(referenced_columns,
-                                       invoke_function_.get(), lambdas);
+  VariableReplacementInserter replacer(referenced_columns, lambdas);
   ZETASQL_RETURN_IF_ERROR(output->resolved_expr()->Accept(&replacer));
   return replacer.ConsumeRootNode<ResolvedExpr>();
 }
@@ -390,34 +398,31 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
 VariableReplacementInserter::VariableReplacementInserter(
     const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
         referenced_columns,
-    const Function* invoke_function,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
         lambdas)
     : referenced_columns_(referenced_columns),
-      invoke_function_(invoke_function),
       lambdas_(lambdas) {}
 
 absl::Status VariableReplacementInserter::VisitResolvedFunctionCall(
     const ResolvedFunctionCall* node) {
-  if (node->function() != invoke_function_) {
+  if (lambdas_.empty()) {
+    return CopyVisitResolvedFunctionCall(node);
+  }
+  // We use a function group name of "SubstitutionLambda" and a
+  // fixed context_id to denote lambda functions present
+  // in the substitution template that were added to the catalog.
+  bool is_lambda_function =
+      node->function()->signatures().size() == 1 &&
+      node->function()->signatures()[0].context_id() ==
+          kSubstitutionLambdaContextId &&
+      node->function()->GetGroup() == "SubstitutionLambda";
+  if (!is_lambda_function) {
     return CopyVisitResolvedFunctionCall(node);
   }
 
-  // The first argument of the INVOKE function call is a named parameter
-  // indicating the lambda arg.
-  if (!node->argument_list(0)->Is<ResolvedParameter>()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "First argument to invoke must be a parameter with the name of "
-              "the lambda to be invoked, got: "
-           << node->argument_list(0)->DebugString();
-  }
-  const auto* resolved_parameter =
-      node->argument_list(0)->GetAs<ResolvedParameter>();
-  auto it = lambdas_.find(resolved_parameter->name());
-  if (it == lambdas_.end()) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "No lambda named " << resolved_parameter->name() << " is found.";
-  }
+  auto it = lambdas_.find(node->function()->Name());
+  ZETASQL_RET_CHECK(it != lambdas_.end())
+      << "No lambda named " << node->function()->Name() << " is found";
   const ResolvedInlineLambda* lambda = it->second;
 
   // Record lambda column refs for the enclosing SubqueryExpr.
@@ -429,18 +434,17 @@ absl::Status VariableReplacementInserter::VisitResolvedFunctionCall(
     ref_layer.emplace(ref->column().column_id(), ref.get());
   }
 
-  // The arguments following the first argument of the INVOKE call are a list of
-  // columns to replace the lambda columns.
-  ZETASQL_RET_CHECK_GE(node->argument_list_size() - 1, lambda->argument_list_size());
-  // Build map from lambda argument column to INVOKE argument column.
+  ZETASQL_RET_CHECK_GE(node->argument_list_size(), lambda->argument_list_size());
+  // Build map from lambda argument column to column reference in
+  // the substitution SQL.
   absl::flat_hash_map<int, const ResolvedColumnRef*> lambda_columns_map;
   for (int i = 0; i < lambda->argument_list_size(); i++) {
-    ZETASQL_RET_CHECK(node->argument_list(i + 1)->Is<ResolvedColumnRef>())
-        << "INVOKE arguments after the first one must be a ColumnRef.";
-    const ResolvedColumnRef* invoke_column =
-        node->argument_list(i + 1)->GetAs<ResolvedColumnRef>();
+    ZETASQL_RET_CHECK(node->argument_list(i)->Is<ResolvedColumnRef>())
+        << "Lambda arguments must be a ColumnRef.";
+    const ResolvedColumnRef* substitution_column =
+        node->argument_list(i)->GetAs<ResolvedColumnRef>();
     lambda_columns_map.emplace(lambda->argument_list(i).column_id(),
-                               invoke_column);
+                               substitution_column);
   }
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> body,
                    ReplaceColumnRefs(lambda->body(), lambda_columns_map));

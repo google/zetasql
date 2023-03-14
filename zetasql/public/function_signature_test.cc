@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <set>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
@@ -33,7 +34,6 @@
 #include "zetasql/public/types/type_factory.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
@@ -63,7 +63,9 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   ASSERT_FALSE(fixed_type_int32.repeated());
   ASSERT_FALSE(fixed_type_int32.optional());
   EXPECT_EQ("INT32",
-            fixed_type_int32.UserFacingNameWithCardinality(PRODUCT_INTERNAL));
+            fixed_type_int32.UserFacingNameWithCardinality(
+                PRODUCT_INTERNAL,
+                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
 
   FunctionArgumentType repeating_fixed_type_int32(
       factory.get_int32(), FunctionArgumentType::REPEATED);
@@ -82,7 +84,8 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   ASSERT_TRUE(repeating_fixed_type_int32.repeated());
   EXPECT_EQ("[INT32, ...]",
             repeating_fixed_type_int32.UserFacingNameWithCardinality(
-                PRODUCT_INTERNAL));
+                PRODUCT_INTERNAL,
+                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
 
   FunctionArgumentType optional_fixed_type_int32(
       factory.get_int32(), FunctionArgumentType::OPTIONAL);
@@ -106,7 +109,8 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   ASSERT_TRUE(optional_fixed_type_int32.optional());
   EXPECT_EQ("[INT32]",
             optional_fixed_type_int32.UserFacingNameWithCardinality(
-                PRODUCT_INTERNAL));
+                PRODUCT_INTERNAL,
+                FunctionArgumentType::NamePrintingStyle::kIfNamedOnly));
 
   FunctionArgumentType any_type(ARG_TYPE_ANY_1);
   ASSERT_FALSE(any_type.IsConcrete());
@@ -425,6 +429,18 @@ TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeConcreteArgsTests) {
   ASSERT_TRUE(lambda_concrete_arg_body_type_multi_args.IsConcrete());
   ASSERT_FALSE(lambda_concrete_arg_body_type_multi_args.repeated());
   ASSERT_THAT(lambda_concrete_arg_body_type_multi_args.type(), IsNull());
+}
+
+TEST(FunctionSignatureTests, LambdaFunctionWithOptionsTests) {
+  FunctionArgumentTypeOptions options;
+  options.set_argument_name("my_lambda", kPositionalOnly);
+  FunctionArgumentType lambda_with_options = FunctionArgumentType::Lambda(
+      {FunctionArgumentType(types::Int64Type(), 1)},
+      FunctionArgumentType(types::Int64Type(), 1), options);
+  ASSERT_TRUE(lambda_with_options.IsLambda());
+  ASSERT_EQ(ARG_TYPE_LAMBDA, lambda_with_options.kind());
+  ASSERT_TRUE(lambda_with_options.options().has_argument_name());
+  ASSERT_EQ(lambda_with_options.options().argument_name(), "my_lambda");
 }
 
 // Utility to test function argument type equality.
@@ -1125,8 +1141,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY, OPTIONAL));
   arguments.push_back(FunctionArgumentType(
       ARG_TYPE_RELATION, FunctionArgumentTypeOptions()
-                             .set_argument_name("foobar")
-                             .set_argument_name_is_mandatory(true)
+                             .set_argument_name("foobar", kNamedOnly)
                              .set_cardinality(OPTIONAL)));
   signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
@@ -1794,6 +1809,22 @@ TEST(FunctionSignatureTests, FunctionSignatureOptionTests) {
       {FEATURE_NUMERIC_TYPE, FEATURE_V_1_2_CIVIL_TIME}));
 }
 
+TEST(FunctionSignatureTests, FunctionSignatureRewriteOptionsSerialization) {
+  FunctionSignatureRewriteOptions opts1, opts2;
+  opts1.set_enabled(false).set_rewriter(REWRITE_PIVOT).set_sql("false");
+  opts2.set_enabled(true).set_rewriter(REWRITE_FLATTEN).set_sql("true");
+  for (const auto& opts : {opts1, opts2}) {
+    FunctionSignatureRewriteOptionsProto opts_proto;
+    opts.Serialize(&opts_proto);
+    FunctionSignatureRewriteOptions deserialized;
+    ZETASQL_EXPECT_OK(
+        FunctionSignatureRewriteOptions::Deserialize(opts_proto, deserialized));
+    EXPECT_EQ(opts.enabled(), deserialized.enabled());
+    EXPECT_EQ(opts.rewriter(), deserialized.rewriter());
+    EXPECT_EQ(opts.sql(), deserialized.sql());
+  }
+}
+
 TEST(FunctionSignatureTests, TestArgumentConstraints) {
   auto noop_constraints_callback =
       [](const FunctionSignature& signature,
@@ -1952,6 +1983,55 @@ TEST(FunctionSignatureTests, TestFunctionArgumentTypeOptionsConstraint) {
   TestArgumentTypeOptionsSerialization(groupable_element_signature.argument(0));
 }
 
+TEST(FunctionSignatureTests, FunctionArgumentNamesSerialization) {
+  TypeFactory type_factory;
+  TypeDeserializer type_deserializor(&type_factory,
+                                     /*extended_type_deserializer=*/{});
+  SignatureArgumentKind arg_kind = ARG_TYPE_VOID;
+  const Type* arg_type = nullptr;
+
+  for (auto [named_kind, is_mandatory] :
+       {std::make_pair(kPositionalOnly, false),
+        std::make_pair(kPositionalOrNamed, false),
+        std::make_pair(kNamedOnly, true)}) {
+    auto arg_opts =
+        FunctionArgumentTypeOptions().set_argument_name("arg", named_kind);
+    FunctionArgumentTypeOptionsProto arg_opts_proto;
+    ZETASQL_EXPECT_OK(arg_opts.Serialize(arg_type, &arg_opts_proto,
+                                 /*file_descriptor_set_map=*/{}));
+    EXPECT_TRUE(arg_opts_proto.has_argument_name());
+    EXPECT_EQ(arg_opts_proto.argument_name(), "arg");
+    // We don't set this field unless its true. It defaults to false.
+    EXPECT_EQ(arg_opts_proto.has_argument_name_is_mandatory(), is_mandatory);
+    EXPECT_EQ(arg_opts_proto.argument_name_is_mandatory(), is_mandatory);
+    EXPECT_TRUE(arg_opts_proto.has_named_argument_kind());
+    EXPECT_EQ(arg_opts_proto.named_argument_kind(), named_kind);
+    FunctionArgumentTypeOptions arg_opts_deserialized;
+    ZETASQL_EXPECT_OK(FunctionArgumentTypeOptions::Deserialize(
+        arg_opts_proto, type_deserializor, arg_kind, arg_type,
+        &arg_opts_deserialized));
+    EXPECT_EQ(arg_opts.argument_name(), arg_opts_deserialized.argument_name());
+    EXPECT_EQ(arg_opts.argument_name(), arg_opts_deserialized.argument_name());
+    EXPECT_EQ(arg_opts.named_argument_kind(),
+              arg_opts_deserialized.named_argument_kind());
+
+    // Serializations from older binaries will not have named_argument_kind.
+    arg_opts_proto.clear_named_argument_kind();
+    FunctionArgumentTypeOptions arg_opts_deserialized_compat;
+    ZETASQL_EXPECT_OK(FunctionArgumentTypeOptions::Deserialize(
+        arg_opts_proto, type_deserializor, arg_kind, arg_type,
+        &arg_opts_deserialized_compat));
+    EXPECT_EQ(arg_opts.argument_name(),
+              arg_opts_deserialized_compat.argument_name());
+    if (is_mandatory) {
+      EXPECT_EQ(arg_opts_deserialized_compat.named_argument_kind(), kNamedOnly);
+    } else {
+      EXPECT_EQ(arg_opts_deserialized_compat.named_argument_kind(),
+                kPositionalOrNamed);
+    }
+  }
+}
+
 TEST(FunctionSignatureTests,
      TestFunctionArgumentTypeOptionsArrayElementConstraint) {
   FunctionArgumentType orderable_array_arg(
@@ -1987,5 +2067,4 @@ TEST(FunctionSignatureTests,
       equatable_array_arg.options().array_element_must_support_equality());
   TestArgumentTypeOptionsSerialization(equatable_array_arg);
 }
-
 }  // namespace zetasql

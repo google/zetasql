@@ -35,6 +35,7 @@
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/functions/array_find_mode.pb.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/options.pb.h"
@@ -550,6 +551,28 @@ absl::Status TypeFactory::MakeRangeType(const Type* element_type,
                        reinterpret_cast<const RangeType**>(result));
 }
 
+absl::Status TypeFactory::MakeRangeType(const google::protobuf::FieldDescriptor* field,
+                                        const Type** result) {
+  const Type* element_type = nullptr;
+  const FieldFormat::Format format = ProtoType::GetFormatAnnotation(field);
+  switch (format) {
+    case FieldFormat::RANGE_DATES_ENCODED:
+      element_type = types::DateType();
+      break;
+    case FieldFormat::RANGE_DATETIMES_ENCODED:
+      element_type = types::DatetimeType();
+      break;
+    case FieldFormat::RANGE_TIMESTAMPS_ENCODED:
+      element_type = types::TimestampType();
+      break;
+    default:
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Unsupported field format for RANGE: " << field->DebugString();
+  }
+  ZETASQL_RETURN_IF_ERROR(MakeRangeType(element_type, result));
+  return absl::OkStatus();
+}
+
 absl::StatusOr<const ExtendedType*> TypeFactory::InternalizeExtendedType(
     std::unique_ptr<const ExtendedType> extended_type) {
   ZETASQL_RET_CHECK(extended_type);
@@ -689,6 +712,8 @@ absl::Status TypeFactory::GetProtoFieldTypeWithKind(
     absl::Span<const std::string> catalog_name_path, const Type** type) {
   if (Type::IsSimpleType(kind)) {
     *type = MakeSimpleType(kind);
+  } else if (kind == TYPE_RANGE) {
+    ZETASQL_RETURN_IF_ERROR(MakeRangeType(field_descr, type));
   } else if (kind == TYPE_ENUM) {
     const EnumType* enum_type;
     ZETASQL_RETURN_IF_ERROR(
@@ -980,6 +1005,18 @@ static const EnumType* GetArrayFindModeEnumType() {
   return s_array_find_mode_enum_type;
 }
 
+static const EnumType* GetDifferentialPrivacyReportFormatEnumType() {
+  static const EnumType* s_differential_privacy_report_format_enum_type = [] {
+    const EnumType* enum_type;
+    ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
+        s_type_factory(),
+        functions::DifferentialPrivacyEnums::ReportFormat_descriptor(),
+        &enum_type, {}));
+    return enum_type;
+  }();
+  return s_differential_privacy_report_format_enum_type;
+}
+
 static const StructType* s_empty_struct_type() {
   static const StructType* s_empty_struct_type = [] {
     const StructType* type;
@@ -1130,6 +1167,9 @@ const EnumType* DatePartEnumType() { return s_date_part_enum_type(); }
 const EnumType* NormalizeModeEnumType() { return s_normalize_mode_enum_type(); }
 const EnumType* RoundingModeEnumType() { return s_rounding_mode_enum_type(); }
 const EnumType* ArrayFindModeEnumType() { return GetArrayFindModeEnumType(); }
+const EnumType* DifferentialPrivacyReportFormatEnumType() {
+  return GetDifferentialPrivacyReportFormatEnumType();
+}
 
 const ArrayType* Int32ArrayType() { return s_int32_array_type(); }
 const ArrayType* Int64ArrayType() { return s_int64_array_type(); }

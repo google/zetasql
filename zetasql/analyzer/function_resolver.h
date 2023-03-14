@@ -182,13 +182,14 @@ class FunctionResolver {
       bool set_has_explicit_type, bool return_null_on_error,
       std::unique_ptr<const ResolvedExpr>* argument) const;
 
-  // Same as the previous method but <annotated_target_type> is used to contain
-  // both target type and its annotation information.
+  // Same as the previous method but takes <annotated_target_type> argument to
+  // contain both target type and its annotation information. <type_modifers> is
+  // used to hold the type modifiers for the cast.
   absl::Status AddCastOrConvertLiteral(
       const ASTNode* ast_location, AnnotatedType annotated_target_type,
       std::unique_ptr<const ResolvedExpr> format,
       std::unique_ptr<const ResolvedExpr> time_zone,
-      const TypeParameters& type_params,
+      TypeModifiers type_modifiers,
       const ResolvedScan* scan,  // May be null
       bool set_has_explicit_type, bool return_null_on_error,
       std::unique_ptr<const ResolvedExpr>* argument) const;
@@ -391,8 +392,8 @@ class FunctionResolver {
   // If <function> has no valid signatures, the returned message would be like
   // "Function not found: <function name>".
   std::string GenerateErrorMessageWithSupportedSignatures(
-    const Function* function,
-    const std::string& prefix_message) const;
+      const Function* function, const std::string& prefix_message,
+      FunctionArgumentType::NamePrintingStyle argument_print_style) const;
 
   // Check a literal argument value against value constraints for a given
   // argument, and return an error if any are violated.

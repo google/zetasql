@@ -182,7 +182,7 @@ namespace zetasql {
 //   DerivedDeepCopyVisitor copier;
 //   analyzer_output->resolved_statement()->Accept(&copier);
 //   std::unique_ptr<ResolvedNode> copied_root_node =
-//       copier.ConsumeRootNode<zetasql::ResolvedNode>());
+//       copier.ConsumeRootNode<zetasql::ResolvedNode>();
 //   // Do something with copied_root_node.
 //
 // Returns an error on unhandled node types. Reusable as long as no errors are

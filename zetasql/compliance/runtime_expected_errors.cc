@@ -168,6 +168,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
       "ARRAY_LAST cannot get the last element of an empty array"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Occurrence in STRPOS cannot be less than 1"));
 
   // REPLACE_FIELDS() specific
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -340,8 +343,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "DATE_BUCKET requires exactly one non-zero INTERVAL part in bucket "
       "width"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
-      "No matching signature for function DATETIME_BUCKET"));
+      absl::StatusCode::kOutOfRange,
+      "DATE_BUCKET only supports bucket width INTERVAL with MONTH and DAY "
+      "parts"));
 
   // Interval Errors
   //
@@ -460,7 +464,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   // D3A weight overflow errors
   //
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument, "Grid gounters overflowed.*"));
+      absl::StatusCode::kInvalidArgument, "Grid counters overflowed.*"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument, "Invalid weight value.*"));
 
@@ -661,10 +665,6 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeDMLExpectedErrorMatcher(
   // TODO: b/109660988 DML RQG: account for constraints
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kNotFound, "Parent row is missing"));
-
-  // Aggregate values can overflow in large queries.
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kOutOfRange, "Aggregate values are limited to .*"));
 
   // TODO: Not yet implemented/supported.
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(

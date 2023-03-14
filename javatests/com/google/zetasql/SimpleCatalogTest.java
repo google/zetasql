@@ -43,6 +43,7 @@ import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.SimpleCatalog.AutoUnregister;
 import com.google.zetasql.SimpleCatalogProtos.SimpleCatalogProto;
 import com.google.zetasql.TableValuedFunction.ForwardInputSchemaToOutputSchemaTVF;
+import com.google.zetasql.functions.ZetaSQLRoundingMode.RoundingMode;
 
 
 import java.util.ArrayList;
@@ -452,6 +453,38 @@ public class SimpleCatalogTest {
       fail();
     } catch (IllegalStateException expected) {
     }
+  }
+
+  @Test
+  public void testAddBuiltinFunctions_roundingModeIsOpaque() {
+    SimpleCatalog catalog = new SimpleCatalog("foo2");
+    LanguageOptions languageOptions = new LanguageOptions();
+    languageOptions.setEnabledLanguageFeatures(
+        ImmutableSet.of(
+            LanguageFeature.FEATURE_NUMERIC_TYPE,
+            LanguageFeature.FEATURE_ROUND_WITH_ROUNDING_MODE));
+
+    catalog.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions(languageOptions));
+
+    assertThat(catalog.getFunctionList().size()).isGreaterThan(0);
+
+    // Included
+    Function round = catalog.getFunctionByFullName("ZetaSQL:round");
+    assertThat(round).isNotNull();
+    EnumType roundingModeType = null;
+    for (FunctionSignature signature : round.getSignatureList()) {
+      if (signature.getFunctionArgumentList().size() == 3) {
+        FunctionArgumentType thirdArg = signature.getFunctionArgumentList().get(2);
+        if (thirdArg.getType().isEnum()
+            && thirdArg.getType().asEnum().getDescriptor() == RoundingMode.getDescriptor()) {
+          roundingModeType = thirdArg.getType().asEnum();
+          break;
+        }
+      }
+    }
+
+    assertThat(roundingModeType).isNotNull();
+    assertThat(roundingModeType.isOpaque()).isTrue();
   }
 
   @Test

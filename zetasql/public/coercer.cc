@@ -17,6 +17,8 @@
 #include "zetasql/public/coercer.h"
 
 #include <algorithm>
+#include <functional>
+#include <iterator>
 #include <memory>
 #include <set>
 #include <stack>
@@ -312,7 +314,6 @@ absl::Status CheckSupertypesGlobalOrderForCoercer(
 
   return TypeGlobalOrderChecker::Check(supertypes_list, catalog);
 }
-
 }  // namespace
 
 absl::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,

@@ -77,8 +77,10 @@ absl::Status TemplatedSQLTVF::Deserialize(
     path.push_back(name);
   }
   std::unique_ptr<FunctionSignature> signature;
-  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(proto.signature(), pools,
-                                                 factory, &signature));
+  ZETASQL_ASSIGN_OR_RETURN(signature,
+                   FunctionSignature::Deserialize(
+                       proto.signature(), TypeDeserializer(factory, pools)));
+
   std::vector<std::string> arg_name_list;
   arg_name_list.reserve(proto.argument_name_size());
   for (const std::string& arg_name : proto.argument_name()) {

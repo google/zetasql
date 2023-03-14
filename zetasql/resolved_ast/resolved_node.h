@@ -32,6 +32,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -281,13 +282,13 @@ class ResolvedNode {
  protected:
   // Struct used to collect all fields that should be printed in DebugString.
   struct DebugStringField {
-    DebugStringField(const std::string& name_in, const std::string& value_in)
+    DebugStringField(absl::string_view name_in, absl::string_view value_in)
         : name(name_in), value(value_in) {}
-    DebugStringField(const std::string& name_in, const ResolvedNode* node_in)
+    DebugStringField(absl::string_view name_in, const ResolvedNode* node_in)
         : name(name_in), nodes({node_in}) {}
 
     template <typename T>
-    DebugStringField(const std::string& name_in, const std::vector<T>& nodes_in)
+    DebugStringField(absl::string_view name_in, const std::vector<T>& nodes_in)
         : name(name_in) {
       for (const auto& node : nodes_in) nodes.push_back(node.get());
     }
@@ -329,7 +330,7 @@ class ResolvedNode {
   void CollectDebugStringFieldsWithNameFormat(
       const ResolvedNode* node, std::vector<DebugStringField>* fields) const;
   std::string GetNameForDebugStringWithNameFormat(
-      const std::string& name, const ResolvedNode* node) const;
+      absl::string_view name, const ResolvedNode* node) const;
 
   // Helper function to implement CheckFieldsAccessed(), which plumbs through
   // the "root" node of the tree. This is used to provide a better error message
@@ -372,8 +373,8 @@ class ResolvedNode {
   // prefix2 is the indentation to attach to the root of this tree.
   static void DebugStringImpl(const ResolvedNode* node,
                               absl::Span<const NodeAnnotation> annotations,
-                              const std::string& prefix1,
-                              const std::string& prefix2, std::string* output);
+                              absl::string_view prefix1,
+                              absl::string_view prefix2, std::string* output);
 
   static void AppendAnnotations(const ResolvedNode* node,
                                 absl::Span<const NodeAnnotation> annotations,

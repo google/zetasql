@@ -14,7 +14,7 @@ current row. The `OVER` clause syntax varies across navigation functions.
 For all navigation functions, the result data type is the same type as
 `value_expression`.
 
-### FIRST_VALUE
+### `FIRST_VALUE`
 
 ```sql
 FIRST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
@@ -105,7 +105,7 @@ FROM (
 +-----------------+-------------+----------+--------------+------------------+
 ```
 
-### LAST_VALUE
+### `LAST_VALUE`
 
 ```sql
 LAST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
@@ -197,7 +197,7 @@ FROM (
 
 ```
 
-### NTH_VALUE
+### `NTH_VALUE`
 
 ```sql
 NTH_VALUE (value_expression, constant_integer_expression [{RESPECT | IGNORE} NULLS])
@@ -294,7 +294,7 @@ FROM (
 +-----------------+-------------+----------+--------------+----------------+
 ```
 
-### LEAD
+### `LEAD`
 
 ```sql
 LEAD (value_expression[, offset [, default_expression]])
@@ -461,7 +461,7 @@ FROM finishers;
 +-----------------+-------------+----------+------------------+
 ```
 
-### LAG
+### `LAG`
 
 ```sql
 LAG (value_expression[, offset [, default_expression]])
@@ -628,7 +628,7 @@ FROM finishers;
 +-----------------+-------------+----------+-------------------+
 ```
 
-### PERCENTILE_CONT
+### `PERCENTILE_CONT`
 
 ```sql
 PERCENTILE_CONT (value_expression, percentile [{RESPECT | IGNORE} NULLS])
@@ -684,13 +684,13 @@ table.
 
 <thead>
 <tr>
-<th>INPUT</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>DOUBLE</th>
+<th>INPUT</th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>DOUBLE</code></th>
 </tr>
 </thead>
 <tbody>
-<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>BIGNUMERIC</th><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td></tr>
-<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
 </tbody>
 
 </table>
@@ -737,7 +737,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
 [anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-### PERCENTILE_DISC
+### `PERCENTILE_DISC`
 
 ```sql
 PERCENTILE_DISC (value_expression, percentile [{RESPECT | IGNORE} NULLS])

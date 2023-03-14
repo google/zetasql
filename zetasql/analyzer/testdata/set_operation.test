@@ -1,3 +1,114 @@
+# Multiple set operations of {UNION, EXCEPT} {ALL, DISTINCT} type in a single
+# query statement is not supported.
+select 1
+UNION ALL
+select 2
+UNION DISTINCT
+select 4
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+UNION DISTINCT
+^
+==
+
+select 1
+UNION ALL
+select 2
+EXCEPT ALL
+select 3
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+EXCEPT ALL
+^
+==
+
+# Multiple set operations of INTERSECT {ALL, DISTINCT} types in a single query
+# statement is not supported.
+select 1
+INTERSECT ALL
+select 2
+INTERSECT DISTINCT
+select 3
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+INTERSECT DISTINCT
+^
+==
+
+select 1
+INTERSECT ALL
+select 2
+UNION DISTINCT
+select 3
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+UNION DISTINCT
+^
+==
+
+# No precedence for INTERSECT over UNION/EXCEPT.
+select 1
+UNION ALL
+select 2
+INTERSECT ALL
+select 3
+UNION ALL
+select 4
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+INTERSECT ALL
+^
+==
+
+select 1
+EXCEPT ALL
+select 2
+INTERSECT ALL
+select 3
+EXCEPT ALL
+select 4
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+INTERSECT ALL
+^
+==
+
+# Both UNION and EXCEPT operations in a single query statement not supported.
+select 1
+UNION ALL
+select 2
+EXCEPT ALL
+select 3
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+EXCEPT ALL
+^
+==
+
+# Error: 3 children and 2 simple hints
+select 1
+UNION @{ key = 3 } ALL
+select 2
+UNION @{ key = 5 } ALL
+select 3
+--
+ERROR: Syntax error: Hints on set operations must appear on the first  operation. [at 4:7]
+UNION @{ key = 5 } ALL
+      ^
+==
+
+# Error: 3 children and 1 simple hint in the wrong location
+select 1
+UNION ALL
+select 2
+UNION @{ key = 5 } ALL
+select 3
+--
+ERROR: Syntax error: Hints on set operations must appear on the first  operation. [at 4:7]
+UNION @{ key = 5 } ALL
+      ^
+==
+
 select 1
 union all
 select 2

@@ -91,6 +91,7 @@ cc_library(
         "//zetasql/public/functions:convert_proto",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
+        "//zetasql/public/functions:differential_privacy_cc_proto",
         "//zetasql/public/functions:normalize_mode_cc_proto",
         "//zetasql/public/functions:rounding_mode_cc_proto",
         "//zetasql/public/proto:type_annotation_cc_proto",

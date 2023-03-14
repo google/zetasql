@@ -30,6 +30,7 @@
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/name_scope.h"
+#include "zetasql/analyzer/path_expression_span.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
 // This includes common macro definitions to define in the resolver cc files.
@@ -99,8 +100,8 @@ absl::Status Resolver::ResolveDMLTargetTable(
 
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
       target_path, *alias, has_explicit_alias, alias_location, hint,
-      /*for_system_time=*/nullptr, empty_name_scope_.get(), resolved_table_scan,
-      name_list));
+      /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*remaining_names=*/nullptr, resolved_table_scan, name_list));
   ZETASQL_RET_CHECK((*name_list)->HasRangeVariable(*alias));
   return absl::OkStatus();
 }
@@ -222,10 +223,10 @@ absl::Status Resolver::ResolveTruncateStatement(
   ZETASQL_ASSIGN_OR_RETURN(const ASTPathExpression* name_path,
                    ast_statement->GetTargetPathForNonNested());
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
-      name_path, GetAliasForExpression(name_path),
-      /*has_explicit_alias=*/false, name_path, /*hints=*/nullptr,
+      name_path, GetAliasForExpression(name_path), /*has_explicit_alias=*/false,
+      /*alias_location=*/name_path, /*hints=*/nullptr,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      &resolved_table_scan, &name_list));
+      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list));
 
   const NameScope truncate_scope(*name_list);
   std::unique_ptr<const ResolvedExpr> resolved_where_expr;
@@ -397,10 +398,10 @@ absl::Status Resolver::ResolveInsertStatement(
   IdString target_alias = GetAliasForExpression(target_path);
   std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
-      target_path, GetAliasForExpression(target_path),
-      /*has_explicit_alias=*/false, target_path, ast_statement->hint(),
+      target_path, target_alias, /*has_explicit_alias=*/false,
+      /*alias_location=*/target_path, ast_statement->hint(),
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
-      &resolved_table_scan, &name_list));
+      /*remaining_names=*/nullptr, &resolved_table_scan, &name_list));
 
   IdStringHashMapCase<ResolvedColumn> table_scan_columns;
   IdStringHashSetCase ambiguous_column_names;
@@ -763,6 +764,7 @@ absl::Status Resolver::ResolveUpdateItemList(
     const ASTUpdateItemList* ast_update_item_list, bool is_nested,
     const NameScope* target_scope, const NameScope* update_scope,
     std::vector<std::unique_ptr<const ResolvedUpdateItem>>* update_item_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   std::vector<UpdateItemAndLocation> update_items;
   for (const ASTUpdateItem* ast_update_item :
@@ -783,6 +785,7 @@ absl::Status Resolver::ResolveUpdateItem(
     const ASTUpdateItem* ast_update_item, bool is_nested,
     const NameScope* target_scope, const NameScope* update_scope,
     std::vector<UpdateItemAndLocation>* update_items) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   const ASTGeneralizedPathExpression* target_path =
       GetTargetPath(ast_update_item);
@@ -818,6 +821,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
     const ASTGeneralizedPathExpression* path,
     ExprResolutionInfo* expr_resolution_info,
     std::vector<UpdateTargetInfo>* update_target_infos) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   ZETASQL_RET_CHECK_OK(
       ASTGeneralizedPathExpression::VerifyIsPureGeneralizedPathExpression(
@@ -831,7 +835,8 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
 
       UpdateTargetInfo info;
       ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsExpression(
-          path->GetAsOrDie<ASTPathExpression>(), expr_resolution_info,
+          PathExpressionSpan(*path->GetAsOrDie<ASTPathExpression>()),
+          expr_resolution_info,
           is_write ? ResolvedStatement::WRITE : ResolvedStatement::READ,
           &info.target));
       // We must check whether the column is writable.
@@ -881,10 +886,10 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
           expr_resolution_info, update_target_infos));
       ZETASQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
-      return ResolveFieldAccess(std::move(info.target), dot_identifier,
-                                dot_identifier->name(),
-                                &expr_resolution_info->flatten_state,
-                                &info.target);
+      return ResolveFieldAccess(
+          std::move(info.target), dot_identifier->GetParseLocationRange(),
+          dot_identifier->name(), &expr_resolution_info->flatten_state,
+          &info.target);
     }
     case AST_ARRAY_ELEMENT: {
       const auto* array_element = path->GetAsOrDie<ASTArrayElement>();
@@ -1019,6 +1024,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
 absl::Status Resolver::VerifyUpdateTargetIsWritable(
     const ASTNode* ast_location, const ResolvedExpr* target,
     const ASTExpression* value) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   switch (target->node_kind()) {
     case RESOLVED_COLUMN_REF:
       return VerifyTableScanColumnIsWritable(
@@ -1134,6 +1140,7 @@ absl::Status Resolver::ShouldMergeWithUpdateItem(
     const ASTUpdateItem* ast_update_item,
     const std::vector<UpdateTargetInfo>& update_target_infos,
     const UpdateItemAndLocation& update_item, bool* merge) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RET_CHECK(!update_target_infos.empty());
   *merge = false;
 
@@ -1254,6 +1261,7 @@ absl::Status Resolver::MergeWithUpdateItem(
     const NameScope* update_scope, const ASTUpdateItem* ast_input_update_item,
     std::vector<UpdateTargetInfo>* input_update_target_infos,
     UpdateItemAndLocation* merged_update_item) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   const ASTGeneralizedPathExpression* target_path =
       GetTargetPath(ast_input_update_item);
@@ -1571,6 +1579,7 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
     std::unique_ptr<const ResolvedTableScan> resolved_table_scan,
     std::unique_ptr<const ResolvedScan> resolved_from_scan,
     std::unique_ptr<ResolvedUpdateStmt>* output) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   std::unique_ptr<ResolvedColumnHolder> resolved_array_offset_column;
   std::unique_ptr<NameScope> new_update_scope_owner;

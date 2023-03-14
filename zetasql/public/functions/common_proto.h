@@ -76,10 +76,10 @@ absl::Status ConvertProto3TimeOfDayToTime(const google::type::TimeOfDay& input,
 template <typename Wrapper>
 absl::Status ConvertProto3WrapperToType(
     const Wrapper& input,
-    typename std::result_of<internal::ValidWrapperConversions(Wrapper)>::type*
-        output) {
-  *output = input.value();
-  return absl::OkStatus();
+    typename std::invoke_result<internal::ValidWrapperConversions,
+                                Wrapper>::type* output) {
+    *output = input.value();
+    return absl::OkStatus();
 }
 
 template <>
@@ -99,8 +99,8 @@ inline absl::Status ConvertProto3WrapperToType(
 // to the type of the 'value' field in the wrapper.
 template <typename Wrapper>
 void ConvertTypeToProto3Wrapper(
-    const typename std::result_of<
-        internal::ValidWrapperConversions(Wrapper)>::type& input,
+    const typename std::invoke_result<internal::ValidWrapperConversions,
+                                      Wrapper>::type& input,
     Wrapper* output) {
   output->set_value(input);
 }

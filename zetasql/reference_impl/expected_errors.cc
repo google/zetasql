@@ -114,6 +114,19 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Floating point error in function.*"));
 
+  // Aggregate values can overflow in large queries. However, this might not be
+  // the behavior other engines would expect.
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kResourceExhausted,
+      "Aggregate values are limited to "));
+
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kResourceExhausted, "Arrays are limited to "));
+
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kResourceExhausted,
+      "Cannot construct array Value larger than "));
+
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
 }

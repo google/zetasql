@@ -22,11 +22,682 @@ CreateTableStmt
   +-ColumnDefinition(name="c7", type=ARRAY<INT64>, column=t1.c7#7)
 ==
 
-create table t1 like t2;
+# Create table with RANGE columns without RANGE_TYPE enabled
+[language_features=]
+[no_java]
+create table t1 (c1 range<date>);
 --
-ERROR: CREATE TABLE LIKE is not supported [at 1:22]
-create table t1 like t2;
-                     ^
+ERROR: RANGE type is not supported [at 1:21]
+create table t1 (c1 range<date>);
+                    ^
+==
+
+# Create table with RANGE columns with RANGE_TYPE enabled
+[language_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[no_java]
+create table t1 (c1 range<{{date|datetime|timestamp|int64}}>);
+--
+ALTERNATION GROUP: date
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+  +-ColumnDefinition(name="c1", type=RANGE<DATE>, column=t1.c1#1)
+--
+ALTERNATION GROUP: datetime
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+  +-ColumnDefinition(name="c1", type=RANGE<DATETIME>, column=t1.c1#1)
+--
+ALTERNATION GROUP: timestamp
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+  +-ColumnDefinition(name="c1", type=RANGE<TIMESTAMP>, column=t1.c1#1)
+--
+ALTERNATION GROUP: int64
+--
+ERROR: Unsupported type: RANGE<INT64> is not supported [at 1:21]
+create table t1 (c1 range<int64>);
+                    ^
+==
+
+# Create table with RANGE columns and options
+[language_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[no_java]
+create table t1 (
+  a range<date> options(option_a=1),
+  b range<datetime> options(option_b=2),
+  c range<timestamp> options(option_c=3)
+)
+options(table_option=3);
+--
+CreateTableStmt
++-name_path=t1
++-option_list=
+| +-table_option := Literal(type=INT64, value=3)
++-column_definition_list=
+  +-ColumnDefinition
+  | +-name="a"
+  | +-type=RANGE<DATE>
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-option_list=
+  | |     +-option_a := Literal(type=INT64, value=1)
+  | +-column=t1.a#1
+  +-ColumnDefinition
+  | +-name="b"
+  | +-type=RANGE<DATETIME>
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-option_list=
+  | |     +-option_b := Literal(type=INT64, value=2)
+  | +-column=t1.b#2
+  +-ColumnDefinition
+    +-name="c"
+    +-type=RANGE<TIMESTAMP>
+    +-annotations=
+    | +-ColumnAnnotations
+    |   +-option_list=
+    |     +-option_c := Literal(type=INT64, value=3)
+    +-column=t1.c#3
+==
+
+# Create table with RANGE column field options
+[language_features=RANGE_TYPE,V_1_2_CIVIL_TIME,CREATE_TABLE_FIELD_ANNOTATIONS]
+[no_java]
+create table t1 (
+  a range<date options()>,
+  b range<datetime options()>,
+  c range<timestamp options()>
+)
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=RANGE<DATE>, column=t1.a#1)
+  +-ColumnDefinition(name="b", type=RANGE<DATETIME>, column=t1.b#2)
+  +-ColumnDefinition(name="c", type=RANGE<TIMESTAMP>, column=t1.c#3)
+==
+
+# PRIMARY KEY ENFORCED/NOT ENFORCED on RANGE column.
+[language_features=RANGE_TYPE,UNENFORCED_PRIMARY_KEYS]
+[no_java]
+create table t (
+  a int32,
+  b range<date> PRIMARY KEY {{|ENFORCED|NOT ENFORCED}} OPTIONS(x=1)
+);
+--
+ALTERNATION GROUPS:
+    <empty>
+    ENFORCED
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT32, column=t.a#1)
+| +-ColumnDefinition
+|   +-name="b"
+|   +-type=RANGE<DATE>
+|   +-annotations=
+|   | +-ColumnAnnotations
+|   |   +-option_list=
+|   |     +-x := Literal(type=INT64, value=1)
+|   +-column=t.b#2
++-primary_key=
+  +-PrimaryKey(column_offset_list=[1], column_name_list=[b])
+--
+ALTERNATION GROUP: NOT ENFORCED
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT32, column=t.a#1)
+| +-ColumnDefinition
+|   +-name="b"
+|   +-type=RANGE<DATE>
+|   +-annotations=
+|   | +-ColumnAnnotations
+|   |   +-option_list=
+|   |     +-x := Literal(type=INT64, value=1)
+|   +-column=t.b#2
++-primary_key=
+  +-PrimaryKey(column_offset_list=[1], unenforced=TRUE, column_name_list=[b])
+==
+
+# Ordering on PRIMARY KEY() on RANGE column.
+[language_features=RANGE_TYPE]
+[no_java]
+create table t1 (
+  a range<date>,
+  PRIMARY KEY(a {{|ASC|DESC}} {{|NULLS FIRST|NULLS LAST}})
+);
+--
+ALTERNATION GROUP: <empty>
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=RANGE<DATE>, column=t1.a#1)
++-primary_key=
+  +-PrimaryKey(column_offset_list=[0], column_name_list=[a])
+--
+ALTERNATION GROUP: NULLS FIRST
+--
+ERROR: Ordering for primary keys is not supported [at 3:16]
+  PRIMARY KEY(a  NULLS FIRST)
+               ^
+--
+ALTERNATION GROUP: NULLS LAST
+--
+ERROR: Ordering for primary keys is not supported [at 3:16]
+  PRIMARY KEY(a  NULLS LAST)
+               ^
+--
+ALTERNATION GROUP: ASC,
+--
+ERROR: Ordering for primary keys is not supported [at 3:17]
+  PRIMARY KEY(a ASC )
+                ^
+--
+ALTERNATION GROUP: ASC,NULLS FIRST
+--
+ERROR: Ordering for primary keys is not supported [at 3:17]
+  PRIMARY KEY(a ASC NULLS FIRST)
+                ^
+--
+ALTERNATION GROUP: ASC,NULLS LAST
+--
+ERROR: Ordering for primary keys is not supported [at 3:17]
+  PRIMARY KEY(a ASC NULLS LAST)
+                ^
+--
+ALTERNATION GROUP: DESC,
+--
+ERROR: Ordering for primary keys is not supported [at 3:17]
+  PRIMARY KEY(a DESC )
+                ^
+--
+ALTERNATION GROUP: DESC,NULLS FIRST
+--
+ERROR: Ordering for primary keys is not supported [at 3:17]
+  PRIMARY KEY(a DESC NULLS FIRST)
+                ^
+--
+ALTERNATION GROUP: DESC,NULLS LAST
+--
+ERROR: Ordering for primary keys is not supported [at 3:17]
+  PRIMARY KEY(a DESC NULLS LAST)
+                ^
+==
+
+# PRIMARY KEY() on multiple columns, including RANGE.
+[language_features=RANGE_TYPE,V_1_2_CIVIL_TIME,UNENFORCED_PRIMARY_KEYS]
+[no_java]
+create table t1 (
+  a range<date>,
+  b range<datetime>,
+  c range<timestamp>,
+  PRIMARY KEY(a, b ASC, c DESC, d NULLS FIRST, e NULLS LAST){{| ENFORCED| NOT ENFORCED}}
+);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Ordering for primary keys is not supported [at 5:20]
+  PRIMARY KEY(a, b ASC, c DESC, d NULLS FIRST, e NULLS LAST)
+                   ^
+--
+ALTERNATION GROUP:  ENFORCED
+--
+ERROR: Ordering for primary keys is not supported [at 5:20]
+  PRIMARY KEY(a, b ASC, c DESC, d NULLS FIRST, e NULLS LAST) ENFORCED
+                   ^
+--
+ALTERNATION GROUP:  NOT ENFORCED
+--
+ERROR: Ordering for primary keys is not supported [at 5:20]
+  PRIMARY KEY(a, b ASC, c DESC, d NULLS FIRST, e NULLS LAST) NOT ENFORCED
+                   ^
+==
+
+# PRIMARY KEY() ENFORCED/NOT ENFORCED with OPTIONS on RANGE column.
+[language_features=RANGE_TYPE,V_1_2_CIVIL_TIME,UNENFORCED_PRIMARY_KEYS]
+[no_java]
+create table t (a range<date>, PRIMARY KEY(a){{| ENFORCED| NOT ENFORCED}} OPTIONS(x=10,y=20));
+--
+ALTERNATION GROUPS:
+    <empty>
+     ENFORCED
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=RANGE<DATE>, column=t.a#1)
++-primary_key=
+  +-PrimaryKey
+    +-column_offset_list=[0]
+    +-option_list=
+    | +-x := Literal(type=INT64, value=10)
+    | +-y := Literal(type=INT64, value=20)
+    +-column_name_list=[a]
+--
+ALTERNATION GROUP:  NOT ENFORCED
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=RANGE<DATE>, column=t.a#1)
++-primary_key=
+  +-PrimaryKey
+    +-column_offset_list=[0]
+    +-option_list=
+    | +-x := Literal(type=INT64, value=10)
+    | +-y := Literal(type=INT64, value=20)
+    +-unenforced=TRUE
+    +-column_name_list=[a]
+==
+
+# CREATE OR REPLACE TEMP IF NOT EXISTS with RANGE column.
+[language_features=RANGE_TYPE]
+[no_java]
+create {{|or replace}} {{|temporary|temp}} table {{|if not exists}} T (a range<date>) options ()
+--
+ALTERNATION GROUP: <empty>
+--
+CreateTableStmt
++-name_path=T
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=RANGE<DATE>, column=T.a#1)
+--
+ALTERNATION GROUP: if not exists
+--
+CreateTableStmt
++-name_path=T
++-create_mode=CREATE_IF_NOT_EXISTS
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=RANGE<DATE>, column=T.a#1)
+--
+ALTERNATION GROUPS:
+    temporary,
+    temp,
+--
+CreateTableStmt
++-name_path=T
++-create_scope=CREATE_TEMP
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=RANGE<DATE>, column=T.a#1)
+--
+ALTERNATION GROUPS:
+    temporary,if not exists
+    temp,if not exists
+--
+CreateTableStmt
++-name_path=T
++-create_scope=CREATE_TEMP
++-create_mode=CREATE_IF_NOT_EXISTS
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=RANGE<DATE>, column=T.a#1)
+--
+ALTERNATION GROUP: or replace,,
+--
+CreateTableStmt
++-name_path=T
++-create_mode=CREATE_OR_REPLACE
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=RANGE<DATE>, column=T.a#1)
+--
+ALTERNATION GROUP: or replace,,if not exists
+--
+ERROR: CREATE TABLE cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+create or replace  table if not exists T (a range<date>) options ()
+^
+--
+ALTERNATION GROUPS:
+    or replace,temporary,
+    or replace,temp,
+--
+CreateTableStmt
++-name_path=T
++-create_scope=CREATE_TEMP
++-create_mode=CREATE_OR_REPLACE
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=RANGE<DATE>, column=T.a#1)
+--
+ALTERNATION GROUP: or replace,temporary,if not exists
+--
+ERROR: CREATE TABLE cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+create or replace temporary table if not exists T (a range<date>) options ()
+^
+--
+ALTERNATION GROUP: or replace,temp,if not exists
+--
+ERROR: CREATE TABLE cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+create or replace temp table if not exists T (a range<date>) options ()
+^
+==
+
+# CREATE TEMP/PUBLIC/PRIVATE with RANGE column.
+[language_features=RANGE_TYPE]
+[no_java]
+create {{temporary|temp|public|private}} table T (a range<date>) options ()
+--
+ALTERNATION GROUPS:
+    temporary
+    temp
+--
+CreateTableStmt
++-name_path=T
++-create_scope=CREATE_TEMP
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=RANGE<DATE>, column=T.a#1)
+--
+ALTERNATION GROUP: public
+--
+ERROR: CREATE TABLE with PUBLIC or PRIVATE modifiers is not supported [at 1:1]
+create public table T (a range<date>) options ()
+^
+--
+ALTERNATION GROUP: private
+--
+ERROR: CREATE TABLE with PUBLIC or PRIVATE modifiers is not supported [at 1:1]
+create private table T (a range<date>) options ()
+^
+==
+
+# RANGE column being marked as hidden.
+[language_features=RANGE_TYPE]
+[no_java]
+create table t1 (
+  c1 int32,
+  c2 range<date> hidden,
+  c3 string primary key
+);
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+| +-ColumnDefinition(name="c1", type=INT32, column=t1.c1#1)
+| +-ColumnDefinition(name="c2", type=RANGE<DATE>, is_hidden=TRUE, column=t1.c2#2)
+| +-ColumnDefinition(name="c3", type=STRING, column=t1.c3#3)
++-primary_key=
+  +-PrimaryKey(column_offset_list=[2], column_name_list=[c3])
+==
+
+# NOT NULL constraint on RANGE column.
+[language_features=RANGE_TYPE,V_1_2_CIVIL_TIME,CREATE_TABLE_NOT_NULL]
+[no_java]
+create table t1 (
+  c1 RANGE<date> not null,
+  c2 RANGE<datetime> not null,
+  c3 RANGE<timestamp> not null
+);
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+  +-ColumnDefinition
+  | +-name="c1"
+  | +-type=RANGE<DATE>
+  | +-annotations=
+  | | +-ColumnAnnotations(not_null=TRUE)
+  | +-column=t1.c1#1
+  +-ColumnDefinition
+  | +-name="c2"
+  | +-type=RANGE<DATETIME>
+  | +-annotations=
+  | | +-ColumnAnnotations(not_null=TRUE)
+  | +-column=t1.c2#2
+  +-ColumnDefinition
+    +-name="c3"
+    +-type=RANGE<TIMESTAMP>
+    +-annotations=
+    | +-ColumnAnnotations(not_null=TRUE)
+    +-column=t1.c3#3
+==
+
+# NOT NULL constraint on RANGE element is valid in the parser, and resolver will enforce that it is invalid.
+[language_features=RANGE_TYPE,V_1_2_CIVIL_TIME,CREATE_TABLE_NOT_NULL]
+[no_java]
+create table t1 (
+  c4 RANGE<date not null>,
+  c5 RANGE<datetime not null>,
+  c6 RANGE<timestamp not null>
+);
+--
+ERROR: Nested column attributes are unsupported [at 2:17]
+  c4 RANGE<date not null>,
+                ^
+==
+
+# Generated Columns: Range type.
+[language_features=RANGE_TYPE,V_1_2_CIVIL_TIME,V_1_2_GENERATED_COLUMNS]
+[no_enable_literal_replacement]
+[no_java]
+create table t (
+  a RANGE<date> AS (RANGE<date> "[2020-01-01, 2020-12-31)"),
+  b RANGE<datetime> AS (RANGE<datetime> "[2020-01-01 12:00:00, 2020-12-31 12:00:00)"),
+  c RANGE<timestamp> AS (RANGE<timestamp> "[2020-01-01 12:00:00, 2020-12-31 12:00:00)"),
+  d AS ((1, 'abc'))
+);
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition
+  | +-name="a"
+  | +-type=RANGE<DATE>
+  | +-column=t.a#1
+  | +-generated_column_info=
+  |   +-GeneratedColumnInfo
+  |     +-expression=
+  |       +-Literal(type=RANGE<DATE>, value=[2020-01-01, 2020-12-31), has_explicit_type=TRUE)
+  +-ColumnDefinition
+  | +-name="b"
+  | +-type=RANGE<DATETIME>
+  | +-column=t.b#2
+  | +-generated_column_info=
+  |   +-GeneratedColumnInfo
+  |     +-expression=
+  |       +-Literal(type=RANGE<DATETIME>, value=[2020-01-01 12:00:00, 2020-12-31 12:00:00), has_explicit_type=TRUE)
+  +-ColumnDefinition
+  | +-name="c"
+  | +-type=RANGE<TIMESTAMP>
+  | +-column=t.c#3
+  | +-generated_column_info=
+  |   +-GeneratedColumnInfo
+  |     +-expression=
+  |       +-Literal(type=RANGE<TIMESTAMP>, value=[2020-01-01 20:00:00+00, 2020-12-31 20:00:00+00), has_explicit_type=TRUE)
+  +-ColumnDefinition
+    +-name="d"
+    +-type=STRUCT<INT64, STRING>
+    +-column=t.d#4
+    +-generated_column_info=
+      +-GeneratedColumnInfo
+        +-expression=
+          +-Literal(type=STRUCT<INT64, STRING>, value={1, "abc"})
+==
+
+# Range column with default values
+[language_features=RANGE_TYPE,V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+[no_java]
+CREATE TABLE t
+(
+  a RANGE< date > DEFAULT RANGE< DATE > "[2020-01-01, 2020-12-31)"
+)
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition
+    +-name="a"
+    +-type=RANGE<DATE>
+    +-column=t.a#1
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Literal(type=RANGE<DATE>, value=[2020-01-01, 2020-12-31), has_explicit_type=TRUE)
+        +-sql='RANGE< DATE > "[2020-01-01, 2020-12-31)"'
+==
+
+# constraint test for range
+[language_features=RANGE_TYPE,CHECK_CONSTRAINT]
+[no_java]
+create table t (
+  c1 range<date>,
+  c2 range<date>,
+  check (range_overlaps(c1, c2)),
+  check (range_overlaps(c1, c2)) enforced,
+  check (range_overlaps(c1, c2)) not enforced,
+  constraint check_c1_c2_overlaps_1 check (range_overlaps(c1, c2)),
+  constraint check_c1_c2_overlaps_2 check (range_overlaps(c1, c2)) enforced,
+  constraint check_c1_c2_overlaps_3 check (range_overlaps(c1, c2)) not enforced,
+  constraint with_options check (range_overlaps(c1, c2)) options(foo=1)
+);
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="c1", type=RANGE<DATE>, column=t.c1#1)
+| +-ColumnDefinition(name="c2", type=RANGE<DATE>, column=t.c2#2)
++-pseudo_column_list=t.[pseudo_column_int32#3, pseudo_column_kitchensink#4, pseudo_column_timestamp#5]
++-check_constraint_list=
+  +-CheckConstraint
+  | +-constraint_name=""
+  | +-expression=
+  | | +-FunctionCall(ZetaSQL:range_overlaps(RANGE<DATE>, RANGE<DATE>) -> BOOL)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c1#1)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c2#2)
+  | +-enforced=TRUE
+  +-CheckConstraint
+  | +-constraint_name=""
+  | +-expression=
+  | | +-FunctionCall(ZetaSQL:range_overlaps(RANGE<DATE>, RANGE<DATE>) -> BOOL)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c1#1)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c2#2)
+  | +-enforced=TRUE
+  +-CheckConstraint
+  | +-constraint_name=""
+  | +-expression=
+  | | +-FunctionCall(ZetaSQL:range_overlaps(RANGE<DATE>, RANGE<DATE>) -> BOOL)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c1#1)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c2#2)
+  | +-enforced=FALSE
+  +-CheckConstraint
+  | +-constraint_name="check_c1_c2_overlaps_1"
+  | +-expression=
+  | | +-FunctionCall(ZetaSQL:range_overlaps(RANGE<DATE>, RANGE<DATE>) -> BOOL)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c1#1)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c2#2)
+  | +-enforced=TRUE
+  +-CheckConstraint
+  | +-constraint_name="check_c1_c2_overlaps_2"
+  | +-expression=
+  | | +-FunctionCall(ZetaSQL:range_overlaps(RANGE<DATE>, RANGE<DATE>) -> BOOL)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c1#1)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c2#2)
+  | +-enforced=TRUE
+  +-CheckConstraint
+  | +-constraint_name="check_c1_c2_overlaps_3"
+  | +-expression=
+  | | +-FunctionCall(ZetaSQL:range_overlaps(RANGE<DATE>, RANGE<DATE>) -> BOOL)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c1#1)
+  | |   +-ColumnRef(type=RANGE<DATE>, column=t.c2#2)
+  | +-enforced=FALSE
+  +-CheckConstraint
+    +-constraint_name="with_options"
+    +-expression=
+    | +-FunctionCall(ZetaSQL:range_overlaps(RANGE<DATE>, RANGE<DATE>) -> BOOL)
+    |   +-ColumnRef(type=RANGE<DATE>, column=t.c1#1)
+    |   +-ColumnRef(type=RANGE<DATE>, column=t.c2#2)
+    +-enforced=TRUE
+    +-option_list=
+      +-foo := Literal(type=INT64, value=1)
+==
+
+# RANGE column with name range in backticks.
+[language_features=RANGE_TYPE]
+[no_java]
+create table t1 (`range` range<date>);
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+  +-ColumnDefinition(name="range", type=RANGE<DATE>, column=t1.range#1)
+==
+
+# column-level COLLATE with unamed parameters on RANGE is parseable but will
+# be rejected by the resolver.
+[language_features=RANGE_TYPE,V_1_3_COLLATION_SUPPORT,V_1_3_ANNOTATION_FRAMEWORK]
+[no_java]
+create {{|temporary|external}} table t1 (a range<date COLLATE ?>) options ()
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: COLLATE can only be applied to columns or expressions of type STRING, but was applied to DATE [at 1:32]
+create  table t1 (a range<date COLLATE ?>) options ()
+                               ^
+--
+ALTERNATION GROUP: temporary
+--
+ERROR: COLLATE can only be applied to columns or expressions of type STRING, but was applied to DATE [at 1:41]
+create temporary table t1 (a range<date COLLATE ?>) options ()
+                                        ^
+--
+ALTERNATION GROUP: external
+--
+ERROR: CREATE EXTERNAL TABLE with column definition list is unsupported [at 1:26]
+create external table t1 (a range<date COLLATE ?>) options ()
+                         ^
+==
+
+# PARTITION BY RANGE type
+[language_features=CREATE_TABLE_PARTITION_BY,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[no_java]
+create table t1 (
+  c1 range<date>,
+  c2 range<datetime>,
+  c3 range<timestamp>
+)
+partition by c1, c3, c2
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+| +-ColumnDefinition(name="c1", type=RANGE<DATE>, column=t1.c1#1)
+| +-ColumnDefinition(name="c2", type=RANGE<DATETIME>, column=t1.c2#2)
+| +-ColumnDefinition(name="c3", type=RANGE<TIMESTAMP>, column=t1.c3#3)
++-pseudo_column_list=t1.[pseudo_column_int32#4, pseudo_column_kitchensink#5, pseudo_column_timestamp#6]
++-partition_by_list=
+  +-ColumnRef(type=RANGE<DATE>, column=t1.c1#1)
+  +-ColumnRef(type=RANGE<TIMESTAMP>, column=t1.c3#3)
+  +-ColumnRef(type=RANGE<DATETIME>, column=t1.c2#2)
+==
+
+# CLUSTER BY RANGE type
+[language_features=CREATE_TABLE_CLUSTER_BY,RANGE_TYPE,V_1_2_CIVIL_TIME]
+[no_java]
+create table t1 (
+  c1 range<date>,
+  c2 range<datetime>,
+  c3 range<timestamp>
+)
+cluster by c1, c3, c2
+--
+CreateTableStmt
++-name_path=t1
++-column_definition_list=
+| +-ColumnDefinition(name="c1", type=RANGE<DATE>, column=t1.c1#1)
+| +-ColumnDefinition(name="c2", type=RANGE<DATETIME>, column=t1.c2#2)
+| +-ColumnDefinition(name="c3", type=RANGE<TIMESTAMP>, column=t1.c3#3)
++-pseudo_column_list=t1.[pseudo_column_int32#4, pseudo_column_kitchensink#5, pseudo_column_timestamp#6]
++-cluster_by_list=
+  +-ColumnRef(type=RANGE<DATE>, column=t1.c1#1)
+  +-ColumnRef(type=RANGE<TIMESTAMP>, column=t1.c3#3)
+  +-ColumnRef(type=RANGE<DATETIME>, column=t1.c2#2)
 ==
 
 create external table t1 like t2 options();
@@ -1733,7 +2404,6 @@ CreateTableStmt
     |   +-option_list=
     |     +-x := Literal(type=STRING, value="x")
     +-column=t1.c4#4
-
 ==
 
 # CREATE_TABLE_FIELD_ANNOTATIONS does not imply CREATE_TABLE_NOT_NULL
@@ -4592,4 +5262,81 @@ ALTERNATION GROUP: NULLS FIRST
 ERROR: Ordering for primary keys is not supported [at 1:39]
 create table t (c int64, primary key(c NULLS FIRST));
                                       ^
+==
+
+[language_features=]
+create table t (a int64) with connection connection2;
+--
+ERROR: WITH CONNECTION clause is unsupported for CREATE TABLE [at 1:26]
+create table t (a int64) with connection connection2;
+                         ^
+==
+
+# TODO: Make these no_java tests work in java
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table t (a int64) with connection connection2;
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-connection=
+  +-Connection(connection=connection2)
+
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table t (a int64) with connection conn;
+--
+ERROR: Connection not found: conn [at 1:42]
+create table t (a int64) with connection conn;
+                                         ^
+
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table t (a int64) with connection `connection2`;
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-connection=
+  +-Connection(connection=connection2)
+
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table t (a int64) with connection `connection2`
+options(x=foo);
+--
+CreateTableStmt
++-name_path=t
++-option_list=
+| +-x := Literal(type=STRING, value="foo")
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-connection=
+  +-Connection(connection=connection2)
+
+==
+
+[language_features=CREATE_TABLE_WITH_CONNECTION]
+[no_java]
+create table t (a int64) with connection nested_catalog.connection2
+options(x=foo);
+--
+CreateTableStmt
++-name_path=t
++-option_list=
+| +-x := Literal(type=STRING, value="foo")
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-connection=
+  +-Connection(connection=connection2)
+
 ==

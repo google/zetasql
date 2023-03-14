@@ -92,7 +92,6 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:varsetter",
         "//zetasql/public:analyzer_options",
-        "//zetasql/public:analyzer_output",
         "//zetasql/public:analyzer_output_properties",
         "//zetasql/public:catalog",
         "//zetasql/public:function",
@@ -177,9 +176,7 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/public:analyzer_options",
-        "//zetasql/public:analyzer_output",
         "//zetasql/public:analyzer_output_properties",
-        "//zetasql/public:builtin_function",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
         "//zetasql/public:function",
@@ -213,6 +210,8 @@ cc_library(
         "//zetasql/public:value",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_ast_builder",
+        "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
         "//zetasql/resolved_ast:rewrite_utils",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -249,7 +248,10 @@ cc_library(
 cc_library(
     name = "rewriter_interface",
     hdrs = ["rewriter_interface.h"],
-    deps = ["@com_google_absl//absl/status:statusor"],
+    deps = [
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status:statusor",
+    ],
 )
 
 cc_library(
@@ -310,6 +312,7 @@ cc_library(
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_ast_builder",
+        "//zetasql/resolved_ast:resolved_ast_rewrite_visitor",
         "//zetasql/resolved_ast:rewrite_utils",
         "@com_google_absl//absl/types:span",
     ],
@@ -355,9 +358,9 @@ cc_library(
 )
 
 cc_library(
-    name = "unary_function_rewriter",
-    srcs = ["unary_function_rewriter.cc"],
-    hdrs = ["unary_function_rewriter.h"],
+    name = "builtin_function_inliner",
+    srcs = ["builtin_function_inliner.cc"],
+    hdrs = ["builtin_function_inliner.h"],
     deps = [
         ":rewriter_interface",
         "//zetasql/analyzer:substitute",
@@ -365,7 +368,6 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output_properties",
-        "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
         "//zetasql/public:function_headers",
         "//zetasql/public:options_cc_proto",
@@ -375,56 +377,6 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:span",
-    ],
-)
-
-cc_library(
-    name = "ternary_function_rewriter",
-    srcs = ["ternary_function_rewriter.cc"],
-    hdrs = ["ternary_function_rewriter.h"],
-    deps = [
-        ":rewriter_interface",
-        "//zetasql/analyzer:substitute",
-        "//zetasql/base:ret_check",
-        "//zetasql/base:status",
-        "//zetasql/public:analyzer_options",
-        "//zetasql/public:analyzer_output_properties",
-        "//zetasql/public:builtin_function_cc_proto",
-        "//zetasql/public:catalog",
-        "//zetasql/public:function_headers",
-        "//zetasql/public:options_cc_proto",
-        "//zetasql/public/types",
-        "//zetasql/resolved_ast",
-        "//zetasql/resolved_ast:rewrite_utils",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-cc_library(
-    name = "binary_function_rewriter",
-    srcs = ["binary_function_rewriter.cc"],
-    hdrs = ["binary_function_rewriter.h"],
-    deps = [
-        ":rewriter_interface",
-        "//zetasql/analyzer:substitute",
-        "//zetasql/base:ret_check",
-        "//zetasql/base:status",
-        "//zetasql/public:analyzer_options",
-        "//zetasql/public:analyzer_output_properties",
-        "//zetasql/public:builtin_function_cc_proto",
-        "//zetasql/public:catalog",
-        "//zetasql/public:function_headers",
-        "//zetasql/public:options_cc_proto",
-        "//zetasql/public/types",
-        "//zetasql/resolved_ast",
-        "//zetasql/resolved_ast:rewrite_utils",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:span",
     ],
 )
 

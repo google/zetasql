@@ -12,7 +12,9 @@ SELECT 8, interval 10000 year UNION ALL
 SELECT 9, interval '1-2 3 4:5:6.789' year to second UNION ALL
 SELECT 10, interval 2 hour UNION ALL
 SELECT 11, interval '1:59:59.999999' hour to second UNION ALL
-SELECT 12, interval '1:00:00.000001' hour to second
+SELECT 12, interval '1:00:00.000001' hour to second UNION ALL
+SELECT 13, interval '-0.000001' second UNION ALL
+SELECT 14, interval '-4:5:6.789' hour to second
 --
 ARRAY<STRUCT<id INT64, value INTERVAL>>[
   {1, NULL},
@@ -26,7 +28,9 @@ ARRAY<STRUCT<id INT64, value INTERVAL>>[
   {9, 1-2 3 4:5:6.789},
   {10, 0-0 0 2:0:0},
   {11, 0-0 0 1:59:59.999999},
-  {12, 0-0 0 1:0:0.000001}
+  {12, 0-0 0 1:0:0.000001},
+  {13, 0-0 0 -0:0:0.000001},
+  {14, 0-0 0 -4:5:6.789}
 ]
 ==
 [required_features=INTERVAL_TYPE]
@@ -34,6 +38,22 @@ ARRAY<STRUCT<id INT64, value INTERVAL>>[
 WITH t AS (SELECT "P1Y2M<3D" a) SELECT CAST(a AS INTERVAL) FROM t;
 --
 ERROR: generic::out_of_range: Invalid INTERVAL value 'P1Y2M<3D': Unexpected '<'
+==
+
+# Repro test for b/268563477
+[required_features=INTERVAL_TYPE]
+[name=error_message_expected_parse_number1]
+SELECT CAST('P-aY2M3D' AS INTERVAL);
+--
+ERROR: generic::out_of_range: Invalid INTERVAL value 'P-aY2M3D': Expected number at 'a'
+==
+
+# Repro test for b/268563477
+[required_features=INTERVAL_TYPE]
+[name=error_message_expected_parse_number2]
+SELECT CAST('P-' AS INTERVAL);
+--
+ERROR: generic::out_of_range: Invalid INTERVAL value 'P-': Expected number at end of string
 ==
 [required_features=INTERVAL_TYPE]
 [name=literal]
@@ -271,14 +291,14 @@ ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL, INTERVAL, INTERVAL, INTERVAL>>[
 SELECT COUNT(*) num_rows, COUNT(value) num_values, COUNT(DISTINCT value) num_uniques FROM Intervals
 --
 ARRAY<STRUCT<num_rows INT64, num_values INT64, num_uniques INT64>>[
-  {12, 11, 9}
+  {14, 13, 11}
 ]
 ==
 [required_features=INTERVAL_TYPE]
 [name=min_max]
 SELECT MIN(value) min, MAX(value) max FROM Intervals
 --
-ARRAY<STRUCT<min INTERVAL, max INTERVAL>>[{0-0 0 -0:0:1, 10000-0 0 0:0:0}]
+ARRAY<STRUCT<min INTERVAL, max INTERVAL>>[{0-0 0 -4:5:6.789, 10000-0 0 0:0:0}]
 ==
 [required_features=INTERVAL_TYPE]
 [name=sum]
@@ -356,13 +376,37 @@ SELECT AVG(i) avg FROM UNNEST([
 --
 ARRAY<STRUCT<avg INTERVAL>>[{0-0 0 0:0:0}]
 ==
+# Regression test against AVG(INTERVAL) to ensure nanos precision is only
+# non-zero when FEATURE_TIMESTAMP_NANOS is on. See b/245617716.
 [required_features=INTERVAL_TYPE]
+[test_features1=TIMESTAMP_NANOS]
 [name=avg_nano_truncation2]
 SELECT AVG(i) avg FROM UNNEST([
   interval 0 second, interval '-0.000000003' second
 ]) i
 --
+WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE
 ARRAY<STRUCT<avg INTERVAL>>[{0-0 0 -0:0:0.000000001}]
+--
+WITH FEATURES: INTERVAL_TYPE
+ARRAY<STRUCT<avg INTERVAL>>[{0-0 0 0:0:0}]
+==
+# Regression test against AVG(INTERVAL) to ensure nanos precision is only
+# non-zero when FEATURE_TIMESTAMP_NANOS is on. See b/245617716.
+[name=avg_nano_truncation3]
+[required_features=INTERVAL_TYPE]
+[test_features1=TIMESTAMP_NANOS]
+SELECT AVG(e)
+FROM UNNEST([INTERVAL "-7959-1 -153930 54938167:22:41.712081" YEAR TO SECOND,
+            INTERVAL "8630-9 3512412 62113018:54:19.721996" YEAR TO SECOND,
+            INTERVAL "675-8 -224302 -58850294:15:14.439522" YEAR TO SECOND,
+            INTERVAL "2580-1 -200995 40403849:16:44.554610" YEAR TO SECOND]) AS e
+--
+WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE
+ARRAY<STRUCT<INTERVAL>>[{981-10 733303 24651203:19:37.887291250}]
+--
+WITH FEATURES: INTERVAL_TYPE
+ARRAY<STRUCT<INTERVAL>>[{981-10 733303 24651203:19:37.887291}]
 ==
 [required_features=INTERVAL_TYPE]
 [name=avg_all_nulls]
@@ -391,7 +435,9 @@ SELECT ARRAY_AGG(value ORDER BY value, id) FROM Intervals
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<INTERVAL>[
      NULL,
+     0-0 0 -4:5:6.789,
      0-0 0 -0:0:1,
+     0-0 0 -0:0:0.000001,
      0-0 0 0:0:0,
      0-0 0 0:0:0.000001,
      0-0 0 1:0:0.000001,
@@ -409,7 +455,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 [name=approx_count_distinct]
 SELECT APPROX_COUNT_DISTINCT(value) approx_uniques FROM Intervals
 --
-ARRAY<STRUCT<approx_uniques INT64>>[{9}]
+ARRAY<STRUCT<approx_uniques INT64>>[{11}]
 ==
 [required_features=INTERVAL_TYPE]
 [name=approx_quantiles]
@@ -433,7 +479,9 @@ ARRAY<STRUCT<
         second_quantile INTERVAL,
         third_quantile INTERVAL,
         fourth_quantile INTERVAL
-      >>[{4, 0-0 0 -0:0:1, 0-0 0 1:0:0.000001, 0-1 0 0:0:0, 10000-0 0 0:0:0}]
+      >>[
+  {4, 0-0 0 -4:5:6.789, 0-0 0 0:0:0.000001, 0-1 0 0:0:0, 10000-0 0 0:0:0}
+]
 ==
 [required_features=INTERVAL_TYPE]
 [name=approx_top_count]
@@ -469,7 +517,9 @@ ARRAY<STRUCT<id INT64, value INTERVAL>>[
   {12, 0-0 0 1:0:0.000001},
   {3, 0-0 0 0:0:0.000001},
   {2, 0-0 0 0:0:0},
+  {13, 0-0 0 -0:0:0.000001},
   {4, 0-0 0 -0:0:1},
+  {14, 0-0 0 -4:5:6.789},
   {1, NULL}
 ]
 ==
@@ -484,7 +534,12 @@ ORDER BY cnt DESC, value ASC
 ARRAY<STRUCT<value STRING, cnt INT64>>[
   {"1 month", 3},
   {NULL, 1},
+  {
+    "0-0 0 -0:0:0.000001",
+    1
+  },
   {"0-0 0 -0:0:1", 1},
+  {"0-0 0 -4:5:6.789", 1},
   {"0-0 0 0:0:0", 1},
   {"0-0 0 0:0:0.000001", 1},
   {"0-0 0 1:0:0.000001", 1},
@@ -507,7 +562,9 @@ ORDER BY value
 --
 ARRAY<STRUCT<value STRING>>[
   {NULL},
+  {"0-0 0 -0:0:0.000001"},
   {"0-0 0 -0:0:1"},
+  {"0-0 0 -4:5:6.789"},
   {"0-0 0 0:0:0"},
   {"0-0 0 0:0:0.000001"},
   {"0-0 0 1:0:0.000001"},
@@ -556,31 +613,55 @@ FROM Intervals
 WHERE value < INTERVAL 1 year
 --
 ARRAY<STRUCT<INTERVAL>>[
-  {0-0 0 -0:0:1},
-  {0-0 0 -0:0:1},
-  {0-0 0 -0:0:0.999999},
-  {0-0 0 0:59:59.000002},
-  {0-0 0 2:59:59.000001},
-  {0-0 0 4:59:59.000001},
-  {0-1 0 4:59:59.000001},
-  {0-1 30 4:59:59.000001},
-  {0-1 30 724:59:59.000001}
+  {0-0 0 -4:5:6.789},
+  {0-0 0 -4:5:7.789},
+  {0-0 0 -4:5:7.789001},
+  {0-0 0 -4:5:7.789001},
+  {0-0 0 -4:5:7.789},
+  {0-0 0 -3:5:7.788999},
+  {0-0 0 -1:5:7.789},
+  {0-0 0 0:54:52.211},
+  {0-1 0 0:54:52.211},
+  {0-1 30 0:54:52.211},
+  {0-1 30 720:54:52.211}
 ]
 ==
 [required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
+[test_features1=TIMESTAMP_NANOS]
 [name=analytic_moving_avg]
 SELECT AVG(value) OVER(ORDER BY value, id ASC ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) FROM Intervals
 --
+WITH FEATURES: ANALYTIC_FUNCTIONS,TIMESTAMP_NANOS,INTERVAL_TYPE
 ARRAY<STRUCT<INTERVAL>>[
   {NULL},
-  {0-0 0 -0:0:1},
-  {0-0 0 -0:0:0.500},
-  {0-0 0 -0:0:0.333333},
-  {0-0 0 0:14:59.750000500},
+  {0-0 0 -4:5:6.789},
+  {0-0 0 -2:2:33.894500},
+  {0-0 0 -1:21:42.596333666},
+  {0-0 0 -1:1:16.947250250},
+  {0-0 0 -0:0:0.250},
+  {0-0 0 0:15:0.000000250},
   {0-0 0 0:45:0.000000250},
   {0-0 0 1:15:0.000000250},
   {0-0 7 13:15:0},
   {0-0 15 0:59:59.999999750},
+  {0-0 15 180:30:0},
+  {0-3 30 199:1:16.697250},
+  {2500-3 23 187:1:16.697250}
+]
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS,INTERVAL_TYPE
+ARRAY<STRUCT<INTERVAL>>[
+  {NULL},
+  {0-0 0 -4:5:6.789},
+  {0-0 0 -2:2:33.894500},
+  {0-0 0 -1:21:42.596333},
+  {0-0 0 -1:1:16.947250},
+  {0-0 0 -0:0:0.250},
+  {0-0 0 0:15:0},
+  {0-0 0 0:45:0},
+  {0-0 0 1:15:0},
+  {0-0 7 13:15:0},
+  {0-0 15 0:59:59.999999},
   {0-0 15 180:30:0},
   {0-3 30 199:1:16.697250},
   {2500-3 23 187:1:16.697250}
@@ -592,8 +673,10 @@ SELECT MIN(value) OVER(w), MAX(value) OVER w FROM Intervals
 WINDOW w AS (ORDER BY value ASC, id ASC ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING)
 --
 ARRAY<STRUCT<INTERVAL, INTERVAL>>[
+  {0-0 0 -4:5:6.789, 0-0 0 -0:0:0.000001},
+  {0-0 0 -4:5:6.789, 0-0 0 0:0:0},
   {0-0 0 -0:0:1, 0-0 0 0:0:0.000001},
-  {0-0 0 -0:0:1, 0-0 0 1:0:0.000001},
+  {0-0 0 -0:0:0.000001, 0-0 0 1:0:0.000001},
   {0-0 0 0:0:0, 0-0 0 1:59:59.999999},
   {0-0 0 0:0:0.000001, 0-0 0 2:0:0},
   {0-0 0 1:0:0.000001, 0-1 0 0:0:0},
@@ -614,7 +697,9 @@ ORDER BY value ASC, id ASC
 --
 ARRAY<STRUCT<value INTERVAL, INT64>>[
   {NULL, 1},
+  {0-0 0 -4:5:6.789, 1},
   {0-0 0 -0:0:1, 1},
+  {0-0 0 -0:0:0.000001, 1},
   {0-0 0 0:0:0, 1},
   {0-0 0 0:0:0.000001, 1},
   {0-0 0 1:0:0.000001, 1},
@@ -765,18 +850,20 @@ SELECT
 FROM Intervals;
 --
 ARRAY<STRUCT<INT64>>[
-  {9},
-  {9},
-  {9},
-  {9},
-  {9},
-  {9},
-  {9},
-  {9},
-  {9},
-  {9},
-  {9},
-  {9}
+  {11},
+  {11},
+  {11},
+  {11},
+  {11},
+  {11},
+  {11},
+  {11},
+  {11},
+  {11},
+  {11},
+  {11},
+  {11},
+  {11}
 ]
 ==
 [required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
@@ -793,7 +880,9 @@ SELECT JUSTIFY_INTERVAL(i) as justified_i FROM UNNEST(
 --
 ARRAY<STRUCT<justified_i INTERVAL>>[
   {NULL},
+  {0-0 0 -4:5:6.789},
   {0-0 0 -0:0:1},
+  {0-0 0 -0:0:0.000001},
   {0-0 0 0:0:0},
   {0-0 0 0:0:0.000001},
   {0-0 0 1:0:0.000001},
@@ -815,10 +904,12 @@ ARRAY<STRUCT<value INTERVAL, BOOL>>[
   {10000-0 0 0:0:0, false},
   {0-0 0 2:0:0, false},
   {0-0 0 1:0:0.000001, false},
+  {0-0 0 -4:5:6.789, false},
   {NULL, NULL},
   {0-0 0 0:0:0.000001, false},
   {0-1 0 0:0:0, true},
   {0-0 0 720:0:0, true},
   {1-2 3 4:5:6.789, false},
-  {0-0 0 1:59:59.999999, false}
+  {0-0 0 1:59:59.999999, false},
+  {0-0 0 -0:0:0.000001, false}
 ]

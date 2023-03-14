@@ -30,4 +30,10 @@ public abstract class ASTNode implements DebugPrintableNode {
     debugStringImpl("", "", sb);
     return sb.toString();
   }
+
+  protected void acceptChildren(ParseTreeVisitor visitor) {}
+
+  public void accept(ParseTreeVisitor visitor) {
+    visitor.visit(this);
+  }
 }

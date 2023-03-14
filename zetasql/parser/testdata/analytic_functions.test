@@ -1322,6 +1322,10 @@ order by f() over (), (f() over ())+1
 QueryStatement [0-79]
   Query [0-79]
     SetOperation(UNION ALL) [0-41]
+      SetOperationMetadataList [16-25]
+        SetOperationMetadata [16-25]
+          SetOperationType [16-21]
+          ASTSetOperationAllOrDistinct [22-25]
       Select [0-15]
         SelectList [7-8]
           SelectColumn [7-8]
@@ -1923,3 +1927,4 @@ ALTERNATION GROUP: respect
 ERROR: Syntax error: Expected ")" but got keyword RESPECT [at 1:23]
 select f(a, b limit 1 respect nulls) over () from T
                       ^
+==

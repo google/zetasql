@@ -44,6 +44,15 @@ message DeprecationWarning {
     // proto.has_<field>() is not well-defined if 'proto' comes from a file with
     // proto3 syntax, but it is currently supported by the analyzer.
     PROTO3_FIELD_PRESENCE = 3;
+
+    // TODO: when a new kind of warning is added, consider
+    // integrating these complex query warnings.
+    QUERY_TOO_COMPLEX = 4;
+
+    // Indicates that the query used the anonymization option KAPPA.
+    //
+    // The option is deprecated in favor of the synonym MAX_GROUPS_CONTRIBUTED.
+    DEPRECATED_ANONYMIZATION_OPTION_KAPPA = 5;
   }
 
   optional Kind kind = 1;

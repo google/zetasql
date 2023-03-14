@@ -85,11 +85,6 @@ class FilebasedSQLTestCaseOptions {
   const std::set<LanguageFeature>& test_features1() const {
     return test_features1_;
   }
-  // A set of features that indicates one of several possible expected results.
-  // Should be different that test_features1().
-  const std::set<LanguageFeature>& test_features2() const {
-    return test_features2_;
-  }
 
   // [labels=...] specified specificallyh on this test case.
   const std::vector<std::string>& local_labels() const { return local_labels_; }
@@ -109,8 +104,8 @@ class FilebasedSQLTestCaseOptions {
 
   PrimaryKeyMode primary_key_mode() const { return primary_key_mode_; }
 
-  // True for tet file segments marked [prepare_database]. These segments aren't
-  // actually tests. Instead they set up schema objects such as tables or
+  // True for test file segments marked [prepare_database]. These segments
+  // aren't actually tests. Instead they set up schema objects such as tables or
   // functions.
   bool prepare_database() const { return prepare_database_; }
 
@@ -128,7 +123,6 @@ class FilebasedSQLTestCaseOptions {
   std::set<LanguageFeature> required_features_;
   std::set<LanguageFeature> forbidden_features_;
   std::set<LanguageFeature> test_features1_;
-  std::set<LanguageFeature> test_features2_;
   std::vector<std::string> local_labels_;
   std::set<std::string> new_proto_file_names_;
   std::set<std::string> new_proto_message_names_;

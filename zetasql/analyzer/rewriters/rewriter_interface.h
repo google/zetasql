@@ -19,7 +19,10 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {
@@ -28,7 +31,6 @@ class AnalyzerOptions;
 class AnalyzerOutput;
 class AnalyzerOutputProperties;
 class Catalog;
-class ResolvedNode;
 class TypeFactory;
 
 // A Rewriter rewrites known patterns in a ResolvedAST, typically to simpler or
@@ -66,12 +68,35 @@ class Rewriter {
   //     rewrite and the rewrite doesn't support a shape, the engine doesn't
   //     support that shape either. The user needs to see these errors so they
   //     can work around the unsupported shape.
+  //
+  // Note: this is the 'in-place' rewrite interface, which is preferred over
+  //   the deep-copy interface.
+  //
+  // Only one Rewrite method should be implemented.
+  virtual absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+      const AnalyzerOptions& options, std::unique_ptr<const ResolvedNode> input,
+      Catalog& catalog, TypeFactory& type_factory,
+      AnalyzerOutputProperties& output_properties) const {
+    // If the in-place rewrite isn't implemented, we call the deep-copy
+    // version.
+    return Rewrite(options, *input, catalog, type_factory, output_properties);
+  }
+
+  virtual std::string Name() const = 0;
+
+ protected:
+  // DEPRECATED
+  // Alternative implementation that performs a deep-copy of the resolved ast.
+  // This is the 'legacy' interface, and not preferred.
+  //
+  // Only one Rewrite method should be implemented.
   virtual absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
-      AnalyzerOutputProperties& output_properties) const = 0;
-
-  virtual std::string Name() const = 0;
+      AnalyzerOutputProperties& output_properties) const {
+    return absl::Status(absl::StatusCode::kUnimplemented,
+                        "neither in-place, nor deep-copy implemented");
+  }
 };
 
 }  // namespace zetasql

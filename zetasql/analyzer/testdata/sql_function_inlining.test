@@ -31,7 +31,10 @@ QueryStmt
       +-SingleRowScan
 ==
 
+[suppress_builtin_functions={{|NULLIFERROR|IFERROR}}]
 SELECT SAFE.NullaryPi();
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=
@@ -58,6 +61,24 @@ QueryStmt
     |     +-Literal(type=DOUBLE, value=NULL)
     +-input_scan=
       +-SingleRowScan
+--
+ALTERNATION GROUPS:
+    NULLIFERROR
+    IFERROR
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall({SAFE_ERROR_MODE} Lazy_resolution_function:NullaryPi() -> DOUBLE)
+    +-input_scan=
+      +-SingleRowScan
+
+Rewrite ERROR: generic::unimplemented: SAFE mode calls to NullaryPi are not supported.
 ==
 
 SELECT NullaryWithSubquery();

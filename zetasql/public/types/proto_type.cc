@@ -344,6 +344,11 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
         case FieldFormat::INTERVAL:
           *kind = TYPE_INTERVAL;
           break;
+        case FieldFormat::RANGE_DATES_ENCODED:
+        case FieldFormat::RANGE_DATETIMES_ENCODED:
+        case FieldFormat::RANGE_TIMESTAMPS_ENCODED:
+          *kind = TYPE_RANGE;
+          break;
         default:
           // Should not reach this if ValidateTypeAnnotations() is working
           // properly.

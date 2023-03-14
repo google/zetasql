@@ -26,8 +26,32 @@ message ComplianceTestsLabels {
 
 // Information about each test case containing extracted label
 message ComplianceTestCaseLabels {
+  // A query parameter supplied to a test statement.
+  message Param {
+    optional string param_name = 1;
+    optional string param_value_literal = 2;
+  }
+  // The location of a test statement in the repository.
+  message Location {
+    optional string file = 1;
+    optional int32 line = 2;
+  }
+
   optional string test_name = 1;
   optional string test_query = 2;
+
+  // Params are useful to repro failing queries identified in the report.
+  repeated Param param = 7;
+
   optional KnownErrorMode test_error_mode = 3;
   repeated string compliance_labels = 4;
+
+  // This field was added for debugging the compliance reporting tool. We see
+  // duplicate test names, and this should help us learn if the tests in
+  // are duplicates in the same shard or across different shards.
+  optional int64 test_shard = 8;
+
+  // This string encodes the file name and line for compliance based tests.
+  // We are including it to help locate file based test cases.
+  optional Location test_location = 9;
 }

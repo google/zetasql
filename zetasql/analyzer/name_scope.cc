@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/path_expression_span.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/catalog_helper.h"
@@ -317,14 +318,12 @@ static bool FindLongestMatchingPathIfAny(
 }
 
 absl::Status NameScope::LookupNamePath(
-    const ASTPathExpression* path_expr,
-    const char* clause_name,
-    bool is_post_distinct,
-    bool in_strict_mode,
-    CorrelatedColumnsSetList* correlated_columns_sets,
-    int* num_names_consumed,
+    const PathExpressionSpan& path_expr, const char* clause_name,
+    bool is_post_distinct, bool in_strict_mode,
+    CorrelatedColumnsSetList* correlated_columns_sets, int* num_names_consumed,
     NameTarget* target_out) const {
-  const IdString first_name = path_expr->first_name()->GetAsIdString();
+  const IdString first_name = path_expr.GetFirstIdString();
+
   *num_names_consumed = 0;
   // First we try resolving path_expr using name_scope.
   NameTarget target;
@@ -332,19 +331,19 @@ absl::Status NameScope::LookupNamePath(
   // the lookup resolves to a correlated column.
   if (LookupName(first_name, &target, correlated_columns_sets)) {
     if (in_strict_mode && target.IsImplicit()) {
-      return MakeSqlErrorAt(path_expr)
+      return MakeSqlErrorAt(path_expr.first_name())
              << "Alias " << ToIdentifierLiteral(first_name)
              << " cannot be used without a qualifier in strict name "
                 "resolution mode";
     }
+
     switch (target.kind()) {
       case NameTarget::RANGE_VARIABLE: {
         const NameList& scan_columns = *target.scan_columns();
-
-        if (path_expr->num_names() >= 2) {
+        if (path_expr.num_names() >= 2) {
           // We have at least two identifiers and the first is a scan alias.
           // The second identifier must be a column in that scan to be valid.
-          const IdString dot_name = path_expr->name(1)->GetAsIdString();
+          const IdString dot_name = path_expr.name(1)->GetAsIdString();
           NameTarget found_column;
           if (!scan_columns.LookupName(dot_name, &found_column)) {
             if (scan_columns.is_value_table()) {
@@ -355,7 +354,7 @@ absl::Status NameScope::LookupNamePath(
               *num_names_consumed = 1;
               break;
             }
-            return MakeSqlErrorAt(path_expr->name(1))
+            return MakeSqlErrorAt(path_expr.name(1))
                    << "Name " << dot_name << " not found inside " << first_name;
           }
           switch (found_column.kind()) {
@@ -368,11 +367,11 @@ absl::Status NameScope::LookupNamePath(
                                << " for field";
             }
             case NameTarget::AMBIGUOUS:
-              return MakeSqlErrorAt(path_expr->name(1))
+              return MakeSqlErrorAt(path_expr.name(1))
                      << "Name " << dot_name << " is ambiguous inside "
                      << first_name;
             case NameTarget::RANGE_VARIABLE:
-              return MakeSqlErrorAt(path_expr)
+              return MakeSqlErrorAt(path_expr.first_name())
                      << "Name " << first_name << "." << dot_name
                      << " is a table alias, but a column was expected";
             case NameTarget::FIELD_OF:
@@ -396,7 +395,7 @@ absl::Status NameScope::LookupNamePath(
                 // any cases where a range variable introduced in a FROM
                 // clause contains value table columns but is not a value
                 // table range variable itself.
-                return MakeSqlErrorAt(path_expr)
+                return MakeSqlErrorAt(path_expr.first_name())
                        << "Name " << first_name << "." << dot_name
                        << " is a value table field, but a column was expected";
               }
@@ -407,7 +406,6 @@ absl::Status NameScope::LookupNamePath(
               // two names of the path have been consumed.
               *target_out = found_column;
               *num_names_consumed = 2;
-
               break;
             }
           }
@@ -424,11 +422,11 @@ absl::Status NameScope::LookupNamePath(
         // The name exists but accessing it is an error.  However,
         // if we are accessing fields from this name then check to
         // see if the field access is valid.
-        if (path_expr->num_names() > 1) {
+        if (path_expr.num_names() >= 2) {
           std::vector<IdString> path_names;
 
-          for (int idx = 1; idx < path_expr->num_names(); ++idx) {
-            const ASTIdentifier* identifier = path_expr->name(idx);
+          for (int idx = 1; idx < path_expr.num_names(); ++idx) {
+            const ASTIdentifier* identifier = path_expr.name(idx);
             path_names.push_back(identifier->GetAsIdString());
           }
 
@@ -437,12 +435,13 @@ absl::Status NameScope::LookupNamePath(
                                             path_names, &resolved_column,
                                             num_names_consumed)) {
             if (!target.access_error_message().empty()) {
-              return MakeSqlErrorAt(path_expr) << target.access_error_message();
+              return MakeSqlErrorAt(path_expr.first_name())
+                     << target.access_error_message();
             }
-            return MakeSqlErrorAt(path_expr)
+            return MakeSqlErrorAt(path_expr.first_name())
                    << (strlen(clause_name) == 0 ? "An" : clause_name)
                    << " expression references "
-                   << path_expr->ToIdentifierPathString() << " which is "
+                   << path_expr.ToIdentifierPathString() << " which is "
                    << (is_post_distinct ? "not visible after SELECT DISTINCT"
                                         : "neither grouped nor aggregated");
           }
@@ -456,7 +455,8 @@ absl::Status NameScope::LookupNamePath(
         } else {
           // Accessing the column or range variable name is invalid.
           if (!target.access_error_message().empty()) {
-            return MakeSqlErrorAt(path_expr) << target.access_error_message();
+            return MakeSqlErrorAt(path_expr.first_name())
+                   << target.access_error_message();
           }
           if (target.IsRangeVariableKind(target.original_kind())) {
             // However, for range variables the caveat is that if all of its
@@ -468,7 +468,7 @@ absl::Status NameScope::LookupNamePath(
             // there is no interest over time, we can delete this case and
             // remove this TODO.
           }
-          return MakeSqlErrorAt(path_expr)
+          return MakeSqlErrorAt(path_expr.first_name())
                  << (strlen(clause_name) == 0 ? "An" : clause_name)
                  << " expression references "
                  // TODO: We currently model array offset references
@@ -477,7 +477,7 @@ absl::Status NameScope::LookupNamePath(
                  << (target.IsRangeVariableKind(target.original_kind())
                          ? "table alias "
                          : "column ")
-                 << path_expr->ToIdentifierPathString() << " which is "
+                 << path_expr.ToIdentifierPathString() << " which is "
                  << (is_post_distinct ? "not visible after SELECT DISTINCT"
                                       : "neither grouped nor aggregated");
         }
@@ -485,7 +485,7 @@ absl::Status NameScope::LookupNamePath(
       }
 
       case NameTarget::AMBIGUOUS:
-        return MakeSqlErrorAt(path_expr)
+        return MakeSqlErrorAt(path_expr.first_name())
                << "Column name " << ToIdentifierLiteral(first_name)
                << " is ambiguous";
 
@@ -527,10 +527,8 @@ absl::Status NameScope::LookupNamePath(
   // valid to reference and is not an error target.  If we resolved part
   // of the name to an error target, then we already returned an error
   // status above.
-  ZETASQL_RET_CHECK(*num_names_consumed == 0 ||
-            target_out->IsRangeVariable() ||
-            target_out->IsColumn() ||
-            target_out->IsFieldOf());
+  ZETASQL_RET_CHECK(*num_names_consumed == 0 || target_out->IsRangeVariable() ||
+            target_out->IsColumn() || target_out->IsFieldOf());
 
   return absl::OkStatus();
 }

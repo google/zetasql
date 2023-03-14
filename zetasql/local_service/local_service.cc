@@ -53,11 +53,10 @@
 #include "zetasql/public/value.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/sql_builder.h"
-#include "absl/base/thread_annotations.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/functional/bind_front.h"
 #include "absl/status/statusor.h"
-#include "absl/synchronization/mutex.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
@@ -1474,12 +1473,22 @@ absl::Status ZetaSqlLocalServiceImpl::GetBuiltinFunctions(
   TypeFactory factory;
   std::map<std::string, std::unique_ptr<Function>> functions;
   ZetaSQLBuiltinFunctionOptions options(proto);
+  absl::flat_hash_map<std::string, const Type*> types;
 
-  zetasql::GetZetaSQLFunctions(&factory, options, &functions);
+  ZETASQL_RETURN_IF_ERROR(zetasql::GetZetaSQLFunctionsAndTypes(&factory, options,
+                                                           &functions, &types));
 
-  FileDescriptorSetMap map;
+  FileDescriptorSetMap file_descriptor_set_map;
   for (const auto& function : functions) {
-    ZETASQL_RETURN_IF_ERROR(function.second->Serialize(&map, resp->add_function()));
+    ZETASQL_RETURN_IF_ERROR(function.second->Serialize(&file_descriptor_set_map,
+                                               resp->add_function()));
+  }
+
+  auto& response_types = *resp->mutable_types();
+  for (const auto& [name, type] : types) {
+    TypeProto& type_proto = response_types[name];
+    ZETASQL_RETURN_IF_ERROR(type->SerializeToProtoAndDistinctFileDescriptors(
+        &type_proto, &file_descriptor_set_map));
   }
 
   return absl::OkStatus();
@@ -1507,7 +1516,6 @@ absl::Status ZetaSqlLocalServiceImpl::GetAnalyzerOptions(
 
 absl::Status ZetaSqlLocalServiceImpl::Parse(const ParseRequest& request,
     ParseResponse* response) {
-  const std::string& sql = request.sql_statement();
   auto language_options =
       request.has_options()
           ? std::make_unique<LanguageOptions>(request.options())
@@ -1516,13 +1524,72 @@ absl::Status ZetaSqlLocalServiceImpl::Parse(const ParseRequest& request,
   ParserOptions parser_options =
       ParserOptions(/*id_string_pool=*/nullptr,
                     /*arena=*/nullptr, language_options.get());
-  std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_RETURN_IF_ERROR(ParseStatement(sql, parser_options, &parser_output));
 
-  const zetasql::ASTStatement* statement = parser_output->statement();
-  zetasql::AnyASTStatementProto proto;
-  return ParseTreeSerializer::Serialize(statement,
-                                        response->mutable_parsed_statement());
+  if (request.allow_script()) {
+    return ParseScriptImpl(request, response, parser_options);
+  } else {
+    return ParseStatementImpl(request, response, parser_options);
+  }
+}
+
+absl::Status ZetaSqlLocalServiceImpl::ParseStatementImpl(
+    const ParseRequest& request, ParseResponse* response,
+    ParserOptions& parser_options) {
+  std::unique_ptr<ParserOutput> parser_output;
+
+  if (request.has_sql_statement()) {
+    const std::string& sql = request.sql_statement();
+
+    ZETASQL_RETURN_IF_ERROR(ParseStatement(sql, parser_options, &parser_output));
+
+    return ParseTreeSerializer::Serialize(parser_output->statement(),
+                                          response->mutable_parsed_statement());
+  } else if (request.has_parse_resume_location()) {
+    bool at_end_of_input;
+    ParseResumeLocation location =
+        ParseResumeLocation::FromProto(request.parse_resume_location());
+    ZETASQL_RETURN_IF_ERROR(ParseNextStatement(&location, parser_options,
+                                       &parser_output, &at_end_of_input));
+
+    response->set_resume_byte_position(location.byte_position());
+    return ParseTreeSerializer::Serialize(parser_output->statement(),
+                                          response->mutable_parsed_statement());
+  } else {
+    return ::zetasql_base::UnknownErrorBuilder() << "ParseRequest target not set";
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status ZetaSqlLocalServiceImpl::ParseScriptImpl(
+    const ParseRequest& request, ParseResponse* response,
+    ParserOptions& parser_options) {
+  std::unique_ptr<ParserOutput> parser_output;
+
+  if (request.has_sql_statement()) {
+    const std::string& sql = request.sql_statement();
+
+    ZETASQL_RETURN_IF_ERROR(ParseScript(sql, parser_options,
+                                ErrorMessageMode::ERROR_MESSAGE_ONE_LINE,
+                                &parser_output));
+
+    return ParseTreeSerializer::Serialize(parser_output->script(),
+                                          response->mutable_parsed_script());
+  } else if (request.has_parse_resume_location()) {
+    bool at_end_of_input;
+    ParseResumeLocation location =
+        ParseResumeLocation::FromProto(request.parse_resume_location());
+    ZETASQL_RETURN_IF_ERROR(ParseNextScriptStatement(&location, parser_options,
+                                             &parser_output, &at_end_of_input));
+
+    response->set_resume_byte_position(location.byte_position());
+    return ParseTreeSerializer::Serialize(parser_output->statement(),
+                                          response->mutable_parsed_statement());
+  } else {
+    return ::zetasql_base::UnknownErrorBuilder() << "ParseRequest target not set";
+  }
+
+  return absl::OkStatus();
 }
 
 size_t ZetaSqlLocalServiceImpl::NumRegisteredDescriptorPools() const {

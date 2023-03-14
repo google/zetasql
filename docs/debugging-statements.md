@@ -1,8 +1,10 @@
 
 
+# Debugging statements
+
 ZetaSQL supports the following debugging statements.
 
-## ASSERT
+## `ASSERT`
 ```
 ASSERT expression [AS description]
 ```

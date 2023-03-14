@@ -19,17 +19,6 @@ SELECT a FROM R
 ARRAY<STRUCT<a INT64>>[{2}]
 ==
 
-[name=with_recursive_illegal_cycle]
-WITH RECURSIVE
-  R AS (SELECT a FROM S),
-  S AS (SELECT a FROM R)
-SELECT a FROM R;
---
-ERROR: generic::invalid_argument: Unsupported WITH entry dependency cycle: S => R => S [at 1:1]
-WITH RECURSIVE
-^
-==
-
 [name=recursive_query_simple]
 WITH RECURSIVE
   R AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM R WHERE n < 10)
@@ -131,13 +120,12 @@ ARRAY<STRUCT<path ARRAY<>, total_cost INT64>>[
 
 # WITH RECURSIVE in subquery
 [name=recursive_query_subquery]
-[test_features1=V_1_1_WITH_ON_SUBQUERY]
+[required_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
 SELECT * FROM (
   WITH RECURSIVE t AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t WHERE n < 10)
   SELECT n, 2*n FROM t
 );
 --
-WITH FEATURES: V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE
 ARRAY<STRUCT<n INT64, INT64>>[
   {2, 4},
   {4, 8},
@@ -150,11 +138,6 @@ ARRAY<STRUCT<n INT64, INT64>>[
   {7, 14},
   {9, 18}
 ]
---
-WITH FEATURES: V_1_3_WITH_RECURSIVE
-ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 2:3]
-  WITH RECURSIVE t AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t WHERE n < 10)
-  ^
 ==
 
 # WITH RECURSIVE nested in the recursive term of an outer WITH RECURSIVE
@@ -260,7 +243,7 @@ ARRAY<STRUCT<n INT64>>[
 ==
 
 [name=recursive_query_family_tree]
-[test_features1=V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_3_WITH_RECURSIVE]
  -- Sample recursive query to find the ancestors and descendants of each person
  -- in a family tree
 WITH RECURSIVE
@@ -329,7 +312,6 @@ WITH RECURSIVE
   )
 SELECT * FROM PersonInfo;
 --
-WITH FEATURES: V_1_1_ORDER_BY_IN_AGGREGATE,V_1_3_WITH_RECURSIVE
 ARRAY<STRUCT<Person STRING, Ancestors ARRAY<>, Descendants ARRAY<>>>[
   {
     "Alice",
@@ -377,11 +359,6 @@ ARRAY<STRUCT<Person STRING, Ancestors ARRAY<>, Descendants ARRAY<>>>[
     ARRAY<STRING>(NULL)
   }
 ]
---
-WITH FEATURES: V_1_3_WITH_RECURSIVE
-ERROR: generic::invalid_argument: ORDER BY in aggregate function is not supported [at 58:28]
-      ARRAY_AGG(Descendant ORDER BY Descendant) AS Descendants,
-                           ^
 ==
 
 [name=recursive_query_string_pattern_match]
@@ -824,7 +801,6 @@ ARRAY<STRUCT<origin STRING, destination STRING>>[
 # Repeat fibanocci query using UNION DISTINCT instead of UNION ALL; should not
 # affect the result.
 [name=recursive_query_fib_distinct]
-[test_features1=V_1_3_WITH_RECURSIVE]
 WITH RECURSIVE
   Fib AS (
     SELECT 1 AS a, 1 AS b, 1 AS n
@@ -849,7 +825,7 @@ ARRAY<STRUCT<n INT64, a INT64>>[
 
 # Recursive query using UNION DISTINCT in a subquery
 [name=recursive_query_distinct_subquery]
-[test_features2=V_1_1_WITH_ON_SUBQUERY]
+[required_features=V_1_3_WITH_RECURSIVE,V_1_1_WITH_ON_SUBQUERY]
 SELECT * FROM (
   WITH RECURSIVE
     t AS (
@@ -860,13 +836,7 @@ SELECT * FROM (
   SELECT * FROM t
 );
 --
-WITH FEATURES: V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE
 ARRAY<STRUCT<a INT64>>[{0}, {1}, {2}, {3}, {4}]
---
-WITH FEATURES: V_1_3_WITH_RECURSIVE
-ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 2:3]
-  WITH RECURSIVE
-  ^
 ==
 
 # Recursive query nested inside the non-recursive term of an outer recursive
@@ -1038,3 +1008,37 @@ WITH RECURSIVE
 ) SELECT * FROM t;
 --
 ARRAY<STRUCT<n INT64>>[{1}, {2}, {3}, {4}, {0}]
+==
+
+# WITH RECURSIVE nested in the SELECT list.
+[required_features=V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
+[name=recursive_query_nested_in_select_list]
+SELECT
+  (
+    WITH RECURSIVE
+      t1 AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t1 WHERE n < 5)
+    SELECT ARRAY_AGG(n) FROM t1
+  ) AS n_arr,
+  x
+FROM (SELECT 1 AS x);
+--
+ARRAY<STRUCT<n_arr ARRAY<>, x INT64>>[
+  {
+    ARRAY<INT64>[2, 4, 1, 3, 5],
+    1
+  }
+]
+==
+
+# WITH RECURSIVE inside of WITH CTE.
+[required_features=V_1_1_WITH_ON_SUBQUERY,V_1_3_WITH_RECURSIVE]
+[name=recursive_query_nested_in_with_cte]
+WITH
+  t AS (
+    WITH RECURSIVE
+      t1 AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM t1 WHERE n < 5)
+    SELECT * FROM t1
+  )
+SELECT * FROM t;
+--
+ARRAY<STRUCT<n INT64>>[{1}, {2}, {3}, {4}, {5}]

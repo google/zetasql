@@ -4,7 +4,7 @@
 
 ZetaSQL supports the following Net functions.
 
-### NET.IP_FROM_STRING
+### `NET.IP_FROM_STRING`
 
 ```
 NET.IP_FROM_STRING(addr_str)
@@ -51,7 +51,11 @@ FROM UNNEST([
 | 3031:3233:3435:3637:3839:4041:4243:4445 | b"0123456789@ABCDE"                                                 |
 | ::ffff:192.0.2.128                      | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" |
 
-### NET.SAFE_IP_FROM_STRING
+[net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
+
+[net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
+
+### `NET.SAFE_IP_FROM_STRING`
 
 ```
 NET.SAFE_IP_FROM_STRING(addr_str)
@@ -93,7 +97,9 @@ FROM UNNEST([
 | 48.49.50                                | NULL                                                                |
 | ::wxyz                                  | NULL                                                                |
 
-### NET.IP_TO_STRING
+[net-link-to-ip-from-string]: #netip_from_string
+
+### `NET.IP_TO_STRING`
 
 ```
 NET.IP_TO_STRING(addr_bin)
@@ -132,7 +138,7 @@ FROM UNNEST([
 | b"0123456789@ABCDE"                                                 | 3031:3233:3435:3637:3839:4041:4243:4445 |
 | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" | ::ffff:192.0.2.128                      |
 
-### NET.IP_NET_MASK
+### `NET.IP_NET_MASK`
 
 ```
 NET.IP_NET_MASK(num_output_bytes, prefix_length)
@@ -174,7 +180,7 @@ FROM UNNEST([
 | 16 | 1   | b"\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" |
 | 16 | 128 | b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" |
 
-### NET.IP_TRUNC
+### `NET.IP_TRUNC`
 
 ```
 NET.IP_TRUNC(addr_bin, prefix_length)
@@ -216,7 +222,7 @@ FROM UNNEST([
 | b"\xaa\xbb\xcc\xdd" | 32            | b"\xaa\xbb\xcc\xdd"                   |
 | b"0123456789@ABCDE" | 80            | b"0123456789\x00\x00\x00\x00\x00\x00" |
 
-### NET.IPV4_FROM_INT64
+### `NET.IPV4_FROM_INT64`
 
 ```
 NET.IPV4_FROM_INT64(integer_value)
@@ -258,7 +264,7 @@ FROM (
 | -1         | -0x1       | b"\xff\xff\xff\xff" |
 | -2         | -0x2       | b"\xff\xff\xff\xfe" |
 
-### NET.IPV4_TO_INT64
+### `NET.IPV4_TO_INT64`
 
 ```
 NET.IPV4_TO_INT64(addr_bin)
@@ -296,7 +302,7 @@ UNNEST([b"\x00\x00\x00\x00", b"\x00\xab\xcd\xef", b"\xff\xff\xff\xff"]) AS x;
 | b"\x00\xab\xcd\xef" | 0xABCDEF      |
 | b"\xff\xff\xff\xff" | 0xFFFFFFFF    |
 
-### NET.FORMAT_IP (DEPRECATED)
+### `NET.FORMAT_IP` (DEPRECATED)
 
 ```
 NET.FORMAT_IP(integer)
@@ -312,7 +318,11 @@ except that this function does not allow negative input values.
 
 STRING
 
-### NET.PARSE_IP (DEPRECATED)
+[net-link-to-ip-to-string]: #netip_to_string
+
+[net-link-to-ipv4-from-int64]: #netipv4_from_int64
+
+### `NET.PARSE_IP` (DEPRECATED)
 
 ```
 NET.PARSE_IP(addr_str)
@@ -329,7 +339,11 @@ if any, while `NET.IP_FROM_STRING` treats `'\x00'` as invalid.
 
 INT64
 
-### NET.FORMAT_PACKED_IP (DEPRECATED)
+[net-link-to-ip-to-string]: #netip_to_string
+
+[net-link-to-ipv4-to-int64]: #netipv4_to_int64
+
+### `NET.FORMAT_PACKED_IP` (DEPRECATED)
 
 ```
 NET.FORMAT_PACKED_IP(bytes_value)
@@ -343,7 +357,9 @@ This function is deprecated. It is the same as [`NET.IP_TO_STRING`][net-link-to-
 
 STRING
 
-### NET.PARSE_PACKED_IP (DEPRECATED)
+[net-link-to-ip-to-string]: #netip_to_string
+
+### `NET.PARSE_PACKED_IP` (DEPRECATED)
 
 ```
 NET.PARSE_PACKED_IP(addr_str)
@@ -360,7 +376,9 @@ treats `'\x00'` as invalid.
 
 BYTES
 
-### NET.IP_IN_NET
+[net-link-to-ip-from-string]: #netip_from_string
+
+### `NET.IP_IN_NET`
 
 ```
 NET.IP_IN_NET(address, subnet)
@@ -387,7 +405,9 @@ considered invalid, an `OUT_OF_RANGE` error occurs.
 
 BOOL
 
-### NET.MAKE_NET
+[net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
+
+### `NET.MAKE_NET`
 
 ```
 NET.MAKE_NET(address, prefix_length)
@@ -428,7 +448,9 @@ considered invalid, an `OUT_OF_RANGE` error occurs.
 
 STRING
 
-### NET.HOST
+[net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
+
+### `NET.HOST`
 
 ```
 NET.HOST(url)
@@ -482,7 +504,9 @@ FROM (
 | "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;" | non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK"|
 | "mailto:?to=&subject=&body="                                        | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
-### NET.PUBLIC_SUFFIX
+[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+
+### `NET.PUBLIC_SUFFIX`
 
 ```
 NET.PUBLIC_SUFFIX(url)
@@ -558,7 +582,13 @@ FROM (
 | "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;"| non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK |
 | "mailto:?to=&subject=&body="                                       | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
-### NET.REG_DOMAIN
+[net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
+
+[net-link-to-public-suffix]: https://publicsuffix.org/list/
+
+[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+
+### `NET.REG_DOMAIN`
 
 ```
 NET.REG_DOMAIN(url)
@@ -639,25 +669,7 @@ FROM (
 | "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;"| non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK"|
 | "mailto:?to=&subject=&body="                                       | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
-
-[net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
-
-[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
-
-[net-link-to-public-suffix]: https://publicsuffix.org/list/
-
 [net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 
-[net-link-to-ip-from-string]: #netip_from_string
-
-[net-link-to-ip-to-string]: #netip_to_string
-
-[net-link-to-ipv4-from-int64]: #netipv4_from_int64
-
-[net-link-to-ipv4-to-int64]: #netipv4_to_int64
-
-<!-- mdlint on -->
+[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
 

@@ -340,55 +340,80 @@ SELECT
   ANON_COUNT(*, 0, 1)
 ==
 
-# SELECT WITH custom identifier should parse
-select with custom_identifier count(*);
+# Example where ANONYMIZATION OPTIONS() should eagerly parse OPTIONS()
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1, kappa=3)
+  x, ANON_COUNT(*)
+FROM TestTableWithUid
+  CROSS JOIN
+     UNNEST([1,2,3]) as x
+GROUP BY x
+ORDER BY x ASC
 --
-QueryStatement [0-38]
-  Query [0-38]
-    Select [0-38]
-      SelectWith [7-29]
-        Identifier(custom_identifier) [12-29]
-      SelectList [30-38]
-        SelectColumn [30-38]
-          FunctionCall [30-38]
-            PathExpression [30-35]
-              Identifier(count) [30-35]
-            Star(*) [36-37]
+QueryStatement [0-177]
+  Query [0-177]
+    Select [0-162]
+      SelectWith [7-71]
+        Identifier(ANONYMIZATION) [12-25]
+        OptionsList [33-71]
+          OptionsEntry [34-46]
+            Identifier(epsilon) [34-41]
+            FloatLiteral(1e20) [42-46]
+          OptionsEntry [48-61]
+            Identifier(k_threshold) [48-59]
+            IntLiteral(1) [60-61]
+          OptionsEntry [63-70]
+            Identifier(kappa) [63-68]
+            IntLiteral(3) [69-70]
+      SelectList [74-90]
+        SelectColumn [74-75]
+          PathExpression [74-75]
+            Identifier(x) [74-75]
+        SelectColumn [77-90]
+          FunctionCall [77-90]
+            PathExpression [77-87]
+              Identifier(ANON_COUNT) [77-87]
+            Star(*) [88-89]
+      FromClause [91-151]
+        Join(CROSS) [96-151]
+          TablePathExpression [96-112]
+            PathExpression [96-112]
+              Identifier(TestTableWithUid) [96-112]
+          Location [115-125]
+          TablePathExpression [131-151]
+            UnnestExpression [131-146]
+              ArrayConstructor [138-145]
+                IntLiteral(1) [139-140]
+                IntLiteral(2) [141-142]
+                IntLiteral(3) [143-144]
+            Alias [147-151]
+              Identifier(x) [150-151]
+      GroupBy [152-162]
+        GroupingItem [161-162]
+          PathExpression [161-162]
+            Identifier(x) [161-162]
+    OrderBy [163-177]
+      OrderingExpression(ASC EXPLICITLY) [172-177]
+        PathExpression [172-173]
+          Identifier(x) [172-173]
 --
-SELECT WITH custom_identifier
-  count(*)
+SELECT WITH ANONYMIZATION OPTIONS(epsilon = 1e20, k_threshold = 1, kappa = 3)
+  x,
+  ANON_COUNT(*)
+FROM
+  TestTableWithUid
+  CROSS JOIN
+  UNNEST(ARRAY[1, 2, 3]) AS x
+GROUP BY x
+ORDER BY x ASC
 ==
 
-# SELECT WITH an expression after identifier should parse
-select with sum(x);
+# Example where ANONYMIZATION OPTIONS() might want to leave OPTIONS as a UDF in 
+# the query (see discussion (broken link)). This case 
+# shows how our parser handles this issue.
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1, kappa=3)
+  AS x, ANON_COUNT(*)
+FROM TestTableWithUid
 --
-QueryStatement [0-18]
-  Query [0-18]
-    Select [0-18]
-      SelectWith [7-15]
-        Identifier(sum) [12-15]
-      SelectList [15-18]
-        SelectColumn [15-18]
-          PathExpression [16-17]
-            Identifier(x) [16-17]
---
-SELECT WITH sum
-  (x)
-
-==
-
-# SELECT WITH invalid expression after identifier should not parse
-select with count(*);
---
-ERROR: Syntax error: Unexpected "*" [at 1:19]
-select with count(*);
-                  ^
-
-==
-
-# SELECT with no identifier after WITH should not parse
-select with 1;
---
-ERROR: Syntax error: Unexpected integer literal "1" [at 1:13]
-select with 1;
-            ^
+ERROR: Syntax error: Unexpected "," [at 2:7]
+  AS x, ANON_COUNT(*)
+      ^

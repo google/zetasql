@@ -99,7 +99,7 @@ class MultiCatalog : public Catalog {
   // returns a constant or an error other than NOT_FOUND, any subsequent
   // catalogs are ignored. This enables name scoping among the catalogs.
   absl::Status FindConstantWithPathPrefix(
-      const absl::Span<const std::string> path, int* num_names_consumed,
+      absl::Span<const std::string> path, int* num_names_consumed,
       const Constant** constant,
       const FindOptions& options = FindOptions()) override;
 
@@ -108,7 +108,7 @@ class MultiCatalog : public Catalog {
   // this function return a NOT_FOUND status and a nullptr <table>.
   // TODO: Update MultiCatalog::FindConstantWithPathPrefix to find the
   // longest prefix among all catalogs and fix its debug string.
-  absl::Status FindTableWithPathPrefix(const absl::Span<const std::string> path,
+  absl::Status FindTableWithPathPrefix(absl::Span<const std::string> path,
                                        const FindOptions& options,
                                        int* num_names_consumed,
                                        const Table** table) override;

@@ -16,6 +16,7 @@
 
 #include "zetasql/tools/execute_query/string_error_collector.h"
 
+#include <memory>
 #include <string>
 
 #include "gtest/gtest.h"
@@ -25,40 +26,51 @@ namespace {
 
 class StringErrorCollectorTest : public ::testing::Test {
  protected:
-  StringErrorCollectorTest() : test_collector_(&error_string_) {
+  StringErrorCollectorTest()
+      : test_collector_(
+            std::make_unique<StringErrorCollector>(&error_string_)) {
     error_string_.clear();
   }
 
+  void RecordError(int line, int column, const std::string& message) {
+    test_collector_->AddError(line, column, message);
+  }
+
+  void RecordWarning(int line, int column, const std::string& message) {
+    test_collector_->AddWarning(line, column, message);
+  }
+
   std::string error_string_;
-  StringErrorCollector test_collector_;
+  std::unique_ptr<StringErrorCollector> test_collector_;
 };
 
 TEST_F(StringErrorCollectorTest, AppendsError) {
-  test_collector_.AddError(1, 2, "foo");
+  RecordError(1, 2, "foo");
   EXPECT_EQ("1(2): foo\n", error_string_);
 }
 
 TEST_F(StringErrorCollectorTest, AppendsWarning) {
-  test_collector_.AddWarning(1, 2, "foo");
+  RecordWarning(1, 2, "foo");
   EXPECT_EQ("1(2): foo\n", error_string_);
 }
 
 TEST_F(StringErrorCollectorTest, AppendsMultipleError) {
-  test_collector_.AddError(1, 2, "foo");
-  test_collector_.AddError(3, 4, "bar");
+  RecordError(1, 2, "foo");
+  RecordError(3, 4, "bar");
   EXPECT_EQ("1(2): foo\n3(4): bar\n", error_string_);
 }
 
 TEST_F(StringErrorCollectorTest, AppendsMultipleWarning) {
-  test_collector_.AddWarning(1, 2, "foo");
-  test_collector_.AddWarning(3, 4, "bar");
+  RecordWarning(1, 2, "foo");
+  RecordWarning(3, 4, "bar");
   EXPECT_EQ("1(2): foo\n3(4): bar\n", error_string_);
 }
 
 TEST_F(StringErrorCollectorTest, OffsetWorks) {
-  StringErrorCollector test_collector(&error_string_, true);
-  test_collector.AddError(1, 2, "foo");
-  test_collector.AddWarning(3, 4, "bar");
+  test_collector_ =
+      std::make_unique<StringErrorCollector>(&error_string_, true);
+  RecordError(1, 2, "foo");
+  RecordWarning(3, 4, "bar");
   EXPECT_EQ("2(3): foo\n4(5): bar\n", error_string_);
 }
 

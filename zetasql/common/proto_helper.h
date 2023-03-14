@@ -47,16 +47,16 @@ class SimpleErrorCollector
   SimpleErrorCollector& operator=(const SimpleErrorCollector&) = delete;
 
   // MultiFileErrorCollector interface method.
-  void AddError(const std::string& filename, int line, int column,
-                const std::string& message) override {
+      void AddError(const std::string& filename, int line, int column,
+                    const std::string& message) override {
     absl::StrAppend(&error_, "Filename ", filename, " Line ", line, " Column ",
                     column, " :", message, "\n");
   }
 
   // ErrorCollector interface method.
-  void AddError(const std::string& filename, const std::string& element_name,
-                const google::protobuf::Message* descriptor, ErrorLocation location,
-                const std::string& message) override {
+    void AddError(const std::string& filename, const std::string& element_name,
+                  const google::protobuf::Message* descriptor, ErrorLocation location,
+                  const std::string& message) override {
     // This implementation is copied from AppendToStringErrorCollector(),
     // and <location> is ignored.  TODO: Figure out if <location>
     // is useful, and add it into the error string if so.  Looking at the

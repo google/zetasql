@@ -54,13 +54,18 @@
 {% endmacro %}
 
 {% macro chained_direct_setter(node, field, inner_node_member_name, ref_qualifier) %}
- # if field.is_node_ptr or field.is_node_vector
+ # if field.is_node_ptr and field.propagate_order
+  template<typename T, typename = typename std::enable_if_t<std::is_convertible<T, {{field.setter_arg_type}}>::value>>
+  {{node.builder_name}}{{ref_qualifier}} set_{{field.name}}(T v, bool propagate_order=true) {{ref_qualifier}} {
+    {{inner_node_member_name}}->set_{{field.name}}({{move_or_copy_value(field, 'v')}}, propagate_order);
+ # elif field.is_node_ptr or field.is_node_vector
   template<typename T, typename = typename std::enable_if_t<std::is_convertible<T, {{field.setter_arg_type}}>::value>>
   {{node.builder_name}}{{ref_qualifier}} set_{{field.name}}(T v) {{ref_qualifier}} {
+    {{inner_node_member_name}}->set_{{field.name}}({{move_or_copy_value(field, 'v')}});
  # else
   {{node.builder_name}}{{ref_qualifier}} set_{{field.name}}({{field.setter_arg_type}} v) {{ref_qualifier}} {
- # endif
     {{inner_node_member_name}}->set_{{field.name}}({{move_or_copy_value(field, 'v')}});
+ # endif
     {{ set_field_bitmap(field_set_bitmap_name, field) }}
     {{ chained_return(ref_qualifier) }}
   }
@@ -160,7 +165,11 @@ class {{node.builder_name}} final {
     // incrementally create new values, rather than a client actually accessing
     // the value.
   #}
+  // Performs an emptiness check on node.fields to determine if accessed_ should
+  // be created. In the case of a concrete node without fields it will not be.
+  # if (node.fields)
     {{inner_node_member_name}}->accessed_ = 0;
+  # endif
 
   # for field in (node.inherited_fields + node.fields) | is_required_builder_arg
     if (!{{field_set_bitmap_name}}.test({{field.builder_bitmap}})) {
@@ -229,7 +238,7 @@ class {{node.builder_name}} final {
   {{ blank_line }}
   {{- chained_direct_setter(node, field, inner_node_member_name, '&') -}}
   {{ blank_line }}
- # if field.is_node_ptr or field.is_node_vector
+ # if field.is_node_ptr
   {{- chained_builder_setter(
         node=node, field=field,inner_node_member_name=inner_node_member_name,
         status_member_name=status_member_name, ref_qualifier='&&') -}}

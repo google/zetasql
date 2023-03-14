@@ -237,15 +237,22 @@ bool EnumType::EqualsImpl(const EnumType* const type1,
 }
 
 bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
+  if (Equivalent(types::DifferentialPrivacyReportFormatEnumType())) {
+    return language_options.LanguageFeatureEnabled(
+        FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
+  }
+
   if (language_options.LanguageFeatureEnabled(FEATURE_PROTO_BASE)) {
     return true;
   }
+
   if (language_options.product_mode() == ProductMode::PRODUCT_EXTERNAL &&
       !Equivalent(types::DatePartEnumType()) &&
       !Equivalent(types::NormalizeModeEnumType()) &&
       !Equivalent(types::RoundingModeEnumType())) {
     return false;
   }
+
   return true;
 }
 
@@ -275,9 +282,14 @@ std::string EnumType::FormatValueContent(
     const ValueContent& value, const FormatValueContentOptions& options) const {
   const std::string* enum_name = nullptr;
   int32_t enum_value = GetEnumValue(value);
-  ZETASQL_CHECK(FindName(enum_value, &enum_name))
-      << "Value " << enum_value << " not in "
-      << enum_descriptor()->DebugString();
+  if (!FindName(enum_value, &enum_name)) {
+    if (options.mode == FormatValueContentOptions::Mode::kDebug ||
+        options.as_literal()) {
+      return absl::StrCat(enum_value);
+    }
+    return internal::GetCastExpressionString(absl::StrCat(enum_value), this,
+                                             options.product_mode);
+  }
 
   if (options.mode == FormatValueContentOptions::Mode::kDebug) {
     return options.verbose ? absl::StrCat(*enum_name, ":", enum_value)

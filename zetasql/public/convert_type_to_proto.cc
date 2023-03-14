@@ -227,6 +227,29 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
           zetasql::format, FieldFormat::JSON);
       break;
     }
+    case TYPE_RANGE: {
+      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
+      const RangeType* range_type = field_type->AsRange();
+      switch (range_type->element_type()->kind()) {
+        case TYPE_DATE:
+          proto_field->mutable_options()->SetExtension(
+              zetasql::format, FieldFormat::RANGE_DATES_ENCODED);
+          break;
+        case TYPE_DATETIME:
+          proto_field->mutable_options()->SetExtension(
+              zetasql::format, FieldFormat::RANGE_DATETIMES_ENCODED);
+          break;
+        case TYPE_TIMESTAMP:
+          proto_field->mutable_options()->SetExtension(
+              zetasql::format, FieldFormat::RANGE_TIMESTAMPS_ENCODED);
+          break;
+        default:
+          return absl::UnimplementedError(
+              absl::StrCat("Conversion of ", range_type->DebugString(),
+                           " is not supported."));
+      }
+      break;
+    }
     case TYPE_ENUM: {
       const EnumType* enum_type = field_type->AsEnum();
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_ENUM);

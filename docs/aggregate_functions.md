@@ -6,7 +6,7 @@ ZetaSQL supports the following general aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
-### ANY_VALUE
+### `ANY_VALUE`
 
 ```sql
 ANY_VALUE(
@@ -89,7 +89,47 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 +--------+-----------+
 ```
 
-### ARRAY_AGG
+```sql
+WITH
+  Store AS (
+    SELECT 20 AS sold, "apples" AS fruit
+    UNION ALL
+    SELECT 30 AS sold, "pears" AS fruit
+    UNION ALL
+    SELECT 30 AS sold, "bananas" AS fruit
+    UNION ALL
+    SELECT 10 AS sold, "oranges" AS fruit
+  )
+SELECT ANY_VALUE(fruit HAVING MAX sold) AS a_highest_selling_fruit FROM Store;
+
++-------------------------+
+| a_highest_selling_fruit |
++-------------------------+
+| pears                   |
++-------------------------+
+```
+
+```sql
+WITH
+  Store AS (
+    SELECT 20 AS sold, "apples" AS fruit
+    UNION ALL
+    SELECT 30 AS sold, "pears" AS fruit
+    UNION ALL
+    SELECT 30 AS sold, "bananas" AS fruit
+    UNION ALL
+    SELECT 10 AS sold, "oranges" AS fruit
+  )
+SELECT ANY_VALUE(fruit HAVING MIN sold) AS a_lowest_selling_fruit FROM Store;
+
++-------------------------+
+| a_lowest_selling_fruit  |
++-------------------------+
+| oranges                 |
++-------------------------+
+```
+
+### `ARRAY_AGG`
 
 ```sql
 ARRAY_AGG(
@@ -259,7 +299,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 +----+-------------------------+
 ```
 
-### ARRAY_CONCAT_AGG
+### `ARRAY_CONCAT_AGG`
 
 ```sql
 ARRAY_CONCAT_AGG(
@@ -355,7 +395,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 +------------------+
 ```
 
-### AVG
+### `AVG`
 
 ```sql
 AVG(
@@ -378,8 +418,7 @@ window_specification:
 
 **Description**
 
-Returns the average of non-`NULL` input values, or `NaN` if the input contains a
-`NaN`.
+Returns the average of non-`NULL` values in an aggregated group.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -402,12 +441,26 @@ To learn more about the `OVER` clause and how to use it, see
 `AVG` can be used with differential privacy. To learn more, see
 [Differentially private aggregate functions][anonymization-functions].
 
+Caveats:
+
++ If the aggregated group is empty or the argument is `NULL` for all rows in
+  the group, returns `NULL`.
++ If the argument is `NaN` for any row in the group, returns `NaN`.
++ If the argument is `[+|-]Infinity` for any row in the group, returns either
+  `[+|-]Infinity` or `NaN`.
++ If there is numeric overflow, produces an error.
++ If a [floating-point type][floating-point-types] is returned, the result is
+  [non-deterministic][non-deterministic], which means you might receive a
+  different result each time you use this function.
+
+[floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
+
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+
 **Supported Argument Types**
 
-Any numeric input type, such as
-INT64. Note that, for
-floating point input types, the return result is non-deterministic, which
-means you might receive a different result each time you use this function.
++ Any numeric input type
++ `INTERVAL`
 
 **Returned Data Types**
 
@@ -415,11 +468,11 @@ means you might receive a different result each time you use this function.
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th><th><code>INTERVAL</code></th>
 </tr>
 </thead>
 <tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>INTERVAL</code></td></tr>
 </tbody>
 
 </table>
@@ -468,7 +521,7 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 
 [anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-### BIT_AND
+### `BIT_AND`
 
 ```sql
 BIT_AND(
@@ -514,7 +567,7 @@ SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 +---------+
 ```
 
-### BIT_OR
+### `BIT_OR`
 
 ```sql
 BIT_OR(
@@ -560,7 +613,7 @@ SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 +--------+
 ```
 
-### BIT_XOR
+### `BIT_XOR`
 
 ```sql
 BIT_XOR(
@@ -626,7 +679,7 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 +---------+
 ```
 
-### COUNT
+### `COUNT`
 
 1.
 
@@ -808,7 +861,7 @@ FROM Events;
 
 [anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-### COUNTIF
+### `COUNTIF`
 
 ```sql
 COUNTIF(
@@ -909,7 +962,7 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 +------+--------------+
 ```
 
-### LOGICAL_AND
+### `LOGICAL_AND`
 
 ```sql
 LOGICAL_AND(
@@ -975,7 +1028,7 @@ SELECT LOGICAL_AND(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 +-------------+
 ```
 
-### LOGICAL_OR
+### `LOGICAL_OR`
 
 ```sql
 LOGICAL_OR(
@@ -1041,7 +1094,7 @@ SELECT LOGICAL_OR(x < 3) AS logical_or FROM UNNEST([1, 2, 4]) AS x;
 +------------+
 ```
 
-### MAX
+### `MAX`
 
 ```sql
 MAX(
@@ -1063,9 +1116,13 @@ window_specification:
 
 **Description**
 
-Returns the maximum value of non-`NULL` expressions. Returns `NULL` if there
-are zero input rows or `expression` evaluates to `NULL` for all rows.
-Returns `NaN` if the input contains a `NaN`.
+Returns the maximum non-`NULL` value in an aggregated group.
+
+Caveats:
+
++ If the aggregated group is empty or the argument is `NULL` for all rows in
+  the group, returns `NULL`.
++ If the argument is `NaN` for any row in the group, returns `NaN`.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -1095,13 +1152,13 @@ Any [orderable data type][agg-data-type-properties] except for `ARRAY`.
 
 **Return Data Types**
 
-Same as the data type used as the input values.
+The data type of the input values.
 
 **Examples**
 
 ```sql
 SELECT MAX(x) AS max
-FROM UNNEST([8, 37, 4, 55]) AS x;
+FROM UNNEST([8, 37, 55, 4]) AS x;
 
 +-----+
 | max |
@@ -1112,7 +1169,7 @@ FROM UNNEST([8, 37, 4, 55]) AS x;
 
 ```sql
 SELECT x, MAX(x) OVER (PARTITION BY MOD(x, 2)) AS max
-FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
+FROM UNNEST([8, NULL, 37, 55, NULL, 4]) AS x;
 
 +------+------+
 | x    | max  |
@@ -1128,7 +1185,7 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
-### MIN
+### `MIN`
 
 ```sql
 MIN(
@@ -1150,9 +1207,13 @@ window_specification:
 
 **Description**
 
-Returns the minimum value of non-`NULL` expressions. Returns `NULL` if there
-are zero input rows or `expression` evaluates to `NULL` for all rows.
-Returns `NaN` if the input contains a `NaN`.
+Returns the minimum non-`NULL` value in an aggregated group.
+
+Caveats:
+
++ If the aggregated group is empty or the argument is `NULL` for all rows in
+  the group, returns `NULL`.
++ If the argument is `NaN` for any row in the group, returns `NaN`.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -1182,7 +1243,7 @@ Any [orderable data type][agg-data-type-properties] except for `ARRAY`.
 
 **Return Data Types**
 
-Same as the data type used as the input values.
+The data type of the input values.
 
 **Examples**
 
@@ -1215,7 +1276,7 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
-### STRING_AGG
+### `STRING_AGG`
 
 ```sql
 STRING_AGG(
@@ -1358,7 +1419,7 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 +--------+------------------------------+
 ```
 
-### SUM
+### `SUM`
 
 ```sql
 SUM(
@@ -1381,10 +1442,7 @@ window_specification:
 
 **Description**
 
-Returns the sum of non-null values.
-
-If the expression is a floating point value, the sum is non-deterministic, which
-means you might receive a different result each time you use this function.
+Returns the sum of non-`NULL` values in an aggregated group.
 
 To learn more about the optional arguments in this function and how to use them,
 see [Aggregate function calls][aggregate-function-calls].
@@ -1404,12 +1462,26 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
-`SUM` can be used with differential privacy. To learn more, see
-[Differentially private aggregate functions][anonymization-functions].
+Caveats:
+
++ If the aggregated group is empty or the argument is `NULL` for all rows in
+  the group, returns `NULL`.
++ If the argument is `NaN` for any row in the group, returns `NaN`.
++ If the argument is `[+|-]Infinity` for any row in the group, returns either
+  `[+|-]Infinity` or `NaN`.
++ If there is numeric overflow, produces an error.
++ If a [floating-point type][floating-point-types] is returned, the result is
+  [non-deterministic][non-deterministic], which means you might receive a
+  different result each time you use this function.
+
+[floating-point-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_types
+
+[non-deterministic]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
 
 **Supported Argument Types**
 
-Any supported numeric data types and INTERVAL.
++ Any supported numeric data type
++ `INTERVAL`
 
 **Return Data Types**
 
@@ -1417,28 +1489,14 @@ Any supported numeric data types and INTERVAL.
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th><th>INTERVAL</th>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th><th><code>INTERVAL</code></th>
 </tr>
 </thead>
 <tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">INTERVAL</td></tr>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>INTERVAL</code></td></tr>
 </tbody>
 
 </table>
-
-Special cases:
-
-Returns `NULL` if the input contains only `NULL`s.
-
-Returns `NULL` if the input contains no rows.
-
-Returns `Inf` if the input contains `Inf`.
-
-Returns `-Inf` if the input contains `-Inf`.
-
-Returns `NaN` if the input contains a `NaN`.
-
-Returns `NaN` if the input contains a combination of `Inf` and `-Inf`.
 
 **Examples**
 

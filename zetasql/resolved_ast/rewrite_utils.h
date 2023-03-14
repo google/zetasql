@@ -194,12 +194,40 @@ std::vector<ResolvedColumn> CreateReplacementColumns(
     ColumnFactory& column_factory,
     const std::vector<ResolvedColumn>& column_list);
 
+// Helper for rewriters to check whether a needed built-in function is part
+// of the catalog. This is useful to generate good error messages when a
+// needed function is not found.
+absl::StatusOr<bool> CatalogSupportsBuiltinFunction(
+    absl::string_view function_name, const AnalyzerOptions& analyzer_options,
+    Catalog& catalog);
+
+// Helper to check that engines support the required IFERROR and NULLIFERROR
+// functions that are used to implement SAFE mode in rewriters. If the required
+// built-in function signatures are located, this returns ok. If they are not
+// found, or found but not built-in, then this returns kUnimplemented. If the
+// catalog returns any error code other than kNotFound that error is returned to
+// the caller.
+absl::Status CheckCatalogSupportsSafeMode(
+    absl::string_view function_name, const AnalyzerOptions& analyzer_options,
+    Catalog& catalog);
+
 // Contains helper functions that reduce boilerplate in rewriting rules logic
 // related to constructing new ResolvedFunctionCall instances.
 class FunctionCallBuilder {
  public:
   FunctionCallBuilder(const AnalyzerOptions& analyzer_options, Catalog& catalog)
       : analyzer_options_(analyzer_options), catalog_(catalog) {}
+
+  // Helper to check that engines support the required IFERROR and NULLIFERROR
+  // functions that are used to implement SAFE mode in rewriters. If the
+  // required built-in function signatures are located, this returns ok. If they
+  // are not found, or found but not built-in, then this returns kUnimplemented.
+  // If the catalog returns any error code other than kNotFound that error is
+  // returned to the caller.
+  absl::Status CheckCatalogSupportsSafeMode(absl::string_view fn_name) {
+    return zetasql::CheckCatalogSupportsSafeMode(fn_name, analyzer_options_,
+                                                   catalog_);
+  }
 
   // Construct ResolvedFunctionCall for IF(<condition>, <then_case>,
   // <else_case>)
@@ -286,7 +314,58 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Not(
       std::unique_ptr<const ResolvedExpr> expression);
 
+  // Construct a ResolvedFunctionCall for <left_expr> = <right_expr>.
+  //
+  // Requires: <left_expr> and <right_expr> must return equal types AND
+  //           the type supports equality.
+  //
+  // The signature for the built-in function "$equal" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Equal(
+      std::unique_ptr<const ResolvedExpr> left_expr,
+      std::unique_ptr<const ResolvedExpr> right_expr);
+
+  // Construct a ResolvedFunctionCall for
+  //  expressions[0] AND expressions[1] AND ... AND expressions[N-1]
+  // where N is the number of expressions.
+  //
+  // Requires: N >= 2 and all expressions return BOOL.
+  //
+  // The signature for the built-in function "$and" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> And(
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+
+  // Construct a ResolvedFunctionCall for
+  //  expressions[0] OR expressions[1] OR ... OR expressions[N-1]
+  // where N is the number of expressions.
+  //
+  // Requires: N >= 2 and all expressions return BOOL.
+  //
+  // The signature for the built-in function "$or" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Or(
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+
  private:
+  // Construct a ResolvedFunctionCall for
+  //  expressions[0] OP expressions[1] OP ... OP expressions[N-1]
+  // where N is the number of expressions.
+  //
+  // Requires: N >= 2 AND all expressions return BOOL AND
+  //           the nary logic function returns BOOL.
+  //
+  // The signature for the built-in function `op_catalog_name` must be available
+  // in `catalog` or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> NaryLogic(
+      absl::string_view op_catalog_name, FunctionSignatureId op_function_id,
+      std::vector<std::unique_ptr<const ResolvedExpr>> expressions);
+
+  // Helper that controls the error message when built-in functions are not
+  // found in the catalog.
+  absl::Status GetBuiltinFunctionFromCatalog(absl::string_view function_name,
+                                             const Function** fn_out);
+
   const AnalyzerOptions& analyzer_options_;
   Catalog& catalog_;
 };

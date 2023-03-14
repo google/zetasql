@@ -16,27 +16,47 @@
 
 #include "zetasql/common/timer_util.h"
 
-#include "gmock/gmock.h"
+#include <cstdint>
+
+#include "google/protobuf/duration.pb.h"
 #include "gtest/gtest.h"
+#include "absl/random/distributions.h"
+#include "absl/random/random.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 
 namespace zetasql::internal {
 
+namespace {
+absl::Duration ProtoDurationToAbseil(const google::protobuf::Duration& proto) {
+  return absl::Seconds(proto.seconds()) + absl::Nanoseconds(proto.nanos());
+}
+}  // namespace
+
 // We don't really want to test their absolute correctness, we assume the
 // the timers are generally correct, we are mostly ensuring they aren't
 // wildly wrong, which indicates a problem with our interaction in some way.
-TEST(Timer, TimerApproxCorrect) {
+TEST(ScopedTimer, ScopedTimerWallTimeApproxCorrect) {
   for (int i = 0; i < 10; ++i) {
     constexpr absl::Duration sleep_duration = absl::Milliseconds(100);
-    auto timer = MakeTimerStarted();
-    absl::SleepFor(sleep_duration);
-
-    const absl::Duration measured = timer.GetDuration();
+    TimedValue accumulate;
+    {
+      auto timer = MakeScopedTimerStarted(&accumulate);
+      absl::SleepFor(sleep_duration);
+    }
+    const absl::Duration measured_wall =
+        ProtoDurationToAbseil(accumulate.ToExecutionStatsProto().wall_time());
+    const absl::Duration measured_cpu =
+        ProtoDurationToAbseil(accumulate.ToExecutionStatsProto().cpu_time());
+    EXPECT_GE(measured_wall, sleep_duration);
+    EXPECT_GE(measured_wall, measured_cpu);
+    EXPECT_GE(measured_cpu, absl::ZeroDuration());
+    EXPECT_GT(accumulate.ToExecutionStatsProto().stack_available_bytes(), 0);
+    EXPECT_GE(accumulate.ToExecutionStatsProto().stack_peak_used_bytes(), 0);
     const absl::Duration expected = sleep_duration;
     const absl::Duration tolerance = absl::Milliseconds(30);
 
-    if (absl::AbsDuration(expected - measured) < tolerance) {
+    if (absl::AbsDuration(expected - measured_wall) < tolerance) {
       return;
     }
   }
@@ -45,9 +65,41 @@ TEST(Timer, TimerApproxCorrect) {
   FAIL() << "After 10 tries, timer still not returning times within tolerance";
 }
 
+TEST(ScopedTimer, ScopedTimerCPUApproxCorrect) {
+  constexpr absl::Duration work_duration = absl::Milliseconds(100);
+  constexpr double allowed_thread_contention = 10;
+  TimedValue accumulate;
+  {
+    auto timer = MakeScopedTimerStarted(&accumulate);
+    absl::Time end = absl::Now() + work_duration;
+    uint64_t totally_random = 0;
+    absl::BitGen bitgen;
+    while (absl::Now() < end || totally_random == 0) {
+      // Loop to burn CPU.
+      totally_random += absl::Uniform<uint64_t>(bitgen);
+    }
+  }
+  const absl::Duration measured_wall =
+      ProtoDurationToAbseil(accumulate.ToExecutionStatsProto().wall_time());
+  const absl::Duration measured_cpu =
+      ProtoDurationToAbseil(accumulate.ToExecutionStatsProto().cpu_time());
+  EXPECT_GE(measured_wall, work_duration);
+  EXPECT_GE(measured_cpu, work_duration / allowed_thread_contention);
+}
+
 TEST(TimedValue, InitializesToZero) {
   TimedValue v1;
-  EXPECT_EQ(v1.elapsed_duration(), absl::Nanoseconds(0));
+  auto execution_stats = v1.ToExecutionStatsProto();
+  const absl::Duration measured_wall =
+      ProtoDurationToAbseil(execution_stats.wall_time());
+  const absl::Duration measured_cpu =
+      ProtoDurationToAbseil(execution_stats.cpu_time());
+
+  EXPECT_EQ(measured_wall, absl::Nanoseconds(0));
+  EXPECT_EQ(measured_cpu, absl::Nanoseconds(0));
+
+  EXPECT_EQ(execution_stats.stack_available_bytes(), 0);
+  EXPECT_EQ(execution_stats.stack_peak_used_bytes(), 0);
 }
 
 TEST(TimedValue, AccumulateDuration) {
@@ -89,19 +141,6 @@ TEST(TimedValue, AccumulateTimerApproxCorrect) {
   // The tolerance is already very very high, probably worth investigating for
   // a real bug before increasing the tolerance more.
   FAIL() << "After 10 tries, timer still not returning times within tolerance";
-}
-
-// We just want to make sure it's somewhere in the ballpark.
-TEST(TimedValue, MakeScopedTimerStarted) {
-  TimedValue v1;
-  {
-    auto scoped_timer = MakeScopedTimerStarted(&v1);
-    absl::SleepFor(absl::Milliseconds(10));
-  }
-
-  // We just want to ensure the timer triggers, since we test the validity
-  // of the timers in other tests.
-  EXPECT_GT(v1.elapsed_duration(), absl::Milliseconds(1));
 }
 
 }  // namespace zetasql::internal

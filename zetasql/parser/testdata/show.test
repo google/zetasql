@@ -183,14 +183,14 @@ SHOW `MATERIALIZED VIEWS` FROM KitchenSync LIKE '%foo%'
 
 SHOW MATERIALIZED TABLES
 --
-ERROR: Syntax error: Expected end of input but got identifier "TABLES" [at 1:19]
+ERROR: Syntax error: Expected end of input but got keyword TABLES [at 1:19]
 SHOW MATERIALIZED TABLES
                   ^
 ==
 
 SHOW MATERIALIZED TABLES from KitchenSync
 --
-ERROR: Syntax error: Expected end of input but got identifier "TABLES" [at 1:19]
+ERROR: Syntax error: Expected end of input but got keyword TABLES [at 1:19]
 SHOW MATERIALIZED TABLES from KitchenSync
                   ^
 ==

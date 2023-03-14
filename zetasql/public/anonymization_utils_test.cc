@@ -81,23 +81,22 @@ static ComputeDeltaTest DeltaDatasetTest(
 static ComputeDeltaTest DeltaErrorTest(
     double epsilon, int64_t k_threshold,
     std::optional<int64_t> kappa = std::optional<int64_t>()) {
-  return ComputeDeltaTest(epsilon, k_threshold, kappa,
-                          std::optional<double>());
+  return ComputeDeltaTest(epsilon, k_threshold, kappa, std::optional<double>());
 }
 
 static void RunDeltaTest(ComputeDeltaTest test_case) {
   const Value epsilon_value = Value::Double(test_case.epsilon);
   const Value k_threshold_value = Value::Int64(test_case.k_threshold);
-  const Value kappa_value = (test_case.kappa.has_value()
-                             ? Value::Int64(test_case.kappa.value()) : Value());
+  const Value kappa_value =
+      (test_case.kappa.has_value() ? Value::Int64(test_case.kappa.value())
+                                   : Value());
   const std::string test_case_string =
       absl::StrCat("epsilon: ", epsilon_value.DebugString(),
                    ", k_threshold: ", k_threshold_value.DebugString(),
                    ", kappa: ", kappa_value.DebugString());
 
-  absl::StatusOr<Value> status_or_delta =
-      ComputeDeltaFromEpsilonKThresholdKappa(epsilon_value, k_threshold_value,
-                                             kappa_value);
+  absl::StatusOr<Value> status_or_delta = ComputeDeltaFromLaplaceThreshold(
+      epsilon_value, k_threshold_value, kappa_value);
 
   if (test_case.expected_delta.has_value()) {
     // We expect the test to succeed, and a delta to be computed.
@@ -146,31 +145,32 @@ static ComputeKThresholdTest KThresholdDatasetTest(
 static ComputeKThresholdTest KThresholdErrorTest(
     double epsilon, double delta,
     std::optional<int64_t> kappa = std::optional<int64_t>()) {
-  return ComputeKThresholdTest(epsilon, delta, kappa,
-                               std::optional<double>());
+  return ComputeKThresholdTest(epsilon, delta, kappa, std::optional<double>());
 }
 
 static void RunKThresholdTest(ComputeKThresholdTest test_case) {
   const Value epsilon_value = Value::Double(test_case.epsilon);
   const Value delta_value = Value::Double(test_case.delta);
-  const Value kappa_value = (test_case.kappa.has_value()
-                             ? Value::Int64(test_case.kappa.value()) : Value());
+  const Value kappa_value =
+      (test_case.kappa.has_value() ? Value::Int64(test_case.kappa.value())
+                                   : Value());
   const std::string test_case_string =
       absl::StrCat("epsilon: ", epsilon_value.DebugString(),
                    ", delta: ", delta_value.DebugString(),
                    ", kappa: ", kappa_value.DebugString());
 
   absl::StatusOr<Value> status_or_k_threshold =
-      ComputeKThresholdFromEpsilonDeltaKappa(epsilon_value, delta_value,
-                                             kappa_value);
+      ComputeLaplaceThresholdFromDelta(epsilon_value, delta_value, kappa_value);
 
   if (test_case.expected_k_threshold.has_value()) {
     // We expect the test to succeed, and a k_threshold to be computed.
-    ASSERT_TRUE(status_or_k_threshold.ok()) << status_or_k_threshold.status()
-                                            << "\n" << test_case_string;
+    ASSERT_TRUE(status_or_k_threshold.ok())
+        << status_or_k_threshold.status() << "\n"
+        << test_case_string;
     const Value& k_threshold_value = status_or_k_threshold.value();
     EXPECT_EQ(k_threshold_value.int64_value(),
-              test_case.expected_k_threshold.value()) << test_case_string;
+              test_case.expected_k_threshold.value())
+        << test_case_string;
   } else {
     EXPECT_FALSE(status_or_k_threshold.ok())
         << test_case_string
@@ -454,18 +454,16 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripKThresholdTests) {
     const Value kappa_value = Value::Int64(kappa);
     bool computed_delta_of_zero = false;
     for (int64_t k_threshold = 10; k_threshold < 1000; k_threshold += 10) {
-      const Value k_threshold_value =
-          Value::Int64(k_threshold);
+      const Value k_threshold_value = Value::Int64(k_threshold);
       std::string test_case_string =
           absl::StrCat("k_threshold: ", k_threshold, ", kappa: ", kappa);
-      absl::StatusOr<Value> status_or_delta =
-          ComputeDeltaFromEpsilonKThresholdKappa(
-              epsilon_value, k_threshold_value, kappa_value);
+      absl::StatusOr<Value> status_or_delta = ComputeDeltaFromLaplaceThreshold(
+          epsilon_value, k_threshold_value, kappa_value);
       ASSERT_TRUE(status_or_delta.ok()) << status_or_delta.status() << "\n"
                                         << test_case_string;
       const Value& delta_value = status_or_delta.value();
-      absl::StrAppend(&test_case_string, ", computed delta: ",
-                      delta_value.double_value());
+      absl::StrAppend(&test_case_string,
+                      ", computed delta: ", delta_value.double_value());
 
       // If the computed delta is 0, then computing k_threshold from this will
       // result in the maximum int64_t value (9223372036854775807).  Therefore
@@ -482,8 +480,8 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripKThresholdTests) {
       }
 
       absl::StatusOr<Value> status_or_computed_k_threshold =
-          ComputeKThresholdFromEpsilonDeltaKappa(epsilon_value, delta_value,
-                                                 kappa_value);
+          ComputeLaplaceThresholdFromDelta(epsilon_value, delta_value,
+                                           kappa_value);
       ASSERT_TRUE(status_or_computed_k_threshold.ok())
           << status_or_computed_k_threshold.status() << "\n"
           << test_case_string;
@@ -507,8 +505,8 @@ static absl::StatusOr<double> ComputeDelta(Value epsilon_value,
                                            Value k_threshold_value,
                                            Value kappa_value) {
   absl::StatusOr<Value> status_or_computed_delta =
-      ComputeDeltaFromEpsilonKThresholdKappa(epsilon_value, k_threshold_value,
-                                             kappa_value);
+      ComputeDeltaFromLaplaceThreshold(epsilon_value, k_threshold_value,
+                                       kappa_value);
   if (!status_or_computed_delta.ok()) {
     return status_or_computed_delta.status();
   }
@@ -541,10 +539,11 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripDeltaTests) {
           absl::StrCat("delta: ", delta, ", kappa: ", kappa);
 
       absl::StatusOr<Value> status_or_k_threshold =
-          ComputeKThresholdFromEpsilonDeltaKappa(epsilon_value, delta_value,
-                                                 kappa_value);
+          ComputeLaplaceThresholdFromDelta(epsilon_value, delta_value,
+                                           kappa_value);
       ASSERT_TRUE(status_or_k_threshold.ok())
-          << status_or_k_threshold.status() << "\n" << test_case_string;
+          << status_or_k_threshold.status() << "\n"
+          << test_case_string;
       const Value& k_threshold_value = status_or_k_threshold.value();
 
       absl::StrAppend(&test_case_string, ", computed k_threshold: ",
@@ -569,8 +568,8 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripDeltaTests) {
       ASSERT_TRUE(computed_delta_plus_one.ok());
       ASSERT_TRUE(computed_delta_minus_one.ok());
 
-      absl::StrAppend(&test_case_string, ", computed delta: ",
-                      computed_delta.value());
+      absl::StrAppend(&test_case_string,
+                      ", computed delta: ", computed_delta.value());
       absl::StrAppend(&test_case_string, ", computed delta (k plus_one): ",
                       computed_delta_plus_one.value());
       absl::StrAppend(&test_case_string, ", computed delta (k minus one): ",

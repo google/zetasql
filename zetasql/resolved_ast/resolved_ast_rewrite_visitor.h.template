@@ -14,10 +14,10 @@
 // limitations under the License.
 //
 
-// resolved_ast_zero_copy_visitor.h GENERATED FROM resolved_ast_zero_copy_visitor.h.template
+// resolved_ast_rewrite_visitor.h GENERATED FROM resolved_ast_rewrite_visitor.h.template
 
-#ifndef ZETASQL_RESOLVED_AST_RESOLVED_AST_ZERO_COPY_VISITOR_H_
-#define ZETASQL_RESOLVED_AST_RESOLVED_AST_ZERO_COPY_VISITOR_H_
+#ifndef ZETASQL_RESOLVED_AST_RESOLVED_AST_REWRITER_VISITOR_H_
+#define ZETASQL_RESOLVED_AST_RESOLVED_AST_REWRITER_VISITOR_H_
 
 #include <algorithm>
 #include <memory>
@@ -63,7 +63,7 @@ namespace zetasql {
 //
 // A typical usage will have the form:
 //
-// class MyVisitor : public ResolvedASTZeroCopyVisitor {
+// class MyVisitor : public ResolvedASTRewriteVisitor {
 //   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
 //   VisitResolvedX(std::unique_ptr<const ResolvedNodeX> node) override {
 //     ResolvedXBuilder builder = ToBuilder(std::move(node));
@@ -80,19 +80,19 @@ namespace zetasql {
 // };
 //
 // Pointer Stability:
-//   The zero copy visitor does not change the underlying objects, including
+//   The rewrite visitor does not change the underlying objects, including
 //   the pointers. However, subclasses may not make this guarantee, they
 //   may delete or add new nodes etc. So, while pointers may look stable, this
 //   should not be relied on.
 //
 // Differences with ResolvedASTDeepCopyVisitor:
-//   The ZeroCopyVisitor is currently not quite as general purpose as
+//   The RewriteVisitor is currently not quite as general purpose as
 //   DeepCopyVisitor. In particular, there is no way to override or prevent
 //   the actual copying of children, this is baked into the interface.
 //
-class ResolvedASTZeroCopyVisitor {
+class ResolvedASTRewriteVisitor {
  public:
-  virtual ~ResolvedASTZeroCopyVisitor() = default;
+  virtual ~ResolvedASTRewriteVisitor() = default;
 
   // Invoke the visitor on the given node. This will transform the input
   // node in place. In the case of an error, the state of the input resolved
@@ -131,7 +131,7 @@ class ResolvedASTZeroCopyVisitor {
         const ResolvedNode* input_node = (*input).get();
         ZETASQL_RET_CHECK(input_node != nullptr);
         ZETASQL_RET_CHECK(input_node->template Is<ExpectedReturnT>());
-        return absl::WrapUnique<ExpectedReturnT>(
+        return absl::WrapUnique<const ExpectedReturnT>(
             (*std::move(input)).release()->template GetAs<ExpectedReturnT>());
       }
     }
@@ -146,10 +146,16 @@ class ResolvedASTZeroCopyVisitor {
       std::unique_ptr<const {{node.name}}> node);
 # endfor
 
+  template <typename TypeName>
+  std::unique_ptr<const TypeName> CastUniquePtr(std::unique_ptr<const ResolvedNode> node) {
+    return absl::WrapUnique(static_cast<const TypeName*>(node.release()));
+  }
+
   template <typename ExpectedReturnT>
   absl::StatusOr<std::unique_ptr<const ExpectedReturnT>> Dispatch(
       std::unique_ptr<const ResolvedNode> node) {
     ZETASQL_RET_CHECK(node != nullptr);
+    absl::StatusOr<std::unique_ptr<const ResolvedNode>> visited_node;
     switch(node->node_kind()) {
 # for node in nodes if not node.is_abstract
       case {{node.name}}::TYPE: {
@@ -158,21 +164,20 @@ class ResolvedASTZeroCopyVisitor {
           {# This is the only branch that should happen in practice, but the
            # compiler doesn't know this.
            #}
-          auto in = absl::WrapUnique(
-              static_cast<const {{node.name}}*>(node.release()));
-          return VerifyType<ExpectedReturnT>(DefaultVisit(std::move(in)));
+          visited_node = DefaultVisit(CastUniquePtr<{{node.name}}>(std::move(node)));
         }
         break;
       }
 # endfor
       default:
+        ZETASQL_RET_CHECK_FAIL() << "could not dispatch node of type "
+                         << node->node_kind_string();
         break;
     }
-    ZETASQL_RET_CHECK_FAIL() << "could not dispatch node of type "
-                     << node->node_kind_string();
+    return VerifyType<ExpectedReturnT>(std::move(visited_node));
   }
 };
 
 }  // namespace zetasql
 
-#endif  // ZETASQL_RESOLVED_AST_RESOLVED_AST_ZERO_COPY_VISITOR_H_
+#endif  // ZETASQL_RESOLVED_AST_RESOLVED_AST_REWRITER_VISITOR_H_

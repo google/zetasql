@@ -37,16 +37,11 @@
 #include "google/protobuf/timestamp.pb.h"
 #include "google/protobuf/wrappers.pb.h"
 #include "google/type/date.pb.h"
-#include "google/type/latlng.pb.h"
 #include "google/type/timeofday.pb.h"
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/dynamic_message.h"
-#include "google/protobuf/extension_set.h"
-#include "google/protobuf/message.h"
-#include "google/protobuf/reflection.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/initialize_required_fields.h"
+#include "zetasql/common/internal_value.h"
 #include "zetasql/proto/anon_output_with_report.pb.h"
 #include "zetasql/public/anonymization_utils.h"
 #include "zetasql/public/cast.h"
@@ -61,9 +56,10 @@
 #include "zetasql/public/functions/comparison.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/functions/differential_privacy.pb.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/reference_impl/operator.h"
 #include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "zetasql/public/functions/string_format.h"
 #include "zetasql/public/functions/generate_array.h"
@@ -92,6 +88,7 @@
 #include "zetasql/reference_impl/proto_util.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/type_parameter_constraints.h"
+#include "absl/algorithm/container.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/flags/flag.h"
@@ -101,7 +98,6 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
@@ -132,6 +128,11 @@ ABSL_FLAG(bool, zetasql_reference_impl_validate_timestamp_precision, false,
 namespace zetasql {
 
 namespace {
+
+static bool IsTypeWithDistinguishableTies(const Type* type,
+                                          const CollatorList& collator_list) {
+  return type->IsInterval() || (type->IsString() && !collator_list.empty());
+}
 
 static functions::TimestampScale GetTimestampScale(
     const LanguageOptions& options) {
@@ -356,7 +357,7 @@ bool Invoke(FunctionType function, Value* result, absl::Status* status,
 
 absl::Status MakeMaxArrayValueByteSizeExceededError(
     int64_t max_value_byte_size, const zetasql_base::SourceLocation& source_loc) {
-  return zetasql_base::OutOfRangeErrorBuilder(source_loc)
+  return zetasql_base::ResourceExhaustedErrorBuilder(source_loc)
          << "Arrays are limited to " << max_value_byte_size << " bytes";
 }
 
@@ -455,12 +456,14 @@ class FunctionMap {
  public:
   FunctionMap();
   FunctionMap(const FunctionMap&) = delete;
-  const std::map<FunctionKind, std::string>& function_debug_name_by_kind()
-      const {
+
+  const absl::flat_hash_map<FunctionKind, std::string>&
+  function_debug_name_by_kind() const {
     return function_debug_name_by_kind_;
   }
 
-  const std::map<std::string, FunctionKind>& function_kind_by_name() const {
+  const absl::flat_hash_map<std::string, FunctionKind>& function_kind_by_name()
+      const {
     return function_kind_by_name_;
   }
 
@@ -470,22 +473,20 @@ class FunctionMap {
   // implications here since it is called once per process invocation.
   void RegisterFunction(FunctionKind kind, absl::string_view name,
                         absl::string_view debug_name) {
-    ZETASQL_CHECK(zetasql_base::InsertIfNotPresent(&function_debug_name_by_kind_, kind,
-                                  std::string(debug_name)))
+    ZETASQL_CHECK(function_debug_name_by_kind_.try_emplace(kind, debug_name).second)
         << "Duplicate function debug_name: " << debug_name;
     if (!name.empty()) {
-      ZETASQL_CHECK(zetasql_base::InsertIfNotPresent(&function_kind_by_name_, std::string(name),
-                                    kind))
+      ZETASQL_CHECK(function_kind_by_name_.try_emplace(name, kind).second)
           << "Duplicate function name: " << name;
     }
   }
 
-  std::map<FunctionKind, std::string> function_debug_name_by_kind_;
-  std::map<std::string, FunctionKind> function_kind_by_name_;
+  absl::flat_hash_map<FunctionKind, std::string> function_debug_name_by_kind_;
+  absl::flat_hash_map<std::string, FunctionKind> function_kind_by_name_;
 };
 
 FunctionMap::FunctionMap() {
-  static const std::string kPrivate = "";  // for private functions
+  static constexpr absl::string_view kPrivate = "";  // for private functions
   // We break registration into multiple lambdas to reduce stack frame size
   // in debug builds.
   [this]() {
@@ -712,6 +713,20 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kAnonQuantilesWithReportJson,
                      "$anon_quantiles_with_report_json",
                      "AnonQuantilesWithReportJson");
+
+    RegisterFunction(FunctionKind::kDifferentialPrivacySum,
+                     "$differential_privacy_sum", "Differential_privacy_sum");
+    RegisterFunction(FunctionKind::kDifferentialPrivacyAvg,
+                     "$differential_privacy_avg", "Differential_privacy_avg");
+    RegisterFunction(FunctionKind::kDifferentialPrivacyVarPop,
+                     "$differential_privacy_var_pop",
+                     "Differential_privacy_var_pop");
+    RegisterFunction(FunctionKind::kDifferentialPrivacyStddevPop,
+                     "$differential_privacy_stddev_pop",
+                     "Differential_privacy_stddev_pop");
+    RegisterFunction(FunctionKind::kDifferentialPrivacyQuantiles,
+                     "$differential_privacy_approx_quantiles",
+                     "Differential_privacy_approx_quantiles");
   }();
   [this]() {
     RegisterFunction(FunctionKind::kByteLength, "byte_length", "ByteLength");
@@ -930,8 +945,24 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kArrayMin, "array_min", "ArrayMin");
     RegisterFunction(FunctionKind::kArrayMax, "array_max", "ArrayMax");
     RegisterFunction(FunctionKind::kRangeCtor, "range", "Range");
+    RegisterFunction(FunctionKind::kRangeIsStartUnbounded,
+                     "range_is_start_unbounded", "RangeIsStartUnbounded");
+    RegisterFunction(FunctionKind::kRangeIsEndUnbounded,
+                     "range_is_end_unbounded", "RangeIsEndUnbounded");
+    RegisterFunction(FunctionKind::kRangeStart, "range_start", "RangeStart");
+    RegisterFunction(FunctionKind::kRangeEnd, "range_end", "RangeEnd");
+    RegisterFunction(FunctionKind::kRangeOverlaps, "range_overlaps",
+                     "RangeOverlaps");
+    RegisterFunction(FunctionKind::kRangeIntersect, "range_intersect",
+                     "RangeIntersect");
     RegisterFunction(FunctionKind::kArraySum, "array_sum", "ArraySum");
     RegisterFunction(FunctionKind::kArrayAvg, "array_avg", "ArrayAvg");
+    RegisterFunction(FunctionKind::kArrayOffset, "array_offset", "ArrayOffset");
+    RegisterFunction(FunctionKind::kArrayFind, "array_find", "ArrayFind");
+    RegisterFunction(FunctionKind::kArrayOffsets, "array_offsets",
+                     "ArrayOffsets");
+    RegisterFunction(FunctionKind::kArrayFindAll, "array_find_all",
+                     "ArrayFindAll");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -1122,46 +1153,62 @@ static absl::StatusOr<Value> ExtractAll(absl::Span<const Value> x,
   return ValueTraits<type>::ToArray(values);
 }
 
-absl::Status UpdateCovariance(double x, double y, double mean_x, double mean_y,
-                              double pair_count, double* covar) {
+absl::Status UpdateCovariance(long double x, long double y, long double mean_x,
+                              long double mean_y, long double pair_count,
+                              long double* covar) {
   absl::Status error;
-  double old_pair_count, delta_x, delta_y, tmp;
+  long double old_pair_count, delta_x, delta_y, tmp;
 
   // Stable one-pass covariance algorithm per
   // http://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Covariance
   // covar = ((covar * old_pair_count) +
   //     ((x - mean_x) * (y - mean_y) * old_pair_count) / pair_count) /
   //     pair_count;
-  if (
-      // pair_count - 1
-      !functions::Subtract(pair_count, 1.0, &old_pair_count, &error) ||
-      // x - mean_x
-      !functions::Subtract(x, mean_x, &delta_x, &error) ||
-      // y - mean_y
-      !functions::Subtract(y, mean_y, &delta_y, &error) ||
-      // (x - mean_x) * (y - mean_y)
-      !functions::Multiply(delta_x, delta_y, &tmp, &error) ||
-      // (x - mean_x) * (y - mean_y) * old_pair_count
-      !functions::Multiply(tmp, old_pair_count, &tmp, &error) ||
-      // (x - mean_x) * (y - mean_y) * old_pair_count / pair_count
-      !functions::Divide(tmp, pair_count, &tmp, &error) ||
-      // covar * old_pair_count
-      !functions::Multiply(*covar, old_pair_count, covar, &error) ||
-      // covar * old_pair_count +
-      //     ((x - mean_x) * (y - mean_y) * old_pair_count) / pair_count
-      !functions::Add(*covar, tmp, covar, &error) ||
-      // (covar * old_pair_count +
-      //     ((x - mean_x) * (y - mean_y) * old_pair_count) / pair_count) /
-      //     pair_count
-      !functions::Divide(*covar, pair_count, covar, &error)) {
-    return error;
-  }
+
+  // pair_count - 1
+  ZETASQL_RET_CHECK(functions::Subtract(pair_count, 1.0L, &old_pair_count, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // x - mean_x
+  ZETASQL_RET_CHECK(functions::Subtract(x, mean_x, &delta_x, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // y - mean_y
+  ZETASQL_RET_CHECK(functions::Subtract(y, mean_y, &delta_y, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // (x - mean_x) * (y - mean_y)
+  ZETASQL_RET_CHECK(functions::Multiply(delta_x, delta_y, &tmp, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // (x - mean_x) * (y - mean_y) * old_pair_count
+  ZETASQL_RET_CHECK(functions::Multiply(tmp, old_pair_count, &tmp, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // (x - mean_x) * (y - mean_y) * old_pair_count / pair_count
+  ZETASQL_RET_CHECK(functions::Divide(tmp, pair_count, &tmp, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // covar * old_pair_count
+  ZETASQL_RET_CHECK(functions::Multiply(*covar, old_pair_count, covar, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // covar * old_pair_count +
+  //     ((x - mean_x) * (y - mean_y) * old_pair_count) / pair_count
+  ZETASQL_RET_CHECK(functions::Add(*covar, tmp, covar, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // (covar * old_pair_count +
+  //     ((x - mean_x) * (y - mean_y) * old_pair_count) / pair_count) /
+  //     pair_count
+  ZETASQL_RET_CHECK(functions::Divide(*covar, pair_count, covar, &error));
+  ZETASQL_RET_CHECK_OK(error);
 
   return absl::OkStatus();
 }
 
-absl::Status UpdateMeanAndVariance(double arg, double count, double* mean,
-                                   double* variance) {
+absl::Status UpdateMeanAndVariance(long double arg, long double count,
+                                   long double* mean, long double* variance) {
   absl::Status error;
 
   if (!std::isfinite(*variance)) {
@@ -1183,34 +1230,39 @@ absl::Status UpdateMeanAndVariance(double arg, double count, double* mean,
   // avg += delta * frac
   // variance += frac * ((1.0 - frac) * delta ^ 2 - variance)
 
-  const double frac = 1.0 / count;
+  const long double frac = 1.0L / count;
 
   // delta = x - mean
-  double delta;
-  if (!functions::Subtract(arg, *mean, &delta, &error)) {
-    return error;
-  }
+  long double delta;
+  ZETASQL_RET_CHECK(functions::Subtract(arg, *mean, &delta, &error));
+  ZETASQL_RET_CHECK_OK(error);
 
   // mean += delta * frac
-  double tmp;
-  if (!functions::Multiply(delta, frac, &tmp, &error) ||
-      !functions::Add(*mean, tmp, mean, &error)) {
-    return error;
-  }
+  long double tmp;
+  ZETASQL_RET_CHECK(functions::Multiply(delta, frac, &tmp, &error));
+  ZETASQL_RET_CHECK_OK(error);
+  ZETASQL_RET_CHECK(functions::Add(*mean, tmp, mean, &error));
+  ZETASQL_RET_CHECK_OK(error);
 
-  if (
-      // (1-frac) * delta
-      !functions::Multiply(1 - frac, delta, &tmp, &error) ||
-      // (1-frac) * delta ^ 2
-      !functions::Multiply(tmp, delta, &tmp, &error) ||
-      // (1-frac) * delta ^ 2 - variance
-      !functions::Subtract(tmp, *variance, &tmp, &error) ||
-      // frac * ((1-frac) * delta ^ 2 - variance)
-      !functions::Multiply(frac, tmp, &tmp, &error) ||
-      // variance += frac * ((1-frac) * delta ^ 2 - variance)
-      !functions::Add(*variance, tmp, variance, &error)) {
-    return error;
-  }
+  // (1-frac) * delta
+  ZETASQL_RET_CHECK(functions::Multiply(1 - frac, delta, &tmp, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // (1-frac) * delta ^ 2
+  ZETASQL_RET_CHECK(functions::Multiply(tmp, delta, &tmp, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // (1-frac) * delta ^ 2 - variance
+  ZETASQL_RET_CHECK(functions::Subtract(tmp, *variance, &tmp, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // frac * ((1-frac) * delta ^ 2 - variance)
+  ZETASQL_RET_CHECK(functions::Multiply(frac, tmp, &tmp, &error));
+  ZETASQL_RET_CHECK_OK(error);
+
+  // variance += frac * ((1-frac) * delta ^ 2 - variance)
+  ZETASQL_RET_CHECK(functions::Add(*variance, tmp, variance, &error));
+  ZETASQL_RET_CHECK_OK(error);
 
   return absl::OkStatus();
 }
@@ -1237,28 +1289,32 @@ class ProtoMapFunction : public BuiltinScalarFunction {
  private:
   absl::StatusOr<Value> EvalInternal(absl::Span<const Value> args,
                                      EvaluationContext* context) const {
-    ZETASQL_RET_CHECK_LE(1, args.size())
+    ZETASQL_RET_CHECK_GE(args.size(), 1)
         << "All map functions have a map as their first arg.";
+    ZETASQL_RET_CHECK_GE(args.size(), 2) << "All map functions have at least two args.";
     ZETASQL_RET_CHECK(IsProtoMap(args[0].type()))
         << "All map functions have a map as their first arg.";
 
-    if (args[0].is_null()) return Value::Null(output_type());
+    if (args[0].is_null()) {
+      return Value::Null(output_type());
+    }
 
     const Type* key_type;
     const Type* value_type;
     switch (kind()) {
       case FunctionKind::kSafeProtoMapAtKey:
       case FunctionKind::kProtoMapAtKey:
-        key_type = args.at(1).type();
+        key_type = args[1].type();
         value_type = output_type();
         break;
       case FunctionKind::kContainsKey:
-        key_type = args.at(1).type();
+        key_type = args[1].type();
         value_type = nullptr;
         break;
       case FunctionKind::kModifyMap:
-        key_type = args.at(1).type();
-        value_type = args.at(2).type();
+        ZETASQL_RET_CHECK_GE(args.size(), 3) << "MODIFY_MAP must have at least 3 args.";
+        key_type = args[1].type();
+        value_type = args[2].type();
         break;
       default:
         return absl::InternalError(absl::StrCat(
@@ -1266,42 +1322,87 @@ class ProtoMapFunction : public BuiltinScalarFunction {
             kind()));
     }
 
+    auto is_sql_equals = [](const Value& left, const Value& right) {
+      Value result = left.SqlEquals(right);
+      return !result.is_null() && result.bool_value();
+    };
+
     google::protobuf::DynamicMessageFactory factory;
     std::vector<std::pair<Value, Value>> map;
     ZETASQL_RETURN_IF_ERROR(ParseProtoMap(args[0], key_type, value_type, map));
 
-    auto FindWithKey = [&](const Value& key) {
-      // We're reading the vector representation of a protocol buffer map from
-      // its wire format. As such, the last element with a given key controls.
-      return std::find_if(map.rbegin(), map.rend(),
-                          [&](const std::pair<Value, Value>& entry) {
-                            auto result = entry.first.SqlEquals(key);
-                            return !result.is_null() && result.bool_value();
-                          });
-    };
-
-    MaybeSetNonDeterministicArrayOutput(args[0], context);
+    // TODO: Collation should be propagated from the second arg
+    //     of `CONTAINS_KEY` and `$proto_map_at_key`.
+    bool equal_values_are_distinguishable =
+        value_type != nullptr &&
+        IsTypeWithDistinguishableTies(value_type, /*collator_list=*/{});
 
     switch (kind()) {
       case FunctionKind::kSafeProtoMapAtKey:
       case FunctionKind::kProtoMapAtKey: {
-        if (args[1].is_null()) return Value::Null(output_type());
-        auto it = FindWithKey(args[1]);
-        if (it == map.rend()) {
-          if (kind() == FunctionKind::kSafeProtoMapAtKey) {
-            return Value::Null(output_type());
-          } else {
-            return absl::OutOfRangeError(
-                absl::StrCat("Key not found in map: ",
-                             args[1].GetSQLLiteral(product_mode_)));
+        if (args[1].is_null()) {
+          return Value::Null(output_type());
+        }
+        ZETASQL_RET_CHECK(!args[0].is_null());
+        // We need to know if the input array has a fixed order or not because
+        // in the event of *ties* we deterministically take the "last" entry.
+        // If the input array does not know its order we can't know which entry
+        // is "last" and the function is non-deterministic.
+        bool is_input_fully_ordered = args[0].num_elements() <= 1 ||
+                                      (InternalValue::GetOrderKind(args[0]) ==
+                                       InternalValue::kPreservesOrder);
+        int found = false;
+        Value found_value = Value::Null(output_type());
+        // Iterate from the back because when there are ties, we need the last
+        // one.
+        for (int i = args[0].num_elements() - 1; i >= 0; --i) {
+          ZETASQL_RET_CHECK(args[1].is_valid());
+          ZETASQL_RET_CHECK(map[i].first.is_valid());
+          if (is_sql_equals(args[1], map[i].first)) {
+            if (!found) {
+              found = true;
+              found_value = map[i].second;
+              if (is_input_fully_ordered) {
+                // When we know the input has a determined order, then its
+                // enough to find the last example. The last copy of the key
+                // wins.
+                break;
+              }
+              continue;
+            }
+            ZETASQL_RET_CHECK(!is_input_fully_ordered);
+            if (equal_values_are_distinguishable ||
+                !is_sql_equals(found_value, map[i].second)) {
+              context->SetNonDeterministicOutput();
+              break;
+            }
+            // If we get here, we found a tied key but the value is not
+            // distinguisable to the value at the first copy of the key,
+            // so $proto_map_at_key is still deterministc.
           }
         }
-        ZETASQL_RET_CHECK(it->second.type()->Equals(output_type()));
-        return it->second;
+        if (!found) {
+          if (kind() == FunctionKind::kSafeProtoMapAtKey) {
+            return Value::Null(output_type());
+          }
+          return absl::OutOfRangeError(absl::StrCat(
+              "Key not found in map: ", args[1].GetSQLLiteral(product_mode_)));
+        }
+        ZETASQL_RET_CHECK(found_value.type()->Equals(output_type()));
+        return found_value;
       }
       case FunctionKind::kContainsKey: {
-        if (args[1].is_null()) return Value::Bool(false);
-        return Value::Bool(FindWithKey(args[1]) != map.rend());
+        if (args[1].is_null()) {
+          return Value::Bool(false);
+        }
+        ZETASQL_RET_CHECK(!args[0].is_null());
+        auto find_with_key = [&](const Value& key) {
+          return absl::c_find_if(map,
+                                 [&](const std::pair<Value, Value>& entry) {
+                                   return is_sql_equals(entry.first, key);
+                                 });
+        };
+        return Value::Bool(find_with_key(args[1]) != map.end());
       }
       case FunctionKind::kModifyMap: {
         return ModifyMap(std::move(map), args, context);
@@ -1316,13 +1417,6 @@ class ProtoMapFunction : public BuiltinScalarFunction {
   absl::StatusOr<Value> ModifyMap(std::vector<std::pair<Value, Value>> map,
                                   absl::Span<const Value> args,
                                   EvaluationContext* context) const {
-    // The output order of MODIFY_MAP is not inherently defined. For the
-    // sake of testing, the reference_impl in non-scramble mode will always
-    // emit retained keys in the same order as they were received, then
-    // emit mod keys in ascending order of argument index. But
-    // implementations are free to do what they want with this.
-    context->SetNonDeterministicOutput();
-
     const int num_mods = (args.size() - 1) / 2;
     ZETASQL_RET_CHECK(args.size() % 2)
         << "MODIFY_MAP: should have an odd number of args";
@@ -1387,7 +1481,14 @@ class ProtoMapFunction : public BuiltinScalarFunction {
       output_array.push_back(
           Value::Proto(element_type, absl::Cord(std::move(element_str))));
     }
-    return Value::Array(output_type()->AsArray(), std::move(output_array));
+
+    // Even though the above algorithm is stable and maintins the order of the
+    // input array elements, the MODIFY_MAP function does not define where in
+    // the artbitrary element order the new key-value pair goes.
+    InternalValue::OrderPreservationKind output_orderedness =
+        InternalValue::kIgnoresOrder;
+    return InternalValue::ArrayChecked(
+        output_type()->AsArray(), output_orderedness, std::move(output_array));
   }
 
   ProductMode product_mode_;
@@ -1497,8 +1598,8 @@ static constexpr uint64_t FCT_TYPE_ARITY(FunctionKind function_kind,
 
 absl::StatusOr<FunctionKind> BuiltinFunctionCatalog::GetKindByName(
     const absl::string_view name) {
-  const FunctionKind* kind = zetasql_base::FindOrNull(
-      GetFunctionMap().function_kind_by_name(), std::string(name));
+  const FunctionKind* kind =
+      zetasql_base::FindOrNull(GetFunctionMap().function_kind_by_name(), name);
   if (kind == nullptr) {
     return absl::UnimplementedError(
         absl::StrCat("Unsupported built-in function: ", name));
@@ -1556,7 +1657,7 @@ absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
 BuiltinScalarFunction::CreateCast(
     const LanguageOptions& language_options, const Type* output_type,
     std::unique_ptr<ValueExpr> argument, std::unique_ptr<ValueExpr> format,
-    std::unique_ptr<ValueExpr> time_zone, const TypeParameters& type_params,
+    std::unique_ptr<ValueExpr> time_zone, const TypeModifiers& type_modifiers,
     bool return_null_on_error, ResolvedFunctionCallBase::ErrorMode error_mode,
     std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator) {
   ZETASQL_ASSIGN_OR_RETURN(auto null_on_error_exp,
@@ -1576,9 +1677,9 @@ BuiltinScalarFunction::CreateCast(
   }
 
   return ScalarFunctionCallExpr::Create(
-      std::make_unique<CastFunction>(output_type,
-                                     std::move(extended_cast_evaluator),
-                                     std::move(type_params)),
+      std::make_unique<CastFunction>(
+          output_type, std::move(extended_cast_evaluator),
+          std::move(type_modifiers.type_parameters())),
       std::move(args), error_mode);
 }
 
@@ -1607,14 +1708,6 @@ BuiltinScalarFunction::CreateCall(
       CreateValidated(kind, language_options, output_type, arguments));
   return ScalarFunctionCallExpr::Create(std::move(function),
                                         std::move(arguments), error_mode);
-}
-
-std::unique_ptr<BuiltinScalarFunction> BuiltinScalarFunction::CreateUnvalidated(
-    FunctionKind kind, const Type* output_type) {
-  auto result = CreateValidated(kind, LanguageOptions::MaximumFeatures(),
-                                output_type, {});
-  ZETASQL_CHECK_OK(result.status());
-  return std::move(result).value();
 }
 
 absl::StatusOr<BuiltinScalarFunction*>
@@ -2033,6 +2126,12 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kError:
       return new ErrorFunction(output_type);
     case FunctionKind::kRangeCtor:
+    case FunctionKind::kRangeIsStartUnbounded:
+    case FunctionKind::kRangeIsEndUnbounded:
+    case FunctionKind::kRangeStart:
+    case FunctionKind::kRangeEnd:
+    case FunctionKind::kRangeOverlaps:
+    case FunctionKind::kRangeIntersect:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     default:
       ZETASQL_RET_CHECK_FAIL() << BuiltinFunctionCatalog::GetDebugNameByKind(kind)
@@ -2157,6 +2256,24 @@ ArrayMinMaxFunction::CreateCall(
   std::unique_ptr<BuiltinScalarFunction> function =
       std::make_unique<ArrayMinMaxFunction>(kind, output_type,
                                             std::move(collator_list));
+  return ScalarFunctionCallExpr::Create(std::move(function),
+                                        std::move(arguments), error_mode);
+}
+
+absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
+ArrayFindFunctions::CreateCall(
+    FunctionKind kind, const LanguageOptions& language_options,
+    const Type* output_type, std::vector<std::unique_ptr<AlgebraArg>> arguments,
+    ResolvedFunctionCallBase::ErrorMode error_mode,
+    CollatorList collator_list) {
+  // The collation information of the array element type of the first argument
+  // needs to match that of the second argument.
+  // We currently only support collation_list with only one element.
+  ZETASQL_RET_CHECK_LE(collator_list.size(), 1);
+
+  std::unique_ptr<BuiltinScalarFunction> function =
+      std::make_unique<ArrayFindFunctions>(kind, output_type,
+                                           std::move(collator_list));
   return ScalarFunctionCallExpr::Create(std::move(function),
                                         std::move(arguments), error_mode);
 }
@@ -3655,7 +3772,8 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
         case TYPE_BOOL:
           return Value::Bool(min_value > 0);
         case TYPE_ENUM:
-          return Value::Enum(output_type()->AsEnum(), min_value);
+          return Value::Enum(output_type()->AsEnum(), min_value,
+                             /*allow_unknown_enum_values=*/true);
         default:
           ZETASQL_RET_CHECK_FAIL();
       }
@@ -3875,7 +3993,8 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
         case TYPE_BOOL:
           return Value::Bool(max_value > 0);
         case TYPE_ENUM:
-          return Value::Enum(output_type()->AsEnum(), max_value);
+          return Value::Enum(output_type()->AsEnum(), max_value,
+                             /*allow_unknown_enum_values=*/true);
         default:
           ZETASQL_RET_CHECK_FAIL();
       }
@@ -4222,7 +4341,7 @@ static absl::StatusOr<Value> AggregateBigNumericArrayAvgValue(
 }
 
 static absl::StatusOr<Value> AggregateIntervalArrayAvgValue(
-    const std::vector<Value>& elements) {
+    const std::vector<Value>& elements, EvaluationContext* context) {
   int64_t non_null_count = 0;
   IntervalValue::SumAggregator aggregator = IntervalValue::SumAggregator();
   for (const Value& element : elements) {
@@ -4234,7 +4353,11 @@ static absl::StatusOr<Value> AggregateIntervalArrayAvgValue(
   }
 
   if (non_null_count > 0) {
-    ZETASQL_ASSIGN_OR_RETURN(IntervalValue avg, aggregator.GetAverage(non_null_count));
+    // Sanitize the nanos second part if in micro seconds mode.
+    bool round_to_micros = GetTimestampScale(context->GetLanguageOptions()) ==
+                           functions::TimestampScale::kMicroseconds;
+    ZETASQL_ASSIGN_OR_RETURN(IntervalValue avg,
+                     aggregator.GetAverage(non_null_count, round_to_micros));
     return Value::Interval(avg);
   }
   return Value::NullInterval();
@@ -4307,11 +4430,115 @@ absl::StatusOr<Value> ArraySumAvgFunction::Eval(
       return AggregateBigNumericArrayAvgValue(args[0].elements());
     }
     case FCT(FunctionKind::kArrayAvg, TYPE_INTERVAL): {
-      return AggregateIntervalArrayAvgValue(args[0].elements());
+      return AggregateIntervalArrayAvgValue(args[0].elements(), context);
     }
     default:
       ZETASQL_RET_CHECK_FAIL();
   }
+}
+
+static bool IsFindSingletonFunction(FunctionKind kind) {
+  return kind == FunctionKind::kArrayOffset || kind == FunctionKind::kArrayFind;
+}
+
+static absl::StatusOr<bool> IsEqualToTarget(const Value& element,
+                                            const Value& target,
+                                            const CollatorList& collator_list) {
+  // Use collation_list that is defined in the resolved function call.
+  if (!collator_list.empty()) {
+    ZETASQL_RET_CHECK(element.type()->kind() == TYPE_STRING);
+    absl::Status status = absl::OkStatus();
+    int64_t res = collator_list[0]->CompareUtf8(element.string_value(),
+                                                target.string_value(), &status);
+    ZETASQL_RETURN_IF_ERROR(status);
+    return res == 0;
+  } else {
+    Value equals = element.SqlEquals(target);
+    ZETASQL_RET_CHECK(equals.is_valid())
+        << "Failed to compare element: " << element.DebugString()
+        << " and target: " << target.DebugString();
+    return !equals.is_null() && equals.bool_value();
+  }
+}
+
+absl::StatusOr<Value> ArrayFindFunctions::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  // TODO: Update to validate a size range when adding lambda
+  // support.
+  ZETASQL_RET_CHECK(kind() == FunctionKind::kArrayOffset ||
+            kind() == FunctionKind::kArrayFind ||
+            kind() == FunctionKind::kArrayOffsets ||
+            kind() == FunctionKind::kArrayFindAll);
+  if (IsFindSingletonFunction(kind())) {
+    ZETASQL_RET_CHECK_EQ(args.size(), 3);
+  } else {
+    ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  }
+
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+
+  const Value& input_array = args[0];
+  if (input_array.is_empty_array()) {
+    if (IsFindSingletonFunction(kind())) {
+      return Value::Null(output_type());
+    }
+    return Value::EmptyArray(output_type()->AsArray());
+  }
+
+  auto order_kind = InternalValue::GetOrderKind(input_array);
+  int array_length = input_array.num_elements();
+  if (kind() == FunctionKind::kArrayOffset && array_length > 1 &&
+      order_kind == InternalValue::kIgnoresOrder) {
+    context->SetNonDeterministicOutput();
+  }
+
+  const Value& target = args[1];
+  std::vector<Value> found_offsets;
+  std::vector<Value> found_values;
+  for (int i = 0; i < array_length; ++i) {
+    ZETASQL_ASSIGN_OR_RETURN(bool found, IsEqualToTarget(input_array.element(i), target,
+                                                 collator_list_));
+    if (found) {
+      found_offsets.push_back(Value::Int64(i));
+      found_values.push_back(input_array.element(i));
+    }
+  }
+
+  // Empty result
+  if (found_offsets.empty()) {
+    ZETASQL_RET_CHECK(found_values.empty());
+    return IsFindSingletonFunction(kind())
+               ? Value::Null(output_type())
+               : Value::EmptyArray(output_type()->AsArray());
+  }
+
+  bool are_ties_distinguishable = IsTypeWithDistinguishableTies(
+      input_array.type()->AsArray()->element_type(), collator_list_);
+  if (IsFindSingletonFunction(kind())) {
+    // If find mode equals to 1, get the "FIRST" found element, otherwise get
+    // the "LAST" found element.
+    const int32_t mode = args[2].enum_value();
+    if (kind() == FunctionKind::kArrayOffset) {  // ARRAY_OFFSET
+      return mode == 1 ? found_offsets.front() : found_offsets.back();
+    }
+    // ARRAY_FIND
+    if (order_kind == InternalValue::kIgnoresOrder &&
+        found_offsets.size() > 1 && are_ties_distinguishable) {
+      context->SetNonDeterministicOutput();
+    }
+    return mode == 1 ? found_values.front() : found_values.back();
+  }
+  // ARRAY_OFFSETS
+  if (kind() == FunctionKind::kArrayOffsets) {
+    return InternalValue::Array(output_type()->AsArray(), found_offsets,
+                                order_kind);
+  }
+  // ARRAY_FIND_ALL
+  return InternalValue::Array(output_type()->AsArray(), found_values,
+                              order_kind);
 }
 
 bool IsFunction::Eval(absl::Span<const TupleData* const> params,
@@ -4568,10 +4795,10 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   // Count of non-null values.
   int64_t count_ = 0;
   int64_t countif_ = 0;
-  double out_double_ = 0;              // Max, Min, Avg
+  double out_double_ = 0;              // Max, Min, Avg, CovarPop, CovarSamp
   zetasql_base::ExactFloat out_exact_float_ = 0;     // Sum
-  double avg_ = 0;                     // VarPop, VarSamp, StddevPop, StddevSamp
-  double variance_ = 0;                // VarPop, VarSamp, StddevPop, StddevSamp
+  long double avg_ = 0;                // VarPop, VarSamp, StddevPop, StddevSamp
+  long double variance_ = 0;           // VarPop, VarSamp, StddevPop, StddevSamp
   int64_t out_int64_ = 0;              // Max, Min
   uint64_t out_uint64_ = 0;            // Max, Min
   DatetimeValue out_datetime_;         // Max, Min
@@ -4604,6 +4831,10 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   // Used for ANON_* functions from (broken link).
   std::unique_ptr<::differential_privacy::Algorithm<double>> anon_double_;
   std::unique_ptr<::differential_privacy::Algorithm<int64_t>> anon_int64_;
+  // Used for WITH DIFFERENTIAL_PRIVACY functions from
+  // (broken link)
+  std::unique_ptr<::differential_privacy::Algorithm<double>> dp_double_;
+  std::unique_ptr<::differential_privacy::Algorithm<int64_t>> dp_int64_;
   // An output array for Min, Max.
   Value min_max_out_array_;
 };
@@ -4658,9 +4889,9 @@ static absl::Status InitializeAnonBuilder(const std::vector<Value>& args,
 
 template <>
 absl::Status
-InitializeAnonBuilder<differential_privacy::Quantiles<double>::Builder>(
+InitializeAnonBuilder<::differential_privacy::Quantiles<double>::Builder>(
     const std::vector<Value>& args,
-    differential_privacy::Quantiles<double>::Builder* builder) {
+    ::differential_privacy::Quantiles<double>::Builder* builder) {
   // The current implementation always expects 5 arguments (until b/205277450 is
   // fixed and optional clamping bounds is supported):
   //   * args[0] is the input value to quantiles
@@ -4696,8 +4927,8 @@ InitializeAnonBuilder<differential_privacy::Quantiles<double>::Builder>(
   epsilon_offset = 4;
 
   return SetAnonBuilderEpsilon<
-      differential_privacy::Quantiles<double>::Builder>(args[epsilon_offset],
-                                                        builder);
+      ::differential_privacy::Quantiles<double>::Builder>(args[epsilon_offset],
+                                                          builder);
 }
 
 // For functions which return an array of elements from their per-user
@@ -4711,6 +4942,158 @@ absl::Status InitializeAnonBuilderForArrayFunction(
   builder->SetMaxContributionsPerPartition(
       anonymization::kPerUserArrayAggLimit);
   return InitializeAnonBuilder(args, builder);
+}
+
+// Returns the type of first argument to the member function.
+template <class ObjectType, class ArgType, class Result>
+constexpr ArgType GetMemberFunctionFirstArgumentType(
+    Result (ObjectType::*)(ArgType));
+
+// Checks if contribution bounds have correct types and sets them on the
+// builder.
+template <class Builder>
+absl::Status CheckAndSetContributionBounds(const Value& value,
+                                           Builder* builder) {
+  if (value.is_null()) {
+    return absl::OkStatus();
+  }
+  ZETASQL_RET_CHECK(value.type()->IsStruct()) << value.type()->DebugString();
+  ZETASQL_RET_CHECK(value.num_fields() == 2) << value.DebugString();
+  // TODO: Add support for other DP signatures here.
+  if (!value.field(0).type()->IsDouble() && !value.field(0).type()->IsInt64()) {
+    return absl::OutOfRangeError(
+        absl::StrCat("Contribution bounds can only be INT64 or DOUBLE but is: ",
+                     value.field(0).type()->DebugString()));
+  }
+  if (value.field(0).type()->IsDouble()) {
+    ZETASQL_RET_CHECK(value.field(1).type()->IsDouble())
+        << value.field(1).type()->DebugString();
+    // Getting the arg type is necessary to silence compiler warning that we are
+    // implicitly converting double to int64_t. We use static cast to make it
+    // explicit.
+    using BuilderArgType =
+        std::decay_t<decltype(GetMemberFunctionFirstArgumentType(
+            &Builder::SetLower))>;
+    builder
+        ->SetLower(static_cast<BuilderArgType>(value.field(0).double_value()))
+        .SetUpper(static_cast<BuilderArgType>(value.field(1).double_value()));
+    return absl::OkStatus();
+  }
+  ZETASQL_RET_CHECK(value.field(0).type()->IsInt64())
+      << value.field(0).type()->DebugString();
+  ZETASQL_RET_CHECK(value.field(1).type()->IsInt64())
+      << value.field(1).type()->DebugString();
+  builder->SetLower(value.field(0).int64_value())
+      .SetUpper(value.field(1).int64_value());
+
+  return absl::OkStatus();
+}
+
+bool IsDPProtoReportFunction(const Type* output_type) {
+  return output_type != nullptr && output_type->IsProto() &&
+         output_type->AsProto()->descriptor()->full_name() ==
+             zetasql::functions::DifferentialPrivacyOutputWithReport::
+                 GetDescriptor()
+                     ->full_name();
+}
+bool IsDPJsonReportFunction(const Type* output_type) {
+  return output_type != nullptr && output_type->IsJson();
+}
+
+bool IsDPReportFunction(const Type* output_type) {
+  return IsDPProtoReportFunction(output_type) ||
+         IsDPJsonReportFunction(output_type);
+}
+
+// Returns true if both class templates are the same. e.g.
+template <template <class...> class T1, template <class...> class T2>
+inline constexpr bool is_same_template_v = false;
+
+template <template <class...> class T>
+inline constexpr bool is_same_template_v<T, T> = true;
+
+static_assert(is_same_template_v<::differential_privacy::BoundedVariance,
+                                 ::differential_privacy::BoundedVariance>);
+static_assert(
+    !is_same_template_v<::differential_privacy::BoundedVariance,
+                        ::differential_privacy::BoundedStandardDeviation>);
+
+template <template <class...> class T>
+inline constexpr bool kIsDPArrayAlgorithm =
+    is_same_template_v<T, ::differential_privacy::BoundedVariance> ||
+    is_same_template_v<T, ::differential_privacy::BoundedStandardDeviation> ||
+    is_same_template_v<T, ::differential_privacy::Quantiles>;
+
+template <template <class> class AlgorithmType, class ValueType>
+absl::StatusOr<std::unique_ptr<::differential_privacy::Algorithm<ValueType>>>
+BuildDPAlgorithm(bool is_report_function, const std::vector<Value>& args,
+                 int expected_base_arg_count,
+                 int contribution_bounds_base_offset,
+                 typename AlgorithmType<ValueType>::Builder&& builder) {
+  // For functions which return an array of elements from their per-user
+  // aggregation, we need to set MaxContributionsPerPartition to the length
+  // of the array.
+  // TODO: Plumb the value through rather than relying on the
+  // constant.
+  if constexpr (kIsDPArrayAlgorithm<AlgorithmType>) {
+    builder.SetMaxContributionsPerPartition(
+        anonymization::kPerUserArrayAggLimit);
+  }
+  // The last two args represent 'delta' and 'epsilon'.  If clamping
+  // bounds are explicitly set, then there will be one additional arg at 0.
+  // TODO: Remove the delta argument. When delta is set, we compute
+  // group_selection_threshold from delta/epsilon/max_groups_contributed, and
+  // the delta value is no longer relevant to the function itself.
+
+  const int report_offset = is_report_function ? 1 : 0;
+  const int expected_arg_count_report =
+      expected_base_arg_count + (is_report_function ? 1 : 0);
+
+  ZETASQL_RET_CHECK(args.size() == expected_arg_count_report ||
+            args.size() == (expected_arg_count_report + 1))
+      << args.size();
+  const size_t epsilon_offset = args.size() - 1;
+  if (args.size() == (expected_arg_count_report + 1)) {
+    const int contribution_bounds_offset =
+        contribution_bounds_base_offset + report_offset;
+    ZETASQL_RETURN_IF_ERROR(CheckAndSetContributionBounds(
+        args[contribution_bounds_offset], &builder));
+  }
+  ZETASQL_RETURN_IF_ERROR(SetAnonBuilderEpsilon(args[epsilon_offset], &builder));
+  return builder.Build();
+}
+
+template <template <class> class AlgorithmType, class ValueType>
+absl::StatusOr<std::unique_ptr<::differential_privacy::Algorithm<ValueType>>>
+BuildDPAlgorithm(bool is_report_function, const std::vector<Value>& args) {
+  return BuildDPAlgorithm<AlgorithmType, ValueType>(
+      is_report_function, args,
+      /*expected_base_arg_count=*/2,
+      /*contribution_bounds_base_offset=*/0,
+      typename AlgorithmType<ValueType>::Builder());
+}
+
+template <>
+absl::StatusOr<std::unique_ptr<::differential_privacy::Algorithm<double>>>
+BuildDPAlgorithm<::differential_privacy::Quantiles, double>(
+    bool is_report_function, const std::vector<Value>& args) {
+  ::differential_privacy::Quantiles<double>::Builder builder;
+  // The current implementation always expects 4 arguments (until b/205277450 is
+  // fixed and optional contribution bounds are supported).
+  const int report_offset = is_report_function ? 1 : 0;
+  ZETASQL_RET_CHECK(args.size() == (4 + report_offset)) << args.size();
+  // Create a vector of n+1 quantile boundaries, representing the requested n
+  // quantiles.
+  double number_of_quantile_boundaries = args[0].int64_value() + 1;
+  std::vector<double> quantiles;
+  for (double i = 0; i < number_of_quantile_boundaries; ++i) {
+    quantiles.push_back(i / number_of_quantile_boundaries);
+  }
+  builder.SetQuantiles(quantiles);
+  return BuildDPAlgorithm<::differential_privacy::Quantiles, double>(
+      is_report_function, args,
+      /*expected_base_arg_count=*/3,
+      /*contribution_bounds_base_offset=*/1, std::move(builder));
 }
 
 absl::Status BuiltinAggregateAccumulator::Reset() {
@@ -4935,7 +5318,7 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonSum, TYPE_DOUBLE): {
-      differential_privacy::BoundedSum<double>::Builder builder;
+      ::differential_privacy::BoundedSum<double>::Builder builder;
       ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilder<>(args_, &builder));
       ZETASQL_ASSIGN_OR_RETURN(anon_double_, builder.Build());
       break;
@@ -4943,27 +5326,27 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_INT64):
     case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_INT64):
     case FCT(FunctionKind::kAnonSum, TYPE_INT64): {
-      differential_privacy::BoundedSum<int64_t>::Builder builder;
+      ::differential_privacy::BoundedSum<int64_t>::Builder builder;
       ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilder<>(args_, &builder));
       ZETASQL_ASSIGN_OR_RETURN(anon_int64_, builder.Build());
       break;
     }
     case FCT(FunctionKind::kAnonAvg, TYPE_DOUBLE): {
-      differential_privacy::BoundedMean<double>::Builder builder;
+      ::differential_privacy::BoundedMean<double>::Builder builder;
       ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilder<>(args_, &builder));
       ZETASQL_ASSIGN_OR_RETURN(anon_double_, builder.Build());
       break;
     }
     case FCT(FunctionKind::kAnonVarPop, TYPE_ARRAY): {
       ZETASQL_RET_CHECK(input_type_->AsArray()->element_type()->IsDouble());
-      differential_privacy::BoundedVariance<double>::Builder builder;
+      ::differential_privacy::BoundedVariance<double>::Builder builder;
       ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilderForArrayFunction<>(args_, &builder));
       ZETASQL_ASSIGN_OR_RETURN(anon_double_, builder.Build());
       break;
     }
     case FCT(FunctionKind::kAnonStddevPop, TYPE_ARRAY): {
       ZETASQL_RET_CHECK(input_type_->AsArray()->element_type()->IsDouble());
-      differential_privacy::BoundedStandardDeviation<double>::Builder builder;
+      ::differential_privacy::BoundedStandardDeviation<double>::Builder builder;
       ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilderForArrayFunction<>(args_, &builder));
       ZETASQL_ASSIGN_OR_RETURN(anon_double_, builder.Build());
       break;
@@ -4971,9 +5354,58 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kAnonQuantilesWithReportProto, TYPE_ARRAY):
     case FCT(FunctionKind::kAnonQuantilesWithReportJson, TYPE_ARRAY):
     case FCT(FunctionKind::kAnonQuantiles, TYPE_ARRAY): {
-      differential_privacy::Quantiles<double>::Builder builder;
+      ::differential_privacy::Quantiles<double>::Builder builder;
       ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilderForArrayFunction<>(args_, &builder));
       ZETASQL_ASSIGN_OR_RETURN(anon_double_, builder.Build());
+      break;
+    }
+
+    // DifferentialPrivacy functions.
+    case FCT(FunctionKind::kDifferentialPrivacySum, TYPE_DOUBLE): {
+      ZETASQL_ASSIGN_OR_RETURN(
+          dp_double_,
+          (BuildDPAlgorithm<::differential_privacy::BoundedSum, double>(
+              IsDPReportFunction(function_->output_type()), args_)));
+      break;
+    }
+    case FCT(FunctionKind::kDifferentialPrivacySum, TYPE_INT64): {
+      ZETASQL_ASSIGN_OR_RETURN(
+          dp_int64_,
+          (BuildDPAlgorithm<::differential_privacy::BoundedSum, int64_t>(
+              IsDPReportFunction(function_->output_type()), args_)));
+      break;
+    }
+
+    case FCT(FunctionKind::kDifferentialPrivacyAvg, TYPE_DOUBLE): {
+      ZETASQL_ASSIGN_OR_RETURN(
+          dp_double_,
+          (BuildDPAlgorithm<::differential_privacy::BoundedMean, double>(
+              IsDPReportFunction(function_->output_type()), args_)));
+      break;
+    }
+
+    case FCT(FunctionKind::kDifferentialPrivacyVarPop, TYPE_ARRAY): {
+      ZETASQL_RET_CHECK(input_type_->AsArray()->element_type()->IsDouble());
+      ZETASQL_ASSIGN_OR_RETURN(
+          dp_double_,
+          (BuildDPAlgorithm<::differential_privacy::BoundedVariance, double>(
+              IsDPReportFunction(function_->output_type()), args_)));
+      break;
+    }
+    case FCT(FunctionKind::kDifferentialPrivacyStddevPop, TYPE_ARRAY): {
+      ZETASQL_RET_CHECK(input_type_->AsArray()->element_type()->IsDouble());
+      ZETASQL_ASSIGN_OR_RETURN(
+          dp_double_,
+          (BuildDPAlgorithm<::differential_privacy::BoundedStandardDeviation,
+                            double>(
+              IsDPReportFunction(function_->output_type()), args_)));
+      break;
+    }
+    case FCT(FunctionKind::kDifferentialPrivacyQuantiles, TYPE_ARRAY): {
+      ZETASQL_ASSIGN_OR_RETURN(
+          dp_double_,
+          (BuildDPAlgorithm<::differential_privacy::Quantiles, double>(
+              IsDPReportFunction(function_->output_type()), args_)));
       break;
     }
   }
@@ -5445,8 +5877,29 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
           anon_double_->AddEntry(value_element.double_value());
         }
       }
+    } break;
+
+    case FCT(FunctionKind::kDifferentialPrivacySum, TYPE_DOUBLE):
+    case FCT(FunctionKind::kDifferentialPrivacyAvg, TYPE_DOUBLE):
+      dp_double_->AddEntry(value.double_value());
       break;
-    }
+    case FCT(FunctionKind::kDifferentialPrivacySum, TYPE_INT64):
+      dp_int64_->AddEntry(value.int64_value());
+      break;
+    case FCT(FunctionKind::kDifferentialPrivacyQuantiles, TYPE_ARRAY):
+    case FCT(FunctionKind::kDifferentialPrivacyVarPop, TYPE_ARRAY):
+    case FCT(FunctionKind::kDifferentialPrivacyStddevPop, TYPE_ARRAY): {
+      for (const Value& value_element : value.elements()) {
+        if (!value_element.is_null()) {
+          if (!value_element.type()->IsDouble()) {
+            *status = ::zetasql_base::InternalErrorBuilder()
+                      << "Each element must be a double for ";
+            return false;
+          }
+          dp_double_->AddEntry(value_element.double_value());
+        }
+      }
+    } break;
   }
 
   accountant()->ReturnBytes(bytes_to_return);
@@ -5465,7 +5918,7 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResult(
   ZETASQL_ASSIGN_OR_RETURN(const Value result,
                    GetFinalResultInternal(inputs_in_defined_order));
   if (result.physical_byte_size() > context_->options().max_value_byte_size) {
-    return ::zetasql_base::OutOfRangeErrorBuilder()
+    return ::zetasql_base::ResourceExhaustedErrorBuilder()
            << "Aggregate values are limited to "
            << context_->options().max_value_byte_size << " bytes";
   }
@@ -5505,12 +5958,12 @@ absl::StatusOr<Value> ComputePercentileCont(
 
 template <typename T, typename PercentileType, typename V = T,
           typename ValueCreationFn = Value (*)(T)>
-Value ComputePercentileDisc(
+absl::StatusOr<Value> ComputePercentileDisc(
     const PercentileEvaluator<PercentileType>& percentile_evalutor,
     const std::vector<Value>& values_arg, const Type* type,
     V (Value::*extract_value_fn)() const /* e.g., &Value::double_value */,
     const ValueCreationFn& value_creation_fn /* e.g., &Value::Double */,
-    bool ignore_nulls) {
+    bool ignore_nulls, const zetasql::ZetaSqlCollator* collator = nullptr) {
   std::vector<T> normal_values;
   normal_values.reserve(values_arg.size());
   size_t num_nulls = 0;
@@ -5522,6 +5975,17 @@ Value ComputePercentileDisc(
     }
   }
 
+  if constexpr (std::is_same_v<T, absl::string_view>) {
+    if (collator != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(auto itr,
+                       percentile_evalutor
+                           .template ComputePercentileDiscWithCollation<false>(
+                               normal_values.begin(), normal_values.end(),
+                               (ignore_nulls ? 0 : num_nulls), collator));
+      return itr == normal_values.end() ? Value::Null(type)
+                                        : value_creation_fn(*itr);
+    }
+  }
   auto itr = percentile_evalutor.template ComputePercentileDisc<T, false>(
       normal_values.begin(), normal_values.end(),
       (ignore_nulls ? 0 : num_nulls));
@@ -5532,7 +5996,8 @@ Value ComputePercentileDisc(
 template <typename PercentileType>
 absl::StatusOr<Value> ComputePercentileDisc(
     const std::vector<Value>& values_arg, const Type* type,
-    PercentileType percentile, bool ignore_nulls) {
+    PercentileType percentile, bool ignore_nulls,
+    const zetasql::ZetaSqlCollator* collator) {
   ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator<PercentileType> percentile_evalutor,
                    PercentileEvaluator<PercentileType>::Create(percentile));
   switch (type->kind()) {
@@ -5577,7 +6042,7 @@ absl::StatusOr<Value> ComputePercentileDisc(
       return ComputePercentileDisc<absl::string_view, PercentileType,
                                    const std::string&>(
           percentile_evalutor, values_arg, type, &Value::string_value,
-          &Value::String, ignore_nulls);
+          &Value::String, ignore_nulls, collator);
     case TYPE_BOOL:
       return ComputePercentileDisc<bool>(percentile_evalutor, values_arg, type,
                                          &Value::bool_value, &Value::Bool,
@@ -5604,7 +6069,8 @@ absl::StatusOr<Value> ComputePercentileDisc(
                                    std::function<Value(int32_t)>>(
           percentile_evalutor, values_arg, type, &Value::enum_value,
           [type](int32_t value) -> Value {
-            return Value::Enum(type->AsEnum(), value);
+            return Value::Enum(type->AsEnum(), value,
+                               /*allow_unknown_enum_values=*/true);
           },
           ignore_nulls);
     default:
@@ -5614,11 +6080,11 @@ absl::StatusOr<Value> ComputePercentileDisc(
 }
 
 absl::Status ConvertDifferentPrivacyOutputToAnonOutputProto(
-    const differential_privacy::Output& input,
+    const ::differential_privacy::Output& input,
     zetasql::AnonOutputWithReport* anon_output_proto) {
   ZETASQL_RET_CHECK_GT(input.elements_size(), 0);
   AnonOutputValues anon_output_values;
-  for (const differential_privacy::Output::Element& element :
+  for (const ::differential_privacy::Output::Element& element :
        input.elements()) {
     AnonOutputValue* anon_output_value = anon_output_values.add_values();
 
@@ -5633,17 +6099,19 @@ absl::Status ConvertDifferentPrivacyOutputToAnonOutputProto(
 
     ZETASQL_RET_CHECK(element.has_value());
     switch (element.value().value_case()) {
-      case differential_privacy::ValueType::kIntValue:
+      case ::differential_privacy::ValueType::kIntValue:
         anon_output_value->set_int_value(element.value().int_value());
         break;
-      case differential_privacy::ValueType::kFloatValue:
+      case ::differential_privacy::ValueType::kFloatValue:
         anon_output_value->set_float_value(element.value().float_value());
         break;
-      case differential_privacy::ValueType::kStringValue:
+      case ::differential_privacy::ValueType::kStringValue:
         anon_output_value->set_string_value(element.value().string_value());
         break;
-      case differential_privacy::ValueType::VALUE_NOT_SET:
+      case ::differential_privacy::ValueType::VALUE_NOT_SET:
         break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Invalid element value type";
     }
   }
 
@@ -5654,7 +6122,7 @@ absl::Status ConvertDifferentPrivacyOutputToAnonOutputProto(
   }
 
   if (input.has_error_report() && input.error_report().has_bounding_report()) {
-    const differential_privacy::BoundingReport& input_bounding_report =
+    const ::differential_privacy::BoundingReport& input_bounding_report =
         input.error_report().bounding_report();
     BoundingReport anon_bounding_report;
     anon_bounding_report.set_num_inputs(input_bounding_report.num_inputs());
@@ -5665,40 +6133,46 @@ absl::Status ConvertDifferentPrivacyOutputToAnonOutputProto(
     AnonOutputValue anon_output_value_lower_bound;
 
     switch (input_bounding_report.lower_bound().value_case()) {
-      case differential_privacy::ValueType::kIntValue:
+      case ::differential_privacy::ValueType::kIntValue:
         anon_bounding_report.mutable_lower_bound()->set_int_value(
             input_bounding_report.lower_bound().int_value());
         break;
-      case differential_privacy::ValueType::kFloatValue:
+      case ::differential_privacy::ValueType::kFloatValue:
         anon_bounding_report.mutable_lower_bound()->set_float_value(
             input_bounding_report.lower_bound().float_value());
         break;
-      case differential_privacy::ValueType::kStringValue:
+      case ::differential_privacy::ValueType::kStringValue:
         anon_bounding_report.mutable_lower_bound()->set_string_value(
             input_bounding_report.lower_bound().string_value());
         break;
-      case differential_privacy::ValueType::VALUE_NOT_SET:
+      case ::differential_privacy::ValueType::VALUE_NOT_SET:
         break;
+      default:
+        ZETASQL_RET_CHECK_FAIL()
+            << "Invalid input_bounding_report lower_bound value type";
     }
 
     // Upper bound.
     ZETASQL_RET_CHECK(input_bounding_report.has_upper_bound());
 
     switch (input_bounding_report.upper_bound().value_case()) {
-      case differential_privacy::ValueType::kIntValue:
+      case ::differential_privacy::ValueType::kIntValue:
         anon_bounding_report.mutable_upper_bound()->set_int_value(
             input_bounding_report.upper_bound().int_value());
         break;
-      case differential_privacy::ValueType::kFloatValue:
+      case ::differential_privacy::ValueType::kFloatValue:
         anon_bounding_report.mutable_upper_bound()->set_float_value(
             input_bounding_report.upper_bound().float_value());
         break;
-      case differential_privacy::ValueType::kStringValue:
+      case ::differential_privacy::ValueType::kStringValue:
         anon_bounding_report.mutable_upper_bound()->set_string_value(
             input_bounding_report.upper_bound().string_value());
         break;
-      case differential_privacy::ValueType::VALUE_NOT_SET:
+      case ::differential_privacy::ValueType::VALUE_NOT_SET:
         break;
+      default:
+        ZETASQL_RET_CHECK_FAIL()
+            << "Invalid input_bounding_report upper_bound value type";
     }
 
     *anon_output_proto->mutable_bounding_report() = anon_bounding_report;
@@ -5707,18 +6181,122 @@ absl::Status ConvertDifferentPrivacyOutputToAnonOutputProto(
   return absl::OkStatus();
 }
 
-absl::Status ConvertDifferentPrivacyOutputToAnonOutputJson(
-    const differential_privacy::Output& input, JSONValue* anon_output_json) {
+absl::Status ConvertDifferentPrivacyOutputToDifferentialPrivacyOutputProto(
+    const ::differential_privacy::Output& input,
+    zetasql::functions::DifferentialPrivacyOutputWithReport*
+        dp_output_proto) {
+  ZETASQL_RET_CHECK_GT(input.elements_size(), 0);
+  zetasql::functions::DifferentialPrivacyOutputValues dp_output_values;
+  for (const ::differential_privacy::Output::Element& element :
+       input.elements()) {
+    zetasql::functions::DifferentialPrivacyOutputValue* dp_output_value =
+        dp_output_values.add_values();
+
+    ZETASQL_RET_CHECK(element.has_noise_confidence_interval());
+    dp_output_value->mutable_noise_confidence_interval()->set_confidence_level(
+        element.noise_confidence_interval().confidence_level());
+    dp_output_value->mutable_noise_confidence_interval()->set_lower_bound(
+        element.noise_confidence_interval().lower_bound());
+    dp_output_value->mutable_noise_confidence_interval()->set_upper_bound(
+        element.noise_confidence_interval().upper_bound());
+
+    ZETASQL_RET_CHECK(element.has_value());
+    switch (element.value().value_case()) {
+      case ::differential_privacy::ValueType::kIntValue:
+        dp_output_value->set_int_value(element.value().int_value());
+        break;
+      case ::differential_privacy::ValueType::kFloatValue:
+        dp_output_value->set_float_value(element.value().float_value());
+        break;
+      case ::differential_privacy::ValueType::kStringValue:
+        dp_output_value->set_string_value(element.value().string_value());
+        break;
+      case ::differential_privacy::ValueType::VALUE_NOT_SET:
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Invalid element value type";
+    }
+  }
+
+  if (input.elements_size() == 1) {
+    *dp_output_proto->mutable_value() = dp_output_values.values(0);
+  } else {
+    *dp_output_proto->mutable_values() = dp_output_values;
+  }
+
+  if (input.has_error_report() && input.error_report().has_bounding_report()) {
+    const ::differential_privacy::BoundingReport& input_bounding_report =
+        input.error_report().bounding_report();
+    zetasql::functions::DifferentialPrivacyBoundingReport dp_bounding_report;
+    dp_bounding_report.set_num_inputs(input_bounding_report.num_inputs());
+    dp_bounding_report.set_num_outside(input_bounding_report.num_outside());
+
+    // Lower bound.
+    ZETASQL_RET_CHECK(input_bounding_report.has_lower_bound());
+    zetasql::functions::DifferentialPrivacyOutputValue
+        dp_output_value_lower_bound;
+
+    switch (input_bounding_report.lower_bound().value_case()) {
+      case ::differential_privacy::ValueType::kIntValue:
+        dp_bounding_report.mutable_lower_bound()->set_int_value(
+            input_bounding_report.lower_bound().int_value());
+        break;
+      case ::differential_privacy::ValueType::kFloatValue:
+        dp_bounding_report.mutable_lower_bound()->set_float_value(
+            input_bounding_report.lower_bound().float_value());
+        break;
+      case ::differential_privacy::ValueType::kStringValue:
+        dp_bounding_report.mutable_lower_bound()->set_string_value(
+            input_bounding_report.lower_bound().string_value());
+        break;
+      case ::differential_privacy::ValueType::VALUE_NOT_SET:
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL()
+            << "Invalid input_bounding_report lower_bound value type";
+    }
+
+    // Upper bound.
+    ZETASQL_RET_CHECK(input_bounding_report.has_upper_bound());
+
+    switch (input_bounding_report.upper_bound().value_case()) {
+      case ::differential_privacy::ValueType::kIntValue:
+        dp_bounding_report.mutable_upper_bound()->set_int_value(
+            input_bounding_report.upper_bound().int_value());
+        break;
+      case ::differential_privacy::ValueType::kFloatValue:
+        dp_bounding_report.mutable_upper_bound()->set_float_value(
+            input_bounding_report.upper_bound().float_value());
+        break;
+      case ::differential_privacy::ValueType::kStringValue:
+        dp_bounding_report.mutable_upper_bound()->set_string_value(
+            input_bounding_report.upper_bound().string_value());
+        break;
+      case ::differential_privacy::ValueType::VALUE_NOT_SET:
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL()
+            << "Invalid input_bounding_report upper_bound value type";
+    }
+
+    *dp_output_proto->mutable_bounding_report() = dp_bounding_report;
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status ConvertDifferentPrivacyOutputToOutputJson(
+    const ::differential_privacy::Output& input, JSONValue* anon_output_json) {
   ZETASQL_RET_CHECK_GT(input.elements_size(), 0);
 
   JSONValueRef json_ref = anon_output_json->GetRef();
   auto insert_value_to_json = [](JSONValueRef ref,
-                                 differential_privacy::ValueType value) {
+                                 ::differential_privacy::ValueType value) {
     switch (value.value_case()) {
-      case differential_privacy::ValueType::ValueCase::kFloatValue:
+      case ::differential_privacy::ValueType::ValueCase::kFloatValue:
         ref.SetDouble(value.float_value());
         return absl::OkStatus();
-      case differential_privacy::ValueType::ValueCase::kIntValue:
+      case ::differential_privacy::ValueType::ValueCase::kIntValue:
         ref.SetInt64(value.int_value());
         return absl::OkStatus();
       default:
@@ -5730,7 +6308,7 @@ absl::Status ConvertDifferentPrivacyOutputToAnonOutputJson(
   auto insert_element_into_json =
       [&insert_value_to_json](
           JSONValueRef ref,
-          const differential_privacy::Output::Element& element)
+          const ::differential_privacy::Output::Element& element)
       -> absl::Status {
     ZETASQL_RETURN_IF_ERROR(
         insert_value_to_json(ref.GetMember("value"), element.value()));
@@ -5781,6 +6359,116 @@ absl::Status ConvertDifferentPrivacyOutputToAnonOutputJson(
     }
   }
   return absl::OkStatus();
+}
+
+template <class T>
+absl::StatusOr<Value> GetAnonProtoReturnValue(
+    std::unique_ptr<::differential_privacy::Algorithm<T>>& algorithm) {
+  zetasql::TypeFactory type_factory;
+  const ProtoType* anon_output_proto_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory.MakeProtoType(
+      zetasql::AnonOutputWithReport::descriptor(), &anon_output_proto_type));
+  zetasql::AnonOutputWithReport anon_output_proto;
+  if (algorithm != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+    ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToAnonOutputProto(
+        result, &anon_output_proto));
+  }
+  return Value::Proto(anon_output_proto_type,
+                      absl::Cord(anon_output_proto.SerializeAsString()));
+}
+
+template <class T>
+absl::StatusOr<Value> GetAnonJsonReturnValue(
+    std::unique_ptr<::differential_privacy::Algorithm<T>>& algorithm) {
+  JSONValue output_json;
+  if (algorithm != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+    ZETASQL_RETURN_IF_ERROR(
+        ConvertDifferentPrivacyOutputToOutputJson(result, &output_json));
+  }
+  return Value::Json(JSONValue::CopyFrom(output_json.GetConstRef()));
+}
+
+template <class T>
+absl::StatusOr<Value> GetAnonReturnValue(
+    std::unique_ptr<::differential_privacy::Algorithm<T>>& algorithm) {
+  if (algorithm == nullptr) {
+    return Value::MakeNull<T>();
+  }
+  ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+  return Value::Make<T>(::differential_privacy::GetValue<T>(result));
+}
+
+template <class T>
+absl::StatusOr<Value> GetDPReturnValue(
+    std::unique_ptr<::differential_privacy::Algorithm<T>>& algorithm) {
+  if (algorithm == nullptr) {
+    return Value::MakeNull<T>();
+  }
+  ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+  return Value::Make<T>(::differential_privacy::GetValue<T>(result));
+}
+
+template <class T>
+absl::StatusOr<Value> GetDPJsonReturnValue(
+    std::unique_ptr<::differential_privacy::Algorithm<T>>& algorithm) {
+  if (algorithm == nullptr) {
+    return Value::MakeNull<T>();
+  }
+  JSONValue output_json;
+  ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+  ZETASQL_RETURN_IF_ERROR(
+      ConvertDifferentPrivacyOutputToOutputJson(result, &output_json));
+  return Value::Json(JSONValue::CopyFrom(output_json.GetConstRef()));
+}
+
+template <class T>
+absl::StatusOr<Value> GetDPProtoReturnValue(
+    std::unique_ptr<::differential_privacy::Algorithm<T>>& algorithm) {
+  if (algorithm == nullptr) {
+    return Value::MakeNull<T>();
+  }
+  zetasql::TypeFactory type_factory;
+  const ProtoType* dp_output_proto_type = nullptr;
+  ZETASQL_RETURN_IF_ERROR(type_factory.MakeProtoType(
+      zetasql::functions::DifferentialPrivacyOutputWithReport::descriptor(),
+      &dp_output_proto_type));
+  zetasql::functions::DifferentialPrivacyOutputWithReport dp_output_proto;
+  ZETASQL_ASSIGN_OR_RETURN(auto result, algorithm->PartialResult());
+  ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToDifferentialPrivacyOutputProto(
+      result, &dp_output_proto));
+  return Value::Proto(dp_output_proto_type,
+                      absl::Cord(dp_output_proto.SerializeAsString()));
+}
+
+absl::StatusOr<Value> GetDPQuantilesReturnValue(
+    std::unique_ptr<::differential_privacy::Algorithm<double>>& algorithm) {
+  if (algorithm == nullptr) {
+    return Value::NullDouble();
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(auto value, algorithm->PartialResult());
+    std::vector<Value> values;
+    for (const ::differential_privacy::Output::Element& element :
+         value.elements()) {
+      values.push_back(Value::Double(element.value().float_value()));
+    }
+    return Value::MakeArray(types::DoubleArrayType(),
+                            absl::Span<const Value>(values));
+  }
+}
+
+template <class T>
+absl::StatusOr<Value> GetDPReturnValue(
+    std::unique_ptr<::differential_privacy::Algorithm<T>>& algorithm,
+    const Type* output_type) {
+  if (IsDPJsonReportFunction(output_type)) {
+    return GetDPJsonReturnValue(algorithm);
+  } else if (IsDPProtoReportFunction(output_type)) {
+    return GetDPProtoReturnValue(algorithm);
+  } else {
+    return GetDPReturnValue<T>(algorithm);
+  }
 }
 
 absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
@@ -5850,7 +6538,12 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
       if (count_ == 0) {
         return Value::NullInterval();
       }
-      ZETASQL_ASSIGN_OR_RETURN(out_interval_, interval_aggregator_.GetAverage(count_));
+      // Round nanos second part towards zero if in micro seconds mode.
+      bool round_to_micros =
+          GetTimestampScale(context_->GetLanguageOptions()) ==
+          functions::TimestampScale::kMicroseconds;
+      ZETASQL_ASSIGN_OR_RETURN(out_interval_, interval_aggregator_.GetAverage(
+                                          count_, round_to_micros));
       return Value::Interval(out_interval_);
     }
     // Sum
@@ -5908,21 +6601,22 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     // Variance and Stddev
     case FCT(FunctionKind::kStddevPop, TYPE_DOUBLE): {
       if (count_ == 0) return Value::NullDouble();
-      if (!functions::Sqrt(variance_, &variance_, &error)) {
-        return error;
-      }
+      ZETASQL_RET_CHECK(functions::Sqrt<long double>(variance_, &variance_, &error));
+      ZETASQL_RET_CHECK_OK(error);
       return Value::Double(variance_);
     }
     case FCT(FunctionKind::kStddevSamp, TYPE_DOUBLE): {
       if (count_ <= 1) return Value::NullDouble();
       // stddev_samp = sqrt(variance * count / (count - 1))
-      double tmp;
-      if (!functions::Divide(static_cast<double>(count_),
-                             static_cast<double>(count_ - 1), &tmp, &error) ||
-          !functions::Multiply(variance_, tmp, &variance_, &error) ||
-          !functions::Sqrt(variance_, &variance_, &error)) {
-        return error;
-      }
+      long double tmp;
+      ZETASQL_RET_CHECK(functions::Divide(static_cast<long double>(count_),
+                                  static_cast<long double>(count_ - 1), &tmp,
+                                  &error));
+      ZETASQL_RET_CHECK_OK(error);
+      ZETASQL_RET_CHECK(functions::Multiply(variance_, tmp, &variance_, &error));
+      ZETASQL_RET_CHECK_OK(error);
+      ZETASQL_RET_CHECK(functions::Sqrt(variance_, &variance_, &error));
+      ZETASQL_RET_CHECK_OK(error);
       return Value::Double(variance_);
     }
     case FCT(FunctionKind::kVarPop, TYPE_DOUBLE):
@@ -5930,12 +6624,13 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     case FCT(FunctionKind::kVarSamp, TYPE_DOUBLE): {
       if (count_ <= 1) return Value::NullDouble();
       // var_samp = variance * count / (count - 1)
-      double tmp;
-      if (!functions::Divide(static_cast<double>(count_),
-                             static_cast<double>(count_ - 1), &tmp, &error) ||
-          !functions::Multiply(variance_, tmp, &variance_, &error)) {
-        return error;
-      }
+      long double tmp;
+      ZETASQL_RET_CHECK(functions::Divide(static_cast<long double>(count_),
+                                  static_cast<long double>(count_ - 1), &tmp,
+                                  &error));
+      ZETASQL_RET_CHECK_OK(error);
+      ZETASQL_RET_CHECK(functions::Multiply(variance_, tmp, &variance_, &error));
+      ZETASQL_RET_CHECK_OK(error);
       return Value::Double(variance_);
     }
     // Variance and Stddev for NumericValue
@@ -6039,7 +6734,8 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
                         : Value::NullInterval();
     case FCT(FunctionKind::kMax, TYPE_ENUM):
     case FCT(FunctionKind::kMin, TYPE_ENUM):
-      return count_ > 0 ? Value::Enum(output_type->AsEnum(), out_int64_)
+      return count_ > 0 ? Value::Enum(output_type->AsEnum(), out_int64_,
+                                      /*allow_unknown_enum_values=*/true)
                         : Value::Null(output_type);
 
     case FCT(FunctionKind::kMax, TYPE_ARRAY):
@@ -6096,133 +6792,42 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     case FCT(FunctionKind::kAnonAvg, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonVarPop, TYPE_ARRAY):
     case FCT(FunctionKind::kAnonStddevPop, TYPE_ARRAY):
-      if (anon_double_ != nullptr) {
-        auto status_or = anon_double_->PartialResult();
-        if (status_or.ok()) {
-          return Value::Double(
-              differential_privacy::GetValue<double>(status_or.value()));
-        }
-        return status_or.status();
-      } else {
-        return Value::NullDouble();
-      }
+      return GetAnonReturnValue(anon_double_);
     case FCT(FunctionKind::kAnonQuantiles, TYPE_ARRAY):
-      if (anon_double_ != nullptr) {
-        auto status_or = anon_double_->PartialResult();
-        if (status_or.ok()) {
-          std::vector<Value> values;
-          for (const differential_privacy::Output::Element& element :
-               status_or.value().elements()) {
-            values.push_back(Value::Double(element.value().float_value()));
-          }
-          return Value::MakeArray(types::DoubleArrayType(),
-                                  absl::Span<const Value>(values));
-        }
-        return status_or.status();
-      } else {
-        return Value::NullDouble();
-      }
-    case FCT(FunctionKind::kAnonQuantilesWithReportProto, TYPE_ARRAY): {
-      zetasql::TypeFactory type_factory;
-      const ProtoType* anon_output_proto_type = nullptr;
-      ZETASQL_RETURN_IF_ERROR(type_factory.MakeProtoType(
-          zetasql::AnonOutputWithReport::descriptor(),
-          &anon_output_proto_type));
-      zetasql::AnonOutputWithReport anon_output_proto;
-      if (anon_double_ != nullptr) {
-        auto status_or = anon_double_->PartialResult();
-        if (!status_or.ok()) {
-          return status_or.status();
-        }
-        ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToAnonOutputProto(
-            status_or.value(), &anon_output_proto));
-      }
-      return Value::Proto(anon_output_proto_type,
-                          absl::Cord(anon_output_proto.SerializeAsString()));
-    }
-    case FCT(FunctionKind::kAnonQuantilesWithReportJson, TYPE_ARRAY): {
-      JSONValue anon_output_json;
-      if (anon_double_ != nullptr) {
-        auto result = anon_double_->PartialResult();
-        if (!result.ok()) {
-          return result.status();
-        }
-        ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToAnonOutputJson(
-            result.value(), &anon_output_json));
-      }
-      return Value::Json(JSONValue::CopyFrom(anon_output_json.GetConstRef()));
-    }
+      return GetDPQuantilesReturnValue(anon_double_);
+    case FCT(FunctionKind::kAnonQuantilesWithReportProto, TYPE_ARRAY):
+      return GetAnonProtoReturnValue(anon_double_);
+    case FCT(FunctionKind::kAnonQuantilesWithReportJson, TYPE_ARRAY):
+      return GetAnonJsonReturnValue(anon_double_);
     case FCT(FunctionKind::kAnonSum, TYPE_INT64):
-      if (anon_int64_ != nullptr) {
-        auto status_or = anon_int64_->PartialResult();
-        if (status_or.ok()) {
-          return Value::Int64(
-              differential_privacy::GetValue<int64_t>(status_or.value()));
-        }
-        return status_or.status();
+      return GetAnonReturnValue(anon_int64_);
+    case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_INT64):
+      return GetAnonProtoReturnValue(anon_int64_);
+    case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_DOUBLE):
+      return GetAnonProtoReturnValue(anon_double_);
+    case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_INT64):
+      return GetAnonJsonReturnValue(anon_int64_);
+    case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_DOUBLE):
+      return GetAnonJsonReturnValue(anon_double_);
+
+    // $differential_privacy_* functions.
+    case FCT(FunctionKind::kDifferentialPrivacySum, TYPE_INT64):
+      return GetDPReturnValue(dp_int64_, function_->output_type());
+    case FCT(FunctionKind::kDifferentialPrivacyAvg, TYPE_DOUBLE):
+    case FCT(FunctionKind::kDifferentialPrivacySum, TYPE_DOUBLE):
+      return GetDPReturnValue(dp_double_, function_->output_type());
+    case FCT(FunctionKind::kDifferentialPrivacyVarPop, TYPE_ARRAY):
+    case FCT(FunctionKind::kDifferentialPrivacyStddevPop, TYPE_ARRAY):
+      return GetDPReturnValue(dp_double_);
+
+    case FCT(FunctionKind::kDifferentialPrivacyQuantiles, TYPE_ARRAY):
+      if (IsDPJsonReportFunction(function_->output_type())) {
+        return GetDPJsonReturnValue(dp_double_);
+      } else if (IsDPProtoReportFunction(function_->output_type())) {
+        return GetDPProtoReturnValue(dp_double_);
       } else {
-        return Value::NullInt64();
+        return GetDPQuantilesReturnValue(dp_double_);
       }
-    case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_INT64): {
-      zetasql::TypeFactory type_factory;
-      const ProtoType* anon_output_proto_type = nullptr;
-      ZETASQL_RETURN_IF_ERROR(type_factory.MakeProtoType(
-          zetasql::AnonOutputWithReport::descriptor(),
-          &anon_output_proto_type));
-      zetasql::AnonOutputWithReport anon_output_proto;
-      if (anon_int64_ != nullptr) {
-        auto result = anon_int64_->PartialResult();
-        if (!result.ok()) {
-          return result.status();
-        }
-        ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToAnonOutputProto(
-            result.value(), &anon_output_proto));
-      }
-      return Value::Proto(anon_output_proto_type,
-                          absl::Cord(anon_output_proto.SerializeAsString()));
-    }
-    case FCT(FunctionKind::kAnonSumWithReportProto, TYPE_DOUBLE): {
-      zetasql::TypeFactory type_factory;
-      const ProtoType* anon_output_proto_type = nullptr;
-      ZETASQL_RETURN_IF_ERROR(type_factory.MakeProtoType(
-          zetasql::AnonOutputWithReport::descriptor(),
-          &anon_output_proto_type));
-      zetasql::AnonOutputWithReport anon_output_proto;
-      if (anon_double_ != nullptr) {
-        auto result = anon_double_->PartialResult();
-        if (!result.ok()) {
-          return result.status();
-        }
-        ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToAnonOutputProto(
-            result.value(), &anon_output_proto));
-      }
-      return Value::Proto(anon_output_proto_type,
-                          absl::Cord(anon_output_proto.SerializeAsString()));
-    }
-    case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_INT64): {
-      JSONValue anon_output_json;
-      if (anon_int64_ != nullptr) {
-        auto result = anon_int64_->PartialResult();
-        if (!result.ok()) {
-          return result.status();
-        }
-        ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToAnonOutputJson(
-            result.value(), &anon_output_json));
-      }
-      return Value::Json(JSONValue::CopyFrom(anon_output_json.GetConstRef()));
-    }
-    case FCT(FunctionKind::kAnonSumWithReportJson, TYPE_DOUBLE): {
-      JSONValue anon_output_json;
-      if (anon_double_ != nullptr) {
-        auto result = anon_double_->PartialResult();
-        if (!result.ok()) {
-          return result.status();
-        }
-        ZETASQL_RETURN_IF_ERROR(ConvertDifferentPrivacyOutputToAnonOutputJson(
-            result.value(), &anon_output_json));
-      }
-      return Value::Json(JSONValue::CopyFrom(anon_output_json.GetConstRef()));
-    }
   }
   return ::zetasql_base::UnimplementedErrorBuilder()
          << "Unsupported aggregate function: " << function_->debug_name() << "("
@@ -6240,6 +6845,10 @@ BuiltinAggregateFunction::CreateAccumulator(absl::Span<const Value> args,
 }
 
 namespace {
+
+bool IsDeletableSketchInitFunction(FunctionKind kind) {
+  return false;
+}
 
 // Accumulator implementation for BinaryStatFunction.
 class BinaryStatAccumulator : public AggregateAccumulator {
@@ -6273,9 +6882,11 @@ class BinaryStatAccumulator : public AggregateAccumulator {
                         EvaluationContext* context)
       : function_(function),
         input_type_(input_type),
-        min_required_pair_count_(function_->kind() == FunctionKind::kCovarPop
-                                     ? 1
-                                     : 2),
+        min_required_pair_count_(
+            function_->kind() == FunctionKind::kCovarPop ||
+                    IsDeletableSketchInitFunction(function_->kind())
+                ? 1
+                : 2),
         args_(args.begin(), args.end()),
         context_(context) {}
 
@@ -6288,11 +6899,11 @@ class BinaryStatAccumulator : public AggregateAccumulator {
   int64_t requested_bytes_ = 0;
 
   int64_t pair_count_ = 0;
-  double mean_x_ = 0;
-  double variance_x_ = 0;
-  double mean_y_ = 0;
-  double variance_y_ = 0;
-  double covar_ = 0;
+  long double mean_x_ = 0;
+  long double variance_x_ = 0;
+  long double mean_y_ = 0;
+  long double variance_y_ = 0;
+  long double covar_ = 0;
   bool input_has_nan_or_inf_ = false;
   NumericValue::CovarianceAggregator numeric_covariance_aggregator_;    // Covar
   NumericValue::CorrelationAggregator numeric_correlation_aggregator_;  // Corr
@@ -6456,36 +7067,42 @@ absl::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
     case FCT2(FunctionKind::kCorr, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       return CreateValueFromOptional(
           bignumeric_correlation_aggregator_.GetCorrelation(pair_count_));
-    case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
+    case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE): {
       out_double = covar_;
       break;
-    case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
+    }
+    case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE): {
       // out_double = covar * pair_count / (pair_count - 1)
-      if (!functions::Multiply(covar_, static_cast<double>(pair_count_),
-                               &out_double, &error) ||
-          !functions::Divide(out_double, static_cast<double>(pair_count_ - 1),
-                             &out_double, &error)) {
-        return error;
-      }
+      long double tmp;
+      ZETASQL_RET_CHECK(functions::Multiply(
+          covar_, static_cast<long double>(pair_count_), &tmp, &error));
+      ZETASQL_RET_CHECK_OK(error);
+      ZETASQL_RET_CHECK(functions::Divide(
+          tmp, static_cast<long double>(pair_count_ - 1), &tmp, &error));
+      ZETASQL_RET_CHECK_OK(error);
+      out_double = static_cast<double>(tmp);
       break;
-    case FCT2(FunctionKind::kCorr, TYPE_DOUBLE, TYPE_DOUBLE):
+    }
+    case FCT2(FunctionKind::kCorr, TYPE_DOUBLE, TYPE_DOUBLE): {
       // out_double = covar / sqrt(variance_x * variance_y)
-      double denominator;
-      if (!functions::Multiply(variance_x_, variance_y_, &denominator,
-                               &error)) {
-        return error;
-      }
+      long double denominator;
+      ZETASQL_RET_CHECK(
+          functions::Multiply(variance_x_, variance_y_, &denominator, &error));
+      ZETASQL_RET_CHECK_OK(error);
 
       if (std::fpclassify(denominator) == FP_ZERO &&
           std::fpclassify(covar_) == FP_ZERO) {
         return Value::Double(std::numeric_limits<double>::quiet_NaN());
       }
 
-      if (!functions::Sqrt(denominator, &denominator, &error) ||
-          !functions::Divide(covar_, denominator, &out_double, &error)) {
-        return error;
-      }
+      long double tmp;
+      ZETASQL_RET_CHECK(functions::Sqrt(denominator, &denominator, &error));
+      ZETASQL_RET_CHECK_OK(error);
+      ZETASQL_RET_CHECK(functions::Divide(covar_, denominator, &tmp, &error));
+      ZETASQL_RET_CHECK_OK(error);
+      out_double = static_cast<double>(tmp);
       break;
+    }
     default: {
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unsupported function: " << function_->debug_name() << "("
@@ -8374,9 +8991,12 @@ absl::StatusOr<Value> StringConversionFunction::Eval(
           JSONValueConstRef json_value_const_ref,
           GetJSONValueConstRef(
               args[0],
-              JSONParsingOptions{.strict_number_parsing =
-                                     language_options.LanguageFeatureEnabled(
-                                         FEATURE_JSON_STRICT_NUMBER_PARSING)},
+              JSONParsingOptions{
+                  .wide_number_mode =
+                      (language_options.LanguageFeatureEnabled(
+                           FEATURE_JSON_STRICT_NUMBER_PARSING)
+                           ? JSONParsingOptions::WideNumberMode::kExact
+                           : JSONParsingOptions::WideNumberMode::kRound)},
               json_storage));
       ZETASQL_ASSIGN_OR_RETURN(result_string,
                        functions::ConvertJsonToString(json_value_const_ref));
@@ -9921,24 +10541,24 @@ absl::Status PercentileDiscFunction::Eval(
   Value output_value;
   switch (percentile_arg.type_kind()) {
     case TYPE_DOUBLE: {
-      ZETASQL_ASSIGN_OR_RETURN(
-          output_value,
-          ComputePercentileDisc(values_arg, output_type(),
-                                percentile_arg.double_value(), ignore_nulls_));
+      ZETASQL_ASSIGN_OR_RETURN(output_value,
+                       ComputePercentileDisc(values_arg, output_type(),
+                                             percentile_arg.double_value(),
+                                             ignore_nulls_, collator_.get()));
       break;
     }
     case TYPE_NUMERIC: {
-      ZETASQL_ASSIGN_OR_RETURN(
-          output_value,
-          ComputePercentileDisc(values_arg, output_type(),
-                                percentile_arg.numeric_value(), ignore_nulls_));
+      ZETASQL_ASSIGN_OR_RETURN(output_value,
+                       ComputePercentileDisc(values_arg, output_type(),
+                                             percentile_arg.numeric_value(),
+                                             ignore_nulls_, collator_.get()));
       break;
     }
     case TYPE_BIGNUMERIC: {
       ZETASQL_ASSIGN_OR_RETURN(output_value,
                        ComputePercentileDisc(values_arg, output_type(),
                                              percentile_arg.bignumeric_value(),
-                                             ignore_nulls_));
+                                             ignore_nulls_, collator_.get()));
       break;
     }
     default:
@@ -9959,8 +10579,10 @@ absl::StatusOr<Value> TypeFunction::Eval(
   JSONValue json_storage;
   LanguageOptions language_options = context->GetLanguageOptions();
   JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .strict_number_parsing = language_options.LanguageFeatureEnabled(
-          FEATURE_JSON_STRICT_NUMBER_PARSING)};
+      .wide_number_mode = (language_options.LanguageFeatureEnabled(
+                               FEATURE_JSON_STRICT_NUMBER_PARSING)
+                               ? JSONParsingOptions::WideNumberMode::kExact
+                               : JSONParsingOptions::WideNumberMode::kRound)};
   ZETASQL_ASSIGN_OR_RETURN(
       JSONValueConstRef json_value_const_ref,
       GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
@@ -9979,8 +10601,10 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
   JSONValue json_storage;
   LanguageOptions language_options = context->GetLanguageOptions();
   JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .strict_number_parsing = language_options.LanguageFeatureEnabled(
-          FEATURE_JSON_STRICT_NUMBER_PARSING)};
+      .wide_number_mode = (language_options.LanguageFeatureEnabled(
+                               FEATURE_JSON_STRICT_NUMBER_PARSING)
+                               ? JSONParsingOptions::WideNumberMode::kExact
+                               : JSONParsingOptions::WideNumberMode::kRound)};
   switch (kind()) {
     case FunctionKind::kInt64: {
       ZETASQL_RET_CHECK_EQ(args.size(), 1);
@@ -10004,8 +10628,10 @@ absl::StatusOr<Value> ConvertJsonFunction::Eval(
         return MakeEvalError() << "Invalid `wide_number_mode` specified: "
                                << wide_number_mode_as_string;
       }
-      json_parsing_options.strict_number_parsing =
-          (wide_number_mode == functions::WideNumberMode::kExact);
+      json_parsing_options.wide_number_mode =
+          (wide_number_mode == functions::WideNumberMode::kExact
+               ? JSONParsingOptions::WideNumberMode::kExact
+               : JSONParsingOptions::WideNumberMode::kRound);
       ZETASQL_ASSIGN_OR_RETURN(
           JSONValueConstRef json_value_const_ref,
           GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
@@ -10038,32 +10664,33 @@ absl::StatusOr<Value> ConvertJsonLaxFunction::Eval(
   }
   JSONValue json_storage;
   JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .strict_number_parsing =
-          context->GetLanguageOptions().LanguageFeatureEnabled(
-              FEATURE_JSON_STRICT_NUMBER_PARSING)};
+      .wide_number_mode = (context->GetLanguageOptions().LanguageFeatureEnabled(
+                               FEATURE_JSON_STRICT_NUMBER_PARSING)
+                               ? JSONParsingOptions::WideNumberMode::kExact
+                               : JSONParsingOptions::WideNumberMode::kRound)};
   ZETASQL_ASSIGN_OR_RETURN(
       JSONValueConstRef json_value_const_ref,
       GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
   switch (kind()) {
     case FunctionKind::kLaxBool: {
-      ZETASQL_ASSIGN_OR_RETURN(bool output,
-                       functions::LaxConvertJsonToBool(json_value_const_ref));
-      return Value::Bool(output);
+      auto result = functions::LaxConvertJsonToBool(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
     }
     case FunctionKind::kLaxInt64: {
-      ZETASQL_ASSIGN_OR_RETURN(int64_t output,
-                       functions::LaxConvertJsonToInt64(json_value_const_ref));
-      return Value::Int64(output);
+      auto result = functions::LaxConvertJsonToInt64(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
     }
     case FunctionKind::kLaxDouble: {
-      ZETASQL_ASSIGN_OR_RETURN(double output, functions::LaxConvertJsonToFloat64(
-                                          json_value_const_ref));
-      return Value::Double(output);
+      auto result = functions::LaxConvertJsonToFloat64(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
     }
     case FunctionKind::kLaxString: {
-      ZETASQL_ASSIGN_OR_RETURN(std::string output,
-                       functions::LaxConvertJsonToString(json_value_const_ref));
-      return Value::String(output);
+      auto result = functions::LaxConvertJsonToString(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
     }
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";

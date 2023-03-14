@@ -22,6 +22,7 @@
 #include <string>
 
 #include "absl/hash/hash.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -34,7 +35,7 @@ class VariableId {
   VariableId& operator=(const VariableId&) = default;
 
   // For ease of debugging, 'name' may not contain @ or $.
-  explicit VariableId(const std::string& name);
+  explicit VariableId(absl::string_view name);
 
   const std::string& name() const { return name_; }
   bool is_valid() const { return !name_.empty(); }

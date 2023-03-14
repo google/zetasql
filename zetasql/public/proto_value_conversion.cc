@@ -28,6 +28,7 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/type.h"
@@ -61,8 +62,7 @@ namespace zetasql {
 //      descriptor that is a wrapper for the array.  We will return false if
 //      'field' is a repeated field of element wrappers.
 static absl::Status ShouldTreatAsWrapperForType(
-    const google::protobuf::FieldDescriptor* field,
-    const Type* type,
+    const google::protobuf::FieldDescriptor* field, const Type* type,
     bool* is_wrapper_out) {
   if (field->type() != google::protobuf::FieldDescriptor::TYPE_MESSAGE ||
       field->options().GetExtension(zetasql::is_raw_proto)) {
@@ -156,6 +156,7 @@ static absl::Status CheckFieldFormat(const Value& value,
     case TYPE_NUMERIC:
     case TYPE_BIGNUMERIC:
     case TYPE_JSON:
+    case TYPE_RANGE:
       break;
 
     default:
@@ -216,9 +217,10 @@ absl::Status MergeValueToProtoField(const Value& value,
     if (value.type()->IsArray() && value.is_null()) {
       return absl::OkStatus();
     }
-    google::protobuf::Message* wrapper = field->is_repeated() ?
-        reflection->AddMessage(proto_out, field, message_factory) :
-        reflection->MutableMessage(proto_out, field, message_factory);
+    google::protobuf::Message* wrapper =
+        field->is_repeated()
+            ? reflection->AddMessage(proto_out, field, message_factory)
+            : reflection->MutableMessage(proto_out, field, message_factory);
     const google::protobuf::Descriptor* wrapper_descriptor = wrapper->GetDescriptor();
     ZETASQL_RET_CHECK_EQ(1, wrapper_descriptor->field_count());
     const google::protobuf::FieldDescriptor* unwrapped_field =
@@ -423,8 +425,9 @@ absl::Status MergeValueToProtoField(const Value& value,
       for (const Value& element : value.elements()) {
         if (!use_wire_format_annotations && element.is_null()) {
           return ::zetasql_base::OutOfRangeErrorBuilder()
-             << "Cannot encode a null value " << element.FullDebugString()
-             << " in repeated protocol message field " << field->full_name();
+                 << "Cannot encode a null value " << element.FullDebugString()
+                 << " in repeated protocol message field "
+                 << field->full_name();
         }
         ZETASQL_RETURN_IF_ERROR(MergeValueToProtoField(element, field,
                                                use_wire_format_annotations,
@@ -434,18 +437,20 @@ absl::Status MergeValueToProtoField(const Value& value,
     }
     case TYPE_STRUCT: {
       ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_MESSAGE);
-      google::protobuf::Message* submessage = field->is_repeated() ?
-         reflection->AddMessage(proto_out, field, message_factory) :
-         reflection->MutableMessage(proto_out, field, message_factory);
+      google::protobuf::Message* submessage =
+          field->is_repeated()
+              ? reflection->AddMessage(proto_out, field, message_factory)
+              : reflection->MutableMessage(proto_out, field, message_factory);
       ZETASQL_RETURN_IF_ERROR(StructValueToProto(value, use_wire_format_annotations,
                                          message_factory, submessage));
       return absl::OkStatus();
     }
     case TYPE_PROTO: {
       ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_MESSAGE);
-      google::protobuf::Message* submessage = field->is_repeated() ?
-         reflection->AddMessage(proto_out, field, message_factory) :
-         reflection->MutableMessage(proto_out, field, message_factory);
+      google::protobuf::Message* submessage =
+          field->is_repeated()
+              ? reflection->AddMessage(proto_out, field, message_factory)
+              : reflection->MutableMessage(proto_out, field, message_factory);
       ValueProto value_proto;
       ZETASQL_RETURN_IF_ERROR(value.Serialize(&value_proto));
       ZETASQL_RET_CHECK(submessage->ParseFromString(
@@ -482,6 +487,41 @@ absl::Status MergeValueToProtoField(const Value& value,
         reflection->AddString(proto_out, field, std::move(json_string));
       } else {
         reflection->SetString(proto_out, field, std::move(json_string));
+      }
+      return absl::OkStatus();
+    }
+    case TYPE_RANGE: {
+      ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_BYTES);
+      std::string encoded_range;
+      switch (value.type()->AsRange()->element_type()->kind()) {
+        case TypeKind::TYPE_DATE: {
+          ZETASQL_ASSIGN_OR_RETURN(encoded_range,
+                           value.ToRangeValueDateValues().SerializeAsBytes());
+          break;
+        }
+        case TypeKind::TYPE_DATETIME: {
+          ZETASQL_ASSIGN_OR_RETURN(
+              encoded_range,
+              value.ToRangeValuePacked64DatetimeMicros().SerializeAsBytes());
+          break;
+        }
+        case TypeKind::TYPE_TIMESTAMP: {
+          ZETASQL_ASSIGN_OR_RETURN(
+              encoded_range,
+              value.ToRangeValueTimestampUnixMicros().SerializeAsBytes());
+          break;
+        }
+        default:
+          ZETASQL_RET_CHECK_FAIL()
+              << "Unsupported RANGE element type kind "
+              << Type::TypeKindToString(
+                     value.type()->AsRange()->element_type()->kind(),
+                     PRODUCT_EXTERNAL);
+      }
+      if (field->is_repeated()) {
+        reflection->AddString(proto_out, field, std::move(encoded_range));
+      } else {
+        reflection->SetString(proto_out, field, std::move(encoded_range));
       }
       return absl::OkStatus();
     }
@@ -524,6 +564,7 @@ absl::Status ConvertStructOrArrayValueToProtoMessage(
 static absl::Status ProtoToStructValue(const google::protobuf::Message& proto,
                                        const Type* type,
                                        bool use_wire_format_annotations,
+                                       bool match_struct_fields_by_name,
                                        Value* value_out);
 
 // Mutually recursive with ProtoToStructValue.
@@ -531,7 +572,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
                                const google::protobuf::FieldDescriptor* field, int index,
                                const Type* type,
                                bool use_wire_format_annotations,
-                               Value* value_out) {
+                               Value* value_out,
+                               bool match_struct_fields_by_name) {
   ZETASQL_RET_CHECK_NE(nullptr, value_out);
   const google::protobuf::Reflection* reflection = proto.GetReflection();
 
@@ -540,7 +582,7 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
   if (!type->IsDate() && !type->IsTimestamp() && !type->IsArray() &&
       !type->IsTime() && !type->IsDatetime() && !type->IsGeography() &&
       !type->IsNumericType() && !type->IsBigNumericType() &&
-      !type->IsInterval() && !type->IsJsonType()) {
+      !type->IsRange() && !type->IsInterval() && !type->IsJsonType()) {
     ZETASQL_RET_CHECK_EQ(FieldFormat::DEFAULT_FORMAT, field_format)
         << "Format " << FieldFormat::Format_Name(field_format)
         << " not supported for zetasql type " << type->DebugString();
@@ -564,16 +606,17 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
 
     ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::TYPE_MESSAGE, field->type())
         << field->DebugString();
-    const google::protobuf::Message& wrapper = field->is_repeated() ?
-        reflection->GetRepeatedMessage(proto, field, index) :
-        reflection->GetMessage(proto, field);
-    const google::protobuf::Descriptor* wrapper_descriptor =
-        wrapper.GetDescriptor();
+    const google::protobuf::Message& wrapper =
+        field->is_repeated()
+            ? reflection->GetRepeatedMessage(proto, field, index)
+            : reflection->GetMessage(proto, field);
+    const google::protobuf::Descriptor* wrapper_descriptor = wrapper.GetDescriptor();
     ZETASQL_RET_CHECK_EQ(1, wrapper_descriptor->field_count());
     const google::protobuf::FieldDescriptor* unwrapped_field =
         wrapper_descriptor->field(0);
     return ProtoFieldToValue(wrapper, unwrapped_field, -1 /* index */, type,
-                             use_wire_format_annotations, value_out);
+                             use_wire_format_annotations, value_out,
+                             match_struct_fields_by_name);
   }
 
   // If a non-repeated field is missing, the value is NULL.
@@ -597,10 +640,9 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       const EnumType* enum_type = type->AsEnum();
       ZETASQL_RET_CHECK_NE(nullptr, enum_type);
       *value_out = Value::Enum(
-          enum_type,
-          field->is_repeated() ?
-          reflection->GetRepeatedEnumValue(proto, field, index) :
-          reflection->GetEnumValue(proto, field));
+          enum_type, field->is_repeated()
+                         ? reflection->GetRepeatedEnumValue(proto, field, index)
+                         : reflection->GetEnumValue(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_PROTO: {
@@ -609,9 +651,9 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       const ProtoType* proto_type = type->AsProto();
       ZETASQL_RET_CHECK_NE(nullptr, proto_type);
       const google::protobuf::Message& submessage =
-          field->is_repeated() ?
-          reflection->GetRepeatedMessage(proto, field, index) :
-          reflection->GetMessage(proto, field);
+          field->is_repeated()
+              ? reflection->GetRepeatedMessage(proto, field, index)
+              : reflection->GetMessage(proto, field);
       absl::Cord serialized;
       std::string serialized_str;
       submessage.SerializeToString(&serialized_str);
@@ -622,10 +664,10 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
     case TypeKind::TYPE_BOOL: {
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_BOOL, field->cpp_type())
           << field->DebugString();
-      *value_out = Value::Bool(
-          field->is_repeated() ?
-          reflection->GetRepeatedBool(proto, field, index) :
-          reflection->GetBool(proto, field));
+      *value_out =
+          Value::Bool(field->is_repeated()
+                          ? reflection->GetRepeatedBool(proto, field, index)
+                          : reflection->GetBool(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_DATE: {
@@ -647,9 +689,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       int32_t decoded_date_value = -1;
       bool output_is_null = false;
       ZETASQL_RETURN_IF_ERROR(
-          functions::DecodeFormattedDate(
-              encoded_date_value, field_format, &decoded_date_value,
-              &output_is_null));
+          functions::DecodeFormattedDate(encoded_date_value, field_format,
+                                         &decoded_date_value, &output_is_null));
       if (output_is_null) {
         *value_out = Value::NullDate();
         return absl::OkStatus();
@@ -668,26 +709,26 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           << field->DebugString();
       *value_out = Value::Bytes(
           field->is_repeated() ?
-          reflection->GetRepeatedString(proto, field, index) :
-          reflection->GetString(proto, field));
+      reflection->GetRepeatedString(proto, field, index) :
+      reflection->GetString(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_FLOAT: {
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_FLOAT, field->cpp_type())
           << field->DebugString();
-      *value_out = Value::Float(
-          field->is_repeated() ?
-          reflection->GetRepeatedFloat(proto, field, index) :
-          reflection->GetFloat(proto, field));
+      *value_out =
+          Value::Float(field->is_repeated()
+                           ? reflection->GetRepeatedFloat(proto, field, index)
+                           : reflection->GetFloat(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_DOUBLE: {
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE, field->cpp_type())
           << field->DebugString();
-      *value_out = Value::Double(
-          field->is_repeated() ?
-          reflection->GetRepeatedDouble(proto, field, index) :
-          reflection->GetDouble(proto, field));
+      *value_out =
+          Value::Double(field->is_repeated()
+                            ? reflection->GetRepeatedDouble(proto, field, index)
+                            : reflection->GetDouble(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_STRING: {
@@ -695,8 +736,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           << field->DebugString();
       *value_out = Value::String(
           field->is_repeated() ?
-          reflection->GetRepeatedString(proto, field, index) :
-          reflection->GetString(proto, field));
+      reflection->GetRepeatedString(proto, field, index) :
+      reflection->GetString(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_ARRAY: {
@@ -710,7 +751,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       for (int i = 0; i < num_elements; ++i) {
         ZETASQL_RETURN_IF_ERROR(
             ProtoFieldToValue(proto, field, i, array_type->element_type(),
-                              use_wire_format_annotations, &values[i]));
+                              use_wire_format_annotations, &values[i],
+                              match_struct_fields_by_name));
       }
       *value_out = Value::Array(array_type, values);
       return absl::OkStatus();
@@ -719,47 +761,48 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE, field->cpp_type())
           << field->DebugString();
       const google::protobuf::Message& submessage =
-          field->is_repeated() ?
-          reflection->GetRepeatedMessage(proto, field, index) :
-          reflection->GetMessage(proto, field);
-      ZETASQL_RETURN_IF_ERROR(ProtoToStructValue(
-          submessage, type, use_wire_format_annotations, value_out));
+          field->is_repeated()
+              ? reflection->GetRepeatedMessage(proto, field, index)
+              : reflection->GetMessage(proto, field);
+      ZETASQL_RETURN_IF_ERROR(
+          ProtoToStructValue(submessage, type, use_wire_format_annotations,
+                             match_struct_fields_by_name, value_out));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_INT32: {
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_INT32, field->cpp_type())
           << field->DebugString();
-      *value_out = Value::Int32(
-          field->is_repeated() ?
-          reflection->GetRepeatedInt32(proto, field, index) :
-          reflection->GetInt32(proto, field));
+      *value_out =
+          Value::Int32(field->is_repeated()
+                           ? reflection->GetRepeatedInt32(proto, field, index)
+                           : reflection->GetInt32(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_INT64: {
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_INT64, field->cpp_type())
           << field->DebugString();
-      *value_out = Value::Int64(
-          field->is_repeated() ?
-          reflection->GetRepeatedInt64(proto, field, index) :
-          reflection->GetInt64(proto, field));
+      *value_out =
+          Value::Int64(field->is_repeated()
+                           ? reflection->GetRepeatedInt64(proto, field, index)
+                           : reflection->GetInt64(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_UINT32: {
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_UINT32, field->cpp_type())
           << field->DebugString();
-      *value_out = Value::Uint32(
-          field->is_repeated() ?
-          reflection->GetRepeatedUInt32(proto, field, index) :
-          reflection->GetUInt32(proto, field));
+      *value_out =
+          Value::Uint32(field->is_repeated()
+                            ? reflection->GetRepeatedUInt32(proto, field, index)
+                            : reflection->GetUInt32(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_UINT64: {
       ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_UINT64, field->cpp_type())
           << field->DebugString();
-      *value_out = Value::Uint64(
-          field->is_repeated() ?
-          reflection->GetRepeatedUInt64(proto, field, index) :
-          reflection->GetUInt64(proto, field));
+      *value_out =
+          Value::Uint64(field->is_repeated()
+                            ? reflection->GetRepeatedUInt64(proto, field, index)
+                            : reflection->GetUInt64(proto, field));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_TIMESTAMP: {
@@ -850,9 +893,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           field->is_repeated() ?
           reflection->GetRepeatedString(proto, field, index) :
           reflection->GetString(proto, field);
-      ZETASQL_ASSIGN_OR_RETURN(
-          NumericValue numeric_value,
-          NumericValue::DeserializeFromProtoBytes(value));
+      ZETASQL_ASSIGN_OR_RETURN(NumericValue numeric_value,
+                       NumericValue::DeserializeFromProtoBytes(value));
       *value_out = Value::Numeric(numeric_value);
       return absl::OkStatus();
     }
@@ -865,9 +907,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           field->is_repeated() ?
           reflection->GetRepeatedString(proto, field, index) :
           reflection->GetString(proto, field);
-      ZETASQL_ASSIGN_OR_RETURN(
-          BigNumericValue bignumeric_value,
-          BigNumericValue::DeserializeFromProtoBytes(value));
+      ZETASQL_ASSIGN_OR_RETURN(BigNumericValue bignumeric_value,
+                       BigNumericValue::DeserializeFromProtoBytes(value));
       *value_out = Value::BigNumeric(bignumeric_value);
       return absl::OkStatus();
     }
@@ -880,10 +921,44 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           field->is_repeated() ?
           reflection->GetRepeatedString(proto, field, index) :
           reflection->GetString(proto, field);
-      ZETASQL_ASSIGN_OR_RETURN(
-          JSONValue json_value,
-          JSONValue::ParseJSONString(value));
+      ZETASQL_ASSIGN_OR_RETURN(JSONValue json_value, JSONValue::ParseJSONString(value));
       *value_out = Value::Json(std::move(json_value));
+      return absl::OkStatus();
+    }
+    case TypeKind::TYPE_RANGE: {
+      ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_STRING, field->cpp_type())
+          << field->DebugString();
+      ZETASQL_RET_CHECK(field_format == FieldFormat::RANGE_DATES_ENCODED ||
+                field_format == FieldFormat::RANGE_DATETIMES_ENCODED ||
+                field_format == FieldFormat::RANGE_TIMESTAMPS_ENCODED)
+          << FieldFormat::Format_Name(field_format);
+      std::string value =
+          field->is_repeated() ?
+          reflection->GetRepeatedString(proto, field, index) :
+          reflection->GetString(proto, field);
+      switch (field_format) {
+        case FieldFormat::RANGE_DATES_ENCODED: {
+          ZETASQL_ASSIGN_OR_RETURN(RangeValue<int32_t> range_value,
+                           RangeValue<int32_t>::DeserializeFromBytes(value));
+          ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeRangeDates(range_value));
+          break;
+        }
+        case FieldFormat::RANGE_DATETIMES_ENCODED: {
+          ZETASQL_ASSIGN_OR_RETURN(RangeValue<int64_t> range_value,
+                           RangeValue<int64_t>::DeserializeFromBytes(value));
+          ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeRangeDatetimes(range_value));
+          break;
+        }
+        case FieldFormat::RANGE_TIMESTAMPS_ENCODED: {
+          ZETASQL_ASSIGN_OR_RETURN(RangeValue<int64_t> range_value,
+                           RangeValue<int64_t>::DeserializeFromBytes(value));
+          ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeRangeTimestamps(range_value));
+          break;
+        }
+        default:
+          ZETASQL_RET_CHECK_FAIL() << "Unsupported RANGE field format: "
+                           << FieldFormat::Format_Name(field_format);
+      }
       return absl::OkStatus();
     }
     default:
@@ -898,6 +973,7 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
 static absl::Status ProtoToStructValue(const google::protobuf::Message& proto,
                                        const Type* type,
                                        bool use_wire_format_annotations,
+                                       bool match_struct_fields_by_name,
                                        Value* value_out) {
   const StructType* struct_type = type->AsStruct();
   ZETASQL_RET_CHECK(struct_type != nullptr) << type->DebugString();
@@ -906,11 +982,19 @@ static absl::Status ProtoToStructValue(const google::protobuf::Message& proto,
   std::vector<Value> values(struct_type->num_fields());
   ZETASQL_RET_CHECK_EQ(struct_type->num_fields(), descriptor->field_count());
   for (int i = 0; i < descriptor->field_count(); ++i) {
-    const google::protobuf::FieldDescriptor* field_descriptor = descriptor->field(i);
     const StructType::StructField& struct_field = struct_type->field(i);
-    ZETASQL_RETURN_IF_ERROR(ProtoFieldToValue(proto, field_descriptor, -1 /* index */,
-                                      struct_field.type,
-                                      use_wire_format_annotations, &values[i]));
+    const google::protobuf::FieldDescriptor* field_descriptor =
+        match_struct_fields_by_name
+            ? descriptor->FindFieldByName(struct_field.name)
+            : descriptor->field(i);
+    if (field_descriptor == nullptr) {
+      return ::zetasql_base::NotFoundErrorBuilder().LogError()
+             << "STRUCT field '" << struct_field.name
+             << "' not found in proto: " << descriptor->DebugString();
+    }
+    ZETASQL_RETURN_IF_ERROR(ProtoFieldToValue(
+        proto, field_descriptor, -1 /* index */, struct_field.type,
+        use_wire_format_annotations, &values[i], match_struct_fields_by_name));
   }
 
   ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeStruct(struct_type, values));
@@ -918,11 +1002,12 @@ static absl::Status ProtoToStructValue(const google::protobuf::Message& proto,
 }
 
 absl::Status ConvertProtoMessageToStructOrArrayValue(
-    const google::protobuf::Message& proto, const Type* type, Value* value_out) {
+    const google::protobuf::Message& proto, const Type* type, Value* value_out,
+    bool match_struct_fields_by_name) {
   const bool use_wire_format_annotations = true;
   if (type->IsStruct()) {
     return ProtoToStructValue(proto, type, use_wire_format_annotations,
-                              value_out);
+                              match_struct_fields_by_name, value_out);
   } else if (type->IsArray()) {
     // At the top level, an ARRAY is always a wrapper.  Pull out the underlying
     // field and read it into value_out.
@@ -932,7 +1017,8 @@ absl::Status ConvertProtoMessageToStructOrArrayValue(
     const google::protobuf::FieldDescriptor* field = descriptor->field(0);
 
     return ProtoFieldToValue(proto, field, -1 /* index */, type,
-                             use_wire_format_annotations, value_out);
+                             use_wire_format_annotations, value_out,
+                             match_struct_fields_by_name);
   }
   ZETASQL_RET_CHECK_FAIL() << type->DebugString();
 }

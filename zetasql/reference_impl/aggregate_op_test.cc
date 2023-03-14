@@ -1506,5 +1506,203 @@ TEST(CreateIteratorTest, AggregateHaving) {
                HasSubstr("Out of memory")));
 }
 
+TEST(EvalAggTest, ArrayAggWithLimitNonDeterministic) {
+  TypeFactory type_factory;
+  VariableId a("a"), b("b"), d("d"), k("k");
+
+  std::vector<std::unique_ptr<KeyArg>> empty_order_by_keys;
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b_for_d, DerefExpr::Create(b, Int64Type()));
+
+  std::vector<std::unique_ptr<ValueExpr>> args_for_d;
+  args_for_d.push_back(std::move(deref_b_for_d));
+
+  // Create a limit expression with value 2.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto limit_for_d, ConstExpr::Create(Value::Int64(2)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto agg_d,
+      AggregateArg::Create(
+          d,
+          std::make_unique<BuiltinAggregateFunction>(
+              FunctionKind::kArrayAgg, Int64ArrayType(),
+              /*num_input_fields=*/1, Int64Type(), false /* ignores_null */),
+          std::move(args_for_d), AggregateArg::kAll, nullptr /* having_expr */,
+          AggregateArg::kHavingNone, std::move(empty_order_by_keys),
+          std::move(limit_for_d)));
+
+  std::vector<std::unique_ptr<AggregateArg>> aggregators;
+  aggregators.push_back(std::move(agg_d));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
+  std::vector<std::unique_ptr<KeyArg>> keys;
+  keys.push_back(std::make_unique<KeyArg>(k, std::move(deref_a)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto aggregate_op,
+      AggregateOp::Create(std::move(keys), std::move(aggregators),
+                          absl::WrapUnique(new TestRelationalOp(
+                              {a, b},
+                              CreateTestTupleDatas({{Int64(0), Int64(2)},
+                                                    {Int64(0), Int64(1)},
+                                                    {Int64(0), Int64(-2)},
+                                                    {Int64(0), Int64(3)},
+                                                    {Int64(0), Int64(-2)},
+                                                    {Int64(0), Int64(1)},
+                                                    {Int64(0), Int64(2)}}),
+                              /*preserves_order=*/true))));
+
+  EXPECT_EQ(
+      "AggregateOp(\n"
+      "+-keys: {\n"
+      "| +-$k := $a},\n"
+      "+-aggregators: {\n"
+      "| +-$d := ArrayAgg($b) LIMIT ConstExpr(2) "
+      "[ignores_null = false]},\n"
+      "+-input: TestRelationalOp)",
+      aggregate_op->DebugString());
+  std::unique_ptr<TupleSchema> output_schema =
+      aggregate_op->CreateOutputSchema();
+  EXPECT_THAT(output_schema->variables(), ElementsAre(k, d));
+
+  EvaluationContext context((EvaluationOptions()));
+
+  // Return result as array of structs.
+  auto struct_type =
+      MakeStructType({{"key", Int64Type()}, {"val", Int64ArrayType()}});
+  auto array_type = MakeArrayType(struct_type);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_k, DerefExpr::Create(k, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_d, DerefExpr::Create(d, Int64ArrayType()));
+
+  std::vector<std::unique_ptr<ExprArg>> args_for_struct;
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_k)));
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_d)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto struct_expr,
+      NewStructExpr::Create(struct_type, std::move(args_for_struct)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto nest_op,
+                       ArrayNestExpr::Create(array_type, std::move(struct_expr),
+                                             std::move(aggregate_op),
+                                             /*is_with_table=*/false));
+  ZETASQL_ASSERT_OK(nest_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  // Use the reference implementation to evaluate the result.
+  TupleSlot slot;
+  absl::Status status;
+  ASSERT_TRUE(nest_op->EvalSimple(EmptyParams(), &context, &slot, &status))
+      << status;
+  const Value& reference = slot.value();
+
+  auto expected =
+      StructArray({"key", "val"}, {{Int64(0), Array({Int64(2), Int64(1)})}});
+  EXPECT_THAT(expected, EqualsValue(reference));
+  EXPECT_FALSE(context.IsDeterministicOutput());
+}
+
+TEST(EvalAggTest, ArrayAggWithLimitDeterministic) {
+  // Exercises the same logic as ArrayAggWithLimitNonDeterministic except that
+  // an Order By clause is present, which makes inputs_in_defined_order=true in
+  // LimitAccumulator, and consequently the non-deterministic flag is not set.
+  TypeFactory type_factory;
+  VariableId a("a"), b("b"), d("d"), k("k");
+
+  std::vector<std::unique_ptr<KeyArg>> order_by_keys;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, types::Int64Type()));
+  order_by_keys.push_back(
+      std::make_unique<KeyArg>(b, std::move(deref_b), KeyArg::kAscending));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b_for_d, DerefExpr::Create(b, Int64Type()));
+
+  std::vector<std::unique_ptr<ValueExpr>> args_for_d;
+  args_for_d.push_back(std::move(deref_b_for_d));
+
+  // Create a limit expression with value 2.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto limit_for_d, ConstExpr::Create(Value::Int64(2)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto agg_d,
+      AggregateArg::Create(
+          d,
+          std::make_unique<BuiltinAggregateFunction>(
+              FunctionKind::kArrayAgg, Int64ArrayType(),
+              /*num_input_fields=*/1, Int64Type(), false /* ignores_null */),
+          std::move(args_for_d), AggregateArg::kAll, nullptr /* having_expr */,
+          AggregateArg::kHavingNone, std::move(order_by_keys),
+          std::move(limit_for_d)));
+
+  std::vector<std::unique_ptr<AggregateArg>> aggregators;
+  aggregators.push_back(std::move(agg_d));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
+  std::vector<std::unique_ptr<KeyArg>> keys;
+  keys.push_back(std::make_unique<KeyArg>(k, std::move(deref_a)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto aggregate_op,
+      AggregateOp::Create(std::move(keys), std::move(aggregators),
+                          absl::WrapUnique(new TestRelationalOp(
+                              {a, b},
+                              CreateTestTupleDatas({{Int64(0), Int64(2)},
+                                                    {Int64(0), Int64(1)},
+                                                    {Int64(0), Int64(-2)},
+                                                    {Int64(0), Int64(3)},
+                                                    {Int64(0), Int64(-2)},
+                                                    {Int64(0), Int64(1)},
+                                                    {Int64(0), Int64(2)}}),
+                              /*preserves_order=*/true))));
+
+  EXPECT_EQ(
+      "AggregateOp(\n"
+      "+-keys: {\n"
+      "| +-$k := $a},\n"
+      "+-aggregators: {\n"
+      "| +-$d := ArrayAgg($b) ORDER BY $b := $b ASC LIMIT ConstExpr(2) "
+      "[ignores_null = false]},\n"
+      "+-input: TestRelationalOp)",
+      aggregate_op->DebugString());
+  std::unique_ptr<TupleSchema> output_schema =
+      aggregate_op->CreateOutputSchema();
+  EXPECT_THAT(output_schema->variables(), ElementsAre(k, d));
+
+  EvaluationContext context((EvaluationOptions()));
+
+  // Return result as array of structs.
+  auto struct_type =
+      MakeStructType({{"key", Int64Type()}, {"val", Int64ArrayType()}});
+  auto array_type = MakeArrayType(struct_type);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_k, DerefExpr::Create(k, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_d, DerefExpr::Create(d, Int64ArrayType()));
+
+  std::vector<std::unique_ptr<ExprArg>> args_for_struct;
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_k)));
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_d)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto struct_expr,
+      NewStructExpr::Create(struct_type, std::move(args_for_struct)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto nest_op,
+                       ArrayNestExpr::Create(array_type, std::move(struct_expr),
+                                             std::move(aggregate_op),
+                                             /*is_with_table=*/false));
+  ZETASQL_ASSERT_OK(nest_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
+
+  // Use the reference implementation to evaluate the result.
+  TupleSlot slot;
+  absl::Status status;
+  ASSERT_TRUE(nest_op->EvalSimple(EmptyParams(), &context, &slot, &status))
+      << status;
+  const Value& reference = slot.value();
+
+  auto expected =
+      StructArray({"key", "val"}, {{Int64(0), Array({Int64(-2), Int64(-2)})}});
+  EXPECT_THAT(expected, EqualsValue(reference));
+  EXPECT_TRUE(context.IsDeterministicOutput());
+}
+
 }  // namespace
 }  // namespace zetasql

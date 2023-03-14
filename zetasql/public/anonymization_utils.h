@@ -18,7 +18,6 @@
 #define ZETASQL_PUBLIC_ANONYMIZATION_UTILS_H_
 
 #include "zetasql/public/value.h"
-#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
 
@@ -33,28 +32,36 @@ namespace anonymization {
 // For more information, see (broken link).
 static constexpr int kPerUserArrayAggLimit = 5;
 
-// Computes anonymization option k-threshold from epsilon, delta, and kappa.
-// Epsilon and delta must be a valid Value, while kappa is optional
-// (as indicated by an invalid Value).
+// Computes the threshold for Laplace partition selection from anonymization
+// option delta.
 //
-// A valid kappa implies implies contributions are being bounded across
-// GROUP BY groups, while an invalid kappa implies the opposite.
+// epsilon_value and delta_value must be a valid
+// Value, while max_groups_contributed_value is optional (as indicated by an
+// invalid Value).
+//
+// A valid max_groups_contributed_value implies contributions are being bounded
+// across GROUP BY groups, while an invalid max_groups_contributed_value implies
+// the opposite.
 //
 // Returns an error if the inputs are not logically valid.
-absl::StatusOr<Value> ComputeKThresholdFromEpsilonDeltaKappa(
-    Value epsilon_value, Value delta_value, Value kappa_value);
+absl::StatusOr<Value> ComputeLaplaceThresholdFromDelta(
+    Value epsilon_value, Value delta_value, Value max_groups_contributed_value);
 
-// Computes anonymization option delta from epsilon, k-threshold, and kappa.
-// Epsilon and k-threshold must be valid Values, while kappa is
-// optional (as indicated by an invalid Value).
+// Computes anonymization option delta from the threshold for Laplace
+// partition selection.
 //
-// A valid kappa implies implies contributions are being bounded across
-// GROUP BY groups, while an invalid kappa implies the opposite.
+// epsilon_value and laplace_threshold_value must be valid Values, while
+// max_groups_contributed_value is optional (as indicated by an invalid Value).
+//
+// A valid max_groups_contributed_value implies contributions are being bounded
+// across GROUP BY groups, while an invalid max_groups_contributed_value implies
+// the opposite.
 //
 // Returns an error if the inputs are not logically valid, or if the computed
 // delta is outside the valid range [0.0, 1.0).
-absl::StatusOr<Value> ComputeDeltaFromEpsilonKThresholdKappa(
-    Value epsilon_value, Value k_threshold_value, Value kappa_value);
+absl::StatusOr<Value> ComputeDeltaFromLaplaceThreshold(
+    Value epsilon_value, Value laplace_threshold_value,
+    Value max_groups_contributed_value);
 
 }  // namespace anonymization
 }  // namespace zetasql

@@ -146,6 +146,14 @@ class ZetaSqlLocalServiceImpl {
 
   absl::Status Parse(const ParseRequest& request, ParseResponse* response);
 
+  absl::Status ParseStatementImpl(const ParseRequest& request,
+                                  ParseResponse* response,
+                                  ParserOptions& parser_options);
+
+  absl::Status ParseScriptImpl(const ParseRequest& request,
+                               ParseResponse* response,
+                               ParserOptions& parser_options);
+
  private:
   // Fetches the descriptor pools for the given descriptor_pool_list.
   // descriptor_pools is a view into pool_states_out, and is returned as a
@@ -193,7 +201,7 @@ class ZetaSqlLocalServiceImpl {
 
   template <typename ResponseStateT, typename InternalStateT>
   absl::Status RegisterPrepared(
-      const bool should_register_prepared,
+      bool should_register_prepared,
       std::shared_ptr<InternalStateT> internal_state,
       SharedStatePool<InternalStateT>& prepared_statements_pool,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,

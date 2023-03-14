@@ -10,7 +10,7 @@ regular functions are evaluated before calling the function. Short-circuiting in
 conditional expressions can be exploited for error handling or performance
 tuning.
 
-### CASE expr
+### `CASE expr`
 
 ```sql
 CASE expr
@@ -78,7 +78,7 @@ FROM Numbers
 +------------------+
 ```
 
-### CASE
+### `CASE`
 
 ```sql
 CASE
@@ -140,7 +140,7 @@ FROM Numbers
 +------------------+
 ```
 
-### COALESCE
+### `COALESCE`
 
 ```sql
 COALESCE(expr[, ...])
@@ -180,7 +180,7 @@ SELECT COALESCE(NULL, 'B', 'C') as result
 +--------+
 ```
 
-### IF
+### `IF`
 
 ```sql
 IF(expr, true_result, else_result)
@@ -223,7 +223,7 @@ FROM Numbers
 +------------------+
 ```
 
-### IFNULL
+### `IFNULL`
 
 ```sql
 IFNULL(expr, null_result)
@@ -264,7 +264,7 @@ SELECT IFNULL(10, 0) as result
 +--------+
 ```
 
-### NULLIF
+### `NULLIF`
 
 ```sql
 NULLIF(expr, expr_to_match)

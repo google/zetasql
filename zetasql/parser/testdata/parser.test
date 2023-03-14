@@ -2672,3 +2672,10 @@ ALTERNATION GROUPS:
 ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 2:8]
        ( foo)
        ^
+==
+
+SELECT fake_cast(1 as int32)
+--
+ERROR: Syntax error: Expected ")" but got keyword AS [at 1:20]
+SELECT fake_cast(1 as int32)
+                   ^

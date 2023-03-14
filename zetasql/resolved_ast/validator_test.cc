@@ -439,6 +439,34 @@ TEST(ValidateTest, CreateFunctionStmtWithRemoteAndRemoteLanguage) {
   ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_function_stmt.get()));
 }
 
+TEST(ValidateTest, CreateFunctionStmtWithRemoteAndTemplatedArg) {
+  std::unique_ptr<ResolvedCreateFunctionStmt> create_function_stmt =
+      MakeResolvedCreateFunctionStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*has_explicit_return_type=*/true, types::BytesType(),
+          /*argument_name_list=*/{"x"},
+          /*signature=*/
+          FunctionSignature({types::BytesType()},
+                            {FunctionArgumentType(ARG_TYPE_ARBITRARY)},
+                            nullptr),
+          /*is_aggregate=*/false,
+          /*language=*/"remote",
+          /*code=*/"",
+          /*aggregate_expression_list=*/{},
+          /*function_expression=*/nullptr,
+          /*option_list=*/{},
+          /*sql_security=*/ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED,
+          /*determinism_level=*/
+          ResolvedCreateStatement::DETERMINISM_UNSPECIFIED,
+          /*is_remote=*/true,
+          /*connection=*/nullptr);
+
+  Validator validator;
+  ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_function_stmt.get()));
+}
+
 TEST(ValidateTest,
      CreateFunctionStmtWithRemoteAndCodeWithRemoteFunctionFeatureEnabled) {
   std::unique_ptr<ResolvedCreateFunctionStmt> create_function_stmt =
@@ -1116,6 +1144,73 @@ TEST(ValidatorTest, ValidCreateModelStatement_EmptyV13_Invalid) {
   EXPECT_THAT(validator.ValidateResolvedStatement(statement.get()),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("stmt->query() != nullptr")));
+}
+
+TEST(ValidateTest, DifferentialPrivacyAggregateScanSelectWithModes) {
+  IdStringPool pool;
+  auto dp_function =
+      std::make_unique<Function>("count", "test_group", Function::AGGREGATE);
+  FunctionSignature sig(FunctionArgumentType(types::Int64Type(), 1), {},
+                        static_cast<int64_t>(1234));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto dp_count_call,
+                       ResolvedAggregateFunctionCallBuilder()
+                           .set_type(types::Int64Type())
+                           .set_function(dp_function.get())
+                           .set_signature(std::move(sig))
+                           .Build());
+
+  ResolvedColumn column_dp_count =
+      ResolvedColumn(1, pool.Make("agg"), pool.Make("c"), types::Int64Type());
+  auto custom_option = MakeResolvedOption(
+      "", "custom_option",
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto differential_privacy_query_stmt,
+      ResolvedQueryStmtBuilder()
+          .add_output_column_list(
+              MakeResolvedOutputColumn("c", column_dp_count))
+          .set_query(ResolvedProjectScanBuilder()
+                         .add_column_list(column_dp_count)
+                         .set_input_scan(
+                             ResolvedDifferentialPrivacyAggregateScanBuilder()
+                                 .add_column_list(column_dp_count)
+                                 .set_input_scan(MakeResolvedSingleRowScan())
+                                 .add_aggregate_list(
+                                     ResolvedComputedColumnBuilder()
+                                         .set_column(column_dp_count)
+                                         .set_expr(std::move(dp_count_call)))
+                                 .set_group_selection_threshold_expr(
+                                     ResolvedColumnRefBuilder()
+                                         .set_type(types::Int64Type())
+                                         .set_column(column_dp_count)
+                                         .set_is_correlated(false))
+                                 .add_option_list(std::move(custom_option))))
+          .Build());
+
+  AllowedHintsAndOptions allowed_hints_and_options;
+  allowed_hints_and_options.AddDifferentialPrivacyOption("custom_option",
+                                                         types::Int64Type());
+  ValidatorOptions validator_options{.allowed_hints_and_options =
+                                         allowed_hints_and_options};
+  // FEATURE_DIFFERENTIAL_PRIVACY disabled.
+  {
+    LanguageOptions language_options;
+    Validator validator(language_options, validator_options);
+    EXPECT_THAT(validator.ValidateResolvedStatement(
+                    differential_privacy_query_stmt.get()),
+                testing::StatusIs(absl::StatusCode::kInternal));
+  }
+  // FEATURE_DIFFERENTIAL_PRIVACY enabled.
+  {
+    LanguageOptions language_options;
+    language_options.EnableLanguageFeature(FEATURE_DIFFERENTIAL_PRIVACY);
+    Validator validator(language_options, validator_options);
+
+    ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(
+        differential_privacy_query_stmt.get()));
+  }
 }
 
 }  // namespace testing

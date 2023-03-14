@@ -2682,8 +2682,6 @@ select fn_on_int32_array_returns_int32(ARRAY<INT64>[])
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 [product_mode={{internal|external}}]
-[no_java]
-# TODO: Fix java
 # Integers should coerce to opaque enums - it's not likely to
 # be used much in practice, but it is part of the spec.  However
 # this should _not_ be the case for product mode external, which
@@ -2712,16 +2710,13 @@ QueryStmt
 --
 ALTERNATION GROUP: external
 --
-ERROR: No matching signature for function ROUND for argument types: NUMERIC, INT64, INT64. Supported signatures: ROUND(FLOAT64); ROUND(NUMERIC); ROUND(FLOAT64, INT64); ROUND(NUMERIC, INT64); ROUND(NUMERIC, INT64, ROUNDING_MODE) [at 8:8]
+ERROR: No matching signature for function ROUND for argument types: NUMERIC, INT64, INT64. Supported signatures: ROUND(FLOAT64); ROUND(NUMERIC); ROUND(FLOAT64, INT64); ROUND(NUMERIC, INT64); ROUND(NUMERIC, INT64, ROUNDING_MODE) [at 7:8]
 SELECT ROUND(NUMERIC "1", 1, 1);
        ^
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
 [product_mode={{internal|external}}]
-[no_java]
-
-# TODO: Fix java
 select 1 = CAST(1 as ROUNDING_MODE),
        'ROUND_HALF_EVEN' = CAST(1 as ROUNDING_MODE)
 --
@@ -2750,7 +2745,7 @@ QueryStmt
 --
 ALTERNATION GROUP: external
 --
-ERROR: Type not found: ROUNDING_MODE [at 2:22]
+ERROR: Type not found: ROUNDING_MODE [at 1:22]
 select 1 = CAST(1 as ROUNDING_MODE),
                      ^
 ==
@@ -2820,45 +2815,36 @@ select nested_catalog.constant_rounding_mode in (1, 2)
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
-[no_java]
-# TODO: Fix java
 # Types are not coercible with each other
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
 --
-ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 3:8]
+ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 2:8]
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE),
        ^
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
-[no_java]
-# TODO: Fix java
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
 --
-# error
-ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 2:8]
+ERROR: No matching signature for operator = for argument types: zetasql.functions.RoundingMode, ROUNDING_MODE. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
 select CAST(1 as `zetasql.functions.RoundingMode`) = CAST(1 as ROUNDING_MODE)
        ^
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
-[no_java]
-# TODO: Fix java
 # ROUNDING_MODE_UNSPECIFIED is marked invalid in ROUNDING_MODE (but not
 # 'zetasql.functions.RoundingMode')
 select 'ROUNDING_MODE_UNSPECIFIED' = CAST(1 as ROUNDING_MODE)
 --
-ERROR: Could not cast literal "ROUNDING_MODE_UNSPECIFIED" to type ROUNDING_MODE [at 4:8]
+ERROR: Could not cast literal "ROUNDING_MODE_UNSPECIFIED" to type ROUNDING_MODE [at 3:8]
 select 'ROUNDING_MODE_UNSPECIFIED' = CAST(1 as ROUNDING_MODE)
        ^
 ==
 
 [language_features=NUMERIC_TYPE,ROUND_WITH_ROUNDING_MODE]
-[no_java]
-# TODO: Fix java
 # 0 (ROUNDING_MODE_UNSPECIFIED) is marked invalid in ROUNDING_MODE.
 select 0 = CAST(1 as ROUNDING_MODE)
 --
-ERROR: Could not cast literal 0 to type ROUNDING_MODE [at 3:8]
+ERROR: Could not cast literal 0 to type ROUNDING_MODE [at 2:8]
 select 0 = CAST(1 as ROUNDING_MODE)
        ^

@@ -2,32 +2,26 @@
 
 # Modules
 
-ZetaSQL supports modules.
+In ZetaSQL, a module is a collection of reusable [data definition
+language (DDL)][ddl] statements. The purpose of a module is to keep related
+logic in one location that you and other users can maintain centrally and
+reference repeatedly.
 
-## What are modules?
+Modules have the following key characteristics:
 
-Modules are a set of ZetaSQL DDL statements that do not have
-permanent side effects. Each module is self-contained:
-
++   Modules can't create permanent objects, such as tables and views, or use
+    [data manipulation language (DML)][dml] statements to insert or modify data.
 +   Each module has its own namespace. This namespace is empty until `CREATE`
     statements in the module add objects to the module namespace.
-+   Module statements cannot have permanent side effects. They cannot:
-    +   Create permanent objects.
-    +   Insert data.
-    +   Modify data.
 +   Modules allow public and private object definitions for proper
     encapsulation.
 
-The purpose of a module is to keep related business logic in one location.
-Inside the module, you can create user-defined functions and constants, and
-import other modules.
-
 ZetaSQL limits the duration and side effects of module objects to the
 invoking *session*. In the context of ZetaSQL modules, a session is a
-set of related statements and objects that form a
-[unit of work](https://en.wikipedia.org/w/index.php?title=Unit_of_work).
+set of related statements and objects that form a [unit of work][unit-of-work]
+{.external}.
 
-## Creating a module
+## Create a module
 
 To create a module, you create a file that contains a `MODULE` statement and
 subsequent `IMPORT` and `CREATE` statements. The file extension `.sqlm` must
@@ -36,7 +30,7 @@ appear at the end of the filename of the module file.
 Modules support the following statements:
 
 +   `MODULE`
-+   `IMPORT MODULE` 
++   `IMPORT MODULE`
 +   `CREATE { PUBLIC | PRIVATE } [ { TABLE | AGGREGATE } ] FUNCTION`
 +   `CREATE { PUBLIC | PRIVATE } CONSTANT`
 
@@ -44,7 +38,7 @@ Modules do not support statements that return results or have side effects.
 Modules only support defining an object once and do not support modifying an
 object after it is defined.
 
-### Declaring a module
+### Declare a module
 
 The first statement in a module must be a valid `MODULE` statement which defines
 the module name:
@@ -78,11 +72,11 @@ Note: If you import module `x.y.z`, ZetaSQL looks for the module at
 the module at `search_path/x/y/z/z.sqlm` and you can import it with either
 `IMPORT MODULE x.y.z` or `IMPORT MODULE x.y.z.z`.
 
-### Creating objects within modules
+### Create objects within modules
 
 Modules can contain `CREATE` statements to create objects within the module.
 
-#### Specifying public vs. private objects
+#### Specify public vs. private objects
 
 All `CREATE` statements must indicate if the created object is available outside
 of the module in the importing session (public), or only available internally
@@ -111,7 +105,7 @@ AS (
 );
 ```
 
-#### Creating constants
+#### Create constants
 
 Modules support the creation of [constants][create-constant].
 
@@ -139,7 +133,7 @@ SELECT (DEFAULT_HEIGHT + 5) AS result;
 +--------+
 ```
 
-#### Creating UDFs and TVFs
+#### Create UDFs and TVFs
 
 Modules support creation of UDFs ([user-defined
 functions][user-defined-functions]), including TVFs ([table-valued
@@ -202,7 +196,7 @@ AS (
 );
 ```
 
-### Referencing module objects from within the same module
+### Reference module objects from within the same module
 
 Statements in a module can reference other objects in the same module.
 Statements can reference objects whose `CREATE` statements appear before or
@@ -237,12 +231,12 @@ Object references cannot be circular: if a function directly or indirectly
 references a second function, then that second function cannot reference the
 original function.
 
-## Using an existing module
+## Use an existing module
 
 You can use an existing module by importing it into a session or into another
 module.
 
-### Importing a module into a session
+### Import a module into a session
 
 To import a module into a session, use the `IMPORT MODULE` statement.
 
@@ -278,7 +272,7 @@ The following example statement imports the same module but with the alias
 IMPORT MODULE x.y.z AS some_module;
 ```
 
-### Referencing module objects from a session
+### Reference module objects from a session
 
 Once you have imported a module into a session, you can reference the public
 objects in that module from the session. Use the namespace of the module or its
@@ -312,7 +306,7 @@ IMPORT MODULE x.y.z AS some_module;
 SELECT some_module.Baz(a, b);
 ```
 
-### Importing a module into another module
+### Import a module into another module
 
 To import a module into another module, use the same syntax as when
 [importing a module into a session](#importing-a-module-into-a-session).
@@ -321,7 +315,7 @@ To import a module into another module, use the same syntax as when
     then `module2` cannot directly or indirectly import `module1`.
 +   A module cannot import itself.
 
-### Referencing module objects from another module
+### Reference module objects from another module
 
 Once you have imported a module into another module, you can reference the
 public objects that the imported module creates. Use the same syntax as in an
@@ -358,6 +352,12 @@ AS (
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[unit-of-work]: https://en.wikipedia.org/w/index.php?title=Unit_of_work&redirect=no
+
+[dml]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language.md
+
+[ddl]: https://github.com/google/zetasql/blob/master/docs/data-definition-language.md
 
 [user-defined-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 

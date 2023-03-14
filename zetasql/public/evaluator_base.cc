@@ -591,7 +591,7 @@ absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
       case RESOLVED_DELETE_STMT:
       case RESOLVED_UPDATE_STMT: {
         ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeStatement(
-            options.language(), algebrizer_options, catalog,
+            options.language(), algebrizer_options,
             evaluator_options_.type_factory, statement_, &compiled_value_expr_,
             &algebrizer_parameters_, &algebrizer_column_map_,
             &algebrizer_system_variables_));

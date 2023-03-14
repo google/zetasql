@@ -571,6 +571,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -664,6 +665,7 @@ cc_library(
         ":normalize_mode_cc_proto",
         ":util",
         "//zetasql/base",
+        "//zetasql/base:check",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
@@ -867,6 +869,25 @@ cc_proto_library(
     deps = [":array_find_mode_proto"],
 )
 
+proto_library(
+    name = "differential_privacy_proto",
+    srcs = ["differential_privacy.proto"],
+    deps = [
+        "//zetasql/proto:anon_output_with_report_proto",
+        "//zetasql/public:type_proto",
+    ],
+)
+
+java_proto_library(
+    name = "differential_privacy_java_proto",
+    deps = [":differential_privacy_proto"],
+)
+
+cc_proto_library(
+    name = "differential_privacy_cc_proto",
+    deps = [":differential_privacy_proto"],
+)
+
 cc_library(
     name = "json_internal",
     srcs = ["json_internal.cc"],
@@ -877,6 +898,7 @@ cc_library(
         "//zetasql/base:strings",
         "//zetasql/common:json_parser",
         "//zetasql/common:json_util",
+        "//zetasql/common:thread_stack",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
@@ -1087,6 +1109,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/common:canonicalize_signed_zero_to_string",
         "//zetasql/common:errors",
+        "//zetasql/common:thread_stack",
         "//zetasql/public:interval_value",
         "//zetasql/public:json_value",
         "//zetasql/public:language_options",
