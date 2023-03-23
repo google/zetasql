@@ -24,7 +24,7 @@ differentially private aggregations. When the query is executed, it:
 1.  Computes per-entity aggregations for each group if groups are specified with
     a `GROUP BY` clause. If `kappa` or `max_groups_contributed` is specified, limits
     the number of groups each entity can contribute to.
-1.  [Clamps][anon-clamping] each per-entity aggregate contribution to be within
+1.  [Clamps][dp-clamping] each per-entity aggregate contribution to be within
     the clamping bounds. If the clamping bounds are not specified they are
     implicitly calculated in a differentially private way.
 1.  Aggregates the clamped per-entity aggregate contributions for each group.
@@ -46,7 +46,7 @@ the following articles:
 + [Differential privacy on Wikipedia][wiki-diff-privacy]
 
 ## Differential privacy syntax 
-<a id="anon_query_syntax"></a>
+<a id="dp_query_syntax"></a>
 
 **Anonymization clause**
 
@@ -90,21 +90,21 @@ legacy syntax.
 You can use the following privacy parameters to control how the results are
 transformed:
 
-+  [`epsilon`][anon-epsilon]: Controls the amount of noise added to the results.
++  [`epsilon`][dp-epsilon]: Controls the amount of noise added to the results.
    A higher epsilon means less noise. `1e20` is large enough to add no
    noise. `expression` must be a literal and return a
    `DOUBLE`.
-+  [`delta`][anon-delta]: The probability that any row in the result fails to
++  [`delta`][dp-delta]: The probability that any row in the result fails to
    be epsilon-differentially private. `expression` must be a literal and return
    a `DOUBLE`.
-+  [`k_threshold`][anon-k-threshold]: The number of entities that must
++  [`k_threshold`][dp-k-threshold]: The number of entities that must
    contribute to a group in order for the group to be exposed in the results.
    `expression` must return an `INT64`.
-+  [`kappa` or `max_groups_contributed`][anon-kappa]: A positive integer identifying the limit on
++  [`kappa` or `max_groups_contributed`][dp-kappa]: A positive integer identifying the limit on
    the number of groups that an entity is allowed to contribute to. This number
    is also used to scale the noise for each group. `expression` must be a
    literal and return an `INT64`.
-+ [`privacy_unit_column`][anon-privacy-unit-id]: The column that represents the
++ [`privacy_unit_column`][dp-privacy-unit-id]: The column that represents the
   privacy unit column. Replace `column_name` with the path expression for the
   column. The first identifier in the path can start with either a table name
   or a column name that is visible in the `FROM` clause.
@@ -123,7 +123,7 @@ as the characteristics of your data, the exposure level, and the
 privacy level.
 
 ### `epsilon` 
-<a id="anon_epsilon"></a>
+<a id="dp_epsilon"></a>
 
 Noise is added primarily based on the specified `epsilon`.
 The higher the epsilon the less noise is added. More noise corresponding to
@@ -148,7 +148,7 @@ is applied towards computing implicit bounds, and half of the function's epsilon
 is applied towards the differentially private aggregation itself.
 
 ### `delta` 
-<a id="anon_delta"></a>
+<a id="dp_delta"></a>
 
 `delta` represents the probability that any row fails to be
 `epsilon`-differentially private in the result of a
@@ -170,7 +170,7 @@ group.  In order to avoid losing small groups, set `delta` very close to 1,
 for example `0.99999`.
 
 ### `k_threshold` 
-<a id="anon_k_threshold"></a>
+<a id="dp_k_threshold"></a>
 
 Important: `k_threshold` is discouraged. If possible, use `delta` instead.
 
@@ -183,7 +183,7 @@ entities must be included in the group for the value to be included in the
 output.
 
 ### `kappa` or `max_groups_contributed` 
-<a id="anon_kappa"></a>
+<a id="dp_kappa"></a>
 
 Important: Avoid using `kappa` as it is soon to be depreciated. Instead, use
 `max_groups_contributed`.
@@ -208,13 +208,13 @@ the results will be the same regardless of whether `kappa` or `max_groups_contri
 Tip: We recommend that engines require `kappa` or `max_groups_contributed` to be set.
 
 ### `privacy_unit_column` 
-<a id="anon_privacy_unit_id"></a>
+<a id="dp_privacy_unit_id"></a>
 
 To learn about the privacy unit and how to define a privacy unit column, see
 [Define a privacy unit column][dp-define-privacy-unit-id].
 
 ## Produce a valid differentially private query 
-<a id="anon_rules"></a>
+<a id="dp_rules"></a>
 
 The following rules must be met for the differentially private query to be
 valid.
@@ -266,11 +266,11 @@ FROM (SELECT * FROM students) AS members;
 ```
 
 The following query is invalid because
-[`view_on_students`][anon-example-views] contains a
+[`view_on_students`][dp-example-views] contains a
 privacy unit column and so does
-[`view_on_professors`][anon-example-views]. To learn more about
+[`view_on_professors`][dp-example-views]. To learn more about
 `FROM` clause rules, see [Review `FROM` clause rules for differentially private
-table expressions][anon-from].
+table expressions][dp-from].
 
 ```sql {.bad}
 -- This produces an error
@@ -282,7 +282,7 @@ GROUP BY item;
 ```
 
 ### Review FROM clause rules for differentially private table expressions 
-<a id="anon_from"></a>
+<a id="dp_from"></a>
 
 If a query contains a
 differential privacy clause and the
@@ -291,7 +291,7 @@ privacy unit column is not defined in that clause, these rules apply:
 + The query must contain at least one table expression or table path in the
   `FROM` clause that has a defined privacy unit column. The
   privacy unit column for a table expression is defined in a
-  [view][anon-example-views].
+  [view][dp-example-views].
 + If a `FROM` subquery contains a differentially private table expression,
   the subquery must produce a privacy unit column in its output or
   an error is returned.
@@ -306,7 +306,7 @@ privacy unit column is not defined in that clause, these rules apply:
   table expressions, since they are not joined on the privacy unit column.
 
 ### Only use differentially private aggregate functions 
-<a id="anon_aggregate_functions"></a>
+<a id="dp_aggregate_functions"></a>
 
 If a `SELECT` list contains a differentially private clause, you can only
 use [differentially private aggregate functions][anonymization-functions]
@@ -361,7 +361,7 @@ This section contains examples which illustrate how to work with
 differential privacy in ZetaSQL.
 
 ### Tables for examples 
-<a id="anon_example_tables"></a>
+<a id="dp_example_tables"></a>
 
 The examples in this section reference these tables:
 
@@ -386,7 +386,7 @@ CREATE OR REPLACE TABLE students AS (
 ```
 
 ### Views for examples 
-<a id="anon_example_views"></a>
+<a id="dp_example_views"></a>
 
 The examples in this section reference these views:
 
@@ -402,8 +402,8 @@ OPTIONS(anonymization_userid_column='id')
 AS (SELECT * FROM students);
 ```
 
-These views reference the [professors][anon-example-tables] and
-[students][anon-example-tables] example tables.
+These views reference the [professors][dp-example-tables] and
+[students][dp-example-tables] example tables.
 
 ### Remove noise 
 <a id="eliminate_noise"></a>
@@ -557,45 +557,29 @@ GROUP BY item;
 
 [dp-paper]: https://arxiv.org/abs/1909.01917
 
-[anon-expression]: #anon_expression
+[dp-example-views]: #dp_example_views
 
-[anon-resources]: #anon_resources
+[dp-example-tables]: #dp_example_tables
 
-[anon-query]: #anon_query
+[dp-k-threshold]: #dp_k_threshold
 
-[anon-example-views]: #anon_example_views
+[dp-epsilon]: #dp_epsilon
 
-[anon-example-tables]: #anon_example_tables
+[dp-kappa]: #dp_kappa
 
-[anon-k-threshold]: #anon_k_threshold
+[dp-delta]: #dp_delta
 
-[anon-epsilon]: #anon_epsilon
-
-[anon-kappa]: #anon_kappa
-
-[anon-delta]: #anon_delta
-
-[anon-privacy-unit-id]: #anon_privacy_unit_id
+[dp-privacy-unit-id]: #dp_privacy_unit_id
 
 [dp-define-privacy-unit-id]: #dp_define_privacy_unit_id
 
-[anon-from]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
-
-[anon-select-list]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_list
-
-[anon-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
+[dp-from]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
 
 [data-types-groupable]: https://github.com/google/zetasql/blob/master/docs/data-types.md#groupable_data_types
 
 [anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
-[anon-avg]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_avg
-
-[anon-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_clamping
-
-[anon-exp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_explicit_clamping
-
-[anon-imp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#anon_implicit_clamping
+[dp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md#dp_clamping
 
 <!-- mdlint on -->
 

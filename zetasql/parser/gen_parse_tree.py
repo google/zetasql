@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 389
+NEXT_NODE_TAG_ID = 391
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -250,6 +250,14 @@ SCALAR_LOAD_INSERTION_MODE = EnumScalarType(
 SCALAR_SPANNER_INTERLEAVE_TYPE = EnumScalarType('Type',
                                                 'ASTSpannerInterleaveClause',
                                                 'NOT_SET')
+
+SCALAR_COLUMN_MATCH_MODE = EnumScalarType(
+    'ColumnMatchMode', 'ASTSetOperation', 'BY_POSITION'
+)
+
+SCALAR_COLUMN_PROPAGATION_MODE = EnumScalarType(
+    'ColumnPropagationMode', 'ASTSetOperation', 'INNER'
+)
 
 
 # Identifies the FieldLoader method used to populate member fields.
@@ -2694,6 +2702,32 @@ def main(argv):
   )
 
   gen.AddNode(
+      name='ASTSetOperationColumnMatchMode',
+      tag_id=389,
+      parent='ASTNode',
+      fields=[
+          Field('value', SCALAR_COLUMN_MATCH_MODE, tag_id=2),
+      ],
+      comment="""
+      Wrapper node for the enum ASTSetOperation::ColumnMatchMode to provide
+      parse location range.
+      """,
+  )
+
+  gen.AddNode(
+      name='ASTSetOperationColumnPropagationMode',
+      tag_id=390,
+      parent='ASTNode',
+      fields=[
+          Field('value', SCALAR_COLUMN_PROPAGATION_MODE, tag_id=2),
+      ],
+      comment="""
+      Wrapper node for the enum ASTSetOperation::ColumnPropagationMode to
+      provide parse location range.
+      """,
+  )
+
+  gen.AddNode(
       name='ASTSetOperationMetadata',
       tag_id=387,
       parent='ASTNode',
@@ -2705,6 +2739,25 @@ def main(argv):
               tag_id=3,
           ),
           Field('hint', 'ASTHint', tag_id=4),
+          Field(
+              'column_match_mode',
+              'ASTSetOperationColumnMatchMode',
+              tag_id=5,
+          ),
+          Field(
+              'column_propagation_mode',
+              'ASTSetOperationColumnPropagationMode',
+              tag_id=6,
+          ),
+          Field(
+              'corresponding_by_column_list',
+              'ASTColumnList',
+              tag_id=7,
+              comment="""
+              Stores the column list for the CORRESPONDING BY clause, only
+              populated when `column_match_mode` = CORRESPONDING_BY.
+              """,
+          ),
       ],
   )
 

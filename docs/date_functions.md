@@ -104,116 +104,6 @@ SELECT current_date() AS the_date, t.current_date FROM t;
 
 [date-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
-### `EXTRACT`
-
-```sql
-EXTRACT(part FROM date_expression)
-```
-
-**Description**
-
-Returns the value corresponding to the specified date part. The `part` must
-be one of:
-
-+   `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day
-    of the week.
-+   `DAY`
-+   `DAYOFYEAR`
-+ `WEEK`: Returns the week number of the date in the range [0, 53]. Weeks begin
-  with Sunday, and dates prior to the first Sunday of the year are in week 0.
-+ `WEEK(<WEEKDAY>)`: Returns the week number of the date in the range [0, 53].
-  Weeks begin on `WEEKDAY`. Dates prior to
-  the first `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are
-  `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
-  `SATURDAY`.
-+ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
-  number of the `date_expression`. `ISOWEEK`s begin on Monday. Return values
-  are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
-  Monday before the first Thursday of the Gregorian calendar year.
-+   `MONTH`
-+   `QUARTER`: Returns values in the range [1,4].
-+   `YEAR`
-+   `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
-    week-numbering year, which is the Gregorian calendar year containing the
-    Thursday of the week to which `date_expression` belongs.
-
-**Return Data Type**
-
-INT64
-
-**Examples**
-
-In the following example, `EXTRACT` returns a value corresponding to the `DAY`
-date part.
-
-```sql
-SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
-
-+---------+
-| the_day |
-+---------+
-| 25      |
-+---------+
-```
-
-In the following example, `EXTRACT` returns values corresponding to different
-date parts from a column of dates near the end of the year.
-
-```sql
-SELECT
-  date,
-  EXTRACT(ISOYEAR FROM date) AS isoyear,
-  EXTRACT(ISOWEEK FROM date) AS isoweek,
-  EXTRACT(YEAR FROM date) AS year,
-  EXTRACT(WEEK FROM date) AS week
-FROM UNNEST(GENERATE_DATE_ARRAY('2015-12-23', '2016-01-09')) AS date
-ORDER BY date;
-+------------+---------+---------+------+------+
-| date       | isoyear | isoweek | year | week |
-+------------+---------+---------+------+------+
-| 2015-12-23 | 2015    | 52      | 2015 | 51   |
-| 2015-12-24 | 2015    | 52      | 2015 | 51   |
-| 2015-12-25 | 2015    | 52      | 2015 | 51   |
-| 2015-12-26 | 2015    | 52      | 2015 | 51   |
-| 2015-12-27 | 2015    | 52      | 2015 | 52   |
-| 2015-12-28 | 2015    | 53      | 2015 | 52   |
-| 2015-12-29 | 2015    | 53      | 2015 | 52   |
-| 2015-12-30 | 2015    | 53      | 2015 | 52   |
-| 2015-12-31 | 2015    | 53      | 2015 | 52   |
-| 2016-01-01 | 2015    | 53      | 2016 | 0    |
-| 2016-01-02 | 2015    | 53      | 2016 | 0    |
-| 2016-01-03 | 2015    | 53      | 2016 | 1    |
-| 2016-01-04 | 2016    | 1       | 2016 | 1    |
-| 2016-01-05 | 2016    | 1       | 2016 | 1    |
-| 2016-01-06 | 2016    | 1       | 2016 | 1    |
-| 2016-01-07 | 2016    | 1       | 2016 | 1    |
-| 2016-01-08 | 2016    | 1       | 2016 | 1    |
-| 2016-01-09 | 2016    | 1       | 2016 | 1    |
-+------------+---------+---------+------+------+
-```
-
-In the following example, `date_expression` falls on a Sunday. `EXTRACT`
-calculates the first column using weeks that begin on Sunday, and it calculates
-the second column using weeks that begin on Monday.
-
-```sql
-WITH table AS (SELECT DATE('2017-11-05') AS date)
-SELECT
-  date,
-  EXTRACT(WEEK(SUNDAY) FROM date) AS week_sunday,
-  EXTRACT(WEEK(MONDAY) FROM date) AS week_monday FROM table;
-
-+------------+-------------+-------------+
-| date       | week_sunday | week_monday |
-+------------+-------------+-------------+
-| 2017-11-05 | 45          | 44          |
-+------------+-------------+-------------+
-```
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
 ### `DATE`
 
 ```sql
@@ -306,45 +196,6 @@ SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 +--------------------+
 | 2008-12-30         |
 +--------------------+
-```
-
-### `DATE_SUB`
-
-```sql
-DATE_SUB(date_expression, INTERVAL int64_expression date_part)
-```
-
-**Description**
-
-Subtracts a specified time interval from a DATE.
-
-`DATE_SUB` supports the following `date_part` values:
-
-+  `DAY`
-+  `WEEK`. Equivalent to 7 `DAY`s.
-+  `MONTH`
-+  `QUARTER`
-+  `YEAR`
-
-Special handling is required for MONTH, QUARTER, and YEAR parts when
-the date is at (or near) the last day of the month. If the resulting
-month has fewer days than the original date's day, then the resulting
-date is the last date of that month.
-
-**Return Data Type**
-
-DATE
-
-**Example**
-
-```sql
-SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
-
-+---------------+
-| five_days_ago |
-+---------------+
-| 2008-12-20    |
-+---------------+
 ```
 
 ### `DATE_DIFF`
@@ -454,6 +305,71 @@ SELECT
 
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
+### `DATE_FROM_UNIX_DATE`
+
+```sql
+DATE_FROM_UNIX_DATE(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of days since 1970-01-01.
+
+**Return Data Type**
+
+DATE
+
+**Example**
+
+```sql
+SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
+
++-----------------+
+| date_from_epoch |
++-----------------+
+| 2008-12-25      |
++-----------------+
+```
+
+### `DATE_SUB`
+
+```sql
+DATE_SUB(date_expression, INTERVAL int64_expression date_part)
+```
+
+**Description**
+
+Subtracts a specified time interval from a DATE.
+
+`DATE_SUB` supports the following `date_part` values:
+
++  `DAY`
++  `WEEK`. Equivalent to 7 `DAY`s.
++  `MONTH`
++  `QUARTER`
++  `YEAR`
+
+Special handling is required for MONTH, QUARTER, and YEAR parts when
+the date is at (or near) the last day of the month. If the resulting
+month has fewer days than the original date's day, then the resulting
+date is the last date of that month.
+
+**Return Data Type**
+
+DATE
+
+**Example**
+
+```sql
+SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
+
++---------------+
+| five_days_ago |
++---------------+
+| 2008-12-20    |
++---------------+
+```
+
 ### `DATE_TRUNC`
 
 ```sql
@@ -549,31 +465,115 @@ SELECT
 +------------------+----------------+
 ```
 
-### `DATE_FROM_UNIX_DATE`
+### `EXTRACT`
 
 ```sql
-DATE_FROM_UNIX_DATE(int64_expression)
+EXTRACT(part FROM date_expression)
 ```
 
 **Description**
 
-Interprets `int64_expression` as the number of days since 1970-01-01.
+Returns the value corresponding to the specified date part. The `part` must
+be one of:
+
++   `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day
+    of the week.
++   `DAY`
++   `DAYOFYEAR`
++ `WEEK`: Returns the week number of the date in the range [0, 53]. Weeks begin
+  with Sunday, and dates prior to the first Sunday of the year are in week 0.
++ `WEEK(<WEEKDAY>)`: Returns the week number of the date in the range [0, 53].
+  Weeks begin on `WEEKDAY`. Dates prior to
+  the first `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are
+  `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
+  `SATURDAY`.
++ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
+  number of the `date_expression`. `ISOWEEK`s begin on Monday. Return values
+  are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
+  Monday before the first Thursday of the Gregorian calendar year.
++   `MONTH`
++   `QUARTER`: Returns values in the range [1,4].
++   `YEAR`
++   `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
+    week-numbering year, which is the Gregorian calendar year containing the
+    Thursday of the week to which `date_expression` belongs.
 
 **Return Data Type**
 
-DATE
+INT64
 
-**Example**
+**Examples**
+
+In the following example, `EXTRACT` returns a value corresponding to the `DAY`
+date part.
 
 ```sql
-SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
+SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
 
-+-----------------+
-| date_from_epoch |
-+-----------------+
-| 2008-12-25      |
-+-----------------+
++---------+
+| the_day |
++---------+
+| 25      |
++---------+
 ```
+
+In the following example, `EXTRACT` returns values corresponding to different
+date parts from a column of dates near the end of the year.
+
+```sql
+SELECT
+  date,
+  EXTRACT(ISOYEAR FROM date) AS isoyear,
+  EXTRACT(ISOWEEK FROM date) AS isoweek,
+  EXTRACT(YEAR FROM date) AS year,
+  EXTRACT(WEEK FROM date) AS week
+FROM UNNEST(GENERATE_DATE_ARRAY('2015-12-23', '2016-01-09')) AS date
+ORDER BY date;
++------------+---------+---------+------+------+
+| date       | isoyear | isoweek | year | week |
++------------+---------+---------+------+------+
+| 2015-12-23 | 2015    | 52      | 2015 | 51   |
+| 2015-12-24 | 2015    | 52      | 2015 | 51   |
+| 2015-12-25 | 2015    | 52      | 2015 | 51   |
+| 2015-12-26 | 2015    | 52      | 2015 | 51   |
+| 2015-12-27 | 2015    | 52      | 2015 | 52   |
+| 2015-12-28 | 2015    | 53      | 2015 | 52   |
+| 2015-12-29 | 2015    | 53      | 2015 | 52   |
+| 2015-12-30 | 2015    | 53      | 2015 | 52   |
+| 2015-12-31 | 2015    | 53      | 2015 | 52   |
+| 2016-01-01 | 2015    | 53      | 2016 | 0    |
+| 2016-01-02 | 2015    | 53      | 2016 | 0    |
+| 2016-01-03 | 2015    | 53      | 2016 | 1    |
+| 2016-01-04 | 2016    | 1       | 2016 | 1    |
+| 2016-01-05 | 2016    | 1       | 2016 | 1    |
+| 2016-01-06 | 2016    | 1       | 2016 | 1    |
+| 2016-01-07 | 2016    | 1       | 2016 | 1    |
+| 2016-01-08 | 2016    | 1       | 2016 | 1    |
+| 2016-01-09 | 2016    | 1       | 2016 | 1    |
++------------+---------+---------+------+------+
+```
+
+In the following example, `date_expression` falls on a Sunday. `EXTRACT`
+calculates the first column using weeks that begin on Sunday, and it calculates
+the second column using weeks that begin on Monday.
+
+```sql
+WITH table AS (SELECT DATE('2017-11-05') AS date)
+SELECT
+  date,
+  EXTRACT(WEEK(SUNDAY) FROM date) AS week_sunday,
+  EXTRACT(WEEK(MONDAY) FROM date) AS week_monday FROM table;
+
++------------+-------------+-------------+
+| date       | week_sunday | week_monday |
++------------+-------------+-------------+
+| 2017-11-05 | 45          | 44          |
++------------+-------------+-------------+
+```
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
 ### `FORMAT_DATE`
 

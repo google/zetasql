@@ -1980,15 +1980,20 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
         MakeResolvedArgumentRef(arg_type.type(), arg_name.ToString(), arg_kind);
   }
 
-  // Create a separate new parser and parse the function's SQL expression from
-  // the <parse_resume_location_>. Use the same ID string pool as the
-  // original parser.
-  std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_RETURN_IF_ERROR(ForwardNestedResolutionAnalysisError(
-      function,
-      ParseExpression(function.GetParseResumeLocation(),
-                      analyzer_options.GetParserOptions(), &parser_output),
-      analyzer_options.error_message_mode()));
+  std::unique_ptr<ParserOutput> parser_output_storage;
+  const ASTExpression* expression = nullptr;
+  // If parsed AST is not available create a separate new parser and parse the
+  // function's SQL expression from the <parse_resume_location_>. Use the same
+  // ID string pool as the original parser.
+  if (expression == nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ForwardNestedResolutionAnalysisError(
+        function,
+        ParseExpression(function.GetParseResumeLocation(),
+                        analyzer_options.GetParserOptions(),
+                        &parser_output_storage),
+        analyzer_options.error_message_mode()));
+    expression = parser_output_storage->expression();
+  }
   Catalog* catalog = catalog_;
   if (function.resolution_catalog() != nullptr) {
     catalog = function.resolution_catalog();
@@ -2016,9 +2021,8 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
   ZETASQL_RETURN_IF_ERROR(ForwardNestedResolutionAnalysisError(
       function,
       resolver.ResolveExprWithFunctionArguments(
-          function.GetParseResumeLocation().input(),
-          parser_output->expression(), &function_arguments,
-          &expr_resolution_info, &resolved_sql_body),
+          function.GetParseResumeLocation().input(), expression,
+          &function_arguments, &expr_resolution_info, &resolved_sql_body),
       analyzer_options.error_message_mode()));
 
   if (function.IsAggregate()) {

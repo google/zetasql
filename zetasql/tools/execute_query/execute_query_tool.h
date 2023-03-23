@@ -52,8 +52,16 @@ class ExecuteQueryConfig {
     // Parse the query, and print a debug string of the parsed AST.
     kParse,
 
+    // Parse the query, print an 'unparse' of the input using the parsers
+    // Unparse API. Should be semantically equivalent.
+    kUnparse,
+
     // Resolve the query, and print the ResolveAST
     kResolve,
+
+    // Analyze the query, then run 'sqlbuilder' to produce a semantically
+    // equivalent sql query (...mostly).
+    kUnAnalyze,
 
     // Prepare the query, and print a representation of the query from the
     // reference implementation.

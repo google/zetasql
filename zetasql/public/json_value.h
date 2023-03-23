@@ -326,8 +326,6 @@ class JSONValueRef : public JSONValueConstRef {
   friend class JSONValue;
 };
 
-namespace internal {
-
 // Returns absl::OkStatus() if the number in string 'lhs' is numerically
 // equivalent to the number in the string created by serializing a JSON document
 // containing 'val' to a string. Returns an error status otherwise.
@@ -369,8 +367,6 @@ namespace internal {
 // significant decimal digits, while still being constrained to 1074 significant
 // fractional decimal digits.
 absl::Status CheckNumberRoundtrip(absl::string_view lhs, double val);
-
-}  // namespace internal
 
 }  // namespace zetasql
 

@@ -4,6 +4,98 @@
 
 ZetaSQL supports the following Net functions.
 
+### `NET.FORMAT_IP` (DEPRECATED)
+
+```
+NET.FORMAT_IP(integer)
+```
+
+**Description**
+
+This function is deprecated. It is the same as
+[`NET.IP_TO_STRING`][net-link-to-ip-to-string]`(`[`NET.IPV4_FROM_INT64`][net-link-to-ipv4-from-int64]`(integer))`,
+except that this function does not allow negative input values.
+
+**Return Data Type**
+
+STRING
+
+[net-link-to-ip-to-string]: #netip_to_string
+
+[net-link-to-ipv4-from-int64]: #netipv4_from_int64
+
+### `NET.FORMAT_PACKED_IP` (DEPRECATED)
+
+```
+NET.FORMAT_PACKED_IP(bytes_value)
+```
+
+**Description**
+
+This function is deprecated. It is the same as [`NET.IP_TO_STRING`][net-link-to-ip-to-string].
+
+**Return Data Type**
+
+STRING
+
+[net-link-to-ip-to-string]: #netip_to_string
+
+### `NET.HOST`
+
+```
+NET.HOST(url)
+```
+
+**Description**
+
+Takes a URL as a STRING and returns the host as a STRING. For best results, URL
+values should comply with the format as defined by
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply with RFC 3986 formatting,
+this function makes a best effort to parse the input and return a relevant
+result. If the function cannot parse the input, it
+returns NULL.
+
+<p class="note"><b>Note:</b> The function does not perform any normalization.</a>
+</p>
+
+**Return Data Type**
+
+STRING
+
+**Example**
+
+```sql
+SELECT
+  FORMAT("%T", input) AS input,
+  description,
+  FORMAT("%T", NET.HOST(input)) AS host,
+  FORMAT("%T", NET.PUBLIC_SUFFIX(input)) AS suffix,
+  FORMAT("%T", NET.REG_DOMAIN(input)) AS domain
+FROM (
+  SELECT "" AS input, "invalid input" AS description
+  UNION ALL SELECT "http://abc.xyz", "standard URL"
+  UNION ALL SELECT "//user:password@a.b:80/path?query",
+                   "standard URL with relative scheme, port, path and query, but no public suffix"
+  UNION ALL SELECT "https://[::1]:80", "standard URL with IPv6 host"
+  UNION ALL SELECT "http://例子.卷筒纸.中国", "standard URL with internationalized domain name"
+  UNION ALL SELECT "    www.Example.Co.UK    ",
+                   "non-standard URL with spaces, upper case letters, and without scheme"
+  UNION ALL SELECT "mailto:?to=&subject=&body=", "URI rather than URL--unsupported"
+);
+```
+
+| input                                                               | description                                                                   | host               | suffix  | domain         |
+|---------------------------------------------------------------------|-------------------------------------------------------------------------------|--------------------|---------|----------------|
+| ""                                                                  | invalid input                                                                 | NULL               | NULL    | NULL           |
+| "http://abc.xyz"                                                    | standard URL                                                                  | "abc.xyz"          | "xyz"   | "abc.xyz"      |
+| "//user:password@a.b:80/path?query"                                 | standard URL with relative scheme, port, path and query, but no public suffix | "a.b"              | NULL    | NULL           |
+| "https://[::1]:80"                                                  | standard URL with IPv6 host                                                   | "[::1]"            | NULL    | NULL           |
+| "http://例子.卷筒纸.中国"                                              | standard URL with internationalized domain name                               | "例子.卷筒纸.中国"    | "中国"  | "卷筒纸.中国"    |
+| "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;" | non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK"|
+| "mailto:?to=&subject=&body="                                        | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
+
+[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+
 ### `NET.IP_FROM_STRING`
 
 ```
@@ -55,88 +147,34 @@ FROM UNNEST([
 
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
-### `NET.SAFE_IP_FROM_STRING`
+### `NET.IP_IN_NET`
 
 ```
-NET.SAFE_IP_FROM_STRING(addr_str)
-```
-
-**Description**
-
-Similar to [`NET.IP_FROM_STRING`][net-link-to-ip-from-string], but returns `NULL`
-instead of throwing an error if the input is invalid.
-
-**Return Data Type**
-
-BYTES
-
-**Example**
-
-```sql
-SELECT
-  addr_str,
-  FORMAT("%T", NET.SAFE_IP_FROM_STRING(addr_str)) AS safe_ip_from_string
-FROM UNNEST([
-  '48.49.50.51',
-  '::1',
-  '3031:3233:3435:3637:3839:4041:4243:4445',
-  '::ffff:192.0.2.128',
-  '48.49.50.51/32',
-  '48.49.50',
-  '::wxyz'
-]) AS addr_str;
-```
-
-| addr_str                                | safe_ip_from_string                                                 |
-|-----------------------------------------|---------------------------------------------------------------------|
-| 48.49.50.51                             | b"0123"                                                             |
-| ::1                                     | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" |
-| 3031:3233:3435:3637:3839:4041:4243:4445 | b"0123456789@ABCDE"                                                 |
-| ::ffff:192.0.2.128                      | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" |
-| 48.49.50.51/32                          | NULL                                                                |
-| 48.49.50                                | NULL                                                                |
-| ::wxyz                                  | NULL                                                                |
-
-[net-link-to-ip-from-string]: #netip_from_string
-
-### `NET.IP_TO_STRING`
-
-```
-NET.IP_TO_STRING(addr_bin)
+NET.IP_IN_NET(address, subnet)
 ```
 
 **Description**
-Converts an IPv4 or IPv6 address from binary (BYTES) format in network byte
-order to text (STRING) format.
 
-If the input is 4 bytes, this function returns an IPv4 address as a STRING. If
-the input is 16 bytes, it returns an IPv6 address as a STRING.
+Takes an IP address and a subnet CIDR as STRING and returns true if the IP
+address is contained in the subnet.
 
-If this function receives a `NULL` input, it returns `NULL`. If the input has
-a length different from 4 or 16, an `OUT_OF_RANGE` error occurs.
+This function supports the following formats for `address` and `subnet`:
+
++ IPv4: Dotted-quad format. For example, `10.1.2.3`.
++ IPv6: Colon-separated format. For example,
+  `1234:5678:90ab:cdef:1234:5678:90ab:cdef`. For more examples, see the
+  [IP Version 6 Addressing Architecture][net-link-to-ipv6-rfc].
++ CIDR (IPv4): Dotted-quad format. For example, `10.1.2.0/24`
++ CIDR (IPv6): Colon-separated format. For example, `1:2::/48`.
+
+If this function receives a `NULL` input, it returns `NULL`. If the input is
+considered invalid, an `OUT_OF_RANGE` error occurs.
 
 **Return Data Type**
 
-STRING
+BOOL
 
-**Example**
-
-```sql
-SELECT FORMAT("%T", x) AS addr_bin, NET.IP_TO_STRING(x) AS ip_to_string
-FROM UNNEST([
-  b"0123",
-  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01",
-  b"0123456789@ABCDE",
-  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80"
-]) AS x;
-```
-
-| addr_bin                                                            | ip_to_string                            |
-|---------------------------------------------------------------------|-----------------------------------------|
-| b"0123"                                                             | 48.49.50.51                             |
-| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" | ::1                                     |
-| b"0123456789@ABCDE"                                                 | 3031:3233:3435:3637:3839:4041:4243:4445 |
-| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" | ::ffff:192.0.2.128                      |
+[net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
 
 ### `NET.IP_NET_MASK`
 
@@ -179,6 +217,45 @@ FROM UNNEST([
 | 16 | 0   | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" |
 | 16 | 1   | b"\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" |
 | 16 | 128 | b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" |
+
+### `NET.IP_TO_STRING`
+
+```
+NET.IP_TO_STRING(addr_bin)
+```
+
+**Description**
+Converts an IPv4 or IPv6 address from binary (BYTES) format in network byte
+order to text (STRING) format.
+
+If the input is 4 bytes, this function returns an IPv4 address as a STRING. If
+the input is 16 bytes, it returns an IPv6 address as a STRING.
+
+If this function receives a `NULL` input, it returns `NULL`. If the input has
+a length different from 4 or 16, an `OUT_OF_RANGE` error occurs.
+
+**Return Data Type**
+
+STRING
+
+**Example**
+
+```sql
+SELECT FORMAT("%T", x) AS addr_bin, NET.IP_TO_STRING(x) AS ip_to_string
+FROM UNNEST([
+  b"0123",
+  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01",
+  b"0123456789@ABCDE",
+  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80"
+]) AS x;
+```
+
+| addr_bin                                                            | ip_to_string                            |
+|---------------------------------------------------------------------|-----------------------------------------|
+| b"0123"                                                             | 48.49.50.51                             |
+| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" | ::1                                     |
+| b"0123456789@ABCDE"                                                 | 3031:3233:3435:3637:3839:4041:4243:4445 |
+| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" | ::ffff:192.0.2.128                      |
 
 ### `NET.IP_TRUNC`
 
@@ -302,111 +379,6 @@ UNNEST([b"\x00\x00\x00\x00", b"\x00\xab\xcd\xef", b"\xff\xff\xff\xff"]) AS x;
 | b"\x00\xab\xcd\xef" | 0xABCDEF      |
 | b"\xff\xff\xff\xff" | 0xFFFFFFFF    |
 
-### `NET.FORMAT_IP` (DEPRECATED)
-
-```
-NET.FORMAT_IP(integer)
-```
-
-**Description**
-
-This function is deprecated. It is the same as
-[`NET.IP_TO_STRING`][net-link-to-ip-to-string]`(`[`NET.IPV4_FROM_INT64`][net-link-to-ipv4-from-int64]`(integer))`,
-except that this function does not allow negative input values.
-
-**Return Data Type**
-
-STRING
-
-[net-link-to-ip-to-string]: #netip_to_string
-
-[net-link-to-ipv4-from-int64]: #netipv4_from_int64
-
-### `NET.PARSE_IP` (DEPRECATED)
-
-```
-NET.PARSE_IP(addr_str)
-```
-
-**Description**
-
-This function is deprecated. It is the same as
-[`NET.IPV4_TO_INT64`][net-link-to-ipv4-to-int64]`(`[`NET.IP_FROM_STRING`][net-link-to-ip-from-string]`(addr_str))`,
-except that this function truncates the input at the first `'\x00'` character,
-if any, while `NET.IP_FROM_STRING` treats `'\x00'` as invalid.
-
-**Return Data Type**
-
-INT64
-
-[net-link-to-ip-to-string]: #netip_to_string
-
-[net-link-to-ipv4-to-int64]: #netipv4_to_int64
-
-### `NET.FORMAT_PACKED_IP` (DEPRECATED)
-
-```
-NET.FORMAT_PACKED_IP(bytes_value)
-```
-
-**Description**
-
-This function is deprecated. It is the same as [`NET.IP_TO_STRING`][net-link-to-ip-to-string].
-
-**Return Data Type**
-
-STRING
-
-[net-link-to-ip-to-string]: #netip_to_string
-
-### `NET.PARSE_PACKED_IP` (DEPRECATED)
-
-```
-NET.PARSE_PACKED_IP(addr_str)
-```
-
-**Description**
-
-This function is deprecated. It is the same as
-[`NET.IP_FROM_STRING`][net-link-to-ip-from-string], except that this function truncates
-the input at the first `'\x00'` character, if any, while `NET.IP_FROM_STRING`
-treats `'\x00'` as invalid.
-
-**Return Data Type**
-
-BYTES
-
-[net-link-to-ip-from-string]: #netip_from_string
-
-### `NET.IP_IN_NET`
-
-```
-NET.IP_IN_NET(address, subnet)
-```
-
-**Description**
-
-Takes an IP address and a subnet CIDR as STRING and returns true if the IP
-address is contained in the subnet.
-
-This function supports the following formats for `address` and `subnet`:
-
-+ IPv4: Dotted-quad format. For example, `10.1.2.3`.
-+ IPv6: Colon-separated format. For example,
-  `1234:5678:90ab:cdef:1234:5678:90ab:cdef`. For more examples, see the
-  [IP Version 6 Addressing Architecture][net-link-to-ipv6-rfc].
-+ CIDR (IPv4): Dotted-quad format. For example, `10.1.2.0/24`
-+ CIDR (IPv6): Colon-separated format. For example, `1:2::/48`.
-
-If this function receives a `NULL` input, it returns `NULL`. If the input is
-considered invalid, an `OUT_OF_RANGE` error occurs.
-
-**Return Data Type**
-
-BOOL
-
-[net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
-
 ### `NET.MAKE_NET`
 
 ```
@@ -450,61 +422,45 @@ STRING
 
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
-### `NET.HOST`
+### `NET.PARSE_IP` (DEPRECATED)
 
 ```
-NET.HOST(url)
+NET.PARSE_IP(addr_str)
 ```
 
 **Description**
 
-Takes a URL as a STRING and returns the host as a STRING. For best results, URL
-values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply with RFC 3986 formatting,
-this function makes a best effort to parse the input and return a relevant
-result. If the function cannot parse the input, it
-returns NULL.
-
-<p class="note"><b>Note:</b> The function does not perform any normalization.</a>
-</p>
+This function is deprecated. It is the same as
+[`NET.IPV4_TO_INT64`][net-link-to-ipv4-to-int64]`(`[`NET.IP_FROM_STRING`][net-link-to-ip-from-string]`(addr_str))`,
+except that this function truncates the input at the first `'\x00'` character,
+if any, while `NET.IP_FROM_STRING` treats `'\x00'` as invalid.
 
 **Return Data Type**
 
-STRING
+INT64
 
-**Example**
+[net-link-to-ip-to-string]: #netip_to_string
 
-```sql
-SELECT
-  FORMAT("%T", input) AS input,
-  description,
-  FORMAT("%T", NET.HOST(input)) AS host,
-  FORMAT("%T", NET.PUBLIC_SUFFIX(input)) AS suffix,
-  FORMAT("%T", NET.REG_DOMAIN(input)) AS domain
-FROM (
-  SELECT "" AS input, "invalid input" AS description
-  UNION ALL SELECT "http://abc.xyz", "standard URL"
-  UNION ALL SELECT "//user:password@a.b:80/path?query",
-                   "standard URL with relative scheme, port, path and query, but no public suffix"
-  UNION ALL SELECT "https://[::1]:80", "standard URL with IPv6 host"
-  UNION ALL SELECT "http://例子.卷筒纸.中国", "standard URL with internationalized domain name"
-  UNION ALL SELECT "    www.Example.Co.UK    ",
-                   "non-standard URL with spaces, upper case letters, and without scheme"
-  UNION ALL SELECT "mailto:?to=&subject=&body=", "URI rather than URL--unsupported"
-);
+[net-link-to-ipv4-to-int64]: #netipv4_to_int64
+
+### `NET.PARSE_PACKED_IP` (DEPRECATED)
+
+```
+NET.PARSE_PACKED_IP(addr_str)
 ```
 
-| input                                                               | description                                                                   | host               | suffix  | domain         |
-|---------------------------------------------------------------------|-------------------------------------------------------------------------------|--------------------|---------|----------------|
-| ""                                                                  | invalid input                                                                 | NULL               | NULL    | NULL           |
-| "http://abc.xyz"                                                    | standard URL                                                                  | "abc.xyz"          | "xyz"   | "abc.xyz"      |
-| "//user:password@a.b:80/path?query"                                 | standard URL with relative scheme, port, path and query, but no public suffix | "a.b"              | NULL    | NULL           |
-| "https://[::1]:80"                                                  | standard URL with IPv6 host                                                   | "[::1]"            | NULL    | NULL           |
-| "http://例子.卷筒纸.中国"                                              | standard URL with internationalized domain name                               | "例子.卷筒纸.中国"    | "中国"  | "卷筒纸.中国"    |
-| "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;" | non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK"|
-| "mailto:?to=&subject=&body="                                        | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
+**Description**
 
-[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+This function is deprecated. It is the same as
+[`NET.IP_FROM_STRING`][net-link-to-ip-from-string], except that this function truncates
+the input at the first `'\x00'` character, if any, while `NET.IP_FROM_STRING`
+treats `'\x00'` as invalid.
+
+**Return Data Type**
+
+BYTES
+
+[net-link-to-ip-from-string]: #netip_from_string
 
 ### `NET.PUBLIC_SUFFIX`
 
@@ -672,4 +628,48 @@ FROM (
 [net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 
 [net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+
+### `NET.SAFE_IP_FROM_STRING`
+
+```
+NET.SAFE_IP_FROM_STRING(addr_str)
+```
+
+**Description**
+
+Similar to [`NET.IP_FROM_STRING`][net-link-to-ip-from-string], but returns `NULL`
+instead of throwing an error if the input is invalid.
+
+**Return Data Type**
+
+BYTES
+
+**Example**
+
+```sql
+SELECT
+  addr_str,
+  FORMAT("%T", NET.SAFE_IP_FROM_STRING(addr_str)) AS safe_ip_from_string
+FROM UNNEST([
+  '48.49.50.51',
+  '::1',
+  '3031:3233:3435:3637:3839:4041:4243:4445',
+  '::ffff:192.0.2.128',
+  '48.49.50.51/32',
+  '48.49.50',
+  '::wxyz'
+]) AS addr_str;
+```
+
+| addr_str                                | safe_ip_from_string                                                 |
+|-----------------------------------------|---------------------------------------------------------------------|
+| 48.49.50.51                             | b"0123"                                                             |
+| ::1                                     | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" |
+| 3031:3233:3435:3637:3839:4041:4243:4445 | b"0123456789@ABCDE"                                                 |
+| ::ffff:192.0.2.128                      | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" |
+| 48.49.50.51/32                          | NULL                                                                |
+| 48.49.50                                | NULL                                                                |
+| ::wxyz                                  | NULL                                                                |
+
+[net-link-to-ip-from-string]: #netip_from_string
 

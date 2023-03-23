@@ -23,7 +23,7 @@
 
 #include "google/protobuf/duration.pb.h"
 #include "zetasql/common/thread_stack.h"
-#include "zetasql/public/logging.pb.h"
+#include "zetasql/public/proto/logging.pb.h"
 #include "absl/base/attributes.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"

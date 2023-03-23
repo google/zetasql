@@ -99,7 +99,7 @@ absl::StatusOr<JSONValue> ToJsonFromNumeric(
     }
   }
   // Check whether the value can be converted to double without precision loss
-  if (internal::CheckNumberRoundtrip(value.ToString(), value.ToDouble()).ok()) {
+  if (CheckNumberRoundtrip(value.ToString(), value.ToDouble()).ok()) {
     return JSONValue(value.ToDouble());
   }
   if (stringify_wide_number) {

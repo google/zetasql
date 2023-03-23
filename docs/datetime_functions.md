@@ -97,131 +97,6 @@ SELECT
 
 [datetime-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 
-### `EXTRACT`
-
-```sql
-EXTRACT(part FROM datetime_expression)
-```
-
-**Description**
-
-Returns a value that corresponds to the
-specified `part` from a supplied `datetime_expression`.
-
-Allowed `part` values are:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-+ `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day of
-   of the week.
-+ `DAY`
-+ `DAYOFYEAR`
-+ `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
-  with Sunday, and dates prior to the first Sunday of the year are in week 0.
-+ `WEEK(<WEEKDAY>)`: Returns the week number of `datetime_expression` in the
-  range [0, 53]. Weeks begin on `WEEKDAY`.
-  `datetime`s prior to the first `WEEKDAY` of the year are in week 0. Valid
-  values for `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`,
-  `THURSDAY`, `FRIDAY`, and `SATURDAY`.
-+ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
-  number of the `datetime_expression`. `ISOWEEK`s begin on Monday. Return values
-  are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
-  Monday before the first Thursday of the Gregorian calendar year.
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-+ `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
-  week-numbering year, which is the Gregorian calendar year containing the
-  Thursday of the week to which `date_expression` belongs.
-+ `DATE`
-+ `TIME`
-
-Returned values truncate lower order time periods. For example, when extracting
-seconds, `EXTRACT` truncates the millisecond and microsecond values.
-
-**Return Data Type**
-
-`INT64`, except in the following cases:
-
-+ If `part` is `DATE`, returns a `DATE` object.
-+ If `part` is `TIME`, returns a `TIME` object.
-
-**Examples**
-
-In the following example, `EXTRACT` returns a value corresponding to the `HOUR`
-time part.
-
-```sql
-SELECT EXTRACT(HOUR FROM DATETIME(2008, 12, 25, 15, 30, 00)) as hour;
-
-+------------------+
-| hour             |
-+------------------+
-| 15               |
-+------------------+
-```
-
-In the following example, `EXTRACT` returns values corresponding to different
-time parts from a column of datetimes.
-
-```sql
-WITH Datetimes AS (
-  SELECT DATETIME '2005-01-03 12:34:56' AS datetime UNION ALL
-  SELECT DATETIME '2007-12-31' UNION ALL
-  SELECT DATETIME '2009-01-01' UNION ALL
-  SELECT DATETIME '2009-12-31' UNION ALL
-  SELECT DATETIME '2017-01-02' UNION ALL
-  SELECT DATETIME '2017-05-26'
-)
-SELECT
-  datetime,
-  EXTRACT(ISOYEAR FROM datetime) AS isoyear,
-  EXTRACT(ISOWEEK FROM datetime) AS isoweek,
-  EXTRACT(YEAR FROM datetime) AS year,
-  EXTRACT(WEEK FROM datetime) AS week
-FROM Datetimes
-ORDER BY datetime;
-
-+---------------------+---------+---------+------+------+
-| datetime            | isoyear | isoweek | year | week |
-+---------------------+---------+---------+------+------+
-| 2005-01-03 12:34:56 | 2005    | 1       | 2005 | 1    |
-| 2007-12-31 00:00:00 | 2008    | 1       | 2007 | 52   |
-| 2009-01-01 00:00:00 | 2009    | 1       | 2009 | 0    |
-| 2009-12-31 00:00:00 | 2009    | 53      | 2009 | 52   |
-| 2017-01-02 00:00:00 | 2017    | 1       | 2017 | 1    |
-| 2017-05-26 00:00:00 | 2017    | 21      | 2017 | 21   |
-+---------------------+---------+---------+------+------+
-```
-
-In the following example, `datetime_expression` falls on a Sunday. `EXTRACT`
-calculates the first column using weeks that begin on Sunday, and it calculates
-the second column using weeks that begin on Monday.
-
-```sql
-WITH table AS (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime)
-SELECT
-  datetime,
-  EXTRACT(WEEK(SUNDAY) FROM datetime) AS week_sunday,
-  EXTRACT(WEEK(MONDAY) FROM datetime) AS week_monday
-FROM table;
-
-+---------------------+-------------+---------------+
-| datetime            | week_sunday | week_monday   |
-+---------------------+-------------+---------------+
-| 2017-11-05 00:00:00 | 45          | 44            |
-+---------------------+-------------+---------------+
-```
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
 ### `DATETIME_ADD`
 
 ```sql
@@ -267,54 +142,6 @@ SELECT
 | original_date               | later                  |
 +-----------------------------+------------------------+
 | 2008-12-25 15:30:00         | 2008-12-25 15:40:00    |
-+-----------------------------+------------------------+
-```
-
-### `DATETIME_SUB`
-
-```sql
-DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
-```
-
-**Description**
-
-Subtracts `int64_expression` units of `part` from the `DATETIME`.
-
-`DATETIME_SUB` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-+ `DAY`
-+ `WEEK`. Equivalent to 7 `DAY`s.
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-
-Special handling is required for `MONTH`, `QUARTER`, and `YEAR` parts when the
-date is at (or near) the last day of the month. If the resulting month has fewer
-days than the original `DATETIME`'s day, then the result day is the last day of
-the new month.
-
-**Return Data Type**
-
-`DATETIME`
-
-**Example**
-
-```sql
-SELECT
-  DATETIME "2008-12-25 15:30:00" as original_date,
-  DATETIME_SUB(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as earlier;
-
-+-----------------------------+------------------------+
-| original_date               | earlier                |
-+-----------------------------+------------------------+
-| 2008-12-25 15:30:00         | 2008-12-25 15:20:00    |
 +-----------------------------+------------------------+
 ```
 
@@ -445,6 +272,54 @@ SELECT
 
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
+### `DATETIME_SUB`
+
+```sql
+DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
+```
+
+**Description**
+
+Subtracts `int64_expression` units of `part` from the `DATETIME`.
+
+`DATETIME_SUB` supports the following values for `part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
++ `DAY`
++ `WEEK`. Equivalent to 7 `DAY`s.
++ `MONTH`
++ `QUARTER`
++ `YEAR`
+
+Special handling is required for `MONTH`, `QUARTER`, and `YEAR` parts when the
+date is at (or near) the last day of the month. If the resulting month has fewer
+days than the original `DATETIME`'s day, then the result day is the last day of
+the new month.
+
+**Return Data Type**
+
+`DATETIME`
+
+**Example**
+
+```sql
+SELECT
+  DATETIME "2008-12-25 15:30:00" as original_date,
+  DATETIME_SUB(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as earlier;
+
++-----------------------------+------------------------+
+| original_date               | earlier                |
++-----------------------------+------------------------+
+| 2008-12-25 15:30:00         | 2008-12-25 15:20:00    |
++-----------------------------+------------------------+
+```
+
 ### `DATETIME_TRUNC`
 
 ```sql
@@ -549,6 +424,131 @@ SELECT
 | 2014-12-29 00:00:00 | 2015           |
 +---------------------+----------------+
 ```
+
+### `EXTRACT`
+
+```sql
+EXTRACT(part FROM datetime_expression)
+```
+
+**Description**
+
+Returns a value that corresponds to the
+specified `part` from a supplied `datetime_expression`.
+
+Allowed `part` values are:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
++ `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day of
+   of the week.
++ `DAY`
++ `DAYOFYEAR`
++ `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
+  with Sunday, and dates prior to the first Sunday of the year are in week 0.
++ `WEEK(<WEEKDAY>)`: Returns the week number of `datetime_expression` in the
+  range [0, 53]. Weeks begin on `WEEKDAY`.
+  `datetime`s prior to the first `WEEKDAY` of the year are in week 0. Valid
+  values for `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`,
+  `THURSDAY`, `FRIDAY`, and `SATURDAY`.
++ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
+  number of the `datetime_expression`. `ISOWEEK`s begin on Monday. Return values
+  are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
+  Monday before the first Thursday of the Gregorian calendar year.
++ `MONTH`
++ `QUARTER`
++ `YEAR`
++ `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
+  week-numbering year, which is the Gregorian calendar year containing the
+  Thursday of the week to which `date_expression` belongs.
++ `DATE`
++ `TIME`
+
+Returned values truncate lower order time periods. For example, when extracting
+seconds, `EXTRACT` truncates the millisecond and microsecond values.
+
+**Return Data Type**
+
+`INT64`, except in the following cases:
+
++ If `part` is `DATE`, returns a `DATE` object.
++ If `part` is `TIME`, returns a `TIME` object.
+
+**Examples**
+
+In the following example, `EXTRACT` returns a value corresponding to the `HOUR`
+time part.
+
+```sql
+SELECT EXTRACT(HOUR FROM DATETIME(2008, 12, 25, 15, 30, 00)) as hour;
+
++------------------+
+| hour             |
++------------------+
+| 15               |
++------------------+
+```
+
+In the following example, `EXTRACT` returns values corresponding to different
+time parts from a column of datetimes.
+
+```sql
+WITH Datetimes AS (
+  SELECT DATETIME '2005-01-03 12:34:56' AS datetime UNION ALL
+  SELECT DATETIME '2007-12-31' UNION ALL
+  SELECT DATETIME '2009-01-01' UNION ALL
+  SELECT DATETIME '2009-12-31' UNION ALL
+  SELECT DATETIME '2017-01-02' UNION ALL
+  SELECT DATETIME '2017-05-26'
+)
+SELECT
+  datetime,
+  EXTRACT(ISOYEAR FROM datetime) AS isoyear,
+  EXTRACT(ISOWEEK FROM datetime) AS isoweek,
+  EXTRACT(YEAR FROM datetime) AS year,
+  EXTRACT(WEEK FROM datetime) AS week
+FROM Datetimes
+ORDER BY datetime;
+
++---------------------+---------+---------+------+------+
+| datetime            | isoyear | isoweek | year | week |
++---------------------+---------+---------+------+------+
+| 2005-01-03 12:34:56 | 2005    | 1       | 2005 | 1    |
+| 2007-12-31 00:00:00 | 2008    | 1       | 2007 | 52   |
+| 2009-01-01 00:00:00 | 2009    | 1       | 2009 | 0    |
+| 2009-12-31 00:00:00 | 2009    | 53      | 2009 | 52   |
+| 2017-01-02 00:00:00 | 2017    | 1       | 2017 | 1    |
+| 2017-05-26 00:00:00 | 2017    | 21      | 2017 | 21   |
++---------------------+---------+---------+------+------+
+```
+
+In the following example, `datetime_expression` falls on a Sunday. `EXTRACT`
+calculates the first column using weeks that begin on Sunday, and it calculates
+the second column using weeks that begin on Monday.
+
+```sql
+WITH table AS (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime)
+SELECT
+  datetime,
+  EXTRACT(WEEK(SUNDAY) FROM datetime) AS week_sunday,
+  EXTRACT(WEEK(MONDAY) FROM datetime) AS week_monday
+FROM table;
+
++---------------------+-------------+---------------+
+| datetime            | week_sunday | week_monday   |
++---------------------+-------------+---------------+
+| 2017-11-05 00:00:00 | 45          | 44            |
++---------------------+-------------+---------------+
+```
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
 ### `FORMAT_DATETIME`
 

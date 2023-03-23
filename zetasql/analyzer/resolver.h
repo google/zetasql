@@ -1610,6 +1610,12 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedAnalyticFunctionGroup>>*
           transform_analytic_function_group_list);
 
+  // Resolve aliased query list for CREATE MODEL statement.
+  absl::Status ResolveCreateModelAliasedQueryList(
+      const ASTAliasedQueryList* aliased_query_list,
+      std::vector<std::unique_ptr<const ResolvedCreateModelAliasedQuery>>*
+          resolved_aliased_query_list);
+
   // Helper function to add grantee to grantee expression list.
   absl::Status AddGranteeToExpressionList(
       const ASTExpression* grantee,
@@ -2273,6 +2279,19 @@ class Resolver {
     // Validates that there is at most one hint and is at the first set
     // operation. Returns a sql error if the validation fails.
     absl::Status ValidateHint() const;
+
+    // TODO: Update the doc string to include the validations for
+    //   CORRESPONDING and CORRESPONDING BY as we implement the features.
+    // Validates the corresponding clause if it presents. Specifically, it
+    // validates:
+    // - FULL, LEFT, and STRICT, if present, are used with CORRESPONDING or
+    //   CORRESPONDING BY.
+    // - CORRESPONDING is not used.
+    // - CORRESPONDING BY is not used.
+    absl::Status ValidateCorresponding() const;
+
+    // Do not allow CORRESPONDING clauses to be used in WITH RECURSIVE.
+    absl::Status ValidateNoCorrespondingForRecursive() const;
 
     // Validates that all the set operations are identical. Returns a sql error
     // if the validation fails.

@@ -62,9 +62,6 @@ class PathExpressionSpan {
   PathExpressionSpan(PathExpressionSpan&& other) = default;
   PathExpressionSpan& operator=(PathExpressionSpan&& other) = default;
 
-  int32_t start_index() const { return start_index_; }
-  int32_t end_index() const { return end_index_; }
-
   // The number of names within the range of span.
   int32_t num_names() const;
 

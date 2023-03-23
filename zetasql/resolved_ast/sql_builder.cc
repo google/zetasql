@@ -4035,8 +4035,25 @@ absl::Status SQLBuilder::VisitResolvedCreateModelStmt(
     absl::StrAppend(&sql, " OPTIONS(", options_string, ") ");
   }
 
-  // Append SELECT statement.
-  if (query_expression) {
+  // Append AS aliased query list.
+  if (!node->aliased_query_list().empty()) {
+    std::vector<std::string> aliased_query_list_strs;
+    for (const auto& resolved_aliased_query : node->aliased_query_list()) {
+      std::string aliased_query_sql;
+      absl::StrAppend(&aliased_query_sql, resolved_aliased_query->alias());
+      ZETASQL_ASSIGN_OR_RETURN(
+          QueryExpression * subquery_result,
+          ProcessQuery(resolved_aliased_query->query(),
+                       resolved_aliased_query->output_column_list()));
+      std::unique_ptr<QueryExpression> subquery_expression(subquery_result);
+      absl::StrAppend(&aliased_query_sql, " AS (",
+                      subquery_expression->GetSQLQuery(), ")");
+      aliased_query_list_strs.push_back(aliased_query_sql);
+    }
+    absl::StrAppend(&sql, " AS (", absl::StrJoin(aliased_query_list_strs, ","),
+                    ")");
+  } else if (query_expression) {
+    // Append SELECT statement.
     absl::StrAppend(&sql, " AS ", query_expression->GetSQLQuery());
   }
 

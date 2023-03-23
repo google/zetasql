@@ -2780,19 +2780,30 @@ static const std::vector<QueryParamsWithResult> GetArrayAvgTestCases(
           output_nan));
     }
 
-    // 7. Only if the array element type is DOUBLE can ARRAY_AVG witness
-    // numeric overflow.
+    // 7. Test ARRAY_AVG() with double::max() and double::min().
     if (v.type->IsDouble()) {
-      Value input_min_max =
-          values::Array(array_type, {v.min_input, v.max_input});
-      Value input_min_max_null =
-          values::Array(array_type, {v.min_input, v.max_input, input_null});
-
-      test_cases.push_back(QueryParamsWithResult({input_min_max}, output_null,
-                                                 is_safe ? OK : OUT_OF_RANGE));
-
       test_cases.push_back(QueryParamsWithResult(
-          {input_min_max_null}, output_null, is_safe ? OK : OUT_OF_RANGE));
+          {values::Array(array_type, {v.min_input, v.max_input})},
+          output_zero));
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {v.min_input, v.min_input, v.min_input})},
+          v.min_input));
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {v.max_input, v.max_input, v.max_input})},
+          v.max_input));
+
+      // With some NULL elements
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type, {v.min_input, v.max_input, input_null})},
+          output_zero));
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {v.min_input, v.min_input, v.min_input, input_null})},
+          v.min_input));
+      test_cases.push_back(QueryParamsWithResult(
+          {values::Array(array_type,
+                         {v.max_input, v.max_input, v.max_input, input_null})},
+          v.max_input));
     }
 
     for (size_t i = existing_num_tests; i < test_cases.size(); ++i) {

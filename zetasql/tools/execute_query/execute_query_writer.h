@@ -33,13 +33,20 @@ class ExecuteQueryWriter {
   virtual ~ExecuteQueryWriter() = default;
 
   virtual absl::Status parsed(absl::string_view parse_debug_string) {
-    return absl::UnimplementedError(
-        "ExecuteQueryWriter::parsed is not implemented");
+    return WriteOperationString("parsed", parse_debug_string);
   }
+  virtual absl::Status unparsed(absl::string_view unparse_string) {
+    return WriteOperationString("unparsed", unparse_string);
+  }
+
   virtual absl::Status resolved(const ResolvedNode& ast) {
     return absl::UnimplementedError(
         "ExecuteQueryWriter::resolved is not implemented");
   }
+  virtual absl::Status unanalyze(absl::string_view unanalyze_string) {
+    return WriteOperationString("unanalyze", unanalyze_string);
+  }
+
   virtual absl::Status explained(const ResolvedNode& ast,
                                  absl::string_view explain) {
     return absl::UnimplementedError(
@@ -55,6 +62,13 @@ class ExecuteQueryWriter {
     return absl::UnimplementedError(
         "ExecuteQueryWriter::executed is not implemented");
   }
+
+ protected:
+  virtual absl::Status WriteOperationString(absl::string_view operation_name,
+                                            absl::string_view str) {
+    return absl::UnimplementedError(
+        absl::StrCat("ExecuteQueryWriter does not implement ", operation_name));
+  }
 };
 
 // Writes a human-readable representation of the query result to an output
@@ -65,7 +79,6 @@ class ExecuteQueryStreamWriter : public ExecuteQueryWriter {
   ExecuteQueryStreamWriter(const ExecuteQueryStreamWriter&) = delete;
   ExecuteQueryStreamWriter& operator=(const ExecuteQueryStreamWriter&) = delete;
 
-  absl::Status parsed(absl::string_view parsed_debug_string) override;
   absl::Status resolved(const ResolvedNode& ast) override;
   absl::Status explained(const ResolvedNode& ast,
                          absl::string_view explain) override;
@@ -73,6 +86,13 @@ class ExecuteQueryStreamWriter : public ExecuteQueryWriter {
                         std::unique_ptr<EvaluatorTableIterator> iter) override;
   absl::Status ExecutedExpression(const ResolvedNode& ast,
                                   const Value& value) override;
+
+ protected:
+  absl::Status WriteOperationString(absl::string_view operation_name,
+                                    absl::string_view str) override {
+    stream_ << str << std::endl;
+    return absl::OkStatus();
+  }
 
  private:
   std::ostream& stream_;

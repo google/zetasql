@@ -321,8 +321,9 @@ FunctionArgumentType::Deserialize(const FunctionArgumentTypeProto& proto,
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<FunctionArgumentType> lambda_body_type,
                      FunctionArgumentType::Deserialize(proto.lambda().body(),
                                                        type_deserializer));
-    (*result) = FunctionArgumentType::Lambda(std::move(lambda_argument_types),
-                                             std::move(*lambda_body_type));
+    (*result) =
+        FunctionArgumentType::Lambda(std::move(lambda_argument_types),
+                                     std::move(*lambda_body_type), options);
     return result;
   }
 

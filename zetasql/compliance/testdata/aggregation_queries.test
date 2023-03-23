@@ -600,7 +600,7 @@ ARRAY<STRUCT<DOUBLE>>[{nan}]
 SELECT AVG(double_val) FROM TableLarge WHERE NOT IS_INF(double_val) AND
   NOT IS_NAN(double_val)
 --
-ARRAY<STRUCT<DOUBLE>>[{0.60000000000000009}]
+ARRAY<STRUCT<DOUBLE>>[{0.6}]
 ==
 # Depending on implementation of AVG, feeding INF's to it may result in either
 # INF (if only addition is used) or in NAN (if both addition and subtraction are
@@ -619,7 +619,7 @@ ARRAY<STRUCT<DOUBLE>>[{8}]
 [name=aggregation_avg_8]
 SELECT AVG(uint64_val) FROM TableLarge
 --
-ARRAY<STRUCT<DOUBLE>>[{23.999999999999996}]
+ARRAY<STRUCT<DOUBLE>>[{24}]
 ==
 # Not using BETWEEN since it may not be supported. Approximate checking allows
 # for different AVG algorithms.

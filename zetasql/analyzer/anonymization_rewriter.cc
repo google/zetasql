@@ -2438,7 +2438,7 @@ absl::StatusOr<std::unique_ptr<ResolvedScan>>
 RewriterVisitor::AddCrossPartitionSampleScan(
     std::unique_ptr<ResolvedScan> input_scan,
     std::optional<Value> max_groups_contributed,
-    absl::string_view max_groups_contributed_option_name,
+    absl::string_view default_max_groups_contributed_option_name,
     ResolvedColumn uid_column,
     std::vector<std::unique_ptr<ResolvedOption>>&
         resolved_anonymization_options) {
@@ -2462,7 +2462,8 @@ RewriterVisitor::AddCrossPartitionSampleScan(
     max_groups_contributed = Value::Int64(default_max_groups_contributed);
     std::unique_ptr<ResolvedOption> max_groups_contributed_option =
         MakeResolvedOption(
-            /*qualifier=*/"", std::string(max_groups_contributed_option_name),
+            /*qualifier=*/"",
+            std::string(default_max_groups_contributed_option_name),
             MakeResolvedLiteral(*max_groups_contributed));
     resolved_anonymization_options.push_back(
         std::move(max_groups_contributed_option));
@@ -2616,8 +2617,8 @@ struct DPNodeSpecificData<ResolvedAnonymizedAggregateScan> {
     return zetasql_base::CaseEqual(argument_name, "kappa") ||
            zetasql_base::CaseEqual(argument_name, "max_groups_contributed");
   }
-  // TODO Rename resolved option to max_groups_contributed.
-  static constexpr absl::string_view kMaxGroupsContributedOptionName = "kappa";
+  static constexpr absl::string_view kDefaultMaxGroupsContributedOptionName =
+      "max_groups_contributed";
   static constexpr absl::string_view kMaxGroupsContributedErrorPrefix =
       "Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA)";
   static constexpr SelectWithModeName kSelectWithModeName = {
@@ -2629,7 +2630,7 @@ struct DPNodeSpecificData<ResolvedDifferentialPrivacyAggregateScan> {
   static bool IsMaxGroupsContributedOption(absl::string_view argument_name) {
     return zetasql_base::CaseEqual(argument_name, "max_groups_contributed");
   }
-  static constexpr absl::string_view kMaxGroupsContributedOptionName =
+  static constexpr absl::string_view kDefaultMaxGroupsContributedOptionName =
       "max_groups_contributed";
   static constexpr absl::string_view kMaxGroupsContributedErrorPrefix =
       "Option MAX_GROUPS_CONTRIBUTED";
@@ -2815,7 +2816,7 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
       input_scan,
       AddCrossPartitionSampleScan(
           std::move(input_scan), max_groups_contributed,
-          DPNodeSpecificData<NodeType>::kMaxGroupsContributedOptionName,
+          DPNodeSpecificData<NodeType>::kDefaultMaxGroupsContributedOptionName,
           uid_column, resolved_anonymization_options));
 
   auto result = CreateAggregateScanAndUpdateScanMap(

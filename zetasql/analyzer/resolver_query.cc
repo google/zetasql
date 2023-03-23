@@ -115,6 +115,47 @@
 
 namespace zetasql {
 
+namespace {
+
+std::string ColumnPropagationModeToString(
+    ASTSetOperation::ColumnPropagationMode mode) {
+  switch (mode) {
+    case ASTSetOperation::FULL:
+      return "FULL";
+    case ASTSetOperation::LEFT:
+      return "LEFT";
+    case ASTSetOperation::STRICT:
+      return "STRICT";
+    case ASTSetOperation::INNER:
+      return "";
+  }
+}
+
+ASTSetOperation::ColumnMatchMode GetColumnMatchMode(
+    const ASTSetOperationMetadata& metadata) {
+  if (metadata.column_match_mode() == nullptr) {
+    return ASTSetOperation::BY_POSITION;
+  }
+  return metadata.column_match_mode()->value();
+}
+
+ASTSetOperation::ColumnPropagationMode GetColumnPropagationMode(
+    const ASTSetOperationMetadata& metadata) {
+  if (metadata.column_propagation_mode() != nullptr) {
+    return metadata.column_propagation_mode()->value();
+  }
+  // If column match mode is BY_POSITION, the default is STRICT to align with
+  // the existing behavior; otherwise default is INNER.
+  ASTSetOperation::ColumnMatchMode column_match_mode =
+      GetColumnMatchMode(metadata);
+  if (column_match_mode == ASTSetOperation::BY_POSITION) {
+    return ASTSetOperation::STRICT;
+  }
+  return ASTSetOperation::INNER;
+}
+
+}  // namespace
+
 // These are constant identifiers used mostly for generated column or table
 // names.  We use a single IdString for each so we never have to allocate
 // or copy these strings again.
@@ -1637,6 +1678,48 @@ absl::Status Resolver::ResolveModelTransformSelectList(
     transform_output_column_list->push_back(MakeResolvedOutputColumn(
         select_column_state->alias.ToString(),
         transform_list->at(transform_list->size() - 1)->column()));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveCreateModelAliasedQueryList(
+    const ASTAliasedQueryList* aliased_query_list,
+    std::vector<std::unique_ptr<const ResolvedCreateModelAliasedQuery>>*
+        resolved_aliased_query_list) {
+  IdStringHashSetCase alias_names;
+  for (const ASTAliasedQuery* aliased_query :
+       aliased_query_list->aliased_query_list()) {
+    const IdString alias_id_string = aliased_query->alias()->GetAsIdString();
+    const std::string alias_string = aliased_query->alias()->GetAsString();
+
+    // Checks for duplicate aliases.
+    if (!zetasql_base::InsertIfNotPresent(&alias_names, alias_id_string)) {
+      return MakeSqlErrorAt(aliased_query->alias())
+             << "Duplicate alias " << alias_string << " for aliased query list";
+    }
+
+    std::unique_ptr<const ResolvedScan> query_scan;
+    std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
+    // Create model does not allow value table as input.
+    bool is_value_table = false;
+    // Each subquery is resolved independently.
+    // We are using ResolveQueryAndOutputColumns to resolve the query which is
+    // the same way as how create model is resolving its input query right now.
+    // For create model statement, aliased queries are independent of each
+    // other, and are essentially the same as create model's input query.
+    // Therefore we can keep the behavior consistent across the places.
+    ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
+        aliased_query->query(),
+        /*object_type=*/"MODEL",
+        /*is_recursive_view=*/false, /*table_name_id_string=*/{},
+        alias_id_string,
+        /*view_explicit_column_list=*/nullptr, &query_scan, &is_value_table,
+        &output_column_list, /*column_definition_list=*/nullptr));
+
+    std::unique_ptr<const ResolvedCreateModelAliasedQuery>
+        resolved_aliased_query = MakeResolvedCreateModelAliasedQuery(
+            alias_string, std::move(query_scan), std::move(output_column_list));
+    resolved_aliased_query_list->push_back(std::move(resolved_aliased_query));
   }
   return absl::OkStatus();
 }
@@ -3709,6 +3792,7 @@ absl::Status Resolver::SetOperationResolver::Resolve(
     std::shared_ptr<const NameList>* output_name_list) {
   ZETASQL_RET_CHECK_GE(set_operation_->inputs().size(), 2);
   ZETASQL_RETURN_IF_ERROR(ValidateHint());
+  ZETASQL_RETURN_IF_ERROR(ValidateCorresponding());
   ZETASQL_RETURN_IF_ERROR(ValidateIdenticalSetOperator());
 
   ResolvedSetOperationScan::SetOperationType op_type;
@@ -4017,6 +4101,40 @@ Resolver::ValidateRecursiveTermVisitor::VisitResolvedRecursiveRefScan(
   return absl::OkStatus();
 }
 
+absl::Status
+Resolver::SetOperationResolver::ValidateNoCorrespondingForRecursive() const {
+  ZETASQL_RET_CHECK_NE(set_operation_->metadata(), nullptr);
+  for (const auto* metadata :
+       set_operation_->metadata()->set_operation_metadata_list()) {
+    if (!resolver_->language().LanguageFeatureEnabled(
+            FEATURE_V_1_4_CORRESPONDING)) {
+      if (metadata->column_match_mode() != nullptr) {
+        return MakeSqlErrorAt(metadata->column_match_mode())
+               << "CORRESPONDING and CORRESPONDING BY for WITH RECURSIVE are "
+               << "not supported";
+      }
+      if (metadata->column_propagation_mode() != nullptr) {
+        return MakeSqlErrorAt(metadata->column_propagation_mode())
+               << "Column propagation mode (FULL/LEFT/STRICT) for WITH "
+               << "RECURSIVE are not supported";
+      }
+      continue;
+    }
+    if (metadata->column_match_mode() != nullptr) {
+      return MakeSqlErrorAt(metadata->column_match_mode())
+             << "CORRESPONDING for set operations cannot be used in WITH "
+             << "RECURSIVE";
+    }
+    if (metadata->column_propagation_mode() != nullptr) {
+      return MakeSqlErrorAt(metadata->column_propagation_mode())
+             << ColumnPropagationModeToString(
+                    metadata->column_propagation_mode()->value())
+             << " cannot be in WITH RECURSIVE";
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::SetOperationResolver::ResolveRecursive(
     const NameScope* scope, const std::vector<IdString>& recursive_alias,
     const IdString& recursive_query_unique_name,
@@ -4025,6 +4143,7 @@ absl::Status Resolver::SetOperationResolver::ResolveRecursive(
   ZETASQL_RET_CHECK_GE(set_operation_->inputs().size(), 2);
 
   ZETASQL_RETURN_IF_ERROR(ValidateHint());
+  ZETASQL_RETURN_IF_ERROR(ValidateNoCorrespondingForRecursive());
   ZETASQL_RETURN_IF_ERROR(ValidateIdenticalSetOperator());
   ResolvedRecursiveScan::RecursiveSetOperationType recursive_op_type;
   ZETASQL_RETURN_IF_ERROR(GetRecursiveScanEnumType(set_operation_, &recursive_op_type));
@@ -4439,6 +4558,11 @@ absl::Status Resolver::SetOperationResolver::ValidateIdenticalSetOperator()
       metadata_list[0]->op_type()->value();
   const ASTSetOperation::AllOrDistinct all_or_distinct =
       metadata_list[0]->all_or_distinct()->value();
+  const ASTSetOperation::ColumnMatchMode column_match_mode =
+      GetColumnMatchMode(*metadata_list[0]);
+  const ASTSetOperation::ColumnPropagationMode column_propagation_mode =
+      GetColumnPropagationMode(*metadata_list[0]);
+
   for (int i = 1; i < metadata_list.size(); ++i) {
     const ASTSetOperationMetadata* metadata = metadata_list[i];
     if (metadata->op_type()->value() != op_type ||
@@ -4446,9 +4570,75 @@ absl::Status Resolver::SetOperationResolver::ValidateIdenticalSetOperator()
       // We report the error at metadata->op_type(), even if it is the distinct
       // that is different, to align with the error message from the parser for
       // `query_set_operation_prefix`.
+      // TODO: Remove the "Syntax error" prefix and update all the
+      // affected tests.
       return MakeSqlErrorAt(metadata->op_type())
              << "Syntax error: Different set operations cannot be used in the "
                 "same query without using parentheses for grouping";
+    }
+
+    if (column_match_mode != GetColumnMatchMode(*metadata)) {
+      const ASTNode* err_location = metadata->column_match_mode() == nullptr
+                                        ? metadata_list[0]->column_match_mode()
+                                        : metadata->column_match_mode();
+      return MakeSqlErrorAt(err_location)
+             << "Different column match modes cannot be used in the same "
+                "query without using parentheses for grouping";
+    }
+
+    if (column_propagation_mode != GetColumnPropagationMode(*metadata)) {
+      const ASTNode* err_location =
+          metadata->column_propagation_mode() == nullptr
+              ? metadata_list[0]->column_propagation_mode()
+              : metadata->column_propagation_mode();
+      return MakeSqlErrorAt(err_location)
+             << "Different column propagation modes (FULL/LEFT/STRICT) cannot "
+                "be used in the same query without using parentheses for "
+                "grouping";
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::SetOperationResolver::ValidateCorresponding() const {
+  ZETASQL_RET_CHECK_NE(set_operation_->metadata(), nullptr);
+  for (const auto* metadata :
+       set_operation_->metadata()->set_operation_metadata_list()) {
+    if (!resolver_->language().LanguageFeatureEnabled(
+            FEATURE_V_1_4_CORRESPONDING)) {
+      if (metadata->column_match_mode() != nullptr) {
+        return MakeSqlErrorAt(metadata->column_match_mode())
+               << "CORRESPONDING and CORRESPONDING BY for set operations are "
+                  "not supported";
+      }
+      if (metadata->column_propagation_mode() != nullptr) {
+        return MakeSqlErrorAt(metadata->column_propagation_mode())
+               << "Column propagation mode (FULL/LEFT/STRICT) for set "
+                  "operations are not supported";
+      }
+      continue;
+    }
+
+    ASTSetOperation::ColumnMatchMode match_mode = GetColumnMatchMode(*metadata);
+    ASTSetOperation::ColumnPropagationMode propagation_mode =
+        GetColumnPropagationMode(*metadata);
+    switch (match_mode) {
+      case ASTSetOperation::BY_POSITION:
+        // No column_propagation_mode is allowed to be specified when column
+        // match mode is BY_POSITION, although we default
+        // `column_propagation_mode` to STRICT in analyzer for BY_POSITION.
+        if (metadata->column_propagation_mode() != nullptr) {
+          return MakeSqlErrorAt(metadata->column_propagation_mode())
+                 << ColumnPropagationModeToString(propagation_mode)
+                 << " in set operations cannot be used without CORRESPONDING";
+        }
+        break;
+      case ASTSetOperation::CORRESPONDING:
+        return MakeSqlErrorAt(metadata->column_match_mode())
+               << "CORRESPONDING is not implemented";
+      case ASTSetOperation::CORRESPONDING_BY:
+        return MakeSqlErrorAt(metadata->column_match_mode())
+               << "CORRESPONDING BY is not implemented";
     }
   }
   return absl::OkStatus();

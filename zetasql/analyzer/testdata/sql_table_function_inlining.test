@@ -269,13 +269,13 @@ QueryStmt
         |         | +-$col1#2 :=
         |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
         |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-        |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+        |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3)
         |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
         |         |     +-SubqueryExpr
         |         |       +-type=ARRAY<INT64>
         |         |       +-subquery_type=ARRAY
         |         |       +-parameter_list=
-        |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+        |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3)
         |         |       +-subquery=
         |         |         +-OrderByScan
         |         |           +-column_list=[$array.element#4]
@@ -287,7 +287,7 @@ QueryStmt
         |         |           |   | +-ArrayScan
         |         |           |   |   +-column_list=[$array.element#4, $array_offset.off#5]
         |         |           |   |   +-array_expr=
-        |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3, is_correlated=TRUE)
+        |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3, is_correlated=TRUE)
         |         |           |   |   +-element_column=$array.element#4
         |         |           |   |   +-array_offset_column=
         |         |           |   |     +-ColumnHolder(column=$array_offset.off#5)
@@ -301,9 +301,9 @@ QueryStmt
         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#5)
         |         +-input_scan=
         |           +-ProjectScan
-        |             +-column_list=[$subquery1.array_input#3]
+        |             +-column_list=[$subquery1.array_to_filter#3]
         |             +-expr_list=
-        |             | +-array_input#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        |             | +-array_to_filter#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
         |             +-input_scan=
         |               +-SingleRowScan
         +-input_scan=

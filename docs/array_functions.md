@@ -279,6 +279,84 @@ SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 
 [array-last]: #array_last
 
+### `ARRAY_INCLUDES_ALL`
+
+```sql
+ARRAY_INCLUDES_ALL(array_to_search, search_values)
+```
+
+**Description**
+
+Takes an array to search and an array of search values. Returns `TRUE` if all
+search values are in the array to search, otherwise returns `FALSE`.
+
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
+
+Returns `NULL` if `array_to_search` or `search_values` is
+`NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Example**
+
+In the following example, the query first checks to see if `3`, `4`, and `5`
+exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
+an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
+
++------+-------+
+| a1   | a2    |
++------+-------+
+| true | false |
++------+-------+
+```
+
+### `ARRAY_INCLUDES_ANY`
+
+```sql
+ARRAY_INCLUDES_ANY(array_to_search, search_values)
+```
+
+**Description**
+
+Takes an array to search and an array of search values. Returns `TRUE` if any
+search values are in the array to search, otherwise returns `FALSE`.
+
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
+
+Returns `NULL` if `array_to_search` or `search_values` is
+`NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Example**
+
+In the following example, the query first checks to see if `3`, `4`, or `5`
+exists in an array. Then the query checks to see if `4`, `5`, or `6` exists in
+an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
+  ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
+
++------+-------+
+| a1   | a2    |
++------+-------+
+| true | false |
++------+-------+
+```
+
 ### `ARRAY_INCLUDES`
 
 +   [Signature 1](#array_includes_signature1):
@@ -370,82 +448,49 @@ SELECT
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
-### `ARRAY_INCLUDES_ANY`
+### `ARRAY_IS_DISTINCT`
 
 ```sql
-ARRAY_INCLUDES_ANY(array_to_search, search_values)
+ARRAY_IS_DISTINCT(value)
 ```
 
 **Description**
 
-Takes an array to search and an array of search values. Returns `TRUE` if any
-search values are in the array to search, otherwise returns `FALSE`.
-
-+   `array_to_search`: The array to search.
-+   `search_values`: The array that contains the elements to search for.
-
-Returns `NULL` if `array_to_search` or `search_values` is
-`NULL`.
+Returns `TRUE` if the array contains no repeated elements, using the same
+equality comparison logic as `SELECT DISTINCT`.
 
 **Return type**
 
 `BOOL`
 
-**Example**
-
-In the following example, the query first checks to see if `3`, `4`, or `5`
-exists in an array. Then the query checks to see if `4`, `5`, or `6` exists in
-an array.
+**Examples**
 
 ```sql
+WITH example AS (
+  SELECT [1, 2, 3] AS arr UNION ALL
+  SELECT [1, 1, 1] AS arr UNION ALL
+  SELECT [1, 2, NULL] AS arr UNION ALL
+  SELECT [1, 1, NULL] AS arr UNION ALL
+  SELECT [1, NULL, NULL] AS arr UNION ALL
+  SELECT [] AS arr UNION ALL
+  SELECT CAST(NULL AS ARRAY<INT64>) AS arr
+)
 SELECT
-  ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
-  ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
+  arr,
+  ARRAY_IS_DISTINCT(arr) as is_distinct
+FROM example;
 
-+------+-------+
-| a1   | a2    |
-+------+-------+
-| true | false |
-+------+-------+
-```
-
-### `ARRAY_INCLUDES_ALL`
-
-```sql
-ARRAY_INCLUDES_ALL(array_to_search, search_values)
-```
-
-**Description**
-
-Takes an array to search and an array of search values. Returns `TRUE` if all
-search values are in the array to search, otherwise returns `FALSE`.
-
-+   `array_to_search`: The array to search.
-+   `search_values`: The array that contains the elements to search for.
-
-Returns `NULL` if `array_to_search` or `search_values` is
-`NULL`.
-
-**Return type**
-
-`BOOL`
-
-**Example**
-
-In the following example, the query first checks to see if `3`, `4`, and `5`
-exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
-an array.
-
-```sql
-SELECT
-  ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
-  ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
-
-+------+-------+
-| a1   | a2    |
-+------+-------+
-| true | false |
-+------+-------+
++-----------------+-------------+
+| arr             | is_distinct |
++-----------------+-------------+
+| [1, 2, 3]       | TRUE        |
+| [1, 1, 1]       | FALSE       |
+| [1, 2, NULL]    | TRUE        |
+| [1, 1, NULL]    | FALSE       |
+| [1, NULL, NULL] | FALSE       |
+| []              | TRUE        |
+| NULL            | NULL        |
++-----------------+-------------+
 ```
 
 ### `ARRAY_LAST`
@@ -593,6 +638,42 @@ SELECT ARRAY_MIN([8, 37, NULL, 4, 55]) as min
 ```
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+### `ARRAY_REVERSE`
+
+```sql
+ARRAY_REVERSE(value)
+```
+
+**Description**
+
+Returns the input `ARRAY` with elements in reverse order.
+
+**Return type**
+
+`ARRAY`
+
+**Examples**
+
+```sql
+WITH example AS (
+  SELECT [1, 2, 3] AS arr UNION ALL
+  SELECT [4, 5] AS arr UNION ALL
+  SELECT [] AS arr
+)
+SELECT
+  arr,
+  ARRAY_REVERSE(arr) AS reverse_arr
+FROM example;
+
++-----------+-------------+
+| arr       | reverse_arr |
++-----------+-------------+
+| [1, 2, 3] | [3, 2, 1]   |
+| [4, 5]    | [5, 4]      |
+| []        | []          |
++-----------+-------------+
+```
 
 ### `ARRAY_SLICE`
 
@@ -1505,87 +1586,6 @@ FROM
 | [2016-10-05 12:00:00+00, 2016-10-05 13:00:00+00, 2016-10-05 14:00:00+00] |
 | [2016-10-05 23:59:00+00, 2016-10-06 00:59:00+00, 2016-10-06 01:59:00+00] |
 +--------------------------------------------------------------------------+
-```
-
-### `ARRAY_REVERSE`
-
-```sql
-ARRAY_REVERSE(value)
-```
-
-**Description**
-
-Returns the input `ARRAY` with elements in reverse order.
-
-**Return type**
-
-`ARRAY`
-
-**Examples**
-
-```sql
-WITH example AS (
-  SELECT [1, 2, 3] AS arr UNION ALL
-  SELECT [4, 5] AS arr UNION ALL
-  SELECT [] AS arr
-)
-SELECT
-  arr,
-  ARRAY_REVERSE(arr) AS reverse_arr
-FROM example;
-
-+-----------+-------------+
-| arr       | reverse_arr |
-+-----------+-------------+
-| [1, 2, 3] | [3, 2, 1]   |
-| [4, 5]    | [5, 4]      |
-| []        | []          |
-+-----------+-------------+
-```
-
-### `ARRAY_IS_DISTINCT`
-
-```sql
-ARRAY_IS_DISTINCT(value)
-```
-
-**Description**
-
-Returns `TRUE` if the array contains no repeated elements, using the same
-equality comparison logic as `SELECT DISTINCT`.
-
-**Return type**
-
-`BOOL`
-
-**Examples**
-
-```sql
-WITH example AS (
-  SELECT [1, 2, 3] AS arr UNION ALL
-  SELECT [1, 1, 1] AS arr UNION ALL
-  SELECT [1, 2, NULL] AS arr UNION ALL
-  SELECT [1, 1, NULL] AS arr UNION ALL
-  SELECT [1, NULL, NULL] AS arr UNION ALL
-  SELECT [] AS arr UNION ALL
-  SELECT CAST(NULL AS ARRAY<INT64>) AS arr
-)
-SELECT
-  arr,
-  ARRAY_IS_DISTINCT(arr) as is_distinct
-FROM example;
-
-+-----------------+-------------+
-| arr             | is_distinct |
-+-----------------+-------------+
-| [1, 2, 3]       | TRUE        |
-| [1, 1, 1]       | FALSE       |
-| [1, 2, NULL]    | TRUE        |
-| [1, 1, NULL]    | FALSE       |
-| [1, NULL, NULL] | FALSE       |
-| []              | TRUE        |
-| NULL            | NULL        |
-+-----------------+-------------+
 ```
 
 ### OFFSET and ORDINAL

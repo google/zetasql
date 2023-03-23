@@ -25,6 +25,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <tuple>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -33,12 +35,22 @@
 #include "zetasql/public/options.pb.h"
 #include "gtest/gtest.h"
 #include "absl/flags/flag.h"
+#include "absl/functional/function_ref.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 
 // Small limit as we are experimenting with these tests.
+// This customary limit is used for manually controlling the compliance tests.
+// Consider passing the runtime control structure instead of using this flag
+// in other tests.
 ABSL_FLAG(std::size_t, depth_limit_detector_max_sql_bytes, 1000,
           "Do not expand recursive test queries beyond this number of bytes");
+ABSL_FLAG(absl::Duration, depth_limit_detector_max_seed_probing_duration,
+          absl::Seconds(10),
+          "Approximate length of time to search for biggest nested query test "
+          "case for test seeds");
 
 namespace zetasql {
 
@@ -191,11 +203,22 @@ LanguageOptions DepthLimitDetectorTestCaseLanguageOptions(
   return language_options;
 }
 
+DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
+    DepthLimitDetectorTestCase const& depth_limit_case,
+    absl::FunctionRef<absl::Status(std::string_view)> test_driver_function) {
+  DepthLimitDetectorRuntimeControl runtime_control;
+  runtime_control.max_sql_bytes =
+      absl::GetFlag(FLAGS_depth_limit_detector_max_sql_bytes);
+  return RunDepthLimitDetectorTestCase(
+      depth_limit_case, std::move(test_driver_function), runtime_control);
+}
+
 // Instantiates a query template at many depths in order to expose complex
 // resource exhausted conditions (e.g. stack overflows).
 DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
     DepthLimitDetectorTestCase const& depth_limit_case,
-    std::function<absl::Status(std::string_view)> test_driver_function) {
+    absl::FunctionRef<absl::Status(std::string_view)> test_driver_function,
+    const DepthLimitDetectorRuntimeControl& runtime_control) {
   testing::Test::RecordProperty(
       "depth_limit_detector_test_case_name",
       std::string(depth_limit_case.depth_limit_test_case_name));
@@ -209,15 +232,31 @@ DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
     IntegrateTestResult(&result, depth, status);
   };
 
+  absl::Time start_probe = absl::Now();
   // Increase depth by 5% each iteration.
   for (int depth = 1; depth < depth_limit_case.depth_limit_max_depth;
        depth = std::max(depth + 1, (depth * 21) / 20)) {
+    absl::Time start_try = absl::Now();
     auto sql = DepthLimitDetectorTemplateToString(
         depth_limit_case.depth_limit_template, depth);
-    if (sql.size() > absl::GetFlag(FLAGS_depth_limit_detector_max_sql_bytes)) {
+    if (sql.size() > runtime_control.max_sql_bytes) {
       break;
     }
     TryDepth(sql, depth);
+    absl::Duration try_duration = absl::Now() - start_try;
+    absl::Duration probe_duration = absl::Now() - start_probe;
+    if (try_duration + probe_duration >= runtime_control.max_probing_duration) {
+      ZETASQL_LOG(INFO) << "DepthLimitDetector cutting short as already spent "
+                << probe_duration << " and next try at least " << try_duration
+                << " on " << depth_limit_case;
+      break;
+    }
+    if (try_duration > absl::Seconds(10)) {
+      ZETASQL_LOG(INFO) << "DepthLimitDetector took " << try_duration
+                << " probing depth " << depth << " with " << sql.size()
+                << " bytes, spent " << probe_duration << " total on "
+                << depth_limit_case;
+    }
   }
 
   bool continued_disection;
@@ -239,6 +278,32 @@ DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
   } while (continued_disection);
 
   return result;
+}
+
+std::vector<std::tuple<std::string>> DepthLimitDetectorSeeds(
+    absl::FunctionRef<absl::Status(std::string_view)> test_driver_function) {
+  std::vector<std::tuple<std::string>> seeds;
+  absl::Time start_seeding_time = absl::Now();
+  for (const zetasql::DepthLimitDetectorTestCase& test_case :
+       AllDepthLimitDetectorTestCases()) {
+    DepthLimitDetectorRuntimeControl control;
+    control.max_probing_duration =
+        absl::GetFlag(FLAGS_depth_limit_detector_max_seed_probing_duration);
+    auto result =
+        RunDepthLimitDetectorTestCase(test_case, test_driver_function, control);
+    ZETASQL_LOG(INFO) << "DepthLimitDetectorSeeds " << result.depth_limit_test_case_name
+              << " first condition "
+              << result.depth_limit_detector_return_conditions[0];
+    for (const auto& cond : result.depth_limit_detector_return_conditions) {
+      seeds.push_back(zetasql::DepthLimitDetectorTemplateToString(
+          test_case, cond.starting_depth));
+      seeds.push_back(zetasql::DepthLimitDetectorTemplateToString(
+          test_case, cond.ending_depth));
+    }
+  }
+  ZETASQL_LOG(INFO) << "DepthLimitDetector seeds finished in "
+            << absl::Now() - start_seeding_time;
+  return seeds;
 }
 
 absl::Span<const std::reference_wrapper<const DepthLimitDetectorTestCase>>
@@ -286,10 +351,14 @@ AllDepthLimitDetectorTestCases() {
               .depth_limit_template = {"SELECT ", R({"("}), "(SELECT 1) + 2",
                                        R({")"}), " AS c"},
           },
-          {.depth_limit_test_case_name = "nested_where_in",
-           .depth_limit_template = {"WITH d AS (SELECT 1 AS id) ",
-                                    R({"SELECT * FROM d WHERE id IN ("}), "1",
-                                    R({")"})}},
+          {
+              .depth_limit_test_case_name = "nested_where_in",
+              .depth_limit_template = {"WITH d AS (SELECT 1 AS id) ",
+                                       R({"SELECT * FROM d WHERE id IN ("}),
+                                       "1", R({")"})},
+              .depth_limit_max_depth =
+                  100,  // As the reference implementations gets very slow
+          },
           {
               .depth_limit_test_case_name = "nested_select_from",
               .depth_limit_template = {R({"SELECT * FROM ("}), "SELECT 1",
@@ -350,6 +419,8 @@ AllDepthLimitDetectorTestCases() {
               .depth_limit_template =
                   {R({"SELECT AS STRUCT * FROM UNNEST([STRUCT(1, ("}),
                    "SELECT NULL", R({"))])"}), " AS c"},
+              .depth_limit_max_depth =
+                  100,  // As the reference implementations gets very slow
           },
           {.depth_limit_test_case_name = "nested_replace_fields",
            .depth_limit_template = {"SELECT ", R({"REPLACE_FIELDS("}),
@@ -375,6 +446,8 @@ AllDepthLimitDetectorTestCases() {
                                        " u AS (SELECT 1 AS c) SELECT * FROM u",
                                        R({" JOIN t", N(), " ON t", N(),
                                           ".c = u.c"})},
+              .depth_limit_max_depth =
+                  500,  // As the reference implementations gets very slow
           },
           {
               .depth_limit_test_case_name = "with_joins_consecutive",

@@ -7435,19 +7435,6 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     const auto* call = (*resolved_expr_out)->GetAs<ResolvedFunctionCallBase>();
     if (call->function()->IsZetaSQLBuiltin()) {
       switch (call->signature().context_id()) {
-        case FN_ARRAY_FILTER:
-        case FN_ARRAY_FILTER_WITH_INDEX:
-        case FN_ARRAY_TRANSFORM:
-        case FN_ARRAY_TRANSFORM_WITH_INDEX:
-          analyzer_output_properties_.MarkRelevant(
-              REWRITE_ARRAY_FILTER_TRANSFORM);
-          break;
-        case FN_ARRAY_INCLUDES:
-        case FN_ARRAY_INCLUDES_LAMBDA:
-        case FN_ARRAY_INCLUDES_ANY:
-        case FN_ARRAY_INCLUDES_ALL:
-          analyzer_output_properties_.MarkRelevant(REWRITE_ARRAY_INCLUDES);
-          break;
         case FN_CONTAINS_KEY:
         case FN_MODIFY_MAP:
           analyzer_output_properties_.MarkRelevant(REWRITE_PROTO_MAP_FNS);

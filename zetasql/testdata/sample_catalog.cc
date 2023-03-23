@@ -78,7 +78,13 @@ SampleCatalog::SampleCatalog()
 }
 
 SampleCatalog::SampleCatalog(const LanguageOptions& language_options,
-                             TypeFactory* type_factory) {
+                             TypeFactory* type_factory)
+    : SampleCatalog(ZetaSQLBuiltinFunctionOptions(language_options),
+                    type_factory) {}
+
+SampleCatalog::SampleCatalog(
+    const ZetaSQLBuiltinFunctionOptions& builtin_function_options,
+    TypeFactory* type_factory) {
   if (type_factory == nullptr) {
     internal_type_factory_ = std::make_unique<TypeFactory>();
     types_ = internal_type_factory_.get();
@@ -86,7 +92,8 @@ SampleCatalog::SampleCatalog(const LanguageOptions& language_options,
     types_ = type_factory;
   }
   catalog_ = std::make_unique<SimpleCatalog>("sample_catalog", types_);
-  LoadCatalog(language_options);
+  LoadCatalogBuiltins(builtin_function_options);
+  LoadCatalogImpl(builtin_function_options.language_options);
 }
 
 SampleCatalog::~SampleCatalog() = default;
@@ -205,9 +212,16 @@ void SampleCatalog::LoadCatalog(const LanguageOptions& language_options) {
 
 void SampleCatalog::LoadCatalogBuiltins(
     const LanguageOptions& language_options) {
-  // Populate the sample catalog with the ZetaSQL functions.
-  ZETASQL_CHECK_OK(catalog_->AddZetaSQLFunctionsAndTypes(
-      ZetaSQLBuiltinFunctionOptions(language_options)));
+  // Populate the sample catalog with the ZetaSQL functions using the
+  // specified LanguageOptions.
+  LoadCatalogBuiltins(ZetaSQLBuiltinFunctionOptions(language_options));
+}
+
+void SampleCatalog::LoadCatalogBuiltins(
+    const ZetaSQLBuiltinFunctionOptions& builtin_function_options) {
+  // Populate the sample catalog with the ZetaSQL functions using the
+  // specified ZetaSQLBuiltinFunctionOptions.
+  ZETASQL_CHECK_OK(catalog_->AddZetaSQLFunctionsAndTypes(builtin_function_options));
 }
 
 void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {

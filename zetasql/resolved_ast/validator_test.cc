@@ -794,6 +794,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_Local) {
           MakeNodeVector(MakeResolvedComputedColumn(
               x, MakeResolvedLiteral(Value::Int64(1)))),
           /*input_scan=*/MakeResolvedSingleRowScan()),
+      /*aliased_query_list=*/{},
       /*transform_input_column_list=*/{},
       /*transform_list=*/{},
       /*transform_output_column_list=*/{},
@@ -805,6 +806,247 @@ TEST(ValidatorTest, ValidCreateModelStatement_Local) {
 
   Validator validator;
   ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(statement.get()));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_AliasedQueryList) {
+  IdStringPool pool;
+  ResolvedColumn x(1, pool.Make("training_data"), pool.Make("x"),
+                   types::Int64Type());
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/{},
+      /*query=*/nullptr,
+      /*aliased_query_list=*/
+      MakeNodeVector(MakeResolvedCreateModelAliasedQuery(
+          /*alias=*/"training_data",
+          /*query=*/
+          MakeResolvedProjectScan(
+              /*column_list=*/{x},
+              /*expr_list=*/
+              MakeNodeVector(MakeResolvedComputedColumn(
+                  x, MakeResolvedLiteral(Value::Int64(1)))),
+              /*input_scan=*/MakeResolvedSingleRowScan()),
+          /*output_column_list=*/
+          MakeNodeVector(
+              MakeResolvedOutputColumn(/*name=*/"x", /*column=*/x)))),
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/{},
+      /*output_column_definition_list=*/{},
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+  Validator validator(language_options);
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(statement.get()));
+}
+
+TEST(ValidatorTest, CreateModelStatement_DuplicateAliasedQueryList) {
+  IdStringPool pool;
+  ResolvedColumn x(1, pool.Make("training_data"), pool.Make("x"),
+                   types::Int64Type());
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/{},
+      /*query=*/nullptr,
+      /*aliased_query_list=*/
+      MakeNodeVector(MakeResolvedCreateModelAliasedQuery(
+                         /*alias=*/"training_data",
+                         /*query=*/
+                         MakeResolvedProjectScan(
+                             /*column_list=*/{x},
+                             /*expr_list=*/
+                             MakeNodeVector(MakeResolvedComputedColumn(
+                                 x, MakeResolvedLiteral(Value::Int64(1)))),
+                             /*input_scan=*/MakeResolvedSingleRowScan()),
+                         /*output_column_list=*/
+                         MakeNodeVector(MakeResolvedOutputColumn(
+                             /*name=*/"x", /*column=*/x))),
+                     MakeResolvedCreateModelAliasedQuery(
+                         /*alias=*/"training_data",
+                         /*query=*/
+                         MakeResolvedProjectScan(
+                             /*column_list=*/{x},
+                             /*expr_list=*/
+                             MakeNodeVector(MakeResolvedComputedColumn(
+                                 x, MakeResolvedLiteral(Value::Int64(1)))),
+                             /*input_scan=*/MakeResolvedSingleRowScan()),
+                         /*output_column_list=*/
+                         MakeNodeVector(MakeResolvedOutputColumn(
+                             /*name=*/"x", /*column=*/x)))),
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/{},
+      /*output_column_definition_list=*/{},
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+  Validator validator(language_options);
+  EXPECT_THAT(validator.ValidateResolvedStatement(statement.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Duplicate alias training_data")));
+}
+
+TEST(ValidatorTest, ValidCreateModelStatement_AliasedQueryListDisabled) {
+  IdStringPool pool;
+  ResolvedColumn x(1, pool.Make("training_data"), pool.Make("x"),
+                   types::Int64Type());
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/
+      MakeNodeVector(MakeResolvedOutputColumn(/*name=*/"x", /*column=*/x)),
+      /*query=*/
+      MakeResolvedProjectScan(
+          /*column_list=*/{x},
+          /*expr_list=*/
+          MakeNodeVector(MakeResolvedComputedColumn(
+              x, MakeResolvedLiteral(Value::Int64(1)))),
+          /*input_scan=*/MakeResolvedSingleRowScan()),
+      /*aliased_query_list=*/
+      MakeNodeVector(MakeResolvedCreateModelAliasedQuery(
+          /*alias=*/"training_data",
+          /*query=*/
+          MakeResolvedProjectScan(
+              /*column_list=*/{x},
+              /*expr_list=*/
+              MakeNodeVector(MakeResolvedComputedColumn(
+                  x, MakeResolvedLiteral(Value::Int64(1)))),
+              /*input_scan=*/MakeResolvedSingleRowScan()),
+          /*output_column_list=*/
+          MakeNodeVector(
+              MakeResolvedOutputColumn(/*name=*/"x", /*column=*/x)))),
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/{},
+      /*output_column_definition_list=*/{},
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  Validator validator;
+  EXPECT_THAT(validator.ValidateResolvedStatement(statement.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("stmt->aliased_query_list().empty()")));
+}
+
+TEST(ValidatorTest,
+     InvalidCreateModelStatement_QueryAndAliasedQueryListCoexist) {
+  IdStringPool pool;
+  ResolvedColumn x(1, pool.Make("training_data"), pool.Make("x"),
+                   types::Int64Type());
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/
+      MakeNodeVector(MakeResolvedOutputColumn(/*name=*/"x", /*column=*/x)),
+      /*query=*/
+      MakeResolvedProjectScan(
+          /*column_list=*/{x},
+          /*expr_list=*/
+          MakeNodeVector(MakeResolvedComputedColumn(
+              x, MakeResolvedLiteral(Value::Int64(1)))),
+          /*input_scan=*/MakeResolvedSingleRowScan()),
+      /*aliased_query_list=*/
+      MakeNodeVector(MakeResolvedCreateModelAliasedQuery(
+          /*alias=*/"training_data",
+          /*query=*/
+          MakeResolvedProjectScan(
+              /*column_list=*/{x},
+              /*expr_list=*/
+              MakeNodeVector(MakeResolvedComputedColumn(
+                  x, MakeResolvedLiteral(Value::Int64(1)))),
+              /*input_scan=*/MakeResolvedSingleRowScan()),
+          /*output_column_list=*/
+          MakeNodeVector(
+              MakeResolvedOutputColumn(/*name=*/"x", /*column=*/x)))),
+      /*transform_input_column_list=*/{},
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/{},
+      /*output_column_definition_list=*/{},
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+  Validator validator(language_options);
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(statement.get()),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("Query and aliased query list cannot coexist")));
+}
+
+TEST(ValidatorTest, InvalidCreateModelStatement_AliasedQueryListWithTransform) {
+  IdStringPool pool;
+  ResolvedColumn x(1, pool.Make("training_data"), pool.Make("x"),
+                   types::Int64Type());
+  auto statement = MakeResolvedCreateModelStmt(
+      /*name_path=*/{"m"},
+      /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+      /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+      /*option_list=*/{},
+      /*output_column_list=*/{},
+      /*query=*/nullptr,
+      /*aliased_query_list=*/
+      MakeNodeVector(MakeResolvedCreateModelAliasedQuery(
+          /*alias=*/"training_data",
+          /*query=*/
+          MakeResolvedProjectScan(
+              /*column_list=*/{x},
+              /*expr_list=*/
+              MakeNodeVector(MakeResolvedComputedColumn(
+                  x, MakeResolvedLiteral(Value::Int64(1)))),
+              /*input_scan=*/MakeResolvedSingleRowScan()),
+          /*output_column_list=*/
+          MakeNodeVector(
+              MakeResolvedOutputColumn(/*name=*/"x", /*column=*/x)))),
+      /*transform_input_column_list=*/
+      MakeNodeVector(MakeResolvedColumnDefinition(/*name=*/"x",
+                                                  /*type=*/types::Int64Type(),
+                                                  /*annotations=*/{},
+                                                  /*is_hidden=*/false,
+                                                  /*column=*/x,
+                                                  /*generated_column_info=*/{},
+                                                  /*default_value=*/{})),
+      /*transform_list=*/{},
+      /*transform_output_column_list=*/{},
+      /*transform_analytic_function_group_list=*/{},
+      /*input_column_definition_list=*/{},
+      /*output_column_definition_list=*/{},
+      /*is_remote=*/false,
+      /*connection=*/{});
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(
+      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+  Validator validator(language_options);
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(statement.get()),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("stmt->transform_input_column_list().empty()")));
 }
 
 TEST(ValidatorTest, ValidCreateModelStatement_Imported) {
@@ -820,6 +1062,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_Imported) {
       /*option_list=*/{},
       /*output_column_list=*/{},
       /*query=*/{},
+      /*aliased_query_list=*/{},
       /*transform_input_column_list=*/{},
       /*transform_list=*/{},
       /*transform_output_column_list=*/{},
@@ -869,6 +1112,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_ImportedV13_Invalid) {
       /*option_list=*/{},
       /*output_column_list=*/{},
       /*query=*/{},
+      /*aliased_query_list=*/{},
       /*transform_input_column_list=*/{},
       /*transform_list=*/{},
       /*transform_output_column_list=*/{},
@@ -922,6 +1166,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_Remote) {
           MakeResolvedLiteral(types::StringType(), Value::String("def")))),
       /*output_column_list=*/{},
       /*query=*/{},
+      /*aliased_query_list=*/{},
       /*transform_input_column_list=*/{},
       /*transform_list=*/{},
       /*transform_output_column_list=*/{},
@@ -975,6 +1220,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_RemoteV13_Invalid) {
           MakeResolvedLiteral(types::StringType(), Value::String("def")))),
       /*output_column_list=*/{},
       /*query=*/{},
+      /*aliased_query_list=*/{},
       /*transform_input_column_list=*/{},
       /*transform_list=*/{},
       /*transform_output_column_list=*/{},
@@ -1008,7 +1254,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_RemoteV13_Invalid) {
   Validator validator;
   EXPECT_THAT(validator.ValidateResolvedStatement(statement.get()),
               StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("FEATURE_V_1_4_REMOTE_MODEL")));
+                       HasSubstr("Remote model is not supported")));
 }
 
 TEST(ValidatorTest, ValidCreateModelStatement_SchemaAndQuery_Invalid) {
@@ -1032,6 +1278,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_SchemaAndQuery_Invalid) {
           MakeNodeVector(MakeResolvedComputedColumn(
               x, MakeResolvedLiteral(Value::Int64(1)))),
           /*input_scan=*/MakeResolvedSingleRowScan()),
+      /*aliased_query_list=*/{},
       /*transform_input_column_list=*/{},
       /*transform_list=*/{},
       /*transform_output_column_list=*/{},
@@ -1085,6 +1332,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_ConnectionNoRemote_Invalid) {
       /*option_list=*/{},
       /*output_column_list=*/{},
       /*query=*/{},
+      /*aliased_query_list=*/{},
       /*transform_input_column_list=*/{},
       /*transform_list=*/{},
       /*transform_output_column_list=*/{},
@@ -1131,6 +1379,7 @@ TEST(ValidatorTest, ValidCreateModelStatement_EmptyV13_Invalid) {
       /*option_list=*/{},
       /*output_column_list=*/{},
       /*query=*/{},
+      /*aliased_query_list=*/{},
       /*transform_input_column_list=*/{},
       /*transform_list=*/{},
       /*transform_output_column_list=*/{},

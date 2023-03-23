@@ -11,7 +11,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -45,13 +45,13 @@ QueryStmt
     |         | +-$col1#6 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$array.element#4]
@@ -63,7 +63,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.element#4, $array_offset.off#5]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3, is_correlated=TRUE)
     |         |           |   |   +-element_column=$array.element#4
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#5)
@@ -77,9 +77,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#5)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#3]
+    |             +-column_list=[$subquery1.array_to_filter#3]
     |             +-expr_list=
-    |             | +-array_input#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             | +-array_to_filter#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -98,7 +98,7 @@ QueryStmt
     +-expr_list=
     | +-$col1#2 :=
     |   +-FunctionCall(ZetaSQL:array_reverse(ARRAY<INT64>) -> ARRAY<INT64>)
-    |     +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |     +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |       +-FunctionArgument
     |       | +-expr=
     |       |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -133,13 +133,13 @@ QueryStmt
     |           | +-$col1#6 :=
     |           |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |           |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |           |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |           |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3)
     |           |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |           |     +-SubqueryExpr
     |           |       +-type=ARRAY<INT64>
     |           |       +-subquery_type=ARRAY
     |           |       +-parameter_list=
-    |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3)
     |           |       +-subquery=
     |           |         +-OrderByScan
     |           |           +-column_list=[$array.element#4]
@@ -151,7 +151,7 @@ QueryStmt
     |           |           |   | +-ArrayScan
     |           |           |   |   +-column_list=[$array.element#4, $array_offset.off#5]
     |           |           |   |   +-array_expr=
-    |           |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3, is_correlated=TRUE)
+    |           |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3, is_correlated=TRUE)
     |           |           |   |   +-element_column=$array.element#4
     |           |           |   |   +-array_offset_column=
     |           |           |   |     +-ColumnHolder(column=$array_offset.off#5)
@@ -165,9 +165,9 @@ QueryStmt
     |           |                 +-ColumnRef(type=INT64, column=$array_offset.off#5)
     |           +-input_scan=
     |             +-ProjectScan
-    |               +-column_list=[$subquery1.array_input#3]
+    |               +-column_list=[$subquery1.array_to_filter#3]
     |               +-expr_list=
-    |               | +-array_input#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |               | +-array_to_filter#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |               +-input_scan=
     |                 +-SingleRowScan
     +-input_scan=
@@ -185,7 +185,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA((INT64, INT64)->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA((INT64, INT64)->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -219,13 +219,13 @@ QueryStmt
     |         | +-$col1#7 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#4)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#4)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$array.element#5]
@@ -237,7 +237,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.element#5, $array_offset.off#6]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#4, is_correlated=TRUE)
     |         |           |   |   +-element_column=$array.element#5
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#6)
@@ -251,9 +251,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#4]
+    |             +-column_list=[$subquery1.array_to_filter#4]
     |             +-expr_list=
-    |             | +-array_input#4 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             | +-array_to_filter#4 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -271,7 +271,7 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -309,13 +309,13 @@ QueryStmt
     |         | +-$col1#8 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#5)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#5)
     |         |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |         |       +-subquery=
     |         |         +-OrderByScan
@@ -328,7 +328,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.element#6, $array_offset.off#7]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#5, is_correlated=TRUE)
     |         |           |   |   +-element_column=$array.element#6
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#7)
@@ -342,9 +342,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#5]
+    |             +-column_list=[$subquery1.array_to_filter#5]
     |             +-expr_list=
-    |             | +-array_input#5 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             | +-array_to_filter#5 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -362,7 +362,7 @@ QueryStmt
     +-column_list=[$query.$col1#5]
     +-expr_list=
     | +-$col1#5 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA((INT64, INT64)->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA((INT64, INT64)->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -402,13 +402,13 @@ QueryStmt
     |         | +-$col1#9 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |         |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |         |       +-subquery=
     |         |         +-OrderByScan
@@ -421,7 +421,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.element#7, $array_offset.off#8]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6, is_correlated=TRUE)
     |         |           |   |   +-element_column=$array.element#7
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#8)
@@ -437,9 +437,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#6]
+    |             +-column_list=[$subquery1.array_to_filter#6]
     |             +-expr_list=
-    |             | +-array_input#6 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             | +-array_to_filter#6 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -457,7 +457,7 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) INT64) -> ARRAY<INT64>)
@@ -495,13 +495,13 @@ QueryStmt
     |         | +-$col1#8 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#5)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#5)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$array.element#6]
@@ -513,7 +513,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.element#6, $array_offset.off#7]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#5, is_correlated=TRUE)
     |         |           |   |   +-element_column=$array.element#6
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#7)
@@ -527,9 +527,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#5]
+    |             +-column_list=[$subquery1.array_to_filter#5]
     |             +-expr_list=
-    |             | +-array_input#5 :=
+    |             | +-array_to_filter#5 :=
     |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) INT64) -> ARRAY<INT64>)
     |             |     +-Literal(type=INT64, value=1)
     |             |     +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
@@ -550,7 +550,7 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -591,13 +591,13 @@ QueryStmt
     |         | +-$col1#8 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#5)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#5)
     |         |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |         |       +-subquery=
     |         |         +-OrderByScan
@@ -610,7 +610,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.element#6, $array_offset.off#7]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#5, is_correlated=TRUE)
     |         |           |   |   +-element_column=$array.element#6
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#7)
@@ -624,9 +624,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#5]
+    |             +-column_list=[$subquery1.array_to_filter#5]
     |             +-expr_list=
-    |             | +-array_input#5 :=
+    |             | +-array_to_filter#5 :=
     |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
     |             |     +-Literal(type=INT64, value=1)
     |             |     +-Literal(type=INT64, value=2)
@@ -648,10 +648,10 @@ QueryStmt
     +-column_list=[$query.$col1#5]
     +-expr_list=
     | +-$col1#5 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
-    |     |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |     |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     |     +-FunctionArgument
     |     |     | +-expr=
     |     |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -698,13 +698,13 @@ QueryStmt
     |         | +-$col1#13 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#10)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#10)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#10)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#10)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$array.element#11]
@@ -716,7 +716,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.element#11, $array_offset.off#12]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#10, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#10, is_correlated=TRUE)
     |         |           |   |   +-element_column=$array.element#11
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#12)
@@ -730,9 +730,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#12)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#10]
+    |             +-column_list=[$subquery1.array_to_filter#10]
     |             +-expr_list=
-    |             | +-array_input#10 :=
+    |             | +-array_to_filter#10 :=
     |             |   +-SubqueryExpr
     |             |     +-type=ARRAY<INT64>
     |             |     +-subquery_type=SCALAR
@@ -745,13 +745,13 @@ QueryStmt
     |             |         | +-$col1#9 :=
     |             |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |             |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |             |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |             |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |             |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |             |         |     +-SubqueryExpr
     |             |         |       +-type=ARRAY<INT64>
     |             |         |       +-subquery_type=ARRAY
     |             |         |       +-parameter_list=
-    |             |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |             |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |             |         |       +-subquery=
     |             |         |         +-OrderByScan
     |             |         |           +-column_list=[$array.element#7]
@@ -763,7 +763,7 @@ QueryStmt
     |             |         |           |   | +-ArrayScan
     |             |         |           |   |   +-column_list=[$array.element#7, $array_offset.off#8]
     |             |         |           |   |   +-array_expr=
-    |             |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6, is_correlated=TRUE)
+    |             |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6, is_correlated=TRUE)
     |             |         |           |   |   +-element_column=$array.element#7
     |             |         |           |   |   +-array_offset_column=
     |             |         |           |   |     +-ColumnHolder(column=$array_offset.off#8)
@@ -777,9 +777,9 @@ QueryStmt
     |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |             |         +-input_scan=
     |             |           +-ProjectScan
-    |             |             +-column_list=[$subquery1.array_input#6]
+    |             |             +-column_list=[$subquery1.array_to_filter#6]
     |             |             +-expr_list=
-    |             |             | +-array_input#6 :=
+    |             |             | +-array_to_filter#6 :=
     |             |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
     |             |             |     +-Literal(type=INT64, value=1)
     |             |             |     +-Literal(type=INT64, value=2)
@@ -813,10 +813,10 @@ QueryStmt
     |         +-column_list=[$expr_subquery.$col1#5]
     |         +-expr_list=
     |         | +-$col1#5 :=
-    |         |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |         |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |         |     +-FunctionArgument
     |         |     | +-expr=
-    |         |     |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |         |     |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |         |     |     +-FunctionArgument
     |         |     |     | +-expr=
     |         |     |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -875,13 +875,13 @@ QueryStmt
     |         |         | +-$col1#14 :=
     |         |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#11)
+    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#11)
     |         |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |         |     +-SubqueryExpr
     |         |         |       +-type=ARRAY<INT64>
     |         |         |       +-subquery_type=ARRAY
     |         |         |       +-parameter_list=
-    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#11)
+    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#11)
     |         |         |       +-subquery=
     |         |         |         +-OrderByScan
     |         |         |           +-column_list=[$array.element#12]
@@ -893,7 +893,7 @@ QueryStmt
     |         |         |           |   | +-ArrayScan
     |         |         |           |   |   +-column_list=[$array.element#12, $array_offset.off#13]
     |         |         |           |   |   +-array_expr=
-    |         |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#11, is_correlated=TRUE)
+    |         |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#11, is_correlated=TRUE)
     |         |         |           |   |   +-element_column=$array.element#12
     |         |         |           |   |   +-array_offset_column=
     |         |         |           |   |     +-ColumnHolder(column=$array_offset.off#13)
@@ -907,9 +907,9 @@ QueryStmt
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#13)
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$subquery1.array_input#11]
+    |         |             +-column_list=[$subquery1.array_to_filter#11]
     |         |             +-expr_list=
-    |         |             | +-array_input#11 :=
+    |         |             | +-array_to_filter#11 :=
     |         |             |   +-SubqueryExpr
     |         |             |     +-type=ARRAY<INT64>
     |         |             |     +-subquery_type=SCALAR
@@ -922,13 +922,13 @@ QueryStmt
     |         |             |         | +-$col1#10 :=
     |         |             |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |             |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |             |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#7)
+    |         |             |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#7)
     |         |             |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |             |         |     +-SubqueryExpr
     |         |             |         |       +-type=ARRAY<INT64>
     |         |             |         |       +-subquery_type=ARRAY
     |         |             |         |       +-parameter_list=
-    |         |             |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#7)
+    |         |             |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#7)
     |         |             |         |       +-subquery=
     |         |             |         |         +-OrderByScan
     |         |             |         |           +-column_list=[$array.element#8]
@@ -940,7 +940,7 @@ QueryStmt
     |         |             |         |           |   | +-ArrayScan
     |         |             |         |           |   |   +-column_list=[$array.element#8, $array_offset.off#9]
     |         |             |         |           |   |   +-array_expr=
-    |         |             |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#7, is_correlated=TRUE)
+    |         |             |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#7, is_correlated=TRUE)
     |         |             |         |           |   |   +-element_column=$array.element#8
     |         |             |         |           |   |   +-array_offset_column=
     |         |             |         |           |   |     +-ColumnHolder(column=$array_offset.off#9)
@@ -954,9 +954,9 @@ QueryStmt
     |         |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#9)
     |         |             |         +-input_scan=
     |         |             |           +-ProjectScan
-    |         |             |             +-column_list=[$subquery1.array_input#7]
+    |         |             |             +-column_list=[$subquery1.array_to_filter#7]
     |         |             |             +-expr_list=
-    |         |             |             | +-array_input#7 :=
+    |         |             |             | +-array_to_filter#7 :=
     |         |             |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
     |         |             |             |     +-Literal(type=INT64, value=1)
     |         |             |             |     +-Literal(type=INT64, value=2)
@@ -982,7 +982,7 @@ QueryStmt
     +-column_list=[$query.$col1#5]
     +-expr_list=
     | +-$col1#5 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -996,7 +996,7 @@ QueryStmt
     |             +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
     |               +-ColumnRef(type=INT64, column=$lambda_arg.e#3)
     |               +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
-    |                 +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |                 +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |                   +-FunctionArgument
     |                   | +-expr=
     |                   |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -1035,13 +1035,13 @@ QueryStmt
     |         | +-$col1#13 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#10)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#10)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#10)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#10)
     |         |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |         |       +-subquery=
     |         |         +-OrderByScan
@@ -1054,7 +1054,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.element#11, $array_offset.off#12]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#10, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#10, is_correlated=TRUE)
     |         |           |   |   +-element_column=$array.element#11
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#12)
@@ -1074,13 +1074,13 @@ QueryStmt
     |         |           |               | +-$col1#9 :=
     |         |           |               |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |           |               |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |           |               |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |         |           |               |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |         |           |               |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |           |               |     +-SubqueryExpr
     |         |           |               |       +-type=ARRAY<INT64>
     |         |           |               |       +-subquery_type=ARRAY
     |         |           |               |       +-parameter_list=
-    |         |           |               |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |         |           |               |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |         |           |               |       +-subquery=
     |         |           |               |         +-OrderByScan
     |         |           |               |           +-column_list=[$array.element#7]
@@ -1092,7 +1092,7 @@ QueryStmt
     |         |           |               |           |   | +-ArrayScan
     |         |           |               |           |   |   +-column_list=[$array.element#7, $array_offset.off#8]
     |         |           |               |           |   |   +-array_expr=
-    |         |           |               |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6, is_correlated=TRUE)
+    |         |           |               |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6, is_correlated=TRUE)
     |         |           |               |           |   |   +-element_column=$array.element#7
     |         |           |               |           |   |   +-array_offset_column=
     |         |           |               |           |   |     +-ColumnHolder(column=$array_offset.off#8)
@@ -1106,9 +1106,9 @@ QueryStmt
     |         |           |               |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         |           |               +-input_scan=
     |         |           |                 +-ProjectScan
-    |         |           |                   +-column_list=[$subquery1.array_input#6]
+    |         |           |                   +-column_list=[$subquery1.array_to_filter#6]
     |         |           |                   +-expr_list=
-    |         |           |                   | +-array_input#6 :=
+    |         |           |                   | +-array_to_filter#6 :=
     |         |           |                   |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
     |         |           |                   |     +-Literal(type=INT64, value=1)
     |         |           |                   |     +-Literal(type=INT64, value=2)
@@ -1121,9 +1121,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#12)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#10]
+    |             +-column_list=[$subquery1.array_to_filter#10]
     |             +-expr_list=
-    |             | +-array_input#10 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             | +-array_to_filter#10 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -1151,7 +1151,7 @@ QueryStmt
     |         +-column_list=[$expr_subquery.$col1#5]
     |         +-expr_list=
     |         | +-$col1#5 :=
-    |         |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |         |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |         |     +-FunctionArgument
     |         |     | +-expr=
     |         |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1165,7 +1165,7 @@ QueryStmt
     |         |             +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
     |         |               +-ColumnRef(type=INT64, column=$lambda_arg.e#3)
     |         |               +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
-    |         |                 +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |         |                 +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |         |                   +-FunctionArgument
     |         |                   | +-expr=
     |         |                   |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -1216,13 +1216,13 @@ QueryStmt
     |         |         | +-$col1#14 :=
     |         |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#11)
+    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#11)
     |         |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |         |     +-SubqueryExpr
     |         |         |       +-type=ARRAY<INT64>
     |         |         |       +-subquery_type=ARRAY
     |         |         |       +-parameter_list=
-    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#11)
+    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#11)
     |         |         |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |         |         |       +-subquery=
     |         |         |         +-OrderByScan
@@ -1235,7 +1235,7 @@ QueryStmt
     |         |         |           |   | +-ArrayScan
     |         |         |           |   |   +-column_list=[$array.element#12, $array_offset.off#13]
     |         |         |           |   |   +-array_expr=
-    |         |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#11, is_correlated=TRUE)
+    |         |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#11, is_correlated=TRUE)
     |         |         |           |   |   +-element_column=$array.element#12
     |         |         |           |   |   +-array_offset_column=
     |         |         |           |   |     +-ColumnHolder(column=$array_offset.off#13)
@@ -1255,13 +1255,13 @@ QueryStmt
     |         |         |           |               | +-$col1#10 :=
     |         |         |           |               |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |         |           |               |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |         |           |               |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#7)
+    |         |         |           |               |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#7)
     |         |         |           |               |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |         |           |               |     +-SubqueryExpr
     |         |         |           |               |       +-type=ARRAY<INT64>
     |         |         |           |               |       +-subquery_type=ARRAY
     |         |         |           |               |       +-parameter_list=
-    |         |         |           |               |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#7)
+    |         |         |           |               |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#7)
     |         |         |           |               |       +-subquery=
     |         |         |           |               |         +-OrderByScan
     |         |         |           |               |           +-column_list=[$array.element#8]
@@ -1273,7 +1273,7 @@ QueryStmt
     |         |         |           |               |           |   | +-ArrayScan
     |         |         |           |               |           |   |   +-column_list=[$array.element#8, $array_offset.off#9]
     |         |         |           |               |           |   |   +-array_expr=
-    |         |         |           |               |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#7, is_correlated=TRUE)
+    |         |         |           |               |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#7, is_correlated=TRUE)
     |         |         |           |               |           |   |   +-element_column=$array.element#8
     |         |         |           |               |           |   |   +-array_offset_column=
     |         |         |           |               |           |   |     +-ColumnHolder(column=$array_offset.off#9)
@@ -1287,9 +1287,9 @@ QueryStmt
     |         |         |           |               |                 +-ColumnRef(type=INT64, column=$array_offset.off#9)
     |         |         |           |               +-input_scan=
     |         |         |           |                 +-ProjectScan
-    |         |         |           |                   +-column_list=[$subquery1.array_input#7]
+    |         |         |           |                   +-column_list=[$subquery1.array_to_filter#7]
     |         |         |           |                   +-expr_list=
-    |         |         |           |                   | +-array_input#7 :=
+    |         |         |           |                   | +-array_to_filter#7 :=
     |         |         |           |                   |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
     |         |         |           |                   |     +-Literal(type=INT64, value=1)
     |         |         |           |                   |     +-Literal(type=INT64, value=2)
@@ -1302,9 +1302,9 @@ QueryStmt
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#13)
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$subquery1.array_input#11]
+    |         |             +-column_list=[$subquery1.array_to_filter#11]
     |         |             +-expr_list=
-    |         |             | +-array_input#11 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |         |             | +-array_to_filter#11 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |         |             +-input_scan=
     |         |               +-SingleRowScan
     |         +-input_scan=
@@ -1335,7 +1335,7 @@ QueryStmt
     |         +-column_list=[$expr_subquery.$col1#4]
     |         +-expr_list=
     |         | +-$col1#4 :=
-    |         |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |         |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |         |     +-FunctionArgument
     |         |     | +-expr=
     |         |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -1386,13 +1386,13 @@ QueryStmt
     |         |         | +-$col1#9 :=
     |         |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |         |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |         |     +-SubqueryExpr
     |         |         |       +-type=ARRAY<INT64>
     |         |         |       +-subquery_type=ARRAY
     |         |         |       +-parameter_list=
-    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |         |         |       +-subquery=
     |         |         |         +-OrderByScan
     |         |         |           +-column_list=[$array.element#7]
@@ -1404,7 +1404,7 @@ QueryStmt
     |         |         |           |   | +-ArrayScan
     |         |         |           |   |   +-column_list=[$array.element#7, $array_offset.off#8]
     |         |         |           |   |   +-array_expr=
-    |         |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6, is_correlated=TRUE)
+    |         |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6, is_correlated=TRUE)
     |         |         |           |   |   +-element_column=$array.element#7
     |         |         |           |   |   +-array_offset_column=
     |         |         |           |   |     +-ColumnHolder(column=$array_offset.off#8)
@@ -1418,9 +1418,9 @@ QueryStmt
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$subquery1.array_input#6]
+    |         |             +-column_list=[$subquery1.array_to_filter#6]
     |         |             +-expr_list=
-    |         |             | +-array_input#6 :=
+    |         |             | +-array_to_filter#6 :=
     |         |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
     |         |             |     +-Literal(type=INT64, value=1)
     |         |             |     +-Literal(type=INT64, value=2)
@@ -1455,7 +1455,7 @@ QueryStmt
     |         +-column_list=[$expr_subquery.$col1#4]
     |         +-expr_list=
     |         | +-$col1#4 :=
-    |         |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |         |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |         |     +-FunctionArgument
     |         |     | +-expr=
     |         |     |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
@@ -1508,13 +1508,13 @@ QueryStmt
     |         |         | +-$col1#9 :=
     |         |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |         |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |         |     +-SubqueryExpr
     |         |         |       +-type=ARRAY<INT64>
     |         |         |       +-subquery_type=ARRAY
     |         |         |       +-parameter_list=
-    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6)
+    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6)
     |         |         |       | +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
     |         |         |       +-subquery=
     |         |         |         +-OrderByScan
@@ -1527,7 +1527,7 @@ QueryStmt
     |         |         |           |   | +-ArrayScan
     |         |         |           |   |   +-column_list=[$array.element#7, $array_offset.off#8]
     |         |         |           |   |   +-array_expr=
-    |         |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#6, is_correlated=TRUE)
+    |         |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#6, is_correlated=TRUE)
     |         |         |           |   |   +-element_column=$array.element#7
     |         |         |           |   |   +-array_offset_column=
     |         |         |           |   |     +-ColumnHolder(column=$array_offset.off#8)
@@ -1541,9 +1541,9 @@ QueryStmt
     |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#8)
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$subquery1.array_input#6]
+    |         |             +-column_list=[$subquery1.array_to_filter#6]
     |         |             +-expr_list=
-    |         |             | +-array_input#6 :=
+    |         |             | +-array_to_filter#6 :=
     |         |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
     |         |             |     +-Literal(type=INT64, value=1)
     |         |             |     +-Literal(type=INT64, value=2)
@@ -1567,10 +1567,10 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
-    |     |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64>, LAMBDA(INT64->INT64)) -> ARRAY<INT64>)
+    |     |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA(INT64->INT64) transformation) -> ARRAY<INT64>)
     |     |     +-FunctionArgument
     |     |     | +-expr=
     |     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1612,13 +1612,13 @@ QueryStmt
     |         | +-$col1#12 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#9)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#9)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#9)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#9)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$array.element#10]
@@ -1630,7 +1630,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$array.element#10, $array_offset.off#11]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#9, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#9, is_correlated=TRUE)
     |         |           |   |   +-element_column=$array.element#10
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$array_offset.off#11)
@@ -1644,9 +1644,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#11)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#9]
+    |             +-column_list=[$subquery1.array_to_filter#9]
     |             +-expr_list=
-    |             | +-array_input#9 :=
+    |             | +-array_to_filter#9 :=
     |             |   +-SubqueryExpr
     |             |     +-type=ARRAY<INT64>
     |             |     +-subquery_type=SCALAR
@@ -1657,13 +1657,13 @@ QueryStmt
     |             |         | +-$col1#8 :=
     |             |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |             |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |             |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4)
+    |             |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4)
     |             |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |             |         |     +-SubqueryExpr
     |             |         |       +-type=ARRAY<INT64>
     |             |         |       +-subquery_type=ARRAY
     |             |         |       +-parameter_list=
-    |             |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4)
+    |             |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4)
     |             |         |       +-subquery=
     |             |         |         +-OrderByScan
     |             |         |           +-column_list=[$expr_subquery.$col1#7]
@@ -1680,7 +1680,7 @@ QueryStmt
     |             |         |           |     +-ArrayScan
     |             |         |           |       +-column_list=[$array.element#5, $array_offset.off#6]
     |             |         |           |       +-array_expr=
-    |             |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4, is_correlated=TRUE)
+    |             |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4, is_correlated=TRUE)
     |             |         |           |       +-element_column=$array.element#5
     |             |         |           |       +-array_offset_column=
     |             |         |           |         +-ColumnHolder(column=$array_offset.off#6)
@@ -1690,9 +1690,9 @@ QueryStmt
     |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |             |         +-input_scan=
     |             |           +-ProjectScan
-    |             |             +-column_list=[$subquery1.array_input#4]
+    |             |             +-column_list=[$subquery1.array_to_transform#4]
     |             |             +-expr_list=
-    |             |             | +-array_input#4 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             |             | +-array_to_transform#4 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |             |             +-input_scan=
     |             |               +-SingleRowScan
     |             +-input_scan=
@@ -1712,7 +1712,7 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64>, LAMBDA(INT64->INT64)) -> ARRAY<INT64>)
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<INT64> array_to_transform, LAMBDA(INT64->INT64) transformation) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -1722,7 +1722,7 @@ QueryStmt
     |           +-argument_list=[$lambda_arg.e#1]
     |           +-body=
     |             +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
-    |               +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |               +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |                 +-FunctionArgument
     |                 | +-expr=
     |                 |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) INT64) -> ARRAY<INT64>)
@@ -1758,13 +1758,13 @@ QueryStmt
     |         | +-$col1#12 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#8)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#8)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#8)
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#8)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$expr_subquery.$col1#11]
@@ -1787,13 +1787,13 @@ QueryStmt
     |         |           |   |           | +-$col1#7 :=
     |         |           |   |           |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |           |   |           |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |           |   |           |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4)
+    |         |           |   |           |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#4)
     |         |           |   |           |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |           |   |           |     +-SubqueryExpr
     |         |           |   |           |       +-type=ARRAY<INT64>
     |         |           |   |           |       +-subquery_type=ARRAY
     |         |           |   |           |       +-parameter_list=
-    |         |           |   |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4)
+    |         |           |   |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#4)
     |         |           |   |           |       +-subquery=
     |         |           |   |           |         +-OrderByScan
     |         |           |   |           |           +-column_list=[$array.element#5]
@@ -1805,7 +1805,7 @@ QueryStmt
     |         |           |   |           |           |   | +-ArrayScan
     |         |           |   |           |           |   |   +-column_list=[$array.element#5, $array_offset.off#6]
     |         |           |   |           |           |   |   +-array_expr=
-    |         |           |   |           |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4, is_correlated=TRUE)
+    |         |           |   |           |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#4, is_correlated=TRUE)
     |         |           |   |           |           |   |   +-element_column=$array.element#5
     |         |           |   |           |           |   |   +-array_offset_column=
     |         |           |   |           |           |   |     +-ColumnHolder(column=$array_offset.off#6)
@@ -1819,9 +1819,9 @@ QueryStmt
     |         |           |   |           |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
     |         |           |   |           +-input_scan=
     |         |           |   |             +-ProjectScan
-    |         |           |   |               +-column_list=[$subquery1.array_input#4]
+    |         |           |   |               +-column_list=[$subquery1.array_to_filter#4]
     |         |           |   |               +-expr_list=
-    |         |           |   |               | +-array_input#4 :=
+    |         |           |   |               | +-array_to_filter#4 :=
     |         |           |   |               |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) INT64) -> ARRAY<INT64>)
     |         |           |   |               |     +-ColumnRef(type=INT64, column=$array.element#9, is_correlated=TRUE)
     |         |           |   |               |     +-Literal(type=INT64, value=4)
@@ -1831,7 +1831,7 @@ QueryStmt
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$array.element#9, $array_offset.off#10]
     |         |           |       +-array_expr=
-    |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#8, is_correlated=TRUE)
+    |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#8, is_correlated=TRUE)
     |         |           |       +-element_column=$array.element#9
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$array_offset.off#10)
@@ -1841,9 +1841,9 @@ QueryStmt
     |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#10)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#8]
+    |             +-column_list=[$subquery1.array_to_transform#8]
     |             +-expr_list=
-    |             | +-array_input#8 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             | +-array_to_transform#8 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -1902,7 +1902,7 @@ QueryStmt
     |   +-column_list=[$query.$col1#7]
     |   +-expr_list=
     |   | +-$col1#7 :=
-    |   |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   |   +-FunctionCall(ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |   |     +-FunctionArgument
     |   |     | +-expr=
     |   |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2])
@@ -1977,13 +1977,13 @@ QueryStmt
     |   |         | +-$col1#11 :=
     |   |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |   |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |   |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#8)
+    |   |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#8)
     |   |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |   |         |     +-SubqueryExpr
     |   |         |       +-type=ARRAY<INT64>
     |   |         |       +-subquery_type=ARRAY
     |   |         |       +-parameter_list=
-    |   |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#8)
+    |   |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#8)
     |   |         |       +-subquery=
     |   |         |         +-OrderByScan
     |   |         |           +-column_list=[$array.element#9]
@@ -1995,7 +1995,7 @@ QueryStmt
     |   |         |           |   | +-ArrayScan
     |   |         |           |   |   +-column_list=[$array.element#9, $array_offset.off#10]
     |   |         |           |   |   +-array_expr=
-    |   |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#8, is_correlated=TRUE)
+    |   |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#8, is_correlated=TRUE)
     |   |         |           |   |   +-element_column=$array.element#9
     |   |         |           |   |   +-array_offset_column=
     |   |         |           |   |     +-ColumnHolder(column=$array_offset.off#10)
@@ -2009,9 +2009,9 @@ QueryStmt
     |   |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#10)
     |   |         +-input_scan=
     |   |           +-ProjectScan
-    |   |             +-column_list=[$subquery1.array_input#8]
+    |   |             +-column_list=[$subquery1.array_to_filter#8]
     |   |             +-expr_list=
-    |   |             | +-array_input#8 := Literal(type=ARRAY<INT64>, value=[1, 2])
+    |   |             | +-array_to_filter#8 := Literal(type=ARRAY<INT64>, value=[1, 2])
     |   |             +-input_scan=
     |   |               +-SingleRowScan
     |   +-input_scan=
@@ -2042,7 +2042,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -2077,13 +2077,13 @@ QueryStmt
     |         |   +-FunctionCall(ZetaSQL:iferror(ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |     | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |         |     | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3)
     |         |     | +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     | +-SubqueryExpr
     |         |     |   +-type=ARRAY<INT64>
     |         |     |   +-subquery_type=ARRAY
     |         |     |   +-parameter_list=
-    |         |     |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |         |     |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3)
     |         |     |   +-subquery=
     |         |     |     +-OrderByScan
     |         |     |       +-column_list=[$array.element#4]
@@ -2095,7 +2095,7 @@ QueryStmt
     |         |     |       |   | +-ArrayScan
     |         |     |       |   |   +-column_list=[$array.element#4, $array_offset.off#5]
     |         |     |       |   |   +-array_expr=
-    |         |     |       |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3, is_correlated=TRUE)
+    |         |     |       |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_filter#3, is_correlated=TRUE)
     |         |     |       |   |   +-element_column=$array.element#4
     |         |     |       |   |   +-array_offset_column=
     |         |     |       |   |     +-ColumnHolder(column=$array_offset.off#5)
@@ -2110,9 +2110,9 @@ QueryStmt
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL, has_explicit_type=TRUE)
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$subquery1.array_input#3]
+    |             +-column_list=[$subquery1.array_to_filter#3]
     |             +-expr_list=
-    |             | +-array_input#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             | +-array_to_filter#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -2131,7 +2131,7 @@ QueryStmt
     +-column_list=[$query.$col1#2]
     +-expr_list=
     | +-$col1#2 :=
-    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> ARRAY<INT64>)
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_filter(ARRAY<INT64> array_to_filter, LAMBDA(INT64->BOOL) condition) -> ARRAY<INT64>)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])

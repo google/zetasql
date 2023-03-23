@@ -1,0 +1,1219 @@
+# Only has WHEN MATCHED clause
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+--
+MergeStatement [0-104] [MERGE INTO....T1 + S.C1]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-104] [WHEN MATCHED....T1 + S.C1]
+    MergeWhenClause(match_type=MATCHED) [32-104] [WHEN MATCHED....T1 + S.C1]
+      BinaryExpression(=) [49-57] [T.T1 = 5]
+        PathExpression [49-53] [T.T1]
+          Identifier(T) [49-50] [T]
+          Identifier(T1) [51-53] [T1]
+        IntLiteral(5) [56-57] [5]
+      MergeAction(UPDATE) [63-104] [UPDATE SET....T1 + S.C1]
+        UpdateItemList [74-104] [T1 = T1 + 10, T2 = T.T1 + S.C1]
+          UpdateItem [74-86] [T1 = T1 + 10]
+            UpdateSetValue [74-86] [T1 = T1 + 10]
+              PathExpression [74-76] [T1]
+                Identifier(T1) [74-76] [T1]
+              BinaryExpression(+) [79-86] [T1 + 10]
+                PathExpression [79-81] [T1]
+                  Identifier(T1) [79-81] [T1]
+                IntLiteral(10) [84-86] [10]
+          UpdateItem [88-104] [T2 = T.T1 + S.C1]
+            UpdateSetValue [88-104] [T2 = T.T1 + S.C1]
+              PathExpression [88-90] [T2]
+                Identifier(T2) [88-90] [T2]
+              BinaryExpression(+) [93-104] [T.T1 + S.C1]
+                PathExpression [93-97] [T.T1]
+                  Identifier(T) [93-94] [T]
+                  Identifier(T1) [95-97] [T1]
+                PathExpression [100-104] [S.C1]
+                  Identifier(S) [100-101] [S]
+                  Identifier(C1) [102-104] [C1]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+==
+
+# Verify that we can use generalized paths with SET
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1.(foo.bar) = T1.(foo.bar) + 10, T2 = T.T1 + S.C1
+--
+MergeStatement [0-124] [MERGE INTO....T1 + S.C1]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-124] [WHEN MATCHED....T1 + S.C1]
+    MergeWhenClause(match_type=MATCHED) [32-124] [WHEN MATCHED....T1 + S.C1]
+      BinaryExpression(=) [49-57] [T.T1 = 5]
+        PathExpression [49-53] [T.T1]
+          Identifier(T) [49-50] [T]
+          Identifier(T1) [51-53] [T1]
+        IntLiteral(5) [56-57] [5]
+      MergeAction(UPDATE) [63-124] [UPDATE SET....T1 + S.C1]
+        UpdateItemList [74-124] [T1.(foo.bar....T1 + S.C1]
+          UpdateItem [74-106] [T1.(foo.bar....bar) + 10]
+            UpdateSetValue [74-106] [T1.(foo.bar....bar) + 10]
+              DotGeneralizedField [74-86] [T1.(foo.bar)]
+                PathExpression [74-76] [T1]
+                  Identifier(T1) [74-76] [T1]
+                PathExpression [78-85] [foo.bar]
+                  Identifier(foo) [78-81] [foo]
+                  Identifier(bar) [82-85] [bar]
+              BinaryExpression(+) [89-106] [T1.(foo.bar) + 10]
+                DotGeneralizedField [89-101] [T1.(foo.bar)]
+                  PathExpression [89-91] [T1]
+                    Identifier(T1) [89-91] [T1]
+                  PathExpression [93-100] [foo.bar]
+                    Identifier(foo) [93-96] [foo]
+                    Identifier(bar) [97-100] [bar]
+                IntLiteral(10) [104-106] [10]
+          UpdateItem [108-124] [T2 = T.T1 + S.C1]
+            UpdateSetValue [108-124] [T2 = T.T1 + S.C1]
+              PathExpression [108-110] [T2]
+                Identifier(T2) [108-110] [T2]
+              BinaryExpression(+) [113-124] [T.T1 + S.C1]
+                PathExpression [113-117] [T.T1]
+                  Identifier(T) [113-114] [T]
+                  Identifier(T1) [115-117] [T1]
+                PathExpression [120-124] [S.C1]
+                  Identifier(S) [120-121] [S]
+                  Identifier(C1) [122-124] [C1]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1.(foo.bar) = T1.(foo.bar) + 10,
+    T2 = T.T1 + S.C1
+==
+
+# Only has (implicit) NOT MATCHED BY TARGET clause
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+--
+MergeStatement [0-102] [MERGE INTO...C1 + S.C2)]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-102] [WHEN NOT MATCHED...C1 + S.C2)]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [32-102] [WHEN NOT MATCHED...C1 + S.C2)]
+      MergeAction(INSERT) [54-102] [INSERT(t1,...C1 + S.C2)]
+        ColumnList [60-72] [(t1, t2, t3)]
+          Identifier(t1) [61-63] [t1]
+          Identifier(t2) [65-67] [t2]
+          Identifier(t3) [69-71] [t3]
+        InsertValuesRow [79-102] [(10, S.C3, S.C1 + S.C2)]
+          IntLiteral(10) [80-82] [10]
+          PathExpression [84-88] [S.C3]
+            Identifier(S) [84-85] [S]
+            Identifier(C3) [86-88] [C3]
+          BinaryExpression(+) [90-101] [S.C1 + S.C2]
+            PathExpression [90-94] [S.C1]
+              Identifier(S) [90-91] [S]
+              Identifier(C1) [92-94] [C1]
+            PathExpression [97-101] [S.C2]
+              Identifier(S) [97-98] [S]
+              Identifier(C2) [99-101] [C2]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+==
+
+# Only has NOT MATCHED BY SOURCE clause
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+DELETE
+--
+MergeStatement [0-70] [MERGE INTO...THEN DELETE]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-70] [WHEN NOT MATCHED...THEN DELETE]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-70] [WHEN NOT MATCHED...THEN DELETE]
+      MergeAction(DELETE) [64-70] [DELETE]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  DELETE
+==
+
+# Has MATCHED & NOT MATCHED BY TARGET clauses.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+WHEN NOT MATCHED THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+--
+MergeStatement [0-175] [MERGE INTO...C1 + S.C2)]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-175] [WHEN MATCHED...C1 + S.C2)]
+    MergeWhenClause(match_type=MATCHED) [32-104] [WHEN MATCHED....T1 + S.C1]
+      BinaryExpression(=) [49-57] [T.T1 = 5]
+        PathExpression [49-53] [T.T1]
+          Identifier(T) [49-50] [T]
+          Identifier(T1) [51-53] [T1]
+        IntLiteral(5) [56-57] [5]
+      MergeAction(UPDATE) [63-104] [UPDATE SET....T1 + S.C1]
+        UpdateItemList [74-104] [T1 = T1 + 10, T2 = T.T1 + S.C1]
+          UpdateItem [74-86] [T1 = T1 + 10]
+            UpdateSetValue [74-86] [T1 = T1 + 10]
+              PathExpression [74-76] [T1]
+                Identifier(T1) [74-76] [T1]
+              BinaryExpression(+) [79-86] [T1 + 10]
+                PathExpression [79-81] [T1]
+                  Identifier(T1) [79-81] [T1]
+                IntLiteral(10) [84-86] [10]
+          UpdateItem [88-104] [T2 = T.T1 + S.C1]
+            UpdateSetValue [88-104] [T2 = T.T1 + S.C1]
+              PathExpression [88-90] [T2]
+                Identifier(T2) [88-90] [T2]
+              BinaryExpression(+) [93-104] [T.T1 + S.C1]
+                PathExpression [93-97] [T.T1]
+                  Identifier(T) [93-94] [T]
+                  Identifier(T1) [95-97] [T1]
+                PathExpression [100-104] [S.C1]
+                  Identifier(S) [100-101] [S]
+                  Identifier(C1) [102-104] [C1]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [105-175] [WHEN NOT MATCHED...C1 + S.C2)]
+      MergeAction(INSERT) [127-175] [INSERT(t1,...C1 + S.C2)]
+        ColumnList [133-145] [(t1, t2, t3)]
+          Identifier(t1) [134-136] [t1]
+          Identifier(t2) [138-140] [t2]
+          Identifier(t3) [142-144] [t3]
+        InsertValuesRow [152-175] [(10, S.C3, S.C1 + S.C2)]
+          IntLiteral(10) [153-155] [10]
+          PathExpression [157-161] [S.C3]
+            Identifier(S) [157-158] [S]
+            Identifier(C3) [159-161] [C3]
+          BinaryExpression(+) [163-174] [S.C1 + S.C2]
+            PathExpression [163-167] [S.C1]
+              Identifier(S) [163-164] [S]
+              Identifier(C1) [165-167] [C1]
+            PathExpression [170-174] [S.C2]
+              Identifier(S) [170-171] [S]
+              Identifier(C2) [172-174] [C2]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+==
+
+# Has MATCHED & NOT MATCHED BY SOURCE clauses.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+WHEN NOT MATCHED BY SOURCE THEN
+DELETE
+--
+MergeStatement [0-143] [MERGE INTO...THEN DELETE]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-143] [WHEN MATCHED...THEN DELETE]
+    MergeWhenClause(match_type=MATCHED) [32-104] [WHEN MATCHED....T1 + S.C1]
+      BinaryExpression(=) [49-57] [T.T1 = 5]
+        PathExpression [49-53] [T.T1]
+          Identifier(T) [49-50] [T]
+          Identifier(T1) [51-53] [T1]
+        IntLiteral(5) [56-57] [5]
+      MergeAction(UPDATE) [63-104] [UPDATE SET....T1 + S.C1]
+        UpdateItemList [74-104] [T1 = T1 + 10, T2 = T.T1 + S.C1]
+          UpdateItem [74-86] [T1 = T1 + 10]
+            UpdateSetValue [74-86] [T1 = T1 + 10]
+              PathExpression [74-76] [T1]
+                Identifier(T1) [74-76] [T1]
+              BinaryExpression(+) [79-86] [T1 + 10]
+                PathExpression [79-81] [T1]
+                  Identifier(T1) [79-81] [T1]
+                IntLiteral(10) [84-86] [10]
+          UpdateItem [88-104] [T2 = T.T1 + S.C1]
+            UpdateSetValue [88-104] [T2 = T.T1 + S.C1]
+              PathExpression [88-90] [T2]
+                Identifier(T2) [88-90] [T2]
+              BinaryExpression(+) [93-104] [T.T1 + S.C1]
+                PathExpression [93-97] [T.T1]
+                  Identifier(T) [93-94] [T]
+                  Identifier(T1) [95-97] [T1]
+                PathExpression [100-104] [S.C1]
+                  Identifier(S) [100-101] [S]
+                  Identifier(C1) [102-104] [C1]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [105-143] [WHEN NOT MATCHED...THEN DELETE]
+      MergeAction(DELETE) [137-143] [DELETE]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+WHEN NOT MATCHED BY SOURCE THEN
+  DELETE
+==
+
+# Has NOT MATCHED BY SOURCE & TARGET clauses.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+WHEN NOT MATCHED BY SOURCE THEN
+DELETE
+--
+MergeStatement [0-141] [MERGE INTO...THEN DELETE]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-141] [WHEN NOT MATCHED...THEN DELETE]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [32-102] [WHEN NOT MATCHED...C1 + S.C2)]
+      MergeAction(INSERT) [54-102] [INSERT(t1,...C1 + S.C2)]
+        ColumnList [60-72] [(t1, t2, t3)]
+          Identifier(t1) [61-63] [t1]
+          Identifier(t2) [65-67] [t2]
+          Identifier(t3) [69-71] [t3]
+        InsertValuesRow [79-102] [(10, S.C3, S.C1 + S.C2)]
+          IntLiteral(10) [80-82] [10]
+          PathExpression [84-88] [S.C3]
+            Identifier(S) [84-85] [S]
+            Identifier(C3) [86-88] [C3]
+          BinaryExpression(+) [90-101] [S.C1 + S.C2]
+            PathExpression [90-94] [S.C1]
+              Identifier(S) [90-91] [S]
+              Identifier(C1) [92-94] [C1]
+            PathExpression [97-101] [S.C2]
+              Identifier(S) [97-98] [S]
+              Identifier(C2) [99-101] [C2]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [103-141] [WHEN NOT MATCHED...THEN DELETE]
+      MergeAction(DELETE) [135-141] [DELETE]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+WHEN NOT MATCHED BY SOURCE THEN
+  DELETE
+==
+
+# Has all three clauses.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+WHEN NOT MATCHED THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+WHEN NOT MATCHED BY SOURCE THEN
+DELETE
+--
+MergeStatement [0-214] [MERGE INTO...THEN DELETE]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-214] [WHEN MATCHED...THEN DELETE]
+    MergeWhenClause(match_type=MATCHED) [32-104] [WHEN MATCHED....T1 + S.C1]
+      BinaryExpression(=) [49-57] [T.T1 = 5]
+        PathExpression [49-53] [T.T1]
+          Identifier(T) [49-50] [T]
+          Identifier(T1) [51-53] [T1]
+        IntLiteral(5) [56-57] [5]
+      MergeAction(UPDATE) [63-104] [UPDATE SET....T1 + S.C1]
+        UpdateItemList [74-104] [T1 = T1 + 10, T2 = T.T1 + S.C1]
+          UpdateItem [74-86] [T1 = T1 + 10]
+            UpdateSetValue [74-86] [T1 = T1 + 10]
+              PathExpression [74-76] [T1]
+                Identifier(T1) [74-76] [T1]
+              BinaryExpression(+) [79-86] [T1 + 10]
+                PathExpression [79-81] [T1]
+                  Identifier(T1) [79-81] [T1]
+                IntLiteral(10) [84-86] [10]
+          UpdateItem [88-104] [T2 = T.T1 + S.C1]
+            UpdateSetValue [88-104] [T2 = T.T1 + S.C1]
+              PathExpression [88-90] [T2]
+                Identifier(T2) [88-90] [T2]
+              BinaryExpression(+) [93-104] [T.T1 + S.C1]
+                PathExpression [93-97] [T.T1]
+                  Identifier(T) [93-94] [T]
+                  Identifier(T1) [95-97] [T1]
+                PathExpression [100-104] [S.C1]
+                  Identifier(S) [100-101] [S]
+                  Identifier(C1) [102-104] [C1]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [105-175] [WHEN NOT MATCHED...C1 + S.C2)]
+      MergeAction(INSERT) [127-175] [INSERT(t1,...C1 + S.C2)]
+        ColumnList [133-145] [(t1, t2, t3)]
+          Identifier(t1) [134-136] [t1]
+          Identifier(t2) [138-140] [t2]
+          Identifier(t3) [142-144] [t3]
+        InsertValuesRow [152-175] [(10, S.C3, S.C1 + S.C2)]
+          IntLiteral(10) [153-155] [10]
+          PathExpression [157-161] [S.C3]
+            Identifier(S) [157-158] [S]
+            Identifier(C3) [159-161] [C3]
+          BinaryExpression(+) [163-174] [S.C1 + S.C2]
+            PathExpression [163-167] [S.C1]
+              Identifier(S) [163-164] [S]
+              Identifier(C1) [165-167] [C1]
+            PathExpression [170-174] [S.C2]
+              Identifier(S) [170-171] [S]
+              Identifier(C2) [172-174] [C2]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [176-214] [WHEN NOT MATCHED...THEN DELETE]
+      MergeAction(DELETE) [208-214] [DELETE]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+WHEN NOT MATCHED BY SOURCE THEN
+  DELETE
+==
+
+MERGE INTO T
+USING S
+ON T.t1 = S.s1
+WHEN NOT MATCHED BY TARGET AND s1 > 10 THEN
+INSERT(t1) VALUES(10)
+--
+MergeStatement [0-101] [MERGE INTO...VALUES(10)]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-35] [T.t1 = S.s1]
+    PathExpression [24-28] [T.t1]
+      Identifier(T) [24-25] [T]
+      Identifier(t1) [26-28] [t1]
+    PathExpression [31-35] [S.s1]
+      Identifier(S) [31-32] [S]
+      Identifier(s1) [33-35] [s1]
+  MergeWhenClauseList [36-101] [WHEN NOT MATCHED...VALUES(10)]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [36-101] [WHEN NOT MATCHED...VALUES(10)]
+      BinaryExpression(>) [67-74] [s1 > 10]
+        PathExpression [67-69] [s1]
+          Identifier(s1) [67-69] [s1]
+        IntLiteral(10) [72-74] [10]
+      MergeAction(INSERT) [80-101] [INSERT(t1) VALUES(10)]
+        ColumnList [86-90] [(t1)]
+          Identifier(t1) [87-89] [t1]
+        InsertValuesRow [97-101] [(10)]
+          IntLiteral(10) [98-100] [10]
+--
+MERGE INTO T
+USING S
+ON T.t1 = S.s1
+WHEN NOT MATCHED BY TARGET AND s1 > 10 THEN
+  INSERT(t1)
+  VALUES
+    (10)
+==
+
+MERGE T
+USING S
+ON T.t1 = S.s1
+WHEN NOT MATCHED THEN
+INSERT(t1) VALUES(10)
+--
+MergeStatement [0-74] [MERGE T USING...VALUES(10)]
+  PathExpression [6-7] [T]
+    Identifier(T) [6-7] [T]
+  TablePathExpression [14-15] [S]
+    PathExpression [14-15] [S]
+      Identifier(S) [14-15] [S]
+  BinaryExpression(=) [19-30] [T.t1 = S.s1]
+    PathExpression [19-23] [T.t1]
+      Identifier(T) [19-20] [T]
+      Identifier(t1) [21-23] [t1]
+    PathExpression [26-30] [S.s1]
+      Identifier(S) [26-27] [S]
+      Identifier(s1) [28-30] [s1]
+  MergeWhenClauseList [31-74] [WHEN NOT MATCHED...VALUES(10)]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [31-74] [WHEN NOT MATCHED...VALUES(10)]
+      MergeAction(INSERT) [53-74] [INSERT(t1) VALUES(10)]
+        ColumnList [59-63] [(t1)]
+          Identifier(t1) [60-62] [t1]
+        InsertValuesRow [70-74] [(10)]
+          IntLiteral(10) [71-73] [10]
+--
+MERGE INTO T
+USING S
+ON T.t1 = S.s1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1)
+  VALUES
+    (10)
+==
+
+# Using subquery as source table.
+MERGE INTO T
+USING (SELECT * FROM Y JOIN Z ON Y.C1 = Z.C1) AS S
+ON t1 = s1
+WHEN NOT MATCHED AND S.C2 = 20 THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+
+--
+MergeStatement [0-159] [MERGE INTO...C1 + S.C2)]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TableSubquery [19-63] [(SELECT *...Z.C1) AS S]
+    Query [20-57] [SELECT * FROM....C1 = Z.C1]
+      Select [20-57] [SELECT * FROM....C1 = Z.C1]
+        SelectList [27-28] [*]
+          SelectColumn [27-28] [*]
+            Star(*) [27-28] [*]
+        FromClause [29-57] [FROM Y JOIN Z ON Y.C1 = Z.C1]
+          Join [34-57] [Y JOIN Z ON Y.C1 = Z.C1]
+            TablePathExpression [34-35] [Y]
+              PathExpression [34-35] [Y]
+                Identifier(Y) [34-35] [Y]
+            Location [36-40] [JOIN]
+            TablePathExpression [41-42] [Z]
+              PathExpression [41-42] [Z]
+                Identifier(Z) [41-42] [Z]
+            OnClause [43-57] [ON Y.C1 = Z.C1]
+              BinaryExpression(=) [46-57] [Y.C1 = Z.C1]
+                PathExpression [46-50] [Y.C1]
+                  Identifier(Y) [46-47] [Y]
+                  Identifier(C1) [48-50] [C1]
+                PathExpression [53-57] [Z.C1]
+                  Identifier(Z) [53-54] [Z]
+                  Identifier(C1) [55-57] [C1]
+    Alias [59-63] [AS S]
+      Identifier(S) [62-63] [S]
+  BinaryExpression(=) [67-74] [t1 = s1]
+    PathExpression [67-69] [t1]
+      Identifier(t1) [67-69] [t1]
+    PathExpression [72-74] [s1]
+      Identifier(s1) [72-74] [s1]
+  MergeWhenClauseList [75-159] [WHEN NOT MATCHED...C1 + S.C2)]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [75-159] [WHEN NOT MATCHED...C1 + S.C2)]
+      BinaryExpression(=) [96-105] [S.C2 = 20]
+        PathExpression [96-100] [S.C2]
+          Identifier(S) [96-97] [S]
+          Identifier(C2) [98-100] [C2]
+        IntLiteral(20) [103-105] [20]
+      MergeAction(INSERT) [111-159] [INSERT(t1,...C1 + S.C2)]
+        ColumnList [117-129] [(t1, t2, t3)]
+          Identifier(t1) [118-120] [t1]
+          Identifier(t2) [122-124] [t2]
+          Identifier(t3) [126-128] [t3]
+        InsertValuesRow [136-159] [(10, S.C3, S.C1 + S.C2)]
+          IntLiteral(10) [137-139] [10]
+          PathExpression [141-145] [S.C3]
+            Identifier(S) [141-142] [S]
+            Identifier(C3) [143-145] [C3]
+          BinaryExpression(+) [147-158] [S.C1 + S.C2]
+            PathExpression [147-151] [S.C1]
+              Identifier(S) [147-148] [S]
+              Identifier(C1) [149-151] [C1]
+            PathExpression [154-158] [S.C2]
+              Identifier(S) [154-155] [S]
+              Identifier(C2) [156-158] [C2]
+--
+MERGE INTO T
+USING
+(
+  SELECT
+    *
+  FROM
+    Y
+    JOIN
+    Z
+    ON Y.C1 = Z.C1
+) AS S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET AND S.C2 = 20 THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+==
+
+# Has multiple WHEN NOT MATCHED BY TARGET clauses.
+MERGE T AS X
+USING S
+ON X.t1 = S.s1
+WHEN NOT MATCHED AND S.C1 > 100 THEN
+INSERT(t1) VALUES(S.C2)
+WHEN NOT MATCHED AND S.C1 > 50 THEN
+INSERT(t1) VALUES(S.C2 * 10)
+WHEN NOT MATCHED THEN
+INSERT(t1) VALUES(S.C2 * 100)
+--
+MergeStatement [0-213] [MERGE T AS....C2 * 100)]
+  PathExpression [6-7] [T]
+    Identifier(T) [6-7] [T]
+  Alias [8-12] [AS X]
+    Identifier(X) [11-12] [X]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-35] [X.t1 = S.s1]
+    PathExpression [24-28] [X.t1]
+      Identifier(X) [24-25] [X]
+      Identifier(t1) [26-28] [t1]
+    PathExpression [31-35] [S.s1]
+      Identifier(S) [31-32] [S]
+      Identifier(s1) [33-35] [s1]
+  MergeWhenClauseList [36-213] [WHEN NOT MATCHED....C2 * 100)]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [36-96] [WHEN NOT MATCHED...ALUES(S.C2)]
+      BinaryExpression(>) [57-67] [S.C1 > 100]
+        PathExpression [57-61] [S.C1]
+          Identifier(S) [57-58] [S]
+          Identifier(C1) [59-61] [C1]
+        IntLiteral(100) [64-67] [100]
+      MergeAction(INSERT) [73-96] [INSERT(t1) VALUES(S.C2)]
+        ColumnList [79-83] [(t1)]
+          Identifier(t1) [80-82] [t1]
+        InsertValuesRow [90-96] [(S.C2)]
+          PathExpression [91-95] [S.C2]
+            Identifier(S) [91-92] [S]
+            Identifier(C2) [93-95] [C2]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [97-161] [WHEN NOT MATCHED...S.C2 * 10)]
+      BinaryExpression(>) [118-127] [S.C1 > 50]
+        PathExpression [118-122] [S.C1]
+          Identifier(S) [118-119] [S]
+          Identifier(C1) [120-122] [C1]
+        IntLiteral(50) [125-127] [50]
+      MergeAction(INSERT) [133-161] [INSERT(t1) VALUES(S.C2 * 10)]
+        ColumnList [139-143] [(t1)]
+          Identifier(t1) [140-142] [t1]
+        InsertValuesRow [150-161] [(S.C2 * 10)]
+          BinaryExpression(*) [151-160] [S.C2 * 10]
+            PathExpression [151-155] [S.C2]
+              Identifier(S) [151-152] [S]
+              Identifier(C2) [153-155] [C2]
+            IntLiteral(10) [158-160] [10]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [162-213] [WHEN NOT MATCHED....C2 * 100)]
+      MergeAction(INSERT) [184-213] [INSERT(t1) VALUES(S.C2 * 100)]
+        ColumnList [190-194] [(t1)]
+          Identifier(t1) [191-193] [t1]
+        InsertValuesRow [201-213] [(S.C2 * 100)]
+          BinaryExpression(*) [202-212] [S.C2 * 100]
+            PathExpression [202-206] [S.C2]
+              Identifier(S) [202-203] [S]
+              Identifier(C2) [204-206] [C2]
+            IntLiteral(100) [209-212] [100]
+--
+MERGE INTO T AS X
+USING S
+ON X.t1 = S.s1
+WHEN NOT MATCHED BY TARGET AND S.C1 > 100 THEN
+  INSERT(t1)
+  VALUES
+    (S.C2)
+WHEN NOT MATCHED BY TARGET AND S.C1 > 50 THEN
+  INSERT(t1)
+  VALUES
+    (S.C2 * 10)
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1)
+  VALUES
+    (S.C2 * 100)
+==
+
+# More than 1 same type clauses together with other clause type.
+MERGE INTO T
+USING (SELECT * FROM Y JOIN Z ON Y.C1 = Z.C1) AS S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 AND S.C3 < 0 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+WHEN MATCHED THEN
+DELETE
+WHEN NOT MATCHED AND S.C2 = 20 THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+--
+MergeStatement [0-270] [MERGE INTO...C1 + S.C2)]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TableSubquery [19-63] [(SELECT *...Z.C1) AS S]
+    Query [20-57] [SELECT * FROM....C1 = Z.C1]
+      Select [20-57] [SELECT * FROM....C1 = Z.C1]
+        SelectList [27-28] [*]
+          SelectColumn [27-28] [*]
+            Star(*) [27-28] [*]
+        FromClause [29-57] [FROM Y JOIN Z ON Y.C1 = Z.C1]
+          Join [34-57] [Y JOIN Z ON Y.C1 = Z.C1]
+            TablePathExpression [34-35] [Y]
+              PathExpression [34-35] [Y]
+                Identifier(Y) [34-35] [Y]
+            Location [36-40] [JOIN]
+            TablePathExpression [41-42] [Z]
+              PathExpression [41-42] [Z]
+                Identifier(Z) [41-42] [Z]
+            OnClause [43-57] [ON Y.C1 = Z.C1]
+              BinaryExpression(=) [46-57] [Y.C1 = Z.C1]
+                PathExpression [46-50] [Y.C1]
+                  Identifier(Y) [46-47] [Y]
+                  Identifier(C1) [48-50] [C1]
+                PathExpression [53-57] [Z.C1]
+                  Identifier(Z) [53-54] [Z]
+                  Identifier(C1) [55-57] [C1]
+    Alias [59-63] [AS S]
+      Identifier(S) [62-63] [S]
+  BinaryExpression(=) [67-74] [t1 = s1]
+    PathExpression [67-69] [t1]
+      Identifier(t1) [67-69] [t1]
+    PathExpression [72-74] [s1]
+      Identifier(s1) [72-74] [s1]
+  MergeWhenClauseList [75-270] [WHEN MATCHED...C1 + S.C2)]
+    MergeWhenClause(match_type=MATCHED) [75-160] [WHEN MATCHED....T1 + S.C1]
+      AndExpr [92-113] [T.T1 = 5 AND S.C3 < 0]
+        BinaryExpression(=) [92-100] [T.T1 = 5]
+          PathExpression [92-96] [T.T1]
+            Identifier(T) [92-93] [T]
+            Identifier(T1) [94-96] [T1]
+          IntLiteral(5) [99-100] [5]
+        BinaryExpression(<) [105-113] [S.C3 < 0]
+          PathExpression [105-109] [S.C3]
+            Identifier(S) [105-106] [S]
+            Identifier(C3) [107-109] [C3]
+          IntLiteral(0) [112-113] [0]
+      MergeAction(UPDATE) [119-160] [UPDATE SET....T1 + S.C1]
+        UpdateItemList [130-160] [T1 = T1 + 10, T2 = T.T1 + S.C1]
+          UpdateItem [130-142] [T1 = T1 + 10]
+            UpdateSetValue [130-142] [T1 = T1 + 10]
+              PathExpression [130-132] [T1]
+                Identifier(T1) [130-132] [T1]
+              BinaryExpression(+) [135-142] [T1 + 10]
+                PathExpression [135-137] [T1]
+                  Identifier(T1) [135-137] [T1]
+                IntLiteral(10) [140-142] [10]
+          UpdateItem [144-160] [T2 = T.T1 + S.C1]
+            UpdateSetValue [144-160] [T2 = T.T1 + S.C1]
+              PathExpression [144-146] [T2]
+                Identifier(T2) [144-146] [T2]
+              BinaryExpression(+) [149-160] [T.T1 + S.C1]
+                PathExpression [149-153] [T.T1]
+                  Identifier(T) [149-150] [T]
+                  Identifier(T1) [151-153] [T1]
+                PathExpression [156-160] [S.C1]
+                  Identifier(S) [156-157] [S]
+                  Identifier(C1) [158-160] [C1]
+    MergeWhenClause(match_type=MATCHED) [161-185] [WHEN MATCHED THEN DELETE]
+      MergeAction(DELETE) [179-185] [DELETE]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [186-270] [WHEN NOT MATCHED...C1 + S.C2)]
+      BinaryExpression(=) [207-216] [S.C2 = 20]
+        PathExpression [207-211] [S.C2]
+          Identifier(S) [207-208] [S]
+          Identifier(C2) [209-211] [C2]
+        IntLiteral(20) [214-216] [20]
+      MergeAction(INSERT) [222-270] [INSERT(t1,...C1 + S.C2)]
+        ColumnList [228-240] [(t1, t2, t3)]
+          Identifier(t1) [229-231] [t1]
+          Identifier(t2) [233-235] [t2]
+          Identifier(t3) [237-239] [t3]
+        InsertValuesRow [247-270] [(10, S.C3, S.C1 + S.C2)]
+          IntLiteral(10) [248-250] [10]
+          PathExpression [252-256] [S.C3]
+            Identifier(S) [252-253] [S]
+            Identifier(C3) [254-256] [C3]
+          BinaryExpression(+) [258-269] [S.C1 + S.C2]
+            PathExpression [258-262] [S.C1]
+              Identifier(S) [258-259] [S]
+              Identifier(C1) [260-262] [C1]
+            PathExpression [265-269] [S.C2]
+              Identifier(S) [265-266] [S]
+              Identifier(C2) [267-269] [C2]
+--
+MERGE INTO T
+USING
+(
+  SELECT
+    *
+  FROM
+    Y
+    JOIN
+    Z
+    ON Y.C1 = Z.C1
+) AS S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 AND S.C3 < 0 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+WHEN MATCHED THEN
+  DELETE
+WHEN NOT MATCHED BY TARGET AND S.C2 = 20 THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+==
+
+# Missing target table
+MERGE
+USING S
+ON C1 = S1
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Unexpected keyword USING [at 2:1]
+USING S
+^
+==
+
+# Missing USING clause
+MERGE INTO T
+ON C1 = S1
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Unexpected keyword ON [at 2:1]
+ON C1 = S1
+^
+==
+
+# Missing merge condition
+MERGE INTO T
+USING S
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Expected keyword ON but got keyword WHEN [at 3:1]
+WHEN MATCHED THEN
+^
+==
+
+# Missing WHEN ... THEN clause.
+MERGE INTO T
+USING S
+ON t1 = s1
+--
+ERROR: Syntax error: Expected keyword WHEN but got end of statement [at 3:11]
+ON t1 = s1
+          ^
+==
+
+# Does not support JOIN for source table
+MERGE INTO T
+USING Y JOIN Z ON Y.C1 = Z.C1
+ON t1 = s1
+WHEN NOT MATCHED THEN
+INSERT(t1) VALUES(10)
+--
+ERROR: Syntax error: Expected keyword ON but got keyword JOIN [at 2:9]
+USING Y JOIN Z ON Y.C1 = Z.C1
+        ^
+==
+
+# Does not support parenthesized joins for source table
+MERGE INTO T
+USING (Y JOIN Z ON Y.C1 = Z.C1)
+ON t1 = s1
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "Y" [at 2:8]
+USING (Y JOIN Z ON Y.C1 = Z.C1)
+       ^
+==
+
+# Does not support TVF
+MERGE INTO T
+USING mytvf()
+ON t1 = s1
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Expected keyword ON but got "(" [at 2:12]
+USING mytvf()
+           ^
+==
+
+# This and following cases are allowed in parser, but will be disabled by
+# resolver. According to spec, only some of the actions are allowed for each
+# type of WHEN clause as following,
+#
+#          | MATCHED | NOT_MATCHED_BY_SOURCE | NOT_MATCHED_BY_TARGET
+#   INSERT |    N    |           N           |           Y
+#   UPDATE |    Y    |           Y           |           N
+#   DELETE |    Y    |           Y           |           N
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED THEN
+  INSERT(t1) VALUES(10)
+--
+MergeStatement [0-73] [MERGE INTO...VALUES(10)]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-73] [WHEN MATCHED...VALUES(10)]
+    MergeWhenClause(match_type=MATCHED) [32-73] [WHEN MATCHED...VALUES(10)]
+      MergeAction(INSERT) [52-73] [INSERT(t1) VALUES(10)]
+        ColumnList [58-62] [(t1)]
+          Identifier(t1) [59-61] [t1]
+        InsertValuesRow [69-73] [(10)]
+          IntLiteral(10) [70-72] [10]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED THEN
+  INSERT(t1)
+  VALUES
+    (10)
+==
+
+# This is allowed in parser, but will be disabled by resolver.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED THEN
+  DELETE
+--
+MergeStatement [0-62] [MERGE INTO...THEN   DELETE]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-62] [WHEN NOT MATCHED THEN   DELETE]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [32-62] [WHEN NOT MATCHED THEN   DELETE]
+      MergeAction(DELETE) [56-62] [DELETE]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET THEN
+  DELETE
+==
+
+# This is allowed in parser, but will be disabled by resolver.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED THEN
+  UPDATE SET t1 = 10
+--
+MergeStatement [0-74] [MERGE INTO...SET t1 = 10]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-74] [WHEN NOT MATCHED...SET t1 = 10]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [32-74] [WHEN NOT MATCHED...SET t1 = 10]
+      MergeAction(UPDATE) [56-74] [UPDATE SET t1 = 10]
+        UpdateItemList [67-74] [t1 = 10]
+          UpdateItem [67-74] [t1 = 10]
+            UpdateSetValue [67-74] [t1 = 10]
+              PathExpression [67-69] [t1]
+                Identifier(t1) [67-69] [t1]
+              IntLiteral(10) [72-74] [10]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET THEN
+  UPDATE
+  SET
+    t1 = 10
+==
+
+# This is allowed in parser, but will be disabled by resolver.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT(t1) VALUES(s2)
+--
+MergeStatement [0-87] [MERGE INTO...VALUES(s2)]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-87] [WHEN NOT MATCHED...VALUES(s2)]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-87] [WHEN NOT MATCHED...VALUES(s2)]
+      MergeAction(INSERT) [66-87] [INSERT(t1) VALUES(s2)]
+        ColumnList [72-76] [(t1)]
+          Identifier(t1) [73-75] [t1]
+        InsertValuesRow [83-87] [(s2)]
+          PathExpression [84-86] [s2]
+            Identifier(s2) [84-86] [s2]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT(t1)
+  VALUES
+    (s2)
+
+==
+
+# Omit insert column list
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT VALUES(s2)
+--
+MergeStatement [0-83] [MERGE INTO...VALUES(s2)]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-83] [WHEN NOT MATCHED...VALUES(s2)]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-83] [WHEN NOT MATCHED...VALUES(s2)]
+      MergeAction(INSERT) [66-83] [INSERT VALUES(s2)]
+        InsertValuesRow [79-83] [(s2)]
+          PathExpression [80-82] [s2]
+            Identifier(s2) [80-82] [s2]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT
+  VALUES
+    (s2)
+==
+
+# Omit insert value list
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT(t1) ROW
+--
+MergeStatement [0-80] [MERGE INTO...INSERT(t1) ROW]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-80] [WHEN NOT MATCHED...ERT(t1) ROW]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-80] [WHEN NOT MATCHED...ERT(t1) ROW]
+      MergeAction(INSERT) [66-80] [INSERT(t1) ROW]
+        ColumnList [72-76] [(t1)]
+          Identifier(t1) [73-75] [t1]
+        InsertValuesRow [77-80] [ROW]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT(t1)
+  ROW
+==
+
+# Omit both insert column and value lists
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT ROW
+--
+MergeStatement [0-76] [MERGE INTO...INSERT ROW]
+  PathExpression [11-12] [T]
+    Identifier(T) [11-12] [T]
+  TablePathExpression [19-20] [S]
+    PathExpression [19-20] [S]
+      Identifier(S) [19-20] [S]
+  BinaryExpression(=) [24-31] [t1 = s1]
+    PathExpression [24-26] [t1]
+      Identifier(t1) [24-26] [t1]
+    PathExpression [29-31] [s1]
+      Identifier(s1) [29-31] [s1]
+  MergeWhenClauseList [32-76] [WHEN NOT MATCHED...INSERT ROW]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-76] [WHEN NOT MATCHED...INSERT ROW]
+      MergeAction(INSERT) [66-76] [INSERT ROW]
+        InsertValuesRow [73-76] [ROW]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT
+  ROW
+==
+
+[no_test_get_parse_tokens]
+[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+MERGE INTO my-project-123.a.t
+USING project-789-abc.b.s
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN INSERT ROW
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `my-project-123.a.t` [at 1:12]
+MERGE INTO my-project-123.a.t
+           ^
+--
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+--
+MergeStatement [0-109] [MERGE INTO...INSERT ROW]
+  PathExpression [11-29] [my-project-123.a.t]
+    Identifier(`my-project-123`) [11-27] [my-project-123.a]
+    Identifier(a) [11-27] [my-project-123.a]
+    Identifier(t) [28-29] [t]
+  TablePathExpression [36-55] [project-789-abc.b.s]
+    PathExpression [36-55] [project-789-abc.b.s]
+      Identifier(`project-789-abc`) [36-51] [project-789-abc]
+      Identifier(b) [52-53] [b]
+      Identifier(s) [54-55] [s]
+  BinaryExpression(=) [59-66] [t1 = s1]
+    PathExpression [59-61] [t1]
+      Identifier(t1) [59-61] [t1]
+    PathExpression [64-66] [s1]
+      Identifier(s1) [64-66] [s1]
+  MergeWhenClauseList [67-109] [WHEN NOT MATCHED...INSERT ROW]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [67-109] [WHEN NOT MATCHED...INSERT ROW]
+      MergeAction(INSERT) [99-109] [INSERT ROW]
+        InsertValuesRow [106-109] [ROW]
+--
+MERGE INTO `my-project-123`.a.t
+USING `project-789-abc`.b.s
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT
+  ROW
+==

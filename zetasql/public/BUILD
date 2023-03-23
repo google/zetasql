@@ -346,6 +346,7 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
@@ -1738,12 +1739,12 @@ cc_library(
         ":analyzer_options",
         ":analyzer_output_properties",
         ":id_string",
-        ":logging_cc_proto",
         "//zetasql/base:arena",
         "//zetasql/base:enum_utils",
         "//zetasql/base:map_util",
         "//zetasql/common:timer_util",
         "//zetasql/parser",
+        "//zetasql/public/proto:logging_cc_proto",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/base:core_headers",
@@ -2061,22 +2062,6 @@ java_proto_library(
 proto_library(
     name = "simple_value_proto",
     srcs = ["simple_value.proto"],
-)
-
-proto_library(
-    name = "logging_proto",
-    srcs = ["logging.proto"],
-    deps = ["@com_google_protobuf//:duration_proto"],
-)
-
-cc_proto_library(
-    name = "logging_cc_proto",
-    deps = [":logging_proto"],
-)
-
-java_proto_library(
-    name = "logging_java_proto",
-    deps = ["logging_proto"],
 )
 
 cc_proto_library(

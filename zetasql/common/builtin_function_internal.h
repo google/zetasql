@@ -687,9 +687,25 @@ void GetArraySlicingFunctions(TypeFactory* type_factory,
                               const ZetaSQLBuiltinFunctionOptions& options,
                               NameToFunctionMap* functions);
 
+void GetArrayFilteringFunctions(TypeFactory* type_factory,
+                                const ZetaSQLBuiltinFunctionOptions& options,
+                                NameToFunctionMap* functions);
+
 absl::Status GetArrayFindFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions, NameToTypeMap* types);
+
+void GetArrayFilteringFunctions(TypeFactory* type_factory,
+                                const ZetaSQLBuiltinFunctionOptions& options,
+                                NameToFunctionMap* functions);
+
+void GetArrayTransformFunctions(TypeFactory* type_factory,
+                                const ZetaSQLBuiltinFunctionOptions& options,
+                                NameToFunctionMap* functions);
+
+void GetArrayIncludesFunctions(TypeFactory* type_factory,
+                               const ZetaSQLBuiltinFunctionOptions& options,
+                               NameToFunctionMap* functions);
 
 void GetSubscriptFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,

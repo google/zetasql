@@ -141,6 +141,22 @@ message ASTSetOperationEnums {
     ALL = 1;
     DISTINCT = 2;
   }
+  // Determines how columns from the set operation inputs are matched.
+  enum ColumnMatchMode {
+    // TODO: 0 reserved for future NOT_SET.
+    BY_POSITION = 1;       // Match by index
+    CORRESPONDING = 2;     // Match by implicit column names
+    CORRESPONDING_BY = 3;  // Match by the provided column name list
+  }
+  // Determines how non-matching columns are treated in a set operation: <left
+  // query> <set_op> <right_query>
+  enum ColumnPropagationMode {
+    // TODO: 0 reserved for future NOT_SET.
+    INNER = 1;   // All non-matching columns are ignored.
+    LEFT = 2;    // All columns of <left query> are preserved.
+    FULL = 3;    // All columns of <left query> and <right query> are preserved.
+    STRICT = 4;  // Non-matching columns are not allowed.
+  }
 }
 message ASTUnaryExpressionEnums {
   enum Op {

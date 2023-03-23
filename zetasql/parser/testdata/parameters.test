@@ -243,16 +243,14 @@ QueryStatement [0-40] [SELECT @@FROM...bsequent_field]
     Select [0-40] [SELECT @@FROM...bsequent_field]
       SelectList [7-40] [@@FROM.fieldname...quent_field]
         SelectColumn [7-40] [@@FROM.fieldname...quent_field]
-          DotIdentifier [7-40] [@@FROM.fieldname...quent_field]
-            DotIdentifier [7-23] [@@FROM.fieldname]
-              SystemVariableExpr [7-13] [@@FROM]
-                PathExpression [7-13] [@@FROM]
-                  Identifier(`FROM`) [9-13] [FROM]
+          SystemVariableExpr [7-40] [@@FROM.fieldname...quent_field]
+            PathExpression [9-40] [FROM.fieldname...sequent_field]
+              Identifier(`FROM`) [9-13] [FROM]
               Identifier(fieldname) [14-23] [fieldname]
-            Identifier(subsequent_field) [24-40] [subsequent_field]
+              Identifier(subsequent_field) [24-40] [subsequent_field]
 --
 SELECT
-  (@@`FROM`).fieldname.subsequent_field
+  @@`FROM`.fieldname.subsequent_field
 --
 ALTERNATION GROUP: x
 --
@@ -618,7 +616,7 @@ QueryStatement [0-14] [select @@proto]
       SelectList [7-14] [@@proto]
         SelectColumn [7-14] [@@proto]
           SystemVariableExpr [7-14] [@@proto]
-            PathExpression [7-14] [@@proto]
+            PathExpression [9-14] [proto]
               Identifier(`proto`) [9-14] [proto]
 --
 SELECT
@@ -649,7 +647,7 @@ QueryStatement [0-13] [select @@FrOm]
       SelectList [7-13] [@@FrOm]
         SelectColumn [7-13] [@@FrOm]
           SystemVariableExpr [7-13] [@@FrOm]
-            PathExpression [7-13] [@@FrOm]
+            PathExpression [9-13] [FrOm]
               Identifier(`FrOm`) [9-13] [FrOm]
 --
 SELECT

@@ -123,6 +123,16 @@ FROM TestTableWithUid;
 ERROR: generic::invalid_argument: Differential privacy option DELTA must be set
 ==
 
+[default required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
+[name=differential_privacy_basic_delta_too_large]
+[labels=differential_privacy]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.01)
+  SUM(double_val, contribution_bounds_per_group => (0, 10))
+FROM TestTableWithUid;
+--
+ERROR: generic::invalid_argument: Delta must be in the inclusive interval [0,1], but is 1.01
+==
+
 [name=differential_privacy_sum_int64_explicit_bounds]
 [labels=differential_privacy]
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0)

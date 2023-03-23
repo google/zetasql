@@ -5008,7 +5008,7 @@ For an explanation of how aggregate functions work, see
 [Aggregate function calls][agg-function-calls].
 
 Differentially private aggregate functions can only be
-used with [differentially private queries][anon-syntax].
+used with [differentially private queries][dp-syntax].
 
 ### `ANON_AVG` 
 <a id="anon_avg"></a>
@@ -5030,7 +5030,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column averages.
+  Perform [clamping][dp-clamp-between] per privacy unit column averages.
 
 **Return type**
 
@@ -5040,7 +5040,7 @@ can support these arguments:
 
 The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations may not be included. This query
-references a view called [`view_on_professors`][anon-example-views].
+references a view called [`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -5083,13 +5083,13 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_COUNT` 
 <a id="anon_count"></a>
@@ -5108,9 +5108,9 @@ WITH ANONYMIZATION ...
 **Description**
 
 Returns the number of rows in the
-[differentially private][anon-from-clause] `FROM` clause. The final result
+[differentially private][dp-from-clause] `FROM` clause. The final result
 is an aggregation across privacy unit columns.
-[Input values are clamped implicitly][anon-clamp-implicit]. Clamping is
+[Input values are clamped implicitly][dp-clamp-implicit]. Clamping is
 performed per privacy unit column.
 
 This function must be used with the `ANONYMIZATION` clause.
@@ -5123,7 +5123,7 @@ This function must be used with the `ANONYMIZATION` clause.
 
 The following differentially private query counts the number of requests for
 each item. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -5166,7 +5166,7 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
 #### Signature 2 
 <a id="anon_count_signature2"></a>
@@ -5187,7 +5187,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamp-between] per privacy unit column.
 
 **Return type**
 
@@ -5197,7 +5197,7 @@ can support these arguments:
 
 The following differentially private query counts the number of requests made
 for each type of item. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -5240,17 +5240,17 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-clamp-implicit]: #anon_implicit_clamping
+[dp-clamp-implicit]: #dp_implicit_clamping
 
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_from
+[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_PERCENTILE_CONT` 
 <a id="anon_percentile_cont"></a>
@@ -5273,7 +5273,7 @@ can support these arguments:
 + `percentile`: The percentile to compute. The percentile must be a literal in
   the range [0, 1]
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamp-between] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
  If you need them, cast them to
@@ -5287,7 +5287,7 @@ can support these arguments:
 
 The following differentially private query gets the percentile of items
 requested. Smaller aggregations may not be included. This query references a
-view called [`view_on_professors`][anon-example-views].
+view called [`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -5310,9 +5310,9 @@ GROUP BY item;
 +----------+----------------------+
 ```
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_QUANTILES` 
 <a id="anon_quantiles"></a>
@@ -5336,7 +5336,7 @@ can support these arguments:
   such as `INT64`. `NULL`s are always ignored.
 + `number`: The number of quantiles to create. This must be an `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamp-between] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
  If you need them, cast them to
@@ -5351,7 +5351,7 @@ can support these arguments:
 The following differentially private query gets the five quantile boundaries of
 the four quartiles of the number of items requested. Smaller aggregations
 may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -5373,9 +5373,9 @@ GROUP BY item;
 +----------+----------------------------------------------------------------------+
 ```
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_STDDEV_POP` 
 <a id="anon_stddev_pop"></a>
@@ -5397,7 +5397,7 @@ can support these arguments:
 + `expression`: The input expression. This can be most numeric input types,
   such as `INT64`. `NULL`s are always ignored.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per individual entity values.
+  Perform [clamping][dp-clamp-between] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
  If you need them, cast them to
@@ -5412,7 +5412,7 @@ can support these arguments:
 The following differentially private query gets the
 population (biased) standard deviation of items requested. Smaller aggregations
 may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -5435,9 +5435,9 @@ GROUP BY item;
 +----------+------------------------+
 ```
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_SUM` 
 <a id="anon_sum"></a>
@@ -5458,11 +5458,11 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamp-between] per privacy unit column.
 
 **Return type**
 
-One of the following [supertypes][anon-supertype]:
+One of the following [supertypes][dp-supertype]:
 
 + `INT64`
 + `UINT64`
@@ -5472,7 +5472,7 @@ One of the following [supertypes][anon-supertype]:
 
 The following differentially private query gets the sum of items requested.
 Smaller aggregations may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -5515,15 +5515,15 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+[dp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_VAR_POP` 
 <a id="anon_var_pop"></a>
@@ -5538,7 +5538,7 @@ WITH ANONYMIZATION ...
 Takes an expression and computes the population (biased) variance of the values
 in the expression. The final result is an aggregation across
 privacy unit columns between `0` and `+Inf`. You can
-[clamp the input values][anon-clamp-explicit] explicitly, otherwise input values
+[clamp the input values][dp-clamp-explicit] explicitly, otherwise input values
 are clamped implicitly. Clamping is performed per individual entity values.
 
 This function must be used with the `ANONYMIZATION` clause and
@@ -5547,7 +5547,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL`s are always ignored.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per individual entity values.
+  Perform [clamping][dp-clamp-between] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
  If you need them, cast them to
@@ -5562,7 +5562,7 @@ can support these arguments:
 The following differentially private query gets the
 population (biased) variance of items requested. Smaller aggregations may not
 be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -5585,14 +5585,14 @@ GROUP BY item;
 +----------+-----------------+
 ```
 
-[anon-clamp-explicit]: #anon_explicit_clamping
+[dp-clamp-explicit]: #dp_explicit_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `AVG` (differential privacy) 
-<a id="anon_avg"></a>
+<a id="dp_avg"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -5611,7 +5611,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `contribution_bounds_per_group`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
@@ -5623,7 +5623,7 @@ can support these arguments:
 
 The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations may not be included. This query
-references a table called [`professors`][anon-example-tables].
+references a table called [`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -5666,22 +5666,22 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 
 ### `COUNT` (differential privacy) 
-<a id="anon_count"></a>
+<a id="dp_count"></a>
 
-+ [Signature 1](#anon_count_signature1)
-+ [Signature 2](#anon_count_signature2)
++ [Signature 1](#dp_count_signature1)
++ [Signature 2](#dp_count_signature2)
 
 #### Signature 1 
-<a id="anon_count_signature1"></a>
+<a id="dp_count_signature1"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -5691,14 +5691,14 @@ WITH DIFFERENTIAL_PRIVACY ...
 **Description**
 
 Returns the number of rows in the
-[differentially private][anon-from-clause] `FROM` clause. The final result
+[differentially private][dp-from-clause] `FROM` clause. The final result
 is an aggregation across privacy unit columns.
 
 This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
 can support the following argument:
 
 + `contribution_bounds_per_group`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
@@ -5710,7 +5710,7 @@ can support the following argument:
 
 The following differentially private query counts the number of requests for
 each item. This query references a table called
-[`professors`][anon-example-tables].
+[`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -5753,10 +5753,10 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
 #### Signature 2 
-<a id="anon_count_signature2"></a>
+<a id="dp_count_signature2"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -5774,7 +5774,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `contribution_bounds_per_group`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
@@ -5786,7 +5786,7 @@ can support these arguments:
 
 The following differentially private query counts the number of requests made
 for each type of item. This query references a table called
-[`professors`][anon-example-tables].
+[`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -5829,20 +5829,20 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-clamp-implicit]: #anon_implicit_clamping
+[dp-clamp-implicit]: #dp_implicit_clamping
 
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_from
+[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 
 ### `PERCENTILE_CONT` (differential privacy) 
-<a id="anon_percentile_cont"></a>
+<a id="dp_percentile_cont"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -5862,7 +5862,7 @@ can support these arguments:
 + `percentile`: The percentile to compute. The percentile must be a literal in
   the range [0, 1]
 + `contribution_bounds_per_row`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each row separately before performing intermediate
   grouping on the privacy unit column.
 
@@ -5878,7 +5878,7 @@ can support these arguments:
 
 The following differentially private query gets the percentile of items
 requested. Smaller aggregations may not be included. This query references a
-view called [`professors`][anon-example-tables].
+view called [`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -5901,12 +5901,12 @@ GROUP BY item;
 +----------+----------------------+
 ```
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 
 ### `VAR_POP` (differential privacy) 
-<a id="anon_var_pop"></a>
+<a id="dp_var_pop"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -5918,7 +5918,7 @@ WITH DIFFERENTIAL_PRIVACY ...
 Takes an expression and computes the population (biased) variance of the values
 in the expression. The final result is an aggregation across
 privacy unit columns between `0` and `+Inf`. You can
-[clamp the input values][anon-clamp-explicit] explicitly, otherwise input values
+[clamp the input values][dp-clamp-explicit] explicitly, otherwise input values
 are clamped implicitly. Clamping is performed per individual user values.
 
 This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
@@ -5927,7 +5927,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL`s are always ignored.
 + `contribution_bounds_per_row`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each row separately before performing intermediate
   grouping on individual user values.
 
@@ -5944,7 +5944,7 @@ can support these arguments:
 The following differentially private query gets the
 population (biased) variance of items requested. Smaller aggregations may not
 be included. This query references a view called
-[`professors`][anon-example-tables].
+[`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -5967,25 +5967,25 @@ GROUP BY item;
 +----------+-----------------+
 ```
 
-[anon-clamp-explicit]: #anon_explicit_clamping
+[dp-clamp-explicit]: #dp_explicit_clamping
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 
 ### Clamp values in a differentially private aggregate function 
-<a id="anon_clamping"></a>
+<a id="dp_clamping"></a>
 
-In [differentially private queries][anon-differential-privacy],
+In [differentially private queries][differential-privacy],
 aggregation clamping is used to limit the contribution of outliers. You can
-clamp [implicitly][anon-imp-clamp] or [explicitly][anon-exp-clamp].
+clamp [implicitly][dp-imp-clamp] or [explicitly][dp-exp-clamp].
 
 If you clamp explicitly, you can clamp values with the
-[contribution bounds named argument][anon-clamped-named] (recommended) or
-the [`CLAMPED BETWEEN`][anon-clamp-between] clause.
+[contribution bounds named argument][dp-clamped-named] (recommended) or
+the [`CLAMPED BETWEEN`][dp-clamp-between] clause.
 
 #### Clamp with the contribution bounds named argument 
-<a id="anon_clamped_named"></a>
+<a id="dp_clamped_named"></a>
 
 ```sql
 contribution_bounds_per_group => (lower_bound,upper_bound)
@@ -6022,7 +6022,7 @@ The following anonymized query clamps each aggregate contribution for each
 differential privacy ID and within a specified range (`0` and `100`).
 As long as all or most values fall within this range, your results
 will be accurate. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 --Without noise (this un-noised version is for demonstration only)
@@ -6074,10 +6074,10 @@ GROUP BY item;
 ```
 
 To learn more about when and when not to use noise in
-differentially private queries, see [Differentially privacy][anon-noise].
+differentially private queries, see [Differentially privacy][dp-noise].
 
 #### Clamp with the `CLAMPED BETWEEN` clause 
-<a id="anon_clamp_between"></a>
+<a id="dp_clamp_between"></a>
 
 ```sql
 CLAMPED BETWEEN lower_bound AND upper_bound
@@ -6101,7 +6101,7 @@ The following differentially private query clamps each aggregate contribution
 for each privacy unit column and within a specified range (`0` and `100`).
 As long as all or most values fall within this range, your results will be
 accurate. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 --Without noise (this un-noised version is for demonstration only)
@@ -6153,10 +6153,10 @@ GROUP BY item;
 ```
 
 To learn more about when and when not to use noise in
-differentially private queries, see [Differentially privacy][anon-noise].
+differentially private queries, see [Differentially privacy][dp-noise].
 
 #### Explicit clamping 
-<a id="anon_explicit_clamping"></a>
+<a id="dp_explicit_clamping"></a>
 
 In differentially private aggregate functions, clamping explicitly clamps the
 total contribution from each privacy unit column to within a specified
@@ -6165,7 +6165,7 @@ range.
 Explicit bounds are uniformly applied to all aggregations.  So even if some
 aggregations have a wide range of values, and others have a narrow range of
 values, the same bounds are applied to all of them.  On the other hand, when
-[implicit bounds][anon-imp-clamp] are inferred from the data, the bounds applied
+[implicit bounds][dp-imp-clamp] are inferred from the data, the bounds applied
 to each aggregation can be different.
 
 Explicit bounds should be chosen to reflect public information.
@@ -6177,7 +6177,7 @@ explicit bounds based on the entity data; explicit bounds should be based on
 public information.
 
 #### Implicit clamping 
-<a id="anon_implicit_clamping"></a>
+<a id="dp_implicit_clamping"></a>
 
 In differentially private aggregate functions, explicit clamping is optional.
 If you don't include this clause, clamping is implicit,
@@ -6192,30 +6192,30 @@ aggregations as appropriate. Implicit bounds might be an advantage or a
 disadvantage depending on your use case. Different bounds for different
 aggregations can result in lower error. Different bounds also means that
 different aggregations have different levels of uncertainty, which might not be
-directly comparable. [Explicit bounds][anon-exp-clamp], on the other hand,
+directly comparable. [Explicit bounds][dp-exp-clamp], on the other hand,
 apply uniformly to all aggregations and should be derived from public
 information.
 
 When clamping is implicit, part of the total epsilon is spent picking bounds.
 This leaves less epsilon for aggregations, so these aggregations are noisier.
 
-[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[anon-differential-privacy]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+[differential-privacy]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
-[anon-exp-clamp]: #anon_explicit_clamping
+[dp-exp-clamp]: #dp_explicit_clamping
 
-[anon-imp-clamp]: #anon_implicit_clamping
+[dp-imp-clamp]: #dp_implicit_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 
 ## Approximate aggregate functions
 
@@ -6583,6 +6583,64 @@ and custom precision.
 
 ZetaSQL supports the following HLL++ functions:
 
+### `HLL_COUNT.EXTRACT`
+
+```
+HLL_COUNT.EXTRACT(sketch)
+```
+
+**Description**
+
+A scalar function that extracts a cardinality estimate of a single
+[HLL++][hll-link-to-research-whitepaper] sketch.
+
+If `sketch` is `NULL`, this function returns a cardinality estimate of `0`.
+
+**Supported input types**
+
+`BYTES`
+
+**Return type**
+
+`INT64`
+
+**Example**
+
+The following query returns the number of distinct users for each country who
+have at least one invoice.
+
+```sql
+SELECT
+  country,
+  HLL_COUNT.EXTRACT(HLL_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  );
+
++---------+--------------------------------------+
+| country | distinct_customers_with_open_invoice |
++---------+--------------------------------------+
+| UA      |                                    2 |
+| BR      |                                    1 |
+| CZ      |                                    1 |
++---------+--------------------------------------+
+```
+
+[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+
 ### `HLL_COUNT.INIT`
 
 ```
@@ -6655,68 +6713,6 @@ GROUP BY country;
 
 [precision_hll]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_hll
 
-### `HLL_COUNT.MERGE`
-
-```
-HLL_COUNT.MERGE(sketch)
-```
-
-**Description**
-
-An aggregate function that returns the cardinality of several
-[HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
-
-Each `sketch` must be initialized on the same type. Attempts to merge sketches
-for different types results in an error. For example, you cannot merge a sketch
-initialized from `INT64` data with one initialized from `STRING` data.
-
-If the merged sketches were initialized with different precisions, the precision
-will be downgraded to the lowest precision involved in the merge.
-
-This function ignores `NULL` values when merging sketches. If the merge happens
-over zero rows or only over `NULL` values, the function returns `0`.
-
-**Supported input types**
-
-`BYTES`
-
-**Return type**
-
-`INT64`
-
-**Example**
-
- The following query counts the number of distinct users across all countries
- who have at least one invoice.
-
-```sql
-SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
-FROM
-  (
-    SELECT
-      country,
-      HLL_COUNT.INIT(customer_id) AS hll_sketch
-    FROM
-      UNNEST(
-        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
-          ('UA', 'customer_id_1', 'invoice_id_11'),
-          ('BR', 'customer_id_3', 'invoice_id_31'),
-          ('CZ', 'customer_id_2', 'invoice_id_22'),
-          ('CZ', 'customer_id_2', 'invoice_id_23'),
-          ('BR', 'customer_id_3', 'invoice_id_31'),
-          ('UA', 'customer_id_2', 'invoice_id_24')])
-    GROUP BY country
-  );
-
-+--------------------------------------+
-| distinct_customers_with_open_invoice |
-+--------------------------------------+
-|                                    3 |
-+--------------------------------------+
-```
-
-[hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
-
 ### `HLL_COUNT.MERGE_PARTIAL`
 
 ```
@@ -6781,18 +6777,26 @@ FROM
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
 
-### `HLL_COUNT.EXTRACT`
+### `HLL_COUNT.MERGE`
 
 ```
-HLL_COUNT.EXTRACT(sketch)
+HLL_COUNT.MERGE(sketch)
 ```
 
 **Description**
 
-A scalar function that extracts a cardinality estimate of a single
-[HLL++][hll-link-to-research-whitepaper] sketch.
+An aggregate function that returns the cardinality of several
+[HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
 
-If `sketch` is `NULL`, this function returns a cardinality estimate of `0`.
+Each `sketch` must be initialized on the same type. Attempts to merge sketches
+for different types results in an error. For example, you cannot merge a sketch
+initialized from `INT64` data with one initialized from `STRING` data.
+
+If the merged sketches were initialized with different precisions, the precision
+will be downgraded to the lowest precision involved in the merge.
+
+This function ignores `NULL` values when merging sketches. If the merge happens
+over zero rows or only over `NULL` values, the function returns `0`.
 
 **Supported input types**
 
@@ -6804,13 +6808,11 @@ If `sketch` is `NULL`, this function returns a cardinality estimate of `0`.
 
 **Example**
 
-The following query returns the number of distinct users for each country who
-have at least one invoice.
+ The following query counts the number of distinct users across all countries
+ who have at least one invoice.
 
 ```sql
-SELECT
-  country,
-  HLL_COUNT.EXTRACT(HLL_sketch) AS distinct_customers_with_open_invoice
+SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
 FROM
   (
     SELECT
@@ -6828,13 +6830,11 @@ FROM
     GROUP BY country
   );
 
-+---------+--------------------------------------+
-| country | distinct_customers_with_open_invoice |
-+---------+--------------------------------------+
-| UA      |                                    2 |
-| BR      |                                    1 |
-| CZ      |                                    1 |
-+---------+--------------------------------------+
++--------------------------------------+
+| distinct_customers_with_open_invoice |
++--------------------------------------+
+|                                    3 |
++--------------------------------------+
 ```
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
@@ -6869,456 +6869,6 @@ already approximate.
 Note: While `APPROX_QUANTILES` is also returning approximate quantile results,
 the functions from this section allow for partial aggregations and
 re-aggregations.
-
-### `KLL_QUANTILES.INIT_INT64`
-
-```sql
-KLL_QUANTILES.INIT_INT64(input[, precision[, weight => input_weight]])
-```
-
-**Description**
-
-Takes one or more `input` values and aggregates them into a
-[KLL][kll-sketches] sketch. This function represents the output sketch
-using the `BYTES` data type. This is an
-aggregate function.
-
-The `precision` argument defines the exactness of the returned approximate
-quantile *q*. By default, the rank of the approximate quantile in the input can
-be at most ±1/1000 * *n* off from ⌈Φ * *n*⌉, where *n* is the number of rows in
-the input and ⌈Φ * *n*⌉ is the rank of the exact quantile. If you provide a
-value for `precision`, the rank of the approximate quantile in the input can be
-at most ±1/`precision` * *n* off from the rank of the exact quantile. The error
-is within this error bound in 99.999% of cases. This error guarantee only
-applies to the difference between exact and approximate ranks: the numerical
-difference between the exact and approximated value for a quantile can be
-arbitrarily large.
-
-By default, values in an initialized KLL sketch are weighted equally as `1`.
-If you would you like to weight values differently, use the
-mandatory-named argument, `weight`, which assigns weight to each input in the
-resulting KLL sketch. `weight` is a multiplier. For example, if you assign a
-weight of `3` to an input value, it's as if three instances of the input value
-are included in the generation of the KLL sketch.
-
-**Supported Argument Types**
-
-+ `input`: `INT64`
-+ `precision`: `INT64`
-+ `input_weight`: `INT64`
-
-**Return Type**
-
-KLL sketch as `BYTES`
-
-**Examples**
-
-The following query takes a column of type `INT64` and outputs a sketch as
-`BYTES` that allows you to retrieve values whose ranks are within
-±1/1000 * 5 = ±1/200 ≈ 0 ranks of their exact quantile.
-
-```sql
-SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-FROM (SELECT 1 AS x UNION ALL
-      SELECT 2 AS x UNION ALL
-      SELECT 3 AS x UNION ALL
-      SELECT 4 AS x UNION ALL
-      SELECT 5 AS x);
-
-+----------------------------------------------------------------------+
-| kll_sketch                                                           |
-+----------------------------------------------------------------------+
-| "\010q\020\005 \004\212\007\025\010\200                              |
-| \020\350\007\032\001\001\"\001\005*\007\n\005\001\002\003\004\005"   |
-+----------------------------------------------------------------------+
-```
-
-The following examples illustrate how weight works when you initialize a
-KLL sketch. The results are converted to quantiles.
-
-```sql
-WITH points AS (
-  SELECT 1 AS x, 1 AS y UNION ALL
-  SELECT 2 AS x, 1 AS y UNION ALL
-  SELECT 3 AS x, 1 AS y UNION ALL
-  SELECT 4 AS x, 1 AS y UNION ALL
-  SELECT 5 AS x, 1 AS y)
-SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
-FROM
-  (
-    SELECT KLL_QUANTILES.INIT_INT64(x, 1000,  weight=>y) AS kll_sketch
-    FROM points
-  );
-
-+---------+
-| median  |
-+---------+
-| [1,3,5] |
-+---------+
-```
-
-```sql
-WITH points AS (
-  SELECT 1 AS x, 1 AS y UNION ALL
-  SELECT 2 AS x, 3 AS y UNION ALL
-  SELECT 3 AS x, 1 AS y UNION ALL
-  SELECT 4 AS x, 1 AS y UNION ALL
-  SELECT 5 AS x, 1 AS y)
-SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
-FROM
-  (
-    SELECT KLL_QUANTILES.INIT_INT64(x, 1000,  weight=>y) AS kll_sketch
-    FROM points
-  );
-
-+---------+
-| median  |
-+---------+
-| [1,2,5] |
-+---------+
-```
-
-### `KLL_QUANTILES.INIT_UINT64`
-
-```sql
-KLL_QUANTILES.INIT_UINT64(input[, precision[, weight => input_weight]])
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64),
-but accepts `input` of type `UINT64`.
-
-**Supported Argument Types**
-
-+ `input`: `UINT64`
-+ `precision`: `INT64`
-+ `input_weight`: `INT64`
-
-**Return Type**
-
-KLL sketch as `BYTES`
-
-### `KLL_QUANTILES.INIT_DOUBLE`
-
-```sql
-KLL_QUANTILES.INIT_DOUBLE(input[, precision[, weight => input_weight]])
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64),
-but accepts `input` of type `DOUBLE`.
-
-`KLL_QUANTILES.INIT_DOUBLE` orders values according to the ZetaSQL
-[floating point sort order][sort-order]. For example, `NaN` orders before
-<code>&#8209;inf</code>.
-
-**Supported Argument Types**
-
-+ `input`: `DOUBLE`
-+ `precision`: `INT64`
-+ `input_weight`: `INT64`
-
-**Return Type**
-
-KLL sketch as `BYTES`
-
-[kll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_kll
-
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
-
-### `KLL_QUANTILES.MERGE_PARTIAL`
-
-```sql
-KLL_QUANTILES.MERGE_PARTIAL(sketch)
-```
-
-**Description**
-
-Takes KLL sketches of the same underlying type and merges them to return a new
-sketch of the same underlying type. This is an aggregate function.
-
-If the merged sketches were initialized with different precisions, the precision
-is downgraded to the lowest precision involved in the merge — except if the
-aggregations are small enough to still capture the input exactly — then the
-mergee's precision is maintained.
-
-Returns an error if two or more sketches don't have compatible underlying types,
-such as one sketch of `INT64` values and another of
-`DOUBLE` values.
-
-Returns an error if one or more inputs are not a valid KLL quantiles sketch.
-
-Ignores `NULL` sketches. If the input contains zero rows or only `NULL`
-sketches, the function returns `NULL`.
-
-You can initialize sketches with different optional clauses and merge them. For
-example, you can initialize a sketch with the `DISTINCT` clause and another
-sketch without any optional clauses, and then merge these two sketches.
-However, if you initialize sketches with the `DISTINCT` clause and merge them,
-the resulting sketch may still contain duplicates.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch
-
-**Return Type**
-
-KLL sketch as `BYTES`
-
-**Example**
-
-The following query initializes two KLL sketches from five rows of data each.
-Then it merges these two sketches into a new sketch, also as `BYTES`. Both
-input sketches have the same underlying data type and precision.
-
-```sql
-SELECT KLL_QUANTILES.MERGE_PARTIAL(kll_sketch) AS merged_sketch
-FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 1 AS x UNION ALL
-            SELECT 2 AS x UNION ALL
-            SELECT 3 AS x UNION ALL
-            SELECT 4 AS x UNION ALL
-            SELECT 5)
-      UNION ALL
-      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 6 AS x UNION ALL
-            SELECT 7 AS x UNION ALL
-            SELECT 8 AS x UNION ALL
-            SELECT 9 AS x UNION ALL
-            SELECT 10 AS x));
-
-+-----------------------------------------------------------------------------+
-| merged_sketch                                                               |
-+-----------------------------------------------------------------------------+
-| "\010q\020\n \004\212\007\032\010\200 \020\350\007\032\001\001\"\001\n*     |
-| \014\n\n\001\002\003\004\005\006\007\010\t\n"                               |
-+-----------------------------------------------------------------------------+
-```
-
-### `KLL_QUANTILES.MERGE_INT64`
-
-```sql
-KLL_QUANTILES.MERGE_INT64(sketch, number)
-```
-
-**Description**
-
-Takes KLL sketches as `BYTES` and merges them into
-a new sketch, then returns the quantiles that divide the input into
-`number` equal-sized groups, along with the minimum and maximum values of the
-input. The output is an `ARRAY` containing the exact minimum value from
-the input data that you used to initialize the sketches, each
-approximate quantile, and the exact maximum value from the initial input data.
-This is an aggregate function.
-
-If the merged sketches were initialized with different precisions, the precision
-is downgraded to the lowest precision involved in the merge — except if the
-aggregations are small enough to still capture the input exactly — then the
-mergee's precision is maintained.
-
-Returns an error if the underlying type of one or more input sketches is not
-compatible with type `INT64`.
-
-Returns an error if the input is not a valid KLL quantiles sketch.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
-+ `number`: `INT64`
-
-**Return Type**
-
-`ARRAY<INT64>`
-
-**Example**
-
-The following query initializes two KLL sketches from five rows of data each.
-Then it merges these two sketches and returns an `ARRAY` containing the minimum,
-median, and maximum values in the input sketches.
-
-```sql
-SELECT KLL_QUANTILES.MERGE_INT64(kll_sketch, 2) AS merged_sketch
-FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 1 AS x UNION ALL
-            SELECT 2 AS x UNION ALL
-            SELECT 3 AS x UNION ALL
-            SELECT 4 AS x UNION ALL
-            SELECT 5)
-      UNION ALL
-      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 6 AS x UNION ALL
-            SELECT 7 AS x UNION ALL
-            SELECT 8 AS x UNION ALL
-            SELECT 9 AS x UNION ALL
-            SELECT 10 AS x));
-
-+---------------+
-| merged_sketch |
-+---------------+
-| [1,5,10]      |
-+---------------+
-```
-
-### `KLL_QUANTILES.MERGE_UINT64`
-
-```sql
-KLL_QUANTILES.MERGE_UINT64(sketch, number)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64),
-but accepts KLL sketches initialized on data of type `UINT64`.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
-+ `number`: `INT64`
-
-**Return Type**
-
-`ARRAY<UINT64>`
-
-### `KLL_QUANTILES.MERGE_DOUBLE`
-
-```sql
-KLL_QUANTILES.MERGE_DOUBLE(sketch, number)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64),
-but accepts KLL sketches initialized on data of type
-`DOUBLE`.
-
-`KLL_QUANTILES.MERGE_DOUBLE` orders values according to the ZetaSQL
-[floating point sort order][sort-order]. For example, `NaN` orders before
-<code>&#8209;inf</code>.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on
-  `DOUBLE` data type
-+ `number`: `INT64`
-
-**Return Type**
-
-`ARRAY<DOUBLE>`
-
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
-
-### `KLL_QUANTILES.MERGE_POINT_INT64`
-
-```sql
-KLL_QUANTILES.MERGE_POINT_INT64(sketch, phi)
-```
-
-**Description**
-
-Takes KLL sketches as `BYTES` and merges them, then extracts a single
-quantile from the merged sketch. The `phi` argument specifies the quantile
-to return as a fraction of the total number of rows in the input, normalized
-between 0 and 1. This means that the function will return a value *v* such that
-approximately Φ * *n* inputs are less than or equal to *v*, and a (1-Φ) / *n*
-inputs are greater than or equal to *v*. This is an aggregate function.
-
-If the merged sketches were initialized with different precisions, the precision
-is downgraded to the lowest precision involved in the merge — except if the
-aggregations are small enough to still capture the input exactly — then the
-mergee's precision is maintained.
-
-Returns an error if the underlying type of one or more input sketches is not
-compatible with type `INT64`.
-
-Returns an error if the input is not a valid KLL quantiles sketch.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
-+ `phi`: `DOUBLE` between 0 and 1
-
-**Return Type**
-
-`INT64`
-
-**Example**
-
-The following query initializes two KLL sketches from five rows of data each.
-Then it merges these two sketches and returns the value of the ninth decile or
-90th percentile of the merged sketch.
-
-```sql
-SELECT KLL_QUANTILES.MERGE_POINT_INT64(kll_sketch, .9) AS merged_sketch
-FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 1 AS x UNION ALL
-            SELECT 2 AS x UNION ALL
-            SELECT 3 AS x UNION ALL
-            SELECT 4 AS x UNION ALL
-            SELECT 5)
-      UNION ALL
-      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
-      FROM (SELECT 6 AS x UNION ALL
-            SELECT 7 AS x UNION ALL
-            SELECT 8 AS x UNION ALL
-            SELECT 9 AS x UNION ALL
-            SELECT 10 AS x));
-
-+---------------+
-| merged_sketch |
-+---------------+
-|             9 |
-+---------------+
-```
-
-### `KLL_QUANTILES.MERGE_POINT_UINT64`
-
-```sql
-KLL_QUANTILES.MERGE_POINT_UINT64(sketch, phi)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64),
-but accepts KLL sketches initialized on data of type `UINT64`.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
-+ `phi`: `DOUBLE` between 0 and 1
-
-**Return Type**
-
-`UINT64`
-
-### `KLL_QUANTILES.MERGE_POINT_DOUBLE`
-
-```sql
-KLL_QUANTILES.MERGE_POINT_DOUBLE(sketch, phi)
-```
-
-**Description**
-
-Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64),
-but accepts KLL sketches initialized on data of type
-`DOUBLE`.
-
-`KLL_QUANTILES.MERGE_POINT_DOUBLE` orders values according to the
-ZetaSQL [floating point sort order][sort-order]. For example, `NaN`
-orders before <code>&#8209;inf</code>.
-
-**Supported Argument Types**
-
-+ `sketch`: `BYTES` KLL sketch initialized on
-  `DOUBLE` data type
-+ `phi`: `DOUBLE` between 0 and 1
-
-**Return Type**
-
-`DOUBLE`
-
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
 
 ### `KLL_QUANTILES.EXTRACT_INT64`
 
@@ -7505,6 +7055,456 @@ but accepts KLL sketches initialized on data of type
 
 `DOUBLE`
 
+### `KLL_QUANTILES.INIT_INT64`
+
+```sql
+KLL_QUANTILES.INIT_INT64(input[, precision[, weight => input_weight]])
+```
+
+**Description**
+
+Takes one or more `input` values and aggregates them into a
+[KLL][kll-sketches] sketch. This function represents the output sketch
+using the `BYTES` data type. This is an
+aggregate function.
+
+The `precision` argument defines the exactness of the returned approximate
+quantile *q*. By default, the rank of the approximate quantile in the input can
+be at most ±1/1000 * *n* off from ⌈Φ * *n*⌉, where *n* is the number of rows in
+the input and ⌈Φ * *n*⌉ is the rank of the exact quantile. If you provide a
+value for `precision`, the rank of the approximate quantile in the input can be
+at most ±1/`precision` * *n* off from the rank of the exact quantile. The error
+is within this error bound in 99.999% of cases. This error guarantee only
+applies to the difference between exact and approximate ranks: the numerical
+difference between the exact and approximated value for a quantile can be
+arbitrarily large.
+
+By default, values in an initialized KLL sketch are weighted equally as `1`.
+If you would you like to weight values differently, use the
+mandatory-named argument, `weight`, which assigns weight to each input in the
+resulting KLL sketch. `weight` is a multiplier. For example, if you assign a
+weight of `3` to an input value, it's as if three instances of the input value
+are included in the generation of the KLL sketch.
+
+**Supported Argument Types**
+
++ `input`: `INT64`
++ `precision`: `INT64`
++ `input_weight`: `INT64`
+
+**Return Type**
+
+KLL sketch as `BYTES`
+
+**Examples**
+
+The following query takes a column of type `INT64` and outputs a sketch as
+`BYTES` that allows you to retrieve values whose ranks are within
+±1/1000 * 5 = ±1/200 ≈ 0 ranks of their exact quantile.
+
+```sql
+SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+FROM (SELECT 1 AS x UNION ALL
+      SELECT 2 AS x UNION ALL
+      SELECT 3 AS x UNION ALL
+      SELECT 4 AS x UNION ALL
+      SELECT 5 AS x);
+
++----------------------------------------------------------------------+
+| kll_sketch                                                           |
++----------------------------------------------------------------------+
+| "\010q\020\005 \004\212\007\025\010\200                              |
+| \020\350\007\032\001\001\"\001\005*\007\n\005\001\002\003\004\005"   |
++----------------------------------------------------------------------+
+```
+
+The following examples illustrate how weight works when you initialize a
+KLL sketch. The results are converted to quantiles.
+
+```sql
+WITH points AS (
+  SELECT 1 AS x, 1 AS y UNION ALL
+  SELECT 2 AS x, 1 AS y UNION ALL
+  SELECT 3 AS x, 1 AS y UNION ALL
+  SELECT 4 AS x, 1 AS y UNION ALL
+  SELECT 5 AS x, 1 AS y)
+SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
+FROM
+  (
+    SELECT KLL_QUANTILES.INIT_INT64(x, 1000,  weight=>y) AS kll_sketch
+    FROM points
+  );
+
++---------+
+| median  |
++---------+
+| [1,3,5] |
++---------+
+```
+
+```sql
+WITH points AS (
+  SELECT 1 AS x, 1 AS y UNION ALL
+  SELECT 2 AS x, 3 AS y UNION ALL
+  SELECT 3 AS x, 1 AS y UNION ALL
+  SELECT 4 AS x, 1 AS y UNION ALL
+  SELECT 5 AS x, 1 AS y)
+SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
+FROM
+  (
+    SELECT KLL_QUANTILES.INIT_INT64(x, 1000,  weight=>y) AS kll_sketch
+    FROM points
+  );
+
++---------+
+| median  |
++---------+
+| [1,2,5] |
++---------+
+```
+
+### `KLL_QUANTILES.INIT_UINT64`
+
+```sql
+KLL_QUANTILES.INIT_UINT64(input[, precision[, weight => input_weight]])
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64),
+but accepts `input` of type `UINT64`.
+
+**Supported Argument Types**
+
++ `input`: `UINT64`
++ `precision`: `INT64`
++ `input_weight`: `INT64`
+
+**Return Type**
+
+KLL sketch as `BYTES`
+
+### `KLL_QUANTILES.INIT_DOUBLE`
+
+```sql
+KLL_QUANTILES.INIT_DOUBLE(input[, precision[, weight => input_weight]])
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64),
+but accepts `input` of type `DOUBLE`.
+
+`KLL_QUANTILES.INIT_DOUBLE` orders values according to the ZetaSQL
+[floating point sort order][sort-order]. For example, `NaN` orders before
+<code>&#8209;inf</code>.
+
+**Supported Argument Types**
+
++ `input`: `DOUBLE`
++ `precision`: `INT64`
++ `input_weight`: `INT64`
+
+**Return Type**
+
+KLL sketch as `BYTES`
+
+[kll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_kll
+
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
+
+### `KLL_QUANTILES.MERGE_INT64`
+
+```sql
+KLL_QUANTILES.MERGE_INT64(sketch, number)
+```
+
+**Description**
+
+Takes KLL sketches as `BYTES` and merges them into
+a new sketch, then returns the quantiles that divide the input into
+`number` equal-sized groups, along with the minimum and maximum values of the
+input. The output is an `ARRAY` containing the exact minimum value from
+the input data that you used to initialize the sketches, each
+approximate quantile, and the exact maximum value from the initial input data.
+This is an aggregate function.
+
+If the merged sketches were initialized with different precisions, the precision
+is downgraded to the lowest precision involved in the merge — except if the
+aggregations are small enough to still capture the input exactly — then the
+mergee's precision is maintained.
+
+Returns an error if the underlying type of one or more input sketches is not
+compatible with type `INT64`.
+
+Returns an error if the input is not a valid KLL quantiles sketch.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
++ `number`: `INT64`
+
+**Return Type**
+
+`ARRAY<INT64>`
+
+**Example**
+
+The following query initializes two KLL sketches from five rows of data each.
+Then it merges these two sketches and returns an `ARRAY` containing the minimum,
+median, and maximum values in the input sketches.
+
+```sql
+SELECT KLL_QUANTILES.MERGE_INT64(kll_sketch, 2) AS merged_sketch
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5)
+      UNION ALL
+      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 6 AS x UNION ALL
+            SELECT 7 AS x UNION ALL
+            SELECT 8 AS x UNION ALL
+            SELECT 9 AS x UNION ALL
+            SELECT 10 AS x));
+
++---------------+
+| merged_sketch |
++---------------+
+| [1,5,10]      |
++---------------+
+```
+
+### `KLL_QUANTILES.MERGE_UINT64`
+
+```sql
+KLL_QUANTILES.MERGE_UINT64(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64),
+but accepts KLL sketches initialized on data of type `UINT64`.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
++ `number`: `INT64`
+
+**Return Type**
+
+`ARRAY<UINT64>`
+
+### `KLL_QUANTILES.MERGE_DOUBLE`
+
+```sql
+KLL_QUANTILES.MERGE_DOUBLE(sketch, number)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64),
+but accepts KLL sketches initialized on data of type
+`DOUBLE`.
+
+`KLL_QUANTILES.MERGE_DOUBLE` orders values according to the ZetaSQL
+[floating point sort order][sort-order]. For example, `NaN` orders before
+<code>&#8209;inf</code>.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on
+  `DOUBLE` data type
++ `number`: `INT64`
+
+**Return Type**
+
+`ARRAY<DOUBLE>`
+
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
+
+### `KLL_QUANTILES.MERGE_PARTIAL`
+
+```sql
+KLL_QUANTILES.MERGE_PARTIAL(sketch)
+```
+
+**Description**
+
+Takes KLL sketches of the same underlying type and merges them to return a new
+sketch of the same underlying type. This is an aggregate function.
+
+If the merged sketches were initialized with different precisions, the precision
+is downgraded to the lowest precision involved in the merge — except if the
+aggregations are small enough to still capture the input exactly — then the
+mergee's precision is maintained.
+
+Returns an error if two or more sketches don't have compatible underlying types,
+such as one sketch of `INT64` values and another of
+`DOUBLE` values.
+
+Returns an error if one or more inputs are not a valid KLL quantiles sketch.
+
+Ignores `NULL` sketches. If the input contains zero rows or only `NULL`
+sketches, the function returns `NULL`.
+
+You can initialize sketches with different optional clauses and merge them. For
+example, you can initialize a sketch with the `DISTINCT` clause and another
+sketch without any optional clauses, and then merge these two sketches.
+However, if you initialize sketches with the `DISTINCT` clause and merge them,
+the resulting sketch may still contain duplicates.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch
+
+**Return Type**
+
+KLL sketch as `BYTES`
+
+**Example**
+
+The following query initializes two KLL sketches from five rows of data each.
+Then it merges these two sketches into a new sketch, also as `BYTES`. Both
+input sketches have the same underlying data type and precision.
+
+```sql
+SELECT KLL_QUANTILES.MERGE_PARTIAL(kll_sketch) AS merged_sketch
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5)
+      UNION ALL
+      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 6 AS x UNION ALL
+            SELECT 7 AS x UNION ALL
+            SELECT 8 AS x UNION ALL
+            SELECT 9 AS x UNION ALL
+            SELECT 10 AS x));
+
++-----------------------------------------------------------------------------+
+| merged_sketch                                                               |
++-----------------------------------------------------------------------------+
+| "\010q\020\n \004\212\007\032\010\200 \020\350\007\032\001\001\"\001\n*     |
+| \014\n\n\001\002\003\004\005\006\007\010\t\n"                               |
++-----------------------------------------------------------------------------+
+```
+
+### `KLL_QUANTILES.MERGE_POINT_INT64`
+
+```sql
+KLL_QUANTILES.MERGE_POINT_INT64(sketch, phi)
+```
+
+**Description**
+
+Takes KLL sketches as `BYTES` and merges them, then extracts a single
+quantile from the merged sketch. The `phi` argument specifies the quantile
+to return as a fraction of the total number of rows in the input, normalized
+between 0 and 1. This means that the function will return a value *v* such that
+approximately Φ * *n* inputs are less than or equal to *v*, and a (1-Φ) / *n*
+inputs are greater than or equal to *v*. This is an aggregate function.
+
+If the merged sketches were initialized with different precisions, the precision
+is downgraded to the lowest precision involved in the merge — except if the
+aggregations are small enough to still capture the input exactly — then the
+mergee's precision is maintained.
+
+Returns an error if the underlying type of one or more input sketches is not
+compatible with type `INT64`.
+
+Returns an error if the input is not a valid KLL quantiles sketch.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
++ `phi`: `DOUBLE` between 0 and 1
+
+**Return Type**
+
+`INT64`
+
+**Example**
+
+The following query initializes two KLL sketches from five rows of data each.
+Then it merges these two sketches and returns the value of the ninth decile or
+90th percentile of the merged sketch.
+
+```sql
+SELECT KLL_QUANTILES.MERGE_POINT_INT64(kll_sketch, .9) AS merged_sketch
+FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 1 AS x UNION ALL
+            SELECT 2 AS x UNION ALL
+            SELECT 3 AS x UNION ALL
+            SELECT 4 AS x UNION ALL
+            SELECT 5)
+      UNION ALL
+      SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
+      FROM (SELECT 6 AS x UNION ALL
+            SELECT 7 AS x UNION ALL
+            SELECT 8 AS x UNION ALL
+            SELECT 9 AS x UNION ALL
+            SELECT 10 AS x));
+
++---------------+
+| merged_sketch |
++---------------+
+|             9 |
++---------------+
+```
+
+### `KLL_QUANTILES.MERGE_POINT_UINT64`
+
+```sql
+KLL_QUANTILES.MERGE_POINT_UINT64(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64),
+but accepts KLL sketches initialized on data of type `UINT64`.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
++ `phi`: `DOUBLE` between 0 and 1
+
+**Return Type**
+
+`UINT64`
+
+### `KLL_QUANTILES.MERGE_POINT_DOUBLE`
+
+```sql
+KLL_QUANTILES.MERGE_POINT_DOUBLE(sketch, phi)
+```
+
+**Description**
+
+Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64),
+but accepts KLL sketches initialized on data of type
+`DOUBLE`.
+
+`KLL_QUANTILES.MERGE_POINT_DOUBLE` orders values according to the
+ZetaSQL [floating point sort order][sort-order]. For example, `NaN`
+orders before <code>&#8209;inf</code>.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on
+  `DOUBLE` data type
++ `phi`: `DOUBLE` between 0 and 1
+
+**Return Type**
+
+`DOUBLE`
+
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
+
 [kll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_kll
 
 [approx-functions-reference]: #approximate_aggregate_functions
@@ -7520,10 +7520,10 @@ Numbering functions assign integer values to each row based on their position
 within the specified window. The `OVER` clause syntax varies across
 numbering functions.
 
-### `RANK`
+### `CUME_DIST`
 
 ```sql
-RANK()
+CUME_DIST()
 OVER over_clause
 
 over_clause:
@@ -7538,10 +7538,9 @@ window_specification:
 
 **Description**
 
-Returns the ordinal (1-based) rank of each row within the ordered partition.
-All peer rows receive the same rank value. The next row or set of peer rows
-receives a rank value which increments by the number of peers with the previous
-rank value, instead of `DENSE_RANK`, which always increments by 1.
+Return the relative rank of a row defined as NP/NR. NP is defined to be the
+number of rows that either precede or are peers with the current row. NR is the
+number of rows in the partition.
 
 To learn more about the `OVER` clause and how to use it, see
 [Window function calls][window-function-calls].
@@ -7554,36 +7553,9 @@ To learn more about the `OVER` clause and how to use it, see
 
 **Return Type**
 
-`INT64`
+`DOUBLE`
 
-**Examples**
-
-```sql
-WITH Numbers AS
- (SELECT 1 as x
-  UNION ALL SELECT 2
-  UNION ALL SELECT 2
-  UNION ALL SELECT 5
-  UNION ALL SELECT 8
-  UNION ALL SELECT 10
-  UNION ALL SELECT 10
-)
-SELECT x,
-  RANK() OVER (ORDER BY x ASC) AS rank
-FROM Numbers
-
-+-------------------------+
-| x          | rank       |
-+-------------------------+
-| 1          | 1          |
-| 2          | 2          |
-| 2          | 2          |
-| 5          | 4          |
-| 8          | 5          |
-| 10         | 6          |
-| 10         | 6          |
-+-------------------------+
-```
+**Example**
 
 ```sql
 WITH finishers AS
@@ -7600,20 +7572,20 @@ WITH finishers AS
 SELECT name,
   finish_time,
   division,
-  RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+  CUME_DIST() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
 FROM finishers;
 
 +-----------------+------------------------+----------+-------------+
 | name            | finish_time            | division | finish_rank |
 +-----------------+------------------------+----------+-------------+
-| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
-| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
-| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
-| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 4           |
-| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
-| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
-| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
-| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
+| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0.25        |
+| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
+| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
+| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1           |
+| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0.25        |
+| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.5         |
+| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.75        |
+| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1           |
 +-----------------+------------------------+----------+-------------+
 ```
 
@@ -7713,144 +7685,6 @@ FROM finishers;
 +-----------------+------------------------+----------+-------------+
 ```
 
-### `PERCENT_RANK`
-
-```sql
-PERCENT_RANK()
-OVER over_clause
-
-over_clause:
-  { named_window | ( [ window_specification ] ) }
-
-window_specification:
-  [ named_window ]
-  [ PARTITION BY partition_expression [, ...] ]
-  ORDER BY expression [ { ASC | DESC }  ] [, ...]
-
-```
-
-**Description**
-
-Return the percentile rank of a row defined as (RK-1)/(NR-1), where RK is
-the `RANK` of the row and NR is the number of rows in the partition.
-Returns 0 if NR=1.
-
-To learn more about the `OVER` clause and how to use it, see
-[Window function calls][window-function-calls].
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
-
-<!-- mdlint on -->
-
-**Return Type**
-
-`DOUBLE`
-
-**Example**
-
-```sql
-WITH finishers AS
- (SELECT 'Sophia Liu' as name,
-  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
-  'F30-34' as division
-  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
-  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
-  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
-  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
-  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
-  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
-  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
-SELECT name,
-  finish_time,
-  division,
-  PERCENT_RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
-FROM finishers;
-
-+-----------------+------------------------+----------+---------------------+
-| name            | finish_time            | division | finish_rank         |
-+-----------------+------------------------+----------+---------------------+
-| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0                   |
-| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
-| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
-| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1                   |
-| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0                   |
-| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.33333333333333331 |
-| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.66666666666666663 |
-| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1                   |
-+-----------------+------------------------+----------+---------------------+
-```
-
-### `CUME_DIST`
-
-```sql
-CUME_DIST()
-OVER over_clause
-
-over_clause:
-  { named_window | ( [ window_specification ] ) }
-
-window_specification:
-  [ named_window ]
-  [ PARTITION BY partition_expression [, ...] ]
-  ORDER BY expression [ { ASC | DESC }  ] [, ...]
-
-```
-
-**Description**
-
-Return the relative rank of a row defined as NP/NR. NP is defined to be the
-number of rows that either precede or are peers with the current row. NR is the
-number of rows in the partition.
-
-To learn more about the `OVER` clause and how to use it, see
-[Window function calls][window-function-calls].
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
-
-<!-- mdlint on -->
-
-**Return Type**
-
-`DOUBLE`
-
-**Example**
-
-```sql
-WITH finishers AS
- (SELECT 'Sophia Liu' as name,
-  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
-  'F30-34' as division
-  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
-  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
-  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
-  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
-  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
-  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
-  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
-SELECT name,
-  finish_time,
-  division,
-  CUME_DIST() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
-FROM finishers;
-
-+-----------------+------------------------+----------+-------------+
-| name            | finish_time            | division | finish_rank |
-+-----------------+------------------------+----------+-------------+
-| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0.25        |
-| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
-| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
-| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1           |
-| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0.25        |
-| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.5         |
-| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.75        |
-| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1           |
-+-----------------+------------------------+----------+-------------+
-```
-
 ### `NTILE`
 
 ```sql
@@ -7921,6 +7755,172 @@ FROM finishers;
 | Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 1           |
 | Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 2           |
 | Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 3           |
++-----------------+------------------------+----------+-------------+
+```
+
+### `PERCENT_RANK`
+
+```sql
+PERCENT_RANK()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
+```
+
+**Description**
+
+Return the percentile rank of a row defined as (RK-1)/(NR-1), where RK is
+the `RANK` of the row and NR is the number of rows in the partition.
+Returns 0 if NR=1.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Return Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  PERCENT_RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers;
+
++-----------------+------------------------+----------+---------------------+
+| name            | finish_time            | division | finish_rank         |
++-----------------+------------------------+----------+---------------------+
+| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0                   |
+| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
+| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
+| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1                   |
+| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0                   |
+| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.33333333333333331 |
+| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.66666666666666663 |
+| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1                   |
++-----------------+------------------------+----------+---------------------+
+```
+
+### `RANK`
+
+```sql
+RANK()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
+```
+
+**Description**
+
+Returns the ordinal (1-based) rank of each row within the ordered partition.
+All peer rows receive the same rank value. The next row or set of peer rows
+receives a rank value which increments by the number of peers with the previous
+rank value, instead of `DENSE_RANK`, which always increments by 1.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Return Type**
+
+`INT64`
+
+**Examples**
+
+```sql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  RANK() OVER (ORDER BY x ASC) AS rank
+FROM Numbers
+
++-------------------------+
+| x          | rank       |
++-------------------------+
+| 1          | 1          |
+| 2          | 2          |
+| 2          | 2          |
+| 5          | 4          |
+| 8          | 5          |
+| 10         | 6          |
+| 10         | 6          |
++-------------------------+
+```
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers;
+
++-----------------+------------------------+----------+-------------+
+| name            | finish_time            | division | finish_rank |
++-----------------+------------------------+----------+-------------+
+| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
+| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 4           |
+| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
+| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
+| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
+| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
 +-----------------+------------------------+----------+-------------+
 ```
 
@@ -9665,802 +9665,361 @@ largest negative input value, which has no positive representation.
 
 </table>
 
-### `SIGN`
+### `ACOS`
 
 ```
-SIGN(X)
+ACOS(X)
 ```
 
 **Description**
 
-Returns `-1`, `0`, or `+1` for negative, zero and positive arguments
-respectively. For floating point arguments, this function does not distinguish
-between positive and negative zero.
+Computes the principal value of the inverse cosine of X. The return value is in
+the range [0,&pi;]. Generates an error if X is a value outside of the
+range [-1, 1].
 
 <table>
   <thead>
     <tr>
       <th>X</th>
-      <th>SIGN(X)</th>
+      <th>ACOS(X)</th>
     </tr>
-    </thead>
-    <tbody>
-    <tr>
-      <td>25</td>
-      <td>+1</td>
-    </tr>
-    <tr>
-      <td>0</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td>-25</td>
-      <td>-1</td>
-    </tr>
-    <tr>
-      <td>NaN</td>
-      <td>NaN</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>INT32</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT32</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>FLOAT</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `IS_INF`
-
-```
-IS_INF(X)
-```
-
-**Description**
-
-Returns `TRUE` if the value is positive or negative infinity.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>IS_INF(X)</th>
-    </tr>
-    </thead>
-    <tbody>
+  </thead>
+  <tbody>
     <tr>
       <td><code>+inf</code></td>
-      <td><code>TRUE</code></td>
+      <td><code>NaN</code></td>
     </tr>
     <tr>
       <td><code>-inf</code></td>
-      <td><code>TRUE</code></td>
+      <td><code>NaN</code></td>
     </tr>
     <tr>
-      <td>25</td>
-      <td><code>FALSE</code></td>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>X &lt; -1</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>X &gt; 1</td>
+      <td>Error</td>
     </tr>
   </tbody>
 </table>
 
-### `IS_NAN`
+### `ACOSH`
 
 ```
-IS_NAN(X)
+ACOSH(X)
 ```
 
 **Description**
 
-Returns `TRUE` if the value is a `NaN` value.
+Computes the inverse hyperbolic cosine of X. Generates an error if X is a value
+less than 1.
 
 <table>
   <thead>
     <tr>
       <th>X</th>
-      <th>IS_NAN(X)</th>
+      <th>ACOSH(X)</th>
     </tr>
-    </thead>
-    <tbody>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
     <tr>
       <td><code>NaN</code></td>
-      <td><code>TRUE</code></td>
+      <td><code>NaN</code></td>
     </tr>
     <tr>
-      <td>25</td>
-      <td><code>FALSE</code></td>
+      <td>X &lt; 1</td>
+      <td>Error</td>
     </tr>
   </tbody>
 </table>
 
-### `IEEE_DIVIDE`
+### `ASIN`
 
 ```
-IEEE_DIVIDE(X, Y)
+ASIN(X)
 ```
 
 **Description**
 
-Divides X by Y; this function never fails. Returns
-`DOUBLE` unless
-both X and Y are `FLOAT`, in which case it returns
-`FLOAT`. Unlike the division operator (/),
-this function does not generate errors for division by zero or overflow.</p>
+Computes the principal value of the inverse sine of X. The return value is in
+the range [-&pi;/2,&pi;/2]. Generates an error if X is outside of
+the range [-1, 1].
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ASIN(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>X &lt; -1</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>X &gt; 1</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
+### `ASINH`
+
+```
+ASINH(X)
+```
+
+**Description**
+
+Computes the inverse hyperbolic sine of X. Does not fail.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ASINH(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
+
+### `ATAN`
+
+```
+ATAN(X)
+```
+
+**Description**
+
+Computes the principal value of the inverse tangent of X. The return value is
+in the range [-&pi;/2,&pi;/2]. Does not fail.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ATAN(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>&pi;/2</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>-&pi;/2</td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
+
+### `ATAN2`
+
+```
+ATAN2(X, Y)
+```
+
+**Description**
+
+Calculates the principal value of the inverse tangent of X/Y using the signs of
+the two arguments to determine the quadrant. The return value is in the range
+[-&pi;,&pi;].
 
 <table>
   <thead>
     <tr>
       <th>X</th>
       <th>Y</th>
-      <th>IEEE_DIVIDE(X, Y)</th>
+      <th>ATAN2(X, Y)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>20.0</td>
-      <td>4.0</td>
-      <td>5.0</td>
-    </tr>
-    <tr>
-      <td>0.0</td>
-      <td>25.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <td>25.0</td>
-      <td>0.0</td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td>-25.0</td>
-      <td>0.0</td>
-      <td><code>-inf</code></td>
-    </tr>
-    <tr>
-      <td>0.0</td>
-      <td>0.0</td>
       <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td>0.0</td>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td><code>NaN</code></td>
-      <td>0.0</td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td><code>-inf</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-  </tbody>
-</table>
-
-### `RAND`
-
-```
-RAND()
-```
-
-**Description**
-
-Generates a pseudo-random value of type `DOUBLE` in
-the range of [0, 1), inclusive of 0 and exclusive of 1.
-
-### `SQRT`
-
-```
-SQRT(X)
-```
-
-**Description**
-
-Computes the square root of X. Generates an error if X is less than 0.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>SQRT(X)</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-      <td><code>25.0</code></td>
-      <td><code>5.0</code></td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td><code>X &lt; 0</code></td>
-      <td>Error</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `POW`
-
-```
-POW(X, Y)
-```
-
-**Description**
-
-Returns the value of X raised to the power of Y. If the result underflows and is
-not representable, then the function returns a  value of zero.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>Y</th>
-      <th>POW(X, Y)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>2.0</td>
-      <td>3.0</td>
-      <td>8.0</td>
-    </tr>
-    <tr>
-      <td>1.0</td>
-      <td>Any value including <code>NaN</code></td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <td>Any value including <code>NaN</code></td>
-      <td>0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <td>-1.0</td>
-      <td><code>+inf</code></td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <td>-1.0</td>
-      <td><code>-inf</code></td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <td>ABS(X) &lt; 1</td>
-      <td><code>-inf</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td>ABS(X) &gt; 1</td>
-      <td><code>-inf</code></td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <td>ABS(X) &lt; 1</td>
-      <td><code>+inf</code></td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <td>ABS(X) &gt; 1</td>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td>Y &lt; 0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td>Y &gt; 0</td>
-      <td><code>-inf</code> if Y is an odd integer, <code>+inf</code> otherwise</td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td>Y &lt; 0</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td>Y &gt; 0</td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td>Finite value &lt; 0</td>
-      <td>Non-integer</td>
-      <td>Error</td>
-    </tr>
-    <tr>
-      <td>0</td>
-      <td>Finite value &lt; 0</td>
-      <td>Error</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-The return data type is determined by the argument types with the following
-table.
-
-<table style="font-size:small">
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `POWER`
-
-```
-POWER(X, Y)
-```
-
-**Description**
-
-Synonym of [`POW(X, Y)`][pow].
-
-[pow]: #pow
-
-### `EXP`
-
-```
-EXP(X)
-```
-
-**Description**
-
-Computes *e* to the power of X, also called the natural exponential function. If
-the result underflows, this function returns a zero. Generates an error if the
-result overflows.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>EXP(X)</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-      <td>0.0</td>
-      <td>1.0</td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td>0.0</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `LN`
-
-```
-LN(X)
-```
-
-**Description**
-
-Computes the natural logarithm of X. Generates an error if X is less than or
-equal to zero.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>LN(X)</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-      <td>1.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td><code>X &lt; 0</code></td>
-      <td>Error</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `LOG`
-
-```
-LOG(X [, Y])
-```
-
-**Description**
-
-If only X is present, `LOG` is a synonym of `LN`. If Y is also present,
-`LOG` computes the logarithm of X to base Y.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>Y</th>
-      <th>LOG(X, Y)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>100.0</td>
-      <td>10.0</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
       <td>Any value</td>
       <td><code>NaN</code></td>
     </tr>
     <tr>
       <td>Any value</td>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>Positive Finite value</td>
+      <td><code>-inf</code></td>
+      <td>&pi;</td>
+    </tr>
+    <tr>
+      <td>Negative Finite value</td>
+      <td><code>-inf</code></td>
+      <td>-&pi;</td>
+    </tr>
+    <tr>
+      <td>Finite value</td>
+      <td><code>+inf</code></td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>Finite value</td>
+      <td>&pi;/2</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>Finite value</td>
+      <td>-&pi;/2</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>-inf</code></td>
+      <td>&frac34;&pi;</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+      <td>-&frac34;&pi;</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+      <td>&pi;/4</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>+inf</code></td>
+      <td>-&pi;/4</td>
+    </tr>
+  </tbody>
+</table>
+
+### `ATANH`
+
+```
+ATANH(X)
+```
+
+**Description**
+
+Computes the inverse hyperbolic tangent of X. Generates an error if X is outside
+of the range (-1, 1).
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ATANH(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
       <td><code>+inf</code></td>
       <td><code>NaN</code></td>
     </tr>
     <tr>
-      <td><code>+inf</code></td>
-      <td>0.0 &lt; Y &lt; 1.0</td>
-      <td><code>-inf</code></td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td>Y &gt; 1.0</td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td>X &lt;= 0</td>
-      <td>Any value</td>
-      <td>Error</td>
-    </tr>
-    <tr>
-      <td>Any value</td>
-      <td>Y &lt;= 0</td>
-      <td>Error</td>
-    </tr>
-    <tr>
-      <td>Any value</td>
-      <td>1.0</td>
-      <td>Error</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table style="font-size:small">
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `LOG10`
-
-```
-LOG10(X)
-```
-
-**Description**
-
-Similar to `LOG`, but computes logarithm to base 10.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>LOG10(X)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>100.0</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
       <td><code>-inf</code></td>
       <td><code>NaN</code></td>
     </tr>
     <tr>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
     </tr>
     <tr>
-      <td>X &lt;= 0</td>
+      <td>X &lt; -1</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>X &gt; 1</td>
       <td>Error</td>
     </tr>
   </tbody>
 </table>
 
-**Return Data Type**
-
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `GREATEST`
+### `CBRT`
 
 ```
-GREATEST(X1,...,XN)
+CBRT(X)
 ```
 
 **Description**
 
-Returns the greatest value among `X1,...,XN`. If any argument is `NULL`, returns
-`NULL`. Otherwise, in the case of floating-point arguments, if any argument is
-`NaN`, returns `NaN`. In all other cases, returns the value among `X1,...,XN`
-that has the greatest value according to the ordering used by the `ORDER BY`
-clause. The arguments `X1, ..., XN` must be coercible to a common supertype, and
-the supertype must support ordering.
-
-<table>
-  <thead>
-    <tr>
-      <th>X1,...,XN</th>
-      <th>GREATEST(X1,...,XN)</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-      <td>3,5,1</td>
-      <td>5</td>
-    </tr>
-  </tbody>
-</table>
-
-This function supports specifying [collation][collation].
-
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
-
-**Return Data Types**
-
-Data type of the input values.
-
-### `LEAST`
-
-```
-LEAST(X1,...,XN)
-```
-
-**Description**
-
-Returns the least value among `X1,...,XN`. If any argument is `NULL`, returns
-`NULL`. Otherwise, in the case of floating-point arguments, if any argument is
-`NaN`, returns `NaN`. In all other cases, returns the value among `X1,...,XN`
-that has the least value according to the ordering used by the `ORDER BY`
-clause. The arguments `X1, ..., XN` must be coercible to a common supertype, and
-the supertype must support ordering.
-
-<table>
-  <thead>
-    <tr>
-      <th>X1,...,XN</th>
-      <th>LEAST(X1,...,XN)</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-      <td>3,5,1</td>
-      <td>1</td>
-    </tr>
-  </tbody>
-</table>
-
-This function supports specifying [collation][collation].
-
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
-
-**Return Data Types**
-
-Data type of the input values.
-
-### `DIV`
-
-```
-DIV(X, Y)
-```
-
-**Description**
-
-Returns the result of integer division of X by Y. Division by zero returns
-an error. Division by -1 may overflow.
+Computes the cube root of `X`. `X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
 
 <table>
   <thead>
     <tr>
       <th>X</th>
-      <th>Y</th>
-      <th>DIV(X, Y)</th>
+      <th>CBRT(X)</th>
     </tr>
-  </thead>
-  <tbody>
+    </thead>
+    <tbody>
     <tr>
-      <td>20</td>
-      <td>4</td>
-      <td>5</td>
+      <td><code>+inf</code></td>
+      <td><code>inf</code></td>
     </tr>
     <tr>
-      <td>12</td>
-      <td>-7</td>
-      <td>-1</td>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
     </tr>
     <tr>
-      <td>20</td>
-      <td>3</td>
-      <td>6</td>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
     </tr>
     <tr>
-      <td>0</td>
-      <td>20</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td>20</td>
-      <td>0</td>
-      <td>Error</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-The return data type is determined by the argument types with the following
-table.
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-</tbody>
-
-</table>
-
-### `SAFE_DIVIDE`
-
-```
-SAFE_DIVIDE(X, Y)
-```
-
-**Description**
-
-Equivalent to the division operator (<code>X / Y</code>), but returns
-<code>NULL</code> if an error occurs, such as a division by zero error.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>Y</th>
-      <th>SAFE_DIVIDE(X, Y)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>20</td>
-      <td>4</td>
-      <td>5</td>
-    </tr>
-    <tr>
-      <td>0</td>
-      <td>20</td>
+      <td><code>0</code></td>
       <td><code>0</code></td>
     </tr>
     <tr>
-      <td>20</td>
-      <td>0</td>
+      <td><code>NULL</code></td>
       <td><code>NULL</code></td>
     </tr>
   </tbody>
@@ -10468,452 +10027,21 @@ Equivalent to the division operator (<code>X / Y</code>), but returns
 
 **Return Data Type**
 
-<table style="font-size:small">
+`DOUBLE`
 
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
+**Example**
 
-</table>
+```sql
+SELECT CBRT(27) AS cube_root;
 
-### `SAFE_MULTIPLY`
-
-```
-SAFE_MULTIPLY(X, Y)
++--------------------+
+| cube_root          |
++--------------------+
+| 3.0000000000000004 |
++--------------------+
 ```
 
-**Description**
-
-Equivalent to the multiplication operator (<code>*</code>), but returns
-<code>NULL</code> if overflow occurs.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>Y</th>
-      <th>SAFE_MULTIPLY(X, Y)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>20</td>
-      <td>4</td>
-      <td>80</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table style="font-size:small">
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `SAFE_NEGATE`
-
-```
-SAFE_NEGATE(X)
-```
-
-**Description**
-
-Equivalent to the unary minus operator (<code>-</code>), but returns
-<code>NULL</code> if overflow occurs.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>SAFE_NEGATE(X)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>+1</td>
-      <td>-1</td>
-    </tr>
-    <tr>
-      <td>-1</td>
-      <td>+1</td>
-    </tr>
-    <tr>
-      <td>0</td>
-      <td>0</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>INT32</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>FLOAT</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `SAFE_ADD`
-
-```
-SAFE_ADD(X, Y)
-```
-
-**Description**
-
-Equivalent to the addition operator (<code>+</code>), but returns
-<code>NULL</code> if overflow occurs.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>Y</th>
-      <th>SAFE_ADD(X, Y)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>5</td>
-      <td>4</td>
-      <td>9</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table style="font-size:small">
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `SAFE_SUBTRACT`
-
-```
-SAFE_SUBTRACT(X, Y)
-```
-
-**Description**
-
-Returns the result of Y subtracted from X.
-Equivalent to the subtraction operator (<code>-</code>), but returns
-<code>NULL</code> if overflow occurs.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>Y</th>
-      <th>SAFE_SUBTRACT(X, Y)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>5</td>
-      <td>4</td>
-      <td>1</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table style="font-size:small">
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `MOD`
-
-```
-MOD(X, Y)
-```
-
-**Description**
-
-Modulo function: returns the remainder of the division of X by Y. Returned
-value has the same sign as X. An error is generated if Y is 0.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>Y</th>
-      <th>MOD(X, Y)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>25</td>
-      <td>12</td>
-      <td>1</td>
-    </tr>
-    <tr>
-      <td>25</td>
-      <td>0</td>
-      <td>Error</td>
-    </tr>
-</table>
-
-**Return Data Type**
-
-The return data type is determined by the argument types with the following
-table.
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
-</tbody>
-
-</table>
-
-### `ROUND`
-
-```
-ROUND(X [, N])
-```
-
-**Description**
-
-If only X is present, rounds X to the nearest integer. If N is present,
-rounds X to N decimal places after the decimal point. If N is negative,
-rounds off digits to the left of the decimal point. Rounds halfway cases
-away from zero. Generates an error if overflow occurs.
-
-<table>
-  <thead>
-    <tr>
-      <th>Expression</th>
-      <th>Return Value</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>ROUND(2.0)</code></td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td><code>ROUND(2.3)</code></td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td><code>ROUND(2.8)</code></td>
-      <td>3.0</td>
-    </tr>
-    <tr>
-      <td><code>ROUND(2.5)</code></td>
-      <td>3.0</td>
-    </tr>
-    <tr>
-      <td><code>ROUND(-2.3)</code></td>
-      <td>-2.0</td>
-    </tr>
-    <tr>
-      <td><code>ROUND(-2.8)</code></td>
-      <td>-3.0</td>
-    </tr>
-    <tr>
-      <td><code>ROUND(-2.5)</code></td>
-      <td>-3.0</td>
-    </tr>
-    <tr>
-      <td><code>ROUND(0)</code></td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td><code>ROUND(+inf)</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td><code>ROUND(-inf)</code></td>
-      <td><code>-inf</code></td>
-    </tr>
-    <tr>
-      <td><code>ROUND(NaN)</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td><code>ROUND(123.7, -1)</code></td>
-      <td>120.0</td>
-    </tr>
-    <tr>
-      <td><code>ROUND(1.235, 2)</code></td>
-      <td>1.24</td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
-### `TRUNC`
-
-```
-TRUNC(X [, N])
-```
-
-**Description**
-
-If only X is present, `TRUNC` rounds X to the nearest integer whose absolute
-value is not greater than the absolute value of X. If N is also present, `TRUNC`
-behaves like `ROUND(X, N)`, but always rounds towards zero and never overflows.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>TRUNC(X)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>2.0</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>2.3</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>2.8</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>2.5</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>-2.3</td>
-      <td>-2.0</td>
-    </tr>
-    <tr>
-      <td>-2.8</td>
-      <td>-2.0</td>
-    </tr>
-    <tr>
-      <td>-2.5</td>
-      <td>-2.0</td>
-    </tr>
-    <tr>
-      <td>0</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td><code>-inf</code></td>
-    </tr>
-    <tr>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
 
 ### `CEIL`
 
@@ -11005,86 +10133,6 @@ CEILING(X)
 
 Synonym of CEIL(X)
 
-### `FLOOR`
-
-```
-FLOOR(X)
-```
-
-**Description**
-
-Returns the largest integral value that is not greater than X.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>FLOOR(X)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>2.0</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>2.3</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>2.8</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>2.5</td>
-      <td>2.0</td>
-    </tr>
-    <tr>
-      <td>-2.3</td>
-      <td>-3.0</td>
-    </tr>
-    <tr>
-      <td>-2.8</td>
-      <td>-3.0</td>
-    </tr>
-    <tr>
-      <td>-2.5</td>
-      <td>-3.0</td>
-    </tr>
-    <tr>
-      <td>0</td>
-      <td>0</td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td><code>-inf</code></td>
-    </tr>
-    <tr>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-  </tbody>
-</table>
-
-**Return Data Type**
-
-<table>
-
-<thead>
-<tr>
-<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
-</tr>
-</thead>
-<tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
-</tbody>
-
-</table>
-
 ### `COS`
 
 ```
@@ -11148,87 +10196,6 @@ Generates an error if overflow occurs.
     <tr>
       <td><code>NaN</code></td>
       <td><code>NaN</code></td>
-    </tr>
-  </tbody>
-</table>
-
-### `ACOS`
-
-```
-ACOS(X)
-```
-
-**Description**
-
-Computes the principal value of the inverse cosine of X. The return value is in
-the range [0,&pi;]. Generates an error if X is a value outside of the
-range [-1, 1].
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>ACOS(X)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td>X &lt; -1</td>
-      <td>Error</td>
-    </tr>
-    <tr>
-      <td>X &gt; 1</td>
-      <td>Error</td>
-    </tr>
-  </tbody>
-</table>
-
-### `ACOSH`
-
-```
-ACOSH(X)
-```
-
-**Description**
-
-Computes the inverse hyperbolic cosine of X. Generates an error if X is a value
-less than 1.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>ACOSH(X)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td>X &lt; 1</td>
-      <td>Error</td>
     </tr>
   </tbody>
 </table>
@@ -11481,6 +10448,1152 @@ SELECT CSCH(0.5) AS a, CSCH(-2) AS b, SAFE.CSCH(0) AS c;
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
 
+### `DIV`
+
+```
+DIV(X, Y)
+```
+
+**Description**
+
+Returns the result of integer division of X by Y. Division by zero returns
+an error. Division by -1 may overflow.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>DIV(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>20</td>
+      <td>4</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td>-7</td>
+      <td>-1</td>
+    </tr>
+    <tr>
+      <td>20</td>
+      <td>3</td>
+      <td>6</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>20</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td>20</td>
+      <td>0</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+The return data type is determined by the argument types with the following
+table.
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+</tbody>
+
+</table>
+
+### `EXP`
+
+```
+EXP(X)
+```
+
+**Description**
+
+Computes *e* to the power of X, also called the natural exponential function. If
+the result underflows, this function returns a zero. Generates an error if the
+result overflows.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>EXP(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>0.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `FLOOR`
+
+```
+FLOOR(X)
+```
+
+**Description**
+
+Returns the largest integral value that is not greater than X.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>FLOOR(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.3</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.8</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.5</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>-2.3</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td>-2.8</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td>-2.5</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `GREATEST`
+
+```
+GREATEST(X1,...,XN)
+```
+
+**Description**
+
+Returns the greatest value among `X1,...,XN`. If any argument is `NULL`, returns
+`NULL`. Otherwise, in the case of floating-point arguments, if any argument is
+`NaN`, returns `NaN`. In all other cases, returns the value among `X1,...,XN`
+that has the greatest value according to the ordering used by the `ORDER BY`
+clause. The arguments `X1, ..., XN` must be coercible to a common supertype, and
+the supertype must support ordering.
+
+<table>
+  <thead>
+    <tr>
+      <th>X1,...,XN</th>
+      <th>GREATEST(X1,...,XN)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>3,5,1</td>
+      <td>5</td>
+    </tr>
+  </tbody>
+</table>
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+
+**Return Data Types**
+
+Data type of the input values.
+
+### `IEEE_DIVIDE`
+
+```
+IEEE_DIVIDE(X, Y)
+```
+
+**Description**
+
+Divides X by Y; this function never fails. Returns
+`DOUBLE` unless
+both X and Y are `FLOAT`, in which case it returns
+`FLOAT`. Unlike the division operator (/),
+this function does not generate errors for division by zero or overflow.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>IEEE_DIVIDE(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>20.0</td>
+      <td>4.0</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <td>0.0</td>
+      <td>25.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>25.0</td>
+      <td>0.0</td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td>-25.0</td>
+      <td>0.0</td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>0.0</td>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td>0.0</td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
+
+### `IS_INF`
+
+```
+IS_INF(X)
+```
+
+**Description**
+
+Returns `TRUE` if the value is positive or negative infinity.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>IS_INF(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>TRUE</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>TRUE</code></td>
+    </tr>
+    <tr>
+      <td>25</td>
+      <td><code>FALSE</code></td>
+    </tr>
+  </tbody>
+</table>
+
+### `IS_NAN`
+
+```
+IS_NAN(X)
+```
+
+**Description**
+
+Returns `TRUE` if the value is a `NaN` value.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>IS_NAN(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>TRUE</code></td>
+    </tr>
+    <tr>
+      <td>25</td>
+      <td><code>FALSE</code></td>
+    </tr>
+  </tbody>
+</table>
+
+### `LEAST`
+
+```
+LEAST(X1,...,XN)
+```
+
+**Description**
+
+Returns the least value among `X1,...,XN`. If any argument is `NULL`, returns
+`NULL`. Otherwise, in the case of floating-point arguments, if any argument is
+`NaN`, returns `NaN`. In all other cases, returns the value among `X1,...,XN`
+that has the least value according to the ordering used by the `ORDER BY`
+clause. The arguments `X1, ..., XN` must be coercible to a common supertype, and
+the supertype must support ordering.
+
+<table>
+  <thead>
+    <tr>
+      <th>X1,...,XN</th>
+      <th>LEAST(X1,...,XN)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>3,5,1</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+
+**Return Data Types**
+
+Data type of the input values.
+
+### `LN`
+
+```
+LN(X)
+```
+
+**Description**
+
+Computes the natural logarithm of X. Generates an error if X is less than or
+equal to zero.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>LN(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>1.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>X &lt; 0</code></td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `LOG`
+
+```
+LOG(X [, Y])
+```
+
+**Description**
+
+If only X is present, `LOG` is a synonym of `LN`. If Y is also present,
+`LOG` computes the logarithm of X to base Y.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>LOG(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>100.0</td>
+      <td>10.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>Any value</td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>Any value</td>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>0.0 &lt; Y &lt; 1.0</td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>Y &gt; 1.0</td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td>X &lt;= 0</td>
+      <td>Any value</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>Any value</td>
+      <td>Y &lt;= 0</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>Any value</td>
+      <td>1.0</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table style="font-size:small">
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `LOG10`
+
+```
+LOG10(X)
+```
+
+**Description**
+
+Similar to `LOG`, but computes logarithm to base 10.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>LOG10(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>100.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td>X &lt;= 0</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `MOD`
+
+```
+MOD(X, Y)
+```
+
+**Description**
+
+Modulo function: returns the remainder of the division of X by Y. Returned
+value has the same sign as X. An error is generated if Y is 0.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>MOD(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>25</td>
+      <td>12</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>25</td>
+      <td>0</td>
+      <td>Error</td>
+    </tr>
+</table>
+
+**Return Data Type**
+
+The return data type is determined by the argument types with the following
+table.
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td></tr>
+</tbody>
+
+</table>
+
+### `POW`
+
+```
+POW(X, Y)
+```
+
+**Description**
+
+Returns the value of X raised to the power of Y. If the result underflows and is
+not representable, then the function returns a  value of zero.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>POW(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2.0</td>
+      <td>3.0</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <td>1.0</td>
+      <td>Any value including <code>NaN</code></td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td>Any value including <code>NaN</code></td>
+      <td>0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td>-1.0</td>
+      <td><code>+inf</code></td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td>-1.0</td>
+      <td><code>-inf</code></td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td>ABS(X) &lt; 1</td>
+      <td><code>-inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td>ABS(X) &gt; 1</td>
+      <td><code>-inf</code></td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>ABS(X) &lt; 1</td>
+      <td><code>+inf</code></td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>ABS(X) &gt; 1</td>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>Y &lt; 0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>Y &gt; 0</td>
+      <td><code>-inf</code> if Y is an odd integer, <code>+inf</code> otherwise</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>Y &lt; 0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>Y &gt; 0</td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td>Finite value &lt; 0</td>
+      <td>Non-integer</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>Finite value &lt; 0</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+The return data type is determined by the argument types with the following
+table.
+
+<table style="font-size:small">
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `POWER`
+
+```
+POWER(X, Y)
+```
+
+**Description**
+
+Synonym of [`POW(X, Y)`][pow].
+
+[pow]: #pow
+
+### `RAND`
+
+```
+RAND()
+```
+
+**Description**
+
+Generates a pseudo-random value of type `DOUBLE` in
+the range of [0, 1), inclusive of 0 and exclusive of 1.
+
+### `ROUND`
+
+```
+ROUND(X [, N])
+```
+
+**Description**
+
+If only X is present, rounds X to the nearest integer. If N is present,
+rounds X to N decimal places after the decimal point. If N is negative,
+rounds off digits to the left of the decimal point. Rounds halfway cases
+away from zero. Generates an error if overflow occurs.
+
+<table>
+  <thead>
+    <tr>
+      <th>Expression</th>
+      <th>Return Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>ROUND(2.0)</code></td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(2.3)</code></td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(2.8)</code></td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(2.5)</code></td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(-2.3)</code></td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(-2.8)</code></td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(-2.5)</code></td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(0)</code></td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(+inf)</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>ROUND(-inf)</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>ROUND(NaN)</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>ROUND(123.7, -1)</code></td>
+      <td>120.0</td>
+    </tr>
+    <tr>
+      <td><code>ROUND(1.235, 2)</code></td>
+      <td>1.24</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `SAFE_ADD`
+
+```
+SAFE_ADD(X, Y)
+```
+
+**Description**
+
+Equivalent to the addition operator (<code>+</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>SAFE_ADD(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>5</td>
+      <td>4</td>
+      <td>9</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table style="font-size:small">
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `SAFE_DIVIDE`
+
+```
+SAFE_DIVIDE(X, Y)
+```
+
+**Description**
+
+Equivalent to the division operator (<code>X / Y</code>), but returns
+<code>NULL</code> if an error occurs, such as a division by zero error.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>SAFE_DIVIDE(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>20</td>
+      <td>4</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>20</td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td>20</td>
+      <td>0</td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table style="font-size:small">
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `SAFE_MULTIPLY`
+
+```
+SAFE_MULTIPLY(X, Y)
+```
+
+**Description**
+
+Equivalent to the multiplication operator (<code>*</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>SAFE_MULTIPLY(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>20</td>
+      <td>4</td>
+      <td>80</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table style="font-size:small">
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `SAFE_NEGATE`
+
+```
+SAFE_NEGATE(X)
+```
+
+**Description**
+
+Equivalent to the unary minus operator (<code>-</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SAFE_NEGATE(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>+1</td>
+      <td>-1</td>
+    </tr>
+    <tr>
+      <td>-1</td>
+      <td>+1</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>INT32</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>FLOAT</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
+### `SAFE_SUBTRACT`
+
+```
+SAFE_SUBTRACT(X, Y)
+```
+
+**Description**
+
+Returns the result of Y subtracted from X.
+Equivalent to the subtraction operator (<code>-</code>), but returns
+<code>NULL</code> if overflow occurs.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>SAFE_SUBTRACT(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>5</td>
+      <td>4</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table style="font-size:small">
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th><code>INT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>INT64</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT32</code></th><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>UINT64</code></th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>NUMERIC</code></th><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>BIGNUMERIC</code></th><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>FLOAT</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+<tr><th><code>DOUBLE</code></th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
 ### `SEC`
 
 ```
@@ -11596,6 +11709,60 @@ SELECT SECH(0.5) AS a, SECH(-2) AS b, SECH(100) AS c;
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
 
+### `SIGN`
+
+```
+SIGN(X)
+```
+
+**Description**
+
+Returns `-1`, `0`, or `+1` for negative, zero and positive arguments
+respectively. For floating point arguments, this function does not distinguish
+between positive and negative zero.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SIGN(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>25</td>
+      <td>+1</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td>-25</td>
+      <td>-1</td>
+    </tr>
+    <tr>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>INT32</code></td><td style="vertical-align:middle"><code>INT64</code></td><td style="vertical-align:middle"><code>UINT32</code></td><td style="vertical-align:middle"><code>UINT64</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>FLOAT</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
+</table>
+
 ### `SIN`
 
 ```
@@ -11663,80 +11830,52 @@ an error if overflow occurs.
   </tbody>
 </table>
 
-### `ASIN`
+### `SQRT`
 
 ```
-ASIN(X)
+SQRT(X)
 ```
 
 **Description**
 
-Computes the principal value of the inverse sine of X. The return value is in
-the range [-&pi;/2,&pi;/2]. Generates an error if X is outside of
-the range [-1, 1].
+Computes the square root of X. Generates an error if X is less than 0.
 
 <table>
   <thead>
     <tr>
       <th>X</th>
-      <th>ASIN(X)</th>
+      <th>SQRT(X)</th>
     </tr>
-  </thead>
-  <tbody>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>25.0</code></td>
+      <td><code>5.0</code></td>
+    </tr>
     <tr>
       <td><code>+inf</code></td>
-      <td><code>NaN</code></td>
+      <td><code>+inf</code></td>
     </tr>
     <tr>
-      <td><code>-inf</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td>X &lt; -1</td>
-      <td>Error</td>
-    </tr>
-    <tr>
-      <td>X &gt; 1</td>
+      <td><code>X &lt; 0</code></td>
       <td>Error</td>
     </tr>
   </tbody>
 </table>
 
-### `ASINH`
-
-```
-ASINH(X)
-```
-
-**Description**
-
-Computes the inverse hyperbolic sine of X. Does not fail.
+**Return Data Type**
 
 <table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>ASINH(X)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>+inf</code></td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td><code>-inf</code></td>
-    </tr>
-    <tr>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-  </tbody>
+
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
+
 </table>
 
 ### `TAN`
@@ -11807,189 +11946,61 @@ fail.
   </tbody>
 </table>
 
-### `ATAN`
+### `TRUNC`
 
 ```
-ATAN(X)
+TRUNC(X [, N])
 ```
 
 **Description**
 
-Computes the principal value of the inverse tangent of X. The return value is
-in the range [-&pi;/2,&pi;/2]. Does not fail.
+If only X is present, `TRUNC` rounds X to the nearest integer whose absolute
+value is not greater than the absolute value of X. If N is also present, `TRUNC`
+behaves like `ROUND(X, N)`, but always rounds towards zero and never overflows.
 
 <table>
   <thead>
     <tr>
       <th>X</th>
-      <th>ATAN(X)</th>
+      <th>TRUNC(X)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code>+inf</code></td>
-      <td>&pi;/2</td>
+      <td>2.0</td>
+      <td>2.0</td>
     </tr>
     <tr>
-      <td><code>-inf</code></td>
-      <td>-&pi;/2</td>
+      <td>2.3</td>
+      <td>2.0</td>
     </tr>
     <tr>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-  </tbody>
-</table>
-
-### `ATANH`
-
-```
-ATANH(X)
-```
-
-**Description**
-
-Computes the inverse hyperbolic tangent of X. Generates an error if X is outside
-of the range (-1, 1).
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>ATANH(X)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>NaN</code></td>
+      <td>2.8</td>
+      <td>2.0</td>
     </tr>
     <tr>
-      <td><code>-inf</code></td>
-      <td><code>NaN</code></td>
+      <td>2.5</td>
+      <td>2.0</td>
     </tr>
     <tr>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
+      <td>-2.3</td>
+      <td>-2.0</td>
     </tr>
     <tr>
-      <td>X &lt; -1</td>
-      <td>Error</td>
+      <td>-2.8</td>
+      <td>-2.0</td>
     </tr>
     <tr>
-      <td>X &gt; 1</td>
-      <td>Error</td>
-    </tr>
-  </tbody>
-</table>
-
-### `ATAN2`
-
-```
-ATAN2(X, Y)
-```
-
-**Description**
-
-Calculates the principal value of the inverse tangent of X/Y using the signs of
-the two arguments to determine the quadrant. The return value is in the range
-[-&pi;,&pi;].
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>Y</th>
-      <th>ATAN2(X, Y)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>NaN</code></td>
-      <td>Any value</td>
-      <td><code>NaN</code></td>
+      <td>-2.5</td>
+      <td>-2.0</td>
     </tr>
     <tr>
-      <td>Any value</td>
-      <td><code>NaN</code></td>
-      <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td>0.0</td>
-      <td>0.0</td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <td>Positive Finite value</td>
-      <td><code>-inf</code></td>
-      <td>&pi;</td>
-    </tr>
-    <tr>
-      <td>Negative Finite value</td>
-      <td><code>-inf</code></td>
-      <td>-&pi;</td>
-    </tr>
-    <tr>
-      <td>Finite value</td>
-      <td><code>+inf</code></td>
-      <td>0.0</td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td>Finite value</td>
-      <td>&pi;/2</td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td>Finite value</td>
-      <td>-&pi;/2</td>
-    </tr>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>-inf</code></td>
-      <td>&frac34;&pi;</td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td><code>-inf</code></td>
-      <td>-&frac34;&pi;</td>
+      <td>0</td>
+      <td>0</td>
     </tr>
     <tr>
       <td><code>+inf</code></td>
       <td><code>+inf</code></td>
-      <td>&pi;/4</td>
-    </tr>
-    <tr>
-      <td><code>-inf</code></td>
-      <td><code>+inf</code></td>
-      <td>-&pi;/4</td>
-    </tr>
-  </tbody>
-</table>
-
-### `CBRT`
-
-```
-CBRT(X)
-```
-
-**Description**
-
-Computes the cube root of `X`. `X` can be any data type
-that [coerces to `DOUBLE`][conversion-rules].
-Supports the `SAFE.` prefix.
-
-<table>
-  <thead>
-    <tr>
-      <th>X</th>
-      <th>CBRT(X)</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-      <td><code>+inf</code></td>
-      <td><code>inf</code></td>
     </tr>
     <tr>
       <td><code>-inf</code></td>
@@ -11998,35 +12009,24 @@ Supports the `SAFE.` prefix.
     <tr>
       <td><code>NaN</code></td>
       <td><code>NaN</code></td>
-    </tr>
-    <tr>
-      <td><code>0</code></td>
-      <td><code>0</code></td>
-    </tr>
-    <tr>
-      <td><code>NULL</code></td>
-      <td><code>NULL</code></td>
     </tr>
   </tbody>
 </table>
 
 **Return Data Type**
 
-`DOUBLE`
+<table>
 
-**Example**
+<thead>
+<tr>
+<th>INPUT</th><th><code>INT32</code></th><th><code>INT64</code></th><th><code>UINT32</code></th><th><code>UINT64</code></th><th><code>NUMERIC</code></th><th><code>BIGNUMERIC</code></th><th><code>FLOAT</code></th><th><code>DOUBLE</code></th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>NUMERIC</code></td><td style="vertical-align:middle"><code>BIGNUMERIC</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td><td style="vertical-align:middle"><code>DOUBLE</code></td></tr>
+</tbody>
 
-```sql
-SELECT CBRT(27) AS cube_root;
-
-+--------------------+
-| cube_root          |
-+--------------------+
-| 3.0000000000000004 |
-+--------------------+
-```
-
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
+</table>
 
 ## Navigation functions
 
@@ -12133,6 +12133,173 @@ FROM (
 +-----------------+-------------+----------+--------------+------------------+
 ```
 
+### `LAG`
+
+```sql
+LAG (value_expression[, offset [, default_expression]])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
+```
+
+**Description**
+
+Returns the value of the `value_expression` on a preceding row. Changing the
+`offset` value changes which preceding row is returned; the default value is
+`1`, indicating the previous row in the window frame. An error occurs if
+`offset` is NULL or a negative value.
+
+The optional `default_expression` is used if there isn't a row in the window
+frame at the specified offset. This expression must be a constant expression and
+its type must be implicitly coercible to the type of `value_expression`. If left
+unspecified, `default_expression` defaults to NULL.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
++ `value_expression` can be any data type that can be returned from an
+  expression.
++ `offset` must be a non-negative integer literal or parameter.
++ `default_expression` must be compatible with the value expression type.
+
+**Return Data Type**
+
+Same type as `value_expression`.
+
+**Examples**
+
+The following example illustrates a basic use of the `LAG` function.
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  LAG(name)
+    OVER (PARTITION BY division ORDER BY finish_time ASC) AS preceding_runner
+FROM finishers;
+
++-----------------+-------------+----------+------------------+
+| name            | finish_time | division | preceding_runner |
++-----------------+-------------+----------+------------------+
+| Carly Forte     | 03:08:58    | F25-29   | NULL             |
+| Sophia Liu      | 02:51:45    | F30-34   | NULL             |
+| Nikki Leith     | 02:59:01    | F30-34   | Sophia Liu       |
+| Jen Edwards     | 03:06:36    | F30-34   | Nikki Leith      |
+| Meghan Lederer  | 03:07:41    | F30-34   | Jen Edwards      |
+| Lauren Reasoner | 03:10:14    | F30-34   | Meghan Lederer   |
+| Lisa Stelzner   | 02:54:11    | F35-39   | NULL             |
+| Lauren Matthews | 03:01:17    | F35-39   | Lisa Stelzner    |
+| Desiree Berry   | 03:05:42    | F35-39   | Lauren Matthews  |
+| Suzy Slane      | 03:06:24    | F35-39   | Desiree Berry    |
++-----------------+-------------+----------+------------------+
+```
+
+This next example uses the optional `offset` parameter.
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  LAG(name, 2)
+    OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
+FROM finishers;
+
++-----------------+-------------+----------+-------------------+
+| name            | finish_time | division | two_runners_ahead |
++-----------------+-------------+----------+-------------------+
+| Carly Forte     | 03:08:58    | F25-29   | NULL              |
+| Sophia Liu      | 02:51:45    | F30-34   | NULL              |
+| Nikki Leith     | 02:59:01    | F30-34   | NULL              |
+| Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
+| Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
+| Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
+| Lisa Stelzner   | 02:54:11    | F35-39   | NULL              |
+| Lauren Matthews | 03:01:17    | F35-39   | NULL              |
+| Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
+| Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
++-----------------+-------------+----------+-------------------+
+```
+
+The following example replaces NULL values with a default value.
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  LAG(name, 2, 'Nobody')
+    OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
+FROM finishers;
+
++-----------------+-------------+----------+-------------------+
+| name            | finish_time | division | two_runners_ahead |
++-----------------+-------------+----------+-------------------+
+| Carly Forte     | 03:08:58    | F25-29   | Nobody            |
+| Sophia Liu      | 02:51:45    | F30-34   | Nobody            |
+| Nikki Leith     | 02:59:01    | F30-34   | Nobody            |
+| Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
+| Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
+| Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
+| Lisa Stelzner   | 02:54:11    | F35-39   | Nobody            |
+| Lauren Matthews | 03:01:17    | F35-39   | Nobody            |
+| Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
+| Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
++-----------------+-------------+----------+-------------------+
+```
+
 ### `LAST_VALUE`
 
 ```sql
@@ -12223,103 +12390,6 @@ FROM (
 | Suzy Slane      | 03:06:24    | F35-39   | 03:06:24     | 0                |
 +-----------------+-------------+----------+--------------+------------------+
 
-```
-
-### `NTH_VALUE`
-
-```sql
-NTH_VALUE (value_expression, constant_integer_expression [{RESPECT | IGNORE} NULLS])
-OVER over_clause
-
-over_clause:
-  { named_window | ( [ window_specification ] ) }
-
-window_specification:
-  [ named_window ]
-  [ PARTITION BY partition_expression [, ...] ]
-  ORDER BY expression [ { ASC | DESC }  ] [, ...]
-  [ window_frame_clause ]
-
-```
-
-**Description**
-
-Returns the value of `value_expression` at the Nth row of the current window
-frame, where Nth is defined by `constant_integer_expression`. Returns NULL if
-there is no such row.
-
-This function includes `NULL` values in the calculation unless `IGNORE NULLS` is
-present. If `IGNORE NULLS` is present, the function excludes `NULL` values from
-the calculation.
-
-To learn more about the `OVER` clause and how to use it, see
-[Window function calls][window-function-calls].
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
-
-<!-- mdlint on -->
-
-**Supported Argument Types**
-
-+ `value_expression` can be any data type that can be returned from an
-  expression.
-+ `constant_integer_expression` can be any constant expression that returns an
-  integer.
-
-**Return Data Type**
-
-Same type as `value_expression`.
-
-**Examples**
-
-```sql
-WITH finishers AS
- (SELECT 'Sophia Liu' as name,
-  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
-  'F30-34' as division
-  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
-  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
-  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
-  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
-  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
-  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
-  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41', 'F30-34'
-  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58', 'F25-29'
-  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14', 'F30-34')
-SELECT name,
-  FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
-  division,
-  FORMAT_TIMESTAMP('%X', fastest_time) AS fastest_time,
-  FORMAT_TIMESTAMP('%X', second_fastest) AS second_fastest
-FROM (
-  SELECT name,
-  finish_time,
-  division,finishers,
-  FIRST_VALUE(finish_time)
-    OVER w1 AS fastest_time,
-  NTH_VALUE(finish_time, 2)
-    OVER w1 as second_fastest
-  FROM finishers
-  WINDOW w1 AS (
-    PARTITION BY division ORDER BY finish_time ASC
-    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING));
-
-+-----------------+-------------+----------+--------------+----------------+
-| name            | finish_time | division | fastest_time | second_fastest |
-+-----------------+-------------+----------+--------------+----------------+
-| Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | NULL           |
-| Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 02:59:01       |
-| Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 02:59:01       |
-| Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 02:59:01       |
-| Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 02:59:01       |
-| Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 02:59:01       |
-| Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 03:01:17       |
-| Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 03:01:17       |
-| Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 03:01:17       |
-| Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 03:01:17       |
-+-----------------+-------------+----------+--------------+----------------+
 ```
 
 ### `LEAD`
@@ -12489,10 +12559,10 @@ FROM finishers;
 +-----------------+-------------+----------+------------------+
 ```
 
-### `LAG`
+### `NTH_VALUE`
 
 ```sql
-LAG (value_expression[, offset [, default_expression]])
+NTH_VALUE (value_expression, constant_integer_expression [{RESPECT | IGNORE} NULLS])
 OVER over_clause
 
 over_clause:
@@ -12502,20 +12572,19 @@ window_specification:
   [ named_window ]
   [ PARTITION BY partition_expression [, ...] ]
   ORDER BY expression [ { ASC | DESC }  ] [, ...]
+  [ window_frame_clause ]
 
 ```
 
 **Description**
 
-Returns the value of the `value_expression` on a preceding row. Changing the
-`offset` value changes which preceding row is returned; the default value is
-`1`, indicating the previous row in the window frame. An error occurs if
-`offset` is NULL or a negative value.
+Returns the value of `value_expression` at the Nth row of the current window
+frame, where Nth is defined by `constant_integer_expression`. Returns NULL if
+there is no such row.
 
-The optional `default_expression` is used if there isn't a row in the window
-frame at the specified offset. This expression must be a constant expression and
-its type must be implicitly coercible to the type of `value_expression`. If left
-unspecified, `default_expression` defaults to NULL.
+This function includes `NULL` values in the calculation unless `IGNORE NULLS` is
+present. If `IGNORE NULLS` is present, the function excludes `NULL` values from
+the calculation.
 
 To learn more about the `OVER` clause and how to use it, see
 [Window function calls][window-function-calls].
@@ -12530,8 +12599,8 @@ To learn more about the `OVER` clause and how to use it, see
 
 + `value_expression` can be any data type that can be returned from an
   expression.
-+ `offset` must be a non-negative integer literal or parameter.
-+ `default_expression` must be compatible with the value expression type.
++ `constant_integer_expression` can be any constant expression that returns an
+  integer.
 
 **Return Data Type**
 
@@ -12539,8 +12608,6 @@ Same type as `value_expression`.
 
 **Examples**
 
-The following example illustrates a basic use of the `LAG` function.
-
 ```sql
 WITH finishers AS
  (SELECT 'Sophia Liu' as name,
@@ -12556,104 +12623,37 @@ WITH finishers AS
   UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58', 'F25-29'
   UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14', 'F30-34')
 SELECT name,
-  finish_time,
+  FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
   division,
-  LAG(name)
-    OVER (PARTITION BY division ORDER BY finish_time ASC) AS preceding_runner
-FROM finishers;
-
-+-----------------+-------------+----------+------------------+
-| name            | finish_time | division | preceding_runner |
-+-----------------+-------------+----------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL             |
-| Sophia Liu      | 02:51:45    | F30-34   | NULL             |
-| Nikki Leith     | 02:59:01    | F30-34   | Sophia Liu       |
-| Jen Edwards     | 03:06:36    | F30-34   | Nikki Leith      |
-| Meghan Lederer  | 03:07:41    | F30-34   | Jen Edwards      |
-| Lauren Reasoner | 03:10:14    | F30-34   | Meghan Lederer   |
-| Lisa Stelzner   | 02:54:11    | F35-39   | NULL             |
-| Lauren Matthews | 03:01:17    | F35-39   | Lisa Stelzner    |
-| Desiree Berry   | 03:05:42    | F35-39   | Lauren Matthews  |
-| Suzy Slane      | 03:06:24    | F35-39   | Desiree Berry    |
-+-----------------+-------------+----------+------------------+
-```
-
-This next example uses the optional `offset` parameter.
-
-```sql
-WITH finishers AS
- (SELECT 'Sophia Liu' as name,
-  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
-  'F30-34' as division
-  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
-  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
-  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
-  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
-  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
-  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
-  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41', 'F30-34'
-  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58', 'F25-29'
-  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14', 'F30-34')
-SELECT name,
+  FORMAT_TIMESTAMP('%X', fastest_time) AS fastest_time,
+  FORMAT_TIMESTAMP('%X', second_fastest) AS second_fastest
+FROM (
+  SELECT name,
   finish_time,
-  division,
-  LAG(name, 2)
-    OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
-FROM finishers;
+  division,finishers,
+  FIRST_VALUE(finish_time)
+    OVER w1 AS fastest_time,
+  NTH_VALUE(finish_time, 2)
+    OVER w1 as second_fastest
+  FROM finishers
+  WINDOW w1 AS (
+    PARTITION BY division ORDER BY finish_time ASC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING));
 
-+-----------------+-------------+----------+-------------------+
-| name            | finish_time | division | two_runners_ahead |
-+-----------------+-------------+----------+-------------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL              |
-| Sophia Liu      | 02:51:45    | F30-34   | NULL              |
-| Nikki Leith     | 02:59:01    | F30-34   | NULL              |
-| Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
-| Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
-| Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
-| Lisa Stelzner   | 02:54:11    | F35-39   | NULL              |
-| Lauren Matthews | 03:01:17    | F35-39   | NULL              |
-| Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
-| Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
-+-----------------+-------------+----------+-------------------+
-```
-
-The following example replaces NULL values with a default value.
-
-```sql
-WITH finishers AS
- (SELECT 'Sophia Liu' as name,
-  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
-  'F30-34' as division
-  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
-  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
-  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
-  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
-  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
-  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
-  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41', 'F30-34'
-  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58', 'F25-29'
-  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14', 'F30-34')
-SELECT name,
-  finish_time,
-  division,
-  LAG(name, 2, 'Nobody')
-    OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
-FROM finishers;
-
-+-----------------+-------------+----------+-------------------+
-| name            | finish_time | division | two_runners_ahead |
-+-----------------+-------------+----------+-------------------+
-| Carly Forte     | 03:08:58    | F25-29   | Nobody            |
-| Sophia Liu      | 02:51:45    | F30-34   | Nobody            |
-| Nikki Leith     | 02:59:01    | F30-34   | Nobody            |
-| Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
-| Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
-| Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
-| Lisa Stelzner   | 02:54:11    | F35-39   | Nobody            |
-| Lauren Matthews | 03:01:17    | F35-39   | Nobody            |
-| Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
-| Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
-+-----------------+-------------+----------+-------------------+
++-----------------+-------------+----------+--------------+----------------+
+| name            | finish_time | division | fastest_time | second_fastest |
++-----------------+-------------+----------+--------------+----------------+
+| Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | NULL           |
+| Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 02:59:01       |
+| Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 02:59:01       |
+| Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 02:59:01       |
+| Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 02:59:01       |
+| Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 02:59:01       |
+| Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 03:01:17       |
+| Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 03:01:17       |
+| Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 03:01:17       |
+| Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 03:01:17       |
++-----------------+-------------+----------+--------------+----------------+
 ```
 
 ### `PERCENTILE_CONT`
@@ -14742,6 +14742,56 @@ FROM example;
 +------------+----------------+---------------+
 ```
 
+### `LOWER`
+
+```sql
+LOWER(value)
+```
+
+**Description**
+
+For `STRING` arguments, returns the original string with all alphabetic
+characters in lowercase. Mapping between lowercase and uppercase is done
+according to the
+[Unicode Character Database][string-link-to-unicode-character-definitions]
+without taking into account language-specific mappings.
+
+For `BYTES` arguments, the argument is treated as ASCII text, with all bytes
+greater than 127 left intact.
+
+**Return type**
+
+`STRING` or `BYTES`
+
+**Examples**
+
+```sql
+
+WITH items AS
+  (SELECT
+    'FOO' as item
+  UNION ALL
+  SELECT
+    'BAR' as item
+  UNION ALL
+  SELECT
+    'BAZ' as item)
+
+SELECT
+  LOWER(item) AS example
+FROM items;
+
++---------+
+| example |
++---------+
+| foo     |
+| bar     |
+| baz     |
++---------+
+```
+
+[string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
+
 ### `LPAD`
 
 ```sql
@@ -14847,56 +14897,6 @@ FROM UNNEST([
 +-----------------+-----+---------+-------------------------+
 ```
 
-### `LOWER`
-
-```sql
-LOWER(value)
-```
-
-**Description**
-
-For `STRING` arguments, returns the original string with all alphabetic
-characters in lowercase. Mapping between lowercase and uppercase is done
-according to the
-[Unicode Character Database][string-link-to-unicode-character-definitions]
-without taking into account language-specific mappings.
-
-For `BYTES` arguments, the argument is treated as ASCII text, with all bytes
-greater than 127 left intact.
-
-**Return type**
-
-`STRING` or `BYTES`
-
-**Examples**
-
-```sql
-
-WITH items AS
-  (SELECT
-    'FOO' as item
-  UNION ALL
-  SELECT
-    'BAR' as item
-  UNION ALL
-  SELECT
-    'BAZ' as item)
-
-SELECT
-  LOWER(item) AS example
-FROM items;
-
-+---------+
-| example |
-+---------+
-| foo     |
-| bar     |
-| baz     |
-+---------+
-```
-
-[string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
-
 ### `LTRIM`
 
 ```sql
@@ -14983,75 +14983,6 @@ FROM items;
 
 [string-link-to-trim]: #trim
 
-### `NORMALIZE`
-
-```sql
-NORMALIZE(value[, normalization_mode])
-```
-
-**Description**
-
-Takes a string value and returns it as a normalized string. If you do not
-provide a normalization mode, `NFC` is used.
-
-[Normalization][string-link-to-normalization-wikipedia] is used to ensure that
-two strings are equivalent. Normalization is often used in situations in which
-two strings render the same on the screen but have different Unicode code
-points.
-
-`NORMALIZE` supports four optional normalization modes:
-
-| Value   | Name                                           | Description|
-|---------|------------------------------------------------|------------|
-| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
-| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
-| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
-| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-```sql
-SELECT a, b, a = b as normalized
-FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
-
-+---+---+------------+
-| a | b | normalized |
-+---+---+------------+
-| ê | ê | true       |
-+---+---+------------+
-```
-The following example normalizes different space characters.
-
-```sql
-WITH EquivalentNames AS (
-  SELECT name
-  FROM UNNEST([
-      'Jane\u2004Doe',
-      'John\u2004Smith',
-      'Jane\u2005Doe',
-      'Jane\u2006Doe',
-      'John Smith']) AS name
-)
-SELECT
-  NORMALIZE(name, NFKC) AS normalized_name,
-  COUNT(*) AS name_count
-FROM EquivalentNames
-GROUP BY 1;
-
-+-----------------+------------+
-| normalized_name | name_count |
-+-----------------+------------+
-| John Smith      | 2          |
-| Jane Doe        | 3          |
-+-----------------+------------+
-```
-
-[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
-
 ### `NORMALIZE_AND_CASEFOLD`
 
 ```sql
@@ -15127,6 +15058,75 @@ FROM Strings;
 [string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
 
 [string-link-to-normalize]: #normalize
+
+### `NORMALIZE`
+
+```sql
+NORMALIZE(value[, normalization_mode])
+```
+
+**Description**
+
+Takes a string value and returns it as a normalized string. If you do not
+provide a normalization mode, `NFC` is used.
+
+[Normalization][string-link-to-normalization-wikipedia] is used to ensure that
+two strings are equivalent. Normalization is often used in situations in which
+two strings render the same on the screen but have different Unicode code
+points.
+
+`NORMALIZE` supports four optional normalization modes:
+
+| Value   | Name                                           | Description|
+|---------|------------------------------------------------|------------|
+| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
+| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
+| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
+| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT a, b, a = b as normalized
+FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
+
++---+---+------------+
+| a | b | normalized |
++---+---+------------+
+| ê | ê | true       |
++---+---+------------+
+```
+The following example normalizes different space characters.
+
+```sql
+WITH EquivalentNames AS (
+  SELECT name
+  FROM UNNEST([
+      'Jane\u2004Doe',
+      'John\u2004Smith',
+      'Jane\u2005Doe',
+      'Jane\u2006Doe',
+      'John Smith']) AS name
+)
+SELECT
+  NORMALIZE(name, NFKC) AS normalized_name,
+  COUNT(*) AS name_count
+FROM EquivalentNames
+GROUP BY 1;
+
++-----------------+------------+
+| normalized_name | name_count |
++-----------------+------------+
+| John Smith      | 2          |
+| Jane Doe        | 3          |
++-----------------+------------+
+```
+
+[string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
 
 ### `OCTET_LENGTH`
 
@@ -15207,6 +15207,55 @@ FROM
 | !b@bar.org     | false               | true                |
 | c@buz.net      | false               | false               |
 +----------------+---------------------+---------------------+
+```
+
+[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
+### `REGEXP_EXTRACT_ALL`
+
+```sql
+REGEXP_EXTRACT_ALL(value, regexp)
+```
+
+**Description**
+
+Returns an array of all substrings of `value` that match the
+[re2 regular expression][string-link-to-re2], `regexp`. Returns an empty array
+if there is no match.
+
+If the regular expression contains a capturing group (`(...)`), and there is a
+match for that capturing group, that match is added to the results. If there
+are multiple matches for a capturing group, the last match is added to the
+results.
+
+The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
+example, using this function to extract `ana` from `banana` returns only one
+substring, not two.
+
+Returns an error if:
+
++ The regular expression is invalid
++ The regular expression has more than one capturing group
+
+**Return type**
+
+`ARRAY<STRING>` or `ARRAY<BYTES>`
+
+**Examples**
+
+```sql
+WITH code_markdown AS
+  (SELECT 'Try `function(x)` or `function(y)`' as code)
+
+SELECT
+  REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
+FROM code_markdown;
+
++----------------------------+
+| example                    |
++----------------------------+
+| [function(x), function(y)] |
++----------------------------+
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -15300,55 +15349,6 @@ SELECT value, regex, REGEXP_EXTRACT(value, regex) AS result FROM characters;
 | xyztb | (.)+b   | t        |
 | ab    | (z)?b   | NULL     |
 +-------+---------+----------+
-```
-
-[string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
-
-### `REGEXP_EXTRACT_ALL`
-
-```sql
-REGEXP_EXTRACT_ALL(value, regexp)
-```
-
-**Description**
-
-Returns an array of all substrings of `value` that match the
-[re2 regular expression][string-link-to-re2], `regexp`. Returns an empty array
-if there is no match.
-
-If the regular expression contains a capturing group (`(...)`), and there is a
-match for that capturing group, that match is added to the results. If there
-are multiple matches for a capturing group, the last match is added to the
-results.
-
-The `REGEXP_EXTRACT_ALL` function only returns non-overlapping matches. For
-example, using this function to extract `ana` from `banana` returns only one
-substring, not two.
-
-Returns an error if:
-
-+ The regular expression is invalid
-+ The regular expression has more than one capturing group
-
-**Return type**
-
-`ARRAY<STRING>` or `ARRAY<BYTES>`
-
-**Examples**
-
-```sql
-WITH code_markdown AS
-  (SELECT 'Try `function(x)` or `function(y)`' as code)
-
-SELECT
-  REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
-FROM code_markdown;
-
-+----------------------------+
-| example                    |
-+----------------------------+
-| [function(x), function(y)] |
-+----------------------------+
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -15597,6 +15597,45 @@ FROM markdown;
 
 [string-link-to-lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
 
+### `REPEAT`
+
+```sql
+REPEAT(original_value, repetitions)
+```
+
+**Description**
+
+Returns a `STRING` or `BYTES` value that consists of `original_value`, repeated.
+The `repetitions` parameter specifies the number of times to repeat
+`original_value`. Returns `NULL` if either `original_value` or `repetitions`
+are `NULL`.
+
+This function returns an error if the `repetitions` value is negative.
+
+**Return type**
+
+`STRING` or `BYTES`
+
+**Examples**
+
+```sql
+SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
+  STRUCT('abc' AS t, 3 AS n),
+  ('例子', 2),
+  ('abc', null),
+  (null, 3)
+]);
+
++------+------+-----------+
+| t    | n    | REPEAT    |
+|------|------|-----------|
+| abc  | 3    | abcabcabc |
+| 例子 | 2    | 例子例子  |
+| abc  | NULL | NULL      |
+| NULL | 3    | NULL      |
++------+------+-----------+
+```
+
 ### `REPLACE`
 
 ```sql
@@ -15637,45 +15676,6 @@ FROM desserts;
 | blackberry cobbler |
 | cherry cobbler     |
 +--------------------+
-```
-
-### `REPEAT`
-
-```sql
-REPEAT(original_value, repetitions)
-```
-
-**Description**
-
-Returns a `STRING` or `BYTES` value that consists of `original_value`, repeated.
-The `repetitions` parameter specifies the number of times to repeat
-`original_value`. Returns `NULL` if either `original_value` or `repetitions`
-are `NULL`.
-
-This function returns an error if the `repetitions` value is negative.
-
-**Return type**
-
-`STRING` or `BYTES`
-
-**Examples**
-
-```sql
-SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
-  STRUCT('abc' AS t, 3 AS n),
-  ('例子', 2),
-  ('abc', null),
-  (null, 3)
-]);
-
-+------+------+-----------+
-| t    | n    | REPEAT    |
-|------|------|-----------|
-| abc  | 3    | abcabcabc |
-| 例子 | 2    | 例子例子  |
-| abc  | NULL | NULL      |
-| NULL | 3    | NULL      |
-+------+------+-----------+
 ```
 
 ### `REVERSE`
@@ -17026,6 +17026,329 @@ the functions in the previous table.
   </tbody>
 </table>
 
+### `BOOL` 
+<a id="bool_for_json"></a>
+
+```sql
+BOOL(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON boolean, and returns that value as a SQL
+`BOOL`. If the expression is SQL `NULL`, the function returns SQL
+`NULL`. If the extracted JSON value is not a boolean, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+```sql
+SELECT BOOL(JSON 'true') AS vacancy;
+
++---------+
+| vacancy |
++---------+
+| true    |
++---------+
+```
+
+```sql
+SELECT BOOL(JSON_QUERY(JSON '{"hotel class": "5-star", "vacancy": true}', "$.vacancy")) AS vacancy;
+
++---------+
+| vacancy |
++---------+
+| true    |
++---------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not of type bool.
+SELECT BOOL(JSON '123') AS result; -- Throws an error
+SELECT BOOL(JSON 'null') AS result; -- Throw an error
+SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
+```
+
+### `DOUBLE` 
+<a id="double_for_json"></a>
+
+```sql
+DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON number and returns that value as a SQL
+`DOUBLE`. If the expression is SQL `NULL`, the
+function returns SQL `NULL`. If the extracted JSON value is not a number, an
+error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+This function supports an optional mandatory-named argument called
+`wide_number_mode` which defines what happens with a number that cannot be
+represented as a DOUBLE without loss of precision.
+
+This argument accepts one of the two case-sensitive values:
+
++   ‘exact’: The function fails if the result cannot be represented as a
+    `DOUBLE` without loss of precision.
++   ‘round’: The numeric value stored in JSON will be rounded to
+    `DOUBLE`. If such rounding is not possible, the
+    function fails. This is the default value if the argument is not specified.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+```sql
+SELECT DOUBLE(JSON '9.8') AS velocity;
+
++----------+
+| velocity |
++----------+
+| 9.8      |
++----------+
+```
+
+```sql
+SELECT DOUBLE(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
+
++---------+
+| vo2_max |
++---------+
+| 39.1    |
++---------+
+```
+
+```sql
+SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'round') as result;
+
++------------------------+
+| result                 |
++------------------------+
+| 1.8446744073709552e+19 |
++------------------------+
+```
+
+```sql
+SELECT DOUBLE(JSON '18446744073709551615') as result;
+
++------------------------+
+| result                 |
++------------------------+
+| 1.8446744073709552e+19 |
++------------------------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not of type DOUBLE.
+SELECT DOUBLE(JSON '"strawberry"') AS result;
+SELECT DOUBLE(JSON 'null') AS result;
+
+-- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
+SELECT DOUBLE(JSON '123.4', wide_number_mode=>'EXACT') as result;
+SELECT DOUBLE(JSON '123.4', wide_number_mode=>'exac') as result;
+
+-- An error is thrown because the number cannot be converted to DOUBLE without loss of precision
+SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'exact') as result;
+
+-- Returns a SQL NULL
+SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
+```
+
+### `INT64` 
+<a id="int64_for_json"></a>
+
+```sql
+INT64(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON number and returns that value as a SQL
+`INT64`. If the expression is SQL `NULL`, the function returns SQL
+`NULL`. If the extracted JSON number has a fractional part or is outside of the
+INT64 domain, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+SELECT INT64(JSON '2005') AS flight_number;
+
++---------------+
+| flight_number |
++---------------+
+| 2005          |
++---------------+
+```
+
+```sql
+SELECT INT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
+
++---------------+
+| flight_number |
++---------------+
+| 2005          |
++---------------+
+```
+
+```sql
+SELECT INT64(JSON '10.0') AS score;
+
++-------+
+| score |
++-------+
+| 10    |
++-------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+SELECT INT64(JSON '10.1') AS result;  -- Throws an error
+SELECT INT64(JSON '"strawberry"') AS result; -- Throws an error
+SELECT INT64(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+
+```
+
+### `JSON_EXTRACT_SCALAR`
+
+Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
+
+```sql
+JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
+```
+
+```sql
+JSON_EXTRACT_SCALAR(json_expr[, json_path])
+```
+
+**Description**
+
+Extracts a scalar value and then returns it as a string. A scalar value can
+represent a string, number, or boolean. Removes the outermost quotes and
+unescapes the return values. If a JSON key uses invalid
+[JSONPath][JSONPath-format] characters, then you can escape those characters
+using single quotes and brackets.
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+    If `json_path` returns a JSON `null` or a non-scalar value (in other words,
+    if `json_path` refers to an object or an array), then a SQL `NULL` is
+    returned.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+In the following example, `age` is extracted.
+
+```sql
+SELECT JSON_EXTRACT_SCALAR(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
++------------+
+| scalar_age |
++------------+
+| 6          |
++------------+
+```
+
+The following example compares how results are returned for the `JSON_EXTRACT`
+and `JSON_EXTRACT_SCALAR` functions.
+
+```sql
+SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
+  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
+  JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
+  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
++-----------+-------------+----------+------------+
+| json_name | scalar_name | json_age | scalar_age |
++-----------+-------------+----------+------------+
+| "Jakob"   | Jakob       | "6"      | 6          |
++-----------+-------------+----------+------------+
+```
+
+```sql
+SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
+  JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
+
++--------------------+---------------------+
+| json_extract       | json_extract_scalar |
++--------------------+---------------------+
+| ["apple","banana"] | NULL                |
++--------------------+---------------------+
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using single quotes and brackets, `[' ']`. For example:
+
+```sql
+SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
+
++-------+
+| hello |
++-------+
+| world |
++-------+
+```
+
+[json-value]: #json_value
+
+[JSONPath-format]: #JSONPath_format
+
+[differences-json-and-string]: #differences_json_and_string
+
 ### `JSON_EXTRACT`
 
 Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
@@ -17070,6 +17393,9 @@ using single quotes and brackets.
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
     you want to obtain from the input.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
 
 **Return type**
 
@@ -17179,352 +17505,7 @@ SELECT JSON_EXTRACT(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
 
 [JSONPath-format]: #JSONPath_format
 
-### `JSON_QUERY`
-
-```sql
-JSON_QUERY(json_string_expr, json_path)
-```
-
-```sql
-JSON_QUERY(json_expr, json_path)
-```
-
-**Description**
-
-Extracts a JSON value, such as an array or object, or a JSON scalar
-value, such as a string, number, or boolean. If a JSON key uses invalid
-[JSONPath][JSONPath-format] characters, then you can escape those characters
-using double quotes.
-
-+   `json_string_expr`: A JSON-formatted string. For example:
-
-    ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-
-    Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
-    For example:
-
-    ```sql
-    SELECT JSON_QUERY("null", "$") -- Returns a SQL NULL
-    ```
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-
-    Extracts a JSON `null` when a JSON `null` is encountered.
-
-    ```sql
-    SELECT JSON_QUERY(JSON 'null', "$") -- Returns a JSON 'null'
-    ```
-+   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input.
-
-**Return type**
-
-+ `json_string_expr`: A JSON-formatted `STRING`
-+ `json_expr`: `JSON`
-
-**Examples**
-
-In the following example, JSON data is extracted and returned as JSON.
-
-```sql
-SELECT
-  JSON_QUERY(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
-  AS json_data;
-
-+-----------------------------------+
-| json_data                         |
-+-----------------------------------+
-| {"students":[{"id":5},{"id":12}]} |
-+-----------------------------------+
-```
-
-In the following examples, JSON data is extracted and returned as
-JSON-formatted strings.
-
-```sql
-SELECT JSON_QUERY(json_text, '$') AS json_text_string
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
-
-+-----------------------------------------------------------+
-| json_text_string                                          |
-+-----------------------------------------------------------+
-| {"class":{"students":[{"name":"Jane"}]}}                  |
-| {"class":{"students":[]}}                                 |
-| {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
-+-----------------------------------------------------------+
-```
-
-```sql
-SELECT JSON_QUERY(json_text, '$.class.students[0]') AS first_student
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
-
-+-----------------+
-| first_student   |
-+-----------------+
-| {"name":"Jane"} |
-| NULL            |
-| {"name":"John"} |
-+-----------------+
-```
-
-```sql
-SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
-
-+-------------------+
-| second_student    |
-+-------------------+
-| NULL              |
-| NULL              |
-| NULL              |
-| "Jamie"           |
-+-------------------+
-```
-
-```sql
-SELECT JSON_QUERY(json_text, '$.class."students"') AS student_names
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
-
-+------------------------------------+
-| student_names                      |
-+------------------------------------+
-| [{"name":"Jane"}]                  |
-| []                                 |
-| [{"name":"John"},{"name":"Jamie"}] |
-+------------------------------------+
-```
-
-```sql
-SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
-SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
-```
-
-```sql
-SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
-SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
-```
-
-[JSONPath-format]: #JSONPath_format
-
-### `JSON_EXTRACT_SCALAR`
-
-Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
-
-```sql
-JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
-```
-
-```sql
-JSON_EXTRACT_SCALAR(json_expr[, json_path])
-```
-
-**Description**
-
-Extracts a scalar value and then returns it as a string. A scalar value can
-represent a string, number, or boolean. Removes the outermost quotes and
-unescapes the return values. If a JSON key uses invalid
-[JSONPath][JSONPath-format] characters, then you can escape those characters
-using single quotes and brackets.
-
-+   `json_string_expr`: A JSON-formatted string. For example:
-
-    ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-+   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
-    provided, then the JSONPath `$` symbol is applied, which means that all of
-    the data is analyzed.
-
-    If `json_path` returns a JSON `null` or a non-scalar value (in other words,
-    if `json_path` refers to an object or an array), then a SQL `NULL` is
-    returned.
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-In the following example, `age` is extracted.
-
-```sql
-SELECT JSON_EXTRACT_SCALAR(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
-
-+------------+
-| scalar_age |
-+------------+
-| 6          |
-+------------+
-```
-
-The following example compares how results are returned for the `JSON_EXTRACT`
-and `JSON_EXTRACT_SCALAR` functions.
-
-```sql
-SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
-  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
-  JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
-  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
-
-+-----------+-------------+----------+------------+
-| json_name | scalar_name | json_age | scalar_age |
-+-----------+-------------+----------+------------+
-| "Jakob"   | Jakob       | "6"      | 6          |
-+-----------+-------------+----------+------------+
-```
-
-```sql
-SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
-  JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
-
-+--------------------+---------------------+
-| json_extract       | json_extract_scalar |
-+--------------------+---------------------+
-| ["apple","banana"] | NULL                |
-+--------------------+---------------------+
-```
-
-In cases where a JSON key uses invalid JSONPath characters, you can escape those
-characters using single quotes and brackets, `[' ']`. For example:
-
-```sql
-SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
-
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
-```
-
-[json-value]: #json_value
-
-[JSONPath-format]: #JSONPath_format
-
-### `JSON_VALUE`
-
-```sql
-JSON_VALUE(json_string_expr[, json_path])
-```
-
-```sql
-JSON_VALUE(json_expr[, json_path])
-```
-
-**Description**
-
-Extracts a scalar value and then returns it as a string. A scalar value can
-represent a string, number, or boolean. Removes the outermost quotes and
-unescapes the return values. If a JSON key uses invalid
-[JSONPath][JSONPath-format] characters, then you can escape those characters
-using double quotes.
-
-+   `json_string_expr`: A JSON-formatted string. For example:
-
-    ```
-    '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
-    ```
-+   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
-    provided, then the JSONPath `$` symbol is applied, which means that all of
-    the data is analyzed.
-
-    If `json_path` returns a JSON `null` or a non-scalar value (in other words,
-    if `json_path` refers to an object or an array), then a SQL `NULL` is
-    returned.
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-In the following example, JSON data is extracted and returned as a scalar value.
-
-```sql
-SELECT JSON_VALUE(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
-
-+------------+
-| scalar_age |
-+------------+
-| 6          |
-+------------+
-```
-
-The following example compares how results are returned for the `JSON_QUERY`
-and `JSON_VALUE` functions.
-
-```sql
-SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
-  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
-  JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
-  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
-
-+-----------+-------------+----------+------------+
-| json_name | scalar_name | json_age | scalar_age |
-+-----------+-------------+----------+------------+
-| "Jakob"   | Jakob       | "6"      | 6          |
-+-----------+-------------+----------+------------+
-```
-
-```sql
-SELECT JSON_QUERY('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_query,
-  JSON_VALUE('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_value;
-
-+--------------------+------------+
-| json_query         | json_value |
-+--------------------+------------+
-| ["apple","banana"] | NULL       |
-+--------------------+------------+
-```
-
-In cases where a JSON key uses invalid JSONPath characters, you can escape those
-characters using double quotes. For example:
-
-```sql
-SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
-
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
-```
-
-[JSONPath-format]: #JSONPath_format
+[differences-json-and-string]: #differences_json_and_string
 
 ### `JSON_QUERY_ARRAY`
 
@@ -17558,6 +17539,9 @@ using double quotes.
     you want to obtain from the input. If this optional parameter is not
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
 
 **Return type**
 
@@ -17713,6 +17697,326 @@ SELECT JSON_QUERY_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 
 [JSONPath-format]: #JSONPath_format
 
+[differences-json-and-string]: #differences_json_and_string
+
+### `JSON_QUERY`
+
+```sql
+JSON_QUERY(json_string_expr, json_path)
+```
+
+```sql
+JSON_QUERY(json_expr, json_path)
+```
+
+**Description**
+
+Extracts a JSON value, such as an array or object, or a JSON scalar
+value, such as a string, number, or boolean. If a JSON key uses invalid
+[JSONPath][JSONPath-format] characters, then you can escape those characters
+using double quotes.
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
+
+    Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
+    For example:
+
+    ```sql
+    SELECT JSON_QUERY("null", "$") -- Returns a SQL NULL
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
+
+    Extracts a JSON `null` when a JSON `null` is encountered.
+
+    ```sql
+    SELECT JSON_QUERY(JSON 'null', "$") -- Returns a JSON 'null'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
+
+**Return type**
+
++ `json_string_expr`: A JSON-formatted `STRING`
++ `json_expr`: `JSON`
+
+**Examples**
+
+In the following example, JSON data is extracted and returned as JSON.
+
+```sql
+SELECT
+  JSON_QUERY(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
+  AS json_data;
+
++-----------------------------------+
+| json_data                         |
++-----------------------------------+
+| {"students":[{"id":5},{"id":12}]} |
++-----------------------------------+
+```
+
+In the following examples, JSON data is extracted and returned as
+JSON-formatted strings.
+
+```sql
+SELECT JSON_QUERY(json_text, '$') AS json_text_string
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  ]) AS json_text;
+
++-----------------------------------------------------------+
+| json_text_string                                          |
++-----------------------------------------------------------+
+| {"class":{"students":[{"name":"Jane"}]}}                  |
+| {"class":{"students":[]}}                                 |
+| {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
++-----------------------------------------------------------+
+```
+
+```sql
+SELECT JSON_QUERY(json_text, '$.class.students[0]') AS first_student
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  ]) AS json_text;
+
++-----------------+
+| first_student   |
++-----------------+
+| {"name":"Jane"} |
+| NULL            |
+| {"name":"John"} |
++-----------------+
+```
+
+```sql
+SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  ]) AS json_text;
+
++-------------------+
+| second_student    |
++-------------------+
+| NULL              |
+| NULL              |
+| NULL              |
+| "Jamie"           |
++-------------------+
+```
+
+```sql
+SELECT JSON_QUERY(json_text, '$.class."students"') AS student_names
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  ]) AS json_text;
+
++------------------------------------+
+| student_names                      |
++------------------------------------+
+| [{"name":"Jane"}]                  |
+| []                                 |
+| [{"name":"John"},{"name":"Jamie"}] |
++------------------------------------+
+```
+
+```sql
+SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
+SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
+```sql
+SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
+SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
+[JSONPath-format]: #JSONPath_format
+
+[differences-json-and-string]: #differences_json_and_string
+
+### `JSON_TYPE` 
+<a id="json_type"></a>
+
+```sql
+JSON_TYPE(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression and returns the type of the outermost JSON value as a
+SQL `STRING`. The names of these JSON types can be returned:
+
++ `object`
++ `array`
++ `string`
++ `number`
++ `boolean`
++ `null`
+
+If the expression is SQL `NULL`, the function returns SQL `NULL`. If the
+extracted JSON value is not a valid JSON type, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT json_val, JSON_TYPE(json_val) AS type
+FROM
+  UNNEST(
+    [
+      JSON '"apple"',
+      JSON '10',
+      JSON '3.14',
+      JSON 'null',
+      JSON '{"city": "New York", "State": "NY"}',
+      JSON '["apple", "banana"]',
+      JSON 'false'
+    ]
+  ) AS json_val;
+
++----------------------------------+---------+
+| json_val                         | type    |
++----------------------------------+---------+
+| "apple"                          | string  |
+| 10                               | number  |
+| 3.14                             | number  |
+| null                             | null    |
+| {"State":"NY","city":"New York"} | object  |
+| ["apple","banana"]               | array   |
+| false                            | boolean |
++----------------------------------+---------+
+```
+
+### `JSON_VALUE`
+
+```sql
+JSON_VALUE(json_string_expr[, json_path])
+```
+
+```sql
+JSON_VALUE(json_expr[, json_path])
+```
+
+**Description**
+
+Extracts a scalar value and then returns it as a string. A scalar value can
+represent a string, number, or boolean. Removes the outermost quotes and
+unescapes the return values. If a JSON key uses invalid
+[JSONPath][JSONPath-format] characters, then you can escape those characters
+using double quotes.
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+    If `json_path` returns a JSON `null` or a non-scalar value (in other words,
+    if `json_path` refers to an object or an array), then a SQL `NULL` is
+    returned.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+In the following example, JSON data is extracted and returned as a scalar value.
+
+```sql
+SELECT JSON_VALUE(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
++------------+
+| scalar_age |
++------------+
+| 6          |
++------------+
+```
+
+The following example compares how results are returned for the `JSON_QUERY`
+and `JSON_VALUE` functions.
+
+```sql
+SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
+  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
+  JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
+  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
++-----------+-------------+----------+------------+
+| json_name | scalar_name | json_age | scalar_age |
++-----------+-------------+----------+------------+
+| "Jakob"   | Jakob       | "6"      | 6          |
++-----------+-------------+----------+------------+
+```
+
+```sql
+SELECT JSON_QUERY('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_query,
+  JSON_VALUE('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_value;
+
++--------------------+------------+
+| json_query         | json_value |
++--------------------+------------+
+| ["apple","banana"] | NULL       |
++--------------------+------------+
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using double quotes. For example:
+
+```sql
+SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
+
++-------+
+| hello |
++-------+
+| world |
++-------+
+```
+
+[JSONPath-format]: #JSONPath_format
+
+[differences-json-and-string]: #differences_json_and_string
+
 ### `JSON_VALUE_ARRAY`
 
 ```sql
@@ -17744,6 +18048,9 @@ escape those characters using double quotes.
     you want to obtain from the input. If this optional parameter is not
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
+
+There are differences between the JSON-formatted string and JSON input types.
+For details, see [Differences between the JSON and JSON-formatted STRING types][differences-json-and-string].
 
 Caveats:
 
@@ -17928,6 +18235,8 @@ SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 
 [JSONPath-format]: #JSONPath_format
 
+[differences-json-and-string]: #differences_json_and_string
+
 ### `PARSE_JSON`
 
 ```sql
@@ -18003,6 +18312,134 @@ SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'round') AS 
 +--------------------------------+
 ```
 
+### `STRING` 
+<a id="string_for_json"></a>
+
+```sql
+STRING(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON string, and returns that value as a SQL
+`STRING`. If the expression is SQL `NULL`, the function returns SQL
+`NULL`. If the extracted JSON value is not a string, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT STRING(JSON '"purple"') AS color;
+
++--------+
+| color  |
++--------+
+| purple |
++--------+
+```
+
+```sql
+SELECT STRING(JSON_QUERY(JSON '{"name": "sky", "color": "blue"}', "$.color")) AS color;
+
++-------+
+| color |
++-------+
+| blue  |
++-------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not of type string.
+SELECT STRING(JSON '123') AS result; -- Throws an error
+SELECT STRING(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
+```
+
+### `TO_JSON_STRING`
+
+```sql
+TO_JSON_STRING(value[, pretty_print])
+```
+
+**Description**
+
+Takes a SQL value and returns a JSON-formatted string
+representation of the value. The value must be a supported ZetaSQL
+data type. You can review the ZetaSQL data types that this function
+supports and their JSON encodings [here][json-encodings].
+
+This function supports an optional boolean parameter called `pretty_print`.
+If `pretty_print` is `true`, the returned value is formatted for easy
+readability.
+
+**Return type**
+
+A JSON-formatted `STRING`
+
+**Examples**
+
+Convert rows in a table to JSON-formatted strings.
+
+```sql
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
+FROM CoordinatesTable AS t;
+
++----+-------------+--------------------------------+
+| id | coordinates | json_data                      |
++----+-------------+--------------------------------+
+| 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
+| 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
+| 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
++----+-------------+--------------------------------+
+```
+
+Convert rows in a table to JSON-formatted strings that are easy to read.
+
+```sql
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates))
+SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
+FROM CoordinatesTable AS t;
+
++----+-------------+--------------------+
+| id | coordinates | json_data          |
++----+-------------+--------------------+
+| 1  | [10, 20]    | {                  |
+|    |             |   "id": 1,         |
+|    |             |   "coordinates": [ |
+|    |             |     10,            |
+|    |             |     20             |
+|    |             |   ]                |
+|    |             | }                  |
++----+-------------+--------------------+
+| 2  | [30, 40]    | {                  |
+|    |             |   "id": 2,         |
+|    |             |   "coordinates": [ |
+|    |             |     30,            |
+|    |             |     40             |
+|    |             |   ]                |
+|    |             | }                  |
++----+-------------+--------------------+
+```
+
+[json-encodings]: #json_encodings
+
 ### `TO_JSON`
 
 ```sql
@@ -18040,7 +18477,7 @@ applied to the numerical data types in the container data type.
 
 **Return type**
 
-A JSON value
+`JSON`
 
 **Examples**
 
@@ -18129,413 +18566,6 @@ FROM T1 AS t;
 ```
 
 [json-encodings]: #json_encodings
-
-### `TO_JSON_STRING`
-
-```sql
-TO_JSON_STRING(value[, pretty_print])
-```
-
-**Description**
-
-Takes a SQL value and returns a JSON-formatted string
-representation of the value. The value must be a supported ZetaSQL
-data type. You can review the ZetaSQL data types that this function
-supports and their JSON encodings [here][json-encodings].
-
-This function supports an optional boolean parameter called `pretty_print`.
-If `pretty_print` is `true`, the returned value is formatted for easy
-readability.
-
-**Return type**
-
-A JSON-formatted `STRING`
-
-**Examples**
-
-Convert rows in a table to JSON-formatted strings.
-
-```sql
-With CoordinatesTable AS (
-    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
-    (SELECT 3 AS id, [50,60] AS coordinates))
-SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
-FROM CoordinatesTable AS t;
-
-+----+-------------+--------------------------------+
-| id | coordinates | json_data                      |
-+----+-------------+--------------------------------+
-| 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
-| 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
-| 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
-+----+-------------+--------------------------------+
-```
-
-Convert rows in a table to JSON-formatted strings that are easy to read.
-
-```sql
-With CoordinatesTable AS (
-    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates))
-SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
-FROM CoordinatesTable AS t;
-
-+----+-------------+--------------------+
-| id | coordinates | json_data          |
-+----+-------------+--------------------+
-| 1  | [10, 20]    | {                  |
-|    |             |   "id": 1,         |
-|    |             |   "coordinates": [ |
-|    |             |     10,            |
-|    |             |     20             |
-|    |             |   ]                |
-|    |             | }                  |
-+----+-------------+--------------------+
-| 2  | [30, 40]    | {                  |
-|    |             |   "id": 2,         |
-|    |             |   "coordinates": [ |
-|    |             |     30,            |
-|    |             |     40             |
-|    |             |   ]                |
-|    |             | }                  |
-+----+-------------+--------------------+
-```
-
-[json-encodings]: #json_encodings
-
-### `STRING` 
-<a id="string_for_json"></a>
-
-```sql
-STRING(json_expr)
-```
-
-**Description**
-
-Takes a JSON expression, extracts a JSON string, and returns that value as a SQL
-`STRING`. If the expression is SQL `NULL`, the function returns SQL
-`NULL`. If the extracted JSON value is not a string, an error is produced.
-
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"name": "sky", "color" : "blue"}'
-    ```
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-```sql
-SELECT STRING(JSON '"purple"') AS color;
-
-+--------+
-| color  |
-+--------+
-| purple |
-+--------+
-```
-
-```sql
-SELECT STRING(JSON_QUERY(JSON '{"name": "sky", "color": "blue"}', "$.color")) AS color;
-
-+-------+
-| color |
-+-------+
-| blue  |
-+-------+
-```
-
-The following examples show how invalid requests are handled:
-
-```sql
--- An error is thrown if the JSON is not of type string.
-SELECT STRING(JSON '123') AS result; -- Throws an error
-SELECT STRING(JSON 'null') AS result; -- Throws an error
-SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
-```
-
-### `BOOL` 
-<a id="bool_for_json"></a>
-
-```sql
-BOOL(json_expr)
-```
-
-**Description**
-
-Takes a JSON expression, extracts a JSON boolean, and returns that value as a SQL
-`BOOL`. If the expression is SQL `NULL`, the function returns SQL
-`NULL`. If the extracted JSON value is not a boolean, an error is produced.
-
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"name": "sky", "color" : "blue"}'
-    ```
-
-**Return type**
-
-`BOOL`
-
-**Examples**
-
-```sql
-SELECT BOOL(JSON 'true') AS vacancy;
-
-+---------+
-| vacancy |
-+---------+
-| true    |
-+---------+
-```
-
-```sql
-SELECT BOOL(JSON_QUERY(JSON '{"hotel class": "5-star", "vacancy": true}', "$.vacancy")) AS vacancy;
-
-+---------+
-| vacancy |
-+---------+
-| true    |
-+---------+
-```
-
-The following examples show how invalid requests are handled:
-
-```sql
--- An error is thrown if JSON is not of type bool.
-SELECT BOOL(JSON '123') AS result; -- Throws an error
-SELECT BOOL(JSON 'null') AS result; -- Throw an error
-SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
-```
-
-### `INT64` 
-<a id="int64_for_json"></a>
-
-```sql
-INT64(json_expr)
-```
-
-**Description**
-
-Takes a JSON expression, extracts a JSON number and returns that value as a SQL
-`INT64`. If the expression is SQL `NULL`, the function returns SQL
-`NULL`. If the extracted JSON number has a fractional part or is outside of the
-INT64 domain, an error is produced.
-
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"name": "sky", "color" : "blue"}'
-    ```
-
-**Return type**
-
-`INT64`
-
-**Examples**
-
-```sql
-SELECT INT64(JSON '2005') AS flight_number;
-
-+---------------+
-| flight_number |
-+---------------+
-| 2005          |
-+---------------+
-```
-
-```sql
-SELECT INT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
-
-+---------------+
-| flight_number |
-+---------------+
-| 2005          |
-+---------------+
-```
-
-```sql
-SELECT INT64(JSON '10.0') AS score;
-
-+-------+
-| score |
-+-------+
-| 10    |
-+-------+
-```
-
-The following examples show how invalid requests are handled:
-
-```sql
--- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
-SELECT INT64(JSON '10.1') AS result;  -- Throws an error
-SELECT INT64(JSON '"strawberry"') AS result; -- Throws an error
-SELECT INT64(JSON 'null') AS result; -- Throws an error
-SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
-
-```
-
-### `DOUBLE` 
-<a id="double_for_json"></a>
-
-```sql
-DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
-```
-
-**Description**
-
-Takes a JSON expression, extracts a JSON number and returns that value as a SQL
-`DOUBLE`. If the expression is SQL `NULL`, the
-function returns SQL `NULL`. If the extracted JSON value is not a number, an
-error is produced.
-
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"name": "sky", "color" : "blue"}'
-    ```
-
-This function supports an optional mandatory-named argument called
-`wide_number_mode` which defines what happens with a number that cannot be
-represented as a DOUBLE without loss of precision.
-
-This argument accepts one of the two case-sensitive values:
-
-+   ‘exact’: The function fails if the result cannot be represented as a
-    `DOUBLE` without loss of precision.
-+   ‘round’: The numeric value stored in JSON will be rounded to
-    `DOUBLE`. If such rounding is not possible, the
-    function fails. This is the default value if the argument is not specified.
-
-**Return type**
-
-`DOUBLE`
-
-**Examples**
-
-```sql
-SELECT DOUBLE(JSON '9.8') AS velocity;
-
-+----------+
-| velocity |
-+----------+
-| 9.8      |
-+----------+
-```
-
-```sql
-SELECT DOUBLE(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
-
-+---------+
-| vo2_max |
-+---------+
-| 39.1    |
-+---------+
-```
-
-```sql
-SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'round') as result;
-
-+------------------------+
-| result                 |
-+------------------------+
-| 1.8446744073709552e+19 |
-+------------------------+
-```
-
-```sql
-SELECT DOUBLE(JSON '18446744073709551615') as result;
-
-+------------------------+
-| result                 |
-+------------------------+
-| 1.8446744073709552e+19 |
-+------------------------+
-```
-
-The following examples show how invalid requests are handled:
-
-```sql
--- An error is thrown if JSON is not of type DOUBLE.
-SELECT DOUBLE(JSON '"strawberry"') AS result;
-SELECT DOUBLE(JSON 'null') AS result;
-
--- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
-SELECT DOUBLE(JSON '123.4', wide_number_mode=>'EXACT') as result;
-SELECT DOUBLE(JSON '123.4', wide_number_mode=>'exac') as result;
-
--- An error is thrown because the number cannot be converted to DOUBLE without loss of precision
-SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'exact') as result;
-
--- Returns a SQL NULL
-SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
-```
-
-### `JSON_TYPE` 
-<a id="json_type"></a>
-
-```sql
-JSON_TYPE(json_expr)
-```
-
-**Description**
-
-Takes a JSON expression and returns the type of the outermost JSON value as a
-SQL `STRING`. The names of these JSON types can be returned:
-
-+ `object`
-+ `array`
-+ `string`
-+ `number`
-+ `boolean`
-+ `null`
-
-If the expression is SQL `NULL`, the function returns SQL `NULL`. If the
-extracted JSON value is not a valid JSON type, an error is produced.
-
-+   `json_expr`: JSON. For example:
-
-    ```
-    JSON '{"name": "sky", "color" : "blue"}'
-    ```
-
-**Return type**
-
-`STRING`
-
-**Examples**
-
-```sql
-SELECT json_val, JSON_TYPE(json_val) AS type
-FROM
-  UNNEST(
-    [
-      JSON '"apple"',
-      JSON '10',
-      JSON '3.14',
-      JSON 'null',
-      JSON '{"city": "New York", "State": "NY"}',
-      JSON '["apple", "banana"]',
-      JSON 'false'
-    ]
-  ) AS json_val;
-
-+----------------------------------+---------+
-| json_val                         | type    |
-+----------------------------------+---------+
-| "apple"                          | string  |
-| 10                               | number  |
-| 3.14                             | number  |
-| null                             | null    |
-| {"State":"NY","city":"New York"} | object  |
-| ["apple","banana"]               | array   |
-| false                            | boolean |
-+----------------------------------+---------+
-```
 
 ### JSON encodings 
 <a id="json_encodings"></a>
@@ -19074,7 +19104,105 @@ a JSON-formatted string. If the selected value for a scalar function is not
 scalar, such as an object or an array, the function returns `NULL`. If the
 JSONPath format is invalid, an error is produced.
 
+### Differences between the JSON and JSON-formatted STRING types 
+<a id="differences_json_and_string"></a>
+
+Many JSON functions accept two input types:
+
++  [`JSON`][JSON-type] type
++  `STRING` type
+
+The `STRING` version of the extraction functions behaves differently than the
+`JSON` version, mainly because `JSON` type values are always validated whereas
+JSON-formatted `STRING` type values are not.
+
+#### Non-validation of `STRING` inputs
+
+The following `STRING` is invalid JSON because it is missing a trailing `}`:
+
+```
+{"hello": "world"
+```
+
+The JSON function reads the input from the beginning and stops as soon as the
+field to extract is found, without reading the remainder of the input. A parsing
+error is not produced.
+
+With the `JSON` type, however, `JSON '{"hello": "world"'` returns a parsing
+error.
+
+For example:
+
+```sql
+SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
+
++-------+
+| hello |
++-------+
+| world |
++-------+
+```
+
+```sql
+SELECT JSON_VALUE(JSON '{"hello": "world"', "$.hello") AS hello;
+-- An error is returned: Invalid JSON literal: syntax error while parsing
+-- object - unexpected end of input; expected '}'
+```
+
+#### No strict validation of extracted values
+
+In the following examples, duplicated keys are not removed when using a
+JSON-formatted string. Similarly, keys order is preserved. For the `JSON`
+type, `JSON '{"key": 1, "key": 2}'` will result in `JSON '{"key":1}'` during
+parsing.
+
+```sql
+SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
+
++-------------------+
+| string            |
++-------------------+
+| {"key":1,"key":2} |
++-------------------+
+```
+
+```sql
+SELECT JSON_QUERY(JSON '{"key": 1, "key": 2}', "$") AS json;
+
++-----------+
+| json      |
++-----------+
+| {"key":1} |
++-----------+
+```
+
+#### JSON `null`
+
+When using a JSON-formatted `STRING` type in a JSON function, a JSON `null`
+value is extracted as a SQL `NULL` value.
+
+When using a JSON type in a JSON function, a JSON `null` value returns a JSON
+`null` value.
+
+```sql
+WITH t AS (
+  SELECT '{"name": null}' AS json_string, JSON '{"name": null}' AS json)
+SELECT JSON_QUERY(json_string, "$.name") AS name_string,
+  JSON_QUERY(json_string, "$.name") IS NULL AS name_string_is_null,
+  JSON_QUERY(json, "$.name") AS name_json,
+  JSON_QUERY(json, "$.name") IS NULL AS name_json_is_null
+FROM t;
+
++-------------+---------------------+-----------+-------------------+
+| name_string | name_string_is_null | name_json | name_json_is_null |
++-------------+---------------------+-----------+-------------------+
+| NULL        | true                | null      | false             |
++-------------+---------------------+-----------+-------------------+
+```
+
 [JSONPath-format]: #JSONPath_format
+
+[JSON-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type
 
 ## Array functions
 
@@ -19355,6 +19483,84 @@ SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 
 [array-last]: #array_last
 
+### `ARRAY_INCLUDES_ALL`
+
+```sql
+ARRAY_INCLUDES_ALL(array_to_search, search_values)
+```
+
+**Description**
+
+Takes an array to search and an array of search values. Returns `TRUE` if all
+search values are in the array to search, otherwise returns `FALSE`.
+
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
+
+Returns `NULL` if `array_to_search` or `search_values` is
+`NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Example**
+
+In the following example, the query first checks to see if `3`, `4`, and `5`
+exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
+an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
+
++------+-------+
+| a1   | a2    |
++------+-------+
+| true | false |
++------+-------+
+```
+
+### `ARRAY_INCLUDES_ANY`
+
+```sql
+ARRAY_INCLUDES_ANY(array_to_search, search_values)
+```
+
+**Description**
+
+Takes an array to search and an array of search values. Returns `TRUE` if any
+search values are in the array to search, otherwise returns `FALSE`.
+
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
+
+Returns `NULL` if `array_to_search` or `search_values` is
+`NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Example**
+
+In the following example, the query first checks to see if `3`, `4`, or `5`
+exists in an array. Then the query checks to see if `4`, `5`, or `6` exists in
+an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
+  ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
+
++------+-------+
+| a1   | a2    |
++------+-------+
+| true | false |
++------+-------+
+```
+
 ### `ARRAY_INCLUDES`
 
 +   [Signature 1](#array_includes_signature1):
@@ -19446,82 +19652,49 @@ SELECT
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
 
-### `ARRAY_INCLUDES_ANY`
+### `ARRAY_IS_DISTINCT`
 
 ```sql
-ARRAY_INCLUDES_ANY(array_to_search, search_values)
+ARRAY_IS_DISTINCT(value)
 ```
 
 **Description**
 
-Takes an array to search and an array of search values. Returns `TRUE` if any
-search values are in the array to search, otherwise returns `FALSE`.
-
-+   `array_to_search`: The array to search.
-+   `search_values`: The array that contains the elements to search for.
-
-Returns `NULL` if `array_to_search` or `search_values` is
-`NULL`.
+Returns `TRUE` if the array contains no repeated elements, using the same
+equality comparison logic as `SELECT DISTINCT`.
 
 **Return type**
 
 `BOOL`
 
-**Example**
-
-In the following example, the query first checks to see if `3`, `4`, or `5`
-exists in an array. Then the query checks to see if `4`, `5`, or `6` exists in
-an array.
+**Examples**
 
 ```sql
+WITH example AS (
+  SELECT [1, 2, 3] AS arr UNION ALL
+  SELECT [1, 1, 1] AS arr UNION ALL
+  SELECT [1, 2, NULL] AS arr UNION ALL
+  SELECT [1, 1, NULL] AS arr UNION ALL
+  SELECT [1, NULL, NULL] AS arr UNION ALL
+  SELECT [] AS arr UNION ALL
+  SELECT CAST(NULL AS ARRAY<INT64>) AS arr
+)
 SELECT
-  ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
-  ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
+  arr,
+  ARRAY_IS_DISTINCT(arr) as is_distinct
+FROM example;
 
-+------+-------+
-| a1   | a2    |
-+------+-------+
-| true | false |
-+------+-------+
-```
-
-### `ARRAY_INCLUDES_ALL`
-
-```sql
-ARRAY_INCLUDES_ALL(array_to_search, search_values)
-```
-
-**Description**
-
-Takes an array to search and an array of search values. Returns `TRUE` if all
-search values are in the array to search, otherwise returns `FALSE`.
-
-+   `array_to_search`: The array to search.
-+   `search_values`: The array that contains the elements to search for.
-
-Returns `NULL` if `array_to_search` or `search_values` is
-`NULL`.
-
-**Return type**
-
-`BOOL`
-
-**Example**
-
-In the following example, the query first checks to see if `3`, `4`, and `5`
-exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
-an array.
-
-```sql
-SELECT
-  ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
-  ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
-
-+------+-------+
-| a1   | a2    |
-+------+-------+
-| true | false |
-+------+-------+
++-----------------+-------------+
+| arr             | is_distinct |
++-----------------+-------------+
+| [1, 2, 3]       | TRUE        |
+| [1, 1, 1]       | FALSE       |
+| [1, 2, NULL]    | TRUE        |
+| [1, 1, NULL]    | FALSE       |
+| [1, NULL, NULL] | FALSE       |
+| []              | TRUE        |
+| NULL            | NULL        |
++-----------------+-------------+
 ```
 
 ### `ARRAY_LAST`
@@ -19669,6 +19842,42 @@ SELECT ARRAY_MIN([8, 37, NULL, 4, 55]) as min
 ```
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+### `ARRAY_REVERSE`
+
+```sql
+ARRAY_REVERSE(value)
+```
+
+**Description**
+
+Returns the input `ARRAY` with elements in reverse order.
+
+**Return type**
+
+`ARRAY`
+
+**Examples**
+
+```sql
+WITH example AS (
+  SELECT [1, 2, 3] AS arr UNION ALL
+  SELECT [4, 5] AS arr UNION ALL
+  SELECT [] AS arr
+)
+SELECT
+  arr,
+  ARRAY_REVERSE(arr) AS reverse_arr
+FROM example;
+
++-----------+-------------+
+| arr       | reverse_arr |
++-----------+-------------+
+| [1, 2, 3] | [3, 2, 1]   |
+| [4, 5]    | [5, 4]      |
+| []        | []          |
++-----------+-------------+
+```
 
 ### `ARRAY_SLICE`
 
@@ -20583,87 +20792,6 @@ FROM
 +--------------------------------------------------------------------------+
 ```
 
-### `ARRAY_REVERSE`
-
-```sql
-ARRAY_REVERSE(value)
-```
-
-**Description**
-
-Returns the input `ARRAY` with elements in reverse order.
-
-**Return type**
-
-`ARRAY`
-
-**Examples**
-
-```sql
-WITH example AS (
-  SELECT [1, 2, 3] AS arr UNION ALL
-  SELECT [4, 5] AS arr UNION ALL
-  SELECT [] AS arr
-)
-SELECT
-  arr,
-  ARRAY_REVERSE(arr) AS reverse_arr
-FROM example;
-
-+-----------+-------------+
-| arr       | reverse_arr |
-+-----------+-------------+
-| [1, 2, 3] | [3, 2, 1]   |
-| [4, 5]    | [5, 4]      |
-| []        | []          |
-+-----------+-------------+
-```
-
-### `ARRAY_IS_DISTINCT`
-
-```sql
-ARRAY_IS_DISTINCT(value)
-```
-
-**Description**
-
-Returns `TRUE` if the array contains no repeated elements, using the same
-equality comparison logic as `SELECT DISTINCT`.
-
-**Return type**
-
-`BOOL`
-
-**Examples**
-
-```sql
-WITH example AS (
-  SELECT [1, 2, 3] AS arr UNION ALL
-  SELECT [1, 1, 1] AS arr UNION ALL
-  SELECT [1, 2, NULL] AS arr UNION ALL
-  SELECT [1, 1, NULL] AS arr UNION ALL
-  SELECT [1, NULL, NULL] AS arr UNION ALL
-  SELECT [] AS arr UNION ALL
-  SELECT CAST(NULL AS ARRAY<INT64>) AS arr
-)
-SELECT
-  arr,
-  ARRAY_IS_DISTINCT(arr) as is_distinct
-FROM example;
-
-+-----------------+-------------+
-| arr             | is_distinct |
-+-----------------+-------------+
-| [1, 2, 3]       | TRUE        |
-| [1, 1, 1]       | FALSE       |
-| [1, 2, NULL]    | TRUE        |
-| [1, 1, NULL]    | FALSE       |
-| [1, NULL, NULL] | FALSE       |
-| []              | TRUE        |
-| NULL            | NULL        |
-+-----------------+-------------+
-```
-
 ### OFFSET and ORDINAL
 
 For information about using `OFFSET` and `ORDINAL` with arrays, see
@@ -20782,116 +20910,6 @@ SELECT current_date() AS the_date, t.current_date FROM t;
 
 [date-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
-### `EXTRACT`
-
-```sql
-EXTRACT(part FROM date_expression)
-```
-
-**Description**
-
-Returns the value corresponding to the specified date part. The `part` must
-be one of:
-
-+   `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day
-    of the week.
-+   `DAY`
-+   `DAYOFYEAR`
-+ `WEEK`: Returns the week number of the date in the range [0, 53]. Weeks begin
-  with Sunday, and dates prior to the first Sunday of the year are in week 0.
-+ `WEEK(<WEEKDAY>)`: Returns the week number of the date in the range [0, 53].
-  Weeks begin on `WEEKDAY`. Dates prior to
-  the first `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are
-  `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
-  `SATURDAY`.
-+ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
-  number of the `date_expression`. `ISOWEEK`s begin on Monday. Return values
-  are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
-  Monday before the first Thursday of the Gregorian calendar year.
-+   `MONTH`
-+   `QUARTER`: Returns values in the range [1,4].
-+   `YEAR`
-+   `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
-    week-numbering year, which is the Gregorian calendar year containing the
-    Thursday of the week to which `date_expression` belongs.
-
-**Return Data Type**
-
-INT64
-
-**Examples**
-
-In the following example, `EXTRACT` returns a value corresponding to the `DAY`
-date part.
-
-```sql
-SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
-
-+---------+
-| the_day |
-+---------+
-| 25      |
-+---------+
-```
-
-In the following example, `EXTRACT` returns values corresponding to different
-date parts from a column of dates near the end of the year.
-
-```sql
-SELECT
-  date,
-  EXTRACT(ISOYEAR FROM date) AS isoyear,
-  EXTRACT(ISOWEEK FROM date) AS isoweek,
-  EXTRACT(YEAR FROM date) AS year,
-  EXTRACT(WEEK FROM date) AS week
-FROM UNNEST(GENERATE_DATE_ARRAY('2015-12-23', '2016-01-09')) AS date
-ORDER BY date;
-+------------+---------+---------+------+------+
-| date       | isoyear | isoweek | year | week |
-+------------+---------+---------+------+------+
-| 2015-12-23 | 2015    | 52      | 2015 | 51   |
-| 2015-12-24 | 2015    | 52      | 2015 | 51   |
-| 2015-12-25 | 2015    | 52      | 2015 | 51   |
-| 2015-12-26 | 2015    | 52      | 2015 | 51   |
-| 2015-12-27 | 2015    | 52      | 2015 | 52   |
-| 2015-12-28 | 2015    | 53      | 2015 | 52   |
-| 2015-12-29 | 2015    | 53      | 2015 | 52   |
-| 2015-12-30 | 2015    | 53      | 2015 | 52   |
-| 2015-12-31 | 2015    | 53      | 2015 | 52   |
-| 2016-01-01 | 2015    | 53      | 2016 | 0    |
-| 2016-01-02 | 2015    | 53      | 2016 | 0    |
-| 2016-01-03 | 2015    | 53      | 2016 | 1    |
-| 2016-01-04 | 2016    | 1       | 2016 | 1    |
-| 2016-01-05 | 2016    | 1       | 2016 | 1    |
-| 2016-01-06 | 2016    | 1       | 2016 | 1    |
-| 2016-01-07 | 2016    | 1       | 2016 | 1    |
-| 2016-01-08 | 2016    | 1       | 2016 | 1    |
-| 2016-01-09 | 2016    | 1       | 2016 | 1    |
-+------------+---------+---------+------+------+
-```
-
-In the following example, `date_expression` falls on a Sunday. `EXTRACT`
-calculates the first column using weeks that begin on Sunday, and it calculates
-the second column using weeks that begin on Monday.
-
-```sql
-WITH table AS (SELECT DATE('2017-11-05') AS date)
-SELECT
-  date,
-  EXTRACT(WEEK(SUNDAY) FROM date) AS week_sunday,
-  EXTRACT(WEEK(MONDAY) FROM date) AS week_monday FROM table;
-
-+------------+-------------+-------------+
-| date       | week_sunday | week_monday |
-+------------+-------------+-------------+
-| 2017-11-05 | 45          | 44          |
-+------------+-------------+-------------+
-```
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
 ### `DATE`
 
 ```sql
@@ -20984,45 +21002,6 @@ SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 +--------------------+
 | 2008-12-30         |
 +--------------------+
-```
-
-### `DATE_SUB`
-
-```sql
-DATE_SUB(date_expression, INTERVAL int64_expression date_part)
-```
-
-**Description**
-
-Subtracts a specified time interval from a DATE.
-
-`DATE_SUB` supports the following `date_part` values:
-
-+  `DAY`
-+  `WEEK`. Equivalent to 7 `DAY`s.
-+  `MONTH`
-+  `QUARTER`
-+  `YEAR`
-
-Special handling is required for MONTH, QUARTER, and YEAR parts when
-the date is at (or near) the last day of the month. If the resulting
-month has fewer days than the original date's day, then the resulting
-date is the last date of that month.
-
-**Return Data Type**
-
-DATE
-
-**Example**
-
-```sql
-SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
-
-+---------------+
-| five_days_ago |
-+---------------+
-| 2008-12-20    |
-+---------------+
 ```
 
 ### `DATE_DIFF`
@@ -21132,6 +21111,71 @@ SELECT
 
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
+### `DATE_FROM_UNIX_DATE`
+
+```sql
+DATE_FROM_UNIX_DATE(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of days since 1970-01-01.
+
+**Return Data Type**
+
+DATE
+
+**Example**
+
+```sql
+SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
+
++-----------------+
+| date_from_epoch |
++-----------------+
+| 2008-12-25      |
++-----------------+
+```
+
+### `DATE_SUB`
+
+```sql
+DATE_SUB(date_expression, INTERVAL int64_expression date_part)
+```
+
+**Description**
+
+Subtracts a specified time interval from a DATE.
+
+`DATE_SUB` supports the following `date_part` values:
+
++  `DAY`
++  `WEEK`. Equivalent to 7 `DAY`s.
++  `MONTH`
++  `QUARTER`
++  `YEAR`
+
+Special handling is required for MONTH, QUARTER, and YEAR parts when
+the date is at (or near) the last day of the month. If the resulting
+month has fewer days than the original date's day, then the resulting
+date is the last date of that month.
+
+**Return Data Type**
+
+DATE
+
+**Example**
+
+```sql
+SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
+
++---------------+
+| five_days_ago |
++---------------+
+| 2008-12-20    |
++---------------+
+```
+
 ### `DATE_TRUNC`
 
 ```sql
@@ -21227,31 +21271,115 @@ SELECT
 +------------------+----------------+
 ```
 
-### `DATE_FROM_UNIX_DATE`
+### `EXTRACT`
 
 ```sql
-DATE_FROM_UNIX_DATE(int64_expression)
+EXTRACT(part FROM date_expression)
 ```
 
 **Description**
 
-Interprets `int64_expression` as the number of days since 1970-01-01.
+Returns the value corresponding to the specified date part. The `part` must
+be one of:
+
++   `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day
+    of the week.
++   `DAY`
++   `DAYOFYEAR`
++ `WEEK`: Returns the week number of the date in the range [0, 53]. Weeks begin
+  with Sunday, and dates prior to the first Sunday of the year are in week 0.
++ `WEEK(<WEEKDAY>)`: Returns the week number of the date in the range [0, 53].
+  Weeks begin on `WEEKDAY`. Dates prior to
+  the first `WEEKDAY` of the year are in week 0. Valid values for `WEEKDAY` are
+  `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
+  `SATURDAY`.
++ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
+  number of the `date_expression`. `ISOWEEK`s begin on Monday. Return values
+  are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
+  Monday before the first Thursday of the Gregorian calendar year.
++   `MONTH`
++   `QUARTER`: Returns values in the range [1,4].
++   `YEAR`
++   `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
+    week-numbering year, which is the Gregorian calendar year containing the
+    Thursday of the week to which `date_expression` belongs.
 
 **Return Data Type**
 
-DATE
+INT64
 
-**Example**
+**Examples**
+
+In the following example, `EXTRACT` returns a value corresponding to the `DAY`
+date part.
 
 ```sql
-SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
+SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
 
-+-----------------+
-| date_from_epoch |
-+-----------------+
-| 2008-12-25      |
-+-----------------+
++---------+
+| the_day |
++---------+
+| 25      |
++---------+
 ```
+
+In the following example, `EXTRACT` returns values corresponding to different
+date parts from a column of dates near the end of the year.
+
+```sql
+SELECT
+  date,
+  EXTRACT(ISOYEAR FROM date) AS isoyear,
+  EXTRACT(ISOWEEK FROM date) AS isoweek,
+  EXTRACT(YEAR FROM date) AS year,
+  EXTRACT(WEEK FROM date) AS week
+FROM UNNEST(GENERATE_DATE_ARRAY('2015-12-23', '2016-01-09')) AS date
+ORDER BY date;
++------------+---------+---------+------+------+
+| date       | isoyear | isoweek | year | week |
++------------+---------+---------+------+------+
+| 2015-12-23 | 2015    | 52      | 2015 | 51   |
+| 2015-12-24 | 2015    | 52      | 2015 | 51   |
+| 2015-12-25 | 2015    | 52      | 2015 | 51   |
+| 2015-12-26 | 2015    | 52      | 2015 | 51   |
+| 2015-12-27 | 2015    | 52      | 2015 | 52   |
+| 2015-12-28 | 2015    | 53      | 2015 | 52   |
+| 2015-12-29 | 2015    | 53      | 2015 | 52   |
+| 2015-12-30 | 2015    | 53      | 2015 | 52   |
+| 2015-12-31 | 2015    | 53      | 2015 | 52   |
+| 2016-01-01 | 2015    | 53      | 2016 | 0    |
+| 2016-01-02 | 2015    | 53      | 2016 | 0    |
+| 2016-01-03 | 2015    | 53      | 2016 | 1    |
+| 2016-01-04 | 2016    | 1       | 2016 | 1    |
+| 2016-01-05 | 2016    | 1       | 2016 | 1    |
+| 2016-01-06 | 2016    | 1       | 2016 | 1    |
+| 2016-01-07 | 2016    | 1       | 2016 | 1    |
+| 2016-01-08 | 2016    | 1       | 2016 | 1    |
+| 2016-01-09 | 2016    | 1       | 2016 | 1    |
++------------+---------+---------+------+------+
+```
+
+In the following example, `date_expression` falls on a Sunday. `EXTRACT`
+calculates the first column using weeks that begin on Sunday, and it calculates
+the second column using weeks that begin on Monday.
+
+```sql
+WITH table AS (SELECT DATE('2017-11-05') AS date)
+SELECT
+  date,
+  EXTRACT(WEEK(SUNDAY) FROM date) AS week_sunday,
+  EXTRACT(WEEK(MONDAY) FROM date) AS week_monday FROM table;
+
++------------+-------------+-------------+
+| date       | week_sunday | week_monday |
++------------+-------------+-------------+
+| 2017-11-05 | 45          | 44          |
++------------+-------------+-------------+
+```
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
 ### `FORMAT_DATE`
 
@@ -21601,131 +21729,6 @@ SELECT
 
 [datetime-timezone-definitions]: #timezone_definitions
 
-### `EXTRACT`
-
-```sql
-EXTRACT(part FROM datetime_expression)
-```
-
-**Description**
-
-Returns a value that corresponds to the
-specified `part` from a supplied `datetime_expression`.
-
-Allowed `part` values are:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-+ `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day of
-   of the week.
-+ `DAY`
-+ `DAYOFYEAR`
-+ `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
-  with Sunday, and dates prior to the first Sunday of the year are in week 0.
-+ `WEEK(<WEEKDAY>)`: Returns the week number of `datetime_expression` in the
-  range [0, 53]. Weeks begin on `WEEKDAY`.
-  `datetime`s prior to the first `WEEKDAY` of the year are in week 0. Valid
-  values for `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`,
-  `THURSDAY`, `FRIDAY`, and `SATURDAY`.
-+ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
-  number of the `datetime_expression`. `ISOWEEK`s begin on Monday. Return values
-  are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
-  Monday before the first Thursday of the Gregorian calendar year.
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-+ `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
-  week-numbering year, which is the Gregorian calendar year containing the
-  Thursday of the week to which `date_expression` belongs.
-+ `DATE`
-+ `TIME`
-
-Returned values truncate lower order time periods. For example, when extracting
-seconds, `EXTRACT` truncates the millisecond and microsecond values.
-
-**Return Data Type**
-
-`INT64`, except in the following cases:
-
-+ If `part` is `DATE`, returns a `DATE` object.
-+ If `part` is `TIME`, returns a `TIME` object.
-
-**Examples**
-
-In the following example, `EXTRACT` returns a value corresponding to the `HOUR`
-time part.
-
-```sql
-SELECT EXTRACT(HOUR FROM DATETIME(2008, 12, 25, 15, 30, 00)) as hour;
-
-+------------------+
-| hour             |
-+------------------+
-| 15               |
-+------------------+
-```
-
-In the following example, `EXTRACT` returns values corresponding to different
-time parts from a column of datetimes.
-
-```sql
-WITH Datetimes AS (
-  SELECT DATETIME '2005-01-03 12:34:56' AS datetime UNION ALL
-  SELECT DATETIME '2007-12-31' UNION ALL
-  SELECT DATETIME '2009-01-01' UNION ALL
-  SELECT DATETIME '2009-12-31' UNION ALL
-  SELECT DATETIME '2017-01-02' UNION ALL
-  SELECT DATETIME '2017-05-26'
-)
-SELECT
-  datetime,
-  EXTRACT(ISOYEAR FROM datetime) AS isoyear,
-  EXTRACT(ISOWEEK FROM datetime) AS isoweek,
-  EXTRACT(YEAR FROM datetime) AS year,
-  EXTRACT(WEEK FROM datetime) AS week
-FROM Datetimes
-ORDER BY datetime;
-
-+---------------------+---------+---------+------+------+
-| datetime            | isoyear | isoweek | year | week |
-+---------------------+---------+---------+------+------+
-| 2005-01-03 12:34:56 | 2005    | 1       | 2005 | 1    |
-| 2007-12-31 00:00:00 | 2008    | 1       | 2007 | 52   |
-| 2009-01-01 00:00:00 | 2009    | 1       | 2009 | 0    |
-| 2009-12-31 00:00:00 | 2009    | 53      | 2009 | 52   |
-| 2017-01-02 00:00:00 | 2017    | 1       | 2017 | 1    |
-| 2017-05-26 00:00:00 | 2017    | 21      | 2017 | 21   |
-+---------------------+---------+---------+------+------+
-```
-
-In the following example, `datetime_expression` falls on a Sunday. `EXTRACT`
-calculates the first column using weeks that begin on Sunday, and it calculates
-the second column using weeks that begin on Monday.
-
-```sql
-WITH table AS (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime)
-SELECT
-  datetime,
-  EXTRACT(WEEK(SUNDAY) FROM datetime) AS week_sunday,
-  EXTRACT(WEEK(MONDAY) FROM datetime) AS week_monday
-FROM table;
-
-+---------------------+-------------+---------------+
-| datetime            | week_sunday | week_monday   |
-+---------------------+-------------+---------------+
-| 2017-11-05 00:00:00 | 45          | 44            |
-+---------------------+-------------+---------------+
-```
-
-[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
-
-[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
-
 ### `DATETIME_ADD`
 
 ```sql
@@ -21771,54 +21774,6 @@ SELECT
 | original_date               | later                  |
 +-----------------------------+------------------------+
 | 2008-12-25 15:30:00         | 2008-12-25 15:40:00    |
-+-----------------------------+------------------------+
-```
-
-### `DATETIME_SUB`
-
-```sql
-DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
-```
-
-**Description**
-
-Subtracts `int64_expression` units of `part` from the `DATETIME`.
-
-`DATETIME_SUB` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-+ `DAY`
-+ `WEEK`. Equivalent to 7 `DAY`s.
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-
-Special handling is required for `MONTH`, `QUARTER`, and `YEAR` parts when the
-date is at (or near) the last day of the month. If the resulting month has fewer
-days than the original `DATETIME`'s day, then the result day is the last day of
-the new month.
-
-**Return Data Type**
-
-`DATETIME`
-
-**Example**
-
-```sql
-SELECT
-  DATETIME "2008-12-25 15:30:00" as original_date,
-  DATETIME_SUB(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as earlier;
-
-+-----------------------------+------------------------+
-| original_date               | earlier                |
-+-----------------------------+------------------------+
-| 2008-12-25 15:30:00         | 2008-12-25 15:20:00    |
 +-----------------------------+------------------------+
 ```
 
@@ -21949,6 +21904,54 @@ SELECT
 
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
+### `DATETIME_SUB`
+
+```sql
+DATETIME_SUB(datetime_expression, INTERVAL int64_expression part)
+```
+
+**Description**
+
+Subtracts `int64_expression` units of `part` from the `DATETIME`.
+
+`DATETIME_SUB` supports the following values for `part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
++ `DAY`
++ `WEEK`. Equivalent to 7 `DAY`s.
++ `MONTH`
++ `QUARTER`
++ `YEAR`
+
+Special handling is required for `MONTH`, `QUARTER`, and `YEAR` parts when the
+date is at (or near) the last day of the month. If the resulting month has fewer
+days than the original `DATETIME`'s day, then the result day is the last day of
+the new month.
+
+**Return Data Type**
+
+`DATETIME`
+
+**Example**
+
+```sql
+SELECT
+  DATETIME "2008-12-25 15:30:00" as original_date,
+  DATETIME_SUB(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as earlier;
+
++-----------------------------+------------------------+
+| original_date               | earlier                |
++-----------------------------+------------------------+
+| 2008-12-25 15:30:00         | 2008-12-25 15:20:00    |
++-----------------------------+------------------------+
+```
+
 ### `DATETIME_TRUNC`
 
 ```sql
@@ -22053,6 +22056,131 @@ SELECT
 | 2014-12-29 00:00:00 | 2015           |
 +---------------------+----------------+
 ```
+
+### `EXTRACT`
+
+```sql
+EXTRACT(part FROM datetime_expression)
+```
+
+**Description**
+
+Returns a value that corresponds to the
+specified `part` from a supplied `datetime_expression`.
+
+Allowed `part` values are:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
++ `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day of
+   of the week.
++ `DAY`
++ `DAYOFYEAR`
++ `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
+  with Sunday, and dates prior to the first Sunday of the year are in week 0.
++ `WEEK(<WEEKDAY>)`: Returns the week number of `datetime_expression` in the
+  range [0, 53]. Weeks begin on `WEEKDAY`.
+  `datetime`s prior to the first `WEEKDAY` of the year are in week 0. Valid
+  values for `WEEKDAY` are `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`,
+  `THURSDAY`, `FRIDAY`, and `SATURDAY`.
++ `ISOWEEK`: Returns the [ISO 8601 week][ISO-8601-week]
+  number of the `datetime_expression`. `ISOWEEK`s begin on Monday. Return values
+  are in the range [1, 53]. The first `ISOWEEK` of each ISO year begins on the
+  Monday before the first Thursday of the Gregorian calendar year.
++ `MONTH`
++ `QUARTER`
++ `YEAR`
++ `ISOYEAR`: Returns the [ISO 8601][ISO-8601]
+  week-numbering year, which is the Gregorian calendar year containing the
+  Thursday of the week to which `date_expression` belongs.
++ `DATE`
++ `TIME`
+
+Returned values truncate lower order time periods. For example, when extracting
+seconds, `EXTRACT` truncates the millisecond and microsecond values.
+
+**Return Data Type**
+
+`INT64`, except in the following cases:
+
++ If `part` is `DATE`, returns a `DATE` object.
++ If `part` is `TIME`, returns a `TIME` object.
+
+**Examples**
+
+In the following example, `EXTRACT` returns a value corresponding to the `HOUR`
+time part.
+
+```sql
+SELECT EXTRACT(HOUR FROM DATETIME(2008, 12, 25, 15, 30, 00)) as hour;
+
++------------------+
+| hour             |
++------------------+
+| 15               |
++------------------+
+```
+
+In the following example, `EXTRACT` returns values corresponding to different
+time parts from a column of datetimes.
+
+```sql
+WITH Datetimes AS (
+  SELECT DATETIME '2005-01-03 12:34:56' AS datetime UNION ALL
+  SELECT DATETIME '2007-12-31' UNION ALL
+  SELECT DATETIME '2009-01-01' UNION ALL
+  SELECT DATETIME '2009-12-31' UNION ALL
+  SELECT DATETIME '2017-01-02' UNION ALL
+  SELECT DATETIME '2017-05-26'
+)
+SELECT
+  datetime,
+  EXTRACT(ISOYEAR FROM datetime) AS isoyear,
+  EXTRACT(ISOWEEK FROM datetime) AS isoweek,
+  EXTRACT(YEAR FROM datetime) AS year,
+  EXTRACT(WEEK FROM datetime) AS week
+FROM Datetimes
+ORDER BY datetime;
+
++---------------------+---------+---------+------+------+
+| datetime            | isoyear | isoweek | year | week |
++---------------------+---------+---------+------+------+
+| 2005-01-03 12:34:56 | 2005    | 1       | 2005 | 1    |
+| 2007-12-31 00:00:00 | 2008    | 1       | 2007 | 52   |
+| 2009-01-01 00:00:00 | 2009    | 1       | 2009 | 0    |
+| 2009-12-31 00:00:00 | 2009    | 53      | 2009 | 52   |
+| 2017-01-02 00:00:00 | 2017    | 1       | 2017 | 1    |
+| 2017-05-26 00:00:00 | 2017    | 21      | 2017 | 21   |
++---------------------+---------+---------+------+------+
+```
+
+In the following example, `datetime_expression` falls on a Sunday. `EXTRACT`
+calculates the first column using weeks that begin on Sunday, and it calculates
+the second column using weeks that begin on Monday.
+
+```sql
+WITH table AS (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime)
+SELECT
+  datetime,
+  EXTRACT(WEEK(SUNDAY) FROM datetime) AS week_sunday,
+  EXTRACT(WEEK(MONDAY) FROM datetime) AS week_monday
+FROM table;
+
++---------------------+-------------+---------------+
+| datetime            | week_sunday | week_monday   |
++---------------------+-------------+---------------+
+| 2017-11-05 00:00:00 | 45          | 44            |
++---------------------+-------------+---------------+
+```
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 
 ### `FORMAT_DATETIME`
 
@@ -22363,56 +22491,6 @@ SELECT current_time() as now, t.current_time FROM t;
 
 [time-link-to-timezone-definitions]: #timezone_definitions
 
-### `TIME`
-
-```sql
-1. TIME(hour, minute, second)
-2. TIME(timestamp, [time_zone])
-3. TIME(datetime)
-```
-
-**Description**
-
-1. Constructs a `TIME` object using `INT64`
-   values representing the hour, minute, and second.
-2. Constructs a `TIME` object using a `TIMESTAMP` object. It supports an
-   optional
-   parameter to [specify a time zone][time-link-to-timezone-definitions]. If no
-   time zone is specified, the default time zone, which is implementation defined, is
-   used.
-3. Constructs a `TIME` object using a
-   `DATETIME` object.
-
-**Return Data Type**
-
-`TIME`
-
-**Example**
-
-```sql
-SELECT
-  TIME(15, 30, 00) as time_hms,
-  TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
-
-+----------+-----------+
-| time_hms | time_tstz |
-+----------+-----------+
-| 15:30:00 | 23:30:00  |
-+----------+-----------+
-```
-
-```sql
-SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
-
-+----------+
-| time_dt  |
-+----------+
-| 15:30:00 |
-+----------+
-```
-
-[time-link-to-timezone-definitions]: #timezone_definitions
-
 ### `EXTRACT`
 
 ```sql
@@ -22454,172 +22532,6 @@ SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 +------------------+
 | 15               |
 +------------------+
-```
-
-### `TIME_ADD`
-
-```sql
-TIME_ADD(time_expression, INTERVAL int64_expression part)
-```
-
-**Description**
-
-Adds `int64_expression` units of `part` to the `TIME` object.
-
-`TIME_ADD` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-
-This function automatically adjusts when values fall outside of the 00:00:00 to
-24:00:00 boundary. For example, if you add an hour to `23:30:00`, the returned
-value is `00:30:00`.
-
-**Return Data Types**
-
-`TIME`
-
-**Example**
-
-```sql
-SELECT
-  TIME "15:30:00" as original_time,
-  TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE) as later;
-
-+-----------------------------+------------------------+
-| original_time               | later                  |
-+-----------------------------+------------------------+
-| 15:30:00                    | 15:40:00               |
-+-----------------------------+------------------------+
-```
-
-### `TIME_SUB`
-
-```sql
-TIME_SUB(time_expression, INTERVAL int64_expression part)
-```
-
-**Description**
-
-Subtracts `int64_expression` units of `part` from the `TIME` object.
-
-`TIME_SUB` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-
-This function automatically adjusts when values fall outside of the 00:00:00 to
-24:00:00 boundary. For example, if you subtract an hour from `00:30:00`, the
-returned value is `23:30:00`.
-
-**Return Data Type**
-
-`TIME`
-
-**Example**
-
-```sql
-SELECT
-  TIME "15:30:00" as original_date,
-  TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE) as earlier;
-
-+-----------------------------+------------------------+
-| original_date                | earlier                |
-+-----------------------------+------------------------+
-| 15:30:00                    | 15:20:00               |
-+-----------------------------+------------------------+
-```
-
-### `TIME_DIFF`
-
-```sql
-TIME_DIFF(time_expression_a, time_expression_b, part)
-```
-
-**Description**
-
-Returns the whole number of specified `part` intervals between two
-`TIME` objects (`time_expression_a` - `time_expression_b`). If the first
-`TIME` is earlier than the second one, the output is negative. Throws an error
-if the computation overflows the result type, such as if the difference in
-nanoseconds
-between the two `TIME` objects would overflow an
-`INT64` value.
-
-`TIME_DIFF` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-
-**Return Data Type**
-
-`INT64`
-
-**Example**
-
-```sql
-SELECT
-  TIME "15:30:00" as first_time,
-  TIME "14:35:00" as second_time,
-  TIME_DIFF(TIME "15:30:00", TIME "14:35:00", MINUTE) as difference;
-
-+----------------------------+------------------------+------------------------+
-| first_time                 | second_time            | difference             |
-+----------------------------+------------------------+------------------------+
-| 15:30:00                   | 14:35:00               | 55                     |
-+----------------------------+------------------------+------------------------+
-```
-
-### `TIME_TRUNC`
-
-```sql
-TIME_TRUNC(time_expression, time_part)
-```
-
-**Description**
-
-Truncates a `TIME` value to the granularity of `time_part`. The `TIME` value
-is always rounded to the beginning of `time_part`, which can be one of the
-following:
-
-+ `NANOSECOND`: If used, nothing is truncated from the value.
-+ `MICROSECOND`: The nearest lessor or equal microsecond.
-+ `MILLISECOND`: The nearest lessor or equal millisecond.
-+ `SECOND`: The nearest lessor or equal second.
-+ `MINUTE`: The nearest lessor or equal minute.
-+ `HOUR`: The nearest lessor or equal hour.
-
-**Return Data Type**
-
-`TIME`
-
-**Example**
-
-```sql
-SELECT
-  TIME "15:30:00" as original,
-  TIME_TRUNC(TIME "15:30:00", HOUR) as truncated;
-
-+----------------------------+------------------------+
-| original                   | truncated              |
-+----------------------------+------------------------+
-| 15:30:00                   | 15:00:00               |
-+----------------------------+------------------------+
 ```
 
 ### `FORMAT_TIME`
@@ -22724,6 +22636,222 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 [time-format]: #format_time
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `TIME`
+
+```sql
+1. TIME(hour, minute, second)
+2. TIME(timestamp, [time_zone])
+3. TIME(datetime)
+```
+
+**Description**
+
+1. Constructs a `TIME` object using `INT64`
+   values representing the hour, minute, and second.
+2. Constructs a `TIME` object using a `TIMESTAMP` object. It supports an
+   optional
+   parameter to [specify a time zone][time-link-to-timezone-definitions]. If no
+   time zone is specified, the default time zone, which is implementation defined, is
+   used.
+3. Constructs a `TIME` object using a
+   `DATETIME` object.
+
+**Return Data Type**
+
+`TIME`
+
+**Example**
+
+```sql
+SELECT
+  TIME(15, 30, 00) as time_hms,
+  TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
+
++----------+-----------+
+| time_hms | time_tstz |
++----------+-----------+
+| 15:30:00 | 23:30:00  |
++----------+-----------+
+```
+
+```sql
+SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
+
++----------+
+| time_dt  |
++----------+
+| 15:30:00 |
++----------+
+```
+
+[time-link-to-timezone-definitions]: #timezone_definitions
+
+### `TIME_ADD`
+
+```sql
+TIME_ADD(time_expression, INTERVAL int64_expression part)
+```
+
+**Description**
+
+Adds `int64_expression` units of `part` to the `TIME` object.
+
+`TIME_ADD` supports the following values for `part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
+
+This function automatically adjusts when values fall outside of the 00:00:00 to
+24:00:00 boundary. For example, if you add an hour to `23:30:00`, the returned
+value is `00:30:00`.
+
+**Return Data Types**
+
+`TIME`
+
+**Example**
+
+```sql
+SELECT
+  TIME "15:30:00" as original_time,
+  TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE) as later;
+
++-----------------------------+------------------------+
+| original_time               | later                  |
++-----------------------------+------------------------+
+| 15:30:00                    | 15:40:00               |
++-----------------------------+------------------------+
+```
+
+### `TIME_DIFF`
+
+```sql
+TIME_DIFF(time_expression_a, time_expression_b, part)
+```
+
+**Description**
+
+Returns the whole number of specified `part` intervals between two
+`TIME` objects (`time_expression_a` - `time_expression_b`). If the first
+`TIME` is earlier than the second one, the output is negative. Throws an error
+if the computation overflows the result type, such as if the difference in
+nanoseconds
+between the two `TIME` objects would overflow an
+`INT64` value.
+
+`TIME_DIFF` supports the following values for `part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
+
+**Return Data Type**
+
+`INT64`
+
+**Example**
+
+```sql
+SELECT
+  TIME "15:30:00" as first_time,
+  TIME "14:35:00" as second_time,
+  TIME_DIFF(TIME "15:30:00", TIME "14:35:00", MINUTE) as difference;
+
++----------------------------+------------------------+------------------------+
+| first_time                 | second_time            | difference             |
++----------------------------+------------------------+------------------------+
+| 15:30:00                   | 14:35:00               | 55                     |
++----------------------------+------------------------+------------------------+
+```
+
+### `TIME_SUB`
+
+```sql
+TIME_SUB(time_expression, INTERVAL int64_expression part)
+```
+
+**Description**
+
+Subtracts `int64_expression` units of `part` from the `TIME` object.
+
+`TIME_SUB` supports the following values for `part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
+
+This function automatically adjusts when values fall outside of the 00:00:00 to
+24:00:00 boundary. For example, if you subtract an hour from `00:30:00`, the
+returned value is `23:30:00`.
+
+**Return Data Type**
+
+`TIME`
+
+**Example**
+
+```sql
+SELECT
+  TIME "15:30:00" as original_date,
+  TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE) as earlier;
+
++-----------------------------+------------------------+
+| original_date                | earlier                |
++-----------------------------+------------------------+
+| 15:30:00                    | 15:20:00               |
++-----------------------------+------------------------+
+```
+
+### `TIME_TRUNC`
+
+```sql
+TIME_TRUNC(time_expression, time_part)
+```
+
+**Description**
+
+Truncates a `TIME` value to the granularity of `time_part`. The `TIME` value
+is always rounded to the beginning of `time_part`, which can be one of the
+following:
+
++ `NANOSECOND`: If used, nothing is truncated from the value.
++ `MICROSECOND`: The nearest lessor or equal microsecond.
++ `MILLISECOND`: The nearest lessor or equal millisecond.
++ `SECOND`: The nearest lessor or equal second.
++ `MINUTE`: The nearest lessor or equal minute.
++ `HOUR`: The nearest lessor or equal hour.
+
+**Return Data Type**
+
+`TIME`
+
+**Example**
+
+```sql
+SELECT
+  TIME "15:30:00" as original,
+  TIME_TRUNC(TIME "15:30:00", HOUR) as truncated;
+
++----------------------------+------------------------+
+| original                   | truncated              |
++----------------------------+------------------------+
+| 15:30:00                   | 15:00:00               |
++----------------------------+------------------------+
+```
 
 [time-to-string]: #cast
 
@@ -22933,6 +23061,129 @@ FROM table;
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 
+### `FORMAT_TIMESTAMP`
+
+```sql
+FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
+```
+
+**Description**
+
+Formats a timestamp according to the specified `format_string`.
+
+See [Supported Format Elements For TIMESTAMP][timestamp-format-elements]
+for a list of format elements that this function supports.
+
+**Return Data Type**
+
+`STRING`
+
+**Example**
+
+```sql
+SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS formatted;
+
++--------------------------+
+| formatted                |
++--------------------------+
+| Thu Dec 25 15:30:00 2008 |
++--------------------------+
+```
+
+```sql
+SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00+00") AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec-25-2008 |
++-------------+
+```
+
+```sql
+SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
+  AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec 2008    |
++-------------+
+```
+
+[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `PARSE_TIMESTAMP`
+
+```sql
+PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
+```
+
+**Description**
+
+Converts a [string representation of a timestamp][timestamp-format] to a
+`TIMESTAMP` object.
+
+`format_string` contains the [format elements][timestamp-format-elements]
+that define how `timestamp_string` is formatted. Each element in
+`timestamp_string` must have a corresponding element in `format_string`. The
+location of each element in `format_string` must match the location of
+each element in `timestamp_string`.
+
+```sql
+-- This works because elements on both sides match.
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+
+-- This doesn't work because the year element is in different locations.
+SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+
+-- This doesn't work because one of the year elements is missing.
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+
+-- This works because %c can find all matching elements in timestamp_string.
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
+```
+
+When using `PARSE_TIMESTAMP`, keep the following in mind:
+
++ **Unspecified fields.** Any unspecified field is initialized from `1970-01-01
+  00:00:00.0`. This initialization value uses the time zone specified by the
+  function's time zone argument, if present. If not, the initialization value
+  uses the default time zone, which is implementation defined.  For instance, if the year
+  is unspecified then it defaults to `1970`, and so on.
++ **Case insensitivity.** Names, such as `Monday`, `February`, and so on, are
+  case insensitive.
++ **Whitespace.** One or more consecutive white spaces in the format string
+  matches zero or more consecutive white spaces in the timestamp string. In
+  addition, leading and trailing white spaces in the timestamp string are always
+  allowed, even if they are not in the format string.
++ **Format precedence.** When two (or more) format elements have overlapping
+  information (for example both `%F` and `%Y` affect the year), the last one
+  generally overrides any earlier ones, with some exceptions (see the
+  descriptions of `%s`, `%C`, and `%y`).
++ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| parsed                                      |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
+```
+
+[timestamp-format]: #format_timestamp
+
+[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
 ### `STRING`
 
 ```sql
@@ -23097,47 +23348,6 @@ SELECT
 +---------------------------------------------+---------------------------------------------+
 ```
 
-### `TIMESTAMP_SUB`
-
-```sql
-TIMESTAMP_SUB(timestamp_expression, INTERVAL int64_expression date_part)
-```
-
-**Description**
-
-Subtracts `int64_expression` units of `date_part` from the timestamp,
-independent of any time zone.
-
-`TIMESTAMP_SUB` supports the following values for `date_part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`. Equivalent to 60 `MINUTE`s.
-+ `DAY`. Equivalent to 24 `HOUR`s.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT
-  TIMESTAMP("2008-12-25 15:30:00+00") AS original,
-  TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+---------------------------------------------+
-| original                                    | earlier                                     |
-+---------------------------------------------+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:20:00.000 America/Los_Angeles |
-+---------------------------------------------+---------------------------------------------+
-```
-
 ### `TIMESTAMP_DIFF`
 
 ```sql
@@ -23210,6 +23420,230 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS dif
 +---------------+
 | 0             |
 +---------------+
+```
+
+### `TIMESTAMP_FROM_UNIX_MICROS`
+
+```sql
+TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
+```
+
+```sql
+TIMESTAMP_FROM_UNIX_MICROS(timestamp_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of microseconds since
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_FROM_UNIX_MILLIS`
+
+```sql
+TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
+```
+
+```sql
+TIMESTAMP_FROM_UNIX_MILLIS(timestamp_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of milliseconds since
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_FROM_UNIX_SECONDS`
+
+```sql
+TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
+```
+
+```sql
+TIMESTAMP_FROM_UNIX_SECONDS(timestamp_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of seconds since
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_MICROS`
+
+```sql
+TIMESTAMP_MICROS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of microseconds since 1970-01-01
+00:00:00 UTC and returns a timestamp.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_MILLIS`
+
+```sql
+TIMESTAMP_MILLIS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of milliseconds since 1970-01-01
+00:00:00 UTC and returns a timestamp.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_SECONDS`
+
+```sql
+TIMESTAMP_SECONDS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of seconds since 1970-01-01 00:00:00
+UTC and returns a timestamp.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_SUB`
+
+```sql
+TIMESTAMP_SUB(timestamp_expression, INTERVAL int64_expression date_part)
+```
+
+**Description**
+
+Subtracts `int64_expression` units of `date_part` from the timestamp,
+independent of any time zone.
+
+`TIMESTAMP_SUB` supports the following values for `date_part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`. Equivalent to 60 `MINUTE`s.
++ `DAY`. Equivalent to 24 `HOUR`s.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT
+  TIMESTAMP("2008-12-25 15:30:00+00") AS original,
+  TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+
+| original                                    | earlier                                     |
++---------------------------------------------+---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:20:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+
 ```
 
 ### `TIMESTAMP_TRUNC`
@@ -23355,223 +23789,16 @@ SELECT
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 
-### `FORMAT_TIMESTAMP`
+### `UNIX_MICROS`
 
 ```sql
-FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
+UNIX_MICROS(timestamp_expression)
 ```
 
 **Description**
 
-Formats a timestamp according to the specified `format_string`.
-
-See [Supported Format Elements For TIMESTAMP][timestamp-format-elements]
-for a list of format elements that this function supports.
-
-**Return Data Type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS formatted;
-
-+--------------------------+
-| formatted                |
-+--------------------------+
-| Thu Dec 25 15:30:00 2008 |
-+--------------------------+
-```
-
-```sql
-SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00+00") AS formatted;
-
-+-------------+
-| formatted   |
-+-------------+
-| Dec-25-2008 |
-+-------------+
-```
-
-```sql
-SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
-  AS formatted;
-
-+-------------+
-| formatted   |
-+-------------+
-| Dec 2008    |
-+-------------+
-```
-
-[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
-
-### `PARSE_TIMESTAMP`
-
-```sql
-PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
-```
-
-**Description**
-
-Converts a [string representation of a timestamp][timestamp-format] to a
-`TIMESTAMP` object.
-
-`format_string` contains the [format elements][timestamp-format-elements]
-that define how `timestamp_string` is formatted. Each element in
-`timestamp_string` must have a corresponding element in `format_string`. The
-location of each element in `format_string` must match the location of
-each element in `timestamp_string`.
-
-```sql
--- This works because elements on both sides match.
-SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
-
--- This doesn't work because the year element is in different locations.
-SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
-
--- This doesn't work because one of the year elements is missing.
-SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
-
--- This works because %c can find all matching elements in timestamp_string.
-SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
-```
-
-When using `PARSE_TIMESTAMP`, keep the following in mind:
-
-+ **Unspecified fields.** Any unspecified field is initialized from `1970-01-01
-  00:00:00.0`. This initialization value uses the time zone specified by the
-  function's time zone argument, if present. If not, the initialization value
-  uses the default time zone, which is implementation defined.  For instance, if the year
-  is unspecified then it defaults to `1970`, and so on.
-+ **Case insensitivity.** Names, such as `Monday`, `February`, and so on, are
-  case insensitive.
-+ **Whitespace.** One or more consecutive white spaces in the format string
-  matches zero or more consecutive white spaces in the timestamp string. In
-  addition, leading and trailing white spaces in the timestamp string are always
-  allowed, even if they are not in the format string.
-+ **Format precedence.** When two (or more) format elements have overlapping
-  information (for example both `%F` and `%Y` affect the year), the last one
-  generally overrides any earlier ones, with some exceptions (see the
-  descriptions of `%s`, `%C`, and `%y`).
-+ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| parsed                                      |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
-```
-
-[timestamp-format]: #format_timestamp
-
-[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
-
-### `TIMESTAMP_SECONDS`
-
-```sql
-TIMESTAMP_SECONDS(int64_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of seconds since 1970-01-01 00:00:00
-UTC and returns a timestamp.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `TIMESTAMP_MILLIS`
-
-```sql
-TIMESTAMP_MILLIS(int64_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of milliseconds since 1970-01-01
-00:00:00 UTC and returns a timestamp.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `TIMESTAMP_MICROS`
-
-```sql
-TIMESTAMP_MICROS(int64_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of microseconds since 1970-01-01
-00:00:00 UTC and returns a timestamp.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `UNIX_SECONDS`
-
-```sql
-UNIX_SECONDS(timestamp_expression)
-```
-
-**Description**
-
-Returns the number of seconds since 1970-01-01 00:00:00 UTC. Truncates higher
-levels of precision.
+Returns the number of microseconds since 1970-01-01 00:00:00 UTC. Truncates
+higher levels of precision.
 
 **Return Data Type**
 
@@ -23580,13 +23807,13 @@ levels of precision.
 **Example**
 
 ```sql
-SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
+SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 
-+------------+
-| seconds    |
-+------------+
-| 1230219000 |
-+------------+
++------------------+
+| micros           |
++------------------+
+| 1230219000000000 |
++------------------+
 ```
 
 ### `UNIX_MILLIS`
@@ -23616,16 +23843,16 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
 +---------------+
 ```
 
-### `UNIX_MICROS`
+### `UNIX_SECONDS`
 
 ```sql
-UNIX_MICROS(timestamp_expression)
+UNIX_SECONDS(timestamp_expression)
 ```
 
 **Description**
 
-Returns the number of microseconds since 1970-01-01 00:00:00 UTC. Truncates
-higher levels of precision.
+Returns the number of seconds since 1970-01-01 00:00:00 UTC. Truncates higher
+levels of precision.
 
 **Return Data Type**
 
@@ -23634,112 +23861,13 @@ higher levels of precision.
 **Example**
 
 ```sql
-SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
+SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
 
-+------------------+
-| micros           |
-+------------------+
-| 1230219000000000 |
-+------------------+
-```
-
-### `TIMESTAMP_FROM_UNIX_SECONDS`
-
-```sql
-TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
-```
-
-```sql
-TIMESTAMP_FROM_UNIX_SECONDS(timestamp_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of seconds since
-1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
-the same timestamp is returned.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `TIMESTAMP_FROM_UNIX_MILLIS`
-
-```sql
-TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
-```
-
-```sql
-TIMESTAMP_FROM_UNIX_MILLIS(timestamp_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of milliseconds since
-1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
-the same timestamp is returned.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `TIMESTAMP_FROM_UNIX_MICROS`
-
-```sql
-TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
-```
-
-```sql
-TIMESTAMP_FROM_UNIX_MICROS(timestamp_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of microseconds since
-1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
-the same timestamp is returned.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
++------------+
+| seconds    |
++------------+
+| 1230219000 |
++------------+
 ```
 
 ### How time zones work with timestamp functions 
@@ -23783,37 +23911,6 @@ To learn more about how time zones work with timestamps, see
 ## Interval functions
 
 ZetaSQL supports the following interval functions.
-
-### `MAKE_INTERVAL`
-
-```sql
-MAKE_INTERVAL(year, month, day, hour, minute, second)
-```
-
-**Description**
-
-Constructs an `INTERVAL` object using `INT64` values representing the year,
-month, day, hour, minute, and second. All arguments are optional with default
-value of 0 and can be used as named arguments.
-
-**Return Data Type**
-
-`INTERVAL`
-
-**Example**
-
-```sql
-SELECT
-  MAKE_INTERVAL(1, 6, 15) AS i1,
-  MAKE_INTERVAL(hour => 10, second => 20) AS i2,
-  MAKE_INTERVAL(1, minute => 5, day => 2) AS i3
-
-+--------------+---------------+-------------+
-| i1           | i2            | i3          |
-+--------------+---------------+-------------+
-| 1-6 15 0:0:0 | 0-0 0 10:0:20 | 1-0 2 0:5:0 |
-+--------------+---------------+-------------+
-```
 
 ### `EXTRACT`
 
@@ -23978,6 +24075,37 @@ SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 +-------------+
 | 0-1 1 1:0:0 |
 +-------------+
+```
+
+### `MAKE_INTERVAL`
+
+```sql
+MAKE_INTERVAL(year, month, day, hour, minute, second)
+```
+
+**Description**
+
+Constructs an `INTERVAL` object using `INT64` values representing the year,
+month, day, hour, minute, and second. All arguments are optional with default
+value of 0 and can be used as named arguments.
+
+**Return Data Type**
+
+`INTERVAL`
+
+**Example**
+
+```sql
+SELECT
+  MAKE_INTERVAL(1, 6, 15) AS i1,
+  MAKE_INTERVAL(hour => 10, second => 20) AS i2,
+  MAKE_INTERVAL(1, minute => 5, day => 2) AS i3
+
++--------------+---------------+-------------+
+| i1           | i2            | i3          |
++--------------+---------------+-------------+
+| 1-6 15 0:0:0 | 0-0 0 10:0:20 | 1-0 2 0:5:0 |
++--------------+---------------+-------------+
 ```
 
 ## Geography functions
@@ -25068,10 +25196,9 @@ If either of the input `GEOGRAPHY`s is empty,
 
 The optional `use_spheroid` parameter determines how this function measures
 distance. If `use_spheroid` is `FALSE`, the function measures distance on the
-surface of a perfect sphere.
-
-The `use_spheroid` parameter currently only supports
-the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
+surface of a perfect sphere. If `use_spheroid` is `TRUE`, the function measures
+distance on the surface of the [WGS84][wgs84-link] spheroid. The default value
+of `use_spheroid` is `FALSE`.
 
 **Return type**
 
@@ -26671,6 +26798,27 @@ Returns `TRUE` provided the following two conditions are satisfied:
 
 `BOOL`
 
+### `ST_UNION_AGG`
+
+```sql
+ST_UNION_AGG(geography)
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` that represents the point set
+union of all input `GEOGRAPHY`s.
+
+`ST_UNION_AGG` ignores `NULL` input `GEOGRAPHY` values.
+
+See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
+
+**Return type**
+
+`GEOGRAPHY`
+
+[st-union]: #st_union
+
 ### `ST_UNION`
 
 ```sql
@@ -26704,27 +26852,6 @@ See [`ST_UNION_AGG`][st-union-agg] for the aggregate version of `ST_UNION`.
 `GEOGRAPHY`
 
 [st-union-agg]: #st_union_agg
-
-### `ST_UNION_AGG`
-
-```sql
-ST_UNION_AGG(geography)
-```
-
-**Description**
-
-Returns a `GEOGRAPHY` that represents the point set
-union of all input `GEOGRAPHY`s.
-
-`ST_UNION_AGG` ignores `NULL` input `GEOGRAPHY` values.
-
-See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
-
-**Return type**
-
-`GEOGRAPHY`
-
-[st-union]: #st_union
 
 ### `ST_WITHIN`
 
@@ -26817,72 +26944,224 @@ See [`ST_X`][st-x] for example usage.
 
 ZetaSQL supports the following protocol buffer functions.
 
-### `PROTO_DEFAULT_IF_NULL`
+### `CONTAINS_KEY`
 
 ```sql
-PROTO_DEFAULT_IF_NULL(proto_field_expression)
+CONTAINS_KEY(proto_map_field_expression, key)
 ```
 
 **Description**
 
-Evaluates any expression that results in a proto field access.
-If the `proto_field_expression` evaluates to `NULL`, returns the default
-value for the field. Otherwise, returns the field value.
+Returns whether a [protocol buffer map field][proto-map] contains a given key.
 
-Stipulations:
+Input values:
 
-+ The expression cannot resolve to a required field.
-+ The expression cannot resolve to a message field.
-+ The expression must resolve to a regular proto field access, not
-  a virtual field.
-+ The expression cannot access a field with
-  `zetasql.use_defaults=false`.
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key`: A key in the protocol buffer map field.
+
+`NULL` handling:
+
++ If `map_field` is `NULL`, returns `NULL`.
++ If `key` is `NULL`, returns `FALSE`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the function returns `TRUE` when the key is
+present, `FALSE` otherwise.
+
+```sql
+SELECT
+  CONTAINS_KEY(m.purchased, 'A') AS contains_a,
+  CONTAINS_KEY(m.purchased, 'B') AS contains_b
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
++------------+------------+
+| contains_a | contains_b |
++------------+------------+
+| TRUE       | FALSE      |
++------------+------------+
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
+
+### `EXTRACT` {#proto_extract}
+
+```sql
+EXTRACT( extraction_type (proto_field) FROM proto_expression )
+
+extraction_type:
+  { FIELD | RAW | HAS | ONEOF_CASE }
+```
+
+**Description**
+
+Extracts a value from a protocol buffer. `proto_expression` represents the
+expression that returns a protocol buffer, `proto_field` represents the field
+of the protocol buffer to extract from, and `extraction_type` determines the
+type of data to return. `EXTRACT` can be used to get values of ambiguous fields.
+An alternative to `EXTRACT` is the [dot operator][querying-protocol-buffers].
+
+**Extraction Types**
+
+You can choose the type of information to get with `EXTRACT`. Your choices are:
+
++  `FIELD`: Extract a value from a protocol buffer field.
++  `RAW`: Extract an uninterpreted value from a
+    protocol buffer field. Raw values
+    ignore any ZetaSQL type annotations.
++  `HAS`: Returns `TRUE` if a protocol buffer field is set in a proto message;
+   otherwise, `FALSE`. Returns an error if this is used with a scalar proto3
+   field. Alternatively, use [`has_x`][has-value], to perform this task.
++  `ONEOF_CASE`: Returns the name of the set protocol buffer field in a Oneof.
+   If no field is set, returns an empty string.
 
 **Return Type**
 
-Type of `proto_field_expression`.
+The return type depends upon the extraction type in the query.
 
-**Example**
++  `FIELD`: Protocol buffer field type.
++  `RAW`: Protocol buffer field
+    type. Format annotations are
+    ignored.
++  `HAS`: `BOOL`
++  `ONEOF_CASE`: `STRING`
 
-In the following example, each book in a library has a country of origin. If
-the country is not set, the country defaults to unknown.
+**Examples**
 
-In this statement, table `library_books` contains a column named `book`,
-whose type is `Book`.
-
-```sql
-SELECT PROTO_DEFAULT_IF_NULL(book.country) AS origin FROM library_books;
-```
-
-`Book` is a type that contains a field called `country`.
+The examples in this section reference two protocol buffers called `Album` and
+`Chart`, and one table called `AlbumList`.
 
 ```proto
-message Book {
-  optional string country = 4 [default = 'Unknown'];
+message Album {
+  optional string album_name = 1;
+  repeated string song = 2;
+  oneof group_name {
+    string solo = 3;
+    string duet = 4;
+    string band = 5;
+  }
 }
 ```
 
-This is the result if `book.country` evaluates to `Canada`.
-
-```sql
-+-----------------+
-| origin          |
-+-----------------+
-| Canada          |
-+-----------------+
+```proto
+message Chart {
+  optional int64 date = 1 [(zetasql.format) = DATE];
+  optional string chart_name = 2;
+  optional int64 rank = 3;
+}
 ```
 
-This is the result if `book` is `NULL`. Since `book` is `NULL`,
-`book.country` evaluates to `NULL` and therefore the function result is the
-default value for `country`.
+```sql
+WITH AlbumList AS (
+  SELECT
+    NEW Album(
+      'Alana Yah' AS solo,
+      'New Moon' AS album_name,
+      ['Sandstorm','Wait'] AS song) AS album_col,
+    NEW Chart(
+      'Billboard' AS chart_name,
+      '2016-04-23' AS date,
+      1 AS rank) AS chart_col
+    UNION ALL
+  SELECT
+    NEW Album(
+      'The Roadlands' AS band,
+      'Grit' AS album_name,
+      ['The Way', 'Awake', 'Lost Things'] AS song) AS album_col,
+    NEW Chart(
+      'Billboard' AS chart_name,
+      1 as rank) AS chart_col
+)
+SELECT * FROM AlbumList
+```
+
+The following example extracts the album names from a table called `AlbumList`
+that contains a proto-typed column called `Album`.
 
 ```sql
-+-----------------+
-| origin          |
-+-----------------+
-| Unknown         |
-+-----------------+
+SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
+FROM AlbumList
+
++------------------+
+| name_of_album    |
++------------------+
+| New Moon         |
+| Grit             |
++------------------+
 ```
+
+A table called `AlbumList` contains a proto-typed column called `Album`.
+`Album` contains a field called `date`, which can store an integer. The
+`date` field has an annotated format called `DATE` assigned to it, which means
+that when you extract the value in this field, it returns a `DATE`, not an
+`INT64`.
+
+If you would like to return the value for `date` as an `INT64`, not
+as a `DATE`, use the `RAW` extraction type in your query. For example:
+
+```sql
+SELECT
+  EXTRACT(RAW(date) FROM chart_col) AS raw_date,
+  EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
+FROM AlbumList
+
++----------+----------------+
+| raw_date | formatted_date |
++----------+----------------+
+| 16914    | 2016-04-23     |
+| 0        | 1970-01-01     |
++----------+----------------+
+```
+
+The following example checks to see if release dates exist in a table called
+`AlbumList` that contains a protocol buffer called `Chart`.
+
+```sql
+SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
+FROM AlbumList
+
++------------------+
+| has_release_date |
++------------------+
+| TRUE             |
+| FALSE            |
++------------------+
+```
+
+The following example extracts the group name that is assigned to an artist in
+a table called `AlbumList`. The group name is set for exactly one
+protocol buffer field inside of the `group_name` Oneof. The `group_name` Oneof
+exists inside the `Chart` protocol buffer.
+
+```sql
+SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
+FROM AlbumList;
+
++-------------+
+| artist_type |
++-------------+
+| solo        |
+| band        |
++-------------+
+```
+
+[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
+
+[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
 
 ### `FILTER_FIELDS`
 
@@ -27283,6 +27562,229 @@ SELECT FROM_PROTO(DATE '2019-10-30')
 +------------+
 ```
 
+### `MODIFY_MAP`
+
+```sql
+MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
+
+key_value_pair:
+  key, value
+```
+
+**Description**
+
+Modifies a [protocol buffer map field][proto-map] and returns the modified map
+field.
+
+Input values:
+
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key_value_pair`: A key-value pair in the protocol buffer map field.
+
+Modification behavior:
+
++ If the key is not already in the map field, adds the key and its value to the
+  map field.
++ If the key is already in the map field, replaces its value.
++ If the key is in the map field and the value is `NULL`, removes the key and
+  its value from the map field.
+
+`NULL` handling:
+
++ If `key` is `NULL`, produces an error.
++ If the same `key` appears more than once, produces an error.
++ If `map` is `NULL`, `map` is treated as empty.
+
+**Return type**
+
+In the input protocol buffer map field, `V` as represented in `map<K,V>`.
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the query deletes key `A`, replaces `B`, and adds
+`C` in a map field called `purchased`.
+
+```sql
+SELECT
+  MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
+
++---------------------------------------------+
+| result_map                                  |
++---------------------------------------------+
+| { key: 'B' value: 4 } { key: 'C' value: 6 } |
++---------------------------------------------+
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
+
+### `PROTO_DEFAULT_IF_NULL`
+
+```sql
+PROTO_DEFAULT_IF_NULL(proto_field_expression)
+```
+
+**Description**
+
+Evaluates any expression that results in a proto field access.
+If the `proto_field_expression` evaluates to `NULL`, returns the default
+value for the field. Otherwise, returns the field value.
+
+Stipulations:
+
++ The expression cannot resolve to a required field.
++ The expression cannot resolve to a message field.
++ The expression must resolve to a regular proto field access, not
+  a virtual field.
++ The expression cannot access a field with
+  `zetasql.use_defaults=false`.
+
+**Return Type**
+
+Type of `proto_field_expression`.
+
+**Example**
+
+In the following example, each book in a library has a country of origin. If
+the country is not set, the country defaults to unknown.
+
+In this statement, table `library_books` contains a column named `book`,
+whose type is `Book`.
+
+```sql
+SELECT PROTO_DEFAULT_IF_NULL(book.country) AS origin FROM library_books;
+```
+
+`Book` is a type that contains a field called `country`.
+
+```proto
+message Book {
+  optional string country = 4 [default = 'Unknown'];
+}
+```
+
+This is the result if `book.country` evaluates to `Canada`.
+
+```sql
++-----------------+
+| origin          |
++-----------------+
+| Canada          |
++-----------------+
+```
+
+This is the result if `book` is `NULL`. Since `book` is `NULL`,
+`book.country` evaluates to `NULL` and therefore the function result is the
+default value for `country`.
+
+```sql
++-----------------+
+| origin          |
++-----------------+
+| Unknown         |
++-----------------+
+```
+
+### `REPLACE_FIELDS`
+
+```sql
+REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
+```
+
+**Description**
+
+Returns a copy of a protocol buffer, replacing the values in one or more fields.
+`field_path` is a delimited path to the protocol buffer field to be replaced.
+
++ If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
+  component of `field_path` is a required field.
++ Replacing subfields will succeed only if the message containing the field is
+  set.
++ Replacing subfields of repeated field is not allowed.
++ A repeated field can be replaced with an `ARRAY` value.
+
+**Return type**
+
+Type of `proto_expression`
+
+**Examples**
+
+To illustrate the usage of this function, we use protocol buffer messages
+`Book` and `BookDetails`.
+
+```
+message Book {
+  required string title = 1;
+  repeated string reviews = 2;
+  optional BookDetails details = 3;
+};
+
+message BookDetails {
+  optional string author = 1;
+  optional int32 chapters = 2;
+};
+```
+
+This statement replaces value of field `title` and subfield `chapters`
+of proto type `Book`. Note that field `details` must be set for the statement
+to succeed.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book(
+    "The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  "The Hummingbird II" AS title,
+  11 AS details.chapters)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird II" details: {chapters: 11 }}                       |
++-----------------------------------------------------------------------------+
+```
+
+The function can replace value of repeated fields.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book("The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  ["A good read!", "Highly recommended."] AS reviews)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
+| details: {chapters: 10 }}                                                   |
++-----------------------------------------------------------------------------+
+```
+
+It can set a field to `NULL`.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book("The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  NULL AS details)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird" }                                                  |
++-----------------------------------------------------------------------------+
+```
+
 ### `TO_PROTO`
 
 ```
@@ -27451,381 +27953,6 @@ SELECT TO_PROTO(
 +--------------------------------+
 ```
 
-### `EXTRACT` {#proto_extract}
-
-```sql
-EXTRACT( extraction_type (proto_field) FROM proto_expression )
-
-extraction_type:
-  { FIELD | RAW | HAS | ONEOF_CASE }
-```
-
-**Description**
-
-Extracts a value from a protocol buffer. `proto_expression` represents the
-expression that returns a protocol buffer, `proto_field` represents the field
-of the protocol buffer to extract from, and `extraction_type` determines the
-type of data to return. `EXTRACT` can be used to get values of ambiguous fields.
-An alternative to `EXTRACT` is the [dot operator][querying-protocol-buffers].
-
-**Extraction Types**
-
-You can choose the type of information to get with `EXTRACT`. Your choices are:
-
-+  `FIELD`: Extract a value from a protocol buffer field.
-+  `RAW`: Extract an uninterpreted value from a
-    protocol buffer field. Raw values
-    ignore any ZetaSQL type annotations.
-+  `HAS`: Returns `TRUE` if a protocol buffer field is set in a proto message;
-   otherwise, `FALSE`. Returns an error if this is used with a scalar proto3
-   field. Alternatively, use [`has_x`][has-value], to perform this task.
-+  `ONEOF_CASE`: Returns the name of the set protocol buffer field in a Oneof.
-   If no field is set, returns an empty string.
-
-**Return Type**
-
-The return type depends upon the extraction type in the query.
-
-+  `FIELD`: Protocol buffer field type.
-+  `RAW`: Protocol buffer field
-    type. Format annotations are
-    ignored.
-+  `HAS`: `BOOL`
-+  `ONEOF_CASE`: `STRING`
-
-**Examples**
-
-The examples in this section reference two protocol buffers called `Album` and
-`Chart`, and one table called `AlbumList`.
-
-```proto
-message Album {
-  optional string album_name = 1;
-  repeated string song = 2;
-  oneof group_name {
-    string solo = 3;
-    string duet = 4;
-    string band = 5;
-  }
-}
-```
-
-```proto
-message Chart {
-  optional int64 date = 1 [(zetasql.format) = DATE];
-  optional string chart_name = 2;
-  optional int64 rank = 3;
-}
-```
-
-```sql
-WITH AlbumList AS (
-  SELECT
-    NEW Album(
-      'Alana Yah' AS solo,
-      'New Moon' AS album_name,
-      ['Sandstorm','Wait'] AS song) AS album_col,
-    NEW Chart(
-      'Billboard' AS chart_name,
-      '2016-04-23' AS date,
-      1 AS rank) AS chart_col
-    UNION ALL
-  SELECT
-    NEW Album(
-      'The Roadlands' AS band,
-      'Grit' AS album_name,
-      ['The Way', 'Awake', 'Lost Things'] AS song) AS album_col,
-    NEW Chart(
-      'Billboard' AS chart_name,
-      1 as rank) AS chart_col
-)
-SELECT * FROM AlbumList
-```
-
-The following example extracts the album names from a table called `AlbumList`
-that contains a proto-typed column called `Album`.
-
-```sql
-SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
-FROM AlbumList
-
-+------------------+
-| name_of_album    |
-+------------------+
-| New Moon         |
-| Grit             |
-+------------------+
-```
-
-A table called `AlbumList` contains a proto-typed column called `Album`.
-`Album` contains a field called `date`, which can store an integer. The
-`date` field has an annotated format called `DATE` assigned to it, which means
-that when you extract the value in this field, it returns a `DATE`, not an
-`INT64`.
-
-If you would like to return the value for `date` as an `INT64`, not
-as a `DATE`, use the `RAW` extraction type in your query. For example:
-
-```sql
-SELECT
-  EXTRACT(RAW(date) FROM chart_col) AS raw_date,
-  EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
-FROM AlbumList
-
-+----------+----------------+
-| raw_date | formatted_date |
-+----------+----------------+
-| 16914    | 2016-04-23     |
-| 0        | 1970-01-01     |
-+----------+----------------+
-```
-
-The following example checks to see if release dates exist in a table called
-`AlbumList` that contains a protocol buffer called `Chart`.
-
-```sql
-SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
-FROM AlbumList
-
-+------------------+
-| has_release_date |
-+------------------+
-| TRUE             |
-| FALSE            |
-+------------------+
-```
-
-The following example extracts the group name that is assigned to an artist in
-a table called `AlbumList`. The group name is set for exactly one
-protocol buffer field inside of the `group_name` Oneof. The `group_name` Oneof
-exists inside the `Chart` protocol buffer.
-
-```sql
-SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
-FROM AlbumList;
-
-+-------------+
-| artist_type |
-+-------------+
-| solo        |
-| band        |
-+-------------+
-```
-
-[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
-
-[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
-
-### `REPLACE_FIELDS`
-
-```sql
-REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
-```
-
-**Description**
-
-Returns a copy of a protocol buffer, replacing the values in one or more fields.
-`field_path` is a delimited path to the protocol buffer field to be replaced.
-
-+ If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
-  component of `field_path` is a required field.
-+ Replacing subfields will succeed only if the message containing the field is
-  set.
-+ Replacing subfields of repeated field is not allowed.
-+ A repeated field can be replaced with an `ARRAY` value.
-
-**Return type**
-
-Type of `proto_expression`
-
-**Examples**
-
-To illustrate the usage of this function, we use protocol buffer messages
-`Book` and `BookDetails`.
-
-```
-message Book {
-  required string title = 1;
-  repeated string reviews = 2;
-  optional BookDetails details = 3;
-};
-
-message BookDetails {
-  optional string author = 1;
-  optional int32 chapters = 2;
-};
-```
-
-This statement replaces value of field `title` and subfield `chapters`
-of proto type `Book`. Note that field `details` must be set for the statement
-to succeed.
-
-```sql
-SELECT REPLACE_FIELDS(
-  NEW Book(
-    "The Hummingbird" AS title,
-    NEW BookDetails(10 AS chapters) AS details),
-  "The Hummingbird II" AS title,
-  11 AS details.chapters)
-AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird II" details: {chapters: 11 }}                       |
-+-----------------------------------------------------------------------------+
-```
-
-The function can replace value of repeated fields.
-
-```sql
-SELECT REPLACE_FIELDS(
-  NEW Book("The Hummingbird" AS title,
-    NEW BookDetails(10 AS chapters) AS details),
-  ["A good read!", "Highly recommended."] AS reviews)
-AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
-| details: {chapters: 10 }}                                                   |
-+-----------------------------------------------------------------------------+
-```
-
-It can set a field to `NULL`.
-
-```sql
-SELECT REPLACE_FIELDS(
-  NEW Book("The Hummingbird" AS title,
-    NEW BookDetails(10 AS chapters) AS details),
-  NULL AS details)
-AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird" }                                                  |
-+-----------------------------------------------------------------------------+
-```
-
-### `CONTAINS_KEY`
-
-```sql
-CONTAINS_KEY(proto_map_field_expression, key)
-```
-
-**Description**
-
-Returns whether a [protocol buffer map field][proto-map] contains a given key.
-
-Input values:
-
-+ `proto_map_field_expression`: A protocol buffer map field.
-+ `key`: A key in the protocol buffer map field.
-
-`NULL` handling:
-
-+ If `map_field` is `NULL`, returns `NULL`.
-+ If `key` is `NULL`, returns `FALSE`.
-
-**Return type**
-
-`BOOL`
-
-**Examples**
-
-To illustrate the use of this function, consider the protocol buffer message
-`Item`:
-
-```proto
-message Item {
-  optional map<string, int64> purchased = 1;
-};
-```
-
-In the following example, the function returns `TRUE` when the key is
-present, `FALSE` otherwise.
-
-```sql
-SELECT
-  CONTAINS_KEY(m.purchased, 'A') AS contains_a,
-  CONTAINS_KEY(m.purchased, 'B') AS contains_b
-FROM
-  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
-
-+------------+------------+
-| contains_a | contains_b |
-+------------+------------+
-| TRUE       | FALSE      |
-+------------+------------+
-```
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
-
-### `MODIFY_MAP`
-
-```sql
-MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
-
-key_value_pair:
-  key, value
-```
-
-**Description**
-
-Modifies a [protocol buffer map field][proto-map] and returns the modified map
-field.
-
-Input values:
-
-+ `proto_map_field_expression`: A protocol buffer map field.
-+ `key_value_pair`: A key-value pair in the protocol buffer map field.
-
-Modification behavior:
-
-+ If the key is not already in the map field, adds the key and its value to the
-  map field.
-+ If the key is already in the map field, replaces its value.
-+ If the key is in the map field and the value is `NULL`, removes the key and
-  its value from the map field.
-
-`NULL` handling:
-
-+ If `key` is `NULL`, produces an error.
-+ If the same `key` appears more than once, produces an error.
-+ If `map` is `NULL`, `map` is treated as empty.
-
-**Return type**
-
-In the input protocol buffer map field, `V` as represented in `map<K,V>`.
-
-**Examples**
-
-To illustrate the use of this function, consider the protocol buffer message
-`Item`:
-
-```proto
-message Item {
-  optional map<string, int64> purchased = 1;
-};
-```
-
-In the following example, the query deletes key `A`, replaces `B`, and adds
-`C` in a map field called `purchased`.
-
-```sql
-SELECT
-  MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
-FROM
-  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
-
-+---------------------------------------------+
-| result_map                                  |
-+---------------------------------------------+
-| { key: 'B' value: 4 } { key: 'C' value: 6 } |
-+---------------------------------------------+
-```
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
-
 ## Security functions
 
 ZetaSQL supports the following security functions.
@@ -27865,6 +27992,98 @@ SELECT SESSION_USER() as user;
 ## Net functions
 
 ZetaSQL supports the following Net functions.
+
+### `NET.FORMAT_IP` (DEPRECATED)
+
+```
+NET.FORMAT_IP(integer)
+```
+
+**Description**
+
+This function is deprecated. It is the same as
+[`NET.IP_TO_STRING`][net-link-to-ip-to-string]`(`[`NET.IPV4_FROM_INT64`][net-link-to-ipv4-from-int64]`(integer))`,
+except that this function does not allow negative input values.
+
+**Return Data Type**
+
+STRING
+
+[net-link-to-ip-to-string]: #netip_to_string
+
+[net-link-to-ipv4-from-int64]: #netipv4_from_int64
+
+### `NET.FORMAT_PACKED_IP` (DEPRECATED)
+
+```
+NET.FORMAT_PACKED_IP(bytes_value)
+```
+
+**Description**
+
+This function is deprecated. It is the same as [`NET.IP_TO_STRING`][net-link-to-ip-to-string].
+
+**Return Data Type**
+
+STRING
+
+[net-link-to-ip-to-string]: #netip_to_string
+
+### `NET.HOST`
+
+```
+NET.HOST(url)
+```
+
+**Description**
+
+Takes a URL as a STRING and returns the host as a STRING. For best results, URL
+values should comply with the format as defined by
+[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply with RFC 3986 formatting,
+this function makes a best effort to parse the input and return a relevant
+result. If the function cannot parse the input, it
+returns NULL.
+
+<p class="note"><b>Note:</b> The function does not perform any normalization.</a>
+</p>
+
+**Return Data Type**
+
+STRING
+
+**Example**
+
+```sql
+SELECT
+  FORMAT("%T", input) AS input,
+  description,
+  FORMAT("%T", NET.HOST(input)) AS host,
+  FORMAT("%T", NET.PUBLIC_SUFFIX(input)) AS suffix,
+  FORMAT("%T", NET.REG_DOMAIN(input)) AS domain
+FROM (
+  SELECT "" AS input, "invalid input" AS description
+  UNION ALL SELECT "http://abc.xyz", "standard URL"
+  UNION ALL SELECT "//user:password@a.b:80/path?query",
+                   "standard URL with relative scheme, port, path and query, but no public suffix"
+  UNION ALL SELECT "https://[::1]:80", "standard URL with IPv6 host"
+  UNION ALL SELECT "http://例子.卷筒纸.中国", "standard URL with internationalized domain name"
+  UNION ALL SELECT "    www.Example.Co.UK    ",
+                   "non-standard URL with spaces, upper case letters, and without scheme"
+  UNION ALL SELECT "mailto:?to=&subject=&body=", "URI rather than URL--unsupported"
+);
+```
+
+| input                                                               | description                                                                   | host               | suffix  | domain         |
+|---------------------------------------------------------------------|-------------------------------------------------------------------------------|--------------------|---------|----------------|
+| ""                                                                  | invalid input                                                                 | NULL               | NULL    | NULL           |
+| "http://abc.xyz"                                                    | standard URL                                                                  | "abc.xyz"          | "xyz"   | "abc.xyz"      |
+| "//user:password@a.b:80/path?query"                                 | standard URL with relative scheme, port, path and query, but no public suffix | "a.b"              | NULL    | NULL           |
+| "https://[::1]:80"                                                  | standard URL with IPv6 host                                                   | "[::1]"            | NULL    | NULL           |
+| "http://例子.卷筒纸.中国"                                              | standard URL with internationalized domain name                               | "例子.卷筒纸.中国"    | "中国"  | "卷筒纸.中国"    |
+| "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;" | non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK"|
+| "mailto:?to=&subject=&body="                                        | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
+
+[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
 
 ### `NET.IP_FROM_STRING`
 
@@ -27917,88 +28136,34 @@ FROM UNNEST([
 
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
-### `NET.SAFE_IP_FROM_STRING`
+### `NET.IP_IN_NET`
 
 ```
-NET.SAFE_IP_FROM_STRING(addr_str)
-```
-
-**Description**
-
-Similar to [`NET.IP_FROM_STRING`][net-link-to-ip-from-string], but returns `NULL`
-instead of throwing an error if the input is invalid.
-
-**Return Data Type**
-
-BYTES
-
-**Example**
-
-```sql
-SELECT
-  addr_str,
-  FORMAT("%T", NET.SAFE_IP_FROM_STRING(addr_str)) AS safe_ip_from_string
-FROM UNNEST([
-  '48.49.50.51',
-  '::1',
-  '3031:3233:3435:3637:3839:4041:4243:4445',
-  '::ffff:192.0.2.128',
-  '48.49.50.51/32',
-  '48.49.50',
-  '::wxyz'
-]) AS addr_str;
-```
-
-| addr_str                                | safe_ip_from_string                                                 |
-|-----------------------------------------|---------------------------------------------------------------------|
-| 48.49.50.51                             | b"0123"                                                             |
-| ::1                                     | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" |
-| 3031:3233:3435:3637:3839:4041:4243:4445 | b"0123456789@ABCDE"                                                 |
-| ::ffff:192.0.2.128                      | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" |
-| 48.49.50.51/32                          | NULL                                                                |
-| 48.49.50                                | NULL                                                                |
-| ::wxyz                                  | NULL                                                                |
-
-[net-link-to-ip-from-string]: #netip_from_string
-
-### `NET.IP_TO_STRING`
-
-```
-NET.IP_TO_STRING(addr_bin)
+NET.IP_IN_NET(address, subnet)
 ```
 
 **Description**
-Converts an IPv4 or IPv6 address from binary (BYTES) format in network byte
-order to text (STRING) format.
 
-If the input is 4 bytes, this function returns an IPv4 address as a STRING. If
-the input is 16 bytes, it returns an IPv6 address as a STRING.
+Takes an IP address and a subnet CIDR as STRING and returns true if the IP
+address is contained in the subnet.
 
-If this function receives a `NULL` input, it returns `NULL`. If the input has
-a length different from 4 or 16, an `OUT_OF_RANGE` error occurs.
+This function supports the following formats for `address` and `subnet`:
+
++ IPv4: Dotted-quad format. For example, `10.1.2.3`.
++ IPv6: Colon-separated format. For example,
+  `1234:5678:90ab:cdef:1234:5678:90ab:cdef`. For more examples, see the
+  [IP Version 6 Addressing Architecture][net-link-to-ipv6-rfc].
++ CIDR (IPv4): Dotted-quad format. For example, `10.1.2.0/24`
++ CIDR (IPv6): Colon-separated format. For example, `1:2::/48`.
+
+If this function receives a `NULL` input, it returns `NULL`. If the input is
+considered invalid, an `OUT_OF_RANGE` error occurs.
 
 **Return Data Type**
 
-STRING
+BOOL
 
-**Example**
-
-```sql
-SELECT FORMAT("%T", x) AS addr_bin, NET.IP_TO_STRING(x) AS ip_to_string
-FROM UNNEST([
-  b"0123",
-  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01",
-  b"0123456789@ABCDE",
-  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80"
-]) AS x;
-```
-
-| addr_bin                                                            | ip_to_string                            |
-|---------------------------------------------------------------------|-----------------------------------------|
-| b"0123"                                                             | 48.49.50.51                             |
-| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" | ::1                                     |
-| b"0123456789@ABCDE"                                                 | 3031:3233:3435:3637:3839:4041:4243:4445 |
-| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" | ::ffff:192.0.2.128                      |
+[net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
 
 ### `NET.IP_NET_MASK`
 
@@ -28041,6 +28206,45 @@ FROM UNNEST([
 | 16 | 0   | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" |
 | 16 | 1   | b"\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" |
 | 16 | 128 | b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" |
+
+### `NET.IP_TO_STRING`
+
+```
+NET.IP_TO_STRING(addr_bin)
+```
+
+**Description**
+Converts an IPv4 or IPv6 address from binary (BYTES) format in network byte
+order to text (STRING) format.
+
+If the input is 4 bytes, this function returns an IPv4 address as a STRING. If
+the input is 16 bytes, it returns an IPv6 address as a STRING.
+
+If this function receives a `NULL` input, it returns `NULL`. If the input has
+a length different from 4 or 16, an `OUT_OF_RANGE` error occurs.
+
+**Return Data Type**
+
+STRING
+
+**Example**
+
+```sql
+SELECT FORMAT("%T", x) AS addr_bin, NET.IP_TO_STRING(x) AS ip_to_string
+FROM UNNEST([
+  b"0123",
+  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01",
+  b"0123456789@ABCDE",
+  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80"
+]) AS x;
+```
+
+| addr_bin                                                            | ip_to_string                            |
+|---------------------------------------------------------------------|-----------------------------------------|
+| b"0123"                                                             | 48.49.50.51                             |
+| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" | ::1                                     |
+| b"0123456789@ABCDE"                                                 | 3031:3233:3435:3637:3839:4041:4243:4445 |
+| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" | ::ffff:192.0.2.128                      |
 
 ### `NET.IP_TRUNC`
 
@@ -28164,111 +28368,6 @@ UNNEST([b"\x00\x00\x00\x00", b"\x00\xab\xcd\xef", b"\xff\xff\xff\xff"]) AS x;
 | b"\x00\xab\xcd\xef" | 0xABCDEF      |
 | b"\xff\xff\xff\xff" | 0xFFFFFFFF    |
 
-### `NET.FORMAT_IP` (DEPRECATED)
-
-```
-NET.FORMAT_IP(integer)
-```
-
-**Description**
-
-This function is deprecated. It is the same as
-[`NET.IP_TO_STRING`][net-link-to-ip-to-string]`(`[`NET.IPV4_FROM_INT64`][net-link-to-ipv4-from-int64]`(integer))`,
-except that this function does not allow negative input values.
-
-**Return Data Type**
-
-STRING
-
-[net-link-to-ip-to-string]: #netip_to_string
-
-[net-link-to-ipv4-from-int64]: #netipv4_from_int64
-
-### `NET.PARSE_IP` (DEPRECATED)
-
-```
-NET.PARSE_IP(addr_str)
-```
-
-**Description**
-
-This function is deprecated. It is the same as
-[`NET.IPV4_TO_INT64`][net-link-to-ipv4-to-int64]`(`[`NET.IP_FROM_STRING`][net-link-to-ip-from-string]`(addr_str))`,
-except that this function truncates the input at the first `'\x00'` character,
-if any, while `NET.IP_FROM_STRING` treats `'\x00'` as invalid.
-
-**Return Data Type**
-
-INT64
-
-[net-link-to-ip-to-string]: #netip_to_string
-
-[net-link-to-ipv4-to-int64]: #netipv4_to_int64
-
-### `NET.FORMAT_PACKED_IP` (DEPRECATED)
-
-```
-NET.FORMAT_PACKED_IP(bytes_value)
-```
-
-**Description**
-
-This function is deprecated. It is the same as [`NET.IP_TO_STRING`][net-link-to-ip-to-string].
-
-**Return Data Type**
-
-STRING
-
-[net-link-to-ip-to-string]: #netip_to_string
-
-### `NET.PARSE_PACKED_IP` (DEPRECATED)
-
-```
-NET.PARSE_PACKED_IP(addr_str)
-```
-
-**Description**
-
-This function is deprecated. It is the same as
-[`NET.IP_FROM_STRING`][net-link-to-ip-from-string], except that this function truncates
-the input at the first `'\x00'` character, if any, while `NET.IP_FROM_STRING`
-treats `'\x00'` as invalid.
-
-**Return Data Type**
-
-BYTES
-
-[net-link-to-ip-from-string]: #netip_from_string
-
-### `NET.IP_IN_NET`
-
-```
-NET.IP_IN_NET(address, subnet)
-```
-
-**Description**
-
-Takes an IP address and a subnet CIDR as STRING and returns true if the IP
-address is contained in the subnet.
-
-This function supports the following formats for `address` and `subnet`:
-
-+ IPv4: Dotted-quad format. For example, `10.1.2.3`.
-+ IPv6: Colon-separated format. For example,
-  `1234:5678:90ab:cdef:1234:5678:90ab:cdef`. For more examples, see the
-  [IP Version 6 Addressing Architecture][net-link-to-ipv6-rfc].
-+ CIDR (IPv4): Dotted-quad format. For example, `10.1.2.0/24`
-+ CIDR (IPv6): Colon-separated format. For example, `1:2::/48`.
-
-If this function receives a `NULL` input, it returns `NULL`. If the input is
-considered invalid, an `OUT_OF_RANGE` error occurs.
-
-**Return Data Type**
-
-BOOL
-
-[net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
-
 ### `NET.MAKE_NET`
 
 ```
@@ -28312,61 +28411,45 @@ STRING
 
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
 
-### `NET.HOST`
+### `NET.PARSE_IP` (DEPRECATED)
 
 ```
-NET.HOST(url)
+NET.PARSE_IP(addr_str)
 ```
 
 **Description**
 
-Takes a URL as a STRING and returns the host as a STRING. For best results, URL
-values should comply with the format as defined by
-[RFC 3986][net-link-to-rfc-3986-appendix-a]. If the URL value does not comply with RFC 3986 formatting,
-this function makes a best effort to parse the input and return a relevant
-result. If the function cannot parse the input, it
-returns NULL.
-
-<p class="note"><b>Note:</b> The function does not perform any normalization.</a>
-</p>
+This function is deprecated. It is the same as
+[`NET.IPV4_TO_INT64`][net-link-to-ipv4-to-int64]`(`[`NET.IP_FROM_STRING`][net-link-to-ip-from-string]`(addr_str))`,
+except that this function truncates the input at the first `'\x00'` character,
+if any, while `NET.IP_FROM_STRING` treats `'\x00'` as invalid.
 
 **Return Data Type**
 
-STRING
+INT64
 
-**Example**
+[net-link-to-ip-to-string]: #netip_to_string
 
-```sql
-SELECT
-  FORMAT("%T", input) AS input,
-  description,
-  FORMAT("%T", NET.HOST(input)) AS host,
-  FORMAT("%T", NET.PUBLIC_SUFFIX(input)) AS suffix,
-  FORMAT("%T", NET.REG_DOMAIN(input)) AS domain
-FROM (
-  SELECT "" AS input, "invalid input" AS description
-  UNION ALL SELECT "http://abc.xyz", "standard URL"
-  UNION ALL SELECT "//user:password@a.b:80/path?query",
-                   "standard URL with relative scheme, port, path and query, but no public suffix"
-  UNION ALL SELECT "https://[::1]:80", "standard URL with IPv6 host"
-  UNION ALL SELECT "http://例子.卷筒纸.中国", "standard URL with internationalized domain name"
-  UNION ALL SELECT "    www.Example.Co.UK    ",
-                   "non-standard URL with spaces, upper case letters, and without scheme"
-  UNION ALL SELECT "mailto:?to=&subject=&body=", "URI rather than URL--unsupported"
-);
+[net-link-to-ipv4-to-int64]: #netipv4_to_int64
+
+### `NET.PARSE_PACKED_IP` (DEPRECATED)
+
+```
+NET.PARSE_PACKED_IP(addr_str)
 ```
 
-| input                                                               | description                                                                   | host               | suffix  | domain         |
-|---------------------------------------------------------------------|-------------------------------------------------------------------------------|--------------------|---------|----------------|
-| ""                                                                  | invalid input                                                                 | NULL               | NULL    | NULL           |
-| "http://abc.xyz"                                                    | standard URL                                                                  | "abc.xyz"          | "xyz"   | "abc.xyz"      |
-| "//user:password@a.b:80/path?query"                                 | standard URL with relative scheme, port, path and query, but no public suffix | "a.b"              | NULL    | NULL           |
-| "https://[::1]:80"                                                  | standard URL with IPv6 host                                                   | "[::1]"            | NULL    | NULL           |
-| "http://例子.卷筒纸.中国"                                              | standard URL with internationalized domain name                               | "例子.卷筒纸.中国"    | "中国"  | "卷筒纸.中国"    |
-| "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;" | non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK"|
-| "mailto:?to=&subject=&body="                                        | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
+**Description**
 
-[net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+This function is deprecated. It is the same as
+[`NET.IP_FROM_STRING`][net-link-to-ip-from-string], except that this function truncates
+the input at the first `'\x00'` character, if any, while `NET.IP_FROM_STRING`
+treats `'\x00'` as invalid.
+
+**Return Data Type**
+
+BYTES
+
+[net-link-to-ip-from-string]: #netip_from_string
 
 ### `NET.PUBLIC_SUFFIX`
 
@@ -28534,6 +28617,50 @@ FROM (
 [net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 
 [net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+
+### `NET.SAFE_IP_FROM_STRING`
+
+```
+NET.SAFE_IP_FROM_STRING(addr_str)
+```
+
+**Description**
+
+Similar to [`NET.IP_FROM_STRING`][net-link-to-ip-from-string], but returns `NULL`
+instead of throwing an error if the input is invalid.
+
+**Return Data Type**
+
+BYTES
+
+**Example**
+
+```sql
+SELECT
+  addr_str,
+  FORMAT("%T", NET.SAFE_IP_FROM_STRING(addr_str)) AS safe_ip_from_string
+FROM UNNEST([
+  '48.49.50.51',
+  '::1',
+  '3031:3233:3435:3637:3839:4041:4243:4445',
+  '::ffff:192.0.2.128',
+  '48.49.50.51/32',
+  '48.49.50',
+  '::wxyz'
+]) AS addr_str;
+```
+
+| addr_str                                | safe_ip_from_string                                                 |
+|-----------------------------------------|---------------------------------------------------------------------|
+| 48.49.50.51                             | b"0123"                                                             |
+| ::1                                     | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" |
+| 3031:3233:3435:3637:3839:4041:4243:4445 | b"0123456789@ABCDE"                                                 |
+| ::ffff:192.0.2.128                      | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" |
+| 48.49.50.51/32                          | NULL                                                                |
+| 48.49.50                                | NULL                                                                |
+| ::wxyz                                  | NULL                                                                |
+
+[net-link-to-ip-from-string]: #netip_from_string
 
 ## Debugging functions
 

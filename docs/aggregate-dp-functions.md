@@ -8,7 +8,7 @@ For an explanation of how aggregate functions work, see
 [Aggregate function calls][agg-function-calls].
 
 Differentially private aggregate functions can only be
-used with [differentially private queries][anon-syntax].
+used with [differentially private queries][dp-syntax].
 
 ### `ANON_AVG` 
 <a id="anon_avg"></a>
@@ -30,7 +30,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column averages.
+  Perform [clamping][dp-clamp-between] per privacy unit column averages.
 
 **Return type**
 
@@ -40,7 +40,7 @@ can support these arguments:
 
 The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations may not be included. This query
-references a view called [`view_on_professors`][anon-example-views].
+references a view called [`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -83,13 +83,13 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_COUNT` 
 <a id="anon_count"></a>
@@ -108,9 +108,9 @@ WITH ANONYMIZATION ...
 **Description**
 
 Returns the number of rows in the
-[differentially private][anon-from-clause] `FROM` clause. The final result
+[differentially private][dp-from-clause] `FROM` clause. The final result
 is an aggregation across privacy unit columns.
-[Input values are clamped implicitly][anon-clamp-implicit]. Clamping is
+[Input values are clamped implicitly][dp-clamp-implicit]. Clamping is
 performed per privacy unit column.
 
 This function must be used with the `ANONYMIZATION` clause.
@@ -123,7 +123,7 @@ This function must be used with the `ANONYMIZATION` clause.
 
 The following differentially private query counts the number of requests for
 each item. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -166,7 +166,7 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
 #### Signature 2 
 <a id="anon_count_signature2"></a>
@@ -187,7 +187,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamp-between] per privacy unit column.
 
 **Return type**
 
@@ -197,7 +197,7 @@ can support these arguments:
 
 The following differentially private query counts the number of requests made
 for each type of item. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -240,17 +240,17 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-clamp-implicit]: #anon_implicit_clamping
+[dp-clamp-implicit]: #dp_implicit_clamping
 
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_from
+[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_PERCENTILE_CONT` 
 <a id="anon_percentile_cont"></a>
@@ -273,7 +273,7 @@ can support these arguments:
 + `percentile`: The percentile to compute. The percentile must be a literal in
   the range [0, 1]
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamp-between] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
  If you need them, cast them to
@@ -287,7 +287,7 @@ can support these arguments:
 
 The following differentially private query gets the percentile of items
 requested. Smaller aggregations may not be included. This query references a
-view called [`view_on_professors`][anon-example-views].
+view called [`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -310,9 +310,9 @@ GROUP BY item;
 +----------+----------------------+
 ```
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_QUANTILES` 
 <a id="anon_quantiles"></a>
@@ -336,7 +336,7 @@ can support these arguments:
   such as `INT64`. `NULL`s are always ignored.
 + `number`: The number of quantiles to create. This must be an `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamp-between] per privacy unit column.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
  If you need them, cast them to
@@ -351,7 +351,7 @@ can support these arguments:
 The following differentially private query gets the five quantile boundaries of
 the four quartiles of the number of items requested. Smaller aggregations
 may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -373,9 +373,9 @@ GROUP BY item;
 +----------+----------------------------------------------------------------------+
 ```
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_STDDEV_POP` 
 <a id="anon_stddev_pop"></a>
@@ -397,7 +397,7 @@ can support these arguments:
 + `expression`: The input expression. This can be most numeric input types,
   such as `INT64`. `NULL`s are always ignored.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per individual entity values.
+  Perform [clamping][dp-clamp-between] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
  If you need them, cast them to
@@ -412,7 +412,7 @@ can support these arguments:
 The following differentially private query gets the
 population (biased) standard deviation of items requested. Smaller aggregations
 may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -435,9 +435,9 @@ GROUP BY item;
 +----------+------------------------+
 ```
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_SUM` 
 <a id="anon_sum"></a>
@@ -458,11 +458,11 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per privacy unit column.
+  Perform [clamping][dp-clamp-between] per privacy unit column.
 
 **Return type**
 
-One of the following [supertypes][anon-supertype]:
+One of the following [supertypes][dp-supertype]:
 
 + `INT64`
 + `UINT64`
@@ -472,7 +472,7 @@ One of the following [supertypes][anon-supertype]:
 
 The following differentially private query gets the sum of items requested.
 Smaller aggregations may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -515,15 +515,15 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+[dp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `ANON_VAR_POP` 
 <a id="anon_var_pop"></a>
@@ -538,7 +538,7 @@ WITH ANONYMIZATION ...
 Takes an expression and computes the population (biased) variance of the values
 in the expression. The final result is an aggregation across
 privacy unit columns between `0` and `+Inf`. You can
-[clamp the input values][anon-clamp-explicit] explicitly, otherwise input values
+[clamp the input values][dp-clamp-explicit] explicitly, otherwise input values
 are clamped implicitly. Clamping is performed per individual entity values.
 
 This function must be used with the `ANONYMIZATION` clause and
@@ -547,7 +547,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL`s are always ignored.
 + `CLAMPED BETWEEN` clause:
-  Perform [clamping][anon-clamp-between] per individual entity values.
+  Perform [clamping][dp-clamp-between] per individual entity values.
 
 `NUMERIC` and `BIGNUMERIC` arguments are not allowed.
  If you need them, cast them to
@@ -562,7 +562,7 @@ can support these arguments:
 The following differentially private query gets the
 population (biased) variance of items requested. Smaller aggregations may not
 be included. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 -- With noise
@@ -585,14 +585,14 @@ GROUP BY item;
 +----------+-----------------+
 ```
 
-[anon-clamp-explicit]: #anon_explicit_clamping
+[dp-clamp-explicit]: #dp_explicit_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
 ### `AVG` (differential privacy) 
-<a id="anon_avg"></a>
+<a id="dp_avg"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -611,7 +611,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `contribution_bounds_per_group`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
@@ -623,7 +623,7 @@ can support these arguments:
 
 The following differentially private query gets the average number of each item
 requested per professor. Smaller aggregations may not be included. This query
-references a table called [`professors`][anon-example-tables].
+references a table called [`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -666,22 +666,22 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 
 ### `COUNT` (differential privacy) 
-<a id="anon_count"></a>
+<a id="dp_count"></a>
 
-+ [Signature 1](#anon_count_signature1)
-+ [Signature 2](#anon_count_signature2)
++ [Signature 1](#dp_count_signature1)
++ [Signature 2](#dp_count_signature2)
 
 #### Signature 1 
-<a id="anon_count_signature1"></a>
+<a id="dp_count_signature1"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -691,14 +691,14 @@ WITH DIFFERENTIAL_PRIVACY ...
 **Description**
 
 Returns the number of rows in the
-[differentially private][anon-from-clause] `FROM` clause. The final result
+[differentially private][dp-from-clause] `FROM` clause. The final result
 is an aggregation across privacy unit columns.
 
 This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
 can support the following argument:
 
 + `contribution_bounds_per_group`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
@@ -710,7 +710,7 @@ can support the following argument:
 
 The following differentially private query counts the number of requests for
 each item. This query references a table called
-[`professors`][anon-example-tables].
+[`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -753,10 +753,10 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
 #### Signature 2 
-<a id="anon_count_signature2"></a>
+<a id="dp_count_signature2"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -774,7 +774,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`.
 + `contribution_bounds_per_group`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
 
@@ -786,7 +786,7 @@ can support these arguments:
 
 The following differentially private query counts the number of requests made
 for each type of item. This query references a table called
-[`professors`][anon-example-tables].
+[`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -829,20 +829,20 @@ GROUP BY item;
 ```
 
 Note: You can learn more about when and when not to use
-noise [here][anon-noise].
+noise [here][dp-noise].
 
-[anon-clamp-implicit]: #anon_implicit_clamping
+[dp-clamp-implicit]: #dp_implicit_clamping
 
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_from
+[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 
 ### `PERCENTILE_CONT` (differential privacy) 
-<a id="anon_percentile_cont"></a>
+<a id="dp_percentile_cont"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -862,7 +862,7 @@ can support these arguments:
 + `percentile`: The percentile to compute. The percentile must be a literal in
   the range [0, 1]
 + `contribution_bounds_per_row`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each row separately before performing intermediate
   grouping on the privacy unit column.
 
@@ -878,7 +878,7 @@ can support these arguments:
 
 The following differentially private query gets the percentile of items
 requested. Smaller aggregations may not be included. This query references a
-view called [`professors`][anon-example-tables].
+view called [`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -901,12 +901,12 @@ GROUP BY item;
 +----------+----------------------+
 ```
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 
 ### `VAR_POP` (differential privacy) 
-<a id="anon_var_pop"></a>
+<a id="dp_var_pop"></a>
 
 ```sql
 WITH DIFFERENTIAL_PRIVACY ...
@@ -918,7 +918,7 @@ WITH DIFFERENTIAL_PRIVACY ...
 Takes an expression and computes the population (biased) variance of the values
 in the expression. The final result is an aggregation across
 privacy unit columns between `0` and `+Inf`. You can
-[clamp the input values][anon-clamp-explicit] explicitly, otherwise input values
+[clamp the input values][dp-clamp-explicit] explicitly, otherwise input values
 are clamped implicitly. Clamping is performed per individual user values.
 
 This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
@@ -927,7 +927,7 @@ can support these arguments:
 + `expression`: The input expression. This can be any numeric input type,
   such as `INT64`. `NULL`s are always ignored.
 + `contribution_bounds_per_row`: The
-  [contribution bounds named argument][anon-clamped-named].
+  [contribution bounds named argument][dp-clamped-named].
   Perform clamping per each row separately before performing intermediate
   grouping on individual user values.
 
@@ -944,7 +944,7 @@ can support these arguments:
 The following differentially private query gets the
 population (biased) variance of items requested. Smaller aggregations may not
 be included. This query references a view called
-[`professors`][anon-example-tables].
+[`professors`][dp-example-tables].
 
 ```sql
 -- With noise
@@ -967,25 +967,25 @@ GROUP BY item;
 +----------+-----------------+
 ```
 
-[anon-clamp-explicit]: #anon_explicit_clamping
+[dp-clamp-explicit]: #dp_explicit_clamping
 
-[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 
 ### Clamp values in a differentially private aggregate function 
-<a id="anon_clamping"></a>
+<a id="dp_clamping"></a>
 
-In [differentially private queries][anon-differential-privacy],
+In [differentially private queries][differential-privacy],
 aggregation clamping is used to limit the contribution of outliers. You can
-clamp [implicitly][anon-imp-clamp] or [explicitly][anon-exp-clamp].
+clamp [implicitly][dp-imp-clamp] or [explicitly][dp-exp-clamp].
 
 If you clamp explicitly, you can clamp values with the
-[contribution bounds named argument][anon-clamped-named] (recommended) or
-the [`CLAMPED BETWEEN`][anon-clamp-between] clause.
+[contribution bounds named argument][dp-clamped-named] (recommended) or
+the [`CLAMPED BETWEEN`][dp-clamp-between] clause.
 
 #### Clamp with the contribution bounds named argument 
-<a id="anon_clamped_named"></a>
+<a id="dp_clamped_named"></a>
 
 ```sql
 contribution_bounds_per_group => (lower_bound,upper_bound)
@@ -1022,7 +1022,7 @@ The following anonymized query clamps each aggregate contribution for each
 differential privacy ID and within a specified range (`0` and `100`).
 As long as all or most values fall within this range, your results
 will be accurate. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 --Without noise (this un-noised version is for demonstration only)
@@ -1074,10 +1074,10 @@ GROUP BY item;
 ```
 
 To learn more about when and when not to use noise in
-differentially private queries, see [Differentially privacy][anon-noise].
+differentially private queries, see [Differentially privacy][dp-noise].
 
 #### Clamp with the `CLAMPED BETWEEN` clause 
-<a id="anon_clamp_between"></a>
+<a id="dp_clamp_between"></a>
 
 ```sql
 CLAMPED BETWEEN lower_bound AND upper_bound
@@ -1101,7 +1101,7 @@ The following differentially private query clamps each aggregate contribution
 for each privacy unit column and within a specified range (`0` and `100`).
 As long as all or most values fall within this range, your results will be
 accurate. This query references a view called
-[`view_on_professors`][anon-example-views].
+[`view_on_professors`][dp-example-views].
 
 ```sql
 --Without noise (this un-noised version is for demonstration only)
@@ -1153,10 +1153,10 @@ GROUP BY item;
 ```
 
 To learn more about when and when not to use noise in
-differentially private queries, see [Differentially privacy][anon-noise].
+differentially private queries, see [Differentially privacy][dp-noise].
 
 #### Explicit clamping 
-<a id="anon_explicit_clamping"></a>
+<a id="dp_explicit_clamping"></a>
 
 In differentially private aggregate functions, clamping explicitly clamps the
 total contribution from each privacy unit column to within a specified
@@ -1165,7 +1165,7 @@ range.
 Explicit bounds are uniformly applied to all aggregations.  So even if some
 aggregations have a wide range of values, and others have a narrow range of
 values, the same bounds are applied to all of them.  On the other hand, when
-[implicit bounds][anon-imp-clamp] are inferred from the data, the bounds applied
+[implicit bounds][dp-imp-clamp] are inferred from the data, the bounds applied
 to each aggregation can be different.
 
 Explicit bounds should be chosen to reflect public information.
@@ -1177,7 +1177,7 @@ explicit bounds based on the entity data; explicit bounds should be based on
 public information.
 
 #### Implicit clamping 
-<a id="anon_implicit_clamping"></a>
+<a id="dp_implicit_clamping"></a>
 
 In differentially private aggregate functions, explicit clamping is optional.
 If you don't include this clause, clamping is implicit,
@@ -1192,28 +1192,28 @@ aggregations as appropriate. Implicit bounds might be an advantage or a
 disadvantage depending on your use case. Different bounds for different
 aggregations can result in lower error. Different bounds also means that
 different aggregations have different levels of uncertainty, which might not be
-directly comparable. [Explicit bounds][anon-exp-clamp], on the other hand,
+directly comparable. [Explicit bounds][dp-exp-clamp], on the other hand,
 apply uniformly to all aggregations and should be derived from public
 information.
 
 When clamping is implicit, part of the total epsilon is spent picking bounds.
 This leaves less epsilon for aggregations, so these aggregations are noisier.
 
-[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[anon-differential-privacy]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+[differential-privacy]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
-[anon-exp-clamp]: #anon_explicit_clamping
+[dp-exp-clamp]: #dp_explicit_clamping
 
-[anon-imp-clamp]: #anon_implicit_clamping
+[dp-imp-clamp]: #dp_implicit_clamping
 
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#anon_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
 
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
 
-[anon-clamp-between]: #anon_clamp_between
+[dp-clamp-between]: #dp_clamp_between
 
-[anon-clamped-named]: #anon_clamped_named
+[dp-clamped-named]: #dp_clamped_named
 

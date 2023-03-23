@@ -23,7 +23,7 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/base/arena_allocator.h"
-#include "zetasql/base/logging.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/location.hh"
@@ -37,7 +37,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql_bison_parser {
 class BisonParserImpl;
@@ -88,12 +87,9 @@ class BisonParser {
   // The caller should keep 'id_string_pool' and 'arena' alive until all the
   // returned ASTNodes have been deallocated.
   //
-  // If mode is kNextStatementKind, then the next statement kind is returned in
-  // 'ast_statement_properties', and no parse tree is returned. This may still
-  // allocate into 'id_string_pool' if the prefix of the statement that needs to
-  // be parsed includes identifiers, and may allocate ASTNodes into
-  // 'other_allocated_ast_nodes' if statement level hints are present. In this
-  // mode, 'statement_end_byte_offset' is *not* set.
+  // If mode is `kNextStatementKind`, then the next statement kind is returned
+  // in `ast_statement_properties`, and statement level hints are returned in
+  // `output`. In this mode, `statement_end_byte_offset` is *not* set.
   //
   // If mode is kNextStatement, the byte offset past the current statement's
   // closing semicolon is returned in 'statement_end_byte_offset'. If the

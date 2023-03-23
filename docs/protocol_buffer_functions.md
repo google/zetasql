@@ -4,72 +4,224 @@
 
 ZetaSQL supports the following protocol buffer functions.
 
-### `PROTO_DEFAULT_IF_NULL`
+### `CONTAINS_KEY`
 
 ```sql
-PROTO_DEFAULT_IF_NULL(proto_field_expression)
+CONTAINS_KEY(proto_map_field_expression, key)
 ```
 
 **Description**
 
-Evaluates any expression that results in a proto field access.
-If the `proto_field_expression` evaluates to `NULL`, returns the default
-value for the field. Otherwise, returns the field value.
+Returns whether a [protocol buffer map field][proto-map] contains a given key.
 
-Stipulations:
+Input values:
 
-+ The expression cannot resolve to a required field.
-+ The expression cannot resolve to a message field.
-+ The expression must resolve to a regular proto field access, not
-  a virtual field.
-+ The expression cannot access a field with
-  `zetasql.use_defaults=false`.
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key`: A key in the protocol buffer map field.
+
+`NULL` handling:
+
++ If `map_field` is `NULL`, returns `NULL`.
++ If `key` is `NULL`, returns `FALSE`.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the function returns `TRUE` when the key is
+present, `FALSE` otherwise.
+
+```sql
+SELECT
+  CONTAINS_KEY(m.purchased, 'A') AS contains_a,
+  CONTAINS_KEY(m.purchased, 'B') AS contains_b
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
+
++------------+------------+
+| contains_a | contains_b |
++------------+------------+
+| TRUE       | FALSE      |
++------------+------------+
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
+
+### `EXTRACT` {#proto_extract}
+
+```sql
+EXTRACT( extraction_type (proto_field) FROM proto_expression )
+
+extraction_type:
+  { FIELD | RAW | HAS | ONEOF_CASE }
+```
+
+**Description**
+
+Extracts a value from a protocol buffer. `proto_expression` represents the
+expression that returns a protocol buffer, `proto_field` represents the field
+of the protocol buffer to extract from, and `extraction_type` determines the
+type of data to return. `EXTRACT` can be used to get values of ambiguous fields.
+An alternative to `EXTRACT` is the [dot operator][querying-protocol-buffers].
+
+**Extraction Types**
+
+You can choose the type of information to get with `EXTRACT`. Your choices are:
+
++  `FIELD`: Extract a value from a protocol buffer field.
++  `RAW`: Extract an uninterpreted value from a
+    protocol buffer field. Raw values
+    ignore any ZetaSQL type annotations.
++  `HAS`: Returns `TRUE` if a protocol buffer field is set in a proto message;
+   otherwise, `FALSE`. Returns an error if this is used with a scalar proto3
+   field. Alternatively, use [`has_x`][has-value], to perform this task.
++  `ONEOF_CASE`: Returns the name of the set protocol buffer field in a Oneof.
+   If no field is set, returns an empty string.
 
 **Return Type**
 
-Type of `proto_field_expression`.
+The return type depends upon the extraction type in the query.
 
-**Example**
++  `FIELD`: Protocol buffer field type.
++  `RAW`: Protocol buffer field
+    type. Format annotations are
+    ignored.
++  `HAS`: `BOOL`
++  `ONEOF_CASE`: `STRING`
 
-In the following example, each book in a library has a country of origin. If
-the country is not set, the country defaults to unknown.
+**Examples**
 
-In this statement, table `library_books` contains a column named `book`,
-whose type is `Book`.
-
-```sql
-SELECT PROTO_DEFAULT_IF_NULL(book.country) AS origin FROM library_books;
-```
-
-`Book` is a type that contains a field called `country`.
+The examples in this section reference two protocol buffers called `Album` and
+`Chart`, and one table called `AlbumList`.
 
 ```proto
-message Book {
-  optional string country = 4 [default = 'Unknown'];
+message Album {
+  optional string album_name = 1;
+  repeated string song = 2;
+  oneof group_name {
+    string solo = 3;
+    string duet = 4;
+    string band = 5;
+  }
 }
 ```
 
-This is the result if `book.country` evaluates to `Canada`.
-
-```sql
-+-----------------+
-| origin          |
-+-----------------+
-| Canada          |
-+-----------------+
+```proto
+message Chart {
+  optional int64 date = 1 [(zetasql.format) = DATE];
+  optional string chart_name = 2;
+  optional int64 rank = 3;
+}
 ```
 
-This is the result if `book` is `NULL`. Since `book` is `NULL`,
-`book.country` evaluates to `NULL` and therefore the function result is the
-default value for `country`.
+```sql
+WITH AlbumList AS (
+  SELECT
+    NEW Album(
+      'Alana Yah' AS solo,
+      'New Moon' AS album_name,
+      ['Sandstorm','Wait'] AS song) AS album_col,
+    NEW Chart(
+      'Billboard' AS chart_name,
+      '2016-04-23' AS date,
+      1 AS rank) AS chart_col
+    UNION ALL
+  SELECT
+    NEW Album(
+      'The Roadlands' AS band,
+      'Grit' AS album_name,
+      ['The Way', 'Awake', 'Lost Things'] AS song) AS album_col,
+    NEW Chart(
+      'Billboard' AS chart_name,
+      1 as rank) AS chart_col
+)
+SELECT * FROM AlbumList
+```
+
+The following example extracts the album names from a table called `AlbumList`
+that contains a proto-typed column called `Album`.
 
 ```sql
-+-----------------+
-| origin          |
-+-----------------+
-| Unknown         |
-+-----------------+
+SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
+FROM AlbumList
+
++------------------+
+| name_of_album    |
++------------------+
+| New Moon         |
+| Grit             |
++------------------+
 ```
+
+A table called `AlbumList` contains a proto-typed column called `Album`.
+`Album` contains a field called `date`, which can store an integer. The
+`date` field has an annotated format called `DATE` assigned to it, which means
+that when you extract the value in this field, it returns a `DATE`, not an
+`INT64`.
+
+If you would like to return the value for `date` as an `INT64`, not
+as a `DATE`, use the `RAW` extraction type in your query. For example:
+
+```sql
+SELECT
+  EXTRACT(RAW(date) FROM chart_col) AS raw_date,
+  EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
+FROM AlbumList
+
++----------+----------------+
+| raw_date | formatted_date |
++----------+----------------+
+| 16914    | 2016-04-23     |
+| 0        | 1970-01-01     |
++----------+----------------+
+```
+
+The following example checks to see if release dates exist in a table called
+`AlbumList` that contains a protocol buffer called `Chart`.
+
+```sql
+SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
+FROM AlbumList
+
++------------------+
+| has_release_date |
++------------------+
+| TRUE             |
+| FALSE            |
++------------------+
+```
+
+The following example extracts the group name that is assigned to an artist in
+a table called `AlbumList`. The group name is set for exactly one
+protocol buffer field inside of the `group_name` Oneof. The `group_name` Oneof
+exists inside the `Chart` protocol buffer.
+
+```sql
+SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
+FROM AlbumList;
+
++-------------+
+| artist_type |
++-------------+
+| solo        |
+| band        |
++-------------+
+```
+
+[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
+
+[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
 
 ### `FILTER_FIELDS`
 
@@ -470,6 +622,229 @@ SELECT FROM_PROTO(DATE '2019-10-30')
 +------------+
 ```
 
+### `MODIFY_MAP`
+
+```sql
+MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
+
+key_value_pair:
+  key, value
+```
+
+**Description**
+
+Modifies a [protocol buffer map field][proto-map] and returns the modified map
+field.
+
+Input values:
+
++ `proto_map_field_expression`: A protocol buffer map field.
++ `key_value_pair`: A key-value pair in the protocol buffer map field.
+
+Modification behavior:
+
++ If the key is not already in the map field, adds the key and its value to the
+  map field.
++ If the key is already in the map field, replaces its value.
++ If the key is in the map field and the value is `NULL`, removes the key and
+  its value from the map field.
+
+`NULL` handling:
+
++ If `key` is `NULL`, produces an error.
++ If the same `key` appears more than once, produces an error.
++ If `map` is `NULL`, `map` is treated as empty.
+
+**Return type**
+
+In the input protocol buffer map field, `V` as represented in `map<K,V>`.
+
+**Examples**
+
+To illustrate the use of this function, consider the protocol buffer message
+`Item`:
+
+```proto
+message Item {
+  optional map<string, int64> purchased = 1;
+};
+```
+
+In the following example, the query deletes key `A`, replaces `B`, and adds
+`C` in a map field called `purchased`.
+
+```sql
+SELECT
+  MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
+FROM
+  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
+
++---------------------------------------------+
+| result_map                                  |
++---------------------------------------------+
+| { key: 'B' value: 4 } { key: 'C' value: 6 } |
++---------------------------------------------+
+```
+
+[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
+
+### `PROTO_DEFAULT_IF_NULL`
+
+```sql
+PROTO_DEFAULT_IF_NULL(proto_field_expression)
+```
+
+**Description**
+
+Evaluates any expression that results in a proto field access.
+If the `proto_field_expression` evaluates to `NULL`, returns the default
+value for the field. Otherwise, returns the field value.
+
+Stipulations:
+
++ The expression cannot resolve to a required field.
++ The expression cannot resolve to a message field.
++ The expression must resolve to a regular proto field access, not
+  a virtual field.
++ The expression cannot access a field with
+  `zetasql.use_defaults=false`.
+
+**Return Type**
+
+Type of `proto_field_expression`.
+
+**Example**
+
+In the following example, each book in a library has a country of origin. If
+the country is not set, the country defaults to unknown.
+
+In this statement, table `library_books` contains a column named `book`,
+whose type is `Book`.
+
+```sql
+SELECT PROTO_DEFAULT_IF_NULL(book.country) AS origin FROM library_books;
+```
+
+`Book` is a type that contains a field called `country`.
+
+```proto
+message Book {
+  optional string country = 4 [default = 'Unknown'];
+}
+```
+
+This is the result if `book.country` evaluates to `Canada`.
+
+```sql
++-----------------+
+| origin          |
++-----------------+
+| Canada          |
++-----------------+
+```
+
+This is the result if `book` is `NULL`. Since `book` is `NULL`,
+`book.country` evaluates to `NULL` and therefore the function result is the
+default value for `country`.
+
+```sql
++-----------------+
+| origin          |
++-----------------+
+| Unknown         |
++-----------------+
+```
+
+### `REPLACE_FIELDS`
+
+```sql
+REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
+```
+
+**Description**
+
+Returns a copy of a protocol buffer, replacing the values in one or more fields.
+`field_path` is a delimited path to the protocol buffer field to be replaced.
+
++ If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
+  component of `field_path` is a required field.
++ Replacing subfields will succeed only if the message containing the field is
+  set.
++ Replacing subfields of repeated field is not allowed.
++ A repeated field can be replaced with an `ARRAY` value.
+
+**Return type**
+
+Type of `proto_expression`
+
+**Examples**
+
+To illustrate the usage of this function, we use protocol buffer messages
+`Book` and `BookDetails`.
+
+```
+message Book {
+  required string title = 1;
+  repeated string reviews = 2;
+  optional BookDetails details = 3;
+};
+
+message BookDetails {
+  optional string author = 1;
+  optional int32 chapters = 2;
+};
+```
+
+This statement replaces value of field `title` and subfield `chapters`
+of proto type `Book`. Note that field `details` must be set for the statement
+to succeed.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book(
+    "The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  "The Hummingbird II" AS title,
+  11 AS details.chapters)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird II" details: {chapters: 11 }}                       |
++-----------------------------------------------------------------------------+
+```
+
+The function can replace value of repeated fields.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book("The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  ["A good read!", "Highly recommended."] AS reviews)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
+| details: {chapters: 10 }}                                                   |
++-----------------------------------------------------------------------------+
+```
+
+It can set a field to `NULL`.
+
+```sql
+SELECT REPLACE_FIELDS(
+  NEW Book("The Hummingbird" AS title,
+    NEW BookDetails(10 AS chapters) AS details),
+  NULL AS details)
+AS proto;
++-----------------------------------------------------------------------------+
+| proto                                                                       |
++-----------------------------------------------------------------------------+
+|{title: "The Hummingbird" }                                                  |
++-----------------------------------------------------------------------------+
+```
+
 ### `TO_PROTO`
 
 ```
@@ -637,379 +1012,4 @@ SELECT TO_PROTO(
 | {year: 2019 month: 10 day: 30} |
 +--------------------------------+
 ```
-
-### `EXTRACT` {#proto_extract}
-
-```sql
-EXTRACT( extraction_type (proto_field) FROM proto_expression )
-
-extraction_type:
-  { FIELD | RAW | HAS | ONEOF_CASE }
-```
-
-**Description**
-
-Extracts a value from a protocol buffer. `proto_expression` represents the
-expression that returns a protocol buffer, `proto_field` represents the field
-of the protocol buffer to extract from, and `extraction_type` determines the
-type of data to return. `EXTRACT` can be used to get values of ambiguous fields.
-An alternative to `EXTRACT` is the [dot operator][querying-protocol-buffers].
-
-**Extraction Types**
-
-You can choose the type of information to get with `EXTRACT`. Your choices are:
-
-+  `FIELD`: Extract a value from a protocol buffer field.
-+  `RAW`: Extract an uninterpreted value from a
-    protocol buffer field. Raw values
-    ignore any ZetaSQL type annotations.
-+  `HAS`: Returns `TRUE` if a protocol buffer field is set in a proto message;
-   otherwise, `FALSE`. Returns an error if this is used with a scalar proto3
-   field. Alternatively, use [`has_x`][has-value], to perform this task.
-+  `ONEOF_CASE`: Returns the name of the set protocol buffer field in a Oneof.
-   If no field is set, returns an empty string.
-
-**Return Type**
-
-The return type depends upon the extraction type in the query.
-
-+  `FIELD`: Protocol buffer field type.
-+  `RAW`: Protocol buffer field
-    type. Format annotations are
-    ignored.
-+  `HAS`: `BOOL`
-+  `ONEOF_CASE`: `STRING`
-
-**Examples**
-
-The examples in this section reference two protocol buffers called `Album` and
-`Chart`, and one table called `AlbumList`.
-
-```proto
-message Album {
-  optional string album_name = 1;
-  repeated string song = 2;
-  oneof group_name {
-    string solo = 3;
-    string duet = 4;
-    string band = 5;
-  }
-}
-```
-
-```proto
-message Chart {
-  optional int64 date = 1 [(zetasql.format) = DATE];
-  optional string chart_name = 2;
-  optional int64 rank = 3;
-}
-```
-
-```sql
-WITH AlbumList AS (
-  SELECT
-    NEW Album(
-      'Alana Yah' AS solo,
-      'New Moon' AS album_name,
-      ['Sandstorm','Wait'] AS song) AS album_col,
-    NEW Chart(
-      'Billboard' AS chart_name,
-      '2016-04-23' AS date,
-      1 AS rank) AS chart_col
-    UNION ALL
-  SELECT
-    NEW Album(
-      'The Roadlands' AS band,
-      'Grit' AS album_name,
-      ['The Way', 'Awake', 'Lost Things'] AS song) AS album_col,
-    NEW Chart(
-      'Billboard' AS chart_name,
-      1 as rank) AS chart_col
-)
-SELECT * FROM AlbumList
-```
-
-The following example extracts the album names from a table called `AlbumList`
-that contains a proto-typed column called `Album`.
-
-```sql
-SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
-FROM AlbumList
-
-+------------------+
-| name_of_album    |
-+------------------+
-| New Moon         |
-| Grit             |
-+------------------+
-```
-
-A table called `AlbumList` contains a proto-typed column called `Album`.
-`Album` contains a field called `date`, which can store an integer. The
-`date` field has an annotated format called `DATE` assigned to it, which means
-that when you extract the value in this field, it returns a `DATE`, not an
-`INT64`.
-
-If you would like to return the value for `date` as an `INT64`, not
-as a `DATE`, use the `RAW` extraction type in your query. For example:
-
-```sql
-SELECT
-  EXTRACT(RAW(date) FROM chart_col) AS raw_date,
-  EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
-FROM AlbumList
-
-+----------+----------------+
-| raw_date | formatted_date |
-+----------+----------------+
-| 16914    | 2016-04-23     |
-| 0        | 1970-01-01     |
-+----------+----------------+
-```
-
-The following example checks to see if release dates exist in a table called
-`AlbumList` that contains a protocol buffer called `Chart`.
-
-```sql
-SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
-FROM AlbumList
-
-+------------------+
-| has_release_date |
-+------------------+
-| TRUE             |
-| FALSE            |
-+------------------+
-```
-
-The following example extracts the group name that is assigned to an artist in
-a table called `AlbumList`. The group name is set for exactly one
-protocol buffer field inside of the `group_name` Oneof. The `group_name` Oneof
-exists inside the `Chart` protocol buffer.
-
-```sql
-SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
-FROM AlbumList;
-
-+-------------+
-| artist_type |
-+-------------+
-| solo        |
-| band        |
-+-------------+
-```
-
-[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
-
-[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
-
-### `REPLACE_FIELDS`
-
-```sql
-REPLACE_FIELDS(proto_expression, value AS field_path [, ... ])
-```
-
-**Description**
-
-Returns a copy of a protocol buffer, replacing the values in one or more fields.
-`field_path` is a delimited path to the protocol buffer field to be replaced.
-
-+ If `value` is `NULL`, it un-sets `field_path` or returns an error if the last
-  component of `field_path` is a required field.
-+ Replacing subfields will succeed only if the message containing the field is
-  set.
-+ Replacing subfields of repeated field is not allowed.
-+ A repeated field can be replaced with an `ARRAY` value.
-
-**Return type**
-
-Type of `proto_expression`
-
-**Examples**
-
-To illustrate the usage of this function, we use protocol buffer messages
-`Book` and `BookDetails`.
-
-```
-message Book {
-  required string title = 1;
-  repeated string reviews = 2;
-  optional BookDetails details = 3;
-};
-
-message BookDetails {
-  optional string author = 1;
-  optional int32 chapters = 2;
-};
-```
-
-This statement replaces value of field `title` and subfield `chapters`
-of proto type `Book`. Note that field `details` must be set for the statement
-to succeed.
-
-```sql
-SELECT REPLACE_FIELDS(
-  NEW Book(
-    "The Hummingbird" AS title,
-    NEW BookDetails(10 AS chapters) AS details),
-  "The Hummingbird II" AS title,
-  11 AS details.chapters)
-AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird II" details: {chapters: 11 }}                       |
-+-----------------------------------------------------------------------------+
-```
-
-The function can replace value of repeated fields.
-
-```sql
-SELECT REPLACE_FIELDS(
-  NEW Book("The Hummingbird" AS title,
-    NEW BookDetails(10 AS chapters) AS details),
-  ["A good read!", "Highly recommended."] AS reviews)
-AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
-| details: {chapters: 10 }}                                                   |
-+-----------------------------------------------------------------------------+
-```
-
-It can set a field to `NULL`.
-
-```sql
-SELECT REPLACE_FIELDS(
-  NEW Book("The Hummingbird" AS title,
-    NEW BookDetails(10 AS chapters) AS details),
-  NULL AS details)
-AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird" }                                                  |
-+-----------------------------------------------------------------------------+
-```
-
-### `CONTAINS_KEY`
-
-```sql
-CONTAINS_KEY(proto_map_field_expression, key)
-```
-
-**Description**
-
-Returns whether a [protocol buffer map field][proto-map] contains a given key.
-
-Input values:
-
-+ `proto_map_field_expression`: A protocol buffer map field.
-+ `key`: A key in the protocol buffer map field.
-
-`NULL` handling:
-
-+ If `map_field` is `NULL`, returns `NULL`.
-+ If `key` is `NULL`, returns `FALSE`.
-
-**Return type**
-
-`BOOL`
-
-**Examples**
-
-To illustrate the use of this function, consider the protocol buffer message
-`Item`:
-
-```proto
-message Item {
-  optional map<string, int64> purchased = 1;
-};
-```
-
-In the following example, the function returns `TRUE` when the key is
-present, `FALSE` otherwise.
-
-```sql
-SELECT
-  CONTAINS_KEY(m.purchased, 'A') AS contains_a,
-  CONTAINS_KEY(m.purchased, 'B') AS contains_b
-FROM
-  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
-
-+------------+------------+
-| contains_a | contains_b |
-+------------+------------+
-| TRUE       | FALSE      |
-+------------+------------+
-```
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
-
-### `MODIFY_MAP`
-
-```sql
-MODIFY_MAP(proto_map_field_expression, key_value_pair[, ...])
-
-key_value_pair:
-  key, value
-```
-
-**Description**
-
-Modifies a [protocol buffer map field][proto-map] and returns the modified map
-field.
-
-Input values:
-
-+ `proto_map_field_expression`: A protocol buffer map field.
-+ `key_value_pair`: A key-value pair in the protocol buffer map field.
-
-Modification behavior:
-
-+ If the key is not already in the map field, adds the key and its value to the
-  map field.
-+ If the key is already in the map field, replaces its value.
-+ If the key is in the map field and the value is `NULL`, removes the key and
-  its value from the map field.
-
-`NULL` handling:
-
-+ If `key` is `NULL`, produces an error.
-+ If the same `key` appears more than once, produces an error.
-+ If `map` is `NULL`, `map` is treated as empty.
-
-**Return type**
-
-In the input protocol buffer map field, `V` as represented in `map<K,V>`.
-
-**Examples**
-
-To illustrate the use of this function, consider the protocol buffer message
-`Item`:
-
-```proto
-message Item {
-  optional map<string, int64> purchased = 1;
-};
-```
-
-In the following example, the query deletes key `A`, replaces `B`, and adds
-`C` in a map field called `purchased`.
-
-```sql
-SELECT
-  MODIFY_MAP(m.purchased, 'A', NULL, 'B', 4, 'C', 6) AS result_map
-FROM
-  (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
-
-+---------------------------------------------+
-| result_map                                  |
-+---------------------------------------------+
-| { key: 'B' value: 4 } { key: 'C' value: 6 } |
-+---------------------------------------------+
-```
-
-[proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
 

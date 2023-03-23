@@ -321,7 +321,7 @@ cc_library(
         "//zetasql/common:timer_util",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:analyzer_output_properties",
-        "//zetasql/public:logging_cc_proto",
+        "//zetasql/public/proto:logging_cc_proto",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/flags:flag",
@@ -695,20 +695,6 @@ cc_test(
         ":analyzer_test_options",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
-    ],
-)
-
-cc_test(
-    name = "analyzer_depth_limit_detector_test",
-    size = "large",
-    srcs = ["analyzer_depth_limit_detector_test.cc"],
-    shard_count = 10,
-    deps = [
-        "//zetasql/base/testing:zetasql_gtest_main",
-        "//zetasql/compliance:depth_limit_detector_test_cases",
-        "//zetasql/public:analyzer",
-        "//zetasql/public:analyzer_output",
-        "//zetasql/testdata:sample_catalog",
     ],
 )
 

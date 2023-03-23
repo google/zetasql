@@ -18,17 +18,11 @@
 #define ZETASQL_PARSER_FLEX_TOKENIZER_H_
 
 #include <cstdint>
-#include <ios>
 #include <istream>
 #include <memory>
 #include <sstream>
+#include <stack>
 #include <string>
-
-#include "zetasql/public/language_options.h"
-#include "zetasql/public/options.pb.h"
-#include "absl/flags/flag.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 
 // Some contortions to avoid duplicate inclusion of FlexLexer.h in the
 // generated flex_tokenizer.flex.cc.
@@ -36,15 +30,13 @@
 #define yyFlexLexer ZetaSqlFlexTokenizerBase
 #include <FlexLexer.h>
 
-#include "zetasql/common/errors.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/location.hh"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
-
-#include "zetasql/parser/flex_istream.h"
 #include "absl/flags/declare.h"
-#include "zetasql/base/status.h"
-#include "zetasql/base/status_builder.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 ABSL_DECLARE_FLAG(bool, zetasql_use_customized_flex_istream);
 
@@ -54,83 +46,69 @@ namespace parser {
 // Flex-based tokenizer for the ZetaSQL Bison parser.
 class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
  public:
+  // Type aliases to improve readability of API.
+  using TokenKind = int;
+  using Location = zetasql_bison_parser::location;
+
   // Constructs a simple wrapper around a flex generated tokenizer. 'mode'
   // controls the first token that is returned to the bison parser, which
   // determines the starting production used by the parser.
   // 'filename', 'input', and 'language_options' must outlive this object.
   ZetaSqlFlexTokenizer(BisonParserMode mode, absl::string_view filename,
                          absl::string_view input, int start_offset,
-                         const LanguageOptions& language_options)
-      : filename_(filename),
-        start_offset_(start_offset),
-        input_size_(static_cast<int64_t>(input.size())),
-        mode_(mode),
-        language_options_(language_options) {
-    if (absl::GetFlag(FLAGS_zetasql_use_customized_flex_istream)) {
-      input_stream_ = std::make_unique<StringStreamWithSentinel>(input);
-    } else {
-      input_stream_ = std::make_unique<std::istringstream>(
-          absl::StrCat(input, kEofSentinelInput));
-    }
-    // Seek the stringstream to the start_offset, and then instruct flex to read
-    // from the stream. (Flex has the ability to read multiple consecutive
-    // streams, but we only ever feed it one.)
-    input_stream_->seekg(start_offset, std::ios_base::beg);
-    switch_streams(input_stream_.get() /* new_in */, nullptr /* new_out */);
-  }
+                         const LanguageOptions& language_options);
 
   ZetaSqlFlexTokenizer(const ZetaSqlFlexTokenizer&) = delete;
   ZetaSqlFlexTokenizer& operator=(const ZetaSqlFlexTokenizer&) = delete;
 
   // Returns the next token id, returning its location in 'yylloc'. On input,
   // 'yylloc' must be the location of the previous token that was returned.
-  int GetNextTokenFlex(zetasql_bison_parser::location* yylloc) {
-    prev_token_ = GetNextTokenFlexImpl(yylloc);
-    if (override_error_.ok()) {
-      num_lexical_tokens_++;
-    }
-    return prev_token_;
-  }
+  TokenKind GetNextTokenFlex(Location* yylloc);
 
   // This is the "nice" API for the tokenizer, to be used by GetParseTokens().
   // On input, 'location' must be the location of the previous token that was
   // generated. Returns the Bison token id in 'token' and the ZetaSQL location
   // in 'location'. Returns an error if the tokenizer sets override_error.
-  absl::Status GetNextToken(ParseLocationRange* location, int* token);
+  absl::Status GetNextToken(ParseLocationRange* location, TokenKind* token);
 
   // Returns a non-OK error status if the tokenizer encountered an error. This
   // error takes priority over a parser error, because the parser error is
   // always a consequence of the tokenizer error.
-  absl::Status GetOverrideError() const {
-    return override_error_;
-  }
+  absl::Status GetOverrideError() const { return override_error_; }
 
   // Ensures that the next token returned will be EOF, even if we're not at the
   // end of the input.
   void SetForceTerminate() { force_terminate_ = true; }
 
+  // Some sorts of statements need to change the mode after the parser consumes
+  // the preamble of the statement.  DEFINE MACRO is an example, it wants to
+  // consume the macro body as raw tokens.
+  void PushBisonParserMode(BisonParserMode mode);
+  // Restore the BisonParserMode to its value before the previous Push.
+  void PopBisonParserMode();
+
   // Helper function for determining if the given 'bison_token' followed by "."
   // should trigger the generalized identifier tokenizer mode.
-  bool IsDotGeneralizedIdentifierPrefixToken(int bison_token) const;
+  bool IsDotGeneralizedIdentifierPrefixToken(TokenKind bison_token) const;
 
   int64_t num_lexical_tokens() const { return num_lexical_tokens_; }
 
  private:
-  void SetOverrideError(const zetasql_bison_parser::location& yylloc,
-                        absl::string_view error_message) {
-    override_error_ = MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(
-        filename_, yylloc.begin.column)) << error_message;
-  }
+  void SetOverrideError(const Location& yylloc,
+                        absl::string_view error_message);
 
   // This method is implemented by the flex generated tokenizer. On input,
   // 'yylloc' must be the location of the previous token that was returned.
   // Returns the next token id, returning its location in 'yylloc'.
-  int GetNextTokenFlexImpl(zetasql_bison_parser::location* yylloc);
+  TokenKind GetNextTokenFlexImpl(Location* yylloc);
+
+  // Applies a set of rules based on `token` and `prev_token_` and if any rule
+  // matches, returns the token kind specified by the rule. Otherwise when no
+  // rule matches, returns `token`.
+  TokenKind ApplyTokenDisambiguation(TokenKind token);
 
   // This is called by flex when it is wedged.
-  void LexerError(const char* msg) override {
-    override_error_ = MakeSqlError() << msg;
-  }
+  void LexerError(const char* msg) override;
 
   // Given a fragment of text that starts with an identifier, returns the length
   // of just the identifier portion of the text. Backquotes are included in the
@@ -139,9 +117,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
 
   bool IsReservedKeyword(absl::string_view text) const;
 
-  bool AreMacrosEnabled() const {
-    return language_options_.LanguageFeatureEnabled(FEATURE_V_1_4_SQL_MACROS);
-  }
+  bool AreMacrosEnabled() const;
 
   // EOF sentinel input. This is appended to the input and used as a sentinel in
   // the tokenizer. The reason for doing this is that some tokenizer rules
@@ -166,7 +142,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
 
   // The code for the previous token that was returned. This is used to take
   // action in tokenizer rules based on context.
-  int prev_token_ = 0;
+  TokenKind prev_token_ = 0;
 
   // The (optional) filename from which the statement is being parsed.
   absl::string_view filename_;
@@ -183,7 +159,8 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
 
   // This determines the first token returned to the bison parser, which
   // determines the mode that we'll run in.
-  const BisonParserMode mode_;
+  BisonParserMode mode_;
+  std::stack<BisonParserMode> restore_modes_;
 
   // The tokenizer may want to return an error directly. It does this by
   // returning EOF to the bison parser, which then may or may not spew out its

@@ -18,12 +18,6 @@
 # here to exclude them from compliance tests.
 
 known_errors {
-  # TODO: Implement this function.
-  mode: ALLOW_UNIMPLEMENTED
-  label: "analytic_st_accum_test:analytic_st_accum_basic"
-}
-
-known_errors {
   # TODO: Implement these functions.
   mode: ALLOW_UNIMPLEMENTED
   label: "analytic_kll_quantiles_test:analytic_kll_quantiles_init_double_basic"

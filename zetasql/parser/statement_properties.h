@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PARSER_STATEMENT_PROPERTIES_H_
 #define ZETASQL_PARSER_STATEMENT_PROPERTIES_H_
 
+#include <string>
+
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 
@@ -33,11 +35,11 @@ struct ASTStatementProperties {
 
   // The create scope of the statement (i.e. TEMP, DEFAULT, etc.).  Only
   // applies if <node_kind> is AST_CREATE_*.
-  zetasql::ASTCreateStatement::Scope create_scope =
-      zetasql::ASTCreateStatement::DEFAULT_SCOPE;
+  ASTCreateStatement::Scope create_scope = ASTCreateStatement::DEFAULT_SCOPE;
 
-  // Statement level hints, if any.  Not owned.
-  ASTNode* statement_level_hints = nullptr;
+  // Statement level hints processed into key value pairs. Values are the SQL
+  // substring of the hint value.
+  absl::flat_hash_map<std::string, std::string> statement_level_hints;
 };
 
 }  // namespace parser

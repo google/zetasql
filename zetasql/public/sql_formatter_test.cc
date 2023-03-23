@@ -178,11 +178,8 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
   // The second statement contains invalid input character '$', which makes
   // GetParseTokens fail. Original sql is returned in this case even if the
   // first statement can be formatted.
-  EXPECT_THAT(
-      FormatSql("select 1;  select $d ;", &formatted_sql),
-      StatusIs(
-          _,
-          HasSubstr("Syntax error: Illegal input character \"$\" [at 1:19]")));
+  EXPECT_THAT(FormatSql("select 1;  select $d ;", &formatted_sql),
+              StatusIs(_, HasSubstr("Macros are not supported")));
   EXPECT_EQ("select 1;  select $d ;", formatted_sql);
 }
 

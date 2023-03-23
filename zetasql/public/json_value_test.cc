@@ -819,34 +819,37 @@ TEST(JSONStrictNumberParsingTest, TestsWideNumberModeIsCorrectlySelected) {
 TEST(JSONStandardParserTest, ParseErrorStandard) {
   auto result = JSONValue::ParseJSONString("[[[");
   EXPECT_FALSE(result.ok());
-  EXPECT_THAT(
-      result.status().message(),
-      ::testing::HasSubstr(
-          "syntax error while parsing value - unexpected end of input"));
+  EXPECT_EQ(result.status().message(),
+            "syntax error while parsing value - unexpected end of input; "
+            "expected '[', '{', or a literal");
 
   result = JSONValue::ParseJSONString("t");
   EXPECT_FALSE(result.ok());
-  EXPECT_THAT(result.status().message(),
-              ::testing::HasSubstr(
-                  "syntax error while parsing value - invalid literal"));
+  EXPECT_EQ(
+      result.status().message(),
+      "syntax error while parsing value - invalid literal; last read: 't'");
 
   result = JSONValue::ParseJSONString("[1, a]");
   EXPECT_FALSE(result.ok());
-  EXPECT_THAT(result.status().message(),
-              ::testing::HasSubstr(
-                  "syntax error while parsing value - invalid literal"));
+  EXPECT_EQ(
+      result.status().message(),
+      "syntax error while parsing value - invalid literal; last read: '1, a'");
 
   result = JSONValue::ParseJSONString("{a: b}");
   EXPECT_FALSE(result.ok());
-  EXPECT_THAT(result.status().message(),
-              ::testing::HasSubstr(
-                  "syntax error while parsing object key - invalid literal"));
+  EXPECT_EQ(result.status().message(),
+            "syntax error while parsing object key - invalid literal; last "
+            "read: '{a'; expected string literal");
 
   result = JSONValue::ParseJSONString("+");
   EXPECT_FALSE(result.ok());
-  EXPECT_THAT(result.status().message(),
-              ::testing::HasSubstr(
-                  "syntax error while parsing value - invalid literal"));
+  EXPECT_EQ(
+      result.status().message(),
+      "syntax error while parsing value - invalid literal; last read: '+'");
+
+  result = JSONValue::ParseJSONString("1e99999");
+  EXPECT_FALSE(result.ok());
+  EXPECT_EQ(result.status().message(), "number overflow parsing '1e99999'");
 }
 
 TEST(JSONValueTest, SerializePrimitiveValueToString) {

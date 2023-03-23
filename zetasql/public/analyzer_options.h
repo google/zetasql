@@ -169,7 +169,7 @@ struct AllowedHintsAndOptions {
           {"delta", {types::DoubleType()}},
           {"epsilon", {types::DoubleType()}},
           {"k_threshold", {types::Int64Type()}},
-          {"kappa", {types::Int64Type()}},  // TODO deprecate kappa
+          {"kappa", {types::Int64Type()}},  // TODO remove kappa
           {"max_groups_contributed",
            {types::Int64Type()}},  // Synonym for kappa
           {"max_rows_contributed", {types::Int64Type()}}};

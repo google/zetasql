@@ -225,6 +225,48 @@ class JSONValueParserBase {
   // The current status of the parser.
   absl::Status status() const { return status_; }
 
+  bool parse_error(std::size_t /*unused*/, const std::string& /*unused*/,
+                   const nlohmann::detail::exception& ex) {
+    absl::string_view error = ex.what();
+    // Strip the error code specific to the nlohmann JSON library.
+    // See the list of error messages here:
+    // https://json.nlohmann.me/home/exceptions/
+    //
+    // There are 2 types of errors:
+    // [json.exception.parse_error.101] parse error at 2: unexpected end of
+    // input; expected string literal
+    //
+    // and
+    //
+    // [json.exception.out_of_range.406] number overflow parsing '1e9999'
+    // [json.exception.out_of_range.408] excessive array size:
+    // 8658170730974374167
+    //
+    // Parse errors always indicate the index followed by ':'. We want to remove
+    // this as it is indexed from the JSON input, not the SQL input.
+    // However, out of range errors don't always have ':' and we don't want to
+    // remove everything before ':'.
+    if (ABSL_PREDICT_FALSE(!absl::StartsWith(error, "[json.exception."))) {
+      return MaybeUpdateStatus(absl::OutOfRangeError(error));
+    }
+    if (ABSL_PREDICT_TRUE(
+            absl::StartsWith(error, "[json.exception.parse_error"))) {
+      std::pair<absl::string_view, absl::string_view> splits =
+          absl::StrSplit(error, absl::MaxSplits(": ", 1));
+      if (ABSL_PREDICT_TRUE(!splits.second.empty())) {
+        return MaybeUpdateStatus(absl::OutOfRangeError(splits.second));
+      }
+    }
+
+    std::pair<absl::string_view, absl::string_view> splits =
+        absl::StrSplit(error, absl::MaxSplits("] ", 1));
+    if (ABSL_PREDICT_TRUE(!splits.second.empty())) {
+      error = splits.second;
+    }
+
+    return MaybeUpdateStatus(absl::OutOfRangeError(error));
+  }
+
  protected:
   // If the given 'status' is not ok, updates the state of the parser to reflect
   // the error only if the parser is not in the error state already. Otherwise
@@ -273,7 +315,7 @@ class JSONValueStandardParser : public JSONValueParserBase {
 
   bool number_float(double val, const std::string& input_str) {
     if (wide_number_mode_ == WideNumberMode::kExact) {
-      auto status = internal::CheckNumberRoundtrip(input_str, val);
+      auto status = CheckNumberRoundtrip(input_str, val);
       if (!status.ok()) {
         return MaybeUpdateStatus(status);
       }
@@ -307,22 +349,6 @@ class JSONValueStandardParser : public JSONValueParserBase {
 
   bool end_array() { return MaybeUpdateStatus(value_builder_.EndArray()); }
 
-  bool parse_error(std::size_t /*unused*/, const std::string& /*unused*/,
-                   const nlohmann::detail::exception& ex) {
-    absl::string_view error = ex.what();
-    // Strip the error code specific to the nlohmann JSON library and the
-    // position in the input. Example of error message:
-    // [json.exception.parse_error.101] parse error at line 1, column 2: syntax
-    // error while parsing value - <rest of the message>
-    // This would remove everything before "syntax error".
-    std::pair<absl::string_view, absl::string_view> splits =
-        absl::StrSplit(error, absl::MaxSplits(": ", 1));
-    if (!splits.second.empty()) {
-      error = splits.second;
-    }
-    return MaybeUpdateStatus(absl::OutOfRangeError(error));
-  }
-
   bool is_errored() const { return !status().ok(); }
 
  private:
@@ -354,7 +380,7 @@ class JSONValueStandardValidator : public JSONValueParserBase {
   bool number_unsigned(std::uint64_t val) { return true; }
   bool number_float(double val, const std::string& input_str) {
     if (strict_number_parsing_) {
-      auto status = internal::CheckNumberRoundtrip(input_str, val);
+      auto status = CheckNumberRoundtrip(input_str, val);
       if (!status.ok()) {
         return MaybeUpdateStatus(status);
       }
@@ -396,17 +422,6 @@ class JSONValueStandardValidator : public JSONValueParserBase {
   bool end_array() {
     --current_nesting_;
     return true;
-  }
-
-  bool parse_error(std::size_t /*unused*/, const std::string& /*unused*/,
-                   const nlohmann::detail::exception& ex) {
-    absl::string_view error = ex.what();
-    // Strip the error code specific to the nlohmann JSON library.
-    std::vector<absl::string_view> v = absl::StrSplit(error, "] ");
-    if (v.size() > 1) {
-      error = v[1];
-    }
-    return MaybeUpdateStatus(absl::OutOfRangeError(error));
   }
 
   bool is_errored() const { return !status().ok(); }
@@ -748,7 +763,7 @@ void JSONValueRef::SetToEmptyObject() { impl_->value = JSON::object(); }
 
 void JSONValueRef::SetToEmptyArray() { impl_->value = JSON::array(); }
 
-absl::Status internal::CheckNumberRoundtrip(absl::string_view lhs, double val) {
+absl::Status CheckNumberRoundtrip(absl::string_view lhs, double val) {
   constexpr uint32_t kMaxStringLength = 1500;
   // Reject round-trip if input string is too long
   if (lhs.length() > kMaxStringLength) {

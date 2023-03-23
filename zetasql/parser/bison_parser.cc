@@ -75,6 +75,8 @@ static std::string GetBisonParserModeName(BisonParserMode mode) {
       return "statement";
     case BisonParserMode::kScript:
       return "script";
+    case BisonParserMode::kMacroBody:
+      return "macro";
     case BisonParserMode::kTokenizer:
     case BisonParserMode::kTokenizerPreserveComments:
       ZETASQL_LOG(FATAL) << "CleanUpBisonError called in tokenizer mode";
@@ -174,6 +176,9 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   std::string expectations_string;
   RE2::FullMatch(bison_error_message, *re_expectations, &expectations_string);
 
+  const auto& user_facing_kw_images =
+      GetUserFacingImagesForSpecialKeywordsMap();
+
   // Transform the individual expectations, because Bison gives some weird
   // output for some of them.
   std::vector<std::string> expectations =
@@ -182,12 +187,16 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
     if (expectation.size() == 1 && !isalpha(expectation[0])) {
       expectation = absl::StrCat("\"", expectation, "\"");
     }
-    if (absl::StrContains(expectation, " for ")) {
-      // There are several tokens of the form "KEYWORD for CONTEXT" that the
-      // parser knows about but that we shouldn't expose externally. Strip off
-      // the " for CONTEXT" bit.
-      expectation = expectation.substr(0, expectation.find(" for "));
+
+    // We use some special tokens for lexical disambiguation. The labels we
+    // give those in the parser are not nessisarily user friendly or what we
+    // want to show in error messages. Here we re-map those labels back to what
+    // the user will find most understantable.
+    if (const auto found = user_facing_kw_images.find(expectation);
+        found != user_facing_kw_images.end()) {
+      expectation = found->second;
     }
+
     // These are a single token in the Bison tokenizer but we treat them as two
     // tokens externally.
     if (expectation == "\".*\"") {
@@ -377,8 +386,7 @@ absl::Status BisonParser::Parse(
       ZETASQL_RETURN_IF_ERROR(ast_node->InitFields());
     }
 
-    if (mode != BisonParserMode::kNextStatementKind) {
-      ZETASQL_RET_CHECK(output_node != nullptr);
+    if (output != nullptr && output_node != nullptr) {
       *output = nullptr;
       // Move 'output_node' out of 'allocated_ast_nodes_' and into '*output'.
       for (int i = allocated_ast_nodes_->size() - 1; i >= 0; --i) {

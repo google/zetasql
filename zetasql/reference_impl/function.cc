@@ -4275,30 +4275,49 @@ static absl::StatusOr<Value> AggregateIntervalArraySumValue(
   return Value::Null(output_type);
 }
 
+absl::Status ValidateNoDoubleOverflow(long double value) {
+  if (value == std::numeric_limits<long double>::infinity() ||
+      value == -std::numeric_limits<long double>::infinity()) {
+    return absl::OkStatus();
+  }
+
+  if (value > std::numeric_limits<double>::max() ||
+      value < std::numeric_limits<double>::lowest()) {
+    return absl::Status(absl::StatusCode::kOutOfRange, "double overflow");
+  }
+
+  return absl::OkStatus();
+}
+
 // When the input array contains +/-inf, ARRAY_AVG might return +/-inf or NaN
 // which means the output cannot be validated by approximate comparison.
 static absl::StatusOr<Value> AggregateDoubleArrayAvgValue(
     const std::vector<Value>& elements) {
-  double avg = 0;
+  long double avg = 0;
   int64_t non_null_count = 0;
   for (const Value& element : elements) {
     if (element.is_null()) {
       continue;
     }
     non_null_count++;
-    double delta;
+    long double delta;
     absl::Status status;
 
     // Use Donald Knuth's iterative running mean algorithm to compute average.
-    // ARRAY_AVG could overflow when subtracting or adding two numbers.
-    if (!functions::Subtract(element.ToDouble(), avg, &delta, &status) ||
+    if (!functions::Subtract(static_cast<long double>(element.ToDouble()), avg,
+                             &delta, &status) ||
         !functions::Add(avg, delta / non_null_count, &avg, &status)) {
       return status;
     }
   }
+
+  // Average should never overflow, as it is bound by the elements which are all
+  // within bounds - otherwise we would have produced an error already.
+  ZETASQL_RET_CHECK_OK(ValidateNoDoubleOverflow(avg));
   if (non_null_count > 0) {
-    return Value::Double(avg);
+    return Value::Double(static_cast<double>(avg));
   }
+
   return Value::NullDouble();
 }
 
@@ -4795,7 +4814,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   // Count of non-null values.
   int64_t count_ = 0;
   int64_t countif_ = 0;
-  double out_double_ = 0;              // Max, Min, Avg, CovarPop, CovarSamp
+  long double out_double_ = 0;         // Max, Min, Avg, CovarPop, CovarSamp
   zetasql_base::ExactFloat out_exact_float_ = 0;     // Sum
   long double avg_ = 0;                // VarPop, VarSamp, StddevPop, StddevSamp
   long double variance_ = 0;           // VarPop, VarSamp, StddevPop, StddevSamp
@@ -4824,7 +4843,8 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   int64_t bit_int64_ = 0;
   uint32_t bit_uint32_ = 0;
   uint64_t bit_uint64_ = 0;
-  std::vector<Value> array_agg_;  // ArrayAgg and ArrayConcatAgg.
+  // ArrayAgg, ArrayConcatAgg
+  std::vector<Value> array_agg_;
   // Percentile.
   Value percentile_;
   std::vector<Value> percentile_population_;
@@ -5166,7 +5186,7 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       // Max
     case FCT(FunctionKind::kMax, TYPE_FLOAT):
     case FCT(FunctionKind::kMax, TYPE_DOUBLE):
-      out_double_ = -std::numeric_limits<double>::infinity();
+      out_double_ = -std::numeric_limits<long double>::infinity();
       break;
     case FCT(FunctionKind::kMax, TYPE_UINT64):
       out_uint64_ = 0;
@@ -5204,7 +5224,7 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       // Min
     case FCT(FunctionKind::kMin, TYPE_FLOAT):
     case FCT(FunctionKind::kMin, TYPE_DOUBLE):
-      out_double_ = std::numeric_limits<double>::infinity();
+      out_double_ = std::numeric_limits<long double>::infinity();
       break;
     case FCT(FunctionKind::kMin, TYPE_UINT64):
       out_uint64_ = std::numeric_limits<uint64_t>::max();
@@ -5467,8 +5487,9 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       // Iterative algorithm that is less likely to overflow in the common
       // case (lots of values of similar magnitude), and is supposedly
       // attributed to Knuth.
-      double delta;
-      if (!functions::Subtract(value.ToDouble(), out_double_, &delta, status) ||
+      long double delta;
+      if (!functions::Subtract((long double)value.ToDouble(), out_double_,
+                               &delta, status) ||
           !functions::Add(out_double_, delta / count_, &out_double_, status)) {
         return false;
       }
@@ -5619,9 +5640,9 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     case FCT(FunctionKind::kMax, TYPE_FLOAT):
     case FCT(FunctionKind::kMax, TYPE_DOUBLE): {
       if (std::isnan(value.ToDouble()) || std::isnan(out_double_)) {
-        out_double_ = std::numeric_limits<double>::quiet_NaN();
+        out_double_ = std::numeric_limits<long double>::quiet_NaN();
       } else {
-        out_double_ = std::max(out_double_, value.ToDouble());
+        out_double_ = std::max(out_double_, (long double)value.ToDouble());
       }
       break;
     }
@@ -5707,9 +5728,9 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     case FCT(FunctionKind::kMin, TYPE_FLOAT):
     case FCT(FunctionKind::kMin, TYPE_DOUBLE): {
       if (std::isnan(value.ToDouble()) || std::isnan(out_double_)) {
-        out_double_ = std::numeric_limits<double>::quiet_NaN();
+        out_double_ = std::numeric_limits<long double>::quiet_NaN();
       } else {
-        out_double_ = std::min(out_double_, value.ToDouble());
+        out_double_ = std::min(out_double_, (long double)value.ToDouble());
       }
       break;
     }
@@ -6517,6 +6538,15 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     case FCT(FunctionKind::kAvg, TYPE_INT64):
     case FCT(FunctionKind::kAvg, TYPE_UINT64):
     case FCT(FunctionKind::kAvg, TYPE_DOUBLE): {
+      ZETASQL_RET_CHECK_GE(count_, 0);
+      if (count_ < 0) {
+        return Value::NullDouble();
+      }
+
+      // AVG() should never overflow, since all the elements are by definition
+      // part of the domain and average will be between them.
+      // If we ever hit this, it's an internal error and a bug.
+      ZETASQL_RET_CHECK_OK(ValidateNoDoubleOverflow(out_double_));
       return count_ > 0 ? Value::Double(out_double_) : Value::NullDouble();
     }
     case FCT(FunctionKind::kAvg, TYPE_NUMERIC): {
@@ -7068,7 +7098,7 @@ absl::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
       return CreateValueFromOptional(
           bignumeric_correlation_aggregator_.GetCorrelation(pair_count_));
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE): {
-      out_double = covar_;
+      out_double = static_cast<double>(covar_);
       break;
     }
     case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE): {
@@ -8457,6 +8487,11 @@ static absl::StatusOr<Value> ReplaceProtoFields(
   google::protobuf::DynamicMessageFactory factory;
   auto mutable_root_message =
       absl::WrapUnique(parent_proto.ToMessage(&factory));
+  if (!mutable_root_message->IsInitialized()) {
+    return MakeEvalError()
+           << "REPLACE_FIELDS() cannot be used on a proto with missing fields: "
+           << mutable_root_message->InitializationErrorString();
+  }
   google::protobuf::Message* message_to_modify = mutable_root_message.get();
   const google::protobuf::Reflection* reflection = message_to_modify->GetReflection();
   // Get the Reflection object until the second-to-last path element as this
@@ -8494,6 +8529,14 @@ static absl::StatusOr<Value> ReplaceProtoFields(
     ZETASQL_RETURN_IF_ERROR(MergeValueToProtoField(
         new_field_value, path.back(), /*use_wire_format_annotations=*/false,
         &factory, message_to_modify));
+  }
+
+  // We should not be able to deinitialize, but defensively verify and return
+  // here or else we will `ZETASQL_CHECK` and crash the process.
+  if (!mutable_root_message->IsInitialized()) {
+    return MakeEvalError()
+           << "REPLACE_FIELDS() cannot be used to make an uninitialized proto: "
+           << mutable_root_message->InitializationErrorString();
   }
 
   return Value::Proto(parent_proto.type()->AsProto(),

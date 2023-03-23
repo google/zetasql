@@ -38,6 +38,7 @@
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/tools/execute_query/execute_query_proto_writer.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/flags/flag.h"
@@ -61,10 +62,12 @@ ABSL_FLAG(std::string, product_mode, "internal",
 ABSL_FLAG(std::string, mode, "execute",
           "The tool mode to use. Valid values are:"
           "\n     'parse'   parse the parser AST"
-          "\n     'resolve' print the resolved AST"
-          "\n     'explain' print the query plan"
-          "\n     'execute' actually run the query and print the result. (not"
-          "                 all functionality is supported).");
+          "\n     'unparse'  parse, then dump as sql"
+          "\n     'analyze'  print the resolved AST"
+          "\n     'unanalyze'  analyze, then dump as sql"
+          "\n     'explain'  print the evaluator query plan"
+          "\n     'execute'  actually run the query and print the result. (not"
+          "                  all functionality is supported).");
 
 ABSL_FLAG(zetasql::internal::EnabledAstRewrites, enabled_ast_rewrites,
           zetasql::internal::EnabledAstRewrites{
@@ -155,7 +158,11 @@ absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
   if (mode == "parse" || mode == "parser") {
     config.set_tool_mode(ToolMode::kParse);
     return absl::OkStatus();
-  } else if (mode == "resolve" || mode == "analyze" || mode == "analyzer") {
+  } else if (mode == "unparse" || mode == "unparser") {
+    config.set_tool_mode(ToolMode::kUnparse);
+    return absl::OkStatus();
+  } else if (mode == "resolve" || mode == "resolver" || mode == "analyze" ||
+             mode == "analyzer") {
     config.set_tool_mode(ToolMode::kResolve);
     return absl::OkStatus();
   } else if (mode == "explain") {
@@ -163,6 +170,11 @@ absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
     return absl::OkStatus();
   } else if (mode == "execute") {
     config.set_tool_mode(ToolMode::kExecute);
+    return absl::OkStatus();
+  } else if (mode == "unanalyze" || mode == "unanalyzer" ||
+             mode == "unresolve" || mode == "unresolver" ||
+             mode == "sql_builder" || mode == "sqlbuilder") {
+    config.set_tool_mode(ToolMode::kUnAnalyze);
     return absl::OkStatus();
   } else {
     return zetasql_base::InvalidArgumentErrorBuilder()
@@ -431,7 +443,8 @@ void ExecuteQueryConfig::SetOwnedDescriptorDatabase(
 
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           ExecuteQueryWriter& writer) {
-  if (config.tool_mode() == ToolMode::kParse) {
+  if (config.tool_mode() == ToolMode::kParse ||
+      config.tool_mode() == ToolMode::kUnparse) {
     std::unique_ptr<ParserOutput> parser_output;
     ParserOptions parser_options;
 
@@ -453,9 +466,13 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
     }
     ZETASQL_RET_CHECK_NE(root, nullptr);
 
-    // Note, ASTNode is not public, and therefore cannot be part of the public
-    // interface, thus, we can only return the string.
-    return writer.parsed(root->DebugString());
+    if (config.tool_mode() == ToolMode::kParse) {
+      // Note, ASTNode is not public, and therefore cannot be part of the public
+      // interface, thus, we can only return the string.
+      return writer.parsed(root->DebugString());
+    }
+    ZETASQL_RET_CHECK(config.tool_mode() == ToolMode::kUnparse);
+    return writer.unparsed(Unparse(root));
   }
 
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
@@ -481,6 +498,12 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
 
   if (config.tool_mode() == ToolMode::kResolve) {
     return writer.resolved(*resolved_node);
+  }
+
+  if (config.tool_mode() == ToolMode::kUnAnalyze) {
+    SQLBuilder builder;
+    ZETASQL_RETURN_IF_ERROR(builder.Process(*resolved_node));
+    return writer.unanalyze(builder.sql());
   }
 
   if (config.sql_mode() == SqlMode::kQuery) {

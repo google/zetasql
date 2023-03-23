@@ -100,18 +100,6 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       case FN_MODIFY_MAP:
         applicable_rewrites_->insert(REWRITE_PROTO_MAP_FNS);
         break;
-      case FN_ARRAY_TRANSFORM:
-      case FN_ARRAY_TRANSFORM_WITH_INDEX:
-      case FN_ARRAY_FILTER:
-      case FN_ARRAY_FILTER_WITH_INDEX:
-        applicable_rewrites_->insert(REWRITE_ARRAY_FILTER_TRANSFORM);
-        break;
-      case FN_ARRAY_INCLUDES:
-      case FN_ARRAY_INCLUDES_LAMBDA:
-      case FN_ARRAY_INCLUDES_ANY:
-      case FN_ARRAY_INCLUDES_ALL:
-        applicable_rewrites_->insert(REWRITE_ARRAY_INCLUDES);
-        break;
       case FN_ANON_COUNT:
       case FN_ANON_COUNT_STAR:
       case FN_ANON_SUM_INT64:

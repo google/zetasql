@@ -357,6 +357,7 @@ cc_library(
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:sql_builder",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/memory",

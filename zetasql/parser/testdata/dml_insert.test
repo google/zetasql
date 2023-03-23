@@ -1,0 +1,1795 @@
+insert into T
+values (1)
+--
+InsertStatement [0-24] [insert into T values (1)]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  InsertValuesRowList [14-24] [values (1)]
+    InsertValuesRow [21-24] [(1)]
+      IntLiteral(1) [22-23] [1]
+--
+INSERT INTO T
+VALUES
+  (1)
+==
+
+# Duplicate OR IGNORE/REPLACE/UPDATE. In the case where the second instance
+# is REPLACE or UPDATE it is interpreted as a table name, because REPLACE
+# and UPDATE are non-reserved keywords. When the second instance is IGNORE,
+# then it is a keyword and it is treated as a duplicate.
+INSERT {{OR|}} {{IGNORE|REPLACE|UPDATE}} {{OR|}} {{IGNORE|REPLACE|UPDATE}}
+--
+ALTERNATION GROUP: OR,IGNORE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR IGNORE OR IGNORE
+                 ^
+--
+ALTERNATION GROUP: OR,IGNORE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR IGNORE OR REPLACE
+                 ^
+--
+ALTERNATION GROUP: OR,IGNORE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR IGNORE OR UPDATE
+                 ^
+--
+ALTERNATION GROUP: OR,IGNORE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:19]
+INSERT OR IGNORE  IGNORE
+                  ^
+--
+ALTERNATION GROUP: OR,IGNORE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:26]
+INSERT OR IGNORE  REPLACE
+                         ^
+--
+ALTERNATION GROUP: OR,IGNORE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:25]
+INSERT OR IGNORE  UPDATE
+                        ^
+--
+ALTERNATION GROUP: OR,REPLACE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:19]
+INSERT OR REPLACE OR IGNORE
+                  ^
+--
+ALTERNATION GROUP: OR,REPLACE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:19]
+INSERT OR REPLACE OR REPLACE
+                  ^
+--
+ALTERNATION GROUP: OR,REPLACE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:19]
+INSERT OR REPLACE OR UPDATE
+                  ^
+--
+ALTERNATION GROUP: OR,REPLACE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:20]
+INSERT OR REPLACE  IGNORE
+                   ^
+--
+ALTERNATION GROUP: OR,REPLACE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:27]
+INSERT OR REPLACE  REPLACE
+                          ^
+--
+ALTERNATION GROUP: OR,REPLACE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:26]
+INSERT OR REPLACE  UPDATE
+                         ^
+--
+ALTERNATION GROUP: OR,UPDATE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR UPDATE OR IGNORE
+                 ^
+--
+ALTERNATION GROUP: OR,UPDATE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR UPDATE OR REPLACE
+                 ^
+--
+ALTERNATION GROUP: OR,UPDATE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR UPDATE OR UPDATE
+                 ^
+--
+ALTERNATION GROUP: OR,UPDATE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:19]
+INSERT OR UPDATE  IGNORE
+                  ^
+--
+ALTERNATION GROUP: OR,UPDATE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:26]
+INSERT OR UPDATE  REPLACE
+                         ^
+--
+ALTERNATION GROUP: OR,UPDATE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:25]
+INSERT OR UPDATE  UPDATE
+                        ^
+--
+ALTERNATION GROUP: IGNORE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  IGNORE OR IGNORE
+               ^
+--
+ALTERNATION GROUP: IGNORE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  IGNORE OR REPLACE
+               ^
+--
+ALTERNATION GROUP: IGNORE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  IGNORE OR UPDATE
+               ^
+--
+ALTERNATION GROUP: IGNORE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:17]
+INSERT  IGNORE  IGNORE
+                ^
+--
+ALTERNATION GROUP: IGNORE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:24]
+INSERT  IGNORE  REPLACE
+                       ^
+--
+ALTERNATION GROUP: IGNORE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:23]
+INSERT  IGNORE  UPDATE
+                      ^
+--
+ALTERNATION GROUP: REPLACE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:17]
+INSERT  REPLACE OR IGNORE
+                ^
+--
+ALTERNATION GROUP: REPLACE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:17]
+INSERT  REPLACE OR REPLACE
+                ^
+--
+ALTERNATION GROUP: REPLACE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:17]
+INSERT  REPLACE OR UPDATE
+                ^
+--
+ALTERNATION GROUP: REPLACE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:18]
+INSERT  REPLACE  IGNORE
+                 ^
+--
+ALTERNATION GROUP: REPLACE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:25]
+INSERT  REPLACE  REPLACE
+                        ^
+--
+ALTERNATION GROUP: REPLACE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:24]
+INSERT  REPLACE  UPDATE
+                       ^
+--
+ALTERNATION GROUP: UPDATE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  UPDATE OR IGNORE
+               ^
+--
+ALTERNATION GROUP: UPDATE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  UPDATE OR REPLACE
+               ^
+--
+ALTERNATION GROUP: UPDATE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  UPDATE OR UPDATE
+               ^
+--
+ALTERNATION GROUP: UPDATE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:17]
+INSERT  UPDATE  IGNORE
+                ^
+--
+ALTERNATION GROUP: UPDATE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:24]
+INSERT  UPDATE  REPLACE
+                       ^
+--
+ALTERNATION GROUP: UPDATE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:23]
+INSERT  UPDATE  UPDATE
+                      ^
+==
+
+# Duplicate.
+INSERT {{INTO|}} mytable {{INTO|}} mytable
+--
+ALTERNATION GROUP: INTO,INTO
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:21]
+INSERT INTO mytable INTO mytable
+                    ^
+--
+ALTERNATION GROUP: INTO,
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:22]
+INSERT INTO mytable  mytable
+                     ^
+--
+ALTERNATION GROUP: INTO
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:17]
+INSERT  mytable INTO mytable
+                ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:18]
+INSERT  mytable  mytable
+                 ^
+==
+
+# Duplicate.
+INSERT INTO mytable (c1, c2) (c1, c2)
+--
+ERROR: Syntax error: Unexpected column list [at 1:30]
+INSERT INTO mytable (c1, c2) (c1, c2)
+                             ^
+==
+
+# Duplicate.
+INSERT INTO mytable VALUES (a, b) VALUES (a, b)
+--
+ERROR: Syntax error: Unexpected VALUES list [at 1:35]
+INSERT INTO mytable VALUES (a, b) VALUES (a, b)
+                                  ^
+==
+
+# Wrong order for OR IGNORE/REPLACE/UPDATE.
+INSERT INTO mytable {{(c1, c2)|}}{{VALUES (a, b)|}} {{OR|}} {{IGNORE|REPLACE|UPDATE}}
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:43]
+INSERT INTO mytable (c1, c2)VALUES (a, b) OR IGNORE
+                                          ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:43]
+INSERT INTO mytable (c1, c2)VALUES (a, b) OR REPLACE
+                                          ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:43]
+INSERT INTO mytable (c1, c2)VALUES (a, b) OR UPDATE
+                                          ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:44]
+INSERT INTO mytable (c1, c2)VALUES (a, b)  IGNORE
+                                           ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),,REPLACE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:44]
+INSERT INTO mytable (c1, c2)VALUES (a, b)  REPLACE
+                                           ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),,UPDATE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:44]
+INSERT INTO mytable (c1, c2)VALUES (a, b)  UPDATE
+                                           ^
+--
+ALTERNATION GROUP: (c1, c2),,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:30]
+INSERT INTO mytable (c1, c2) OR IGNORE
+                             ^
+--
+ALTERNATION GROUP: (c1, c2),,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:30]
+INSERT INTO mytable (c1, c2) OR REPLACE
+                             ^
+--
+ALTERNATION GROUP: (c1, c2),,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:30]
+INSERT INTO mytable (c1, c2) OR UPDATE
+                             ^
+--
+ALTERNATION GROUP: (c1, c2),,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:31]
+INSERT INTO mytable (c1, c2)  IGNORE
+                              ^
+--
+ALTERNATION GROUP: (c1, c2),,,REPLACE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:31]
+INSERT INTO mytable (c1, c2)  REPLACE
+                              ^
+--
+ALTERNATION GROUP: (c1, c2),,,UPDATE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:31]
+INSERT INTO mytable (c1, c2)  UPDATE
+                              ^
+--
+ALTERNATION GROUP: VALUES (a, b),OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:35]
+INSERT INTO mytable VALUES (a, b) OR IGNORE
+                                  ^
+--
+ALTERNATION GROUP: VALUES (a, b),OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:35]
+INSERT INTO mytable VALUES (a, b) OR REPLACE
+                                  ^
+--
+ALTERNATION GROUP: VALUES (a, b),OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:35]
+INSERT INTO mytable VALUES (a, b) OR UPDATE
+                                  ^
+--
+ALTERNATION GROUP: VALUES (a, b),,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:36]
+INSERT INTO mytable VALUES (a, b)  IGNORE
+                                   ^
+--
+ALTERNATION GROUP: VALUES (a, b),,REPLACE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:36]
+INSERT INTO mytable VALUES (a, b)  REPLACE
+                                   ^
+--
+ALTERNATION GROUP: VALUES (a, b),,UPDATE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:36]
+INSERT INTO mytable VALUES (a, b)  UPDATE
+                                   ^
+--
+ALTERNATION GROUP: OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:22]
+INSERT INTO mytable  OR IGNORE
+                     ^
+--
+ALTERNATION GROUP: OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:22]
+INSERT INTO mytable  OR REPLACE
+                     ^
+--
+ALTERNATION GROUP: OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:22]
+INSERT INTO mytable  OR UPDATE
+                     ^
+--
+ALTERNATION GROUP: IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:23]
+INSERT INTO mytable   IGNORE
+                      ^
+--
+ALTERNATION GROUP: REPLACE
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:23]
+INSERT INTO mytable   REPLACE
+                      ^
+--
+ALTERNATION GROUP: UPDATE
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:23]
+INSERT INTO mytable   UPDATE
+                      ^
+==
+
+# Wrong order for column list.
+INSERT (c1, c2) INTO mytable
+--
+ERROR: Syntax error: Expecting INSERT target name [at 1:8]
+INSERT (c1, c2) INTO mytable
+       ^
+==
+
+# Wrong order for VALUES clause.
+INSERT VALUES (a, b) {{INTO|}} mytable
+--
+ALTERNATION GROUP: INTO
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:22]
+INSERT VALUES (a, b) INTO mytable
+                     ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:23]
+INSERT VALUES (a, b)  mytable
+                      ^
+==
+
+# Wrong order for VALUES clause, missing table.
+INSERT VALUES (a, b) (c1, c2)
+--
+ERROR: Syntax error: Unexpected column list [at 1:22]
+INSERT VALUES (a, b) (c1, c2)
+                     ^
+==
+
+insert {{or|}} ignore {{into|}} {{c.T|values}} {{(c1, c2)|}}
+values (5,6), ('abc')
+assert_rows_modified 5
+--
+ALTERNATION GROUP: or,into,c.T,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-79] [insert or...rt_rows_modified 5]
+  PathExpression [22-25] [c.T]
+    Identifier(c) [22-23] [c]
+    Identifier(T) [24-25] [T]
+  ColumnList [26-34] [(c1, c2)]
+    Identifier(c1) [27-29] [c1]
+    Identifier(c2) [31-33] [c2]
+  InsertValuesRowList [35-56] [values (5,6), ('abc')]
+    InsertValuesRow [42-47] [(5,6)]
+      IntLiteral(5) [43-44] [5]
+      IntLiteral(6) [45-46] [6]
+    InsertValuesRow [49-56] [('abc')]
+      StringLiteral('abc') [50-55] ['abc']
+  AssertRowsModified [57-79] [assert_rows_modified 5]
+    IntLiteral(5) [78-79] [5]
+--
+INSERT OR IGNORE INTO c.T(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,into,c.T,
+--
+InsertStatement(insert_mode=IGNORE) [0-71] [insert or...rt_rows_modified 5]
+  PathExpression [22-25] [c.T]
+    Identifier(c) [22-23] [c]
+    Identifier(T) [24-25] [T]
+  InsertValuesRowList [27-48] [values (5,6), ('abc')]
+    InsertValuesRow [34-39] [(5,6)]
+      IntLiteral(5) [35-36] [5]
+      IntLiteral(6) [37-38] [6]
+    InsertValuesRow [41-48] [('abc')]
+      StringLiteral('abc') [42-47] ['abc']
+  AssertRowsModified [49-71] [assert_rows_modified 5]
+    IntLiteral(5) [70-71] [5]
+--
+INSERT OR IGNORE INTO c.T
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,into,values,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-82] [insert or...rt_rows_modified 5]
+  PathExpression [22-28] [values]
+    Identifier(values) [22-28] [values]
+  ColumnList [29-37] [(c1, c2)]
+    Identifier(c1) [30-32] [c1]
+    Identifier(c2) [34-36] [c2]
+  InsertValuesRowList [38-59] [values (5,6), ('abc')]
+    InsertValuesRow [45-50] [(5,6)]
+      IntLiteral(5) [46-47] [5]
+      IntLiteral(6) [48-49] [6]
+    InsertValuesRow [52-59] [('abc')]
+      StringLiteral('abc') [53-58] ['abc']
+  AssertRowsModified [60-82] [assert_rows_modified 5]
+    IntLiteral(5) [81-82] [5]
+--
+INSERT OR IGNORE INTO values(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,into,values,
+--
+InsertStatement(insert_mode=IGNORE) [0-74] [insert or...rt_rows_modified 5]
+  PathExpression [22-28] [values]
+    Identifier(values) [22-28] [values]
+  InsertValuesRowList [30-51] [values (5,6), ('abc')]
+    InsertValuesRow [37-42] [(5,6)]
+      IntLiteral(5) [38-39] [5]
+      IntLiteral(6) [40-41] [6]
+    InsertValuesRow [44-51] [('abc')]
+      StringLiteral('abc') [45-50] ['abc']
+  AssertRowsModified [52-74] [assert_rows_modified 5]
+    IntLiteral(5) [73-74] [5]
+--
+INSERT OR IGNORE INTO values
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,,c.T,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-75] [insert or...rt_rows_modified 5]
+  PathExpression [18-21] [c.T]
+    Identifier(c) [18-19] [c]
+    Identifier(T) [20-21] [T]
+  ColumnList [22-30] [(c1, c2)]
+    Identifier(c1) [23-25] [c1]
+    Identifier(c2) [27-29] [c2]
+  InsertValuesRowList [31-52] [values (5,6), ('abc')]
+    InsertValuesRow [38-43] [(5,6)]
+      IntLiteral(5) [39-40] [5]
+      IntLiteral(6) [41-42] [6]
+    InsertValuesRow [45-52] [('abc')]
+      StringLiteral('abc') [46-51] ['abc']
+  AssertRowsModified [53-75] [assert_rows_modified 5]
+    IntLiteral(5) [74-75] [5]
+--
+INSERT OR IGNORE INTO c.T(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,,c.T,
+--
+InsertStatement(insert_mode=IGNORE) [0-67] [insert or...rt_rows_modified 5]
+  PathExpression [18-21] [c.T]
+    Identifier(c) [18-19] [c]
+    Identifier(T) [20-21] [T]
+  InsertValuesRowList [23-44] [values (5,6), ('abc')]
+    InsertValuesRow [30-35] [(5,6)]
+      IntLiteral(5) [31-32] [5]
+      IntLiteral(6) [33-34] [6]
+    InsertValuesRow [37-44] [('abc')]
+      StringLiteral('abc') [38-43] ['abc']
+  AssertRowsModified [45-67] [assert_rows_modified 5]
+    IntLiteral(5) [66-67] [5]
+--
+INSERT OR IGNORE INTO c.T
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,,values,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-78] [insert or...rt_rows_modified 5]
+  PathExpression [18-24] [values]
+    Identifier(values) [18-24] [values]
+  ColumnList [25-33] [(c1, c2)]
+    Identifier(c1) [26-28] [c1]
+    Identifier(c2) [30-32] [c2]
+  InsertValuesRowList [34-55] [values (5,6), ('abc')]
+    InsertValuesRow [41-46] [(5,6)]
+      IntLiteral(5) [42-43] [5]
+      IntLiteral(6) [44-45] [6]
+    InsertValuesRow [48-55] [('abc')]
+      StringLiteral('abc') [49-54] ['abc']
+  AssertRowsModified [56-78] [assert_rows_modified 5]
+    IntLiteral(5) [77-78] [5]
+--
+INSERT OR IGNORE INTO values(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,,values,
+--
+InsertStatement(insert_mode=IGNORE) [0-70] [insert or...rt_rows_modified 5]
+  PathExpression [18-24] [values]
+    Identifier(values) [18-24] [values]
+  InsertValuesRowList [26-47] [values (5,6), ('abc')]
+    InsertValuesRow [33-38] [(5,6)]
+      IntLiteral(5) [34-35] [5]
+      IntLiteral(6) [36-37] [6]
+    InsertValuesRow [40-47] [('abc')]
+      StringLiteral('abc') [41-46] ['abc']
+  AssertRowsModified [48-70] [assert_rows_modified 5]
+    IntLiteral(5) [69-70] [5]
+--
+INSERT OR IGNORE INTO values
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: into,c.T,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-77] [insert  ignore...ws_modified 5]
+  PathExpression [20-23] [c.T]
+    Identifier(c) [20-21] [c]
+    Identifier(T) [22-23] [T]
+  ColumnList [24-32] [(c1, c2)]
+    Identifier(c1) [25-27] [c1]
+    Identifier(c2) [29-31] [c2]
+  InsertValuesRowList [33-54] [values (5,6), ('abc')]
+    InsertValuesRow [40-45] [(5,6)]
+      IntLiteral(5) [41-42] [5]
+      IntLiteral(6) [43-44] [6]
+    InsertValuesRow [47-54] [('abc')]
+      StringLiteral('abc') [48-53] ['abc']
+  AssertRowsModified [55-77] [assert_rows_modified 5]
+    IntLiteral(5) [76-77] [5]
+--
+INSERT OR IGNORE INTO c.T(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: into,c.T,
+--
+InsertStatement(insert_mode=IGNORE) [0-69] [insert  ignore...ws_modified 5]
+  PathExpression [20-23] [c.T]
+    Identifier(c) [20-21] [c]
+    Identifier(T) [22-23] [T]
+  InsertValuesRowList [25-46] [values (5,6), ('abc')]
+    InsertValuesRow [32-37] [(5,6)]
+      IntLiteral(5) [33-34] [5]
+      IntLiteral(6) [35-36] [6]
+    InsertValuesRow [39-46] [('abc')]
+      StringLiteral('abc') [40-45] ['abc']
+  AssertRowsModified [47-69] [assert_rows_modified 5]
+    IntLiteral(5) [68-69] [5]
+--
+INSERT OR IGNORE INTO c.T
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: into,values,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-80] [insert  ignore...ws_modified 5]
+  PathExpression [20-26] [values]
+    Identifier(values) [20-26] [values]
+  ColumnList [27-35] [(c1, c2)]
+    Identifier(c1) [28-30] [c1]
+    Identifier(c2) [32-34] [c2]
+  InsertValuesRowList [36-57] [values (5,6), ('abc')]
+    InsertValuesRow [43-48] [(5,6)]
+      IntLiteral(5) [44-45] [5]
+      IntLiteral(6) [46-47] [6]
+    InsertValuesRow [50-57] [('abc')]
+      StringLiteral('abc') [51-56] ['abc']
+  AssertRowsModified [58-80] [assert_rows_modified 5]
+    IntLiteral(5) [79-80] [5]
+--
+INSERT OR IGNORE INTO values(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: into,values,
+--
+InsertStatement(insert_mode=IGNORE) [0-72] [insert  ignore...ws_modified 5]
+  PathExpression [20-26] [values]
+    Identifier(values) [20-26] [values]
+  InsertValuesRowList [28-49] [values (5,6), ('abc')]
+    InsertValuesRow [35-40] [(5,6)]
+      IntLiteral(5) [36-37] [5]
+      IntLiteral(6) [38-39] [6]
+    InsertValuesRow [42-49] [('abc')]
+      StringLiteral('abc') [43-48] ['abc']
+  AssertRowsModified [50-72] [assert_rows_modified 5]
+    IntLiteral(5) [71-72] [5]
+--
+INSERT OR IGNORE INTO values
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: c.T,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-73] [insert  ignore...ws_modified 5]
+  PathExpression [16-19] [c.T]
+    Identifier(c) [16-17] [c]
+    Identifier(T) [18-19] [T]
+  ColumnList [20-28] [(c1, c2)]
+    Identifier(c1) [21-23] [c1]
+    Identifier(c2) [25-27] [c2]
+  InsertValuesRowList [29-50] [values (5,6), ('abc')]
+    InsertValuesRow [36-41] [(5,6)]
+      IntLiteral(5) [37-38] [5]
+      IntLiteral(6) [39-40] [6]
+    InsertValuesRow [43-50] [('abc')]
+      StringLiteral('abc') [44-49] ['abc']
+  AssertRowsModified [51-73] [assert_rows_modified 5]
+    IntLiteral(5) [72-73] [5]
+--
+INSERT OR IGNORE INTO c.T(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: c.T,
+--
+InsertStatement(insert_mode=IGNORE) [0-65] [insert  ignore...ws_modified 5]
+  PathExpression [16-19] [c.T]
+    Identifier(c) [16-17] [c]
+    Identifier(T) [18-19] [T]
+  InsertValuesRowList [21-42] [values (5,6), ('abc')]
+    InsertValuesRow [28-33] [(5,6)]
+      IntLiteral(5) [29-30] [5]
+      IntLiteral(6) [31-32] [6]
+    InsertValuesRow [35-42] [('abc')]
+      StringLiteral('abc') [36-41] ['abc']
+  AssertRowsModified [43-65] [assert_rows_modified 5]
+    IntLiteral(5) [64-65] [5]
+--
+INSERT OR IGNORE INTO c.T
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: values,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-76] [insert  ignore...ws_modified 5]
+  PathExpression [16-22] [values]
+    Identifier(values) [16-22] [values]
+  ColumnList [23-31] [(c1, c2)]
+    Identifier(c1) [24-26] [c1]
+    Identifier(c2) [28-30] [c2]
+  InsertValuesRowList [32-53] [values (5,6), ('abc')]
+    InsertValuesRow [39-44] [(5,6)]
+      IntLiteral(5) [40-41] [5]
+      IntLiteral(6) [42-43] [6]
+    InsertValuesRow [46-53] [('abc')]
+      StringLiteral('abc') [47-52] ['abc']
+  AssertRowsModified [54-76] [assert_rows_modified 5]
+    IntLiteral(5) [75-76] [5]
+--
+INSERT OR IGNORE INTO values(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: values,
+--
+InsertStatement(insert_mode=IGNORE) [0-68] [insert  ignore...ws_modified 5]
+  PathExpression [16-22] [values]
+    Identifier(values) [16-22] [values]
+  InsertValuesRowList [24-45] [values (5,6), ('abc')]
+    InsertValuesRow [31-36] [(5,6)]
+      IntLiteral(5) [32-33] [5]
+      IntLiteral(6) [34-35] [6]
+    InsertValuesRow [38-45] [('abc')]
+      StringLiteral('abc') [39-44] ['abc']
+  AssertRowsModified [46-68] [assert_rows_modified 5]
+    IntLiteral(5) [67-68] [5]
+--
+INSERT OR IGNORE INTO values
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+==
+
+# Test all combinations of missing and present parts.
+# The insert_mode is never treated as a table name, although the tests below
+# show that those can be valid table names after INTO.
+insert{{ or|}}{{| ignore| replace| update}}{{ into|}}{{ T|}}
+select 1
+--
+ALTERNATION GROUP:  or,, into, T
+--
+ERROR: Syntax error: Expected keyword IGNORE or keyword REPLACE or keyword UPDATE but got keyword INTO [at 1:11]
+insert or into T
+          ^
+--
+ALTERNATION GROUP:  or,, into,
+--
+ERROR: Syntax error: Expected keyword IGNORE or keyword REPLACE or keyword UPDATE but got keyword INTO [at 1:11]
+insert or into
+          ^
+--
+ALTERNATION GROUP:  or,,, T
+--
+ERROR: Syntax error: Expected keyword IGNORE or keyword REPLACE or keyword UPDATE but got identifier "T" [at 1:11]
+insert or T
+          ^
+--
+ALTERNATION GROUP:  or,,,
+--
+ERROR: Syntax error: Expected keyword IGNORE or keyword REPLACE or keyword UPDATE but got keyword SELECT [at 2:1]
+select 1
+^
+--
+ALTERNATION GROUP:  or, ignore, into, T
+--
+InsertStatement(insert_mode=IGNORE) [0-32] [insert or...T select 1]
+  PathExpression [22-23] [T]
+    Identifier(T) [22-23] [T]
+  Query [24-32] [select 1]
+    Select [24-32] [select 1]
+      SelectList [31-32] [1]
+        SelectColumn [31-32] [1]
+          IntLiteral(1) [31-32] [1]
+--
+INSERT OR IGNORE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUPS:
+     or, ignore, into,
+     or, replace, into,
+     or, update, into,
+     into,
+     ignore, into,
+     replace, into,
+     update, into,
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 2:1]
+select 1
+^
+--
+ALTERNATION GROUP:  or, ignore,, T
+--
+InsertStatement(insert_mode=IGNORE) [0-27] [insert or ignore T select 1]
+  PathExpression [17-18] [T]
+    Identifier(T) [17-18] [T]
+  Query [19-27] [select 1]
+    Select [19-27] [select 1]
+      SelectList [26-27] [1]
+        SelectColumn [26-27] [1]
+          IntLiteral(1) [26-27] [1]
+--
+INSERT OR IGNORE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUPS:
+     or, ignore,,
+     or, replace,,
+     or, update,,
+    <empty>
+     ignore,,
+     replace,,
+     update,,
+--
+ERROR: Syntax error: Expecting INSERT target name [at 2:1]
+select 1
+^
+--
+ALTERNATION GROUP:  or, replace, into, T
+--
+InsertStatement(insert_mode=REPLACE) [0-33] [insert or...T select 1]
+  PathExpression [23-24] [T]
+    Identifier(T) [23-24] [T]
+  Query [25-33] [select 1]
+    Select [25-33] [select 1]
+      SelectList [32-33] [1]
+        SelectColumn [32-33] [1]
+          IntLiteral(1) [32-33] [1]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  or, replace,, T
+--
+InsertStatement(insert_mode=REPLACE) [0-28] [insert or replace T select 1]
+  PathExpression [18-19] [T]
+    Identifier(T) [18-19] [T]
+  Query [20-28] [select 1]
+    Select [20-28] [select 1]
+      SelectList [27-28] [1]
+        SelectColumn [27-28] [1]
+          IntLiteral(1) [27-28] [1]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  or, update, into, T
+--
+InsertStatement(insert_mode=UPDATE) [0-32] [insert or...T select 1]
+  PathExpression [22-23] [T]
+    Identifier(T) [22-23] [T]
+  Query [24-32] [select 1]
+    Select [24-32] [select 1]
+      SelectList [31-32] [1]
+        SelectColumn [31-32] [1]
+          IntLiteral(1) [31-32] [1]
+--
+INSERT OR UPDATE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  or, update,, T
+--
+InsertStatement(insert_mode=UPDATE) [0-27] [insert or update T select 1]
+  PathExpression [17-18] [T]
+    Identifier(T) [17-18] [T]
+  Query [19-27] [select 1]
+    Select [19-27] [select 1]
+      SelectList [26-27] [1]
+        SelectColumn [26-27] [1]
+          IntLiteral(1) [26-27] [1]
+--
+INSERT OR UPDATE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  into, T
+--
+InsertStatement [0-22] [insert into T select 1]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  Query [14-22] [select 1]
+    Select [14-22] [select 1]
+      SelectList [21-22] [1]
+        SelectColumn [21-22] [1]
+          IntLiteral(1) [21-22] [1]
+--
+INSERT INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  T
+--
+InsertStatement [0-17] [insert T select 1]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  Query [9-17] [select 1]
+    Select [9-17] [select 1]
+      SelectList [16-17] [1]
+        SelectColumn [16-17] [1]
+          IntLiteral(1) [16-17] [1]
+--
+INSERT INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  ignore, into, T
+--
+InsertStatement(insert_mode=IGNORE) [0-29] [insert ignore into T select 1]
+  PathExpression [19-20] [T]
+    Identifier(T) [19-20] [T]
+  Query [21-29] [select 1]
+    Select [21-29] [select 1]
+      SelectList [28-29] [1]
+        SelectColumn [28-29] [1]
+          IntLiteral(1) [28-29] [1]
+--
+INSERT OR IGNORE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  ignore,, T
+--
+InsertStatement(insert_mode=IGNORE) [0-24] [insert ignore T select 1]
+  PathExpression [14-15] [T]
+    Identifier(T) [14-15] [T]
+  Query [16-24] [select 1]
+    Select [16-24] [select 1]
+      SelectList [23-24] [1]
+        SelectColumn [23-24] [1]
+          IntLiteral(1) [23-24] [1]
+--
+INSERT OR IGNORE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  replace, into, T
+--
+InsertStatement(insert_mode=REPLACE) [0-30] [insert replace into T select 1]
+  PathExpression [20-21] [T]
+    Identifier(T) [20-21] [T]
+  Query [22-30] [select 1]
+    Select [22-30] [select 1]
+      SelectList [29-30] [1]
+        SelectColumn [29-30] [1]
+          IntLiteral(1) [29-30] [1]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  replace,, T
+--
+InsertStatement(insert_mode=REPLACE) [0-25] [insert replace T select 1]
+  PathExpression [15-16] [T]
+    Identifier(T) [15-16] [T]
+  Query [17-25] [select 1]
+    Select [17-25] [select 1]
+      SelectList [24-25] [1]
+        SelectColumn [24-25] [1]
+          IntLiteral(1) [24-25] [1]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  update, into, T
+--
+InsertStatement(insert_mode=UPDATE) [0-29] [insert update into T select 1]
+  PathExpression [19-20] [T]
+    Identifier(T) [19-20] [T]
+  Query [21-29] [select 1]
+    Select [21-29] [select 1]
+      SelectList [28-29] [1]
+        SelectColumn [28-29] [1]
+          IntLiteral(1) [28-29] [1]
+--
+INSERT OR UPDATE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  update,, T
+--
+InsertStatement(insert_mode=UPDATE) [0-24] [insert update T select 1]
+  PathExpression [14-15] [T]
+    Identifier(T) [14-15] [T]
+  Query [16-24] [select 1]
+    Select [16-24] [select 1]
+      SelectList [23-24] [1]
+        SelectColumn [23-24] [1]
+          IntLiteral(1) [23-24] [1]
+--
+INSERT OR UPDATE INTO T
+SELECT
+  1
+==
+
+# After "values", the Bison parser parses the list as a values list, even if the
+# "values" is really a table name, which means that the list should be
+# interpreted as a column list.
+INSERT values (a, b)
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:21]
+INSERT values (a, b)
+                    ^
+==
+
+INSERT values values (a, b)
+--
+InsertStatement [0-27] [INSERT values values (a, b)]
+  PathExpression [7-13] [values]
+    Identifier(values) [7-13] [values]
+  InsertValuesRowList [14-27] [values (a, b)]
+    InsertValuesRow [21-27] [(a, b)]
+      PathExpression [22-23] [a]
+        Identifier(a) [22-23] [a]
+      PathExpression [25-26] [b]
+        Identifier(b) [25-26] [b]
+--
+INSERT INTO values
+VALUES
+  (a, b)
+==
+
+INSERT mytable values (a, b)
+--
+InsertStatement [0-28] [INSERT mytable values (a, b)]
+  PathExpression [7-14] [mytable]
+    Identifier(mytable) [7-14] [mytable]
+  InsertValuesRowList [15-28] [values (a, b)]
+    InsertValuesRow [22-28] [(a, b)]
+      PathExpression [23-24] [a]
+        Identifier(a) [23-24] [a]
+      PathExpression [26-27] [b]
+        Identifier(b) [26-27] [b]
+--
+INSERT INTO mytable
+VALUES
+  (a, b)
+==
+
+INSERT values mytable (a, b)
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:15]
+INSERT values mytable (a, b)
+              ^
+==
+
+# Bad column list (values is a table name here).
+INSERT values (1, 3)
+--
+ERROR: Syntax error: Expected column name [at 1:16]
+INSERT values (1, 3)
+               ^
+==
+
+# After "values", the Bison parser parses the list as a values list, even if
+# the "values" is really a table name, which means that the list should be
+# interpreted as a column list. In this test case multiple column lists are
+# given, which parses correctly but is then rejected when the list is
+# reinterpreted as a column list.
+INSERT values (a, b), (c, d)
+--
+ERROR: Syntax error: Unexpected multiple column lists [at 1:23]
+INSERT values (a, b), (c, d)
+                      ^
+==
+
+# Same as the previous test case, but the first column list doesn't parse as a
+# column list.
+INSERT values (1, 3), (c, d)
+--
+ERROR: Syntax error: Expected column name [at 1:16]
+INSERT values (1, 3), (c, d)
+               ^
+==
+
+# Column list after "values" (which is a table name here) that includes the
+# "default" keyword. It is still a keyword, so it can't be included in the
+# column name list without escaping..
+INSERT values (a, default) values (1, 3)
+--
+ERROR: Syntax error: Expected column name, got keyword DEFAULT [at 1:19]
+INSERT values (a, default) values (1, 3)
+                  ^
+==
+
+# Using "default" as a column name works fine with escaping.
+INSERT values (a, `default`) values (1, 3)
+--
+InsertStatement [0-42] [INSERT values...values (1, 3)]
+  PathExpression [7-13] [values]
+    Identifier(values) [7-13] [values]
+  ColumnList [14-28] [(a, `default`)]
+    Identifier(a) [15-16] [a]
+    Identifier(`default`) [18-27] [`default`]
+  InsertValuesRowList [29-42] [values (1, 3)]
+    InsertValuesRow [36-42] [(1, 3)]
+      IntLiteral(1) [37-38] [1]
+      IntLiteral(3) [40-41] [3]
+--
+INSERT INTO values(a, `default`)
+VALUES
+  (1, 3)
+==
+
+insert or ignore {{into|}} replace
+select 1
+--
+ALTERNATION GROUP: into
+--
+InsertStatement(insert_mode=IGNORE) [0-38] [insert or...replace select 1]
+  PathExpression [22-29] [replace]
+    Identifier(`replace`) [22-29] [replace]
+  Query [30-38] [select 1]
+    Select [30-38] [select 1]
+      SelectList [37-38] [1]
+        SelectColumn [37-38] [1]
+          IntLiteral(1) [37-38] [1]
+--
+INSERT OR IGNORE INTO `replace`
+SELECT
+  1
+--
+ALTERNATION GROUP: <empty>
+--
+InsertStatement(insert_mode=IGNORE) [0-34] [insert or...replace select 1]
+  PathExpression [18-25] [replace]
+    Identifier(`replace`) [18-25] [replace]
+  Query [26-34] [select 1]
+    Select [26-34] [select 1]
+      SelectList [33-34] [1]
+        SelectColumn [33-34] [1]
+          IntLiteral(1) [33-34] [1]
+--
+INSERT OR IGNORE INTO `replace`
+SELECT
+  1
+==
+
+insert into insert
+select 1
+--
+InsertStatement [0-27] [insert into insert select 1]
+  PathExpression [12-18] [insert]
+    Identifier(insert) [12-18] [insert]
+  Query [19-27] [select 1]
+    Select [19-27] [select 1]
+      SelectList [26-27] [1]
+        SelectColumn [26-27] [1]
+          IntLiteral(1) [26-27] [1]
+--
+INSERT INTO insert
+SELECT
+  1
+==
+
+# IGNORE is a reserved keyword.
+insert into ignore
+select 1
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:13]
+insert into ignore
+            ^
+==
+
+insert into replace
+select 1
+--
+InsertStatement [0-28] [insert into replace select 1]
+  PathExpression [12-19] [replace]
+    Identifier(`replace`) [12-19] [replace]
+  Query [20-28] [select 1]
+    Select [20-28] [select 1]
+      SelectList [27-28] [1]
+        SelectColumn [27-28] [1]
+          IntLiteral(1) [27-28] [1]
+--
+INSERT INTO `replace`
+SELECT
+  1
+==
+
+insert into T (c1)
+with q1 as (select 1)
+select * from q1
+assert_rows_modified @row_count
+--
+InsertStatement [0-89] [insert into...@row_count]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [14-18] [(c1)]
+    Identifier(c1) [15-17] [c1]
+  Query [19-57] [with q1 as...* from q1]
+    WithClause [19-40] [with q1 as (select 1)]
+      AliasedQuery [24-40] [q1 as (select 1)]
+        Identifier(q1) [24-26] [q1]
+        Query [31-39] [select 1]
+          Select [31-39] [select 1]
+            SelectList [38-39] [1]
+              SelectColumn [38-39] [1]
+                IntLiteral(1) [38-39] [1]
+    Select [41-57] [select * from q1]
+      SelectList [48-49] [*]
+        SelectColumn [48-49] [*]
+          Star(*) [48-49] [*]
+      FromClause [50-57] [from q1]
+        TablePathExpression [55-57] [q1]
+          PathExpression [55-57] [q1]
+            Identifier(q1) [55-57] [q1]
+  AssertRowsModified [58-89] [assert_rows_modif...@row_count]
+    ParameterExpr [79-89] [@row_count]
+      Identifier(row_count) [80-89] [row_count]
+--
+INSERT INTO T(c1)
+WITH
+  q1 AS (
+    SELECT
+      1
+  )
+SELECT
+  *
+FROM
+  q1
+ASSERT_ROWS_MODIFIED @row_count
+==
+
+insert into T
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:14]
+insert into T
+             ^
+==
+
+insert into T (c1,c2)
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:22]
+insert into T (c1,c2)
+                     ^
+==
+
+insert into T (c1,c2)
+assert_rows_modified 10
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 2:1]
+assert_rows_modified 10
+^
+==
+
+insert into T ()
+select 1
+--
+ERROR: Syntax error: Unexpected ")" [at 1:16]
+insert into T ()
+               ^
+==
+
+insert into T
+values ()
+--
+ERROR: Syntax error: Unexpected ")" [at 2:9]
+values ()
+        ^
+==
+
+insert into T
+values ((1,2), (select 1))
+--
+InsertStatement [0-40] [insert into...select 1))]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  InsertValuesRowList [14-40] [values ((1,2), (select 1))]
+    InsertValuesRow [21-40] [((1,2), (select 1))]
+      StructConstructorWithParens [22-27] [(1,2)]
+        IntLiteral(1) [23-24] [1]
+        IntLiteral(2) [25-26] [2]
+      ExpressionSubquery [29-39] [(select 1)]
+        Query [30-38] [select 1]
+          Select [30-38] [select 1]
+            SelectList [37-38] [1]
+              SelectColumn [37-38] [1]
+                IntLiteral(1) [37-38] [1]
+--
+INSERT INTO T
+VALUES
+  ((1, 2), (
+      SELECT
+        1
+    ))
+==
+
+insert into T
+values (1,2), (select 1)
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 2:16]
+values (1,2), (select 1)
+               ^
+==
+
+insert into T
+values (1,2), ((select 1))
+--
+InsertStatement [0-40] [insert into...select 1))]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  InsertValuesRowList [14-40] [values (1,2), ((select 1))]
+    InsertValuesRow [21-26] [(1,2)]
+      IntLiteral(1) [22-23] [1]
+      IntLiteral(2) [24-25] [2]
+    InsertValuesRow [28-40] [((select 1))]
+      ExpressionSubquery [29-39] [(select 1)]
+        Query [30-38] [select 1]
+          Select [30-38] [select 1]
+            SelectList [37-38] [1]
+              SelectColumn [37-38] [1]
+                IntLiteral(1) [37-38] [1]
+--
+INSERT INTO T
+VALUES
+  (1, 2),
+  ((
+      SELECT
+        1
+    ))
+==
+
+# WITH with no column_list.
+insert T
+with q1 as (select 1)
+select * from q1
+--
+InsertStatement [0-47] [insert T with...* from q1]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  Query [9-47] [with q1 as...* from q1]
+    WithClause [9-30] [with q1 as (select 1)]
+      AliasedQuery [14-30] [q1 as (select 1)]
+        Identifier(q1) [14-16] [q1]
+        Query [21-29] [select 1]
+          Select [21-29] [select 1]
+            SelectList [28-29] [1]
+              SelectColumn [28-29] [1]
+                IntLiteral(1) [28-29] [1]
+    Select [31-47] [select * from q1]
+      SelectList [38-39] [*]
+        SelectColumn [38-39] [*]
+          Star(*) [38-39] [*]
+      FromClause [40-47] [from q1]
+        TablePathExpression [45-47] [q1]
+          PathExpression [45-47] [q1]
+            Identifier(q1) [45-47] [q1]
+--
+INSERT INTO T
+WITH
+  q1 AS (
+    SELECT
+      1
+  )
+SELECT
+  *
+FROM
+  q1
+==
+
+insert or replace into T
+select * from q1
+union all
+select * from q2
+order by x
+limit 5
+assert_rows_modified 0
+--
+InsertStatement(insert_mode=REPLACE) [0-110] [insert or...rt_rows_modified 0]
+  PathExpression [23-24] [T]
+    Identifier(T) [23-24] [T]
+  Query [25-87] [select * from...x limit 5]
+    SetOperation(UNION ALL) [25-68] [select * from...* from q2]
+      SetOperationMetadataList [41-51] [union all]
+        SetOperationMetadata [41-51] [union all]
+          SetOperationType [42-47] [union]
+          ASTSetOperationAllOrDistinct [48-51] [all]
+      Select [25-41] [select * from q1]
+        SelectList [32-33] [*]
+          SelectColumn [32-33] [*]
+            Star(*) [32-33] [*]
+        FromClause [34-41] [from q1]
+          TablePathExpression [39-41] [q1]
+            PathExpression [39-41] [q1]
+              Identifier(q1) [39-41] [q1]
+      Select [52-68] [select * from q2]
+        SelectList [59-60] [*]
+          SelectColumn [59-60] [*]
+            Star(*) [59-60] [*]
+        FromClause [61-68] [from q2]
+          TablePathExpression [66-68] [q2]
+            PathExpression [66-68] [q2]
+              Identifier(q2) [66-68] [q2]
+    OrderBy [69-79] [order by x]
+      OrderingExpression(ASC) [78-79] [x]
+        PathExpression [78-79] [x]
+          Identifier(x) [78-79] [x]
+    LimitOffset [80-87] [limit 5]
+      IntLiteral(5) [86-87] [5]
+  AssertRowsModified [88-110] [assert_rows_modified 0]
+    IntLiteral(0) [109-110] [0]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  *
+FROM
+  q1
+UNION ALL
+SELECT
+  *
+FROM
+  q2
+ORDER BY x
+LIMIT 5
+ASSERT_ROWS_MODIFIED 0
+==
+
+insert into T (c1,c2)
+values (1+2, f(), null, default),
+       (default, (select x from y))
+--
+InsertStatement [0-91] [insert into...x from y))]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [14-21] [(c1,c2)]
+    Identifier(c1) [15-17] [c1]
+    Identifier(c2) [18-20] [c2]
+  InsertValuesRowList [22-91] [values (1+...x from y))]
+    InsertValuesRow [29-54] [(1+2, f(), null, default)]
+      BinaryExpression(+) [30-33] [1+2]
+        IntLiteral(1) [30-31] [1]
+        IntLiteral(2) [32-33] [2]
+      FunctionCall [35-38] [f()]
+        PathExpression [35-36] [f]
+          Identifier(f) [35-36] [f]
+      NullLiteral(null) [40-44] [null]
+      DefaultLiteral [46-53] [default]
+    InsertValuesRow [63-91] [(default, (select x from y))]
+      DefaultLiteral [64-71] [default]
+      ExpressionSubquery [73-90] [(select x from y)]
+        Query [74-89] [select x from y]
+          Select [74-89] [select x from y]
+            SelectList [81-82] [x]
+              SelectColumn [81-82] [x]
+                PathExpression [81-82] [x]
+                  Identifier(x) [81-82] [x]
+            FromClause [83-89] [from y]
+              TablePathExpression [88-89] [y]
+                PathExpression [88-89] [y]
+                  Identifier(y) [88-89] [y]
+--
+INSERT INTO T(c1, c2)
+VALUES
+  (1 + 2, f(), null, DEFAULT),
+  (DEFAULT, (
+      SELECT
+        x
+      FROM
+        y
+    ))
+==
+
+insert into c1.T (c1.c2)
+--
+ERROR: Syntax error: Expected ")" or "," but got "." [at 1:21]
+insert into c1.T (c1.c2)
+                    ^
+==
+
+insert into (select 1)
+--
+ERROR: Syntax error: Unexpected "(" [at 1:13]
+insert into (select 1)
+            ^
+==
+
+insert into T
+values (1,2)
+select 5
+--
+ERROR: Syntax error: Unexpected query [at 3:1]
+select 5
+^
+==
+
+insert into T
+select 5
+values (1,2)
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 3:8]
+values (1,2)
+       ^
+==
+
+# Parenthesized query without a column_list.  This exercises the special
+# case in insert_statement().
+insert into T
+(select 5)
+--
+InsertStatement [0-24] [insert into T (select 5)]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  Query [15-23] [select 5]
+    Select [15-23] [select 5]
+      SelectList [22-23] [5]
+        SelectColumn [22-23] [5]
+          IntLiteral(5) [22-23] [5]
+--
+INSERT INTO T
+(
+SELECT
+  5
+)
+==
+
+# Double-parenthesized query without a column_list.
+insert into T
+((select 1) union all (select 2))
+--
+InsertStatement [0-47] [insert into...select 2))]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  Query [15-46] [(select 1)...(select 2)]
+    SetOperation(UNION ALL) [15-46] [(select 1)...(select 2)]
+      SetOperationMetadataList [25-35] [union all]
+        SetOperationMetadata [25-35] [union all]
+          SetOperationType [26-31] [union]
+          ASTSetOperationAllOrDistinct [32-35] [all]
+      Query [16-24] [select 1]
+        Select [16-24] [select 1]
+          SelectList [23-24] [1]
+            SelectColumn [23-24] [1]
+              IntLiteral(1) [23-24] [1]
+      Query [37-45] [select 2]
+        Select [37-45] [select 2]
+          SelectList [44-45] [2]
+            SelectColumn [44-45] [2]
+              IntLiteral(2) [44-45] [2]
+--
+INSERT INTO T
+((
+SELECT
+  1
+) UNION ALL(
+SELECT
+  2
+))
+==
+
+insert into T (c1, c2)
+(select 5, 7) union all select 8,9
+--
+InsertStatement [0-57] [insert into...select 8,9]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  ColumnList [14-22] [(c1, c2)]
+    Identifier(c1) [15-17] [c1]
+    Identifier(c2) [19-21] [c2]
+  Query [23-57] [(select 5,...select 8,9]
+    SetOperation(UNION ALL) [23-57] [(select 5,...select 8,9]
+      SetOperationMetadataList [36-46] [union all]
+        SetOperationMetadata [36-46] [union all]
+          SetOperationType [37-42] [union]
+          ASTSetOperationAllOrDistinct [43-46] [all]
+      Query [24-35] [select 5, 7]
+        Select [24-35] [select 5, 7]
+          SelectList [31-35] [5, 7]
+            SelectColumn [31-32] [5]
+              IntLiteral(5) [31-32] [5]
+            SelectColumn [34-35] [7]
+              IntLiteral(7) [34-35] [7]
+      Select [47-57] [select 8,9]
+        SelectList [54-57] [8,9]
+          SelectColumn [54-55] [8]
+            IntLiteral(8) [54-55] [8]
+          SelectColumn [56-57] [9]
+            IntLiteral(9) [56-57] [9]
+--
+INSERT INTO T(c1, c2)
+(
+SELECT
+  5,
+  7
+) UNION ALL
+SELECT
+  8,
+  9
+==
+
+insert into T (c1, c2) (c3)
+--
+ERROR: Syntax error: Unexpected column list [at 1:24]
+insert into T (c1, c2) (c3)
+                       ^
+==
+
+# The resolver will fail on this because the target involves a generalized
+# field access, but it does parse.
+insert into T.(a.b).c VALUES (1)
+--
+InsertStatement [0-32] [insert into...VALUES (1)]
+  DotIdentifier [12-21] [T.(a.b).c]
+    DotGeneralizedField [12-19] [T.(a.b)]
+      PathExpression [12-13] [T]
+        Identifier(T) [12-13] [T]
+      PathExpression [15-18] [a.b]
+        Identifier(a) [15-16] [a]
+        Identifier(b) [17-18] [b]
+    Identifier(c) [20-21] [c]
+  InsertValuesRowList [22-32] [VALUES (1)]
+    InsertValuesRow [29-32] [(1)]
+      IntLiteral(1) [30-31] [1]
+--
+INSERT INTO T.(a.b).c
+VALUES
+  (1)
+==
+
+# The resolver will fail on this because the target involves a generalized
+# field access, but it does parse.
+insert into T.a[0].b VALUES(1)
+--
+InsertStatement [0-30] [insert into T.a[0].b VALUES(1)]
+  DotIdentifier [12-20] [T.a[0].b]
+    ArrayElement [12-18] [T.a[0]]
+      PathExpression [12-15] [T.a]
+        Identifier(T) [12-13] [T]
+        Identifier(a) [14-15] [a]
+      Location [15-16] [[]
+      IntLiteral(0) [16-17] [0]
+    Identifier(b) [19-20] [b]
+  InsertValuesRowList [21-30] [VALUES(1)]
+    InsertValuesRow [27-30] [(1)]
+      IntLiteral(1) [28-29] [1]
+--
+INSERT INTO T.a[0].b
+VALUES
+  (1)
+==
+
+# Insert statement does not support table alias.
+INSERT T {{AS|}} a VALUES (5)
+--
+ALTERNATION GROUP: AS
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:9]
+INSERT T AS a VALUES (5)
+        ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:11]
+INSERT T  a VALUES (5)
+          ^
+==
+
+@{a=b} insert into t1 values (null)
+--
+HintedStatement [0-35] [@{a=b} insert...values (null)]
+  Hint [0-6] [@{a=b}]
+    HintEntry [2-5] [a=b]
+      Identifier(a) [2-3] [a]
+      PathExpression [4-5] [b]
+        Identifier(b) [4-5] [b]
+  InsertStatement [7-35] [insert into t1 values (null)]
+    PathExpression [19-21] [t1]
+      Identifier(t1) [19-21] [t1]
+    InsertValuesRowList [22-35] [values (null)]
+      InsertValuesRow [29-35] [(null)]
+        NullLiteral(null) [30-34] [null]
+--
+@{ a = b }
+INSERT INTO t1
+VALUES
+  (null)
+==
+
+[no_test_get_parse_tokens]
+[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+insert into project-987654321.a.b values (1)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `project-987654321.a.b` [at 1:13]
+insert into project-987654321.a.b values (1)
+            ^
+--
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+--
+InsertStatement [0-44] [insert into...values (1)]
+  PathExpression [12-33] [project-987654321.a.b]
+    Identifier(`project-987654321`) [12-31] [project-987654321.a]
+    Identifier(a) [12-31] [project-987654321.a]
+    Identifier(b) [32-33] [b]
+  InsertValuesRowList [34-44] [values (1)]
+    InsertValuesRow [41-44] [(1)]
+      IntLiteral(1) [42-43] [1]
+--
+INSERT INTO `project-987654321`.a.b
+VALUES
+  (1)
+==

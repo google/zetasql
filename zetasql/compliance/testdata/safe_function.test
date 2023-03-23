@@ -50,6 +50,13 @@ ARRAY<STRUCT<key INT64, INT64, INT64>>[
 ]
 ==
 
+[name=safe_sum_double_overflow]
+select safe.sum(value)
+from (SELECT 1.7e+308 AS value UNION ALL SELECT 1.7e+308)
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+
 [name=safe_agg_func_no_group_by]
 select safe.sum(value)
 from input
@@ -103,6 +110,28 @@ ARRAY<STRUCT<key INT64, offset INT64, INT64>>[
 ]
 ==
 
+[name=safe_analytic_non_agg_func_ntile_no_error]
+[required_features=ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[parameters=2 as buckets]
+select key, offset,
+       safe.ntile(@buckets) over (partition by key order by offset)
+from input
+order by key, offset
+--
+ARRAY<STRUCT<key INT64, offset INT64, INT64>>[
+  {1, 0, 1},
+  {1, 1, 2},
+  {2, 2, 1},
+  {2, 3, 1},
+  {2, 4, 2},
+  {3, 5, 1},
+  {3, 6, 1},
+  {3, 7, 2},
+  {3, 8, 2},
+  {4, 9, 1}
+]
+==
+
 # This shows the case of an error in the constant argument for NTILE, which
 # can happen at execution time for parameters only.  We aren't converting the
 # error for these cases.
@@ -126,6 +155,12 @@ from input
 order by key, offset
 --
 ERROR: generic::out_of_range: The N value (number of buckets) for the NTILE function must not be NULL
+==
+
+[name=safe_concat]
+SELECT SAFE.CONCAT('a', 'b');
+--
+ARRAY<STRUCT<STRING>>[{"ab"}]
 ==
 
 [name=safe_scalar_arg_error]
@@ -457,3 +492,4 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[10]}]
 SELECT SAFE.ARRAY_INCLUDES([-1, 0, 10], e -> SAFE_DIVIDE(1, e) > 0)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+

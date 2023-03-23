@@ -17,6 +17,7 @@
 #include "zetasql/parser/parser.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -347,19 +348,64 @@ absl::Status ParseNextStatementProperties(
   ZETASQL_RET_CHECK(parser_options.AllArenasAreInitialized());
 
   parser::BisonParser parser;
+  std::unique_ptr<ASTNode> output;
 
-  // Note that we ignore parse errors since they may occur after we have
-  // already determined some of the node properties, and we want to return
-  // whatever information we have in that case.  This is also consistent
-  // with Parse[Next]StatementKind() above.
-  parser.Parse(
+  // Unlike ParseStatementKind above, it is not safe to ignore the output
+  // status in this case. In this functionn we expect to be able to inspect the
+  // ASTNode instances to get at statement level hints, and if there is a
+  // parser error those nodes might not be initialized.
+  //
+  // We still do ignore errors here for the most part, we just don't look at the
+  // ASTNodes when there is an error. Possibly we should be propagating this
+  // error. That is hard to do right now because the parser's tests run
+  // ParseNextStatementProperties on things that are not statements and expects
+  // that to work.
+  absl::Status parse_status = parser.Parse(
       BisonParserMode::kNextStatementKind, resume_location.filename(),
       resume_location.input(), resume_location.byte_position(),
-      parser_options.id_string_pool().get(),
-      parser_options.arena().get(), parser_options.language_options(),
-      /*output=*/nullptr, allocated_ast_nodes,
-      ast_statement_properties, /*statement_end_byte_offset=*/nullptr)
-          .IgnoreError();
+      parser_options.id_string_pool().get(), parser_options.arena().get(),
+      parser_options.language_options(), &output, allocated_ast_nodes,
+      ast_statement_properties, /*statement_end_byte_offset=*/nullptr);
+
+  // In kNextStatementKind mode, the bison parser places the statement level
+  // hint in the output parameter.
+  if (parse_status.ok() && output != nullptr) {
+    ZETASQL_RET_CHECK(output->Is<ASTHint>());
+    auto ast_hint = output->GetAsOrNull<ASTHint>();
+    ZETASQL_RET_CHECK(ast_hint != nullptr);
+    const absl::string_view sql_input = resume_location.input();
+    ZETASQL_RETURN_IF_ERROR(ProcessStatementLevelHintsToMap(
+        ast_hint, sql_input, ast_statement_properties->statement_level_hints));
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status ProcessStatementLevelHintsToMap(
+    const ASTHint* ast_hint, absl::string_view sql_input,
+    absl::flat_hash_map<std::string, std::string>& hints_map) {
+  ZETASQL_RET_CHECK(ast_hint != nullptr);
+  hints_map.clear();
+  for (const ASTHintEntry* hint : ast_hint->hint_entries()) {
+    std::string hint_name_text =
+        (hint->qualifier() == nullptr
+             ? hint->name()->GetAsString()
+             : absl::StrCat(hint->qualifier()->GetAsStringView(), ".",
+                            hint->name()->GetAsStringView()));
+
+    // Get the start and end byte offset of the hint's value expression,
+    // and use the text from the input string.
+    const int start_offset =
+        hint->value()->GetParseLocationRange().start().GetByteOffset();
+    const int end_offset =
+        hint->value()->GetParseLocationRange().end().GetByteOffset();
+    absl::string_view hint_expr_text =
+        sql_input.substr(start_offset, end_offset - start_offset);
+
+    // Note that this method does not return an error if there are duplicates.
+    // If there are duplicates, then this uses the last one.
+    hints_map.emplace(std::move(hint_name_text), std::string(hint_expr_text));
+  }
   return absl::OkStatus();
 }
 

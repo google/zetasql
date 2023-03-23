@@ -50,34 +50,68 @@ class BuiltinFunctionInlinerVisitor : public ResolvedASTDeepCopyVisitor {
         type_factory_(type_factory) {}
 
  private:
+  absl::Status ValidateFunctionArgumentTypeOptions(
+      const FunctionArgumentTypeOptions& options, int arg_idx) {
+    ZETASQL_RET_CHECK(options.has_argument_name())
+        << "Functions with configured inlining must provide argument names. "
+        << "Missing argument name for argument " << arg_idx;
+    return absl::OkStatus();
+  }
   absl::Status Rewrite(const ResolvedFunctionCall* node,
                        absl::string_view rewrite_template) {
-    ZETASQL_RET_CHECK_EQ(node->argument_list_size(),
-                 node->signature().arguments().size())
-        << "Number of arguments provided " << node->argument_list_size()
+    // generic_argument list is only set if at least one argument of this
+    // function call is not a ResolvedExpr e.g. a ResolvedInlineLambda
+    // otherwise argument_list is used and all arguments are ResolvedExprs.
+    bool use_generic_arguments = node->generic_argument_list_size() != 0;
+    int num_arguments = use_generic_arguments
+                            ? node->generic_argument_list_size()
+                            : node->argument_list_size();
+    ZETASQL_RET_CHECK_EQ(num_arguments, node->signature().arguments().size())
+        << "Number of arguments provided " << num_arguments
         << " does not match the number of arguments expected by the function "
         << " signature " << node->signature().arguments().size();
 
+    absl::flat_hash_map<std::string, const ResolvedInlineLambda*> lambdas;
     absl::flat_hash_map<std::string, const ResolvedExpr*> variables;
-    std::vector<std::unique_ptr<ResolvedExpr>> processed_args(
-        node->argument_list_size());
+    std::vector<std::unique_ptr<ResolvedExpr>> processed_args;
+    std::vector<std::unique_ptr<ResolvedInlineLambda>> processed_lambdas;
+    for (int i = 0; i < num_arguments; ++i) {
+      const ResolvedFunctionArgument* arg =
+          use_generic_arguments ? node->generic_argument_list(i) : nullptr;
+      if (use_generic_arguments && arg->inline_lambda() != nullptr) {
+        const ResolvedInlineLambda* lambda = arg->inline_lambda();
+        ZETASQL_ASSIGN_OR_RETURN(processed_lambdas.emplace_back(), ProcessNode(lambda));
 
-    for (int i = 0; i < node->argument_list_size(); ++i) {
-      const ResolvedExpr* arg = node->argument_list(i);
-      ZETASQL_RET_CHECK_NE(arg, nullptr);
-      ZETASQL_ASSIGN_OR_RETURN(processed_args[i], ProcessNode(arg));
+        const FunctionArgumentTypeOptions& arg_options =
+            node->signature().arguments()[i].options();
+        ZETASQL_RETURN_IF_ERROR(ValidateFunctionArgumentTypeOptions(arg_options, i));
 
-      const FunctionArgumentTypeOptions& arg_options =
-          node->signature().arguments()[i].options();
-      ZETASQL_RET_CHECK(arg_options.has_argument_name())
-          << "Functions with configured inlining must provide argument names. "
-          << "Missing argument name for argument " << i;
+        const auto& [_, no_conflict] = lambdas.try_emplace(
+            arg_options.argument_name(), processed_lambdas.back().get());
+        ZETASQL_RET_CHECK(no_conflict)
+            << "Duplicate lambda argument name not allowed for inlined"
+            << "built-in function: " << arg_options.argument_name();
+      } else {
+        ZETASQL_RET_CHECK(!use_generic_arguments ||
+                  (use_generic_arguments && arg->expr() != nullptr))
+            << "REWRITE_BUILTIN_FUNCTION_INLINER only supports normal "
+            << "expression arguments or function-typed arguments.";
+        const ResolvedExpr* arg = use_generic_arguments
+                                      ? node->generic_argument_list(i)->expr()
+                                      : node->argument_list(i);
+        ZETASQL_RET_CHECK_NE(arg, nullptr);
+        ZETASQL_ASSIGN_OR_RETURN(processed_args.emplace_back(), ProcessNode(arg));
 
-      const auto& [_, no_conflict] = variables.try_emplace(
-          arg_options.argument_name(), processed_args[i].get());
-      ZETASQL_RET_CHECK(no_conflict)
-          << "Duplicate argument name not allowed for inlined built-in "
-          << "function: " << arg_options.argument_name();
+        const FunctionArgumentTypeOptions& arg_options =
+            node->signature().arguments()[i].options();
+        ZETASQL_RETURN_IF_ERROR(ValidateFunctionArgumentTypeOptions(arg_options, i));
+
+        const auto& [_, no_conflict] = variables.try_emplace(
+            arg_options.argument_name(), processed_args.back().get());
+        ZETASQL_RET_CHECK(no_conflict)
+            << "Duplicate argument name not allowed for inlined built-in "
+            << "function: " << arg_options.argument_name();
+      }
     }
 
     bool is_safe =
@@ -96,7 +130,7 @@ class BuiltinFunctionInlinerVisitor : public ResolvedASTDeepCopyVisitor {
             analyzer_options_, *catalog_, *type_factory_,
             is_safe ? absl::Substitute(kSafeExprTemplate, rewrite_template)
                     : rewrite_template,
-            variables));
+            variables, lambdas));
     PushNodeToStack(std::move(rewritten_expr));
     return absl::OkStatus();
   }

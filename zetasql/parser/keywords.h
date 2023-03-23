@@ -24,6 +24,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/case.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 
@@ -112,6 +113,12 @@ bool IsKeywordInTokenizer(absl::string_view identifier);
 // identifier should be escaped when it is intended to be used as the identifier
 // and not the special keyword meaning.
 bool NonReservedIdentifierMustBeBackquoted(absl::string_view identifier);
+
+// For special keywords like NOT_SPECIAL or EXPECT_IN_SET_OP, gets a map from
+// the bison parser's generated string (e.g. KW_NOT_SPECIAL) to the string we
+// want to show in error messages or suggest in the autocomplete parser.
+const absl::flat_hash_map<absl::string_view, absl::string_view>&
+GetUserFacingImagesForSpecialKeywordsMap();
 
 }  // namespace parser
 }  // namespace zetasql

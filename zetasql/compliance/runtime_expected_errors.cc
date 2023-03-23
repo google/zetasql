@@ -309,43 +309,33 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Timezone is not allowed in (.+)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "(TIMESTAMP|DATETIME)_BUCKET doesn't support bucket width INTERVAL with "
-      "nanoseconds precision"));
+      "Bucket width INTERVAL with nanoseconds precision is not allowed"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "(TIMESTAMP|DATETIME|DATE)_BUCKET doesn't support zero bucket width "
-      "INTERVAL"));
+      "Zero bucket width INTERVAL is not allowed"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "(TIMESTAMP|DATETIME|DATE)_BUCKET doesn't support negative bucket width "
-      "INTERVAL"));
+      "Negative bucket width INTERVAL is not allowed"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
       "Bucket for .* is outside of (timestamp|datetime) range"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "TIMESTAMP_BUCKET doesn't support bucket width INTERVAL with non-zero "
-      "MONTH part"));
+      "Bucket width INTERVAL with non-zero MONTH part is not allowed"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "TIMESTAMP_BUCKET doesn't support bucket width INTERVAL with mixed DAY "
-      "and MICROSECOND parts"));
+      "Bucket width INTERVAL with mixed DAY and MICROSECOND parts is not "
+      "allowed"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "TIMESTAMP_BUCKET doesn't support bucket width INTERVAL with mixed DAY "
-      "and NANOSECOND parts"));
+      "Bucket width INTERVAL with mixed DAY and NANOSECOND parts is not "
+      "allowed"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "(DATETIME|DATE)_BUCKET requires exactly one non-zero INTERVAL part in "
-      "bucket width"));
+      "Exactly one non-zero INTERVAL part in bucket width is required"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "DATE_BUCKET requires exactly one non-zero INTERVAL part in bucket "
-      "width"));
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kOutOfRange,
-      "DATE_BUCKET only supports bucket width INTERVAL with MONTH and DAY "
-      "parts"));
+      "Only MONTH and DAY parts are allowed in bucket width INTERVAL"));
 
   // Interval Errors
   //

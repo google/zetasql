@@ -20,7 +20,7 @@ ZetaSQL.
 
 <span class="var">select</span>:
     <a href="#select_list">SELECT</a>
-        [ <a href="#anon_clause">WITH</a> <a href="#anon_clause"><span class="var">differential_privacy_clause</span></a> ]
+        [ <a href="#dp_clause">WITH</a> <a href="#dp_clause"><span class="var">differential_privacy_clause</span></a> ]
         [ { ALL | DISTINCT } ]
         [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
         <a href="#select_list"><span class="var">select_list</span></a>
@@ -142,7 +142,7 @@ SELECT * FROM TeamMascot
 
 <pre>
 SELECT
-    [ <a href="#anon_clause">WITH</a> <a href="#anon_clause"><span class="var">differential_privacy_clause</span></a> ]
+    [ <a href="#dp_clause">WITH</a> <a href="#dp_clause"><span class="var">differential_privacy_clause</span></a> ]
     [ { ALL | DISTINCT } ]
     [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
    <span class="var">select_list</span>
@@ -3546,7 +3546,7 @@ SELECT * FROM B
 ```
 
 ## Differential privacy clause 
-<a id="anon_clause"></a>
+<a id="dp_clause"></a>
 
 <pre class="lang-sql prettyprint">
 WITH
@@ -3556,7 +3556,7 @@ WITH
 
 This clause lets you transform the results of a query with differentially
 private aggregations. To learn more about this clause, see
-[Differential privacy][anon-concepts].
+[Differential privacy][dp-concepts].
 
 ## Using aliases 
 <a id="using_aliases"></a>
@@ -4238,7 +4238,7 @@ Results:
 
 [tvf-arguments]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvf_arguments
 
-[anon-concepts]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+[dp-concepts]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
 

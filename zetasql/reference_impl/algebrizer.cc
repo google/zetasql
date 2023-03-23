@@ -3286,6 +3286,14 @@ absl::StatusOr<AnonymizationOptions> GetDifferentialPrivacyOptions(
            << "Differential privacy option DELTA must be set";
   }
 
+  if (anonymization_options.delta->double_value() < 0 ||
+      !std::isfinite(anonymization_options.delta->double_value()) ||
+      anonymization_options.delta->double_value() > 1) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Delta must be in the inclusive interval [0,1], but is "
+           << anonymization_options.delta->double_value();
+  }
+
   // Split epsilon across each aggregate function.
   anonymization_options.epsilon =
       Value::Double(anonymization_options.epsilon->double_value() /

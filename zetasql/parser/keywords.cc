@@ -120,6 +120,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"contains", KW_CONTAINS, kReserved},
     {"continue", KW_CONTINUE},
     {"copy", KW_COPY},
+    {"corresponding", KW_CORRESPONDING},
     {"create", KW_CREATE, kReserved},
     {"cross", KW_CROSS, kReserved},
     {"cube", KW_CUBE, kReserved},
@@ -301,6 +302,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"start", KW_START},
     {"stored", KW_STORED},
     {"storing", KW_STORING},
+    {"strict", KW_STRICT},
     {"struct", KW_STRUCT, kReserved},
     {"system", KW_SYSTEM},
     {"system_time", KW_SYSTEM_TIME},
@@ -569,6 +571,27 @@ bool NonReservedIdentifierMustBeBackquoted(absl::string_view identifier) {
   static const auto& trie =
       *CreateNonReservedIdentifiersThatMustBeBackquotedTrie().release();
   return trie.Get(identifier);
+}
+
+const absl::flat_hash_map<absl::string_view, absl::string_view>&
+GetUserFacingImagesForSpecialKeywordsMap() {
+  static absl::flat_hash_map<absl::string_view, absl::string_view>* kMap =
+      []() {
+        return new absl::flat_hash_map<absl::string_view, absl::string_view>{
+            // TODO: Fold this mapping into kAllTokens instead of
+            //     having this second place that needs updating.
+            // (broken link) start
+            {"AND for BETWEEN", "AND"},
+            {"EXCEPT in set operation", "EXCEPT"},
+            {"KW_FULL_IN_SET_OP", "FULL"},
+            {"KW_LEFT_IN_SET_OP", "LEFT"},
+            {"KW_QUALIFY_RESERVED", "QUALIFY"},
+            {"NOT_SPECIAL", "NOT"},
+            {"WITH starting with expression", "WITH"},
+            // (broken link) end
+        };
+      }();
+  return *kMap;
 }
 
 }  // namespace parser

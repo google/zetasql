@@ -2278,14 +2278,14 @@ absl::Status Resolver::ResolveCreateModelStatement(
                 "models";
     }
 
+    // TODO: lift this restriction and support aliased query list
+    // with transform.
+    if (aliased_query_list != nullptr && transform_clause != nullptr) {
+      return MakeSqlErrorAt(transform_clause)
+             << "The TRANSFORM clause cannot be used with aliased query list";
+    }
     // Imported model
-    if (query == nullptr && aliased_query_list == nullptr &&
-        transform_clause != nullptr) {
-      if (enable_aliased_query_list) {
-        return MakeSqlErrorAt(transform_clause)
-               << "The TRANSFORM clause cannot be used without AS SELECT "
-                  "clause or AS aliased query list";
-      }
+    if (query == nullptr && transform_clause != nullptr) {
       return MakeSqlErrorAt(transform_clause)
              << "The TRANSFORM clause cannot be used without AS SELECT "
                 "clause";
@@ -2388,6 +2388,14 @@ absl::Status Resolver::ResolveCreateModelStatement(
     }
   }
 
+  // Resolve aliased query list.
+  std::vector<std::unique_ptr<const ResolvedCreateModelAliasedQuery>>
+      resolved_aliased_query_list;
+  if (aliased_query_list != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveCreateModelAliasedQueryList(
+        aliased_query_list, &resolved_aliased_query_list));
+  }
+
   // Resolve options.
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
   ZETASQL_RETURN_IF_ERROR(
@@ -2398,6 +2406,7 @@ absl::Status Resolver::ResolveCreateModelStatement(
   *output = MakeResolvedCreateModelStmt(
       model_name, create_scope, create_mode, std::move(resolved_options),
       std::move(query_output_column_list), std::move(query_scan),
+      std::move(resolved_aliased_query_list),
       std::move(transform_input_column_list), std::move(transform_list),
       std::move(transform_output_column_list),
       std::move(transform_analytic_function_group_list),

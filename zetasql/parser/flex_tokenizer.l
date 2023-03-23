@@ -329,6 +329,7 @@ comment               ({cs_comment}|{dash_comment}|{pound_comment})
           return BisonParserImpl::token::MODE_EXPRESSION;
         case BisonParserMode::kType:
           return BisonParserImpl::token::MODE_TYPE;
+        case BisonParserMode::kMacroBody:
         case BisonParserMode::kTokenizer:
         case BisonParserMode::kTokenizerPreserveComments:
           // Don't generate a mode token when we are doing raw tokenization.
@@ -389,7 +390,9 @@ and {
   if (YY_START == IN_BETWEEN) {
     // See IN_BETWEEN tokenizer mode description.
     yy_pop_state();
-    if (mode_ == BisonParserMode::kTokenizer) {
+    if (mode_ == BisonParserMode::kTokenizer ||
+        mode_ == BisonParserMode::kTokenizerPreserveComments ||
+        mode_ == BisonParserMode::kMacroBody) {
       return BisonParserImpl::token::KW_AND;
     }
     return BisonParserImpl::token::KW_AND_FOR_BETWEEN;
@@ -436,6 +439,7 @@ constant { return BisonParserImpl::token::KW_CONSTANT; }
 constraint { return BisonParserImpl::token::KW_CONSTRAINT; }
 continue { return BisonParserImpl::token::KW_CONTINUE; }
 contains { return BisonParserImpl::token::KW_CONTAINS; }
+corresponding { return BisonParserImpl::token::KW_CORRESPONDING; }
 create { return BisonParserImpl::token::KW_CREATE; }
 cross { return BisonParserImpl::token::KW_CROSS; }
 cube { return BisonParserImpl::token::KW_CUBE; }
@@ -467,14 +471,17 @@ error { return BisonParserImpl::token::KW_ERROR; }
 escape { return BisonParserImpl::token::KW_ESCAPE; }
 except/{opt_whitespace}"(" { return BisonParserImpl::token::KW_EXCEPT; }
 except/{whitespace}(all|distinct|"@") {
-  if (mode_ == BisonParserMode::kTokenizer) {
+  if (mode_ == BisonParserMode::kTokenizer ||
+      mode_ == BisonParserMode::kTokenizerPreserveComments ||
+      mode_ == BisonParserMode::kMacroBody) {
     return BisonParserImpl::token::KW_EXCEPT;
   }
   return BisonParserImpl::token::KW_EXCEPT_IN_SET_OP;
 }
 except {
   if (mode_ == BisonParserMode::kTokenizer ||
-      mode_ == BisonParserMode::kTokenizerPreserveComments) {
+      mode_ == BisonParserMode::kTokenizerPreserveComments ||
+      mode_ == BisonParserMode::kMacroBody) {
     // In raw tokenization mode, this may be legal.
     return BisonParserImpl::token::KW_EXCEPT;
   }
@@ -502,6 +509,12 @@ for { return BisonParserImpl::token::KW_FOR; }
 foreign { return BisonParserImpl::token::KW_FOREIGN; }
 format { return BisonParserImpl::token::KW_FORMAT; }
 from { return BisonParserImpl::token::KW_FROM; }
+full/{whitespace}(outer{whitespace})?(union|intersect|except) {
+  if (mode_ == BisonParserMode::kTokenizer) {
+    return BisonParserImpl::token::KW_FULL;
+  }
+  return BisonParserImpl::token::KW_FULL_IN_SET_OP;
+}
 full { return BisonParserImpl::token::KW_FULL; }
 function { return BisonParserImpl::token::KW_FUNCTION; }
 generated { return BisonParserImpl::token::KW_GENERATED; }
@@ -539,6 +552,12 @@ language { return BisonParserImpl::token::KW_LANGUAGE; }
 last { return BisonParserImpl::token::KW_LAST; }
 lateral { return BisonParserImpl::token::KW_LATERAL; }
 leave { return BisonParserImpl::token::KW_LEAVE; }
+left/{whitespace}(outer{whitespace})?(union|intersect|except) {
+  if (mode_ == BisonParserMode::kTokenizer) {
+    return BisonParserImpl::token::KW_LEFT;
+  }
+  return BisonParserImpl::token::KW_LEFT_IN_SET_OP;
+}
 left { return BisonParserImpl::token::KW_LEFT; }
 level { return BisonParserImpl::token::KW_LEVEL; }
 like { return BisonParserImpl::token::KW_LIKE; }
@@ -570,7 +589,9 @@ not { return BisonParserImpl::token::KW_NOT; }
  */
 not{whitespace}(between|in|like|distinct)[^A-Z_0-9] {
   SET_RETURN_PREFIX_LENGTH(3);
-  if (mode_ == BisonParserMode::kTokenizer) {
+  if (mode_ == BisonParserMode::kTokenizer ||
+      mode_ == BisonParserMode::kTokenizerPreserveComments ||
+      mode_ == BisonParserMode::kMacroBody) {
     return BisonParserImpl::token::KW_NOT;
   }
   return BisonParserImpl::token::KW_NOT_SPECIAL;
@@ -649,6 +670,7 @@ stable { return BisonParserImpl::token::KW_STABLE; }
 start { return BisonParserImpl::token::KW_START; }
 stored { return BisonParserImpl::token::KW_STORED; }
 storing { return BisonParserImpl::token::KW_STORING; }
+strict { return BisonParserImpl::token::KW_STRICT; }
 struct { return BisonParserImpl::token::KW_STRUCT; }
 system { return BisonParserImpl::token::KW_SYSTEM; }
 system_time { return BisonParserImpl::token::KW_SYSTEM_TIME; }
@@ -971,21 +993,24 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   if (AreMacrosEnabled()) {
     return BisonParserImpl::token::MACRO_INVOCATION;
   } else {
-    RETURN_ILLEGAL_CHARACTER_ERROR
+    SetOverrideError(*yylloc, "Macros are not supported");
+    yyterminate();
   }
 }
 "$"{decimal_digits} {
   if (AreMacrosEnabled()) {
     return BisonParserImpl::token::MACRO_ARGUMENT_REFERENCE;
   } else {
-    RETURN_ILLEGAL_CHARACTER_ERROR
+    SetOverrideError(*yylloc, "Macros are not supported");
+    yyterminate();
   }
 }
 "$" {
   if (AreMacrosEnabled()) {
     return BisonParserImpl::token::DOLLAR_SIGN;
   } else {
-    RETURN_ILLEGAL_CHARACTER_ERROR
+    SetOverrideError(*yylloc, "Macros are not supported");
+    yyterminate();
   }
 }
 

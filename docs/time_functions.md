@@ -57,56 +57,6 @@ SELECT current_time() as now, t.current_time FROM t;
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 
-### `TIME`
-
-```sql
-1. TIME(hour, minute, second)
-2. TIME(timestamp, [time_zone])
-3. TIME(datetime)
-```
-
-**Description**
-
-1. Constructs a `TIME` object using `INT64`
-   values representing the hour, minute, and second.
-2. Constructs a `TIME` object using a `TIMESTAMP` object. It supports an
-   optional
-   parameter to [specify a time zone][time-link-to-timezone-definitions]. If no
-   time zone is specified, the default time zone, which is implementation defined, is
-   used.
-3. Constructs a `TIME` object using a
-   `DATETIME` object.
-
-**Return Data Type**
-
-`TIME`
-
-**Example**
-
-```sql
-SELECT
-  TIME(15, 30, 00) as time_hms,
-  TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
-
-+----------+-----------+
-| time_hms | time_tstz |
-+----------+-----------+
-| 15:30:00 | 23:30:00  |
-+----------+-----------+
-```
-
-```sql
-SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
-
-+----------+
-| time_dt  |
-+----------+
-| 15:30:00 |
-+----------+
-```
-
-[time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
-
 ### `EXTRACT`
 
 ```sql
@@ -148,172 +98,6 @@ SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 +------------------+
 | 15               |
 +------------------+
-```
-
-### `TIME_ADD`
-
-```sql
-TIME_ADD(time_expression, INTERVAL int64_expression part)
-```
-
-**Description**
-
-Adds `int64_expression` units of `part` to the `TIME` object.
-
-`TIME_ADD` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-
-This function automatically adjusts when values fall outside of the 00:00:00 to
-24:00:00 boundary. For example, if you add an hour to `23:30:00`, the returned
-value is `00:30:00`.
-
-**Return Data Types**
-
-`TIME`
-
-**Example**
-
-```sql
-SELECT
-  TIME "15:30:00" as original_time,
-  TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE) as later;
-
-+-----------------------------+------------------------+
-| original_time               | later                  |
-+-----------------------------+------------------------+
-| 15:30:00                    | 15:40:00               |
-+-----------------------------+------------------------+
-```
-
-### `TIME_SUB`
-
-```sql
-TIME_SUB(time_expression, INTERVAL int64_expression part)
-```
-
-**Description**
-
-Subtracts `int64_expression` units of `part` from the `TIME` object.
-
-`TIME_SUB` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-
-This function automatically adjusts when values fall outside of the 00:00:00 to
-24:00:00 boundary. For example, if you subtract an hour from `00:30:00`, the
-returned value is `23:30:00`.
-
-**Return Data Type**
-
-`TIME`
-
-**Example**
-
-```sql
-SELECT
-  TIME "15:30:00" as original_date,
-  TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE) as earlier;
-
-+-----------------------------+------------------------+
-| original_date                | earlier                |
-+-----------------------------+------------------------+
-| 15:30:00                    | 15:20:00               |
-+-----------------------------+------------------------+
-```
-
-### `TIME_DIFF`
-
-```sql
-TIME_DIFF(time_expression_a, time_expression_b, part)
-```
-
-**Description**
-
-Returns the whole number of specified `part` intervals between two
-`TIME` objects (`time_expression_a` - `time_expression_b`). If the first
-`TIME` is earlier than the second one, the output is negative. Throws an error
-if the computation overflows the result type, such as if the difference in
-nanoseconds
-between the two `TIME` objects would overflow an
-`INT64` value.
-
-`TIME_DIFF` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-
-**Return Data Type**
-
-`INT64`
-
-**Example**
-
-```sql
-SELECT
-  TIME "15:30:00" as first_time,
-  TIME "14:35:00" as second_time,
-  TIME_DIFF(TIME "15:30:00", TIME "14:35:00", MINUTE) as difference;
-
-+----------------------------+------------------------+------------------------+
-| first_time                 | second_time            | difference             |
-+----------------------------+------------------------+------------------------+
-| 15:30:00                   | 14:35:00               | 55                     |
-+----------------------------+------------------------+------------------------+
-```
-
-### `TIME_TRUNC`
-
-```sql
-TIME_TRUNC(time_expression, time_part)
-```
-
-**Description**
-
-Truncates a `TIME` value to the granularity of `time_part`. The `TIME` value
-is always rounded to the beginning of `time_part`, which can be one of the
-following:
-
-+ `NANOSECOND`: If used, nothing is truncated from the value.
-+ `MICROSECOND`: The nearest lessor or equal microsecond.
-+ `MILLISECOND`: The nearest lessor or equal millisecond.
-+ `SECOND`: The nearest lessor or equal second.
-+ `MINUTE`: The nearest lessor or equal minute.
-+ `HOUR`: The nearest lessor or equal hour.
-
-**Return Data Type**
-
-`TIME`
-
-**Example**
-
-```sql
-SELECT
-  TIME "15:30:00" as original,
-  TIME_TRUNC(TIME "15:30:00", HOUR) as truncated;
-
-+----------------------------+------------------------+
-| original                   | truncated              |
-+----------------------------+------------------------+
-| 15:30:00                   | 15:00:00               |
-+----------------------------+------------------------+
 ```
 
 ### `FORMAT_TIME`
@@ -418,6 +202,222 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 [time-format]: #format_time
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `TIME`
+
+```sql
+1. TIME(hour, minute, second)
+2. TIME(timestamp, [time_zone])
+3. TIME(datetime)
+```
+
+**Description**
+
+1. Constructs a `TIME` object using `INT64`
+   values representing the hour, minute, and second.
+2. Constructs a `TIME` object using a `TIMESTAMP` object. It supports an
+   optional
+   parameter to [specify a time zone][time-link-to-timezone-definitions]. If no
+   time zone is specified, the default time zone, which is implementation defined, is
+   used.
+3. Constructs a `TIME` object using a
+   `DATETIME` object.
+
+**Return Data Type**
+
+`TIME`
+
+**Example**
+
+```sql
+SELECT
+  TIME(15, 30, 00) as time_hms,
+  TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
+
++----------+-----------+
+| time_hms | time_tstz |
++----------+-----------+
+| 15:30:00 | 23:30:00  |
++----------+-----------+
+```
+
+```sql
+SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
+
++----------+
+| time_dt  |
++----------+
+| 15:30:00 |
++----------+
+```
+
+[time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+
+### `TIME_ADD`
+
+```sql
+TIME_ADD(time_expression, INTERVAL int64_expression part)
+```
+
+**Description**
+
+Adds `int64_expression` units of `part` to the `TIME` object.
+
+`TIME_ADD` supports the following values for `part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
+
+This function automatically adjusts when values fall outside of the 00:00:00 to
+24:00:00 boundary. For example, if you add an hour to `23:30:00`, the returned
+value is `00:30:00`.
+
+**Return Data Types**
+
+`TIME`
+
+**Example**
+
+```sql
+SELECT
+  TIME "15:30:00" as original_time,
+  TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE) as later;
+
++-----------------------------+------------------------+
+| original_time               | later                  |
++-----------------------------+------------------------+
+| 15:30:00                    | 15:40:00               |
++-----------------------------+------------------------+
+```
+
+### `TIME_DIFF`
+
+```sql
+TIME_DIFF(time_expression_a, time_expression_b, part)
+```
+
+**Description**
+
+Returns the whole number of specified `part` intervals between two
+`TIME` objects (`time_expression_a` - `time_expression_b`). If the first
+`TIME` is earlier than the second one, the output is negative. Throws an error
+if the computation overflows the result type, such as if the difference in
+nanoseconds
+between the two `TIME` objects would overflow an
+`INT64` value.
+
+`TIME_DIFF` supports the following values for `part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
+
+**Return Data Type**
+
+`INT64`
+
+**Example**
+
+```sql
+SELECT
+  TIME "15:30:00" as first_time,
+  TIME "14:35:00" as second_time,
+  TIME_DIFF(TIME "15:30:00", TIME "14:35:00", MINUTE) as difference;
+
++----------------------------+------------------------+------------------------+
+| first_time                 | second_time            | difference             |
++----------------------------+------------------------+------------------------+
+| 15:30:00                   | 14:35:00               | 55                     |
++----------------------------+------------------------+------------------------+
+```
+
+### `TIME_SUB`
+
+```sql
+TIME_SUB(time_expression, INTERVAL int64_expression part)
+```
+
+**Description**
+
+Subtracts `int64_expression` units of `part` from the `TIME` object.
+
+`TIME_SUB` supports the following values for `part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`
+
+This function automatically adjusts when values fall outside of the 00:00:00 to
+24:00:00 boundary. For example, if you subtract an hour from `00:30:00`, the
+returned value is `23:30:00`.
+
+**Return Data Type**
+
+`TIME`
+
+**Example**
+
+```sql
+SELECT
+  TIME "15:30:00" as original_date,
+  TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE) as earlier;
+
++-----------------------------+------------------------+
+| original_date                | earlier                |
++-----------------------------+------------------------+
+| 15:30:00                    | 15:20:00               |
++-----------------------------+------------------------+
+```
+
+### `TIME_TRUNC`
+
+```sql
+TIME_TRUNC(time_expression, time_part)
+```
+
+**Description**
+
+Truncates a `TIME` value to the granularity of `time_part`. The `TIME` value
+is always rounded to the beginning of `time_part`, which can be one of the
+following:
+
++ `NANOSECOND`: If used, nothing is truncated from the value.
++ `MICROSECOND`: The nearest lessor or equal microsecond.
++ `MILLISECOND`: The nearest lessor or equal millisecond.
++ `SECOND`: The nearest lessor or equal second.
++ `MINUTE`: The nearest lessor or equal minute.
++ `HOUR`: The nearest lessor or equal hour.
+
+**Return Data Type**
+
+`TIME`
+
+**Example**
+
+```sql
+SELECT
+  TIME "15:30:00" as original,
+  TIME_TRUNC(TIME "15:30:00", HOUR) as truncated;
+
++----------------------------+------------------------+
+| original                   | truncated              |
++----------------------------+------------------------+
+| 15:30:00                   | 15:00:00               |
++----------------------------+------------------------+
+```
 
 [time-to-string]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#cast
 

@@ -152,6 +152,9 @@ absl::Status GetZetaSQLFunctionsAndTypes(
     GetRangeFunctions(type_factory, options, functions);
   }
   GetArraySlicingFunctions(type_factory, options, functions);
+  GetArrayFilteringFunctions(type_factory, options, functions);
+  GetArrayTransformFunctions(type_factory, options, functions);
+  GetArrayIncludesFunctions(type_factory, options, functions);
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS)) {
     ZETASQL_RETURN_IF_ERROR(

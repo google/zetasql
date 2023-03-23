@@ -332,6 +332,12 @@ absl::Status ParseNextStatementProperties(
     std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes,
     parser::ASTStatementProperties* ast_statement_properties);
 
+// Process the statement level hints in `ast_hints` and copy their key value
+// pairs into `hints_map`.
+absl::Status ProcessStatementLevelHintsToMap(
+    const ASTHint* ast_hints, absl::string_view sql_input,
+    absl::flat_hash_map<std::string, std::string>& hints_map);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PARSER_PARSER_H_

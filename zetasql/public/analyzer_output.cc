@@ -150,9 +150,9 @@ std::string AnalyzerRuntimeInfo::DebugString(
      %s)",
       print_latency(sum_elapsed_duration()),
       print_latency(parser_runtime_info().parser_elapsed_duration()),
-      print_latency(resolver_elapsed_duration()),
-      print_latency(validator_elapsed_duration()),
-      print_latency(rewriters_elapsed_duration()), rewriter_str);
+      print_latency(resolver_timed_value().elapsed_duration()),
+      print_latency(validator_timed_value().elapsed_duration()),
+      print_latency(rewriters_timed_value().elapsed_duration()), rewriter_str);
 }
 
 AnalyzerLogEntry AnalyzerRuntimeInfo::log_entry() const {

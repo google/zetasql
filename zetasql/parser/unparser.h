@@ -733,6 +733,12 @@ class Unparser : public ParseTreeVisitor {
   void visitASTSetOperationType(const ASTSetOperationType* node,
                                 void* data) override;
 
+  void visitASTSetOperationColumnMatchMode(
+      const ASTSetOperationColumnMatchMode* node, void* data) override;
+
+  void visitASTSetOperationColumnPropagationMode(
+      const ASTSetOperationColumnPropagationMode* node, void* data) override;
+
   // Spanner-related nodes
   void visitASTSpannerAlterColumnAction(const ASTSpannerAlterColumnAction* node,
                                         void* data) override;

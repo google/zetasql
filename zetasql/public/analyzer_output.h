@@ -28,7 +28,7 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/id_string.h"
-#include "zetasql/public/logging.pb.h"
+#include "zetasql/public/proto/logging.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/base/macros.h"

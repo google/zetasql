@@ -54,9 +54,9 @@ class FakeAnonRewriter : public Base {
  public:
   ~FakeAnonRewriter() override {}
 };
-class FakeArrayFilterTransformRewriter : public Base {
+class FakeBuiltinFunctionInlinerRewriter : public Base {
  public:
-  ~FakeArrayFilterTransformRewriter() override {}
+  ~FakeBuiltinFunctionInlinerRewriter() override {}
 };
 
 TEST(RegistrationTest, Test) {
@@ -64,9 +64,9 @@ TEST(RegistrationTest, Test) {
 
   FakeAnonRewriter anon_instance;
   r.Register(ResolvedASTRewrite::REWRITE_ANONYMIZATION, &anon_instance);
-  FakeArrayFilterTransformRewriter array_instance;
-  r.Register(ResolvedASTRewrite::REWRITE_ARRAY_FILTER_TRANSFORM,
-             &array_instance);
+  FakeBuiltinFunctionInlinerRewriter fn_inliner_instance;
+  r.Register(ResolvedASTRewrite::REWRITE_BUILTIN_FUNCTION_INLINER,
+             &fn_inliner_instance);
 
   {
     const Rewriter* anon = r.Get(ResolvedASTRewrite::REWRITE_ANONYMIZATION);
@@ -74,14 +74,14 @@ TEST(RegistrationTest, Test) {
   }
 
   {
-    const Rewriter* array_filter =
-        r.Get(ResolvedASTRewrite::REWRITE_ARRAY_FILTER_TRANSFORM);
-    ASSERT_EQ(array_filter, &array_instance);
+    const Rewriter* fn_inliner =
+        r.Get(ResolvedASTRewrite::REWRITE_BUILTIN_FUNCTION_INLINER);
+    ASSERT_EQ(fn_inliner, &fn_inliner_instance);
   }
 
   EXPECT_DEBUG_DEATH(
       {
-        EXPECT_EQ(r.Get(ResolvedASTRewrite::REWRITE_ARRAY_INCLUDES), nullptr);
+        EXPECT_EQ(r.Get(ResolvedASTRewrite::REWRITE_TYPEOF_FUNCTION), nullptr);
       },
       ".*Rewriter was not registered.*");
 

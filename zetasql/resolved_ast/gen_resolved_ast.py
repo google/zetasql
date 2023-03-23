@@ -4013,42 +4013,74 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedCreateModelAliasedQuery',
+      tag_id=226,
+      parent='ResolvedArgument',
+      comment="""
+      Resolves a create model aliased query:
+        identifier AS <query>
+
+        <alias> is the string representation of identifier.
+        <query> is the ResolvedScan of the subquery.
+        <output_column_list> matches 1:1 with the <query>'s column_list and
+        identifies the names and types of the columns output from the query.
+      """,
+      fields=[
+          Field('alias', SCALAR_STRING, tag_id=2),
+          Field('query', 'ResolvedScan', tag_id=3),
+          Field(
+              'output_column_list',
+              'ResolvedOutputColumn',
+              tag_id=4,
+              vector=True,
+          ),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedCreateModelStmt',
       tag_id=107,
       parent='ResolvedCreateStatement',
       comment="""
       This statement:
         CREATE [TEMP] MODEL <name> [INPUT(...) OUTPUT(...)] [TRANSFORM(...)]
-        [REMOTE [WITH CONNECTION ...]] [OPTIONS (...)] [AS SELECT ...]
+        [REMOTE [WITH CONNECTION ...]] [OPTIONS (...)]
+        [AS <query> | (<identifier> AS (<query>) [, ...])]
+
+      At most one of <query> and <aliased_query_list> can be set. <query> is
+      used when there is a single query as input. <aliased_query_list> is used
+      for the syntax with multiple queries with identifiers. For below, let
+      <has_query> be true if either of these are present.
 
       Models can be evaluated either locally or remotely. Orthogonally, they can
       be either trained using SQL or come from external source. Depending on
       these properties, different clauses are expected to be present.
 
       * Local models <is_remote> = FALSE
-        * Trained: <query> IS NOT NULL
-        * External: <query> IS NULL
+        * Trained: <has_query>
+        * External: !<has_query>
       * Remote models <is_remote> = TRUE
-        * Trained: <query> IS NOT NULL [Not supported yet]
-        * External: <query> IS NULL
+        * Trained: <has_query> [Not supported yet]
+        * External: !<has_query>
 
       <option_list> has engine-specific directives for how to train this model.
-      <query> is the select statement. It can be only set when <is_remote> is
-        false and both <input_column_definition_list>,
-        <output_column_definition_list> are empty.
+      <query> is the AS SELECT statement. It can be only set when <is_remote> is
+        false and all of <input_column_definition_list>,
+        <output_column_definition_list> and <aliased_query_list> are empty.
+      TODO: consider rename to <query_output_column_list>.
       <output_column_list> matches 1:1 with the <query>'s column_list and
         identifies the names and types of the columns output from the select
         statement. Set only when <query> is present.
       <input_column_definition_list> contains names and types of model's input
-        columns. Cannot be set when <query> and <output_column_list> are
-        present. Might be absent when <is_remote> is true, meaning schema is
-        read from the remote model itself.
+        columns. Cannot be set if <has_query> is true. Might be absent when
+        <is_remote> is true, meaning schema is read from the remote model
+        itself.
       <output_column_definition_list> contains names and types of model's output
-        columns. Cannot be set when <query> and <output_column_list> are
-        present. Might be absent when <is_remote> is true, meaning schema is
-        read from the remote model itself.
-      <is_remote> is true if this is a remote model. Cannot be set when <query>
-        is present.
+        columns. Cannot be set if <has_query> is true. Might be absent when
+        <is_remote> is true, meaning schema is read from the remote model
+        itself.
+      <is_remote> is true if this is a remote model. Cannot be set when
+        <has_query> is true.
       <connection> is the identifier path of the connection object. It can be
         only set when <is_remote> is true.
       <transform_list> is the list of ResolvedComputedColumn in TRANSFORM
@@ -4083,6 +4115,9 @@ right.
                       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
                       +-end_expr=
                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+      <aliased_query_list> is the aliased query list. It can only be set when
+        <is_remote> is false and <query> is null. It cannot coexist with any
+        transform related resolved nodes.
               """,
       fields=[
           Field(
@@ -4090,61 +4125,76 @@ right.
               'ResolvedOption',
               tag_id=2,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'output_column_list',
               'ResolvedOutputColumn',
               tag_id=3,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field('query', 'ResolvedScan', tag_id=4),
+          Field(
+              'aliased_query_list',
+              'ResolvedCreateModelAliasedQuery',
+              tag_id=13,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'transform_input_column_list',
               'ResolvedColumnDefinition',
               tag_id=8,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'transform_list',
               'ResolvedComputedColumn',
               tag_id=5,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'transform_output_column_list',
               'ResolvedOutputColumn',
               tag_id=6,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'transform_analytic_function_group_list',
               'ResolvedAnalyticFunctionGroup',
               tag_id=7,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'input_column_definition_list',
               'ResolvedColumnDefinition',
               tag_id=9,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
               'output_column_definition_list',
               'ResolvedColumnDefinition',
               tag_id=10,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT),
+              ignorable=IGNORABLE_DEFAULT,
+          ),
           Field(
-              'is_remote',
-              SCALAR_BOOL,
-              tag_id=11,
-              ignorable=IGNORABLE_DEFAULT),
+              'is_remote', SCALAR_BOOL, tag_id=11, ignorable=IGNORABLE_DEFAULT
+          ),
           Field(
               'connection',
               'ResolvedConnection',
               tag_id=12,
-              ignorable=IGNORABLE_DEFAULT),
-      ])
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedCreateViewBase',
@@ -8285,4 +8335,3 @@ if __name__ == '__main__':
   flags.mark_flag_as_required('input_templates')
   flags.mark_flag_as_required('output_files')
   app.run(main)
-

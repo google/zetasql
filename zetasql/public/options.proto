@@ -995,6 +995,12 @@ enum LanguageFeature {
   // Enables load to temp tables
   FEATURE_V_1_4_LOAD_DATA_TEMP_TABLE = 14017;
 
+  // Enables CORRESPONDING set operations.
+  // (broken link)
+  // TODO: Remove the "in_development" flag once the bug is fixed.
+  FEATURE_V_1_4_CORRESPONDING = 14018
+      [(language_feature_options).in_development = true];
+
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
   // officially supported ZetaSQL as of any version.

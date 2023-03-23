@@ -206,6 +206,129 @@ FROM table;
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 
+### `FORMAT_TIMESTAMP`
+
+```sql
+FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
+```
+
+**Description**
+
+Formats a timestamp according to the specified `format_string`.
+
+See [Supported Format Elements For TIMESTAMP][timestamp-format-elements]
+for a list of format elements that this function supports.
+
+**Return Data Type**
+
+`STRING`
+
+**Example**
+
+```sql
+SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS formatted;
+
++--------------------------+
+| formatted                |
++--------------------------+
+| Thu Dec 25 15:30:00 2008 |
++--------------------------+
+```
+
+```sql
+SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00+00") AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec-25-2008 |
++-------------+
+```
+
+```sql
+SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
+  AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec 2008    |
++-------------+
+```
+
+[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
+### `PARSE_TIMESTAMP`
+
+```sql
+PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
+```
+
+**Description**
+
+Converts a [string representation of a timestamp][timestamp-format] to a
+`TIMESTAMP` object.
+
+`format_string` contains the [format elements][timestamp-format-elements]
+that define how `timestamp_string` is formatted. Each element in
+`timestamp_string` must have a corresponding element in `format_string`. The
+location of each element in `format_string` must match the location of
+each element in `timestamp_string`.
+
+```sql
+-- This works because elements on both sides match.
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
+
+-- This doesn't work because the year element is in different locations.
+SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+
+-- This doesn't work because one of the year elements is missing.
+SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
+
+-- This works because %c can find all matching elements in timestamp_string.
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
+```
+
+When using `PARSE_TIMESTAMP`, keep the following in mind:
+
++ **Unspecified fields.** Any unspecified field is initialized from `1970-01-01
+  00:00:00.0`. This initialization value uses the time zone specified by the
+  function's time zone argument, if present. If not, the initialization value
+  uses the default time zone, which is implementation defined.  For instance, if the year
+  is unspecified then it defaults to `1970`, and so on.
++ **Case insensitivity.** Names, such as `Monday`, `February`, and so on, are
+  case insensitive.
++ **Whitespace.** One or more consecutive white spaces in the format string
+  matches zero or more consecutive white spaces in the timestamp string. In
+  addition, leading and trailing white spaces in the timestamp string are always
+  allowed, even if they are not in the format string.
++ **Format precedence.** When two (or more) format elements have overlapping
+  information (for example both `%F` and `%Y` affect the year), the last one
+  generally overrides any earlier ones, with some exceptions (see the
+  descriptions of `%s`, `%C`, and `%y`).
++ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+
+| parsed                                      |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
+```
+
+[timestamp-format]: #format_timestamp
+
+[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
+
 ### `STRING`
 
 ```sql
@@ -370,47 +493,6 @@ SELECT
 +---------------------------------------------+---------------------------------------------+
 ```
 
-### `TIMESTAMP_SUB`
-
-```sql
-TIMESTAMP_SUB(timestamp_expression, INTERVAL int64_expression date_part)
-```
-
-**Description**
-
-Subtracts `int64_expression` units of `date_part` from the timestamp,
-independent of any time zone.
-
-`TIMESTAMP_SUB` supports the following values for `date_part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`. Equivalent to 60 `MINUTE`s.
-+ `DAY`. Equivalent to 24 `HOUR`s.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT
-  TIMESTAMP("2008-12-25 15:30:00+00") AS original,
-  TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+---------------------------------------------+
-| original                                    | earlier                                     |
-+---------------------------------------------+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:20:00.000 America/Los_Angeles |
-+---------------------------------------------+---------------------------------------------+
-```
-
 ### `TIMESTAMP_DIFF`
 
 ```sql
@@ -483,6 +565,230 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS dif
 +---------------+
 | 0             |
 +---------------+
+```
+
+### `TIMESTAMP_FROM_UNIX_MICROS`
+
+```sql
+TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
+```
+
+```sql
+TIMESTAMP_FROM_UNIX_MICROS(timestamp_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of microseconds since
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_FROM_UNIX_MILLIS`
+
+```sql
+TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
+```
+
+```sql
+TIMESTAMP_FROM_UNIX_MILLIS(timestamp_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of milliseconds since
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_FROM_UNIX_SECONDS`
+
+```sql
+TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
+```
+
+```sql
+TIMESTAMP_FROM_UNIX_SECONDS(timestamp_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of seconds since
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_MICROS`
+
+```sql
+TIMESTAMP_MICROS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of microseconds since 1970-01-01
+00:00:00 UTC and returns a timestamp.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_MILLIS`
+
+```sql
+TIMESTAMP_MILLIS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of milliseconds since 1970-01-01
+00:00:00 UTC and returns a timestamp.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_SECONDS`
+
+```sql
+TIMESTAMP_SECONDS(int64_expression)
+```
+
+**Description**
+
+Interprets `int64_expression` as the number of seconds since 1970-01-01 00:00:00
+UTC and returns a timestamp.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
+```
+
+### `TIMESTAMP_SUB`
+
+```sql
+TIMESTAMP_SUB(timestamp_expression, INTERVAL int64_expression date_part)
+```
+
+**Description**
+
+Subtracts `int64_expression` units of `date_part` from the timestamp,
+independent of any time zone.
+
+`TIMESTAMP_SUB` supports the following values for `date_part`:
+
++ `NANOSECOND`
+  (if the SQL engine supports it)
++ `MICROSECOND`
++ `MILLISECOND`
++ `SECOND`
++ `MINUTE`
++ `HOUR`. Equivalent to 60 `MINUTE`s.
++ `DAY`. Equivalent to 24 `HOUR`s.
+
+**Return Data Type**
+
+`TIMESTAMP`
+
+**Example**
+
+```sql
+SELECT
+  TIMESTAMP("2008-12-25 15:30:00+00") AS original,
+  TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++---------------------------------------------+---------------------------------------------+
+| original                                    | earlier                                     |
++---------------------------------------------+---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:20:00.000 America/Los_Angeles |
++---------------------------------------------+---------------------------------------------+
 ```
 
 ### `TIMESTAMP_TRUNC`
@@ -628,223 +934,16 @@ SELECT
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 
-### `FORMAT_TIMESTAMP`
+### `UNIX_MICROS`
 
 ```sql
-FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
+UNIX_MICROS(timestamp_expression)
 ```
 
 **Description**
 
-Formats a timestamp according to the specified `format_string`.
-
-See [Supported Format Elements For TIMESTAMP][timestamp-format-elements]
-for a list of format elements that this function supports.
-
-**Return Data Type**
-
-`STRING`
-
-**Example**
-
-```sql
-SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS formatted;
-
-+--------------------------+
-| formatted                |
-+--------------------------+
-| Thu Dec 25 15:30:00 2008 |
-+--------------------------+
-```
-
-```sql
-SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00+00") AS formatted;
-
-+-------------+
-| formatted   |
-+-------------+
-| Dec-25-2008 |
-+-------------+
-```
-
-```sql
-SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
-  AS formatted;
-
-+-------------+
-| formatted   |
-+-------------+
-| Dec 2008    |
-+-------------+
-```
-
-[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
-
-### `PARSE_TIMESTAMP`
-
-```sql
-PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
-```
-
-**Description**
-
-Converts a [string representation of a timestamp][timestamp-format] to a
-`TIMESTAMP` object.
-
-`format_string` contains the [format elements][timestamp-format-elements]
-that define how `timestamp_string` is formatted. Each element in
-`timestamp_string` must have a corresponding element in `format_string`. The
-location of each element in `format_string` must match the location of
-each element in `timestamp_string`.
-
-```sql
--- This works because elements on both sides match.
-SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")
-
--- This doesn't work because the year element is in different locations.
-SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")
-
--- This doesn't work because one of the year elements is missing.
-SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
-
--- This works because %c can find all matching elements in timestamp_string.
-SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
-```
-
-When using `PARSE_TIMESTAMP`, keep the following in mind:
-
-+ **Unspecified fields.** Any unspecified field is initialized from `1970-01-01
-  00:00:00.0`. This initialization value uses the time zone specified by the
-  function's time zone argument, if present. If not, the initialization value
-  uses the default time zone, which is implementation defined.  For instance, if the year
-  is unspecified then it defaults to `1970`, and so on.
-+ **Case insensitivity.** Names, such as `Monday`, `February`, and so on, are
-  case insensitive.
-+ **Whitespace.** One or more consecutive white spaces in the format string
-  matches zero or more consecutive white spaces in the timestamp string. In
-  addition, leading and trailing white spaces in the timestamp string are always
-  allowed, even if they are not in the format string.
-+ **Format precedence.** When two (or more) format elements have overlapping
-  information (for example both `%F` and `%Y` affect the year), the last one
-  generally overrides any earlier ones, with some exceptions (see the
-  descriptions of `%s`, `%C`, and `%y`).
-+ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| parsed                                      |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
-```
-
-[timestamp-format]: #format_timestamp
-
-[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
-
-### `TIMESTAMP_SECONDS`
-
-```sql
-TIMESTAMP_SECONDS(int64_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of seconds since 1970-01-01 00:00:00
-UTC and returns a timestamp.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `TIMESTAMP_MILLIS`
-
-```sql
-TIMESTAMP_MILLIS(int64_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of milliseconds since 1970-01-01
-00:00:00 UTC and returns a timestamp.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `TIMESTAMP_MICROS`
-
-```sql
-TIMESTAMP_MICROS(int64_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of microseconds since 1970-01-01
-00:00:00 UTC and returns a timestamp.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `UNIX_SECONDS`
-
-```sql
-UNIX_SECONDS(timestamp_expression)
-```
-
-**Description**
-
-Returns the number of seconds since 1970-01-01 00:00:00 UTC. Truncates higher
-levels of precision.
+Returns the number of microseconds since 1970-01-01 00:00:00 UTC. Truncates
+higher levels of precision.
 
 **Return Data Type**
 
@@ -853,13 +952,13 @@ levels of precision.
 **Example**
 
 ```sql
-SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
+SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 
-+------------+
-| seconds    |
-+------------+
-| 1230219000 |
-+------------+
++------------------+
+| micros           |
++------------------+
+| 1230219000000000 |
++------------------+
 ```
 
 ### `UNIX_MILLIS`
@@ -889,16 +988,16 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
 +---------------+
 ```
 
-### `UNIX_MICROS`
+### `UNIX_SECONDS`
 
 ```sql
-UNIX_MICROS(timestamp_expression)
+UNIX_SECONDS(timestamp_expression)
 ```
 
 **Description**
 
-Returns the number of microseconds since 1970-01-01 00:00:00 UTC. Truncates
-higher levels of precision.
+Returns the number of seconds since 1970-01-01 00:00:00 UTC. Truncates higher
+levels of precision.
 
 **Return Data Type**
 
@@ -907,112 +1006,13 @@ higher levels of precision.
 **Example**
 
 ```sql
-SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
+SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
 
-+------------------+
-| micros           |
-+------------------+
-| 1230219000000000 |
-+------------------+
-```
-
-### `TIMESTAMP_FROM_UNIX_SECONDS`
-
-```sql
-TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
-```
-
-```sql
-TIMESTAMP_FROM_UNIX_SECONDS(timestamp_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of seconds since
-1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
-the same timestamp is returned.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `TIMESTAMP_FROM_UNIX_MILLIS`
-
-```sql
-TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
-```
-
-```sql
-TIMESTAMP_FROM_UNIX_MILLIS(timestamp_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of milliseconds since
-1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
-the same timestamp is returned.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
-```
-
-### `TIMESTAMP_FROM_UNIX_MICROS`
-
-```sql
-TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
-```
-
-```sql
-TIMESTAMP_FROM_UNIX_MICROS(timestamp_expression)
-```
-
-**Description**
-
-Interprets `int64_expression` as the number of microseconds since
-1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
-the same timestamp is returned.
-
-**Return Data Type**
-
-`TIMESTAMP`
-
-**Example**
-
-```sql
-SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
-
--- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
++------------+
+| seconds    |
++------------+
+| 1230219000 |
++------------+
 ```
 
 ### How time zones work with timestamp functions 

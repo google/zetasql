@@ -1128,6 +1128,8 @@ std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxString() {
       // NUMERIC. Note that -inf, inf, and NaN are not valid JSON numeric
       // values.
       {"lax_string", {Json(JSONValue(int64_t{-10}))}, Value::String("-10")},
+      {"lax_string", {Json(JSONValue(int64_t{0}))}, Value::String("0")},
+      {"lax_string", {Json(JSONValue(int64_t{-0}))}, Value::String("0")},
       {"lax_string",
        {Json(JSONValue(int64_t{std::numeric_limits<int64_t>::min()}))},
        Value::String(absl::StrCat(std::numeric_limits<int64_t>::min()))},
@@ -1137,6 +1139,8 @@ std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxString() {
       {"lax_string",
        {Json(JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}))},
        Value::String(absl::StrCat(std::numeric_limits<uint64_t>::max()))},
+      {"lax_string", {Json(JSONValue(double{0.0}))}, Value::String("0")},
+      {"lax_string", {Json(JSONValue(double{-0.0}))}, Value::String("0")},
       {"lax_string", {Json(JSONValue(double{1.1}))}, Value::String("1.1")},
       {"lax_string",
        {Json(JSONValue(double{std::numeric_limits<double>::min()}))},

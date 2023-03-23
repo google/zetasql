@@ -55,6 +55,15 @@ std::ostream& operator<<(std::ostream& os, const ThreadStackStats& stats) {
 }
 
 void ThreadStackStats::SetToCurrentThreadStackBoundaries() {
+#if defined(__APPLE__)
+  void* stack_addr = pthread_get_stackaddr_np(pthread_self());
+  size_t stack_size = pthread_get_stacksize_np(pthread_self());
+  // The Apple stack pointer is to the highest address, the opposite
+  // of the Linux convention.
+  thread_stack_high_ = absl::bit_cast<std::uintptr_t>(stack_addr);
+  ZETASQL_DCHECK_GT(thread_stack_high_, stack_size);
+  thread_stack_low_ = thread_stack_high_ - stack_size;
+#else
   pthread_attr_t thread_attr;
   if (int err = pthread_getattr_np(pthread_self(), &thread_attr); err != 0) {
     return;
@@ -72,6 +81,7 @@ void ThreadStackStats::SetToCurrentThreadStackBoundaries() {
   if (int err = pthread_attr_destroy(&thread_attr); err != 0) {
     return;
   }
+#endif
 }
 
 size_t ThreadStackStats::ThreadStackUsedBytes() const {
@@ -97,8 +107,8 @@ void ThreadStackStats::ThreadStackUpdateAvailableBytes() {
   std::uintptr_t stack_ptr =
       absl::bit_cast<uintptr_t>(__builtin_frame_address(0));
   // Prove we are on the right thread.
-  ZETASQL_DCHECK_GE(stack_ptr, thread_stack_low_);
-  ZETASQL_DCHECK_LT(stack_ptr, thread_stack_high_);
+  ZETASQL_DCHECK_GE(stack_ptr, thread_stack_low_) << *this;
+  ZETASQL_DCHECK_LT(stack_ptr, thread_stack_high_) << *this;
   size_t used = thread_stack_high_ - stack_ptr;
   thread_stack_estimated_usage_.stack_used_min =
       std::min(thread_stack_estimated_usage_.stack_used_min, used);

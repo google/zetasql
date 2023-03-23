@@ -702,3 +702,17 @@ SELECT
   )
 --
 ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to clear a field of a map entry
+
+==
+[name=replace_fields_unset_cast_test]
+[required_features=V_1_3_REPLACE_FIELDS]
+SELECT REPLACE_FIELDS(CAST(b'' AS zetasql_test__.KitchenSinkPB), 1 AS int64_key_1) AS c
+--
+ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used on a proto with missing fields: int64_key_1, int64_key_2
+
+==
+[name=replace_fields_unset_safe_cast_test]
+[required_features=V_1_3_REPLACE_FIELDS]
+SELECT REPLACE_FIELDS(SAFE_CAST(b'' AS zetasql_test__.KitchenSinkPB), 1 AS int64_key_1) AS c
+--
+ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used on a proto with missing fields: int64_key_1, int64_key_2

@@ -24,6 +24,22 @@ filegroup(
 )
 
 proto_library(
+    name = "logging_proto",
+    srcs = ["logging.proto"],
+    deps = ["@com_google_protobuf//:duration_proto"],
+)
+
+cc_proto_library(
+    name = "logging_cc_proto",
+    deps = [":logging_proto"],
+)
+
+java_proto_library(
+    name = "logging_java_proto",
+    deps = ["logging_proto"],
+)
+
+proto_library(
     name = "type_annotation_proto",
     srcs = [
         "type_annotation.proto",

@@ -225,6 +225,25 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "flex_tokenizer_test",
+    srcs = [
+        "flex_tokenizer.h",
+        "flex_tokenizer_test.cc",
+    ],
+    deps = [
+        "parser",
+        ":bison_parser_generated_lib",
+        "//bazel:flex",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:language_options",
+        "//zetasql/public:parse_location",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
 cc_library(
     name = "ast_node_util",
     srcs = ["ast_node_util.cc"],

@@ -1841,7 +1841,7 @@ QueryStmt
     | |         +-body=
     | |           +-ColumnRef(type=STRING, column=$lambda_arg.e#5)
     | +-$col2#9 :=
-    | | +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING>, LAMBDA(STRING->BOOL)) -> ARRAY<STRING>)
+    | | +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING> array_to_filter, LAMBDA(STRING->BOOL) condition) -> ARRAY<STRING>)
     | |   +-type_annotation_map=[{Collation:"und:ci"}]
     | |   +-FunctionArgument
     | |   | +-expr=
@@ -1855,7 +1855,7 @@ QueryStmt
     | |             +-ColumnRef(type=STRING, column=$lambda_arg.e#6)
     | |             +-Literal(type=STRING, value="abc")
     | +-$col3#10 :=
-    |   +-FunctionCall(ZetaSQL:array_includes(ARRAY<STRING>, LAMBDA(STRING->BOOL)) -> BOOL)
+    |   +-FunctionCall(ZetaSQL:array_includes(ARRAY<STRING> array_to_search, LAMBDA(STRING->BOOL) condition) -> BOOL)
     |     +-FunctionArgument
     |     | +-expr=
     |     |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
@@ -1889,7 +1889,7 @@ QueryStmt
     +-column_list=[$query.$col1#6[{Collation:"uni:cs"}]]
     +-expr_list=
     | +-$col1#6 :=
-    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<STRUCT<a INT32, b STRING>>, LAMBDA(STRUCT<a INT32, b STRING>->STRING)) -> ARRAY<STRING>)
+    |   +-FunctionCall(ZetaSQL:array_transform(ARRAY<STRUCT<a INT32, b STRING>> array_to_transform, LAMBDA(STRUCT<a INT32, b STRING>->STRING) transformation) -> ARRAY<STRING>)
     |     +-type_annotation_map=[{Collation:"uni:cs"}]
     |     +-FunctionArgument
     |     | +-expr=

@@ -1517,6 +1517,152 @@ TEST(DateTimeUtilTest, FormatStringTooLongForFormatting) {
       CastFormatDatetimeToString(too_long_format_string, datetime, &out));
 }
 
+TEST(DateTimeUtilTest, DateToStringCasterTest) {
+  EXPECT_THAT(DateToStringCaster::Create("A"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Cannot find matched format element at 0")));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto caster, DateToStringCaster::Create("YYYY-MM-DD"));
+  std::string out;
+  EXPECT_THAT(
+      caster.Cast(zetasql::types::kDateMax + 1, &out),
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("Invalid date value")));
+
+  ZETASQL_EXPECT_OK(caster.Cast(2932896, &out));
+  EXPECT_EQ(out, "9999-12-31");
+}
+
+TEST(DateTimeUtilTest, DatetimeToStringCasterTest) {
+  EXPECT_THAT(DatetimeToStringCaster::Create("A"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Cannot find matched format element at 0")));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto caster,
+                       DatetimeToStringCaster::Create("YYYY-MM-DD HH24:MI:SS"));
+  std::string out;
+  EXPECT_THAT(
+      caster.Cast(DatetimeValue::FromYMDHMSAndMicros(1234, 30, 0, 0, 0, 0, 0),
+                  &out),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Invalid datetime value")));
+
+  ZETASQL_EXPECT_OK(caster.Cast(
+      DatetimeValue::FromYMDHMSAndMicros(1234, 1, 2, 3, 4, 5, 0), &out));
+  EXPECT_EQ(out, "1234-01-02 03:04:05");
+}
+
+TEST(DateTimeUtilTest, TimeToStringCasterTest) {
+  EXPECT_THAT(TimeToStringCaster::Create("A"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Cannot find matched format element at 0")));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto caster, TimeToStringCaster::Create("HH24:MI:SS"));
+  std::string out;
+  EXPECT_THAT(
+      caster.Cast(TimeValue::FromHMSAndMicros(30, 0, 0, 0), &out),
+      StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("Invalid time value")));
+
+  ZETASQL_EXPECT_OK(caster.Cast(TimeValue::FromHMSAndMicros(14, 1, 2, 3), &out));
+  EXPECT_EQ(out, "14:01:02");
+}
+
+TEST(DateTimeUtilTest, TimestampToStringCasterTest) {
+  EXPECT_THAT(TimestampToStringCaster::Create("A"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Cannot find matched format element at 0")));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto caster, TimestampToStringCaster::Create("YYYY-MM-DD HH24:MI:SS"));
+  std::string out;
+  EXPECT_THAT(caster.Cast(zetasql::types::kTimestampMax + 1,
+                          absl::UTCTimeZone(), &out),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid timestamp value")));
+
+  int64_t timestamp =
+      123456789012345;  // Thursday, November 29, 1973 9:33:09 PM
+  ZETASQL_EXPECT_OK(caster.Cast(timestamp, absl::UTCTimeZone(), &out));
+  EXPECT_EQ(out, "1973-11-29 21:33:09");
+}
+
+TEST(DateTimeUtilTest, StringToDateCasterTest) {
+  EXPECT_THAT(StringToDateCaster::Create("A"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Cannot find matched format element at 0")));
+
+  absl::Time current_ts = absl::UnixEpoch();
+  int32_t current_date;
+  ZETASQL_EXPECT_OK(ExtractFromTimestamp(DATE, current_ts, absl::UTCTimeZone(),
+                                 &current_date));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto caster, StringToDateCaster::Create("YYYY-MM-DD"));
+  int32_t date;
+  EXPECT_THAT(caster.Cast("\xc3\x28", current_date, &date),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Input string is not valid UTF-8")));
+
+  ZETASQL_EXPECT_OK(caster.Cast("9999-12-31", current_date, &date));
+  EXPECT_EQ(date, zetasql::types::kDateMax);
+}
+
+TEST(DateTimeUtilTest, StringToDatetimeCasterTest) {
+  EXPECT_THAT(StringToDatetimeCaster::Create("A"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Cannot find matched format element at 0")));
+
+  absl::Time current_ts = absl::UnixEpoch();
+  int32_t current_date;
+  ZETASQL_EXPECT_OK(ExtractFromTimestamp(DATE, current_ts, absl::UTCTimeZone(),
+                                 &current_date));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto caster,
+                       StringToDatetimeCaster::Create("YYYY MM DD HH24:MI:SS"));
+  DatetimeValue datetime;
+  EXPECT_THAT(caster.Cast("\xc3\x28", TimestampScale::kMicroseconds,
+                          current_date, &datetime),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Input string is not valid UTF-8")));
+
+  ZETASQL_EXPECT_OK(caster.Cast("1234 01 02 03:04:05", TimestampScale::kMicroseconds,
+                        current_date, &datetime));
+  EXPECT_EQ(datetime.DebugString(), "1234-01-02 03:04:05");
+}
+
+TEST(DateTimeUtilTest, StringToTimeCasterTest) {
+  EXPECT_THAT(StringToTimeCaster::Create("A"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Cannot find matched format element at 0")));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto caster, StringToTimeCaster::Create("HH24.MI.SS"));
+  TimeValue time;
+  EXPECT_THAT(caster.Cast("\xc3\x28", TimestampScale::kMicroseconds, &time),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Input string is not valid UTF-8")));
+
+  ZETASQL_EXPECT_OK(caster.Cast("01.02.03", TimestampScale::kMicroseconds, &time));
+  EXPECT_EQ(time.DebugString(), "01:02:03");
+}
+
+TEST(DateTimeUtilTest, StringToTimestampCasterTest) {
+  EXPECT_THAT(StringToTimestampCaster::Create("A"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Cannot find matched format element at 0")));
+
+  absl::Time current_ts = absl::UnixEpoch();
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto caster, StringToTimestampCaster::Create("YYYY MM DD HH24:MI:SS"));
+  int64_t timestamp_micros;
+  EXPECT_THAT(caster.Cast("\xc3\x28", absl::UTCTimeZone(), current_ts,
+                          &timestamp_micros),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Input string is not valid UTF-8")));
+
+  ZETASQL_EXPECT_OK(caster.Cast("1973 11 29 21:33:09", absl::UTCTimeZone(), current_ts,
+                        &timestamp_micros));
+  EXPECT_EQ(timestamp_micros, 123456789000000);
+}
+
 }  // namespace
 }  // namespace functions
 }  // namespace zetasql

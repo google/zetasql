@@ -295,9 +295,12 @@ cc_library(
         "//zetasql/base:check",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest",
     ],
 )
@@ -332,6 +335,7 @@ cc_test(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
     ],
 )
 

@@ -1,0 +1,421 @@
+delete from T
+--
+DeleteStatement [0-13] [delete from T]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+--
+DELETE T
+==
+
+delete x.T where true
+--
+DeleteStatement [0-21] [delete x.T where true]
+  PathExpression [7-10] [x.T]
+    Identifier(x) [7-8] [x]
+    Identifier(T) [9-10] [T]
+  BooleanLiteral(true) [17-21] [true]
+--
+DELETE x.T
+WHERE
+  true
+==
+
+# The resolver will fail on this because WITH OFFSET is not allowed in
+# top-level DELETE statements, but it does parse.
+delete T with offset AS offset where true
+--
+DeleteStatement [0-41] [delete T with...where true]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  WithOffset [9-30] [with offset AS offset]
+    Alias [21-30] [AS offset]
+      Identifier(offset) [24-30] [offset]
+  BooleanLiteral(true) [37-41] [true]
+--
+DELETE T WITH OFFSET AS offset
+WHERE
+  true
+==
+
+delete a.b.c
+where c=y
+assert_rows_modified 10
+--
+DeleteStatement [0-46] [delete a.b..._rows_modified 10]
+  PathExpression [7-12] [a.b.c]
+    Identifier(a) [7-8] [a]
+    Identifier(b) [9-10] [b]
+    Identifier(c) [11-12] [c]
+  BinaryExpression(=) [19-22] [c=y]
+    PathExpression [19-20] [c]
+      Identifier(c) [19-20] [c]
+    PathExpression [21-22] [y]
+      Identifier(y) [21-22] [y]
+  AssertRowsModified [23-46] [assert_rows_modified 10]
+    IntLiteral(10) [44-46] [10]
+--
+DELETE a.b.c
+WHERE
+  c = y
+ASSERT_ROWS_MODIFIED 10
+==
+
+delete T
+assert_rows_modified {{0|cast(0 as int32)|@param1|cast(@param1 as int64)}}
+--
+ALTERNATION GROUP: 0
+--
+DeleteStatement [0-31] [delete T assert_r...modified 0]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  AssertRowsModified [9-31] [assert_rows_modified 0]
+    IntLiteral(0) [30-31] [0]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED 0
+--
+ALTERNATION GROUP: cast(0 as int32)
+--
+DeleteStatement [0-46] [delete T assert_r...as int32)]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  AssertRowsModified [9-46] [assert_rows_modif...as int32)]
+    CastExpression [30-46] [cast(0 as int32)]
+      IntLiteral(0) [35-36] [0]
+      SimpleType [40-45] [int32]
+        PathExpression [40-45] [int32]
+          Identifier(int32) [40-45] [int32]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED CAST(0 AS int32)
+--
+ALTERNATION GROUP: @param1
+--
+DeleteStatement [0-37] [delete T assert_r...ed @param1]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  AssertRowsModified [9-37] [assert_rows_modified @param1]
+    ParameterExpr [30-37] [@param1]
+      Identifier(param1) [31-37] [param1]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED @param1
+--
+ALTERNATION GROUP: cast(@param1 as int64)
+--
+DeleteStatement [0-52] [delete T assert_r...as int64)]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  AssertRowsModified [9-52] [assert_rows_modif...as int64)]
+    CastExpression [30-52] [cast(@param1 as int64)]
+      ParameterExpr [35-42] [@param1]
+        Identifier(param1) [36-42] [param1]
+      SimpleType [46-51] [int64]
+        PathExpression [46-51] [int64]
+          Identifier(int64) [46-51] [int64]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED CAST(@param1 AS int64)
+==
+
+delete T
+assert_rows_modified {{0|cast(0 as int32)|@@sysvar|cast(@@sysvar as int64)}}
+--
+ALTERNATION GROUP: 0
+--
+DeleteStatement [0-31] [delete T assert_r...modified 0]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  AssertRowsModified [9-31] [assert_rows_modified 0]
+    IntLiteral(0) [30-31] [0]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED 0
+--
+ALTERNATION GROUP: cast(0 as int32)
+--
+DeleteStatement [0-46] [delete T assert_r...as int32)]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  AssertRowsModified [9-46] [assert_rows_modif...as int32)]
+    CastExpression [30-46] [cast(0 as int32)]
+      IntLiteral(0) [35-36] [0]
+      SimpleType [40-45] [int32]
+        PathExpression [40-45] [int32]
+          Identifier(int32) [40-45] [int32]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED CAST(0 AS int32)
+--
+ALTERNATION GROUP: @@sysvar
+--
+DeleteStatement [0-38] [delete T assert_r...d @@sysvar]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  AssertRowsModified [9-38] [assert_rows_modified @@sysvar]
+    SystemVariableExpr [30-38] [@@sysvar]
+      PathExpression [32-38] [sysvar]
+        Identifier(sysvar) [32-38] [sysvar]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED @@sysvar
+--
+ALTERNATION GROUP: cast(@@sysvar as int64)
+--
+DeleteStatement [0-53] [delete T assert_r...as int64)]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  AssertRowsModified [9-53] [assert_rows_modif...as int64)]
+    CastExpression [30-53] [cast(@@sysvar as int64)]
+      SystemVariableExpr [35-43] [@@sysvar]
+        PathExpression [37-43] [sysvar]
+          Identifier(sysvar) [37-43] [sysvar]
+      SimpleType [47-52] [int64]
+        PathExpression [47-52] [int64]
+          Identifier(int64) [47-52] [int64]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED CAST(@@sysvar AS int64)
+==
+
+delete T
+assert_rows_modified cast(cast(0 as int32) as int64)
+--
+ERROR: Syntax error: Expected "@" or "@@" or integer literal but got keyword CAST [at 2:27]
+assert_rows_modified cast(cast(0 as int32) as int64)
+                          ^
+==
+
+delete T
+assert_rows_modified -1
+--
+ERROR: Syntax error: Unexpected "-" [at 2:22]
+assert_rows_modified -1
+                     ^
+==
+
+delete T
+where 1+(select count(*) from T2)=5
+assert_rows_modified @row_count
+--
+DeleteStatement [0-76] [delete T where...@row_count]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  BinaryExpression(=) [15-44] [1+(select count(*) from T2)=5]
+    BinaryExpression(+) [15-42] [1+(select count(*) from T2)]
+      IntLiteral(1) [15-16] [1]
+      ExpressionSubquery [17-42] [(select count(*) from T2)]
+        Query [18-41] [select count(*) from T2]
+          Select [18-41] [select count(*) from T2]
+            SelectList [25-33] [count(*)]
+              SelectColumn [25-33] [count(*)]
+                FunctionCall [25-33] [count(*)]
+                  PathExpression [25-30] [count]
+                    Identifier(count) [25-30] [count]
+                  Star(*) [31-32] [*]
+            FromClause [34-41] [from T2]
+              TablePathExpression [39-41] [T2]
+                PathExpression [39-41] [T2]
+                  Identifier(T2) [39-41] [T2]
+    IntLiteral(5) [43-44] [5]
+  AssertRowsModified [45-76] [assert_rows_modif...@row_count]
+    ParameterExpr [66-76] [@row_count]
+      Identifier(row_count) [67-76] [row_count]
+--
+DELETE T
+WHERE
+  1 + (
+    SELECT
+      count(*)
+    FROM
+      T2
+  ) = 5
+ASSERT_ROWS_MODIFIED @row_count
+==
+
+delete T
+assert_rows_modified x
+--
+ERROR: Syntax error: Unexpected identifier "x" [at 2:22]
+assert_rows_modified x
+                     ^
+==
+
+delete T
+assert_rows_modified 1+2
+--
+ERROR: Syntax error: Expected end of input but got "+" [at 2:23]
+assert_rows_modified 1+2
+                      ^
+==
+
+delete T
+where
+assert_rows_modified 5
+--
+ERROR: Syntax error: Unexpected keyword ASSERT_ROWS_MODIFIED [at 3:1]
+assert_rows_modified 5
+^
+==
+
+delete T
+where true
+assert_rows_modified
+--
+ERROR: Syntax error: Unexpected end of statement [at 3:21]
+assert_rows_modified
+                    ^
+==
+
+delete T
+where true
+assert rows modified 5
+--
+ERROR: Syntax error: Expected end of input but got keyword ASSERT [at 3:1]
+assert rows modified 5
+^
+==
+
+delete T
+assert rows
+--
+ERROR: Syntax error: Expected end of input but got keyword ROWS [at 2:8]
+assert rows
+       ^
+==
+
+delete T
+where true
+assert
+--
+ERROR: Syntax error: Expected end of input but got keyword ASSERT [at 3:1]
+assert
+^
+==
+
+delete
+where true
+--
+ERROR: Syntax error: Unexpected keyword WHERE [at 2:1]
+where true
+^
+==
+
+# The resolver will fail on this because the target involves a generalized
+# field access, but it does parse.
+delete T.(a.b).c where true
+--
+DeleteStatement [0-27] [delete T.(a.b).c where true]
+  DotIdentifier [7-16] [T.(a.b).c]
+    DotGeneralizedField [7-14] [T.(a.b)]
+      PathExpression [7-8] [T]
+        Identifier(T) [7-8] [T]
+      PathExpression [10-13] [a.b]
+        Identifier(a) [10-11] [a]
+        Identifier(b) [12-13] [b]
+    Identifier(c) [15-16] [c]
+  BooleanLiteral(true) [23-27] [true]
+--
+DELETE T.(a.b).c
+WHERE
+  true
+==
+
+# The resolver will fail on this because the target involves [], but it does
+# parse.
+delete T.a[0].b where true
+--
+DeleteStatement [0-26] [delete T.a[0].b where true]
+  DotIdentifier [7-15] [T.a[0].b]
+    ArrayElement [7-13] [T.a[0]]
+      PathExpression [7-10] [T.a]
+        Identifier(T) [7-8] [T]
+        Identifier(a) [9-10] [a]
+      Location [10-11] [[]
+      IntLiteral(0) [11-12] [0]
+    Identifier(b) [14-15] [b]
+  BooleanLiteral(true) [22-26] [true]
+--
+DELETE T.a[0].b
+WHERE
+  true
+==
+
+[no_test_get_parse_tokens]
+[language_features={{|V_1_3_ALLOW_DASHES_IN_TABLE_NAME}}]
+delete db-1-2.T where true
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `db-1-2.T` [at 1:8]
+delete db-1-2.T where true
+       ^
+--
+ALTERNATION GROUP: V_1_3_ALLOW_DASHES_IN_TABLE_NAME
+--
+DeleteStatement [0-26] [delete db-1-2.T where true]
+  PathExpression [7-15] [db-1-2.T]
+    Identifier(`db-1-2`) [7-15] [db-1-2.T]
+    Identifier(T) [7-15] [db-1-2.T]
+  BooleanLiteral(true) [22-26] [true]
+--
+DELETE `db-1-2`.T
+WHERE
+  true
+==
+
+# Delete statement with a table alias.
+DELETE T {{AS|}} a
+WHERE a.x=1
+--
+ALTERNATION GROUP: AS
+--
+DeleteStatement [0-25] [DELETE T AS a WHERE a.x=1]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  Alias [9-13] [AS a]
+    Identifier(a) [12-13] [a]
+  BinaryExpression(=) [20-25] [a.x=1]
+    PathExpression [20-23] [a.x]
+      Identifier(a) [20-21] [a]
+      Identifier(x) [22-23] [x]
+    IntLiteral(1) [24-25] [1]
+--
+DELETE T AS a
+WHERE
+  a.x = 1
+--
+ALTERNATION GROUP: <empty>
+--
+DeleteStatement [0-23] [DELETE T  a WHERE a.x=1]
+  PathExpression [7-8] [T]
+    Identifier(T) [7-8] [T]
+  Alias [10-11] [a]
+    Identifier(a) [10-11] [a]
+  BinaryExpression(=) [18-23] [a.x=1]
+    PathExpression [18-21] [a.x]
+      Identifier(a) [18-19] [a]
+      Identifier(x) [20-21] [x]
+    IntLiteral(1) [22-23] [1]
+--
+DELETE T AS a
+WHERE
+  a.x = 1
+==
+
+# Hints work on outer statements but not inner.  (We could add this.)
+@{a=b} delete from t1
+--
+HintedStatement [0-21] [@{a=b} delete from t1]
+  Hint [0-6] [@{a=b}]
+    HintEntry [2-5] [a=b]
+      Identifier(a) [2-3] [a]
+      PathExpression [4-5] [b]
+        Identifier(b) [4-5] [b]
+  DeleteStatement [7-21] [delete from t1]
+    PathExpression [19-21] [t1]
+      Identifier(t1) [19-21] [t1]
+--
+@{ a = b }
+DELETE t1
+==

@@ -48,12 +48,22 @@ namespace zetasql {
 
 // Create a `FunctionSignatureOptions` that configures a SQL definition that
 // will be inlined by `REWRITE_BUILTIN_FUNCTION_INLINER`.
-static FunctionSignatureOptions SetDefinitionForInlining(
-    absl::string_view sql) {
+static FunctionSignatureOptions SetDefinitionForInlining(absl::string_view sql,
+                                                         bool enabled = true) {
   return FunctionSignatureOptions().set_rewrite_options(
       FunctionSignatureRewriteOptions()
+          .set_enabled(enabled)
           .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
           .set_sql(sql));
+}
+
+static bool IsRewriteEnabled(FunctionSignatureId id,
+                             const ZetaSQLBuiltinFunctionOptions& options,
+                             bool default_value = true) {
+  auto found_override = options.rewrite_enabled.find(id);
+  return found_override != options.rewrite_enabled.end()
+             ? found_override->second
+             : default_value;
 }
 
 void GetArrayMiscFunctions(TypeFactory* type_factory,
@@ -223,106 +233,6 @@ void GetArrayMiscFunctions(TypeFactory* type_factory,
           .set_get_sql_callback(
               absl::bind_front(&GenerateDateTimestampArrayFunctionSQL,
                                "GENERATE_TIMESTAMP_ARRAY")));
-
-  // TODO: implement the behavior below
-  // If there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
-  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
-  // resolution of the body of the lambda function.
-  InsertFunction(
-      functions, options, "array_filter", SCALAR,
-      /*signatures=*/
-      {{ARG_ARRAY_TYPE_ANY_1,
-        {ARG_ARRAY_TYPE_ANY_1,
-         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
-        FN_ARRAY_FILTER},
-       {ARG_ARRAY_TYPE_ANY_1,
-        {ARG_ARRAY_TYPE_ANY_1,
-         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1, int64_type}, bool_type)},
-        FN_ARRAY_FILTER_WITH_INDEX}},
-      FunctionOptions().set_supports_safe_error_mode(
-          options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
-
-  // The collation propagation on the signature:
-  // (
-  //   ARRAY_TYPE_ANY_1,
-  //   Lambda(TYPE_ANY_1 [, int64]) -> TYPE_ANY_2)
-  // ) -> ARRAY_TYPE_ANY_2
-  //
-  // 1) on the first argument, setting collation_mode to AFFECTS_NONE so that
-  // the collation on the ARRAY_TYPE_ANY_1 doesn't directly propagate to the
-  // return type.
-  // TODO: implement the behavior in 2)
-  // 2) the lambda resolution is not affected by the collation_mode setting. If
-  // there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
-  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
-  // resolution of the body of the lambda function.
-  // 3) the collation of return type ARRAY_TYPE_ANY_2 is decided by lambda
-  // return type TYPE_ANY_2.
-  InsertFunction(
-      functions, options, "array_transform", SCALAR,
-      /*signatures=*/
-      {{{ARG_ARRAY_TYPE_ANY_2,
-         FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
-        {{ARG_ARRAY_TYPE_ANY_1,
-          FunctionArgumentTypeOptions().set_argument_collation_mode(
-              FunctionEnums::AFFECTS_NONE)},
-         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2)},
-        FN_ARRAY_TRANSFORM},
-       {{ARG_ARRAY_TYPE_ANY_2,
-         FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
-        {{ARG_ARRAY_TYPE_ANY_1,
-          FunctionArgumentTypeOptions().set_argument_collation_mode(
-              FunctionEnums::AFFECTS_NONE)},
-         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1, int64_type},
-                                      ARG_TYPE_ANY_2)},
-        FN_ARRAY_TRANSFORM_WITH_INDEX}},
-      FunctionOptions().set_supports_safe_error_mode(
-          options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
-
-  FunctionArgumentTypeOptions supports_equality;
-  supports_equality.set_must_support_equality();
-  FunctionArgumentTypeOptions element_supports_equality;
-  element_supports_equality.set_array_element_must_support_equality();
-
-  // TODO: implement the behavior below
-  // If there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
-  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
-  // resolution of the body of the lambda function.
-  InsertFunction(
-      functions, options, "array_includes", SCALAR,
-      /*signatures=*/
-      {{bool_type,
-        {{ARG_ARRAY_TYPE_ANY_1, element_supports_equality}, ARG_TYPE_ANY_1},
-        FN_ARRAY_INCLUDES},
-       {bool_type,
-        {ARG_ARRAY_TYPE_ANY_1,
-         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
-        FN_ARRAY_INCLUDES_LAMBDA}},
-      FunctionOptions().set_supports_safe_error_mode(
-          options.language_options.LanguageFeatureEnabled(
-              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
-
-  InsertFunction(functions, options, "array_includes_any", SCALAR,
-                 /*signatures=*/
-                 {{bool_type,
-                   {{ARG_ARRAY_TYPE_ANY_1, element_supports_equality},
-                    {ARG_ARRAY_TYPE_ANY_1, element_supports_equality}},
-                   FN_ARRAY_INCLUDES_ANY}},
-                 FunctionOptions().set_supports_safe_error_mode(
-                     options.language_options.LanguageFeatureEnabled(
-                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
-
-  InsertFunction(functions, options, "array_includes_all", SCALAR,
-                 /*signatures=*/
-                 {{bool_type,
-                   {{ARG_ARRAY_TYPE_ANY_1, element_supports_equality},
-                    {ARG_ARRAY_TYPE_ANY_1, element_supports_equality}},
-                   FN_ARRAY_INCLUDES_ALL}},
-                 FunctionOptions().set_supports_safe_error_mode(
-                     options.language_options.LanguageFeatureEnabled(
-                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   FunctionArgumentType array_input_for_collation(
       ARG_ARRAY_TYPE_ANY_1,
@@ -707,6 +617,253 @@ absl::Status GetArrayFindFunctions(
             .set_uses_operation_collation()}});
 
   return absl::OkStatus();
+}
+
+void GetArrayFilteringFunctions(TypeFactory* type_factory,
+                                const ZetaSQLBuiltinFunctionOptions& options,
+                                NameToFunctionMap* functions) {
+  FunctionArgumentType input_array_arg(
+      ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_name(
+                                "array_to_filter", kPositionalOnly));
+  FunctionArgumentType output_array(ARG_ARRAY_TYPE_ANY_1);
+  FunctionArgumentType filter_function_arg = FunctionArgumentType::Lambda(
+      {ARG_TYPE_ANY_1}, type_factory->get_bool(),
+      FunctionArgumentTypeOptions().set_argument_name("condition",
+                                                      kPositionalOnly));
+  FunctionArgumentType filter_function_arg_with_offset =
+      FunctionArgumentType::Lambda(
+          {ARG_TYPE_ANY_1, type_factory->get_int64()}, type_factory->get_bool(),
+          FunctionArgumentTypeOptions().set_argument_name("condition",
+                                                          kPositionalOnly));
+
+  // TODO: implement the behavior below
+  // If there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
+  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
+  // resolution of the body of the lambda function.
+
+  constexpr absl::string_view kArrayFilterSql = R"sql(
+      IF (array_to_filter IS NULL,
+          NULL,
+          ARRAY(
+            SELECT element
+            FROM UNNEST(array_to_filter) AS element WITH OFFSET off
+            WHERE condition(element)
+            ORDER BY off
+          )
+        )
+      )sql";
+
+  constexpr absl::string_view kArrayFilterSqlWithOffset = R"sql(
+      IF (array_to_filter IS NULL,
+          NULL,
+          ARRAY(
+            SELECT element
+            FROM UNNEST(array_to_filter) AS element WITH OFFSET off
+            WHERE condition(element, off)
+            ORDER BY off
+          )
+        )
+      )sql";
+
+  InsertFunction(
+      functions, options, "array_filter", Function::SCALAR,
+      {{output_array,
+        {input_array_arg, filter_function_arg},
+        FN_ARRAY_FILTER,
+        SetDefinitionForInlining(kArrayFilterSql,
+                                 IsRewriteEnabled(FN_ARRAY_FILTER, options))},
+       {output_array,
+        {input_array_arg, filter_function_arg_with_offset},
+        FN_ARRAY_FILTER_WITH_INDEX,
+        SetDefinitionForInlining(
+            kArrayFilterSqlWithOffset,
+            IsRewriteEnabled(FN_ARRAY_FILTER_WITH_INDEX, options))}},
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+}
+
+void GetArrayTransformFunctions(TypeFactory* type_factory,
+                                const ZetaSQLBuiltinFunctionOptions& options,
+                                NameToFunctionMap* functions) {
+  FunctionArgumentType input_array_arg(
+      ARG_ARRAY_TYPE_ANY_1,
+      FunctionArgumentTypeOptions()
+          .set_argument_name("array_to_transform", kPositionalOnly)
+          .set_argument_collation_mode(FunctionEnums::AFFECTS_NONE));
+  FunctionArgumentType output_array(
+      ARG_ARRAY_TYPE_ANY_2,
+      FunctionArgumentTypeOptions().set_uses_array_element_for_collation());
+  FunctionArgumentType transform_function_arg = FunctionArgumentType::Lambda(
+      {ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2,
+      FunctionArgumentTypeOptions().set_argument_name("transformation",
+                                                      kPositionalOnly));
+  FunctionArgumentType transform_function_arg_with_offset =
+      FunctionArgumentType::Lambda(
+          {ARG_TYPE_ANY_1, type_factory->get_int64()}, ARG_TYPE_ANY_2,
+          FunctionArgumentTypeOptions().set_argument_name("transformation",
+                                                          kPositionalOnly));
+
+  constexpr absl::string_view kArrayTransformSql = R"sql(
+      IF (array_to_transform IS NULL,
+          NULL,
+          ARRAY(
+            SELECT transformation(element)
+            FROM UNNEST(array_to_transform) AS element WITH OFFSET off
+            ORDER BY off
+          )
+      )
+      )sql";
+
+  constexpr absl::string_view kArrayTransformWithIndexSql = R"sql(
+      IF (array_to_transform IS NULL,
+          NULL,
+          ARRAY(
+            SELECT transformation(element, off)
+            FROM UNNEST(array_to_transform) AS element WITH OFFSET off
+            ORDER BY off
+          )
+      )
+      )sql";
+
+  // The collation propagation on the signature:
+  // (
+  //   ARRAY_TYPE_ANY_1,
+  //   Lambda(TYPE_ANY_1 [, int64]) -> TYPE_ANY_2)
+  // ) -> ARRAY_TYPE_ANY_2
+  //
+  // 1) on the first argument, setting collation_mode to AFFECTS_NONE so that
+  // the collation on the ARRAY_TYPE_ANY_1 doesn't directly propagate to the
+  // return type.
+  // TODO: implement the behavior in 2)
+  // 2) the lambda resolution is not affected by the collation_mode setting. If
+  // there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
+  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
+  // resolution of the body of the lambda function.
+  // 3) the collation of return type ARRAY_TYPE_ANY_2 is decided by lambda
+  // return type TYPE_ANY_2.
+  InsertFunction(
+      functions, options, "array_transform", Function::SCALAR,
+      {{output_array,
+        {input_array_arg, transform_function_arg},
+        FN_ARRAY_TRANSFORM,
+        SetDefinitionForInlining(
+            kArrayTransformSql, IsRewriteEnabled(FN_ARRAY_TRANSFORM, options))},
+       {output_array,
+        {input_array_arg, transform_function_arg_with_offset},
+        FN_ARRAY_TRANSFORM_WITH_INDEX,
+        SetDefinitionForInlining(
+            kArrayTransformWithIndexSql,
+            IsRewriteEnabled(FN_ARRAY_TRANSFORM_WITH_INDEX, options))}},
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+}
+
+void GetArrayIncludesFunctions(TypeFactory* type_factory,
+                               const ZetaSQLBuiltinFunctionOptions& options,
+                               NameToFunctionMap* functions) {
+  const Type* bool_type = type_factory->get_bool();
+  FunctionArgumentType array_to_search_arg(
+      ARG_ARRAY_TYPE_ANY_1,
+      FunctionArgumentTypeOptions()
+          .set_array_element_must_support_equality()
+          .set_argument_name("array_to_search", kPositionalOnly));
+  FunctionArgumentType array_to_search_arg_2(
+      ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_name(
+                                "array_to_search", kPositionalOnly));
+  FunctionArgumentType search_value_arg(
+      ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_argument_name(
+                          "search_value", kPositionalOnly));
+  FunctionArgumentType search_values_arg(
+      ARG_ARRAY_TYPE_ANY_1,
+      FunctionArgumentTypeOptions()
+          .set_array_element_must_support_equality()
+          .set_argument_name("search_values", kPositionalOnly));
+  FunctionArgumentType array_include_lambda_arg = FunctionArgumentType::Lambda(
+      {ARG_TYPE_ANY_1}, type_factory->get_bool(),
+      FunctionArgumentTypeOptions().set_argument_name("condition",
+                                                      kPositionalOnly));
+
+  constexpr absl::string_view kArrayIncludesSql = R"sql(
+      IF (array_to_search IS NULL OR search_value is NULL,
+      NULL,
+      EXISTS(SELECT 1
+              FROM UNNEST(array_to_search) AS element
+              WHERE element = search_value)
+      )
+      )sql";
+
+  constexpr absl::string_view kArrayIncludesLambdaSql = R"sql(
+      IF (array_to_search IS NULL,
+          NULL,
+          EXISTS(SELECT 1
+                  FROM UNNEST(array_to_search) AS element
+                  WHERE condition(element)
+          )
+      )
+      )sql";
+
+  constexpr absl::string_view kArrayIncludesAnySql = R"sql(
+      IF (array_to_search IS NULL OR search_values is NULL,
+          NULL,
+          EXISTS(SELECT 1
+                  FROM UNNEST(array_to_search) AS element
+                  WHERE element IN UNNEST(search_values)
+          )
+      )
+      )sql";
+
+  constexpr absl::string_view kArrayIncludesAllSql = R"sql(
+      IF (array_to_search IS NULL OR search_values is NULL, NULL,
+          IF (ARRAY_LENGTH(search_values) = 0,
+              TRUE,
+              (SELECT LOGICAL_AND(IFNULL(element IN UNNEST(array_to_search), FALSE))
+                FROM UNNEST(search_values) AS element)))
+      )sql";
+
+  // TODO: implement the behavior below
+  // If there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
+  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
+  // resolution of the body of the lambda function.
+  InsertFunction(
+      functions, options, "array_includes", Function::SCALAR,
+      {{bool_type,
+        {array_to_search_arg, search_value_arg},
+        FN_ARRAY_INCLUDES,
+        SetDefinitionForInlining(kArrayIncludesSql,
+                                 IsRewriteEnabled(FN_ARRAY_INCLUDES, options))},
+       {bool_type,
+        {array_to_search_arg_2, array_include_lambda_arg},
+        FN_ARRAY_INCLUDES_LAMBDA,
+        SetDefinitionForInlining(
+            kArrayIncludesLambdaSql,
+            IsRewriteEnabled(FN_ARRAY_INCLUDES_LAMBDA, options))}},
+      FunctionOptions().set_supports_safe_error_mode(
+          options.language_options.LanguageFeatureEnabled(
+              FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+
+  InsertFunction(functions, options, "array_includes_any", Function::SCALAR,
+                 {{bool_type,
+                   {array_to_search_arg, search_values_arg},
+                   FN_ARRAY_INCLUDES_ANY,
+                   SetDefinitionForInlining(
+                       kArrayIncludesAnySql,
+                       IsRewriteEnabled(FN_ARRAY_INCLUDES_ANY, options))}},
+                 FunctionOptions().set_supports_safe_error_mode(
+                     options.language_options.LanguageFeatureEnabled(
+                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+
+  InsertFunction(functions, options, "array_includes_all", Function::SCALAR,
+                 {{bool_type,
+                   {array_to_search_arg, search_values_arg},
+                   FN_ARRAY_INCLUDES_ALL,
+                   SetDefinitionForInlining(
+                       kArrayIncludesAllSql,
+                       IsRewriteEnabled(FN_ARRAY_INCLUDES_ALL, options))}},
+                 FunctionOptions().set_supports_safe_error_mode(
+                     options.language_options.LanguageFeatureEnabled(
+                         FEATURE_V_1_4_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 }
 
 }  // namespace zetasql

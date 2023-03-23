@@ -4096,11 +4096,25 @@ void Unparser::visitASTSetOperationMetadataList(
 
 void Unparser::visitASTSetOperationMetadata(const ASTSetOperationMetadata* node,
                                             void* data) {
+  if (node->column_propagation_mode() != nullptr &&
+      node->column_propagation_mode()->value() != ASTSetOperation::STRICT) {
+    node->column_propagation_mode()->Accept(this, data);
+  }
   node->op_type()->Accept(this, data);
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
   }
   node->all_or_distinct()->Accept(this, data);
+  if (node->column_propagation_mode() != nullptr &&
+      node->column_propagation_mode()->value() == ASTSetOperation::STRICT) {
+    node->column_propagation_mode()->Accept(this, data);
+  }
+  if (node->column_match_mode() != nullptr) {
+    node->column_match_mode()->Accept(this, data);
+  }
+  if (node->corresponding_by_column_list() != nullptr) {
+    node->corresponding_by_column_list()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTSetOperationAllOrDistinct(
@@ -4131,6 +4145,37 @@ void Unparser::visitASTSetOperationType(const ASTSetOperationType* node,
       break;
     case ASTSetOperation::NOT_SET:
       print("<UNKNOWN SET OPERATOR>");
+  }
+}
+
+void Unparser::visitASTSetOperationColumnMatchMode(
+    const ASTSetOperationColumnMatchMode* node, void* data) {
+  switch (node->value()) {
+    case ASTSetOperation::CORRESPONDING:
+      print("CORRESPONDING");
+      break;
+    case ASTSetOperation::CORRESPONDING_BY:
+      print("CORRESPONDING BY");
+      break;
+    case ASTSetOperation::BY_POSITION:
+      break;
+  }
+}
+
+void Unparser::visitASTSetOperationColumnPropagationMode(
+    const ASTSetOperationColumnPropagationMode* node, void* data) {
+  switch (node->value()) {
+    case ASTSetOperation::FULL:
+      print("FULL");
+      break;
+    case ASTSetOperation::LEFT:
+      print("LEFT");
+      break;
+    case ASTSetOperation::STRICT:
+      print("STRICT");
+      break;
+    case ASTSetOperation::INNER:
+      break;
   }
 }
 

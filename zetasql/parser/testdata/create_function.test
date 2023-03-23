@@ -1505,4 +1505,79 @@ create function myfunc ( ) returns string remote with connection c options(a=b);
 ERROR: Keyword REMOTE is not supported [at 1:43]
 create function myfunc ( ) returns string remote with connection c options(a=b);
                                           ^
+==
 
+# Testing a dot generalized identifier operating in a case statement. This case
+# was regressed during authoring a prototype change and we had no covering test.
+CREATE PUBLIC FUNCTION MatchesBucket(
+  value DOUBLE, bucket project_namespace.Bucket)
+RETURNS BOOL
+AS (
+  CASE bucket.type
+    WHEN "point" THEN value = bucket.point
+    WHEN "range" THEN bucket.range.low <= value AND value < bucket.range.high
+    ELSE ERROR("Unsupported bucket type")
+    END
+);
+--
+CreateFunctionStatement(is_public) [0-296] [CREATE PUBLIC...END )]
+  FunctionDeclaration [23-86] [MatchesBucket...espace.Bucket)]
+    PathExpression [23-36] [MatchesBucket]
+      Identifier(MatchesBucket) [23-36] [MatchesBucket]
+    FunctionParameters [36-86] [(   value..._namespace.Bucket)]
+      FunctionParameter [40-52] [value DOUBLE]
+        Identifier(value) [40-45] [value]
+        SimpleType [46-52] [DOUBLE]
+          PathExpression [46-52] [DOUBLE]
+            Identifier(DOUBLE) [46-52] [DOUBLE]
+      FunctionParameter [54-85] [bucket project_na...ace.Bucket]
+        Identifier(bucket) [54-60] [bucket]
+        SimpleType [61-85] [project_namespace.Bucket]
+          PathExpression [61-85] [project_namespace.Bucket]
+            Identifier(project_namespace) [61-78] [project_namespace]
+            Identifier(Bucket) [79-85] [Bucket]
+  SimpleType [95-99] [BOOL]
+    PathExpression [95-99] [BOOL]
+      Identifier(BOOL) [95-99] [BOOL]
+  SqlFunctionBody [103-296] [(   CASE bucket...END )]
+    CaseValueExpression [107-294] [CASE bucket...")     END]
+      PathExpression [112-123] [bucket.type]
+        Identifier(bucket) [112-118] [bucket]
+        Identifier(type) [119-123] [type]
+      StringLiteral("point") [133-140] ["point"]
+      BinaryExpression(=) [146-166] [value = bucket.point]
+        PathExpression [146-151] [value]
+          Identifier(value) [146-151] [value]
+        PathExpression [154-166] [bucket.point]
+          Identifier(bucket) [154-160] [bucket]
+          Identifier(point) [161-166] [point]
+      StringLiteral("range") [176-183] ["range"]
+      AndExpr [189-244] [bucket.range...range.high]
+        BinaryExpression(<=) [189-214] [bucket.range.low <= value]
+          PathExpression [189-205] [bucket.range.low]
+            Identifier(bucket) [189-195] [bucket]
+            Identifier(`range`) [196-201] [range]
+            Identifier(low) [202-205] [low]
+          PathExpression [209-214] [value]
+            Identifier(value) [209-214] [value]
+        BinaryExpression(<) [219-244] [value < bucket.range.high]
+          PathExpression [219-224] [value]
+            Identifier(value) [219-224] [value]
+          PathExpression [227-244] [bucket.range.high]
+            Identifier(bucket) [227-233] [bucket]
+            Identifier(`range`) [234-239] [range]
+            Identifier(high) [240-244] [high]
+      FunctionCall [254-286] [ERROR("Unsupporte...ket type")]
+        PathExpression [254-259] [ERROR]
+          Identifier(ERROR) [254-259] [ERROR]
+        StringLiteral("Unsupported bucket type") [260-285] ["Unsupported bucket type"]
+
+--
+CREATE PUBLIC FUNCTION MatchesBucket(value DOUBLE, bucket project_namespace.Bucket)
+RETURNS BOOL AS (
+  CASE bucket.type
+    WHEN "point" THEN value = bucket.point
+    WHEN "range" THEN bucket.`range`.low <= value AND value < bucket.`range`.high
+    ELSE ERROR("Unsupported bucket type")
+  END
+)

@@ -27,6 +27,7 @@
 #include "google/protobuf/io/tokenizer.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -77,6 +78,18 @@ absl::Status TableNotFoundErrorWithPathPrefix(
          << " not found in catalog " << root_name;
 }
 
+::zetasql_base::StatusBuilder InconsistentFindStatusAndTableError(
+    const absl::Span<const std::string> path, absl::Status status,
+    const Table* table) {
+  const std::string table_message =
+      (table != nullptr) ? (" returns a table named " + table->FullName())
+                         : " does not return a valid table";
+  return ::zetasql_base::InternalErrorBuilder()
+         << "Catalog might have implementation bug; Find table with full "
+         << "identifier path " << absl::StrJoin(path, ".") << table_message
+         << ", and returns status " << status.ToString();
+}
+
 }  // namespace
 
 absl::Status Catalog::FindTableWithPathPrefixImpl(
@@ -125,7 +138,9 @@ absl::Status Catalog::FindTableWithPathPrefix(
   // implementation.
   absl::Status find_full_path_status = FindTable(path, table, options);
   if (!absl::IsNotFound(find_full_path_status)) {
-    ZETASQL_RET_CHECK_EQ(find_full_path_status.ok(), *table != nullptr);
+    ZETASQL_RET_CHECK_EQ(find_full_path_status.ok(), *table != nullptr)
+        << InconsistentFindStatusAndTableError(path, find_full_path_status,
+                                               *table);
     *num_names_consumed = static_cast<int>(path.size());
     return find_full_path_status;
   }

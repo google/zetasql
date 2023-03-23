@@ -80,7 +80,9 @@ TEST(SetToolModeFromFlags, ToolMode) {
     EXPECT_EQ(config.tool_mode(), expected_mode);
   };
   CheckFlag("parse", ToolMode::kParse);
+  CheckFlag("unparse", ToolMode::kUnparse);
   CheckFlag("resolve", ToolMode::kResolve);
+  CheckFlag("unanalyze", ToolMode::kUnAnalyze);
   CheckFlag("explain", ToolMode::kExplain);
   CheckFlag("execute", ToolMode::kExecute);
 }
@@ -521,6 +523,17 @@ TEST(ExecuteQuery, ParseQuery) {
 )");
 }
 
+TEST(ExecuteQuery, UnparseQuery) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kUnparse);
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
+  EXPECT_EQ(output.str(), R"(SELECT
+  1
+
+)");
+}
+
 TEST(ExecuteQuery, ResolveQuery) {
   ExecuteQueryConfig config;
   config.set_tool_mode(ToolMode::kResolve);
@@ -537,6 +550,15 @@ TEST(ExecuteQuery, ResolveQuery) {
     +-input_scan=
       +-SingleRowScan
 
+)");
+}
+
+TEST(ExecuteQuery, UnAnalyzeQuery) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kUnAnalyze);
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
+  EXPECT_EQ(output.str(), R"(SELECT 1 AS a_1
 )");
 }
 

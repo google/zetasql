@@ -68,24 +68,6 @@ ABSL_FLAG(std::string, test_file, "", "location of test data file.");
 ABSL_DECLARE_FLAG(bool, output_asc_explicitly);
 
 namespace zetasql {
-namespace {
-  // Helper for determining if two hints match.
-  bool HintsMatch(const ASTHint* hint1, const ASTNode* node2) {
-    const ASTHint* hint2 = node2->GetAsOrDie<ASTHint>();
-    if (hint1 == nullptr && hint2 == nullptr) {
-      return true;
-    }
-    if (hint1 == nullptr || hint2 == nullptr) {
-      return false;
-    }
-    const std::string hint1_unparsed = Unparse(hint1);
-    const std::string hint2_unparsed = Unparse(hint2);
-    if (hint1_unparsed != hint2_unparsed) {
-      return false;
-    }
-    return true;
-  }
-}  // namespace
 
 class RunParserTest : public ::testing::Test {
  public:  // Pointer-to-member-function usage requires public member functions
@@ -631,7 +613,7 @@ class RunParserTest : public ::testing::Test {
   }
 
   void CheckExtractedStatementProperties(
-      const ASTNode* node,
+      const ASTNode* node, absl::string_view test_case,
       const parser::ASTStatementProperties& extracted_statement_properties,
       std::vector<std::string>* test_outputs) {
     const ASTStatement* statement = node->GetAsOrNull<ASTStatement>();
@@ -645,24 +627,15 @@ class RunParserTest : public ::testing::Test {
           = statement->GetAsOrDie<ASTHintedStatement>();
       statement = ast_hinted_statement->statement();
 
-      // The hint on the AST should match that in the extracted properties.
-      EXPECT_TRUE(HintsMatch(
-          ast_hinted_statement->hint(),
-          extracted_statement_properties.statement_level_hints));
-      if (!HintsMatch(ast_hinted_statement->hint(),
-                      extracted_statement_properties.statement_level_hints)) {
-        const std::string extracted_hint =
-            (extracted_statement_properties.statement_level_hints == nullptr
-             ? ""
-             : Unparse(extracted_statement_properties.statement_level_hints));
-        const std::string actual_hint =
-            (ast_hinted_statement->hint() == nullptr
-             ? ""
-             : Unparse(ast_hinted_statement->hint()));
-        test_outputs->push_back(absl::StrCat(
-            "FAILED extracting statement hints. Extracted hints: ",
-            extracted_hint, ", actual hints: ", actual_hint));
-      }
+      absl::flat_hash_map<std::string, std::string> hints_from_hinted_statement;
+      ZETASQL_EXPECT_OK(ProcessStatementLevelHintsToMap(ast_hinted_statement->hint(),
+                                                test_case,
+                                                hints_from_hinted_statement));
+      EXPECT_THAT(hints_from_hinted_statement,
+                  testing::ContainerEq(
+                      extracted_statement_properties.statement_level_hints))
+          << "\nTest SQL: " << test_case << "\nHinted statement:\n"
+          << ast_hinted_statement->DebugString();
     }
 
     // The NodeKind on the AST should match that in the extracted properties.
@@ -721,8 +694,9 @@ class RunParserTest : public ::testing::Test {
       // Check that the statement we parsed matches the statement kind we
       // extracted with ParseStatementKind.
       if (mode == "statement") {
-        CheckExtractedStatementProperties(
-            parsed_root, extracted_statement_properties, test_outputs);
+        CheckExtractedStatementProperties(parsed_root, test_case,
+                                          extracted_statement_properties,
+                                          test_outputs);
       }
 
       const std::string root_debug_string =

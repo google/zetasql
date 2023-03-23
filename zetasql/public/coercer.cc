@@ -41,6 +41,7 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"

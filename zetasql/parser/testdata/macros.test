@@ -74,15 +74,35 @@ DEFINE MACRO m1 */
 [language_features=]
 DEFINE MACRO add $1 + $2
 --
-ERROR: Syntax error: Illegal input character "$" [at 1:18]
+ERROR: Macros are not supported [at 1:8]
 DEFINE MACRO add $1 + $2
-                 ^
+       ^
 ==
 
-# This looks like a bug. The EXCEPT keyword has some special magic in the lexer
-# that accomodates statement kind, but not macros.
+# Disabling the flag disallows '$'
+# Would it be nicer to say "Macros are not supported."?  It would be an easy fix
+[language_features=]
+SELECT $1 + $2
+--
+ERROR: Macros are not supported [at 1:8]
+SELECT $1 + $2
+       ^
+==
+
+# The macro name cannot be a reserved keyword
 DEFINE macro EXCEPT $subquery;
 --
 ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 1:14]
 DEFINE macro EXCEPT $subquery;
              ^
+==
+
+# This looks like a bug. The EXCEPT keyword has some special magic in the lexer
+# that accomodates statement kind, but not macros.
+DEFINE macro foo EXCEPT $subquery;
+--
+DefineMacroStatement [0-33] [DEFINE macro...$subquery]
+  Identifier(foo) [13-16] [foo]
+  MacroBody(EXCEPT $subquery) [17-33] [EXCEPT $subquery]
+--
+DEFINE MACRO foo EXCEPT $subquery

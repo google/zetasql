@@ -9120,42 +9120,37 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
                           "2020-03-13 23:59:59.999999999" /* Friday */,
                           kNanoseconds),
       // MONTH part is not supported
-      TimestampBucketErrorTest("2020-03-15 14:57:39", "0-1 0",
-                               "1950-01-01 00:00:00",
-                               "TIMESTAMP_BUCKET doesn't support bucket width "
-                               "INTERVAL with non-zero MONTH part"),
-      TimestampBucketErrorTest("2020-03-15 14:57:39", "-0-1 0",
-                               "1950-01-01 00:00:00",
-                               "TIMESTAMP_BUCKET doesn't support bucket width "
-                               "INTERVAL with non-zero MONTH part"),
+      TimestampBucketErrorTest(
+          "2020-03-15 14:57:39", "0-1 0", "1950-01-01 00:00:00",
+          "Bucket width INTERVAL with non-zero MONTH part is not allowed"),
+      TimestampBucketErrorTest(
+          "2020-03-15 14:57:39", "-0-1 0", "1950-01-01 00:00:00",
+          "Bucket width INTERVAL with non-zero MONTH part is not allowed"),
       // Zero INTERVAL is not supported
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0:0:0",
                                "1950-01-01 00:00:00",
-                               "TIMESTAMP_BUCKET doesn't support zero "
-                               "bucket width INTERVAL"),
+                               "Zero bucket width INTERVAL is not allowed"),
       // Negative MICROSECOND part is not supported
       TimestampBucketErrorTest("2020-03-15 14:57:39", "-0:0:1",
                                "1950-01-01 00:00:00",
-                               "TIMESTAMP_BUCKET doesn't support negative "
-                               "bucket width INTERVAL"),
+                               "Negative bucket width INTERVAL is not allowed"),
       // Negative DAY part is not supported
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 -1",
                                "1950-01-01 00:00:00",
-                               "TIMESTAMP_BUCKET doesn't support negative "
-                               "bucket width INTERVAL"),
+                               "Negative bucket width INTERVAL is not allowed"),
       // Mixing DAY and MICROSECOND/NANOSECOND parts is not supported
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000100",
                                "1950-01-01 00:00:00",
-                               "TIMESTAMP_BUCKET doesn't support bucket width "
-                               "INTERVAL with mixed DAY and MICROSECOND parts"),
+                               "Bucket width INTERVAL with mixed DAY and "
+                               "MICROSECOND parts is not allowed"),
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000001",
                                "1950-01-01 00:00:00",
-                               "TIMESTAMP_BUCKET doesn't support bucket width "
-                               "INTERVAL with mixed DAY and MICROSECOND parts"),
+                               "Bucket width INTERVAL with mixed DAY and "
+                               "MICROSECOND parts is not allowed"),
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000000001",
                                "1950-01-01 00:00:00",
-                               "TIMESTAMP_BUCKET doesn't support bucket width "
-                               "INTERVAL with mixed DAY and NANOSECOND parts",
+                               "Bucket width INTERVAL with mixed DAY and "
+                               "NANOSECOND parts is not allowed",
                                kNanoseconds),
       // Mixing MICROSECONDs and NANOSECONDs.
       TimestampBucketTest("2020-03-15 14:57:39.646565731", "0:0:0.000002500",
@@ -9820,52 +9815,42 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeBucket() {
                               "Bucket for 0001-01-01 00:00:00 "
                               "is outside of datetime range"),
       // Zero INTERVAL is not supported
-      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0:0:0",
-                              "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET requires exactly one non-zero "
-                              "INTERVAL part in bucket width"),
+      DatetimeBucketErrorTest(
+          "2020-03-15 14:57:39", "0:0:0", "1950-01-01 00:00:00",
+          "Exactly one non-zero INTERVAL part in bucket width is required"),
       // Negative MICROSECOND part is not supported
       DatetimeBucketErrorTest("2020-03-15 14:57:39", "-0:0:1",
                               "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET doesn't support negative "
-                              "bucket width INTERVAL"),
+                              "Negative bucket width INTERVAL is not allowed"),
       // Negative DAY part is not supported
       DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-0 -1",
                               "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET doesn't support negative "
-                              "bucket width INTERVAL"),
+                              "Negative bucket width INTERVAL is not allowed"),
       // Negative MONTH part is not supported
       DatetimeBucketErrorTest("2020-03-15 14:57:39", "-0-1",
                               "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET doesn't support negative "
-                              "bucket width INTERVAL"),
+                              "Negative bucket width INTERVAL is not allowed"),
       // Mixing MONTH, DAY and MICROSECOND/NANOSECOND parts is not supported
-      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-1 1",
-                              "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET requires exactly one non-zero "
-                              "INTERVAL part in bucket width"),
-      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-1 0 0:0:0.000100",
-                              "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET requires exactly one non-zero "
-                              "INTERVAL part in bucket width"),
-      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-1 0 0:0:0.000000001",
-                              "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET requires exactly one non-zero "
-                              "INTERVAL part in bucket width",
-                              kNanoseconds),
-      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000100",
-                              "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET requires exactly one non-zero "
-                              "INTERVAL part in bucket width"),
-      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000001",
-                              "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET requires exactly one non-zero "
-                              "INTERVAL part in bucket width"),
-      DatetimeBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000000001",
-                              "1950-01-01 00:00:00",
-                              "DATETIME_BUCKET requires exactly one non-zero "
-                              "INTERVAL part in bucket width",
-                              kNanoseconds),
+      DatetimeBucketErrorTest(
+          "2020-03-15 14:57:39", "0-1 1", "1950-01-01 00:00:00",
+          "Exactly one non-zero INTERVAL part in bucket width is required"),
+      DatetimeBucketErrorTest(
+          "2020-03-15 14:57:39", "0-1 0 0:0:0.000100", "1950-01-01 00:00:00",
+          "Exactly one non-zero INTERVAL part in bucket width is required"),
+      DatetimeBucketErrorTest(
+          "2020-03-15 14:57:39", "0-1 0 0:0:0.000000001", "1950-01-01 00:00:00",
+          "Exactly one non-zero INTERVAL part in bucket width is required",
+          kNanoseconds),
+      DatetimeBucketErrorTest(
+          "2020-03-15 14:57:39", "0-0 1 0:0:0.000100", "1950-01-01 00:00:00",
+          "Exactly one non-zero INTERVAL part in bucket width is required"),
+      DatetimeBucketErrorTest(
+          "2020-03-15 14:57:39", "0-0 1 0:0:0.000001", "1950-01-01 00:00:00",
+          "Exactly one non-zero INTERVAL part in bucket width is required"),
+      DatetimeBucketErrorTest(
+          "2020-03-15 14:57:39", "0-0 1 0:0:0.000000001", "1950-01-01 00:00:00",
+          "Exactly one non-zero INTERVAL part in bucket width is required",
+          kNanoseconds),
       // Mixing MICROSECONDs and NANOSECONDs.
       DatetimeBucketTest("2020-03-15 14:57:39.646565731", "0:0:0.000002500",
                          "1950-01-01 00:00:00", "2020-03-15 14:57:39.646565000",
@@ -10198,25 +10183,23 @@ std::vector<FunctionTestCall> GetFunctionTestsDateBucket() {
       DateBucketTest("9999-12-31", "0-1", "0001-01-01", "9999-12-01"),
       DateBucketErrorTest("0001-01-01", "0-1", "9999-12-31",
                           "Bucket for 0001-01-01 is outside of date range"),
-      DateBucketErrorTest("2020-03-15", "0-0", "1950-01-01",
-                          "DATE_BUCKET requires exactly one non-zero "
-                          "INTERVAL part in bucket width"),
+      DateBucketErrorTest(
+          "2020-03-15", "0-0", "1950-01-01",
+          "Exactly one non-zero INTERVAL part in bucket width is required"),
       // MICROSECOND part is not supported
-      DateBucketErrorTest("2020-03-15", "24:00:00", "1950-01-01",
-                          "DATE_BUCKET only supports bucket width INTERVAL "
-                          "with MONTH and DAY parts"),
+      DateBucketErrorTest(
+          "2020-03-15", "24:00:00", "1950-01-01",
+          "Only MONTH and DAY parts are allowed in bucket width INTERVAL"),
       // Negative DAY part is not supported
       DateBucketErrorTest("2020-03-15", "0-0 -1", "1950-01-01",
-                          "DATE_BUCKET doesn't support negative "
-                          "bucket width INTERVAL"),
+                          "Negative bucket width INTERVAL is not allowed"),
       // Negative MONTH part is not supported
       DateBucketErrorTest("2020-03-15", "-0-1", "1950-01-01",
-                          "DATE_BUCKET doesn't support negative "
-                          "bucket width INTERVAL"),
+                          "Negative bucket width INTERVAL is not allowed"),
       // Mixing MONTH and DAY parts is not supported
-      DateBucketErrorTest("2020-03-15", "0-1 1", "1950-01-01",
-                          "DATE_BUCKET requires exactly one non-zero "
-                          "INTERVAL part in bucket width"),
+      DateBucketErrorTest(
+          "2020-03-15", "0-1 1", "1950-01-01",
+          "Exactly one non-zero INTERVAL part in bucket width is required"),
       // Bucket is outside of DATE range. Output needs to be at 0000-12-31
       DateBucketErrorTest("0001-01-01", "0-0 2", "0001-01-02",
                           "Bucket for 0001-01-01 is outside of date range"),

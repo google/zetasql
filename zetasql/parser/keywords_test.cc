@@ -180,17 +180,6 @@ std::string GetFlexTokenizerPath() {
       "com_google_zetasql/zetasql/parser/flex_tokenizer.l");
 }
 
-TEST(GetAllKeywords, ReservedMatchesGrammarReservedKeywords) {
-  std::set<std::string> rule_reserved_keywords = ExtractKeywordsFromLines(
-      GetSectionFromFile(GetBisonParserPath(), "RESERVED_KEYWORD_RULE"));
-
-  std::set<std::string> reserved_keywords =
-      GetKeywordsSetForBisonGrammar(/*reserved=*/true);
-
-  EXPECT_THAT(reserved_keywords,
-              ::testing::ContainerEq(rule_reserved_keywords));
-}
-
 TEST(GetAllKeywords, NonReservedMatchesGrammarKeywordAsIdentifier) {
   std::set<std::string> keyword_as_identifier = ExtractKeywordsFromLines(
       GetSectionFromFile(GetBisonParserPath(), "KEYWORD_AS_IDENTIFIER"));
@@ -212,23 +201,6 @@ TEST(GetAllKeywords, NonReservedMatchesGrammarNonReserved) {
 
   EXPECT_THAT(grammar_non_reserved_keywords,
               ::testing::ContainerEq(non_reserved_keywords));
-}
-
-TEST(GetAllKeywords, ReservedMatchesGrammarReserved) {
-  std::set<std::string> grammar_reserved_keywords = ExtractKeywordsFromLines(
-      GetSectionFromFile(GetBisonParserPath(), "RESERVED_KEYWORDS"));
-
-  std::set<std::string> expected_reserved_keywords =
-      GetKeywordsSetForBisonGrammar(true /* reserved */);
-
-  // A few special keyword tokens in this section are expected, not accounted
-  // for in GetKeywordInfo().
-  expected_reserved_keywords.insert("kw_and_for_between");
-  expected_reserved_keywords.insert("kw_except_in_set_op");
-  expected_reserved_keywords.insert("kw_with_starting_with_expression");
-
-  EXPECT_THAT(grammar_reserved_keywords,
-              ::testing::ContainerEq(expected_reserved_keywords));
 }
 
 TEST(GetAllKeywords, AllKeywordsHaveTokenizerRules) {

@@ -435,7 +435,7 @@ template <typename Type>
 static std::optional<std::string> ConvertNumericToString(Type val) {
   absl::Status status;
   std::string out;
-  if (!NumericToString(val, &out, &status)) {
+  if (!NumericToString(val, &out, &status, /*canonicalize_zero=*/true)) {
     return std::nullopt;
   }
   return out;

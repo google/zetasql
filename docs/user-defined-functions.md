@@ -29,7 +29,8 @@ CREATE [ { TEMPORARY | TEMP } ] FUNCTION
   AS ( function_body )
 
 function_parameter:
-  parameter_name { data_type | ANY TYPE }
+  parameter_name
+  { data_type | ANY TYPE }
   [ DEFAULT default_value ]
 ```
 
@@ -179,7 +180,8 @@ CREATE [ { TEMPORARY | TEMP } ] FUNCTION
   LANGUAGE js AS function_body
 
 function_parameter:
-  parameter_name { data_type | ANY TYPE }
+  parameter_name
+  { data_type | ANY TYPE }
   [ DEFAULT default_value ]
 
 determinism_specifier:
@@ -728,7 +730,8 @@ CREATE [ { TEMPORARY | TEMP } ] FUNCTION
   LANGUAGE lua AS function_body
 
 function_parameter:
-  parameter_name { data_type | ANY TYPE }
+  parameter_name
+  { data_type | ANY TYPE }
   [ DEFAULT default_value ]
 
 determinism_specifier:

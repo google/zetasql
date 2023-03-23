@@ -409,6 +409,8 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTGeneratedColumnInfo::StoredMode stored_mode;
   zetasql::ASTOrderingExpression::OrderingSpec ordering_spec;
   zetasql::ASTSelectWith* select_with;
+  zetasql::ASTSetOperationColumnMatchMode* column_match_mode;
+  zetasql::ASTSetOperationColumnPropagationMode* column_propagation_mode;
 
   // Not owned. The allocated nodes are all owned by the parser.
   // Nodes should use the most specific type available.
@@ -462,6 +464,10 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
     zetasql::ASTExpression* maybe_dashed_path_expression;
     bool is_temp_table;
   } path_expression_with_scope;
+  struct {
+    zetasql::ASTSetOperationColumnMatchMode* column_match_mode;
+    zetasql::ASTColumnList* column_list;
+  } column_match_suffix;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -702,6 +708,13 @@ using zetasql::ASTDropStatement;
 //    "keyword_as_identifier" production in the grammar.
 // 4. If the keyword is reserved, add it to the "reserved_keyword_rule"
 //    production in the grammar.
+
+// This sentinal allocates an integer smaller than all the values used for
+// reserved keywords. Together with SENTINEL_RESERVED_KW_END, a simple integer
+// comparison can efficiently identify a token as a reserved keyword. This token
+// is not produced by the lexer.
+%token SENTINEL_RESERVED_KW_START
+// TODO: Use the SENTINEL tokens instead of this comment.
 // BEGIN_RESERVED_KEYWORDS -- Do not remove this!
 %token KW_ALL "ALL"
 %token KW_AND "AND"
@@ -742,6 +755,7 @@ using zetasql::ASTDropStatement;
 %token KW_FOLLOWING "FOLLOWING"
 %token KW_FROM "FROM"
 %token KW_FULL "FULL"
+%token KW_FULL_IN_SET_OP
 %token KW_GROUP "GROUP"
 %token KW_GROUPING "GROUPING"
 %token KW_HASH "HASH"
@@ -756,6 +770,7 @@ using zetasql::ASTDropStatement;
 %token KW_IS "IS"
 %token KW_JOIN "JOIN"
 %token KW_LEFT "LEFT"
+%token KW_LEFT_IN_SET_OP
 %token KW_LIKE "LIKE"
 %token KW_LIMIT "LIMIT"
 %token KW_LOOKUP "LOOKUP"
@@ -813,6 +828,7 @@ using zetasql::ASTDropStatement;
 %token KW_WITHIN "WITHIN"
 %token KW_QUALIFY_RESERVED
 // END_RESERVED_KEYWORDS -- Do not remove this!
+%token SENTINEL_RESERVED_KW_END  // See comment on SENTINEL_RESERVED_KW_END
 
 // This is a different token because using KW_NOT for BETWEEN/IN/LIKE would
 // confuse the operator precedence parsing. Boolean NOT has a different
@@ -823,6 +839,13 @@ using zetasql::ASTDropStatement;
 // These must all be listed explicitly in the "keyword_as_identifier" rule
 // below. Do NOT include keywords in this list that are conditionally generated.
 // They go in a separate list below this one.
+//
+// This sentinal allocates an integer smaller than all the values used for
+// reserved keywords. Together with SENTINEL_RESERVED_KW_END, a simple integer
+// comparison can efficiently identify a token as a reserved keyword. This token
+// is not produced by the lexer.
+%token SENTINEL_NONRESERVED_KW_START
+// TODO: Use the SENTINEL tokens instead of this comment.
 // BEGIN_NON_RESERVED_KEYWORDS -- Do not remove this!
 %token KW_ABORT "ABORT"
 %token KW_ACCESS "ACCESS"
@@ -994,6 +1017,8 @@ using zetasql::ASTDropStatement;
 %token KW_ZONE "ZONE"
 %token KW_EXCEPTION "EXCEPTION"
 %token KW_ERROR "ERROR"
+%token KW_CORRESPONDING "CORRESPONDING"
+%token KW_STRICT "STRICT"
 
 // Spanner-specific keywords
 %token KW_INTERLEAVE "INTERLEAVE"
@@ -1001,10 +1026,16 @@ using zetasql::ASTDropStatement;
 %token KW_PARENT "PARENT"
 
 // END_NON_RESERVED_KEYWORDS -- Do not remove this!
+%token SENTINEL_NONRESERVED_KW_END
 
 // This is not a keyword token. It represents all identifiers that are
 // CURRENT_* functions for date/time.
 %token KW_CURRENT_DATETIME_FUNCTION
+
+// When in parser mode kMacroBody, any token other than YYEOF or ';' will be
+// emitted as MACRO_BODY_TOKEN. This prevents the parser from needing to
+// enumerate all token kinds to implement the macro body rule.
+%token MACRO_BODY_TOKEN
 
 %token MODE_STATEMENT
 %token MODE_SCRIPT
@@ -1235,6 +1266,10 @@ using zetasql::ASTDropStatement;
 %type <node> opt_clone_table
 %type <node> opt_column_with_options_list
 %type <node> opt_copy_table
+%type <column_match_suffix> opt_column_match_suffix
+%type <column_propagation_mode> opt_corresponding_outer_mode
+%type <column_propagation_mode> opt_strict
+%type <node> set_operation_metadata
 %type <node> opt_cluster_by_clause_no_hint
 %type <node> opt_with_report_modifier
 %type <node> collate_clause
@@ -1720,14 +1755,19 @@ sql_statement_body:
     ;
 
 define_macro_statement:
-    "DEFINE" "MACRO" identifier macro_body
+    "DEFINE" "MACRO" identifier[name]
       {
         if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_4_SQL_MACROS)) {
-          YYERROR_AND_ABORT_AT(@2,
-            "Macros are not supported.");
+          YYERROR_AND_ABORT_AT(@2, "Macros are not supported");
         }
-        $$ = MAKE_NODE(ASTDefineMacroStatement, @$, { $3, $4 });
+        tokenizer->PushBisonParserMode(
+            zetasql::parser::BisonParserMode::kMacroBody);
+      }
+      macro_body[tokens]
+      {
+        tokenizer->PopBisonParserMode();
+        $$ = MAKE_NODE(ASTDefineMacroStatement, @$, {$name, $tokens});
       }
     ;
 
@@ -1757,64 +1797,8 @@ macro_token_list:
     | macro_token_list macro_token
     ;
 
-// A macro token can be anything *except* a semicolon: a reserved keyword,
-// non-reserved keyword, a symbol, an operator, a literal, or even macro tokens
-// like $ or $1.
-// It is difficult to list them all here in the grammar. Whenever we add new
-// tokens, they should be reflected here.
-// Instead of creating mirror lexer rules, and duplicating all lexer states to
-// have a "macro-mode", we choose to list all tokens here in the parser, for
-// multiple reasons:
-//   1. The parser rule is more readable.
-//   2. Adding a token to the "duplicated" lexer becoems a lot more complicated,
-//      and clever tests need to be added to ensure that the new token has a
-//      rule in macro-mode as well.
-//   3. At the lexer level, all tokens would look like "MACRO_TOKEN", without
-//      distinguishing the actual token type.
-//      If we ever want to restrict a token from being used in macros, or if we
-//      later want to limit macros to take a specific grammar, then this
-//      allowlist facilitates this because we can see the actual tokens.
-//   4. We do not expect new token types to be added frequently. All reserved
-//      and unreserved keywords are automatically added here thanks to the
-//      reserved_keyword_rule.
 macro_token:
-    reserved_keyword_rule
-    | identifier
-    | integer_literal
-    | string_literal
-    | bytes_literal
-    | floating_point_literal
-    | DOLLAR_SIGN
-    | MACRO_INVOCATION
-    | MACRO_ARGUMENT_REFERENCE
-    // Symbols: all except the semicolon
-    // TODO: Add a test to ensure all tokens except ';' are allowed
-    // in macros.
-    | "*"
-    | "/"
-    | "+"
-    | "-"
-    | "="
-    | "<<"
-    | ">>"
-    | "^"
-    | "||"
-    | "["
-    | "]"
-    | "("
-    | ")"
-    | "<"
-    | ">"
-    | "<="
-    | ">="
-    | "!="
-    | "<>"
-    | "->"
-    | "@"
-    | "@@"
-    | "%"
-    | ","
-    | "."
+    MACRO_BODY_TOKEN
     ;
 
 query_statement:
@@ -3890,7 +3874,7 @@ opt_foreign_key_match:
 
 foreign_key_match_mode:
     "SIMPLE" { $$ = zetasql::ASTForeignKeyReference::SIMPLE; }
-    | "FULL" { $$ = zetasql::ASTForeignKeyReference::FULL; }
+    | KW_FULL { $$ = zetasql::ASTForeignKeyReference::FULL; }
     | "NOT_SPECIAL" "DISTINCT" {
       $$ = zetasql::ASTForeignKeyReference::NOT_DISTINCT;
     }
@@ -4507,6 +4491,57 @@ query:
       }
     ;
 
+opt_corresponding_outer_mode:
+    KW_FULL_IN_SET_OP opt_outer
+      {
+        $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
+        $$->set_value(zetasql::ASTSetOperation::FULL);
+      }
+    | KW_LEFT_IN_SET_OP opt_outer
+      {
+        $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
+        $$->set_value(zetasql::ASTSetOperation::LEFT);
+      }
+    | %empty
+      {
+        $$ = nullptr;
+      }
+    ;
+
+opt_strict:
+    KW_STRICT
+      {
+        $$ = MAKE_NODE(ASTSetOperationColumnPropagationMode, @$, {});
+        $$->set_value(zetasql::ASTSetOperation::STRICT);
+      }
+    | %empty
+      {
+        $$ = nullptr;
+      }
+    ;
+
+opt_column_match_suffix:
+    KW_CORRESPONDING
+      {
+        auto* mode = MAKE_NODE(ASTSetOperationColumnMatchMode, @$, {});
+        mode->set_value(zetasql::ASTSetOperation::CORRESPONDING);
+        $$.column_match_mode = mode;
+        $$.column_list = nullptr;
+      }
+    | KW_CORRESPONDING KW_BY column_list
+      {
+        auto* mode = MAKE_NODE(ASTSetOperationColumnMatchMode, @KW_CORRESPONDING, @KW_BY, {});
+        mode->set_value(zetasql::ASTSetOperation::CORRESPONDING_BY);
+        $$.column_match_mode = mode;
+        $$.column_list = $column_list->GetAsOrDie<zetasql::ASTColumnList>();
+      }
+    | %empty
+      {
+        $$.column_match_mode = nullptr;
+        $$.column_list = nullptr;
+      }
+    ;
+
 // This rule allows combining multiple query_primaries with set operations
 // as long as all the set operations are identical. It is written to allow
 // different set operations grammatically, but it generates an error if
@@ -4515,29 +4550,35 @@ query:
 // operations but parentheses are supported to disambiguate.
 //
 query_set_operation_prefix:
-    query_primary[left_query] query_set_operation_type opt_hint all_or_distinct
-    query_primary[right_query]
+    query_primary[left_query] set_operation_metadata[set_op] query_primary[right_query]
       {
-        auto* metadata = MAKE_NODE(
-              ASTSetOperationMetadata, @query_set_operation_type, @all_or_distinct,
-              {$query_set_operation_type, $all_or_distinct, $opt_hint});
-
         auto* metadata_list =
-            MAKE_NODE(ASTSetOperationMetadataList, @query_set_operation_type,
-                      @all_or_distinct, {metadata});
-
+            MAKE_NODE(ASTSetOperationMetadataList, @set_op, {$set_op});
         $$ = MAKE_NODE(ASTSetOperation, @$,
                       {metadata_list, $left_query, $right_query});
       }
-    | query_set_operation_prefix[prefix] query_set_operation_type opt_hint
-      all_or_distinct query_primary
+    | query_set_operation_prefix[prefix] set_operation_metadata query_primary
       {
-        auto* metadata = MAKE_NODE(
-              ASTSetOperationMetadata, @query_set_operation_type, @all_or_distinct,
-              {$query_set_operation_type, $all_or_distinct, $opt_hint});
-
-        $prefix->mutable_child(0)->AddChild(metadata);
+        $prefix->mutable_child(0)->AddChild($set_operation_metadata);
         $$ = WithExtraChildren($prefix, {$query_primary});
+      }
+    ;
+
+set_operation_metadata:
+    opt_corresponding_outer_mode query_set_operation_type opt_hint
+    all_or_distinct opt_strict opt_column_match_suffix
+      {
+        if ($opt_corresponding_outer_mode != nullptr && $opt_strict != nullptr) {
+          YYERROR_AND_ABORT_AT(@opt_strict,
+                               "Syntax error: STRICT cannot be used with outer "
+                               "mode in set operations");
+        }
+        zetasql::ASTSetOperationColumnPropagationMode* column_propagation_mode =
+            $opt_strict == nullptr ? $opt_corresponding_outer_mode : $opt_strict;
+        $$ = MAKE_NODE(ASTSetOperationMetadata, @$,
+                 {$query_set_operation_type, $all_or_distinct, $opt_hint,
+                  $opt_column_match_suffix.column_match_mode,
+                  column_propagation_mode, $opt_column_match_suffix.column_list});
       }
     ;
 
@@ -5492,9 +5533,9 @@ on_or_using_clause:
 // Returns the join type id. Returns 0 to indicate "just a join".
 join_type:
     "CROSS" { $$ = zetasql::ASTJoin::CROSS; }
-    | "FULL" opt_outer { $$ = zetasql::ASTJoin::FULL; }
+    | KW_FULL opt_outer { $$ = zetasql::ASTJoin::FULL; }
     | "INNER" { $$ = zetasql::ASTJoin::INNER; }
-    | "LEFT" opt_outer { $$ = zetasql::ASTJoin::LEFT; }
+    | KW_LEFT opt_outer { $$ = zetasql::ASTJoin::LEFT; }
     | "RIGHT" opt_outer { $$ = zetasql::ASTJoin::RIGHT; }
     | %empty  { $$ = zetasql::ASTJoin::DEFAULT_JOIN_TYPE; }
     ;
@@ -7171,15 +7212,12 @@ parameter_expression:
     ;
 
 named_parameter_expression:
-    "@" identifier
+    "@"[at] identifier
       {
+        if (parser->HasWhitespace(@at, @identifier)) {
+          // TODO: Add a deprecation warning in this case.
+        }
         $$ = MAKE_NODE(ASTParameterExpr, @$, {$2});
-      }
-    | "@" reserved_keyword_rule
-      {
-        zetasql::ASTIdentifier* reserved_keyword_identifier =
-            parser->MakeIdentifier(@2, parser->GetInputText(@2));
-        $$ = MAKE_NODE(ASTParameterExpr, @$, {reserved_keyword_identifier});
       }
     ;
 
@@ -7613,7 +7651,7 @@ function_name_from_keyword:
       {
         $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
       }
-    | "LEFT"
+    | KW_LEFT
       {
         $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
       }
@@ -8315,121 +8353,11 @@ label:
 system_variable_expression:
     KW_DOUBLE_AT path_expression %prec DOUBLE_AT_PRECEDENCE
     {
+      if (parser->HasWhitespace(@KW_DOUBLE_AT, @path_expression)) {
+        // TODO: Add a deprecation warning in this case.
+      }
       $$ = MAKE_NODE(ASTSystemVariableExpr, @$, {$2});
     }
-    | KW_DOUBLE_AT reserved_keyword_rule
-      {
-        zetasql::ASTIdentifier* reserved_keyword_identifier =
-            parser->MakeIdentifier(@2, parser->GetInputText(@2));
-        zetasql::ASTPathExpression* path =
-            MAKE_NODE(ASTPathExpression, @$, {reserved_keyword_identifier});
-        $$ = MAKE_NODE(ASTSystemVariableExpr, @$, {path});
-      }
-    ;
-
-// This production returns nothing -- the enclosing rule uses only the location
-// of the keyword to retrieve the token image from the parser input.
-reserved_keyword_rule:
-    // WARNING: If you add something here, add it in the reserved token
-    // list at the top.
-    // BEGIN_RESERVED_KEYWORD_RULE -- Do not remove this!
-    "ALL"
-    | "AND"
-    | "ANY"
-    | "ARRAY"
-    | "AS"
-    | "ASC"
-    | "ASSERT_ROWS_MODIFIED"
-    | "AT"
-    | "BETWEEN"
-    | "BY"
-    | "CASE"
-    | "CAST"
-    | "COLLATE"
-    | "CREATE"
-    | "CROSS"
-    | "CURRENT"
-    | "DEFAULT"
-    | "DEFINE"
-    | "DESC"
-    | "DISTINCT"
-    | "ELSE"
-    | "END"
-    | "ENUM"
-    | "EXCEPT"
-    | "EXISTS"
-    | "EXTRACT"
-    | "FALSE"
-    | "FOLLOWING"
-    | "FROM"
-    | "FULL"
-    | "GROUP"
-    | "GROUPING"
-    | "HASH"
-    | "HAVING"
-    | "IF"
-    | "IGNORE"
-    | "IN"
-    | "INNER"
-    | "INTERSECT"
-    | "INTERVAL"
-    | "INTO"
-    | "IS"
-    | "JOIN"
-    | "LEFT"
-    | "LIKE"
-    | "LIMIT"
-    | "LOOKUP"
-    | "MERGE"
-    | "NATURAL"
-    | "NEW"
-    | "NOT"
-    | "NULL"
-    | "NULLS"
-    | "ON"
-    | "OR"
-    | "ORDER"
-    | "OUTER"
-    | "OVER"
-    | "PARTITION"
-    | "PRECEDING"
-    | "PROTO"
-    | "RANGE"
-    | "RECURSIVE"
-    | "RESPECT"
-    | "RIGHT"
-    | "ROLLUP"
-    | "ROWS"
-    | "SELECT"
-    | "SET"
-    | "STRUCT"
-    | "TABLESAMPLE"
-    | "THEN"
-    | "TO"
-    | "TRUE"
-    | "UNBOUNDED"
-    | "UNION"
-    | "USING"
-    | "WHEN"
-    | "WHERE"
-    | "WINDOW"
-    | "WITH"
-    | "UNNEST"
-    | "CONTAINS"
-    | "CUBE"
-    | "ESCAPE"
-    | "EXCLUDE"
-    | "FETCH"
-    | "FOR"
-    | "GROUPS"
-    | "LATERAL"
-    | "NO"
-    | "OF"
-    | KW_QUALIFY_RESERVED
-    | "SOME"
-    | "TREAT"
-    | "WITHIN"
-    // END_RESERVED_KEYWORD_RULE -- Do not remove this!
     ;
 
 // This includes non-reserved keywords that can also be used as identifiers.
@@ -8468,6 +8396,7 @@ keyword_as_identifier:
     | "CONSTANT"
     | "CONSTRAINT"
     | "CONTINUE"
+    | "CORRESPONDING"
     | "DATA"
     | "DATABASE"
     | "DATE"
@@ -8587,6 +8516,7 @@ keyword_as_identifier:
     | "START"
     | "STORED"
     | "STORING"
+    | "STRICT"
     | "SYSTEM"
     | "SYSTEM_TIME"
     | "TABLE"
@@ -10002,7 +9932,7 @@ raise_statement:
 next_statement_kind:
     opt_hint next_statement_kind_without_hint
       {
-        ast_statement_properties->statement_level_hints = $1;
+        *ast_node_result = $1;
         // The parser will complain about the remainder of the input if we let
         // the tokenizer continue to produce tokens, because we don't have any
         // grammar for the rest of the input.

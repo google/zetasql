@@ -21,13 +21,20 @@
 # By default, we don't suppress any warnings, to get clang-specific warning
 # suppression you can invoke with --config=clang
 build:clang --action_env=BAZEL_CXXOPTS="-std=c++17"
+build:clang --cxxopt=-std=c++17
 build:clang --cxxopt=-Wno-deprecated-declarations
 build:clang --cxxopt=-Wno-range-loop-analysis
 build:clang --cxxopt=-Wno-inconsistent-missing-override
 build:clang --cxxopt=-Wno-char-subscripts
 build:clang --cxxopt=-Wno-enum-compare-switch
 build:clang --cxxopt=-Wno-deprecated-declarations
-
+build:clang --cxxopt=-Wno-defaulted-function-deleted
+build:clang --cxxopt=-Wno-unused-private-field
+build:clang --cxxopt=-Wno-return-std-move
+build:clang --cxxopt=-Wno-reorder-ctor
+build:clang --cxxopt=-Wno-unused-const-variable
+build:clang --cxxopt=-Wno-unused-function
+build:clang --cxxopt=-Wno-macro-redefined
 # By default, we don't suppress any warnings, to get g++-specific warning
 # suppression you can invoke with --config=g++
 build:g++ --action_env=BAZEL_CXXOPTS="-std=c++17"

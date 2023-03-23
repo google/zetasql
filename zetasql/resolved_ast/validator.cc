@@ -88,24 +88,10 @@
 
 namespace zetasql {
 
-static absl::Status GetStackOverflowStatus() {
-  // Status object returned when the stack overflows. Used to avoid
-  // RETURN_ERROR, which may end up calling GoogleOnceInit methods on
-  // GenericErrorSpace, which in turn would require more stack while the
-  // stack is already overflowed.
-  static absl::Status* overflow = new absl::Status(
-      absl::StatusCode::kResourceExhausted,
-      "Out of stack space due to deeply nested query expression during query"
-      " validation");
-  return *overflow;
-}
-
-#define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()                                 \
-  if (!::zetasql::ThreadHasEnoughStack()) {                                \
-    ZETASQL_LOG(INFO) << "Out of stack space due to deeply nested query expression " \
-              << "during query validation";                                  \
-    return ::zetasql::GetStackOverflowStatus();                            \
-  }
+#define RETURN_ERROR_IF_OUT_OF_STACK_SPACE()                                   \
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(                                        \
+      "Out of stack space due to deeply nested query expression during query " \
+      "validation")
 
 Validator::Validator(const LanguageOptions& language_options,
                      ValidatorOptions validator_options)
@@ -3247,12 +3233,15 @@ absl::Status Validator::ValidateResolvedCreateModelStmt(
     return absl::OkStatus();
   };
 
+  bool enable_aliased_query_list = language_options_.LanguageFeatureEnabled(
+      FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST);
+  bool enable_remote_model =
+      language_options_.LanguageFeatureEnabled(FEATURE_V_1_4_REMOTE_MODEL);
   if (stmt->is_remote()) {
     // Remote model.
-    VALIDATOR_RET_CHECK(
-        language_options_.LanguageFeatureEnabled(FEATURE_V_1_4_REMOTE_MODEL));
+    VALIDATOR_RET_CHECK(enable_remote_model) << "Remote model is not supported";
 
-    if (stmt->query() == nullptr) {
+    if (stmt->query() == nullptr && stmt->aliased_query_list().empty()) {
       // External model.
 
       // Input & output are optional.
@@ -3274,11 +3263,20 @@ absl::Status Validator::ValidateResolvedCreateModelStmt(
     // Local model.
     VALIDATOR_RET_CHECK_EQ(stmt->connection(), nullptr);
 
-    if (!language_options_.LanguageFeatureEnabled(FEATURE_V_1_4_REMOTE_MODEL)) {
-      VALIDATOR_RET_CHECK_NE(stmt->query(), nullptr);
+    if (!enable_remote_model) {
+      // If aliased query list is not allowed, then as select clause must
+      // present and aliased query list must be empty.
+      if (!enable_aliased_query_list) {
+        VALIDATOR_RET_CHECK_NE(stmt->query(), nullptr);
+        VALIDATOR_RET_CHECK(stmt->aliased_query_list().empty());
+      } else {
+        // Otherwise either as select clause or aliased query must present.
+        VALIDATOR_RET_CHECK(stmt->query() != nullptr ||
+                            !stmt->aliased_query_list().empty());
+      }
     }
 
-    if (stmt->query() == nullptr) {
+    if (stmt->query() == nullptr && stmt->aliased_query_list().empty()) {
       // Imported model.
 
       // Input & output are optional.
@@ -3291,8 +3289,9 @@ absl::Status Validator::ValidateResolvedCreateModelStmt(
       VALIDATOR_RET_CHECK(stmt->transform_output_column_list().empty());
       VALIDATOR_RET_CHECK(
           stmt->transform_analytic_function_group_list().empty());
-    } else {
-      // Locally trained model.
+    }
+    if (stmt->query() != nullptr && stmt->aliased_query_list().empty()) {
+      // Locally trained model with AS SELECT clause.
       ZETASQL_RETURN_IF_ERROR(
           ValidateResolvedScan(stmt->query(), {} /* visible_parameters */));
       ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(
@@ -3334,6 +3333,41 @@ absl::Status Validator::ValidateResolvedCreateModelStmt(
       // The rest must be empty.
       VALIDATOR_RET_CHECK(stmt->input_column_definition_list().empty());
       VALIDATOR_RET_CHECK(stmt->output_column_definition_list().empty());
+    }
+    if (stmt->query() == nullptr && !stmt->aliased_query_list().empty()) {
+      // Locally trained model with aliased query list.
+      VALIDATOR_RET_CHECK(enable_aliased_query_list)
+          << "Aliased query list is not supported";
+      std::set<std::string> alias_names;
+      for (const auto& aliased_query : stmt->aliased_query_list()) {
+        const std::string alias_string = aliased_query->alias();
+        // Checks for duplicate aliases.
+        if (!zetasql_base::InsertIfNotPresent(&alias_names, alias_string)) {
+          VALIDATOR_RET_CHECK_FAIL() << "Duplicate alias " << alias_string
+                                     << " for aliased query list";
+        }
+        ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(aliased_query->query(),
+                                             {} /* visible_parameters */));
+        ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumnList(
+            aliased_query->query()->column_list(),
+            aliased_query->output_column_list(),
+            /*is_value_table=*/false));
+      }
+      // TODO: lift these restrictions once TRANSFORM is supported
+      // on aliased query list.
+      VALIDATOR_RET_CHECK(stmt->transform_list().empty());
+      VALIDATOR_RET_CHECK(stmt->transform_input_column_list().empty());
+      VALIDATOR_RET_CHECK(stmt->transform_output_column_list().empty());
+      VALIDATOR_RET_CHECK(
+          stmt->transform_analytic_function_group_list().empty());
+
+      // The rest must be empty.
+      VALIDATOR_RET_CHECK(stmt->input_column_definition_list().empty());
+      VALIDATOR_RET_CHECK(stmt->output_column_definition_list().empty());
+    }
+    if (stmt->query() != nullptr && !stmt->aliased_query_list().empty()) {
+      VALIDATOR_RET_CHECK_FAIL()
+          << "Query and aliased query list cannot coexist";
     }
   }
 

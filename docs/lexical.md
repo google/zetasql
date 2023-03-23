@@ -11,29 +11,15 @@ as spaces, backspaces, tabs, or newlines.
 <a id="identifiers"></a>
 
 Identifiers are names that are associated with columns, tables,
-path expressions, and more. They can be [unquoted][unquoted-identifiers] or
-[quoted][quoted-identifiers] and some are [case-sensitive][case-sensitivity].
+fields, path expressions, and more. They can be
+[unquoted][unquoted-identifiers] or [quoted][quoted-identifiers] and some
+are [case-sensitive][case-sensitivity].
 
 ### Unquoted identifiers 
 <a id="unquoted_identifiers"></a>
 
 + Must begin with a letter or an underscore (_) character.
-+ Subsequent characters can be letters, numbers, underscores (_), and dashes,
-  but additional rules apply for dashes (see the next rule).
-+ Single dashes can be used with most unquoted identifiers, but not at the
-  beginning or end.
-
-  When you use dashes in an unquoted identifier, you essentially combine an
-  unquoted identifier with one or more unquoted identifiers and numbers.
-  When using dashes, you must generally follow this structure:
-
-  ```none
-  unquoted_identifier[-{ unquoted_identifier | number }][...]
-  ```
-
-  For example: `foo-bar`, `foo-22`, `foo-22-bar`
-
-  Dashes cannot be used in fieldnames.
++ Subsequent characters can be letters, numbers, or underscores (_).
 
 ### Quoted identifiers 
 <a id="quoted_identifiers"></a>
@@ -171,19 +157,13 @@ foo/bar/25-31
 
 A table name represents the name of a table.
 
-Table names can be quoted identifiers or unquoted identifiers. If unquoted:
-
-+ Unquoted identifiers support [dashes][unquoted-identifiers] when referenced
-  in a `FROM` or `TABLE` clause.
-
-Table names can be path expressions.
-
-Table names have [case-sensitivity rules][case-sensitivity].
++ Table names can be quoted identifiers or unquoted identifiers.
++ Table names can be path expressions.
++ Table names have [case-sensitivity rules][case-sensitivity].
 
 Examples:
 
 ```none
-my-table
 mytable
 `287mytable`
 ```
@@ -203,6 +183,14 @@ columnA
 column-a
 `287column`
 ```
+
+## Field names
+
+A field name represents the name of a field inside a complex data type such
+as a struct,
+protocol buffer message, or JSON object.
+
++ A field name can be a quoted identifier or an unquoted identifier.
 
 ## Literals 
 <a id="literals"></a>
@@ -1337,6 +1325,8 @@ WHERE book = "Ulysses";
 [string-literals]: #string_and_bytes_literals
 
 [path-expressions]: #path_expressions
+
+[field-names]: #field_names
 
 [named-query-parameters]: #named_query_parameters
 

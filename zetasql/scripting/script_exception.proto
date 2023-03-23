@@ -24,6 +24,10 @@ package zetasql;
 // TODO: Add additional fields for engine-specific system variables
 // that need to go out of scope when the exception handler is complete.
 message ScriptException {
+  // Engine specific extensions to include things like engine specific error
+  // proto, error code etc..
+  extensions 10000 to max;  // see (broken link)
+
   // Message to expose through the "@@error.message" system variable.
   // If not set, the absl::Status message will be used by default.
   optional string message = 1;

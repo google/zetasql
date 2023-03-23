@@ -92,7 +92,7 @@ cc_library(
     hdrs = ["timer_util.h"],
     deps = [
         ":thread_stack",
-        "//zetasql/public:logging_cc_proto",
+        "//zetasql/public/proto:logging_cc_proto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:protobuf",

@@ -282,7 +282,7 @@ ALTERNATION GROUP: @@
 --
 SystemVariableAssignment [0-21] [SET @@AND="something"]
   SystemVariableExpr [4-9] [@@AND]
-    PathExpression [4-9] [@@AND]
+    PathExpression [6-9] [AND]
       Identifier(`AND`) [6-9] [AND]
   StringLiteral("something") [10-21] ["something"]
 --

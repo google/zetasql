@@ -40,6 +40,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/time/clock.h"
 
 ABSL_DECLARE_FLAG(std::size_t, depth_limit_detector_max_sql_bytes);
 
@@ -139,6 +140,41 @@ TEST(DepthLimitDetectorTest, DepthLimitDetectorSqrtTest) {
         << condition.return_status;
     s++;
   }
+}
+
+TEST(DepthLimitDetectorTest, DepthLimitDetectorSleepTest) {
+  DepthLimitDetectorRuntimeControl control;
+  control.max_sql_bytes = 6;
+  DepthLimitDetectorTestCase test_case = DepthLimitDetectorTestCase{
+      .depth_limit_test_case_name = "just_number",
+      .depth_limit_template =
+          DepthLimitDetectorTemplate({DepthLimitDetectorDepthNumber()}),
+  };
+
+  // Prove that we run the test many times if we don't have a time limit.
+  auto results = RunDepthLimitDetectorTestCase(
+      test_case, [](std::string_view number) { return absl::OkStatus(); },
+      control);
+  EXPECT_EQ(results.depth_limit_detector_return_conditions.size(), 1);
+  EXPECT_GT(results.depth_limit_detector_return_conditions[0].ending_depth,
+            100000);
+  EXPECT_LT(results.depth_limit_detector_return_conditions[0].ending_depth,
+            1000000);
+
+  // Prove we stop the test if we have a time limit.
+  control.max_probing_duration = absl::Seconds(3);
+  auto sleep_results = RunDepthLimitDetectorTestCase(
+      test_case,
+      [](std::string_view number) {
+        int64_t i;
+        ZETASQL_CHECK(absl::SimpleAtoi(number, &i));
+        absl::SleepFor(absl::Seconds(i));
+        return absl::OkStatus();
+      },
+      control);
+  EXPECT_EQ(sleep_results.depth_limit_detector_return_conditions.size(), 1);
+  EXPECT_LT(
+      sleep_results.depth_limit_detector_return_conditions[0].ending_depth, 10);
 }
 
 TEST(DepthLimitDetectorTest, DepthLimitDetectorPayloadTest) {

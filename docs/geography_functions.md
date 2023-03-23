@@ -1088,10 +1088,9 @@ If either of the input `GEOGRAPHY`s is empty,
 
 The optional `use_spheroid` parameter determines how this function measures
 distance. If `use_spheroid` is `FALSE`, the function measures distance on the
-surface of a perfect sphere.
-
-The `use_spheroid` parameter currently only supports
-the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
+surface of a perfect sphere. If `use_spheroid` is `TRUE`, the function measures
+distance on the surface of the [WGS84][wgs84-link] spheroid. The default value
+of `use_spheroid` is `FALSE`.
 
 **Return type**
 
@@ -2691,6 +2690,27 @@ Returns `TRUE` provided the following two conditions are satisfied:
 
 `BOOL`
 
+### `ST_UNION_AGG`
+
+```sql
+ST_UNION_AGG(geography)
+```
+
+**Description**
+
+Returns a `GEOGRAPHY` that represents the point set
+union of all input `GEOGRAPHY`s.
+
+`ST_UNION_AGG` ignores `NULL` input `GEOGRAPHY` values.
+
+See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
+
+**Return type**
+
+`GEOGRAPHY`
+
+[st-union]: #st_union
+
 ### `ST_UNION`
 
 ```sql
@@ -2724,27 +2744,6 @@ See [`ST_UNION_AGG`][st-union-agg] for the aggregate version of `ST_UNION`.
 `GEOGRAPHY`
 
 [st-union-agg]: #st_union_agg
-
-### `ST_UNION_AGG`
-
-```sql
-ST_UNION_AGG(geography)
-```
-
-**Description**
-
-Returns a `GEOGRAPHY` that represents the point set
-union of all input `GEOGRAPHY`s.
-
-`ST_UNION_AGG` ignores `NULL` input `GEOGRAPHY` values.
-
-See [`ST_UNION`][st-union] for the non-aggregate version of `ST_UNION_AGG`.
-
-**Return type**
-
-`GEOGRAPHY`
-
-[st-union]: #st_union
 
 ### `ST_WITHIN`
 

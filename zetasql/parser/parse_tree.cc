@@ -344,6 +344,9 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_SET_COLLATE_CLAUSE] = "SetCollateClause";
   map[AST_SET_OPERATION] = "SetOperation";
   map[AST_SET_OPERATION_ALL_OR_DISTINCT] = "ASTSetOperationAllOrDistinct";
+  map[AST_SET_OPERATION_COLUMN_MATCH_MODE] = "ASTSetOperationColumnMatchMode";
+  map[AST_SET_OPERATION_COLUMN_PROPAGATION_MODE] =
+      "ASTSetOperationColumnPropagateMode";
   map[AST_SET_OPERATION_METADATA] = "SetOperationMetadata";
   map[AST_SET_OPERATION_METADATA_LIST] = "SetOperationMetadataList";
   map[AST_SET_OPERATION_TYPE] = "SetOperationType";

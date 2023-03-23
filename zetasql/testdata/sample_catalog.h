@@ -49,6 +49,16 @@ class SampleCatalog {
   // used instead.
   explicit SampleCatalog(const LanguageOptions& language_options,
                          TypeFactory* type_factory = nullptr);
+
+  // Constructor given 'builtin_function_options' and optional 'type_factory'.
+  // If 'type_factory' is specified then it must outlive this SampleCatalog
+  // and this SampleCatalog does not take ownership of it.  If 'type_factory'
+  // is not specified then a locally owned TypeFactory is created and
+  // used instead.
+  explicit SampleCatalog(
+      const ZetaSQLBuiltinFunctionOptions& builtin_function_options,
+      TypeFactory* type_factory = nullptr);
+
   SampleCatalog(const SampleCatalog&) = delete;
   SampleCatalog& operator=(const SampleCatalog&) = delete;
   ~SampleCatalog();
@@ -71,6 +81,8 @@ class SampleCatalog {
 
   void LoadCatalog(const LanguageOptions& language_options);
   void LoadCatalogBuiltins(const LanguageOptions& language_options);
+  void LoadCatalogBuiltins(
+      const ZetaSQLBuiltinFunctionOptions& builtin_function_options);
   void LoadCatalogImpl(const LanguageOptions& language_options);
   void LoadTypes();
   void LoadTables();

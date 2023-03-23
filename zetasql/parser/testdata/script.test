@@ -1,5 +1,6 @@
 # Script containing a single statement, with terminating semi-colon.
 [default mode=script]
+[default language_features=V_1_3_REPEAT,V_1_3_FOR_IN]
 SELECT 3{{;|}}
 --
 ALTERNATION GROUP: ;
@@ -174,3 +175,257 @@ SELECT
   1
 ;
 EXECUTE IMMEDIATE x ;
+==
+
+SELECT 1;
+INSERT UPDATE UPDATE (a) VALUES (1);
+INSERT UPDATE VALUE (a) VALUES (1);
+SELECT 1;
+--
+Script [0-93] [SELECT 1;...SELECT 1;]
+  StatementList [0-93] [SELECT 1;...SELECT 1;]
+    QueryStatement [0-8] [SELECT 1]
+      Query [0-8] [SELECT 1]
+        Select [0-8] [SELECT 1]
+          SelectList [7-8] [1]
+            SelectColumn [7-8] [1]
+              IntLiteral(1) [7-8] [1]
+    InsertStatement(insert_mode=UPDATE) [10-45] [INSERT UPDATE...VALUES (1)]
+      PathExpression [24-30] [UPDATE]
+        Identifier(`UPDATE`) [24-30] [UPDATE]
+      ColumnList [31-34] [(a)]
+        Identifier(a) [32-33] [a]
+      InsertValuesRowList [35-45] [VALUES (1)]
+        InsertValuesRow [42-45] [(1)]
+          IntLiteral(1) [43-44] [1]
+    InsertStatement(insert_mode=UPDATE) [47-81] [INSERT UPDATE...VALUES (1)]
+      PathExpression [61-66] [VALUE]
+        Identifier(VALUE) [61-66] [VALUE]
+      ColumnList [67-70] [(a)]
+        Identifier(a) [68-69] [a]
+      InsertValuesRowList [71-81] [VALUES (1)]
+        InsertValuesRow [78-81] [(1)]
+          IntLiteral(1) [79-80] [1]
+    QueryStatement [83-91] [SELECT 1]
+      Query [83-91] [SELECT 1]
+        Select [83-91] [SELECT 1]
+          SelectList [90-91] [1]
+            SelectColumn [90-91] [1]
+              IntLiteral(1) [90-91] [1]
+--
+SELECT
+  1
+;
+INSERT OR UPDATE INTO `UPDATE`(a)
+VALUES
+  (1) ;
+INSERT OR UPDATE INTO VALUE(a)
+VALUES
+  (1) ;
+SELECT
+  1
+;
+
+==
+
+BEGIN
+INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+VALUES (1, 2), (3, 4);
+EXCEPTION WHEN ERROR THEN
+INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+VALUES (1, 2), (5, 6);
+END;
+--
+Script [0-255] [BEGIN INSERT..., 6); END;]
+  StatementList [0-255] [BEGIN INSERT..., 6); END;]
+    BeginEndBlock [0-253] [BEGIN INSERT...5, 6); END]
+      StatementList [6-115] [INSERT OR...), (3, 4);]
+        InsertStatement(insert_mode=REPLACE) [6-113] [INSERT OR...2), (3, 4)]
+          PathExpression [29-49] [table_collated_types]
+            Identifier(table_collated_types) [29-49] [table_collated_types]
+          ColumnList [49-91] [(struct_with_stri...ng_ci_val)]
+            Identifier(struct_with_string_ci_val) [50-75] [struct_with_string_ci_val]
+            Identifier(string_ci_val) [77-90] [string_ci_val]
+          InsertValuesRowList [92-113] [VALUES (1, 2), (3, 4)]
+            InsertValuesRow [99-105] [(1, 2)]
+              IntLiteral(1) [100-101] [1]
+              IntLiteral(2) [103-104] [2]
+            InsertValuesRow [107-113] [(3, 4)]
+              IntLiteral(3) [108-109] [3]
+              IntLiteral(4) [111-112] [4]
+      ExceptionHandlerList [115-250] [EXCEPTION...), (5, 6);]
+        ExceptionHandler [125-250] [WHEN ERROR...), (5, 6);]
+          StatementList [141-250] [INSERT OR...), (5, 6);]
+            InsertStatement(insert_mode=REPLACE) [141-248] [INSERT OR...2), (5, 6)]
+              PathExpression [164-184] [table_collated_types]
+                Identifier(table_collated_types) [164-184] [table_collated_types]
+              ColumnList [184-226] [(struct_with_stri...ng_ci_val)]
+                Identifier(struct_with_string_ci_val) [185-210] [struct_with_string_ci_val]
+                Identifier(string_ci_val) [212-225] [string_ci_val]
+              InsertValuesRowList [227-248] [VALUES (1, 2), (5, 6)]
+                InsertValuesRow [234-240] [(1, 2)]
+                  IntLiteral(1) [235-236] [1]
+                  IntLiteral(2) [238-239] [2]
+                InsertValuesRow [242-248] [(5, 6)]
+                  IntLiteral(5) [243-244] [5]
+                  IntLiteral(6) [246-247] [6]
+--
+BEGIN
+  INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+  VALUES
+    (1, 2),
+    (3, 4) ;
+EXCEPTION
+WHEN ERROR THEN
+  INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+  VALUES
+    (1, 2),
+    (5, 6) ;
+END
+;
+==
+
+LOOP
+INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+VALUES (1, 2), (3, 4);
+END LOOP;
+--
+Script [0-124] [LOOP INSERT...END LOOP;]
+  StatementList [0-124] [LOOP INSERT...END LOOP;]
+    While [0-122] [LOOP INSERT...; END LOOP]
+      StatementList [5-114] [INSERT OR...), (3, 4);]
+        InsertStatement(insert_mode=REPLACE) [5-112] [INSERT OR...2), (3, 4)]
+          PathExpression [28-48] [table_collated_types]
+            Identifier(table_collated_types) [28-48] [table_collated_types]
+          ColumnList [48-90] [(struct_with_stri...ng_ci_val)]
+            Identifier(struct_with_string_ci_val) [49-74] [struct_with_string_ci_val]
+            Identifier(string_ci_val) [76-89] [string_ci_val]
+          InsertValuesRowList [91-112] [VALUES (1, 2), (3, 4)]
+            InsertValuesRow [98-104] [(1, 2)]
+              IntLiteral(1) [99-100] [1]
+              IntLiteral(2) [102-103] [2]
+            InsertValuesRow [106-112] [(3, 4)]
+              IntLiteral(3) [107-108] [3]
+              IntLiteral(4) [110-111] [4]
+--
+LOOP
+  INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+  VALUES
+    (1, 2),
+    (3, 4) ;
+END LOOP ;
+==
+
+REPEAT
+INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+VALUES (1, 2), (3, 4);
+UNTIL FALSE
+END REPEAT;
+--
+Script [0-140] [REPEAT INSERT...END REPEAT;]
+  StatementList [0-140] [REPEAT INSERT...END REPEAT;]
+    Repeat [0-138] [REPEAT INSERT...END REPEAT]
+      StatementList [7-116] [INSERT OR...), (3, 4);]
+        InsertStatement(insert_mode=REPLACE) [7-114] [INSERT OR...2), (3, 4)]
+          PathExpression [30-50] [table_collated_types]
+            Identifier(table_collated_types) [30-50] [table_collated_types]
+          ColumnList [50-92] [(struct_with_stri...ng_ci_val)]
+            Identifier(struct_with_string_ci_val) [51-76] [struct_with_string_ci_val]
+            Identifier(string_ci_val) [78-91] [string_ci_val]
+          InsertValuesRowList [93-114] [VALUES (1, 2), (3, 4)]
+            InsertValuesRow [100-106] [(1, 2)]
+              IntLiteral(1) [101-102] [1]
+              IntLiteral(2) [104-105] [2]
+            InsertValuesRow [108-114] [(3, 4)]
+              IntLiteral(3) [109-110] [3]
+              IntLiteral(4) [112-113] [4]
+      Until [116-127] [UNTIL FALSE]
+        BooleanLiteral(FALSE) [122-127] [FALSE]
+--
+REPEAT
+  INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+  VALUES
+    (1, 2),
+    (3, 4) ;
+UNTIL FALSE
+END REPEAT ;
+==
+
+WHILE TRUE DO
+INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+VALUES (1, 2), (3, 4);
+END WHILE;
+--
+Script [0-134] [WHILE TRUE...END WHILE;]
+  StatementList [0-134] [WHILE TRUE...END WHILE;]
+    While [0-132] [WHILE TRUE...END WHILE]
+      BooleanLiteral(TRUE) [6-10] [TRUE]
+      StatementList [14-123] [INSERT OR...), (3, 4);]
+        InsertStatement(insert_mode=REPLACE) [14-121] [INSERT OR...2), (3, 4)]
+          PathExpression [37-57] [table_collated_types]
+            Identifier(table_collated_types) [37-57] [table_collated_types]
+          ColumnList [57-99] [(struct_with_stri...ng_ci_val)]
+            Identifier(struct_with_string_ci_val) [58-83] [struct_with_string_ci_val]
+            Identifier(string_ci_val) [85-98] [string_ci_val]
+          InsertValuesRowList [100-121] [VALUES (1, 2), (3, 4)]
+            InsertValuesRow [107-113] [(1, 2)]
+              IntLiteral(1) [108-109] [1]
+              IntLiteral(2) [111-112] [2]
+            InsertValuesRow [115-121] [(3, 4)]
+              IntLiteral(3) [116-117] [3]
+              IntLiteral(4) [119-120] [4]
+--
+WHILE TRUE DO
+  INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+  VALUES
+    (1, 2),
+    (3, 4) ;
+END WHILE ;
+==
+
+FOR t IN (SELECT * FROM T)
+DO
+INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+VALUES (1, 2), (3, 4);
+END FOR;
+--
+Script [0-148] [FOR t IN (...; END FOR;]
+  StatementList [0-148] [FOR t IN (...; END FOR;]
+    ForInStatement [0-146] [FOR t IN (...); END FOR]
+      Identifier(t) [4-5] [t]
+      Query [10-25] [SELECT * FROM T]
+        Select [10-25] [SELECT * FROM T]
+          SelectList [17-18] [*]
+            SelectColumn [17-18] [*]
+              Star(*) [17-18] [*]
+          FromClause [19-25] [FROM T]
+            TablePathExpression [24-25] [T]
+              PathExpression [24-25] [T]
+                Identifier(T) [24-25] [T]
+      StatementList [30-139] [INSERT OR...), (3, 4);]
+        InsertStatement(insert_mode=REPLACE) [30-137] [INSERT OR...2), (3, 4)]
+          PathExpression [53-73] [table_collated_types]
+            Identifier(table_collated_types) [53-73] [table_collated_types]
+          ColumnList [73-115] [(struct_with_stri...ng_ci_val)]
+            Identifier(struct_with_string_ci_val) [74-99] [struct_with_string_ci_val]
+            Identifier(string_ci_val) [101-114] [string_ci_val]
+          InsertValuesRowList [116-137] [VALUES (1, 2), (3, 4)]
+            InsertValuesRow [123-129] [(1, 2)]
+              IntLiteral(1) [124-125] [1]
+              IntLiteral(2) [127-128] [2]
+            InsertValuesRow [131-137] [(3, 4)]
+              IntLiteral(3) [132-133] [3]
+              IntLiteral(4) [135-136] [4]
+--
+FOR t IN (
+SELECT
+  *
+FROM
+  T
+)
+DO
+  INSERT OR REPLACE INTO table_collated_types(struct_with_string_ci_val, string_ci_val)
+  VALUES
+    (1, 2),
+    (3, 4) ;
+END FOR ;

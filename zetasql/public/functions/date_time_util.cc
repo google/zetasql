@@ -4212,38 +4212,34 @@ absl::StatusOr<TimestampBucketizer> TimestampBucketizer::Create(
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
   if (scale == kMicroseconds && bucket_width.get_nano_fractions() != 0) {
-    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support bucket width "
-                              "INTERVAL with nanoseconds precision";
+    return MakeEvalError() << "Bucket width INTERVAL with nanoseconds "
+                              "precision is not allowed";
   }
   if (bucket_width.get_months() != 0) {
-    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support bucket width "
-                              "INTERVAL with non-zero MONTH part";
+    return MakeEvalError()
+           << "Bucket width INTERVAL with non-zero MONTH part is not allowed";
   }
   // Nano fractions can't be negative, so only checking days and micros here.
   if (bucket_width.get_days() < 0 || bucket_width.get_micros() < 0) {
-    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support negative "
-                              "bucket width INTERVAL";
+    return MakeEvalError() << "Negative bucket width INTERVAL is not allowed";
   }
   if (bucket_width.get_days() != 0) {
     if (scale == kMicroseconds) {
       if (bucket_width.get_micros() != 0) {
-        return MakeEvalError()
-               << "TIMESTAMP_BUCKET doesn't support bucket width "
-                  "INTERVAL with mixed DAY and MICROSECOND parts";
+        return MakeEvalError() << "Bucket width INTERVAL with mixed DAY and "
+                                  "MICROSECOND parts is not allowed";
       }
     } else {
       if (bucket_width.get_micros() != 0 ||
           bucket_width.get_nano_fractions() != 0) {
-        return MakeEvalError()
-               << "TIMESTAMP_BUCKET doesn't support bucket width "
-                  "INTERVAL with mixed DAY and NANOSECOND parts";
+        return MakeEvalError() << "Bucket width INTERVAL with mixed DAY and "
+                                  "NANOSECOND parts is not allowed";
       }
     }
   }
   if (bucket_width.get_days() == 0 && bucket_width.get_micros() == 0 &&
       bucket_width.get_nano_fractions() == 0) {
-    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support zero "
-                              "bucket width INTERVAL";
+    return MakeEvalError() << "Zero bucket width INTERVAL is not allowed";
   }
 
   absl::Duration bucket_size;
@@ -4299,15 +4295,14 @@ absl::StatusOr<DatetimeBucketizer> DatetimeBucketizer::Create(
   ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
       << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
   if (scale == kMicroseconds && bucket_width.get_nano_fractions() != 0) {
-    return MakeEvalError() << "DATETIME_BUCKET doesn't support bucket width "
-                              "INTERVAL with nanoseconds precision";
+    return MakeEvalError()
+           << "Bucket width INTERVAL with nanoseconds precision is not allowed";
   }
   // Nano fractions can't be negative, so only checking months, days and micros
   // here.
   if (bucket_width.get_months() < 0 || bucket_width.get_days() < 0 ||
       bucket_width.get_micros() < 0) {
-    return MakeEvalError() << "DATETIME_BUCKET doesn't support negative "
-                              "bucket width INTERVAL";
+    return MakeEvalError() << "Negative bucket width INTERVAL is not allowed";
   }
   // We count micros and nano_fractions as one field since they are logically
   // represent one field - nanoseconds.
@@ -4318,8 +4313,8 @@ absl::StatusOr<DatetimeBucketizer> DatetimeBucketizer::Create(
            ? 1
            : 0);
   if (fields_set != 1) {
-    return MakeEvalError() << "DATETIME_BUCKET requires exactly one non-zero "
-                              "INTERVAL part in bucket width";
+    return MakeEvalError()
+           << "Exactly one non-zero INTERVAL part in bucket width is required";
   }
 
   // Here we branch out into handling MONTHs and other interval types.
@@ -4476,16 +4471,15 @@ absl::Status DatetimeBucket(const DatetimeValue& input,
 absl::StatusOr<DateBucketizer> DateBucketizer::Create(
     IntervalValue bucket_width, int32_t origin_date) {
   if (bucket_width.get_micros() > 0 || bucket_width.get_nano_fractions() > 0) {
-    return MakeEvalError() << "DATE_BUCKET only supports bucket width INTERVAL "
-                              "with MONTH and DAY parts";
+    return MakeEvalError()
+           << "Only MONTH and DAY parts are allowed in bucket width INTERVAL";
   }
   if (bucket_width.get_months() < 0 || bucket_width.get_days() < 0) {
-    return MakeEvalError() << "DATE_BUCKET doesn't support negative bucket "
-                              "width INTERVAL";
+    return MakeEvalError() << "Negative bucket width INTERVAL is not allowed";
   }
   if ((bucket_width.get_months() > 0) == (bucket_width.get_days() > 0)) {
-    return MakeEvalError() << "DATE_BUCKET requires exactly one non-zero "
-                              "INTERVAL part in bucket width";
+    return MakeEvalError()
+           << "Exactly one non-zero INTERVAL part in bucket width is required";
   }
 
   // Here we branch out into handling MONTHs and DAY interval types.
