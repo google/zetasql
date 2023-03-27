@@ -159,14 +159,13 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
 ]
 ==
 
-[test_features1=V_1_1_ORDER_BY_COLLATE]
+[required_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE]
 [name=cume_dist_collate]
 SELECT str_val, int64_val,
        CUME_DIST() OVER (ORDER BY str_val COLLATE "en_US", int64_val DESC)
 FROM TestTable
 ORDER BY str_val COLLATE "en_US"
 --
-WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
   {NULL, NULL, 0.2},
   {NULL, NULL, 0.2},
@@ -179,11 +178,6 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
   {"b", 2, 0.9},
   {"B", 2, 1}
 ]
---
-WITH FEATURES: ANALYTIC_FUNCTIONS
-ERROR: generic::invalid_argument: COLLATE is not supported [at 2:43]
-       CUME_DIST() OVER (ORDER BY str_val COLLATE "en_US", int64_val DESC)
-                                          ^
 ==
 
 [name=cume_dist_int32_uint64]
@@ -376,21 +370,3 @@ ARRAY<STRUCT<DOUBLE>>[
   {0.83333333333333337},
   {1}
 ]
-==
-
-[name=cume_dist_no_orderby]
-SELECT CUME_DIST() OVER ()
-FROM TestTable
---
-ERROR: generic::invalid_argument: Window ORDER BY is required for analytic function cume_dist [at 1:25]
-SELECT CUME_DIST() OVER ()
-                        ^
-==
-
-[name=cume_dist_window]
-SELECT row_id, CUME_DIST() OVER (ORDER BY bool_val ROWS 2 PRECEDING)
-FROM TestTable
---
-ERROR: generic::invalid_argument: Window framing clause is not allowed for analytic function cume_dist [at 1:52]
-SELECT row_id, CUME_DIST() OVER (ORDER BY bool_val ROWS 2 PRECEDING)
-                                                   ^

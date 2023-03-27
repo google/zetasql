@@ -5010,7 +5010,7 @@ right.
       (broken link) for more details.
 
       All expressions in <analytic_function_list> have a
-      ResolvedAggregateFunctionCall with a function in mode
+      ResolvedAnalyticFunctionCall with a function in mode
       Function::AGGREGATE or Function::ANALYTIC.
               """,
       fields=[

@@ -1300,27 +1300,9 @@ void SampleCatalog::LoadViews(const LanguageOptions& language_options) {
 
   auto add_view = [&analyzer_options, this](absl::string_view create_view) {
     std::unique_ptr<const AnalyzerOutput> analyzer_output;
-    ZETASQL_CHECK_OK(AnalyzeStatement(create_view, analyzer_options, catalog_.get(),
-                              catalog_->type_factory(), &analyzer_output))
-        << create_view;
-    const ResolvedStatement* resolved = analyzer_output->resolved_statement();
-    ZETASQL_CHECK(resolved->Is<ResolvedCreateViewStmt>());
-    auto stmt = resolved->GetAs<ResolvedCreateViewStmt>();
-    std::vector<SimpleSQLView::NameAndType> columns;
-    for (int i = 0; i < stmt->output_column_list_size(); ++i) {
-      const ResolvedOutputColumn* col = stmt->output_column_list(i);
-      columns.push_back({.name = col->name(), .type = col->column().type()});
-    }
-    SimpleSQLView::SqlSecurity security = stmt->sql_security();
-    // ZetaSQL defines the default SQL security to be "DEFINER"
-    if (security == SQLView::kSecurityUnspecified) {
-      security = SQLView::kSecurityDefiner;
-    }
-    std::unique_ptr<SQLView> view =
-        SimpleSQLView::Create(stmt->name_path(0), columns, security,
-                              stmt->is_value_table(), stmt->query())
-            .value();
-    catalog_->AddOwnedTable(view.release());
+    ZETASQL_CHECK_OK(AddViewFromCreateView(create_view, analyzer_options,
+                                   /*allow_non_temp=*/true, analyzer_output,
+                                   *catalog_));
     sql_object_artifacts_.emplace_back(std::move(analyzer_output));
   };
   add_view("CREATE VIEW TwoIntsView SQL SECURITY INVOKER AS SELECT 1 a, 2 b;");

@@ -3576,3 +3576,15 @@ QueryStmt
         |   +-input_scan=
         |     +-SingleRowScan
         +-output_column_list=[$union_all3.$col1#3]
+==
+
+SELECT bool_val FROM (SELECT true AS bool_val)
+UNION DISTINCT
+SELECT str_val FROM (SELECT 'abc' AS str_val)
+--
+ERROR: Column 1 in UNION DISTINCT has incompatible types: BOOL, STRING [at 3:1]
+SELECT str_val FROM (SELECT 'abc' AS str_val)
+^
+==
+
+

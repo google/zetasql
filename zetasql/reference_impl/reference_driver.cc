@@ -160,6 +160,24 @@ ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
 
 ReferenceDriver::~ReferenceDriver() = default;
 
+// static
+bool ReferenceDriver::UsesUnsupportedType(const LanguageOptions& options,
+                                          const ResolvedNode* root,
+                                          const Type** example) {
+  std::vector<const ResolvedNode*> column_refs;
+  root->GetDescendantsWithKinds({RESOLVED_COLUMN_REF}, &column_refs);
+  for (const ResolvedNode* ref : column_refs) {
+    const ResolvedColumnRef* column_ref = ref->GetAs<ResolvedColumnRef>();
+    if (!column_ref->type()->IsSupportedType(options)) {
+      if (example != nullptr) {
+        *example = column_ref->type();
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 absl::Status ReferenceDriver::LoadProtoEnumTypes(
     const std::set<std::string>& filenames,
     const std::set<std::string>& proto_names,
@@ -243,6 +261,25 @@ absl::Status ReferenceDriver::AddSqlUdfs(
     ZETASQL_RETURN_IF_ERROR(AddFunctionFromCreateFunction(
         create_function, analyzer_options, sql_udf_artifacts_.back(),
         *catalog_.catalog()));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status ReferenceDriver::AddViews(
+    absl::Span<const std::string> create_view_stmts) {
+  // Ensure the language options used allow CREATE VIEW
+  LanguageOptions language = language_options_;
+  language.AddSupportedStatementKind(RESOLVED_CREATE_VIEW_STMT);
+  AnalyzerOptions analyzer_options(language);
+  analyzer_options.set_default_time_zone(default_time_zone_);
+  // Don't pre-rewrite view bodies.
+  // TODO: In RQG mode, apply a random subset of rewriters.
+  analyzer_options.set_enabled_rewrites({});
+  for (const std::string& create_view : create_view_stmts) {
+    ZETASQL_RETURN_IF_ERROR(AddViewFromCreateView(create_view, analyzer_options,
+                                          /*allow_non_temp=*/false,
+                                          sql_udf_artifacts_.emplace_back(),
+                                          *catalog_.catalog()));
   }
   return absl::OkStatus();
 }
@@ -475,17 +512,13 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
 
   // Don't proceed if any columns referenced within the query have types not
   // supported by the language options.
-  std::vector<const ResolvedNode*> column_refs;
-  analyzed->resolved_statement()->GetDescendantsWithKinds({RESOLVED_COLUMN_REF},
-                                                          &column_refs);
-  for (const ResolvedNode* node : column_refs) {
-    const ResolvedColumnRef* column_ref = node->GetAs<ResolvedColumnRef>();
-    if (!column_ref->type()->IsSupportedType(language_options_)) {
-      *uses_unsupported_type = true;
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Query references column with unsupported type: "
-             << column_ref->type()->DebugString();
-    }
+  const Type* example = nullptr;
+  if (UsesUnsupportedType(language_options_, analyzed->resolved_statement(),
+                          &example)) {
+    *uses_unsupported_type = true;
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Query references column with unsupported type: "
+           << example->DebugString();
   }
 
   AlgebrizerOptions algebrizer_options;

@@ -172,14 +172,13 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
 ]
 ==
 
-[test_features1=V_1_1_ORDER_BY_COLLATE]
+[required_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE]
 [name=percent_rank_collate]
 SELECT str_val, int64_val,
        PERCENT_RANK() OVER (ORDER BY str_val COLLATE "en_US", int64_val DESC)
 FROM TestTable
 ORDER BY str_val COLLATE "en_US"
 --
-WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
   {NULL, NULL, 0},
   {NULL, NULL, 0},
@@ -192,11 +191,6 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, DOUBLE>>[
   {"b", 2, 0.88888888888888884},
   {"B", 2, 1}
 ]
---
-WITH FEATURES: ANALYTIC_FUNCTIONS
-ERROR: generic::invalid_argument: COLLATE is not supported [at 2:46]
-       PERCENT_RANK() OVER (ORDER BY str_val COLLATE "en_US", int64_val DESC)
-                                             ^
 ==
 
 [name=percent_rank_int32_uint64]
@@ -419,21 +413,3 @@ ARRAY<STRUCT<bytes_val BYTES, DOUBLE>>[
   {b"2", 0.6},
   {b"5", 1}
 ]
-==
-
-[name=percent_rank_no_orderby]
-SELECT PERCENT_RANK() OVER ()
-FROM TestTable
---
-ERROR: generic::invalid_argument: Window ORDER BY is required for analytic function percent_rank [at 1:28]
-SELECT PERCENT_RANK() OVER ()
-                           ^
-==
-
-[name=percent_rank_window]
-SELECT row_id, PERCENT_RANK() OVER (ORDER BY bool_val ROWS 2 PRECEDING)
-FROM TestTable
---
-ERROR: generic::invalid_argument: Window framing clause is not allowed for analytic function percent_rank [at 1:55]
-SELECT row_id, PERCENT_RANK() OVER (ORDER BY bool_val ROWS 2 PRECEDING)
-                                                      ^

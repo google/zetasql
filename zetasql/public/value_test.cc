@@ -1854,6 +1854,15 @@ TEST_F(ValueTest, ArrayConstruction) {
   EXPECT_THAT(result.elements(), IsEmpty());
 }
 
+TEST_F(ValueTest, MakeArrayInvalidValue) {
+  const ArrayType* array_type = MakeArrayType(Int64Type());
+  Value invalid = Value();
+  EXPECT_FALSE(invalid.is_valid());
+  // Type mismatch, no crash
+  EXPECT_THAT(Value::MakeArray(array_type, {invalid}),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
 TEST_F(ValueTest, InvalidArrayConstruction) {
   const ArrayType* array_type = MakeArrayType(Int64Type());
 

@@ -305,18 +305,12 @@ ARRAY<STRUCT<int32_val INT32,
 ==
 
 [name=null_of_supported_float_types]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT
   float_val, double_val
 from TableAllNull
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE>>[{NULL, NULL}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column float_val of type FLOAT cannot be used in SELECT DISTINCT [at 2:3]
-  float_val, double_val
-  ^
 ==
 
 
@@ -388,7 +382,7 @@ ARRAY<STRUCT<BOOL BOOL>>[{NULL}, {false}, {true}]
 ==
 
 [name=distinct_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.FLOAT
 from (select cast(1.0 as float) FLOAT union all
       select cast(NULL as float) union all
@@ -396,17 +390,11 @@ from (select cast(1.0 as float) FLOAT union all
       select cast(1.0 as float) union all
       select cast(NULL as float)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{NULL}, {-1}, {1}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column FLOAT of type FLOAT cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.FLOAT
-                ^
 ==
 
 [name=distinct_double]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.DOUBLE
 from (select cast(1.0 as double) DOUBLE union all
       select cast(NULL as double) union all
@@ -414,13 +402,7 @@ from (select cast(1.0 as double) DOUBLE union all
       select cast(1.0 as double) union all
       select cast(NULL as double)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{NULL}, {-1}, {1}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column DOUBLE of type DOUBLE cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.DOUBLE
-                ^
 ==
 
 [name=distinct_string]
@@ -562,7 +544,7 @@ ARRAY<STRUCT<a ARRAY<>>>[
 # Grouping of doubles.
 # -------------------
 [name=distinct_zeros]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.DOUBLE
 from (select -0.0 DOUBLE union all
       select +0.0 union all
@@ -583,17 +565,11 @@ from (select -0.0 DOUBLE union all
       select cast("-0.0" as DOUBLE) union all
       select cast("+0.0" as DOUBLE)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{0}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column DOUBLE of type DOUBLE cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.DOUBLE
-                ^
 ==
 
 [name=distinct_positive_infinities]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.DOUBLE
 from (select IEEE_DIVIDE(1, 0) DOUBLE union all
       select POW(0.1, IEEE_DIVIDE(-1, 0)) union all
@@ -603,34 +579,22 @@ from (select IEEE_DIVIDE(1, 0) DOUBLE union all
       select LOG(IEEE_DIVIDE(1, 0), 1.1) union all
       select CAST("Inf" as DOUBLE)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column DOUBLE of type DOUBLE cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.DOUBLE
-                ^
 ==
 
 [name=distinct_negative_infinities]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.DOUBLE
 from (select IEEE_DIVIDE(-1, 0) DOUBLE union all
       select POW(IEEE_DIVIDE(-1, 0), 3) union all
       select LOG(IEEE_DIVIDE(1, 0), 0.1) union all
       select CAST("-Inf" as DOUBLE)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{-inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column DOUBLE of type DOUBLE cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.DOUBLE
-                ^
 ==
 
 [name=distinct_nan]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.NAN
 from (select TAN(IEEE_DIVIDE(1, 0)) NAN union all
       select TAN(IEEE_DIVIDE(-1, 0)) union all
@@ -642,17 +606,11 @@ from (select TAN(IEEE_DIVIDE(1, 0)) NAN union all
       select cast("-NAN" as DOUBLE) union all
       select -cast("NAN" as DOUBLE)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<NAN DOUBLE>>[{nan}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column NAN of type DOUBLE cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.NAN
-                ^
 ==
 
 [name=distinct_doubles]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT DOUBLE
 from (select -0.0 DOUBLE union all
       select +0.0 union all
@@ -701,20 +659,14 @@ from (select -0.0 DOUBLE union all
       select cast("-NAN" as DOUBLE) union all
       select -cast("NAN" as DOUBLE)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{NULL}, {nan}, {-inf}, {-1}, {0}, {1}, {inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column DOUBLE of type DOUBLE cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT DOUBLE
-                ^
 ==
 
 # -------------------
 # Grouping of floats.
 # -------------------
 [name=distinct_zeros_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.FLOAT
 from (select cast(-0.0 as float) FLOAT union all
       select cast(+0.0 as float) union all
@@ -735,17 +687,11 @@ from (select cast(-0.0 as float) FLOAT union all
       select cast("-0.0" as float) union all
       select cast("+0.0" as float)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{0}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column FLOAT of type FLOAT cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.FLOAT
-                ^
 ==
 
 [name=distinct_positive_infinities_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.FLOAT
 from (select cast(IEEE_DIVIDE(1, 0) as float) FLOAT union all
       select cast(POW(0.1, IEEE_DIVIDE(-1, 0)) as float) union all
@@ -755,34 +701,22 @@ from (select cast(IEEE_DIVIDE(1, 0) as float) FLOAT union all
       select cast(LOG(IEEE_DIVIDE(1, 0), 1.1) as float) union all
       select CAST("Inf" as float)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column FLOAT of type FLOAT cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.FLOAT
-                ^
 ==
 
 [name=distinct_negative_infinities_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.FLOAT
 from (select cast(IEEE_DIVIDE(-1, 0) as float) FLOAT union all
       select cast(POW(IEEE_DIVIDE(-1, 0), 3) as float) union all
       select cast(LOG(IEEE_DIVIDE(1, 0), 0.1) as float) union all
       select CAST("-Inf" as float)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{-inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column FLOAT of type FLOAT cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.FLOAT
-                ^
 ==
 
 [name=distinct_nan_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT val.NAN
 from (select cast(TAN(IEEE_DIVIDE(1, 0)) as float) NAN union all
       select cast(TAN(IEEE_DIVIDE(-1, 0)) as float) union all
@@ -794,17 +728,11 @@ from (select cast(TAN(IEEE_DIVIDE(1, 0)) as float) NAN union all
       select cast("-NAN" as float) union all
       select -cast("NAN" as float)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<NAN FLOAT>>[{nan}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column NAN of type FLOAT cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT val.NAN
-                ^
 ==
 
 [name=distinct_floats]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT DISTINCT FLOAT
 from (select cast(-0.0 as float) FLOAT union all
       select cast(+0.0 as float) union all
@@ -849,13 +777,7 @@ from (select cast(-0.0 as float) FLOAT union all
       select cast("-NAN" as float) union all
       select -cast("NAN" as float)) val
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<FLOAT FLOAT>>[{nan}, {-inf}, {-1}, {0}, {1}, {inf}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column FLOAT of type FLOAT cannot be used in SELECT DISTINCT [at 1:17]
-SELECT DISTINCT FLOAT
-                ^
 ==
 
 [name=distinct_groupby_aggregate_input]

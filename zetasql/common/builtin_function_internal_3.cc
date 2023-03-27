@@ -2429,13 +2429,13 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   auto arg_with_optional_name_and_default_value = [](const std::string& name,
                                                      Value default_value) {
     return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
-        .set_argument_name(name)
+        .set_argument_name(name, kPositionalOrNamed)
         .set_default(default_value);
   };
 
   auto required_arg_with_optional_name = [](const std::string& name) {
     return FunctionArgumentTypeOptions(FunctionArgumentType::REQUIRED)
-        .set_argument_name(name);
+        .set_argument_name(name, kPositionalOrNamed);
   };
 
   // Constructors

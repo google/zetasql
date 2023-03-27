@@ -312,14 +312,13 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
 ]
 ==
 
-[test_features1=V_1_1_ORDER_BY_COLLATE]
+[required_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE]
 [name=ntile_collate]
 SELECT str_val, int64_val,
        NTILE(9) OVER (ORDER BY str_val COLLATE "en_US", int64_val DESC)
 FROM TestTable
 ORDER BY str_val COLLATE "en_US"
 --
-WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
   {NULL, NULL, 1},
   {NULL, NULL, 1},
@@ -332,11 +331,6 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
   {"b", 2, 8},
   {"B", 2, 9}
 ]
---
-WITH FEATURES: ANALYTIC_FUNCTIONS
-ERROR: generic::invalid_argument: COLLATE is not supported [at 2:40]
-       NTILE(9) OVER (ORDER BY str_val COLLATE "en_US", int64_val DESC)
-                                       ^
 ==
 
 [name=ntile_int32_uint64]
@@ -520,21 +514,3 @@ FROM (SELECT CAST(NULL as NUMERIC) numeric_val UNION ALL
       SELECT CAST(@min_val AS NUMERIC))
 --
 ARRAY<STRUCT<INT64>>[{1}, {1}, {1}, {2}, {2}, {2}]
-==
-
-[name=ntile_no_orderby]
-SELECT NTILE(3) OVER ()
-FROM TestTable
---
-ERROR: generic::invalid_argument: Window ORDER BY is required for analytic function ntile [at 1:22]
-SELECT NTILE(3) OVER ()
-                     ^
-==
-
-[name=ntile_window]
-SELECT row_id, NTILE(3) OVER (ORDER BY bool_val ROWS 2 PRECEDING)
-FROM TestTable
---
-ERROR: generic::invalid_argument: Window framing clause is not allowed for analytic function ntile [at 1:49]
-SELECT row_id, NTILE(3) OVER (ORDER BY bool_val ROWS 2 PRECEDING)
-                                                ^

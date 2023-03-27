@@ -966,6 +966,7 @@ using zetasql::ASTDropStatement;
 %token KW_REPLACE "REPLACE"
 %token KW_REPLACE_FIELDS "REPLACE_FIELDS"
 %token KW_REPORT "REPORT"
+%token KW_REPLICA "REPLICA"
 %token KW_RESTRICT "RESTRICT"
 %token KW_RESTRICTION "RESTRICTION"
 %token KW_RETURN "RETURN"
@@ -1117,6 +1118,7 @@ using zetasql::ASTDropStatement;
 %type <expression> expression_maybe_parenthesized
 %type <node> generic_entity_type
 %type <node> generic_sub_entity_type
+%type <identifier> sub_entity_type_identifier
 %type <node> grant_to_clause
 %type <node> restrict_to_clause
 %type <node> opt_restrict_to_clause
@@ -3246,22 +3248,35 @@ generic_entity_type:
       }
     ;
 
-generic_sub_entity_type:
+// This rule can't use the normal `identifier` production, because that includes
+// `keyword_as_identifier`, which includes all non-reserved keywords.
+// Including the non-reserved keywords causes many ambiguities with non-generic
+// DDL rules - e.g. ADD COLUMN.
+//
+// Any non-reserved keywords that need to work as generic DDL object types need
+// to be included here explicitly.
+sub_entity_type_identifier:
     IDENTIFIER
       {
-        std::string entity_type(parser->GetInputText(@1));
-        if (!parser->language_options().
-                 GenericSubEntityTypeSupported(entity_type)) {
-          YYERROR_AND_ABORT_AT(@1, absl::StrCat(
-                               entity_type,
-                               " is not a supported nested object type"));
-        }
-        // It is by design that we don't want to support backtick quoted
-        // entity type. Backtick is kept as part of entity type name, and will
-        // be rejected by engine later.
-        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));;
+      }
+    | "REPLICA"
+      {
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));;
       }
     ;
+
+generic_sub_entity_type:
+  sub_entity_type_identifier
+    {
+      if (!parser->language_options().
+                GenericSubEntityTypeSupported($1->GetAsString())) {
+        YYERROR_AND_ABORT_AT(
+          @1, absl::StrCat(zetasql::ToIdentifierLiteral($1->GetAsString()),
+                           " is not a supported nested object type"));
+      }
+      $$ = $1;
+    }
 
 generic_entity_body:
     json_literal
@@ -8494,6 +8509,7 @@ keyword_as_identifier:
     | "REPEATABLE"
     | "REPLACE"
     | "REPLACE_FIELDS"
+    | "REPLICA"
     | "REPORT"
     | "RESTRICT"
     | "RESTRICTION"

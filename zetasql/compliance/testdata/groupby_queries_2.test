@@ -1215,13 +1215,12 @@ ARRAY<STRUCT<c1 UINT64, c2 INT32, cnt INT64>>[
 ]
 ==
 [name=groupby_multi_computed_column_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT float_val + 0.5 as c1, double_val as c2, count(*) as cnt
 FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE, cnt INT64>>[
   {NULL, NULL, 2},
   {NULL, -0, 2},
@@ -1241,20 +1240,14 @@ ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE, cnt INT64>>[
   {1.25, -0.25, 2},
   {inf, -inf, 2}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 3:10]
-GROUP BY c1, c2
-         ^
 ==
 [name=groupby_multi_computed_column_double]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT double_val - 0.75 as c1, str_val as c2, count(*) as cnt
 FROM AllTypesTable t
 GROUP BY c1, c2
 ORDER BY c1, c2
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE, c2 STRING, cnt INT64>>[
   {NULL, NULL, 2},
   {NULL, "1", 2},
@@ -1274,11 +1267,6 @@ ARRAY<STRUCT<c1 DOUBLE, c2 STRING, cnt INT64>>[
   {-0.125, "6", 2},
   {inf, "1", 2}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Grouping by expressions of type DOUBLE is not allowed [at 3:10]
-GROUP BY c1, c2
-         ^
 ==
 [name=groupby_multi_computed_column_str]
 SELECT RTRIM(str_val) as c1, bytes_val as c2, count(*) as cnt
@@ -1492,11 +1480,10 @@ ARRAY<STRUCT<c1 UINT64>>[
 ]
 ==
 [name=distinct_single_base_column_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT s.c1 FROM (SELECT DISTINCT float_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 FLOAT>>[
   {NULL},
   {nan},
@@ -1514,18 +1501,12 @@ ARRAY<STRUCT<c1 FLOAT>>[
   {0.75},
   {inf}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column c1 of type FLOAT cannot be used in SELECT DISTINCT [at 1:35]
-SELECT s.c1 FROM (SELECT DISTINCT float_val as c1 FROM AllTypesTable t) s
-                                  ^
 ==
 [name=distinct_single_base_column_double]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT s.c1 FROM (SELECT DISTINCT double_val as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE>>[
   {NULL},
   {nan},
@@ -1543,11 +1524,6 @@ ARRAY<STRUCT<c1 DOUBLE>>[
   {0.625},
   {inf}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column c1 of type DOUBLE cannot be used in SELECT DISTINCT [at 1:35]
-SELECT s.c1 FROM (SELECT DISTINCT double_val as c1 FROM AllTypesTable t) s
-                                  ^
 ==
 [name=distinct_single_base_column_str]
 SELECT s.c1 FROM (SELECT DISTINCT str_val as c1 FROM AllTypesTable t) s
@@ -1691,12 +1667,11 @@ ARRAY<STRUCT<c1 UINT64>>[
 ]
 ==
 [name=distinct_single_computed_column_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT s.c1 FROM (
   SELECT DISTINCT float_val + 0.125 as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE>>[
   {NULL},
   {nan},
@@ -1714,18 +1689,12 @@ ARRAY<STRUCT<c1 DOUBLE>>[
   {0.875},
   {inf}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column c1 of type DOUBLE cannot be used in SELECT DISTINCT [at 2:19]
-  SELECT DISTINCT float_val + 0.125 as c1 FROM AllTypesTable t) s
-                  ^
 ==
 [name=distinct_single_computed_column_double]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT s.c1 FROM (SELECT DISTINCT double_val * 2 as c1 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE>>[
   {NULL},
   {nan},
@@ -1743,11 +1712,6 @@ ARRAY<STRUCT<c1 DOUBLE>>[
   {1.25},
   {inf}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column c1 of type DOUBLE cannot be used in SELECT DISTINCT [at 1:35]
-SELECT s.c1 FROM (SELECT DISTINCT double_val * 2 as c1 FROM AllTypesTable t) s
-                                  ^
 ==
 [name=distinct_single_computed_column_str]
 SELECT s.c1 FROM (SELECT DISTINCT LTRIM(str_val) as c1 FROM AllTypesTable t) s
@@ -1894,12 +1858,11 @@ ARRAY<STRUCT<c1 UINT64, c2 INT32>>[
 ]
 ==
 [name=distinct_multi_base_column_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT float_val as c1, double_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 FLOAT, c2 DOUBLE>>[
   {NULL, NULL},
   {NULL, -0},
@@ -1919,19 +1882,13 @@ ARRAY<STRUCT<c1 FLOAT, c2 DOUBLE>>[
   {0.75, -0.25},
   {inf, -inf}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column c1 of type FLOAT cannot be used in SELECT DISTINCT [at 2:19]
-  SELECT DISTINCT float_val as c1, double_val as c2 FROM AllTypesTable t) s
-                  ^
 ==
 [name=distinct_multi_base_column_double]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT double_val as c1, str_val as c2 FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[
   {NULL, NULL},
   {NULL, "1"},
@@ -1951,11 +1908,6 @@ ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[
   {0.625, "6"},
   {inf, "1"}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column c1 of type DOUBLE cannot be used in SELECT DISTINCT [at 2:19]
-  SELECT DISTINCT double_val as c1, str_val as c2 FROM AllTypesTable t) s
-                  ^
 ==
 [name=distinct_multi_base_column_str]
 SELECT s.c1, s.c2 FROM (
@@ -2221,13 +2173,12 @@ ARRAY<STRUCT<c1 UINT64, c2 INT32>>[
 ]
 ==
 [name=distinct_multi_computed_column_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT float_val + 0.5 as c1, double_val as c2
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE>>[
   {NULL, NULL},
   {NULL, -0},
@@ -2247,20 +2198,14 @@ ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE>>[
   {1.25, -0.25},
   {inf, -inf}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column c1 of type DOUBLE cannot be used in SELECT DISTINCT [at 2:19]
-  SELECT DISTINCT float_val + 0.5 as c1, double_val as c2
-                  ^
 ==
 [name=distinct_multi_computed_column_double]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT s.c1, s.c2 FROM (
   SELECT DISTINCT double_val - 0.75 as c1, str_val as c2
   FROM AllTypesTable t) s
 ORDER BY s.c1 ASC, s.c2 ASC
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[
   {NULL, NULL},
   {NULL, "1"},
@@ -2280,11 +2225,6 @@ ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[
   {-0.125, "6"},
   {inf, "1"}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column c1 of type DOUBLE cannot be used in SELECT DISTINCT [at 2:19]
-  SELECT DISTINCT double_val - 0.75 as c1, str_val as c2
-                  ^
 ==
 [name=distinct_multi_computed_column_str]
 SELECT s.c1, s.c2 FROM (

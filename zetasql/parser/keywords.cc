@@ -273,6 +273,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"repeatable", KW_REPEATABLE},
     {"replace", KW_REPLACE},
     {"replace_fields", KW_REPLACE_FIELDS},
+    {"replica", KW_REPLICA},
     {"report", KW_REPORT},
     {"respect", KW_RESPECT, kReserved},
     {"restrict", KW_RESTRICT},

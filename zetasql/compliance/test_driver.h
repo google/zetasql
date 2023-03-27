@@ -338,6 +338,14 @@ class TestDriver {
     return absl::UnimplementedError("Test driver does not support SQL UDFs.");
   }
 
+  // Supplies several "temporary" view definitions that the driver should add
+  // to the catalog. This will be called after CreateDatabase but before
+  // ExecuteStatement.
+  virtual absl::Status AddViews(
+      absl::Span<const std::string> create_view_stmts) {
+    return absl::UnimplementedError("Test driver does not support SQL UDFs.");
+  }
+
   // Executes a statement using the given 'parameters' and returns the result.
   // Implementations should use 'type_factory' to instantiate all types that are
   // used in the returned result. The return value is only valid as long as

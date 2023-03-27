@@ -641,6 +641,7 @@ repeat { return BisonParserImpl::token::KW_REPEAT; }
 repeatable { return BisonParserImpl::token::KW_REPEATABLE; }
 replace { return BisonParserImpl::token::KW_REPLACE; }
 replace_fields { return BisonParserImpl::token::KW_REPLACE_FIELDS; }
+replica { return BisonParserImpl::token::KW_REPLICA; }
 report { return BisonParserImpl::token::KW_REPORT; }
 respect { return BisonParserImpl::token::KW_RESPECT; }
 restrict { return BisonParserImpl::token::KW_RESTRICT; }

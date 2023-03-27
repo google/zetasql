@@ -4198,6 +4198,37 @@ QueryStmt
 
 ==
 
+[language_features={{|TIME_BUCKET_FUNCTIONS|INTERVAL_TYPE|TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE}}]
+select date_bucket('2020-02-15', INTERVAL 1 DAY)
+--
+ALTERNATION GROUPS:
+    <empty>
+    TIME_BUCKET_FUNCTIONS
+    INTERVAL_TYPE
+--
+ERROR: Function not found: date_bucket; Did you mean range_bucket? [at 1:8]
+select date_bucket('2020-02-15', INTERVAL 1 DAY)
+       ^
+--
+ALTERNATION GROUP: TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:date_bucket(DATE, INTERVAL, optional(0) DATE) -> DATE)
+    |     +-Literal(type=DATE, value=2020-02-15)
+    |     +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    |       +-Literal(type=INT64, value=1)
+    |       +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    +-input_scan=
+      +-SingleRowScan
+==
+
 [language_features=TIME_BUCKET_FUNCTIONS{{|,V_1_2_CIVIL_TIME|,INTERVAL_TYPE|,V_1_2_CIVIL_TIME,INTERVAL_TYPE}}]
 SELECT datetime_bucket('1999-12-31', INTERVAL 1 DAY);
 --
@@ -4343,3 +4374,53 @@ ALTERNATION GROUP: timestamp
 ERROR: TIMESTAMP_DIFF does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
   timestamp_diff(TIMESTAMP'2021-01-15 00:33:09', TIMESTAMP'2021-01-15 00:33:0...
   ^
+==
+
+[language_features={{|V_1_3_ADDITIONAL_STRING_FUNCTIONS|V_1_2_CIVIL_TIME|V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_2_CIVIL_TIME}}]
+select last_day(date '2020-07-10', SECOND)
+--
+ALTERNATION GROUPS:
+    <empty>
+    V_1_3_ADDITIONAL_STRING_FUNCTIONS
+    V_1_2_CIVIL_TIME
+--
+ERROR: Function not found: last_day [at 1:8]
+select last_day(date '2020-07-10', SECOND)
+       ^
+--
+ALTERNATION GROUP: V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_2_CIVIL_TIME
+--
+ERROR: LAST_DAY does not support the SECOND date part [at 1:8]
+select last_day(date '2020-07-10', SECOND)
+       ^
+==
+
+[language_features={{|TIME_BUCKET_FUNCTIONS|INTERVAL_TYPE|TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE}}]
+select timestamp_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+--
+ALTERNATION GROUPS:
+    <empty>
+    TIME_BUCKET_FUNCTIONS
+    INTERVAL_TYPE
+--
+ERROR: Function not found: timestamp_bucket; Did you mean timestamp_micros? [at 1:8]
+select timestamp_bucket('2020-02-15 14:57:39', INTERVAL 1 DAY)
+       ^
+--
+ALTERNATION GROUP: TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:timestamp_bucket(TIMESTAMP, INTERVAL, optional(0) TIMESTAMP) -> TIMESTAMP)
+    |     +-Literal(type=TIMESTAMP, value=2020-02-15 22:57:39+00)
+    |     +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+    |       +-Literal(type=INT64, value=1)
+    |       +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    +-input_scan=
+      +-SingleRowScan

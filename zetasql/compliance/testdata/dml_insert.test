@@ -69,13 +69,9 @@ ARRAY<STRUCT<distinct_1 INT64, distinct_2 INT64, distinct_3 INT64, distinct_4 IN
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=insert_null_primary_key]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+[forbidden_features=DISALLOW_NULL_PRIMARY_KEYS]
 INSERT Table1 (primary_key, value) VALUES (NULL, 1)
 --
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
-ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -84,18 +80,21 @@ STRUCT<
   ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 1}]
 }
 ==
+[name=insert_null_primary_key_no_null_pk]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT Table1 (primary_key, value) VALUES (NULL, 1)
+--
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
+==
 
 # Engines that do not support primary keys can skip this test by overriding
 # TestDriver::SkipTestsWithPrimaryKeyMode().
 [name=insert_null_primary_key_query]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+[forbidden_features=DISALLOW_NULL_PRIMARY_KEYS]
 INSERT Table1 (primary_key, value) SELECT NULL, 1
 --
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
-ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -103,6 +102,13 @@ STRUCT<
   1,
   ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 1}]
 }
+==
+[name=insert_null_primary_key_query_no_null_pk]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT Table1 (primary_key, value) SELECT NULL, 1
+--
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
 ==
 
 [name=insert_null]
@@ -621,13 +627,9 @@ STRUCT<
 
 [name=insert_ignore_two_new_rows_with_null_primary_key]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+[forbidden_features=DISALLOW_NULL_PRIMARY_KEYS]
 INSERT IGNORE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
 --
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
-ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -635,6 +637,14 @@ STRUCT<
   1,
   ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 100}]
 }
+==
+
+[name=insert_ignore_two_new_rows_with_null_primary_key_no_null_pk]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT IGNORE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
+--
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
 ==
 
 # Test that INSERT IGNORE honors the query's ORDER BY when dealing with
@@ -802,13 +812,9 @@ STRUCT<
 
 [name=insert_replace_two_new_rows_with_null_primary_key]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+[forbidden_features=DISALLOW_NULL_PRIMARY_KEYS]
 INSERT REPLACE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
 --
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
-ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -816,6 +822,14 @@ STRUCT<
   1,
   ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 200}]
 }
+==
+
+[name=insert_replace_two_new_rows_with_null_primary_key_no_null_pk]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT REPLACE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
+--
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
 ==
 
 # Test that INSERT REPLACE honors the query's ORDER BY when dealing with
@@ -1000,13 +1014,9 @@ STRUCT<
 
 [name=insert_update_two_new_rows_with_null_primary_key]
 [primary_key_mode=first_column_is_primary_key]
-[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+[forbidden_features=DISALLOW_NULL_PRIMARY_KEYS]
 INSERT UPDATE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
 --
-WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
-ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
---
-WITH FEATURES: <none>
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -1014,6 +1024,14 @@ STRUCT<
   1,
   ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 200}]
 }
+==
+
+[name=insert_update_two_new_rows_with_null_primary_key_no_null_pk]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT UPDATE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
+--
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
 ==
 
 # Test that INSERT UPDATE honors the query's ORDER BY when dealing with

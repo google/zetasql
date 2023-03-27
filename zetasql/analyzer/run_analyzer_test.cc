@@ -104,6 +104,8 @@
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
+ABSL_DECLARE_FLAG(bool, zetasql_show_function_signature_mismatch_details);
+
 ABSL_FLAG(std::string, test_file, "", "location of test data file.");
 
 namespace zetasql {
@@ -750,9 +752,21 @@ class AnalyzerTestRunner {
                file_based_test_driver::RunTestCaseResult* test_result) {
     std::unique_ptr<const AnalyzerOutput> output;
     absl::Status status;
+    absl::Status detailed_sig_mismatch_status;
     if (mode == "statement") {
       status = AnalyzeStatement(test_case, options, catalog, type_factory,
                                 &output);
+      if (!status.ok() &&
+          test_case_options_.GetBool(kAlsoShowSignatureMismatchDetails) &&
+          absl::StrContains(status.message(), "No matching signature")) {
+        absl::FlagSaver flag_saver;
+        absl::SetFlag(&FLAGS_zetasql_show_function_signature_mismatch_details,
+                      true);
+        detailed_sig_mismatch_status = AnalyzeStatement(
+            test_case, options, catalog, type_factory, &output);
+        ZETASQL_CHECK(!detailed_sig_mismatch_status.ok())
+            << "Expecting 'No matching signature' error";
+      }
 
       if (status.ok()) {
         runtime_info_list_.push_back(output->runtime_info());
@@ -826,6 +840,17 @@ class AnalyzerTestRunner {
     } else if (mode == "expression") {
       status = AnalyzeExpression(test_case, options, catalog, type_factory,
                                  &output);
+      if (!status.ok() &&
+          test_case_options_.GetBool(kAlsoShowSignatureMismatchDetails) &&
+          absl::StrContains(status.message(), "No matching signature")) {
+        absl::FlagSaver flag_saver;
+        absl::SetFlag(&FLAGS_zetasql_show_function_signature_mismatch_details,
+                      true);
+        detailed_sig_mismatch_status = AnalyzeExpression(
+            test_case, options, catalog, type_factory, &output);
+        ZETASQL_CHECK(!detailed_sig_mismatch_status.ok())
+            << "Expecting 'No matching signature' error";
+      }
     } else if (mode == "type") {
       // Use special-case handler since we don't get a resolved AST.
       HandleOneType(test_case, options, catalog, type_factory, test_result);
@@ -851,7 +876,8 @@ class AnalyzerTestRunner {
         << ResolvedNodeKind_Name(extracted_statement_properties.node_kind);
 
     HandleOneResult(test_case, options, type_factory, catalog, mode, status,
-                    output, extracted_statement_properties, test_result);
+                    detailed_sig_mismatch_status, output,
+                    extracted_statement_properties, test_result);
   }
 
   void TestMulti(const std::string& test_case, const AnalyzerOptions& options,
@@ -886,7 +912,8 @@ class AnalyzerTestRunner {
           &location, options, catalog, type_factory, &output, &at_end_of_input);
 
       HandleOneResult(test_case, options, type_factory, catalog, mode, status,
-                      output, extracted_statement_properties, test_result);
+                      /*detailed_sig_mismatch_status=*/absl::OkStatus(), output,
+                      extracted_statement_properties, test_result);
 
       if (test_case_options_.GetBool(kTestExtractTableNames)) {
         CheckExtractNextTableNames(&location_for_extract_table_names,
@@ -1143,6 +1170,7 @@ class AnalyzerTestRunner {
       const std::string& test_case, const AnalyzerOptions& options,
       TypeFactory* type_factory, Catalog* catalog, const std::string& mode,
       const absl::Status& status,
+      const absl::Status& detailed_sig_mismatch_status,
       const std::unique_ptr<const AnalyzerOutput>& output,
       const StatementProperties& extracted_statement_properties,
       file_based_test_driver::RunTestCaseResult* test_result) {
@@ -1404,6 +1432,16 @@ class AnalyzerTestRunner {
     // an output string.
     if (!test_result_string.empty() || test_result->test_outputs().empty()) {
       test_result->AddTestOutput(test_result_string);
+    }
+    if (!detailed_sig_mismatch_status.ok()) {
+      std::string detailed_error =
+          absl::StrCat("ERROR: ", FormatError(detailed_sig_mismatch_status));
+      // Avoid printing the detailed error message in case it's the same as the
+      // first.
+      if (detailed_error != test_result_string) {
+        test_result->AddTestOutput(
+            absl::StrCat("Signature Mismatch Details:\n", detailed_error));
+      }
     }
 
     if (test_dumper_callback_ != nullptr) {
@@ -2648,7 +2686,7 @@ void ValidateRuntimeInfo(const AnalyzerRuntimeInfo& info) {
   for (ResolvedASTRewrite rewriter :
        zetasql_base::EnumerateEnumValues<ResolvedASTRewrite>()) {
     EXPECT_LE(info.rewriters_details(rewriter).elapsed_duration(),
-              info.rewriters_elapsed_duration());
+              info.rewriters_timed_value().elapsed_duration());
     if (info.rewriters_details(rewriter).elapsed_duration() >
         absl::Duration{}) {
       EXPECT_GE(info.rewriters_details(rewriter).count, 0);

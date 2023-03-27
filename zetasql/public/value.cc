@@ -224,7 +224,7 @@ absl::StatusOr<Value> Value::MakeArrayInternal(bool already_validated,
                                                std::vector<Value> values) {
   if (!already_validated || kDebugMode) {
     for (const Value& v : values) {
-      ZETASQL_RET_CHECK(v.type()->Equals(array_type->element_type()))
+      ZETASQL_RET_CHECK(v.is_valid() && v.type()->Equals(array_type->element_type()))
           << "Array element " << v << " must be of type "
           << array_type->element_type()->DebugString();
     }

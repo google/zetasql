@@ -256,14 +256,13 @@ ARRAY<STRUCT<bool_val BOOL,
 ]
 ==
 [name=union_all_multiple_columns_multiple_tables_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT int32_val, float_val, double_val FROM Table1
 UNION DISTINCT
 SELECT int32_val, float_val, double_val FROM Table2
 UNION DISTINCT
 SELECT int32_val, float_val, double_val FROM Table1
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<int32_val INT32, float_val FLOAT, double_val DOUBLE>>[
   {NULL, NULL, NULL},
   {-4, 0.4, 0.4},
@@ -272,31 +271,6 @@ ARRAY<STRUCT<int32_val INT32, float_val FLOAT, double_val DOUBLE>>[
   {-1, 0.1, 0.1},
   {0, 0, 0}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column 2 in UNION DISTINCT has type that does not support set operation comparisons: FLOAT [at 3:1]
-SELECT int32_val, float_val, double_val FROM Table2
-^
-==
-# UNION DISTINCT with mismatched types
-[name=union_distinct_invalid_types]
-SELECT bool_val FROM Table1
-UNION DISTINCT
-SELECT str_val FROM Table2
---
-ERROR: generic::invalid_argument: Column 1 in UNION DISTINCT has incompatible types: BOOL, STRING [at 3:1]
-SELECT str_val FROM Table2
-^
-==
-# UNION DISTINCT on mismatched row lengths
-[name=union_distinct_invalid_length]
-SELECT bool_val, str_val FROM Table1
-UNION DISTINCT
-SELECT bool_val FROM Table2
---
-ERROR: generic::invalid_argument: Queries in UNION DISTINCT have mismatched column count; query 1 has 2 columns, query 2 has 1 column [at 3:1]
-SELECT bool_val FROM Table2
-^
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=union_distinct_nan_different_bitwise_representation]

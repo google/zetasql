@@ -396,15 +396,11 @@ STRUCT<
 [name=delete_from_primary_key]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 1 ASSERT_ROWS_MODIFIED 1)
 WHERE True
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -420,19 +416,35 @@ STRUCT<
   ]}
 ==
 
+[name=delete_from_primary_key_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (DELETE primary_key WHERE primary_key = 1 ASSERT_ROWS_MODIFIED 1)
+WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+==
+
 [name=delete_causes_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1)
 WHERE ARRAY_LENGTH(primary_key) = 4
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1, 2, 3])
+==
+
+[name=delete_causes_primary_key_collision_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1)
+WHERE ARRAY_LENGTH(primary_key) = 4
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=nested_delete_assert_rows_modified]
@@ -1015,16 +1027,12 @@ STRUCT<
 [name=update_primary_key]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (UPDATE primary_key SET primary_key = 4 WHERE primary_key = 3),
   (UPDATE primary_key SET primary_key = 5 WHERE primary_key = 4)
 WHERE True
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -1046,19 +1054,38 @@ STRUCT<
   ]}
 ==
 
+# An intermediate state has a primary key collision, but the spec says that is
+# ok.
+[name=update_primary_key_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (UPDATE primary_key SET primary_key = 4 WHERE primary_key = 3),
+  (UPDATE primary_key SET primary_key = 5 WHERE primary_key = 4)
+WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+==
+
 [name=update_causes_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (UPDATE primary_key SET primary_key = 4 WHERE primary_key = 3)
 WHERE int64_value = 200
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1, 2, 4])
+==
+
+[name=update_causes_primary_key_collision_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (UPDATE primary_key SET primary_key = 4 WHERE primary_key = 3)
+WHERE int64_value = 200
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=nested_update_assert_rows_modified]
@@ -1615,15 +1642,11 @@ STRUCT<
 [name=insert_into_primary_key]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (INSERT primary_key VALUES (4))
 WHERE True
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -1648,19 +1671,37 @@ STRUCT<
   ]}
 ==
 
+# An intermediate state has a primary key collision, but the spec says that is
+# ok.
+[name=insert_into_primary_key_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (INSERT primary_key VALUES (4))
+WHERE True
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+==
+
 [name=insert_causes_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (INSERT primary_key VALUES (4))
 WHERE ARRAY_LENGTH(primary_key) = 3
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1, 2, 3, 4])
+==
+
+[name=insert_causes_primary_key_collision_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (INSERT primary_key VALUES (4))
+WHERE ARRAY_LENGTH(primary_key) = 3
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=nested_insert_assert_rows_modified]
@@ -1872,16 +1913,22 @@ STRUCT<
 [name=insert_query_causes_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (INSERT primary_key (SELECT 4))
 WHERE ARRAY_LENGTH(primary_key) = 3
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1, 2, 3, 4])
+==
+
+[name=insert_query_causes_primary_key_collision_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (INSERT primary_key (SELECT 4))
+WHERE ARRAY_LENGTH(primary_key) = 3
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 [name=nested_insert_query_assert_rows_modified]
@@ -2187,17 +2234,13 @@ STRUCT<
 [name=nested_delete_and_update_intermediate_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1),
   (UPDATE primary_key SET primary_key = 5 WHERE primary_key = 3
    ASSERT_ROWS_MODIFIED 1)
 WHERE ARRAY_LENGTH(primary_key) = 4
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -2217,6 +2260,20 @@ STRUCT<
       400
     }
   ]}
+==
+
+# An intermediate state has a primary key collision, but the spec says that is
+# ok.
+[name=nested_delete_and_update_intermediate_primary_key_collision_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1),
+  (UPDATE primary_key SET primary_key = 5 WHERE primary_key = 3
+   ASSERT_ROWS_MODIFIED 1)
+WHERE ARRAY_LENGTH(primary_key) = 4
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 # Test mixing nested DELETE and INSERT.
@@ -2250,16 +2307,12 @@ STRUCT<
 [name=nested_delete_and_insert_intermediate_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1),
   (INSERT primary_key VALUES (4) ASSERT_ROWS_MODIFIED 1)
 WHERE ARRAY_LENGTH(primary_key) = 4
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -2279,6 +2332,19 @@ STRUCT<
       400
     }
   ]}
+==
+
+# An intermediate state has a primary key collision, but the spec says that is
+# ok.
+[name=nested_delete_and_insert_intermediate_primary_key_collision_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (DELETE primary_key WHERE primary_key = 4 ASSERT_ROWS_MODIFIED 1),
+  (INSERT primary_key VALUES (4) ASSERT_ROWS_MODIFIED 1)
+WHERE ARRAY_LENGTH(primary_key) = 4
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 # Test mixing nested UPDATE and INSERT.
@@ -2313,17 +2379,13 @@ STRUCT<
 [name=nested_update_and_insert_intermediate_primary_key_collision]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=V_1_2_GROUP_BY_ARRAY]
-[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[forbidden_features=DISALLOW_PRIMARY_KEY_UPDATES]
 UPDATE TableWithArrayKey SET
   (UPDATE primary_key SET primary_key = 3 WHERE primary_key = 4
    ASSERT_ROWS_MODIFIED 1),
   (INSERT primary_key VALUES (5) ASSERT_ROWS_MODIFIED 1)
 WHERE int64_value = 300
 --
-WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
-ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
---
-WITH FEATURES: V_1_2_GROUP_BY_ARRAY
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
@@ -2343,6 +2405,20 @@ STRUCT<
       400
     }
   ]}
+==
+
+# An intermediate state has a primary key collision, but the spec says that is
+# ok.
+[name=nested_update_and_insert_intermediate_primary_key_collision_no_pk_updates]
+[primary_key_mode=first_column_is_primary_key]
+[required_features=V_1_2_GROUP_BY_ARRAY,DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableWithArrayKey SET
+  (UPDATE primary_key SET primary_key = 3 WHERE primary_key = 4
+   ASSERT_ROWS_MODIFIED 1),
+  (INSERT primary_key VALUES (5) ASSERT_ROWS_MODIFIED 1)
+WHERE int64_value = 300
+--
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
 ==
 
 # Test mixing nested DELETE, UPDATE, and INSERT.

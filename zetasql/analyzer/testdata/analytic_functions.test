@@ -2203,3 +2203,244 @@ FROM (SELECT 1 person_id, CURRENT_DATE() snapshot_date UNION ALL
 ERROR: Function PARSE_DATE does not support an OVER clause [at 1:8]
 select PARSE_DATE(snapshot_date)
        ^
+==
+
+SELECT {{DENSE_RANK()|CUME_DIST()|PERCENT_RANK()|RANK()|NTILE(3)}} OVER ()
+FROM KeyValue
+--
+ALTERNATION GROUP: DENSE_RANK()
+--
+ERROR: Window ORDER BY is required for analytic function dense_rank [at 1:26]
+SELECT DENSE_RANK() OVER ()
+                         ^
+--
+ALTERNATION GROUP: CUME_DIST()
+--
+ERROR: Window ORDER BY is required for analytic function cume_dist [at 1:25]
+SELECT CUME_DIST() OVER ()
+                        ^
+--
+ALTERNATION GROUP: PERCENT_RANK()
+--
+ERROR: Window ORDER BY is required for analytic function percent_rank [at 1:28]
+SELECT PERCENT_RANK() OVER ()
+                           ^
+--
+ALTERNATION GROUP: RANK()
+--
+ERROR: Window ORDER BY is required for analytic function rank [at 1:20]
+SELECT RANK() OVER ()
+                   ^
+--
+ALTERNATION GROUP: NTILE(3)
+--
+ERROR: Window ORDER BY is required for analytic function ntile [at 1:22]
+SELECT NTILE(3) OVER ()
+                     ^
+==
+
+SELECT key, {{DENSE_RANK()|CUME_DIST()|PERCENT_RANK()|RANK()|NTILE(3)}} OVER (ORDER BY value ROWS 2 PRECEDING)
+FROM KeyValue
+--
+ALTERNATION GROUP: DENSE_RANK()
+--
+ERROR: Window framing clause is not allowed for analytic function dense_rank [at 1:47]
+SELECT key, DENSE_RANK() OVER (ORDER BY value ROWS 2 PRECEDING)
+                                              ^
+--
+ALTERNATION GROUP: CUME_DIST()
+--
+ERROR: Window framing clause is not allowed for analytic function cume_dist [at 1:46]
+SELECT key, CUME_DIST() OVER (ORDER BY value ROWS 2 PRECEDING)
+                                             ^
+--
+ALTERNATION GROUP: PERCENT_RANK()
+--
+ERROR: Window framing clause is not allowed for analytic function percent_rank [at 1:49]
+SELECT key, PERCENT_RANK() OVER (ORDER BY value ROWS 2 PRECEDING)
+                                                ^
+--
+ALTERNATION GROUP: RANK()
+--
+ERROR: Window framing clause is not allowed for analytic function rank [at 1:41]
+SELECT key, RANK() OVER (ORDER BY value ROWS 2 PRECEDING)
+                                        ^
+--
+ALTERNATION GROUP: NTILE(3)
+--
+ERROR: Window framing clause is not allowed for analytic function ntile [at 1:43]
+SELECT key, NTILE(3) OVER (ORDER BY value ROWS 2 PRECEDING)
+                                          ^
+==
+
+[language_features=ANALYTIC_FUNCTIONS{{|,V_1_1_ORDER_BY_COLLATE}}]
+SELECT key, {{DENSE_RANK()|CUME_DIST()|PERCENT_RANK()|RANK()|NTILE(3)}} OVER (ORDER BY value COLLATE 'en_US')
+FROM KeyValue
+--
+
+ALTERNATION GROUP: DENSE_RANK()
+--
+ERROR: COLLATE is not supported [at 1:47]
+SELECT key, DENSE_RANK() OVER (ORDER BY value COLLATE 'en_US')
+                                              ^
+--
+ALTERNATION GROUP: CUME_DIST()
+--
+ERROR: COLLATE is not supported [at 1:46]
+SELECT key, CUME_DIST() OVER (ORDER BY value COLLATE 'en_US')
+                                             ^
+--
+ALTERNATION GROUP: PERCENT_RANK()
+--
+ERROR: COLLATE is not supported [at 1:49]
+SELECT key, PERCENT_RANK() OVER (ORDER BY value COLLATE 'en_US')
+                                                ^
+--
+ALTERNATION GROUP: RANK()
+--
+ERROR: COLLATE is not supported [at 1:41]
+SELECT key, RANK() OVER (ORDER BY value COLLATE 'en_US')
+                                        ^
+--
+ALTERNATION GROUP: NTILE(3)
+--
+ERROR: COLLATE is not supported [at 1:43]
+SELECT key, NTILE(3) OVER (ORDER BY value COLLATE 'en_US')
+                                          ^
+--
+ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,DENSE_RANK()
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-$analytic.$analytic1#4 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-collation_name=
+            |         +-Literal(type=STRING, value="en_US")
+            +-analytic_function_list=
+              +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:dense_rank() -> INT64)
+--
+ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,CUME_DIST()
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-$analytic.$analytic1#4 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-collation_name=
+            |         +-Literal(type=STRING, value="en_US")
+            +-analytic_function_list=
+              +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:cume_dist() -> DOUBLE)
+--
+ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,PERCENT_RANK()
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-$analytic.$analytic1#4 AS `$col2` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-collation_name=
+            |         +-Literal(type=STRING, value="en_US")
+            +-analytic_function_list=
+              +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:percent_rank() -> DOUBLE)
+--
+ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,RANK()
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-$analytic.$analytic1#4 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-collation_name=
+            |         +-Literal(type=STRING, value="en_US")
+            +-analytic_function_list=
+              +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:rank() -> INT64)
+--
+ALTERNATION GROUP: ,V_1_1_ORDER_BY_COLLATE,NTILE(3)
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-$analytic.$analytic1#4 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |       | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            |       +-collation_name=
+            |         +-Literal(type=STRING, value="en_US")
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:ntile(INT64) -> INT64)
+                  +-Literal(type=INT64, value=3)

@@ -5431,7 +5431,7 @@ ARRAY<STRUCT<x INT64>>[{0}]
 ==
 
 [name=order_by_array_asc]
-[test_features1=V_1_3_ARRAY_ORDERING]
+[required_features=V_1_3_ARRAY_ORDERING]
 select arrayval
 from (select array<int64>[] as arrayval
       union all
@@ -5450,7 +5450,6 @@ from (select array<int64>[] as arrayval
       select array<int64>[6, 1] as arrayval)
 order by arrayval asc;
 --
-WITH FEATURES: V_1_3_ARRAY_ORDERING
 ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<INT64>(NULL)},
   {ARRAY<INT64>[]},
@@ -5461,15 +5460,10 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<INT64>[6, 1]},
   {ARRAY<INT64>[6, 1, 8]}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: ORDER BY does not support expressions of type ARRAY<INT64> [at 17:10]
-order by arrayval asc;
-         ^
 ==
 
 [name=order_by_array_desc]
-[test_features1=V_1_3_ARRAY_ORDERING]
+[required_features=V_1_3_ARRAY_ORDERING]
 select arrayval
 from (select array<int64>[] as arrayval
       union all
@@ -5488,7 +5482,6 @@ from (select array<int64>[] as arrayval
       select array<int64>[6, 1] as arrayval)
 order by arrayval desc;
 --
-WITH FEATURES: V_1_3_ARRAY_ORDERING
 ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<INT64>[6, 1, 8]},
   {ARRAY<INT64>[6, 1]},
@@ -5499,15 +5492,10 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<INT64>[]},
   {ARRAY<INT64>(NULL)}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: ORDER BY does not support expressions of type ARRAY<INT64> [at 17:10]
-order by arrayval desc;
-         ^
 ==
 
 [name=order_by_array_double_with_nan_asc]
-[test_features1=V_1_3_ARRAY_ORDERING]
+[required_features=V_1_3_ARRAY_ORDERING]
 select arrayval
 from (select array<double>[] as arrayval
       union all
@@ -5528,7 +5516,6 @@ from (select array<double>[] as arrayval
       select array<double>[6, 1] as arrayval)
 order by arrayval asc;
 --
-WITH FEATURES: V_1_3_ARRAY_ORDERING
 ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<DOUBLE>(NULL)},
   {ARRAY<DOUBLE>[]},
@@ -5540,15 +5527,10 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<DOUBLE>[6, 1]},
   {ARRAY<DOUBLE>[6, 1, 8]}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: ORDER BY does not support expressions of type ARRAY<DOUBLE> [at 19:10]
-order by arrayval asc;
-         ^
 ==
 
 [name=order_by_array_double_with_nan_desc]
-[test_features1=V_1_3_ARRAY_ORDERING]
+[required_features=V_1_3_ARRAY_ORDERING]
 select arrayval
 from (select array<double>[] as arrayval
       union all
@@ -5569,7 +5551,6 @@ from (select array<double>[] as arrayval
       select array<double>[6, 1] as arrayval)
 order by arrayval desc;
 --
-WITH FEATURES: V_1_3_ARRAY_ORDERING
 ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<DOUBLE>[6, 1, 8]},
   {ARRAY<DOUBLE>[6, 1]},
@@ -5581,15 +5562,10 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<DOUBLE>[]},
   {ARRAY<DOUBLE>(NULL)}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: ORDER BY does not support expressions of type ARRAY<DOUBLE> [at 19:10]
-order by arrayval desc;
-         ^
 ==
 
 [name=order_by_array_double_with_nan_and_null_asc]
-[test_features1=V_1_3_ARRAY_ORDERING]
+[required_features=V_1_3_ARRAY_ORDERING]
 select arrayval
 from (select array<double>[] as arrayval
       union all
@@ -5602,7 +5578,6 @@ from (select array<double>[] as arrayval
       select array<double>[3.0] as arrayval)
 order by arrayval asc;
 --
-WITH FEATURES: V_1_3_ARRAY_ORDERING
 ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<DOUBLE>(NULL)},
   {ARRAY<DOUBLE>[]},
@@ -5610,15 +5585,10 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<DOUBLE>[nan]},
   {ARRAY<DOUBLE>[3]}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: ORDER BY does not support expressions of type ARRAY<DOUBLE> [at 11:10]
-order by arrayval asc;
-         ^
 ==
 
 [name=order_by_array_double_with_nan_and_null_desc]
-[test_features1=V_1_3_ARRAY_ORDERING]
+[required_features=V_1_3_ARRAY_ORDERING]
 select arrayval
 from (select array<double>[] as arrayval
       union all
@@ -5631,7 +5601,6 @@ from (select array<double>[] as arrayval
       select array<double>[3.0] as arrayval)
 order by arrayval desc;
 --
-WITH FEATURES: V_1_3_ARRAY_ORDERING
 ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<DOUBLE>[3]},
   {ARRAY<DOUBLE>[nan]},
@@ -5639,11 +5608,6 @@ ARRAY<STRUCT<arrayval ARRAY<>>>[
   {ARRAY<DOUBLE>[]},
   {ARRAY<DOUBLE>(NULL)}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: ORDER BY does not support expressions of type ARRAY<DOUBLE> [at 11:10]
-order by arrayval desc;
-         ^
 ==
 
 [name=order_by_nulls_first]

@@ -159,14 +159,13 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
 ]
 ==
 
-[test_features1=V_1_1_ORDER_BY_COLLATE]
+[required_features=ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE]
 [name=rank_collate]
 SELECT str_val, int64_val,
        RANK() OVER (ORDER BY str_val COLLATE "en_US", int64_val DESC)
 FROM TestTable
 ORDER BY str_val COLLATE "en_US"
 --
-WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
   {NULL, NULL, 1},
   {NULL, NULL, 1},
@@ -179,11 +178,6 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
   {"b", 2, 9},
   {"B", 2, 10}
 ]
---
-WITH FEATURES: ANALYTIC_FUNCTIONS
-ERROR: generic::invalid_argument: COLLATE is not supported [at 2:38]
-       RANK() OVER (ORDER BY str_val COLLATE "en_US", int64_val DESC)
-                                     ^
 ==
 
 [name=rank_int32_uint64]
@@ -342,21 +336,4 @@ ARRAY<STRUCT<
  {TESTENUM0, 5},
  {NULL, 6},
  {NULL, 6}]
-==
 
-[name=rank_no_orderby]
-SELECT RANK() OVER ()
-FROM TestTable
---
-ERROR: generic::invalid_argument: Window ORDER BY is required for analytic function rank [at 1:20]
-SELECT RANK() OVER ()
-                   ^
-==
-
-[name=rank_window]
-SELECT row_id, RANK() OVER (ORDER BY bool_val ROWS 2 PRECEDING)
-FROM TestTable
---
-ERROR: generic::invalid_argument: Window framing clause is not allowed for analytic function rank [at 1:47]
-SELECT row_id, RANK() OVER (ORDER BY bool_val ROWS 2 PRECEDING)
-                                              ^

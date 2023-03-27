@@ -1018,61 +1018,34 @@ static bool IsOnResolverErrorFilebasedAllowList(absl::string_view full_name) {
   // TODO: Clean up the ~900 tests, burn down this list.
   for (absl::string_view prefix :
        {"aggregation_queries_test:aggregation_string_agg_error_",
-        "analytic_cume_dist_test:cume_dist_",
-        "analytic_dense_rank_test:dense_rank_",
         "analytic_hll_count_test:analytic_hll_count_merge_partial_over_unbound",
         "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_",
         "analytic_lag_test:lag_window_frame",
         "analytic_lead_test:lead_window_frame",
-        "analytic_ntile_test:ntile_",
-        "analytic_partitionby_orderby_test:",
-        "analytic_percent_rank_test:percent_rank_",
-        "analytic_rank_test:rank_",
         "analytic_row_number_test:row_number_3",
         "analytic_sum_test:analytic_sum_range_orderby_bool_",
         "anonymization_test:",
         "arithmetic_functions_test:arithmetic_functions_3",
         "array_aggregation_test:array_concat_agg_array",
         "array_joins_test:array_",
-        "array_queries_test:select_array_equality_",
         "bytes_test:",
         "collation_test:",
-        "constant_queries_test:",
         "d3a_count_test:",
-        "dml_delete_test:",
-        "dml_insert_test:",
-        "dml_nested_test:",
-        "dml_returning_test:",
-        "dml_update_proto_test:",
-        "dml_update_struct_test:",
-        "dml_value_table_test:",
-        "except_intersect_queries_test:",
         "geography_analytic_functions_test:st_clusterdbscan_",
-        "geography_functions_test:st_geogfrom",
         "geography_queries_2_test:",
-        "groupby_queries_2_test:",
         "hll_count_test:",
-        "in_queries_test:in_",
-        "join_queries_test:join_9",
         "json_queries_test:json_",
         "keys_test:keys_2",
         "limit_queries_test:",
         "logical_functions_test:logical_not_",
-        "nano_timestamp_test:timestamp_to_string_",
-        "orderby_collate_queries_test:",
-        "orderby_queries_test:order_by_array_",
         "proto2_unknown_enums_test:",
         "proto_fields_test:has_repeated_scalar_fields",
         "proto_constructor_test:",
         "proto3_fields_test:has_repeated_scalar_fields",
         "replace_fields_test:replace_fields_proto_named_extension",
-        "select_distinct_test:",
         "strings_test:",
-        "timestamp_test:",
-        "union_distinct_queries_test:",
         "unionall_queries_test:unionall_",
-        "unnest_queries_test:",
-        "with_queries_test:"}) {
+        "unnest_queries_test:"}) {
     if (absl::StartsWith(full_name, prefix)) {
       return true;
     }
@@ -1190,13 +1163,13 @@ static void ExtractComplianceLabelsFromResolvedAST(
   // Get a ResolvedAST for PRODUCT_INTERNAL.
   language_options.set_product_mode(PRODUCT_INTERNAL);
   reference_driver->SetLanguageOptions(language_options);
-  bool uses_unsupported_type = false;
+  bool product_internal_uses_unsupported_type = false;
   // TODO: Refactor ReferenceDriver::GetAnalyzerOptions to take
   //     LanguageOptions as an argument so we don't have to set the state and
   //     then re-set it using AutoLanguageOptions
   absl::StatusOr<AnalyzerOptions> product_internal_analyzer_options_or_err =
-      reference_driver->GetAnalyzerOptions(parameters, &uses_unsupported_type);
-  EXPECT_FALSE(uses_unsupported_type) << test_name;
+      reference_driver->GetAnalyzerOptions(
+          parameters, &product_internal_uses_unsupported_type);
   absl::Status product_internal_analyze_status;
   std::unique_ptr<const AnalyzerOutput> product_internal_analyzer_out;
   if (product_internal_analyzer_options_or_err.ok()) {
@@ -1206,13 +1179,23 @@ static void ExtractComplianceLabelsFromResolvedAST(
     product_internal_analyze_status =
         AnalyzeStatement(sql, analyzer_options, reference_driver->catalog(),
                          type_factory, &product_internal_analyzer_out);
+    if (product_internal_analyze_status.ok() &&
+        !product_internal_uses_unsupported_type) {
+      // Check the plan for unsupported types too. Above we only checked params.
+      product_internal_uses_unsupported_type =
+          ReferenceDriver::UsesUnsupportedType(
+              analyzer_options.language(),
+              product_internal_analyzer_out->resolved_statement());
+    }
   }
 
   // Repeat with mode PRODUCT_EXTERNAL
   language_options.set_product_mode(PRODUCT_EXTERNAL);
   reference_driver->SetLanguageOptions(language_options);
+  bool product_external_uses_unsupported_type = false;
   absl::StatusOr<AnalyzerOptions> product_external_analyzer_options_or_err =
-      reference_driver->GetAnalyzerOptions(parameters, &uses_unsupported_type);
+      reference_driver->GetAnalyzerOptions(
+          parameters, &product_external_uses_unsupported_type);
   absl::Status product_external_analyze_status;
   std::unique_ptr<const AnalyzerOutput> product_external_analyzer_out;
   if (product_external_analyzer_options_or_err.ok()) {
@@ -1222,12 +1205,22 @@ static void ExtractComplianceLabelsFromResolvedAST(
     product_external_analyze_status =
         AnalyzeStatement(sql, analyzer_options, reference_driver->catalog(),
                          type_factory, &product_external_analyzer_out);
+    if (product_external_analyze_status.ok() &&
+        !product_external_uses_unsupported_type) {
+      // Check the plan for unsupported types too. Above we only checked params.
+      product_external_uses_unsupported_type =
+          ReferenceDriver::UsesUnsupportedType(
+              analyzer_options.language(),
+              product_external_analyzer_out->resolved_statement());
+    }
   }
 
   bool internal_compiles = product_internal_analyzer_options_or_err.ok() &&
-                           product_internal_analyze_status.ok();
+                           product_internal_analyze_status.ok() &&
+                           !product_internal_uses_unsupported_type;
   bool external_compiles = product_external_analyzer_options_or_err.ok() &&
-                           product_external_analyze_status.ok();
+                           product_external_analyze_status.ok() &&
+                           !product_external_uses_unsupported_type;
   const ResolvedStatement* statement = nullptr;
   if (!internal_compiles && !external_compiles) {
     compliance_labels.emplace(kNoCompileLabel);
@@ -1414,6 +1407,7 @@ static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
   // Allow CREATE TABLE AS SELECT in [prepare_database] statements.
   options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_AS_SELECT_STMT);
   options.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
+  options.AddSupportedStatementKind(RESOLVED_CREATE_VIEW_STMT);
 
   auto driver = std::make_unique<ReferenceDriver>(options);
   // Create an empty database so that we can later load protos and enums.
@@ -1727,6 +1721,22 @@ void SQLTestBase::StepPrepareDatabase() {
       statement_workflow_ = NOT_A_TEST;
       return;
     }
+    if (GetStatementKind(sql_) == RESOLVED_CREATE_VIEW_STMT) {
+      if (!IsTestingReferenceImpl() &&
+          test_case_options_->name() != "skip_failed_reference_setup") {
+        ZETASQL_EXPECT_OK(reference_driver()->AddViews({sql_}));
+      }
+      absl::Status driver_status = driver()->AddViews({sql_});
+      if (!driver_status.ok()) {
+        // We don't want to fail the test because of a database setup failure.
+        // Any test statements that depend on this schema object should cause
+        // the test to fail in a more useful way.
+        ZETASQL_LOG(ERROR) << "Prepare database failed with error: " << driver_status;
+      }
+      // The prepare database section is not a test. No need to proceed further.
+      statement_workflow_ = NOT_A_TEST;
+      return;
+    }
     if (GetStatementKind(sql_) != RESOLVED_CREATE_TABLE_AS_SELECT_STMT) {
       absl::Status status(
           absl::StatusCode::kInvalidArgument,
@@ -1875,32 +1885,23 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
   }
 
   if (IsTestingReferenceImpl()) {
-    // TODO: Push this down to ExecuteTestCase once different
-    //     test_featuresN= groups have different names.
+    // TODO: Push this down to ExecuteTestCase.
     if (!InspectTestCase().ok()) {
       return;
     }
 
     // Check results against golden files.
     // All features in [required_features] will be turned on.
-    // If the test has [test_features1], the test will run
-    // multiple times with each of those features sets all enabled or disabled,
-    // and will generate a test output for each, prefixed with
-    // "WITH FEATURES: ..." to show which features were set to get that output.
-
-    absl::btree_set<std::set<LanguageFeature>> features_sets =
-        ExtractFeatureSets(test_case_options_->test_features1(),
-                           test_case_options_->required_features());
-
-    absl::btree_map<std::string, TestResults> test_results =
-        RunTestAndCollectResults(features_sets);
+    absl::StatusOr<ComplianceTestCaseResult> driver_result =
+        RunTestWithFeaturesEnabled(test_case_options_->required_features());
+    TestResults test_result{.driver_output = driver_result};
 
     if (absl::GetFlag(FLAGS_zetasql_detect_falsly_required_features)) {
       RunAndCompareTestWithoutEachRequiredFeatures(
-          test_case_options_->required_features(), features_sets, test_results);
+          test_case_options_->required_features(), test_result);
     }
 
-    ParseAndCompareExpectedResults(features_sets, test_results);
+    ParseAndCompareExpectedResults(test_result);
   } else {
     // Check results against the reference implementation.
     test_result_->set_ignore_test_output(true);
@@ -1948,58 +1949,6 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
   }
 }
 
-absl::btree_set<std::set<LanguageFeature>> SQLTestBase::ExtractFeatureSets(
-    const std::set<LanguageFeature>& test_features1,
-    const std::set<LanguageFeature>& required_features) {
-  absl::btree_set<std::set<LanguageFeature>> features_sets;
-  for (int include1 = 0; include1 <= 1; ++include1) {
-    for (int include2 = 0; include2 <= 1; ++include2) {
-      std::set<LanguageFeature> features_set = required_features;
-      if (include1 == 1) {
-        features_set.insert(test_features1.begin(), test_features1.end());
-      }
-      features_sets.insert(std::move(features_set));
-    }
-  }
-  return features_sets;
-}
-
-static std::string EnabledFeaturesAsNormalizedString(
-    const std::set<LanguageFeature>& features_set) {
-  if (features_set.empty()) {
-    return "<none>";
-  }
-
-  return absl::StrJoin(
-      features_set, ",", [](std::string* set_out, LanguageFeature feature) {
-        absl::StrAppend(
-            set_out,
-            absl::StripPrefix(LanguageFeature_Name(feature), "FEATURE_"));
-      });
-}
-
-absl::btree_map<std::string, SQLTestBase::TestResults>
-SQLTestBase::RunTestAndCollectResults(
-    const absl::btree_set<std::set<LanguageFeature>>& features_sets) {
-  ZETASQL_CHECK(!features_sets.empty());
-  absl::btree_map<std::string, SQLTestBase::TestResults> test_results;
-  for (const std::set<LanguageFeature>& features_set : features_sets) {
-    absl::StatusOr<ComplianceTestCaseResult> driver_result =
-        RunTestWithFeaturesEnabled(features_set);
-
-    TestResults& found = test_results[ToString(driver_result)];
-
-    if (found.enabled_features.empty()) {
-      // Since the same result_string always maps to the same driver_result, we
-      // only need to set it the first time we see this result_string.
-      found.driver_output = driver_result;
-    }
-    found.enabled_features.push_back(
-        EnabledFeaturesAsNormalizedString(features_set));
-  }
-  return test_results;
-}
-
 absl::StatusOr<ComplianceTestCaseResult>
 SQLTestBase::RunTestWithFeaturesEnabled(
     const std::set<LanguageFeature>& features_set) {
@@ -2014,87 +1963,43 @@ SQLTestBase::RunTestWithFeaturesEnabled(
 
 void SQLTestBase::RunAndCompareTestWithoutEachRequiredFeatures(
     const std::set<LanguageFeature>& required_features,
-    const absl::btree_set<std::set<LanguageFeature>>& features_sets,
-    const absl::btree_map<std::string, TestResults>& test_results) {
+    TestResults& test_result) {
   for (const auto feature_to_check : required_features) {
-    EXPECT_TRUE(
-        IsFeatureRequired(feature_to_check, features_sets, test_results))
+    EXPECT_TRUE(IsFeatureRequired(feature_to_check, test_result))
         << LanguageFeature_Name(feature_to_check)
         << " was not actually required for " << full_name_ << "!";
   }
 }
 
-bool SQLTestBase::IsFeatureRequired(
-    LanguageFeature feature_to_check,
-    const absl::btree_set<std::set<LanguageFeature>>& features_sets,
-    const absl::btree_map<std::string, TestResults>& test_results) {
-  return absl::c_any_of(features_sets, [&](const auto& enabled_features) {
-    return RemovingFeatureChangesResult(feature_to_check, enabled_features,
-                                        test_results);
-  });
-}
-
-bool SQLTestBase::RemovingFeatureChangesResult(
-    LanguageFeature feature_to_check,
-    std::set<LanguageFeature> enabled_features,
-    const absl::btree_map<std::string, TestResults>& original_test_results) {
-  std::string original_enabled_features =
-      EnabledFeaturesAsNormalizedString(enabled_features);
+bool SQLTestBase::IsFeatureRequired(LanguageFeature feature_to_check,
+                                    TestResults& test_result) {
+  std::set<LanguageFeature> enabled_features =
+      test_case_options_->required_features();
   enabled_features.erase(feature_to_check);
   std::string new_result =
       ToString(RunTestWithFeaturesEnabled(enabled_features));
-
-  for (const auto& [original_result, test_result] : original_test_results) {
-    for (const auto& result_enabled_features : test_result.enabled_features) {
-      if (result_enabled_features == original_enabled_features) {
-        return !(new_result == original_result);
-      }
-    }
-  }
-  // This should never actually happen but if the enabled_features aren't Found
-  // at all, we might as well call the result changed.
-  ADD_FAILURE() << "This should never happen.  If you see this there is a bug.";
-  return true;
+  // TODO: Change TestResult to be a class and cache the result of
+  //     ToString so it does not have to be computed multiple times for this
+  //     check.
+  return new_result != ToString(test_result.driver_output);
 }
 
-void SQLTestBase::ParseAndCompareExpectedResults(
-    const absl::btree_set<std::set<LanguageFeature>>& features_sets,
-    const absl::btree_map<std::string, TestResults>& test_results) {
-  ZETASQL_CHECK(!features_sets.empty());
-  ZETASQL_CHECK(!test_results.empty());
+void SQLTestBase::ParseAndCompareExpectedResults(TestResults& test_result) {
   int result_part_number = 0;
-  for (const auto& [driver_result, test_result] : test_results) {
-    ++result_part_number;
-    std::string result_prefix;
-    // Expected results use WITH FEATURES exactly when there's more than one
-    // enabled feature.  In these cases we append them to the actual result.
-    if (features_sets.size() > 1) {
-      for (absl::string_view feature_set_name : test_result.enabled_features) {
-        absl::StrAppend(&result_prefix, "WITH FEATURES: ", feature_set_name,
-                        "\n");
-      }
-    }
-    const std::string actual_result =
-        absl::StrCat(result_prefix, driver_result);
-    test_result_->AddTestOutput(actual_result);
+  ++result_part_number;
+  test_result_->AddTestOutput(ToString(test_result.driver_output));
 
-    ZETASQL_DCHECK_EQ(statement_workflow_, NORMAL);
-    if (test_case_options_->extract_labels()) {
-      test_result_->AddTestOutput(absl::StrJoin(compliance_labels_, "\n"));
-    }
-    absl::string_view expected_string = "";
-    if (test_result_->parts().size() > result_part_number) {
-      expected_string = test_result_->parts()[result_part_number];
-    }
-    expected_string = absl::StripSuffix(expected_string, "\n");
-    while (absl::StartsWith(expected_string, "WITH FEATURES:")) {
-      // Remove the prefix_string line for comparison.
-      expected_string = expected_string.substr(expected_string.find('\n') + 1);
-    }
-
-    EXPECT_THAT(test_result.driver_output,
-                Returns(std::string(expected_string)));
+  ZETASQL_DCHECK_EQ(statement_workflow_, NORMAL);
+  if (test_case_options_->extract_labels()) {
+    test_result_->AddTestOutput(absl::StrJoin(compliance_labels_, "\n"));
   }
+  absl::string_view expected_string = "";
+  if (test_result_->parts().size() > result_part_number) {
+    expected_string = test_result_->parts()[result_part_number];
+  }
+  expected_string = absl::StripSuffix(expected_string, "\n");
+
+  EXPECT_THAT(test_result.driver_output, Returns(std::string(expected_string)));
 }
 
 void SQLTestBase::CheckCancellation(const absl::Status& status,

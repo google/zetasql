@@ -82,6 +82,7 @@
 #include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -91,6 +92,10 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
+
+ABSL_FLAG(bool, zetasql_show_function_signature_mismatch_details, false,
+          "Output mismatch details about each signature that mismatches a "
+          "function call.");
 
 namespace zetasql {
 

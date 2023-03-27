@@ -92,6 +92,8 @@ const char* const kOptionNamesToIgnoreInLiteralReplacement =
 const char* const kScrubLimitOffsetInLiteralReplacement =
     "scrub_limit_offset_in_literal_replacement";
 const char* const kSetFlag = "set_flag";
+const char* const kAlsoShowSignatureMismatchDetails =
+    "also_show_signature_mismatch_details";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -147,6 +149,7 @@ void RegisterAnalyzerTestOptions(
                                     "");
   test_case_options->RegisterBool(kScrubLimitOffsetInLiteralReplacement, true);
   test_case_options->RegisterString(kSetFlag, "");
+  test_case_options->RegisterBool(kAlsoShowSignatureMismatchDetails, false);
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(

@@ -1225,7 +1225,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 # false
 # ==
 
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=select_array_equality_literals]
 SELECT [] = [],
        [1,2,3] = [1,2,3],
@@ -1235,31 +1235,19 @@ SELECT [] = [],
        [1,NULL,2] = [1,2,3],
        [1,NULL,2] = [1,NULL,2]
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {true, true, false, false, NULL, false, NULL}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Equality is not defined for arguments of type empty array [at 1:8]
-SELECT [] = [],
-       ^
 ==
 
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=select_array_equality_empty_array_null]
 SELECT [] = cast(NULL AS ARRAY<INT64>)
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<BOOL>>[{NULL}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Equality is not defined for arguments of type empty array [at 1:8]
-SELECT [] = cast(NULL AS ARRAY<INT64>)
-       ^
 ==
 
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=select_array_equality_join_on_array_types]
 SELECT *
 FROM AllArraysTable a JOIN AllArraysTable b
@@ -1275,7 +1263,6 @@ ON a.bool_arrcol = b.bool_arrcol AND
    a.enum_arrcol = b.enum_arrcol AND
    a.struct_arrcol = b.struct_arrcol;
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<
         key INT64,
         bool_arrcol ARRAY<>,
@@ -1444,14 +1431,9 @@ ARRAY<STRUCT<
     }
   ],
   ARRAY<STRUCT<INT64, INT64>>[{11, 12}]}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Equality is not defined for arguments of type ARRAY<BOOL> [at 3:4]
-ON a.bool_arrcol = b.bool_arrcol AND
-   ^
 ==
 
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=select_array_equality_all_array_types]
 SELECT bool_arrcol = bool_arrcol,
        int32_arrcol = int32_arrcol,
@@ -1467,7 +1449,6 @@ SELECT bool_arrcol = bool_arrcol,
        struct_arrcol = struct_arrcol
 FROM AllArraysTable;
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
@@ -1479,8 +1460,3 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, B
   {true, true, true, true, true, true, true, true, true, true, true, true},
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Equality is not defined for arguments of type ARRAY<BOOL> [at 1:8]
-SELECT bool_arrcol = bool_arrcol,
-       ^

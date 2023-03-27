@@ -81,10 +81,6 @@ class FilebasedSQLTestCaseOptions {
   const std::set<LanguageFeature>& forbidden_features() {
     return forbidden_features_;
   }
-  // A set of features that indicates one of several possible expected results.
-  const std::set<LanguageFeature>& test_features1() const {
-    return test_features1_;
-  }
 
   // [labels=...] specified specificallyh on this test case.
   const std::vector<std::string>& local_labels() const { return local_labels_; }
@@ -122,7 +118,6 @@ class FilebasedSQLTestCaseOptions {
   std::map<std::string, Value> params_;
   std::set<LanguageFeature> required_features_;
   std::set<LanguageFeature> forbidden_features_;
-  std::set<LanguageFeature> test_features1_;
   std::vector<std::string> local_labels_;
   std::set<std::string> new_proto_file_names_;
   std::set<std::string> new_proto_message_names_;

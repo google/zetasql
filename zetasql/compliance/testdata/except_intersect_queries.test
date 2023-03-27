@@ -823,14 +823,13 @@ ARRAY<STRUCT<bool_val BOOL,
 ]
 ==
 [name=intersect_distinct_multiple_cols_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
        float_val, double_val, str_val, bytes_val FROM Table1
 INTERSECT DISTINCT
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
        float_val, double_val, str_val, bytes_val FROM Table2
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<bool_val BOOL,
              int32_val INT32,
              int64_val INT64,
@@ -846,11 +845,6 @@ ARRAY<STRUCT<bool_val BOOL,
   {false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
   {true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column 6 in INTERSECT DISTINCT has type that does not support set operation comparisons: FLOAT [at 4:1]
-SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
-^
 ==
 [name=intersect_all_multiple_cols]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
@@ -875,14 +869,13 @@ ARRAY<STRUCT<bool_val BOOL,
 ]
 ==
 [name=intersect_all_multiple_cols_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
        float_val, double_val, str_val, bytes_val FROM Table1
 INTERSECT ALL
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
        float_val, double_val, str_val, bytes_val FROM Table2
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<bool_val BOOL,
              int32_val INT32,
              int64_val INT64,
@@ -899,11 +892,6 @@ ARRAY<STRUCT<bool_val BOOL,
   {false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
   {true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column 6 in INTERSECT ALL has type that does not support set operation comparisons: FLOAT [at 4:1]
-SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
-^
 ==
 [name=except_distinct_multiple_cols]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
@@ -921,14 +909,13 @@ ARRAY<STRUCT<bool_val BOOL,
              bytes_val BYTES>>[{false, -4, -4, 4, 4, "4", b"4"}]
 ==
 [name=except_distinct_multiple_cols_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
        float_val, double_val, str_val, bytes_val FROM Table1
 EXCEPT DISTINCT
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
        float_val, double_val, str_val, bytes_val FROM Table2
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<bool_val BOOL,
              int32_val INT32,
              int64_val INT64,
@@ -938,11 +925,6 @@ ARRAY<STRUCT<bool_val BOOL,
              double_val DOUBLE,
              str_val STRING,
              bytes_val BYTES>>[{false, -4, -4, 4, 4, 0.4, 0.4, "4", b"4"}]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column 6 in EXCEPT DISTINCT has type that does not support set operation comparisons: FLOAT [at 4:1]
-SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
-^
 ==
 [name=except_all_multiple_cols]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
@@ -966,14 +948,13 @@ ARRAY<STRUCT<bool_val BOOL,
 ]
 ==
 [name=except_all_multiple_cols_float]
-[test_features1=DISALLOW_GROUP_BY_FLOAT]
+[forbidden_features=DISALLOW_GROUP_BY_FLOAT]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
        float_val, double_val, str_val, bytes_val FROM Table1
 EXCEPT ALL
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
        float_val, double_val, str_val, bytes_val FROM Table2
 --
-WITH FEATURES: <none>
 ARRAY<STRUCT<bool_val BOOL,
              int32_val INT32,
              int64_val INT64,
@@ -989,11 +970,6 @@ ARRAY<STRUCT<bool_val BOOL,
   {true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 ]
---
-WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
-ERROR: generic::invalid_argument: Column 6 in EXCEPT ALL has type that does not support set operation comparisons: FLOAT [at 4:1]
-SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
-^
 ==
 # ******************************
 # SELECT enum column.
@@ -1149,17 +1125,6 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32, int64_val INT64>>[
   {false, -2, -2},
   {true, -3, -3}
 ]
-==
-[name=except_intersect_bad_precedence]
-SELECT bool_val, int32_val, int64_val FROM Table1
-INTERSECT DISTINCT
-SELECT bool_val, int32_val, int64_val FROM Table2
-EXCEPT ALL
-SELECT bool_val, int32_val, int64_val FROM Table1
---
-ERROR: generic::invalid_argument: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
-EXCEPT ALL
-^
 ==
 [name=except_intersect_good_precedence]
 SELECT bool_val, int32_val, int64_val FROM Table1

@@ -902,21 +902,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // The prefix is in the format: code:<name_prefix>[<result_type_name>].
   std::string GetNamePrefix() const;
 
-  // Compute the set of sets of LanguageFeatures that are interesting to test.
-  // For each collection of features that are required or required to be unset,
-  // we'll try the statement with those features on or off.
-  absl::btree_set<std::set<LanguageFeature>> ExtractFeatureSets(
-      const std::set<LanguageFeature>& test_features1,
-      const std::set<LanguageFeature>& required_features);
-
   struct TestResults {
-    // We run the test for each of the features_sets, generating the result and
-    // collecting the list of feature set which produce the same output.
-
-    // TODO : Remove RequiredFeatures from this list.
-    // Each entry of this vector is a comma separated list of LanguageFeature
-    // names with the FEATURE_ prefix removed.
-    std::vector<std::string> enabled_features;
     // We need the result status to honor the known error filters.
     absl::StatusOr<ComplianceTestCaseResult> driver_output;
   };
@@ -932,10 +918,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   absl::StatusOr<ComplianceTestCaseResult> RunTestWithFeaturesEnabled(
       const std::set<LanguageFeature>& features_set);
 
-  // Runs the test for each of features_set
-  absl::btree_map<std::string, TestResults> RunTestAndCollectResults(
-      const absl::btree_set<std::set<LanguageFeature>>& features_sets);
-
   // For each required feature, re-runs each iteration of the test with that
   // feature removed.  Then compares the output with the feature removed to the
   // same run with the feature included.  If the result is unchanged, fails the
@@ -946,26 +928,15 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // specific to the reference implementation.
   void RunAndCompareTestWithoutEachRequiredFeatures(
       const std::set<LanguageFeature>& required_features,
-      const absl::btree_set<std::set<LanguageFeature>>& features_sets,
-      const absl::btree_map<std::string, TestResults>& test_results);
+      TestResults& test_result);
 
-  bool IsFeatureRequired(
-      LanguageFeature feature_to_check,
-      const absl::btree_set<std::set<LanguageFeature>>& features_sets,
-      const absl::btree_map<std::string, TestResults>& test_results);
+  // True if running the query with the required features except
+  // `feature_to_check` returns a result other than `test_result`.
+  bool IsFeatureRequired(LanguageFeature feature_to_check,
+                         TestResults& test_result);
 
-  // enabled_features is passed by value to allow removing elements without
-  // modifying the input collection.
-  bool RemovingFeatureChangesResult(
-      LanguageFeature feature_to_check,
-      std::set<LanguageFeature> enabled_features,
-      const absl::btree_map<std::string, TestResults>& original_test_results);
-
-  // Parses the expected results and compares them against the tests results in
-  // result_to_feature_map
-  void ParseAndCompareExpectedResults(
-      const absl::btree_set<std::set<LanguageFeature>>& features_sets,
-      const absl::btree_map<std::string, TestResults>& test_results);
+  // Parses the expected results and compares them against `test_result`
+  void ParseAndCompareExpectedResults(TestResults& test_result);
 };
 
 }  // namespace zetasql

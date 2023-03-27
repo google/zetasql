@@ -49,62 +49,38 @@ ARRAY<STRUCT<b INT64>>[{2}]
 ==
 
 [name=with_on_table_subquery]
-[test_features1=V_1_1_WITH_ON_SUBQUERY]
+[required_features=V_1_1_WITH_ON_SUBQUERY]
 select x,y
 from (with Q as (select 1 x, 2 y, 3 z) select y, x from Q)
 --
-WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
 ARRAY<STRUCT<x INT64, y INT64>>[{1, 2}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 2:7]
-from (with Q as (select 1 x, 2 y, 3 z) select y, x from Q)
-      ^
 ==
 
 [name=with_on_expr_subquery]
-[test_features1=V_1_1_WITH_ON_SUBQUERY]
+[required_features=V_1_1_WITH_ON_SUBQUERY]
 select (with Q as (select 1 x, 2 y) select x from Q)
 --
-WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
 ARRAY<STRUCT<INT64>>[{1}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 1:9]
-select (with Q as (select 1 x, 2 y) select x from Q)
-        ^
 ==
 
 [name=with_on_in_subquery]
-[test_features1=V_1_1_WITH_ON_SUBQUERY]
+[required_features=V_1_1_WITH_ON_SUBQUERY]
 select x, x in (with Q as (select 1 x, 2 y) select y from Q)
 from unnest([1,2,3]) x
 --
-WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
 ARRAY<STRUCT<x INT64, BOOL>>[{2, true}, {1, false}, {3, false}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 1:17]
-select x, x in (with Q as (select 1 x, 2 y) select y from Q)
-                ^
 ==
 
 [name=with_on_expr_subquery2]
-[test_features1=V_1_1_WITH_ON_SUBQUERY]
+[required_features=V_1_1_WITH_ON_SUBQUERY]
 select (with Q as (select 1 x, 2 y) select x+z from Q)
 from (select 3 z)
 --
-WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
 ARRAY<STRUCT<INT64>>[{4}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 1:9]
-select (with Q as (select 1 x, 2 y) select x+z from Q)
-        ^
 ==
 
 [name=with_on_set_op]
-[test_features1=V_1_1_WITH_ON_SUBQUERY]
+[required_features=V_1_1_WITH_ON_SUBQUERY]
 with q1 as (select 1 x)
 select * from q1
 union all
@@ -114,29 +90,17 @@ union all
 union all
 (with q2 as (select 'abc') select x from q1)
 --
-WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
 ARRAY<STRUCT<x INT64>>[{1}, {2}, {1}, {1}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 4:2]
-(with q2 as (select 2 y) select y from q2)
- ^
 ==
 
 [name=with_on_multiple_levels]
-[test_features1=V_1_1_WITH_ON_SUBQUERY]
+[required_features=V_1_1_WITH_ON_SUBQUERY]
 with q1 as (select 1 x)
 select y, x
 from (with q2 as (select x+10 y from q1) select y from q2),
      (with q1 as (select x+100 x from q1) select x from q1)
 --
-WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
 ARRAY<STRUCT<y INT64, x INT64>>[{11, 101}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 3:7]
-from (with q2 as (select x+10 y from q1) select y from q2),
-      ^
 ==
 
 # Order is not preserved here.

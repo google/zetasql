@@ -92,13 +92,10 @@ ARRAY<STRUCT<d1 DATE, d2 DATE, INT64, INT64>>[
 ]
 ==
 
-[test_features1=V_1_3_DATE_TIME_CONSTRUCTORS]
 [name=date_from_string_literal]
 select date('2020-09-01 12:34:56.789-08')
 
 --
-WITH FEATURES: <none>
-WITH FEATURES: V_1_3_DATE_TIME_CONSTRUCTORS
 ARRAY<STRUCT<DATE>>[{2020-09-01}]
 ==
 
@@ -118,7 +115,6 @@ ARRAY<STRUCT<DATE, DATE, STRING>>[{9876-12-31, 1999-10-20, "1234-01-02"}]
 ==
 
 # Note, that the default time zone is PST (America/Los_Angeles) - hence the results.
-[test_features1=V_1_3_DATE_TIME_CONSTRUCTORS]
 [parameters='2019-08-01 03:00:00+00' as p1, '2019-08-01 03:00:00' as p2, '2020-01-02' as p3]
 [name=date_from_string_parameter]
 select
@@ -126,8 +122,6 @@ select
   date(@p2), date('2019-08-01 03:00:00'),    date(timestamp '2019-08-01 03:00:00'),
   date(@p3), date('2020-01-02')
 --
-WITH FEATURES: <none>
-WITH FEATURES: V_1_3_DATE_TIME_CONSTRUCTORS
 ARRAY<STRUCT<DATE, DATE, DATE, DATE, DATE, DATE, DATE, DATE>>[
   {2019-07-31,
    2019-07-31,
@@ -204,27 +198,3 @@ select
   date_bucket(NULL, NULL, NULL),
 --
 ARRAY<STRUCT<DATE, DATE, DATE, DATE, DATE>>[{NULL, NULL, NULL, NULL, NULL}]
-==
-
-[test_features1=INTERVAL_TYPE]
-[name=date_bucket_feature_disabled]
-select
-  date_bucket('2020-02-15', INTERVAL 1 DAY)
---
-WITH FEATURES: <none>
-WITH FEATURES: INTERVAL_TYPE
-ERROR: generic::invalid_argument: Function not found: date_bucket; Did you mean range_bucket? [at 2:3]
-  date_bucket('2020-02-15', INTERVAL 1 DAY)
-  ^
-==
-
-[test_features1=TIME_BUCKET_FUNCTIONS]
-[name=date_bucket_no_interval_type]
-select
-  date_bucket('2020-02-15', INTERVAL 1 DAY)
---
-WITH FEATURES: <none>
-WITH FEATURES: TIME_BUCKET_FUNCTIONS
-ERROR: generic::invalid_argument: Function not found: date_bucket; Did you mean range_bucket? [at 2:3]
-  date_bucket('2020-02-15', INTERVAL 1 DAY)
-  ^

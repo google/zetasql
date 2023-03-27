@@ -301,11 +301,10 @@ ARRAY<STRUCT<
 ==
 # With the consecutive feature on, this query will be equivalent to the case
 # join_8.
-[test_features1=V_1_3_ALLOW_CONSECUTIVE_ON]
+[required_features=V_1_3_ALLOW_CONSECUTIVE_ON]
 [name=join_9]
 SELECT * FROM R JOIN S JOIN DateTimestampTable d ON S.id = d.row_id ON R.id = S.id
 --
-WITH FEATURES: V_1_3_ALLOW_CONSECUTIVE_ON
 ARRAY<STRUCT<
         primary_key INT64,
         id INT64,
@@ -339,11 +338,6 @@ ARRAY<STRUCT<
    2018-02-03,
    2013-02-03 12:05:06+00
  }]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Syntax error: Expected end of input but got keyword ON [at 1:69]
-...JOIN S JOIN DateTimestampTable d ON S.id = d.row_id ON R.id = S.id
-                                                       ^
 ==
 [name=empty_inner_join]
 SELECT t1.id, t2.id

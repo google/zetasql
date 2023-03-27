@@ -1051,7 +1051,7 @@ void GetIntervalFunctions(TypeFactory* type_factory,
   auto with_name = [](const std::string& name) {
     return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
         .set_default(Value::Int64(0))
-        .set_argument_name(name);
+        .set_argument_name(name, kPositionalOrNamed);
   };
 
   InsertFunction(

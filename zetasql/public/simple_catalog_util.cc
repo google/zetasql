@@ -17,7 +17,9 @@
 #include "zetasql/public/simple_catalog_util.h"
 
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/sql_function.h"
@@ -64,6 +66,42 @@ absl::Status AddFunctionFromCreateFunction(
   function->set_sql_security(resolved_create->sql_security());
 
   ZETASQL_RET_CHECK(catalog.AddOwnedFunctionIfNotPresent(&function));
+  return absl::OkStatus();
+}
+
+absl::Status AddViewFromCreateView(
+    absl::string_view create_view_stmt, const AnalyzerOptions& analyzer_options,
+    bool allow_non_temp, std::unique_ptr<const AnalyzerOutput>& analyzer_output,
+    SimpleCatalog& catalog) {
+  ZETASQL_RET_CHECK(analyzer_options.language().SupportsStatementKind(
+      RESOLVED_CREATE_VIEW_STMT));
+  ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(create_view_stmt, analyzer_options, &catalog,
+                                   catalog.type_factory(), &analyzer_output))
+      << create_view_stmt;
+  const ResolvedStatement* resolved = analyzer_output->resolved_statement();
+  ZETASQL_RET_CHECK(resolved->Is<ResolvedCreateViewStmt>());
+  const ResolvedCreateViewStmt* stmt =
+      resolved->GetAs<ResolvedCreateViewStmt>();
+  if (!allow_non_temp) {
+    ZETASQL_RET_CHECK_EQ(stmt->create_scope(),
+                 ResolvedCreateStatementEnums::CREATE_TEMP);
+  }
+  std::vector<SimpleSQLView::NameAndType> columns;
+  for (int i = 0; i < stmt->output_column_list_size(); ++i) {
+    const ResolvedOutputColumn* col = stmt->output_column_list(i);
+    columns.push_back({.name = col->name(), .type = col->column().type()});
+  }
+  SimpleSQLView::SqlSecurity security = stmt->sql_security();
+  // ZetaSQL defines the default SQL security to be "DEFINER"
+  if (security == SQLView::kSecurityUnspecified) {
+    security = SQLView::kSecurityDefiner;
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<SimpleSQLView> sql_view,
+      SimpleSQLView::Create(absl::StrJoin(stmt->name_path(), "."), columns,
+                            security, stmt->is_value_table(), stmt->query()));
+  std::string view_name = sql_view->Name();
+  ZETASQL_RET_CHECK(catalog.AddOwnedTableIfNotPresent(view_name, std::move(sql_view)));
   return absl::OkStatus();
 }
 

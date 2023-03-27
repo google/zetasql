@@ -458,22 +458,6 @@ SELECT id FROM Test2 t WHERE 'b' NOT IN UNNEST(t.Info.str_value);
 --
 ARRAY<STRUCT<id INT64>>[{2}]
 ==
-[name=in_clause_subquery_multiple_fields]
-SELECT y FROM Test WHERE x IN (
-  SELECT CAST(1 AS INT64), 'a' t1 UNION ALL
-  SELECT 2, 'b');
---
-ERROR: generic::invalid_argument: Subquery of type IN must have only one output column [at 2:3]
-  SELECT CAST(1 AS INT64), 'a' t1 UNION ALL
-  ^
-==
-[name=in_clause_subquery_wrong_type]
-SELECT y FROM Test WHERE x IN (SELECT 'a' t1);
---
-ERROR: generic::invalid_argument: Cannot execute IN subquery with uncomparable types INT64 and STRING [at 1:26]
-SELECT y FROM Test WHERE x IN (SELECT 'a' t1);
-                         ^
-==
 [name=in_clause_int32_type]
 SELECT x FROM Test WHERE int32_col IN (100, 200) ORDER BY x;
 --
@@ -516,74 +500,40 @@ SELECT x FROM TestEnum WHERE enum_col IN (
 --
 ARRAY<STRUCT<x INT64>>[{1}, {3}]
 ==
-[name=in_clause_proto_type]
-SELECT id FROM Test2 WHERE Info IN (
-  (SELECT AS `zetasql_test__.TestExtraPB`
-         1 int32_val1, ['a', 'b', 'c'] str_value));
---
-ERROR: generic::invalid_argument: Cannot execute IN subquery with uncomparable types zetasql_test__.TestExtraPB and zetasql_test__.TestExtraPB [at 1:28]
-SELECT id FROM Test2 WHERE Info IN (
-                           ^
-==
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=in_clause_array_type]
 SELECT id FROM Test2 WHERE Info.str_value IN (['d']);
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<id INT64>>[{2}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: IN is not defined for arguments of type ARRAY<STRING> [at 1:43]
-SELECT id FROM Test2 WHERE Info.str_value IN (['d']);
-                                          ^
 ==
 
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=in_clause_array_type_not_in]
 SELECT id FROM Test2 WHERE Info.str_value NOT IN (['d']);
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<id INT64>>[{1}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: IN is not defined for arguments of type ARRAY<STRING> [at 1:47]
-SELECT id FROM Test2 WHERE Info.str_value NOT IN (['d']);
-                                              ^
 ==
 
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=in_clause_array_type_case]
 SELECT id, CASE WHEN Info.str_value IN (['d']) THEN "yes" END
 FROM Test2;
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<id INT64, STRING>>[{2, "yes"}, {1, NULL}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: IN is not defined for arguments of type ARRAY<STRING> [at 1:37]
-SELECT id, CASE WHEN Info.str_value IN (['d']) THEN "yes" END
-                                    ^
 ==
 
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=in_clause_array_type_join]
 SELECT a.id FROM Test2 a JOIN Test2 b ON a.Info.str_value IN (['d']);
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<id INT64>>[{2}, {2}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: IN is not defined for arguments of type ARRAY<STRING> [at 1:59]
-SELECT a.id FROM Test2 a JOIN Test2 b ON a.Info.str_value IN (['d']);
-                                                          ^
 ==
 
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=in_clause_struct_array_type]
 SELECT x, x IN ((("test", [1, 2])))
 FROM (SELECT ("test", [1, 2]) x UNION ALL SELECT ("test", [1, 2, 3]))
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<
         x STRUCT<STRING, ARRAY<>>,
         BOOL
@@ -597,24 +547,13 @@ ARRAY<STRUCT<
    {"test", ARRAY<INT64>[1, 2]},
    true
  }]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: IN is not defined for arguments of type STRUCT<STRING, ARRAY<INT64>> [at 1:13]
-SELECT x, x IN ((("test", [1, 2])))
-            ^
 ==
 
-[test_features1=V_1_1_ARRAY_EQUALITY]
+[required_features=V_1_1_ARRAY_EQUALITY]
 [name=in_unnest_clause_struct_array_type]
 SELECT ("test", [1, 2]) IN UNNEST([("test", [1, 2]), ("test", [1, 2, 3])])
 --
-WITH FEATURES: V_1_1_ARRAY_EQUALITY
 ARRAY<STRUCT<BOOL>>[{true}]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: First argument to IN UNNEST of type STRUCT<STRING, ARRAY<INT64>> does not support equality comparison [at 1:25]
-SELECT ("test", [1, 2]) IN UNNEST([("test", [1, 2]), ("test", [1, 2, 3])])
-                        ^
 ==
 
 [name=in_clause_struct_type]

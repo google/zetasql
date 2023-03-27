@@ -66,17 +66,6 @@ constexpr absl::string_view kPrepareDatabase = "prepare_database";
 
 constexpr absl::string_view kExtractLabels = "extract_labels";  // boolean flag
 
-// These are comma-separated lists of LanguageFeature enums, without the
-// FEATURE_ prefix.  If these are set, when testing against the reference
-// implementation, the test will run multiple times, with features in
-// test_features1 on or off, and
-// all outputs will be shown in the golden file.
-// When testing against a non-reference implementation, each test runs only
-// once, and the output is compared to the reference implementation's output
-// when running with the engines options, provided by
-// TestDriver::GetSupportedLanguageOptions.
-constexpr absl::string_view kTestFeatures1 = "test_features1";
-
 // A comma-separated list of LanguageFeature enums,
 // without the FEATURE_ prefix. If it is set, the test will be run
 // against the implementations that support the features.
@@ -285,9 +274,6 @@ FilebasedSQLTestFileOptions::ProcessTestCase(absl::string_view test_case,
   ZETASQL_RETURN_IF_ERROR(ParseFeatures(options_->GetString(kForbiddenFeatures),
                                 case_opts->forbidden_features_))
       .With(reason("Failed to parse forbidden_features"));
-  ZETASQL_RETURN_IF_ERROR(ParseFeatures(options_->GetString(kTestFeatures1),
-                                case_opts->test_features1_))
-      .With(reason("Failed to parse test_features1"));
 
   ZETASQL_RETURN_IF_ERROR(ParsePrimaryKeyMode(options_->GetString(kPrimaryKeyMode),
                                       &case_opts->primary_key_mode_))
@@ -315,7 +301,6 @@ FilebasedSQLTestFileOptions::FilebasedSQLTestFileOptions(
   options_->RegisterString(kLoadEnumNames, "");
   options_->RegisterBool(kPrepareDatabase, false);
   options_->RegisterBool(kExtractLabels, false);
-  options_->RegisterString(kTestFeatures1, "");
   options_->RegisterString(kRequiredFeatures, "");
   options_->RegisterString(kForbiddenFeatures, "");
   options_->RegisterString(kDefaultTimeZone, "");

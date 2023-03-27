@@ -606,7 +606,6 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to modify the fiel
 
 [name=replace_map_field]
 [required_features=V_1_3_REPLACE_FIELDS]
-[test_features1=V_1_3_PROTO_MAPS]
 
 SELECT
   REPLACE_FIELDS(
@@ -614,8 +613,6 @@ SELECT
     [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value)] as string_int32_map
   )
 --
-WITH FEATURES: V_1_3_REPLACE_FIELDS
-WITH FEATURES: V_1_3_REPLACE_FIELDS,V_1_3_PROTO_MAPS
 ARRAY<STRUCT<PROTO<zetasql_test__.MessageWithMapField>>>[
   {{
      string_int32_map {

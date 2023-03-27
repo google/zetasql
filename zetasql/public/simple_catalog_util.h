@@ -43,6 +43,22 @@ absl::Status AddFunctionFromCreateFunction(
     std::unique_ptr<const AnalyzerOutput>& analyzer_output,
     SimpleCatalog& catalog, bool allow_persistent_function = false);
 
+// Adds a `Table` object to `catalog` for the view defined by
+// `create_view_stmt`.
+//
+// `create_view_stmt`: Must be a CREATE VIEW statement.
+// `analyzer_options`: Analyzer options used to analyze `create_view_stmt`.
+// `allow_non_temp`: If false, require statements to specify `TEMP` views.
+// `analyzer_output`: Analyzer outputs from compiling `create_view_stmt`. The
+//     lifetime of `analyzer_output` must exceed the lifetime of `catalog`.
+//     `analyzer_options.language()` must support
+//     `RESOLVED_CREATE_FUNCTION_STMT`.
+// `catalog`: A SimpleCatalog that will own the created SQLFunction* object.
+absl::Status AddViewFromCreateView(
+    absl::string_view create_view_stmt, const AnalyzerOptions& analyzer_options,
+    bool allow_non_temp, std::unique_ptr<const AnalyzerOutput>& analyzer_output,
+    SimpleCatalog& catalog);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_SIMPLE_CATALOG_UTIL_H_

@@ -2198,22 +2198,28 @@ ERROR: generic::invalid_argument: No matching signature for aggregate operator A
   ^
 ==
 
-[test_features1=JSON_VALUE_EXTRACTION_FUNCTIONS,ANONYMIZATION_THRESHOLDING]
-[name=anonymization_count_unique_users_with_report_json_thresholding]
-[required_features=JSON_TYPE,ANONYMIZATION]
+[name=anonymization_count_unique_users_with_report_json_with_thresholding]
+[required_features=JSON_TYPE,ANONYMIZATION,JSON_VALUE_EXTRACTION_FUNCTIONS,ANONYMIZATION_THRESHOLDING]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
   ANON_COUNT(* CLAMPED BETWEEN 0 AND 1 with REPORT(format=JSON))
 FROM TestTableWithUid;
 --
-WITH FEATURES: ANONYMIZATION,JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,ANONYMIZATION_THRESHOLDING
 ARRAY<STRUCT<JSON>>[
   {
     {"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":-2.99573227355399e-20,"upper_bound":2.99573227355399e-20},"value":10}}
   }
 ]
+==
+
+[name=anonymization_count_unique_users_with_report_json_without_thresholding]
+[required_features=JSON_TYPE,ANONYMIZATION]
+[forbidden_features=ANONYMIZATION_THRESHOLDING]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_COUNT(* CLAMPED BETWEEN 0 AND 1 with REPORT(format=JSON))
+FROM TestTableWithUid;
 --
-WITH FEATURES: ANONYMIZATION,JSON_TYPE
 ARRAY<STRUCT<JSON>>[
   {
     {"result":{"noise_confidence_interval":{"confidence_level":0.95,"lower_bound":-5.99146454710798e-20,"upper_bound":5.99146454710798e-20},"value":10}}
@@ -2221,15 +2227,13 @@ ARRAY<STRUCT<JSON>>[
 ]
 ==
 
-[test_features1=ANONYMIZATION_THRESHOLDING]
-[name=anonymization_count_unique_users_with_report_proto_thresholding]
-[required_features=ANONYMIZATION]
+[name=anonymization_count_unique_users_with_report_proto_with_thresholding]
+[required_features=ANONYMIZATION,ANONYMIZATION_THRESHOLDING]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
   ANON_COUNT(* CLAMPED BETWEEN 0 AND 1 with REPORT(format=PROTO))
 FROM TestTableWithUid;
 --
-WITH FEATURES: ANONYMIZATION,ANONYMIZATION_THRESHOLDING
 ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
   {{
      value {
@@ -2242,8 +2246,16 @@ ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
      }
    }}
 ]
+==
+
+[name=anonymization_count_unique_users_with_report_proto_without_thresholding]
+[required_features=ANONYMIZATION]
+[forbidden_features=ANONYMIZATION_THRESHOLDING]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_COUNT(* CLAMPED BETWEEN 0 AND 1 with REPORT(format=PROTO))
+FROM TestTableWithUid;
 --
-WITH FEATURES: ANONYMIZATION
 ARRAY<STRUCT<PROTO<zetasql.AnonOutputWithReport>>>[
   {{
      value {

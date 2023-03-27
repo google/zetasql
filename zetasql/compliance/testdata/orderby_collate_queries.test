@@ -40,11 +40,8 @@ ARRAY<STRUCT<primary_Key INT64, col STRING>>[
 ==
 
 [name=orderby_without_collate]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col from StringTable ORDER BY col
 --
-WITH FEATURES: <none>
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {7, NULL},
   {13, NULL},
@@ -67,10 +64,9 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
 # Unicode binary (codepoint) collation. Results are same as the label
 # orderby_without_collate.
 [name=orderby_collate_binary]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
+[default required_features=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col from StringTable ORDER BY col COLLATE "binary"
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {7, NULL},
   {13, NULL},
@@ -88,21 +84,14 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {15, "Г"},
   {5, " abc"}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 1:55]
-select primary_key, col from StringTable ORDER BY col COLLATE "binary"
-                                                      ^
 ==
 
 # NOTE: In the default UTF-8 ascii comparison (see label
 # orderby_without_collate) upper case comes first (i.e. 'B' < 'a') whereas in
 # the collation defined order lower case comes first (i.e. 'B' > 'a').
 [name=order_by_collate_english]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col from StringTable ORDER BY col COLLATE "en", 1 ASC
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {7, NULL},
   {13, NULL},
@@ -120,20 +109,13 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {14, "hello"},
   {15, "Г"}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 1:55]
-select primary_key, col from StringTable ORDER BY col COLLATE "en", 1 ASC
-                                                      ^
 ==
 
 [name=orderby_collate_english_US]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from StringTable
 ORDER BY col COLLATE "en_US" DESC, primary_key ASC
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {15, "Г"},
   {2, "hello"},
@@ -151,18 +133,12 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {7, NULL},
   {13, NULL}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 3:14]
-ORDER BY col COLLATE "en_US" DESC, primary_key ASC
-             ^
 ==
 
 # All of aa/aA/Aa/AA orders before all of ab/aB/Ab/AB regardless of case.
 # Within aa/aA/Aa/AA, lower case 'a' orders before upper case 'A'.
 # Test ASC.
 [name=orderby_collate_english_US_case_sensitive_ascending]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 SELECT s.str, s.int
 FROM
 UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
@@ -181,7 +157,6 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US:cs" ASC, 2 ASC
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str STRING, int INT64>>[
   {"a", 8},
   {"aa", 13},
@@ -197,16 +172,10 @@ ARRAY<STRUCT<str STRING, int INT64>>[
   {"Ac", 12},
   {"AC", 2}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 17:12]
-ORDER BY 1 COLLATE "en_US:cs" ASC, 2 ASC
-           ^
 ==
 
 # Test DESC.
 [name=orderby_collate_english_US_case_sensitive_descending]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 SELECT s.str, s.int
 FROM
 UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
@@ -225,7 +194,6 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US:cs" DESC, 2 ASC
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str STRING, int INT64>>[
   {"AC", 2},
   {"Ac", 12},
@@ -241,18 +209,12 @@ ARRAY<STRUCT<str STRING, int INT64>>[
   {"aa", 13},
   {"a", 8}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 17:12]
-ORDER BY 1 COLLATE "en_US:cs" DESC, 2 ASC
-           ^
 ==
 
 # The default "en_US" in this test is the same as "en_US:cs" in the previous
 # tests.
 # Test ASC.
 [name=orderby_collate_english_US_default_is_case_sensitive_ascending]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 SELECT s.str, s.int
 FROM
 UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
@@ -271,7 +233,6 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US" ASC, 2 ASC
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str STRING, int INT64>>[
   {"a", 8},
   {"aa", 13},
@@ -287,16 +248,10 @@ ARRAY<STRUCT<str STRING, int INT64>>[
   {"Ac", 12},
   {"AC", 2}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 17:12]
-ORDER BY 1 COLLATE "en_US" ASC, 2 ASC
-           ^
 ==
 
 # Test DESC.
 [name=orderby_collate_english_US_default_is_case_sensitive_descending]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 SELECT s.str, s.int
 FROM
 UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
@@ -315,7 +270,6 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US" DESC, 2 ASC
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str STRING, int INT64>>[
   {"AC", 2},
   {"Ac", 12},
@@ -331,15 +285,9 @@ ARRAY<STRUCT<str STRING, int INT64>>[
   {"aa", 13},
   {"a", 8}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 17:12]
-ORDER BY 1 COLLATE "en_US" DESC, 2 ASC
-           ^
 ==
 
 [name=orderby_collate_english_US_case_insensitive_ascending]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 SELECT s.str, s.int
 FROM
 UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
@@ -358,7 +306,6 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US:ci" ASC, 2 ASC
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str STRING, int INT64>>[
   {"a", 8},
   {"aA", 3},
@@ -374,15 +321,9 @@ ARRAY<STRUCT<str STRING, int INT64>>[
   {"aC", 7},
   {"Ac", 12}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 17:12]
-ORDER BY 1 COLLATE "en_US:ci" ASC, 2 ASC
-           ^
 ==
 
 [name=orderby_collate_english_US_case_insensitive_descending]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 SELECT s.str, s.int
 FROM
 UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
@@ -401,7 +342,6 @@ UNNEST(ARRAY<STRUCT<str STRING, int INT64>>[
        ("AA", 10)]) AS s
 ORDER BY 1 COLLATE "en_US:ci" DESC, 2 ASC
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<str STRING, int INT64>>[
   {"AC", 2},
   {"ac", 4},
@@ -417,15 +357,9 @@ ARRAY<STRUCT<str STRING, int INT64>>[
   {"aa", 13},
   {"a", 8}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 17:12]
-ORDER BY 1 COLLATE "en_US:ci" DESC, 2 ASC
-           ^
 ==
 
 [name=orderby_collate_czech]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "c" col UNION ALL
       select 2, "cg" UNION ALL
@@ -434,7 +368,6 @@ from (select 1 primary_key, "c" col UNION ALL
       select 5, "h")
 ORDER BY col COLLATE "cs"
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {1, "c"},
   {2, "cg"},
@@ -442,16 +375,10 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {5, "h"},
   {3, "ch"}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 7:14]
-ORDER BY col COLLATE "cs"
-             ^
 ==
 
 # In german language 'ss' is equal to 'ß'.
 [name=orderby_collate_german]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "ßd" col UNION ALL
       select 2, "ssc" UNION ALL
@@ -459,23 +386,16 @@ from (select 1 primary_key, "ßd" col UNION ALL
       select 4, "ssa")
 ORDER BY col COLLATE "de"
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {4, "ssa"},
   {3, "ßb"},
   {2, "ssc"},
   {1, "ßd"}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
-ORDER BY col COLLATE "de"
-             ^
 ==
 
 [name=orderby_collate_german_parameter]
 [parameters="de" collation_name]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "ßd" col UNION ALL
       select 2, "ssc" UNION ALL
@@ -483,22 +403,15 @@ from (select 1 primary_key, "ßd" col UNION ALL
       select 4, "ssa")
 ORDER BY col COLLATE @collation_name
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {4, "ssa"},
   {3, "ßb"},
   {2, "ssc"},
   {1, "ßd"}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
-ORDER BY col COLLATE @collation_name
-             ^
 ==
 
 [name=orderby_collate_german_english]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "ßß" col UNION ALL
       select 2, "ßss" UNION ALL
@@ -506,21 +419,14 @@ from (select 1 primary_key, "ßß" col UNION ALL
       select 4, "ssss")
 ORDER BY col COLLATE "de", col COLLATE "en"
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {4, "ssss"},
   {3, "ssß"},
   {2, "ßss"},
   {1, "ßß"}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
-ORDER BY col COLLATE "de", col COLLATE "en"
-             ^
 ==
 [name=orderby_collate_und_ci]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL
       select 2, "ca" UNION ALL
@@ -528,23 +434,16 @@ from (select 1 primary_key, "Ca" col UNION ALL
       select 4, "cb")
 ORDER BY col COLLATE "und:ci"
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {2, "ca"},
   {1, "Ca"},
   {4, "cb"},
   {3, "Cb"}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
-ORDER BY col COLLATE "und:ci"
-             ^
 ==
 
 [name=orderby_collate_und_ci_parameter]
 [parameters="und:ci" collation_name]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL
       select 2, "ca" UNION ALL
@@ -552,22 +451,15 @@ from (select 1 primary_key, "Ca" col UNION ALL
       select 4, "cb")
 ORDER BY col COLLATE @collation_name
 --
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
   {2, "ca"},
   {1, "Ca"},
   {4, "cb"},
   {3, "Cb"}
 ]
---
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
-ORDER BY col COLLATE @collation_name
-             ^
 ==
 
 [name=orderby_collate_binary_cs_is_an_error]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL
       select 2, "ca" UNION ALL
@@ -575,17 +467,10 @@ from (select 1 primary_key, "Ca" col UNION ALL
       select 4, "cb")
 ORDER BY col COLLATE "binary:cs"
 --
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
-ORDER BY col COLLATE "binary:cs"
-             ^
---
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ERROR: generic::out_of_range: COLLATE has invalid collation name 'binary:cs':binary cannot be combined with a suffix
 ==
 
 [name=orderby_collate_und_cs_cs_is_an_error]
-[test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL
       select 2, "ca" UNION ALL
@@ -593,12 +478,6 @@ from (select 1 primary_key, "Ca" col UNION ALL
       select 4, "cb")
 ORDER BY col COLLATE "und:cs:cs"
 --
-WITH FEATURES: <none>
-ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
-ORDER BY col COLLATE "und:cs:cs"
-             ^
---
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ERROR: generic::out_of_range: COLLATE has invalid collation name 'und:cs:cs':only case sensitivity attribute is supported
 ==
 

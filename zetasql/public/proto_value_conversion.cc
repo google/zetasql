@@ -753,8 +753,11 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
             ProtoFieldToValue(proto, field, i, array_type->element_type(),
                               use_wire_format_annotations, &values[i],
                               match_struct_fields_by_name));
+        ZETASQL_RET_CHECK(values[i].is_valid())
+            << "Failed to convert field from proto; index " << i << " out of "
+            << num_elements << " for field " << field->DebugString();
       }
-      *value_out = Value::Array(array_type, values);
+      ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeArray(array_type, values));
       return absl::OkStatus();
     }
     case TypeKind::TYPE_STRUCT: {

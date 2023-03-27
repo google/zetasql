@@ -161,6 +161,7 @@ extern const char* const kAdditionalAllowedAnonymizationOptions;
 extern const char* const kSuppressBuiltinFunctions;
 extern const char* const kOptionNamesToIgnoreInLiteralReplacement;
 extern const char* const kScrubLimitOffsetInLiteralReplacement;
+extern const char* const kAlsoShowSignatureMismatchDetails;
 
 // set_flag
 // Causes a command line flag to be set to a particular value during the run

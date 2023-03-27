@@ -378,34 +378,48 @@ ARRAY<STRUCT<avg INTERVAL>>[{0-0 0 0:0:0}]
 ==
 # Regression test against AVG(INTERVAL) to ensure nanos precision is only
 # non-zero when FEATURE_TIMESTAMP_NANOS is on. See b/245617716.
-[required_features=INTERVAL_TYPE]
-[test_features1=TIMESTAMP_NANOS]
-[name=avg_nano_truncation2]
+[required_features=INTERVAL_TYPE,TIMESTAMP_NANOS]
+[name=avg_nano_truncation2_nanos]
 SELECT AVG(i) avg FROM UNNEST([
   interval 0 second, interval '-0.000000003' second
 ]) i
 --
-WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE
 ARRAY<STRUCT<avg INTERVAL>>[{0-0 0 -0:0:0.000000001}]
+==
+# Regression test against AVG(INTERVAL) to ensure nanos precision is only
+# non-zero when FEATURE_TIMESTAMP_NANOS is on. See b/245617716.
+[required_features=INTERVAL_TYPE]
+[forbidden_features=TIMESTAMP_NANOS]
+[name=avg_nano_truncation2_micros]
+SELECT AVG(i) avg FROM UNNEST([
+  interval 0 second, interval '-0.000000003' second
+]) i
 --
-WITH FEATURES: INTERVAL_TYPE
 ARRAY<STRUCT<avg INTERVAL>>[{0-0 0 0:0:0}]
 ==
 # Regression test against AVG(INTERVAL) to ensure nanos precision is only
 # non-zero when FEATURE_TIMESTAMP_NANOS is on. See b/245617716.
-[name=avg_nano_truncation3]
-[required_features=INTERVAL_TYPE]
-[test_features1=TIMESTAMP_NANOS]
+[name=avg_nano_truncation3_nanos]
+[required_features=INTERVAL_TYPE,TIMESTAMP_NANOS]
 SELECT AVG(e)
 FROM UNNEST([INTERVAL "-7959-1 -153930 54938167:22:41.712081" YEAR TO SECOND,
             INTERVAL "8630-9 3512412 62113018:54:19.721996" YEAR TO SECOND,
             INTERVAL "675-8 -224302 -58850294:15:14.439522" YEAR TO SECOND,
             INTERVAL "2580-1 -200995 40403849:16:44.554610" YEAR TO SECOND]) AS e
 --
-WITH FEATURES: TIMESTAMP_NANOS,INTERVAL_TYPE
 ARRAY<STRUCT<INTERVAL>>[{981-10 733303 24651203:19:37.887291250}]
+==
+# Regression test against AVG(INTERVAL) to ensure nanos precision is only
+# non-zero when FEATURE_TIMESTAMP_NANOS is on. See b/245617716.
+[name=avg_nano_truncation3_micros]
+[required_features=INTERVAL_TYPE]
+[forbidden_features=TIMESTAMP_NANOS]
+SELECT AVG(e)
+FROM UNNEST([INTERVAL "-7959-1 -153930 54938167:22:41.712081" YEAR TO SECOND,
+            INTERVAL "8630-9 3512412 62113018:54:19.721996" YEAR TO SECOND,
+            INTERVAL "675-8 -224302 -58850294:15:14.439522" YEAR TO SECOND,
+            INTERVAL "2580-1 -200995 40403849:16:44.554610" YEAR TO SECOND]) AS e
 --
-WITH FEATURES: INTERVAL_TYPE
 ARRAY<STRUCT<INTERVAL>>[{981-10 733303 24651203:19:37.887291}]
 ==
 [required_features=INTERVAL_TYPE]
@@ -626,12 +640,10 @@ ARRAY<STRUCT<INTERVAL>>[
   {0-1 30 720:54:52.211}
 ]
 ==
-[required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
-[test_features1=TIMESTAMP_NANOS]
-[name=analytic_moving_avg]
+[required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS,TIMESTAMP_NANOS]
+[name=analytic_moving_avg_nanos]
 SELECT AVG(value) OVER(ORDER BY value, id ASC ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) FROM Intervals
 --
-WITH FEATURES: ANALYTIC_FUNCTIONS,TIMESTAMP_NANOS,INTERVAL_TYPE
 ARRAY<STRUCT<INTERVAL>>[
   {NULL},
   {0-0 0 -4:5:6.789},
@@ -648,8 +660,12 @@ ARRAY<STRUCT<INTERVAL>>[
   {0-3 30 199:1:16.697250},
   {2500-3 23 187:1:16.697250}
 ]
+==
+[required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
+[forbidden_features=TIMESTAMP_NANOS]
+[name=analytic_moving_avg]
+SELECT AVG(value) OVER(ORDER BY value, id ASC ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) FROM Intervals
 --
-WITH FEATURES: ANALYTIC_FUNCTIONS,INTERVAL_TYPE
 ARRAY<STRUCT<INTERVAL>>[
   {NULL},
   {0-0 0 -4:5:6.789},
