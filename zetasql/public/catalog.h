@@ -30,6 +30,7 @@
 #include <cstdint>
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/source_location.h"
@@ -491,7 +492,7 @@ class Catalog {
 
   // Helper functions for getting canonical versions of NOT_FOUND error
   // messages.
-  absl::Status GenericNotFoundError(const std::string& object_type,
+  absl::Status GenericNotFoundError(absl::string_view object_type,
                                     absl::Span<const std::string> path) const;
   // TODO: Remove these object-type specific functions, and have the
   // calling locations invoke the templatized version below instead.
@@ -546,7 +547,7 @@ class Catalog {
     }
   }
 
-  absl::Status EmptyNamePathInternalError(const std::string& object_type) const;
+  absl::Status EmptyNamePathInternalError(absl::string_view object_type) const;
 
   // Templatized version of the previous function.  The string argument
   // passed to EmptyNamePathInternalError matches those in catalog.cc.

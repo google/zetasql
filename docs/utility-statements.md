@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Utility statements
 
 ZetaSQL supports the following utility statements.

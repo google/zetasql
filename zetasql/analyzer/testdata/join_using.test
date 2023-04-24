@@ -4140,15 +4140,190 @@ QueryStmt
 --
 ALTERNATION GROUP: RIGHT
 --
-ERROR: Array scan is not allowed with RIGHT JOIN: UNNEST expression [at 4:6]
-     unnest([struct(cast(1 as INT32) as a, 4 as b)]) as t2
-     ^
+QueryStmt
++-output_column_list=
+| +-$join_right.a#4 AS a [INT32]
+| +-$query.b#5 AS b [INT64]
+| +-$query.b#6 AS b [INT64]
+| +-$query.a#7 AS a [INT64]
+| +-$query.a#8 AS a [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$join_right.a#4, $query.b#5, $query.b#6, $query.a#7, $query.a#8]
+    +-expr_list=
+    | +-b#5 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t1#1)
+    | |   +-field_idx=1
+    | +-b#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t2#2)
+    | |   +-field_idx=1
+    | +-a#7 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t1#1)
+    | |   +-field_idx=0
+    | +-a#8 :=
+    |   +-GetStructField
+    |     +-type=INT32
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t2#2)
+    |     +-field_idx=0
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$array.t1#1, $join_left.a#3, $array.t2#2, $join_right.a#4]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-ProjectScan
+        |   +-column_list=[$array.t1#1, $join_left.a#3]
+        |   +-expr_list=
+        |   | +-a#3 :=
+        |   |   +-GetStructField
+        |   |     +-type=INT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t1#1)
+        |   |     +-field_idx=0
+        |   +-input_scan=
+        |     +-ArrayScan
+        |       +-column_list=[$array.t1#1]
+        |       +-array_expr=
+        |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
+        |       |   +-MakeStruct
+        |       |     +-type=STRUCT<a INT64, b INT64>
+        |       |     +-field_list=
+        |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
+        |       |       +-Literal(type=INT64, value=3)
+        |       +-element_column=$array.t1#1
+        +-right_scan=
+        | +-ProjectScan
+        |   +-column_list=[$array.t2#2, $join_right.a#4]
+        |   +-expr_list=
+        |   | +-a#4 :=
+        |   |   +-GetStructField
+        |   |     +-type=INT32
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t2#2)
+        |   |     +-field_idx=0
+        |   +-input_scan=
+        |     +-ArrayScan
+        |       +-column_list=[$array.t2#2]
+        |       +-array_expr=
+        |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
+        |       |   +-MakeStruct
+        |       |     +-type=STRUCT<a INT32, b INT64>
+        |       |     +-field_list=
+        |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+        |       |       +-Literal(type=INT64, value=4)
+        |       +-element_column=$array.t2#2
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$join_left.a#3)
+            +-Cast(INT32 -> INT64)
+              +-ColumnRef(type=INT32, column=$join_right.a#4)
 --
 ALTERNATION GROUP: FULL
 --
-ERROR: Array scan is not allowed with FULL JOIN: UNNEST expression [at 4:6]
-     unnest([struct(cast(1 as INT32) as a, 4 as b)]) as t2
-     ^
+QueryStmt
++-output_column_list=
+| +-$full_join.a#5 AS a [INT64]
+| +-$query.b#6 AS b [INT64]
+| +-$query.b#7 AS b [INT64]
+| +-$query.a#8 AS a [INT64]
+| +-$query.a#9 AS a [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$full_join.a#5, $query.b#6, $query.b#7, $query.a#8, $query.a#9]
+    +-expr_list=
+    | +-b#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t1#1)
+    | |   +-field_idx=1
+    | +-b#7 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t2#2)
+    | |   +-field_idx=1
+    | +-a#8 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t1#1)
+    | |   +-field_idx=0
+    | +-a#9 :=
+    |   +-GetStructField
+    |     +-type=INT32
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t2#2)
+    |     +-field_idx=0
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$array.t1#1, $join_left.a#3, $array.t2#2, $join_right.a#4, $full_join.a#5]
+        +-expr_list=
+        | +-a#5 :=
+        |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=$join_left.a#3)
+        |     +-Cast(INT32 -> INT64)
+        |       +-ColumnRef(type=INT32, column=$join_right.a#4)
+        +-input_scan=
+          +-JoinScan
+            +-column_list=[$array.t1#1, $join_left.a#3, $array.t2#2, $join_right.a#4]
+            +-join_type=FULL
+            +-left_scan=
+            | +-ProjectScan
+            |   +-column_list=[$array.t1#1, $join_left.a#3]
+            |   +-expr_list=
+            |   | +-a#3 :=
+            |   |   +-GetStructField
+            |   |     +-type=INT64
+            |   |     +-expr=
+            |   |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t1#1)
+            |   |     +-field_idx=0
+            |   +-input_scan=
+            |     +-ArrayScan
+            |       +-column_list=[$array.t1#1]
+            |       +-array_expr=
+            |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
+            |       |   +-MakeStruct
+            |       |     +-type=STRUCT<a INT64, b INT64>
+            |       |     +-field_list=
+            |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
+            |       |       +-Literal(type=INT64, value=3)
+            |       +-element_column=$array.t1#1
+            +-right_scan=
+            | +-ProjectScan
+            |   +-column_list=[$array.t2#2, $join_right.a#4]
+            |   +-expr_list=
+            |   | +-a#4 :=
+            |   |   +-GetStructField
+            |   |     +-type=INT32
+            |   |     +-expr=
+            |   |     | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t2#2)
+            |   |     +-field_idx=0
+            |   +-input_scan=
+            |     +-ArrayScan
+            |       +-column_list=[$array.t2#2]
+            |       +-array_expr=
+            |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
+            |       |   +-MakeStruct
+            |       |     +-type=STRUCT<a INT32, b INT64>
+            |       |     +-field_list=
+            |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+            |       |       +-Literal(type=INT64, value=4)
+            |       +-element_column=$array.t2#2
+            +-join_expr=
+              +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                +-ColumnRef(type=INT64, column=$join_left.a#3)
+                +-Cast(INT32 -> INT64)
+                  +-ColumnRef(type=INT32, column=$join_right.a#4)
 ==
 
 # Same as the previous but reversing where the coercion occurs.
@@ -4240,12 +4415,188 @@ QueryStmt
 --
 ALTERNATION GROUP: RIGHT
 --
-ERROR: Array scan is not allowed with RIGHT JOIN: UNNEST expression [at 4:6]
-     unnest([struct(cast(1 as INT64) as a, 4 as b)]) as t2
-     ^
+QueryStmt
++-output_column_list=
+| +-$join_right.a#4 AS a [INT64]
+| +-$query.b#5 AS b [INT64]
+| +-$query.b#6 AS b [INT64]
+| +-$query.a#7 AS a [INT32]
+| +-$query.a#8 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$join_right.a#4, $query.b#5, $query.b#6, $query.a#7, $query.a#8]
+    +-expr_list=
+    | +-b#5 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t1#1)
+    | |   +-field_idx=1
+    | +-b#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t2#2)
+    | |   +-field_idx=1
+    | +-a#7 :=
+    | | +-GetStructField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t1#1)
+    | |   +-field_idx=0
+    | +-a#8 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t2#2)
+    |     +-field_idx=0
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$array.t1#1, $join_left.a#3, $array.t2#2, $join_right.a#4]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-ProjectScan
+        |   +-column_list=[$array.t1#1, $join_left.a#3]
+        |   +-expr_list=
+        |   | +-a#3 :=
+        |   |   +-GetStructField
+        |   |     +-type=INT32
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t1#1)
+        |   |     +-field_idx=0
+        |   +-input_scan=
+        |     +-ArrayScan
+        |       +-column_list=[$array.t1#1]
+        |       +-array_expr=
+        |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
+        |       |   +-MakeStruct
+        |       |     +-type=STRUCT<a INT32, b INT64>
+        |       |     +-field_list=
+        |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+        |       |       +-Literal(type=INT64, value=3)
+        |       +-element_column=$array.t1#1
+        +-right_scan=
+        | +-ProjectScan
+        |   +-column_list=[$array.t2#2, $join_right.a#4]
+        |   +-expr_list=
+        |   | +-a#4 :=
+        |   |   +-GetStructField
+        |   |     +-type=INT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t2#2)
+        |   |     +-field_idx=0
+        |   +-input_scan=
+        |     +-ArrayScan
+        |       +-column_list=[$array.t2#2]
+        |       +-array_expr=
+        |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
+        |       |   +-MakeStruct
+        |       |     +-type=STRUCT<a INT64, b INT64>
+        |       |     +-field_list=
+        |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
+        |       |       +-Literal(type=INT64, value=4)
+        |       +-element_column=$array.t2#2
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-Cast(INT32 -> INT64)
+            | +-ColumnRef(type=INT32, column=$join_left.a#3)
+            +-ColumnRef(type=INT64, column=$join_right.a#4)
 --
 ALTERNATION GROUP: FULL
 --
-ERROR: Array scan is not allowed with FULL JOIN: UNNEST expression [at 4:6]
-     unnest([struct(cast(1 as INT64) as a, 4 as b)]) as t2
-     ^
+QueryStmt
++-output_column_list=
+| +-$full_join.a#5 AS a [INT64]
+| +-$query.b#6 AS b [INT64]
+| +-$query.b#7 AS b [INT64]
+| +-$query.a#8 AS a [INT32]
+| +-$query.a#9 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$full_join.a#5, $query.b#6, $query.b#7, $query.a#8, $query.a#9]
+    +-expr_list=
+    | +-b#6 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t1#1)
+    | |   +-field_idx=1
+    | +-b#7 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t2#2)
+    | |   +-field_idx=1
+    | +-a#8 :=
+    | | +-GetStructField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t1#1)
+    | |   +-field_idx=0
+    | +-a#9 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t2#2)
+    |     +-field_idx=0
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$array.t1#1, $join_left.a#3, $array.t2#2, $join_right.a#4, $full_join.a#5]
+        +-expr_list=
+        | +-a#5 :=
+        |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) INT64) -> INT64)
+        |     +-Cast(INT32 -> INT64)
+        |     | +-ColumnRef(type=INT32, column=$join_left.a#3)
+        |     +-ColumnRef(type=INT64, column=$join_right.a#4)
+        +-input_scan=
+          +-JoinScan
+            +-column_list=[$array.t1#1, $join_left.a#3, $array.t2#2, $join_right.a#4]
+            +-join_type=FULL
+            +-left_scan=
+            | +-ProjectScan
+            |   +-column_list=[$array.t1#1, $join_left.a#3]
+            |   +-expr_list=
+            |   | +-a#3 :=
+            |   |   +-GetStructField
+            |   |     +-type=INT32
+            |   |     +-expr=
+            |   |     | +-ColumnRef(type=STRUCT<a INT32, b INT64>, column=$array.t1#1)
+            |   |     +-field_idx=0
+            |   +-input_scan=
+            |     +-ArrayScan
+            |       +-column_list=[$array.t1#1]
+            |       +-array_expr=
+            |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT32, b INT64>) -> ARRAY<STRUCT<a INT32, b INT64>>)
+            |       |   +-MakeStruct
+            |       |     +-type=STRUCT<a INT32, b INT64>
+            |       |     +-field_list=
+            |       |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+            |       |       +-Literal(type=INT64, value=3)
+            |       +-element_column=$array.t1#1
+            +-right_scan=
+            | +-ProjectScan
+            |   +-column_list=[$array.t2#2, $join_right.a#4]
+            |   +-expr_list=
+            |   | +-a#4 :=
+            |   |   +-GetStructField
+            |   |     +-type=INT64
+            |   |     +-expr=
+            |   |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=$array.t2#2)
+            |   |     +-field_idx=0
+            |   +-input_scan=
+            |     +-ArrayScan
+            |       +-column_list=[$array.t2#2]
+            |       +-array_expr=
+            |       | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64>) -> ARRAY<STRUCT<a INT64, b INT64>>)
+            |       |   +-MakeStruct
+            |       |     +-type=STRUCT<a INT64, b INT64>
+            |       |     +-field_list=
+            |       |       +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
+            |       |       +-Literal(type=INT64, value=4)
+            |       +-element_column=$array.t2#2
+            +-join_expr=
+              +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                +-Cast(INT32 -> INT64)
+                | +-ColumnRef(type=INT32, column=$join_left.a#3)
+                +-ColumnRef(type=INT64, column=$join_right.a#4)
+==

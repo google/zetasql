@@ -358,6 +358,8 @@ FROM TestTableWithUid
      UNNEST([1,2,3]) as x;
 --
 ARRAY<STRUCT<INT64>>[{30}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # In this query, each user contributes to 3 groups.  Max_groups_contributed is 3, so none
@@ -373,6 +375,8 @@ GROUP BY x
 ORDER BY x ASC;
 --
 ARRAY<STRUCT<x INT64, INT64>>[{1, 10}, {2, 10}, {3, 10}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Similar to the previous query, each user has data for all of the 3 groups.
@@ -393,6 +397,8 @@ FROM (
   GROUP BY x);
 --
 ARRAY<STRUCT<INT64>>[{20}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Same to the previous query, but with max_groups_contributed = 1 so the expected result is 10.
@@ -408,6 +414,8 @@ FROM (
   GROUP BY x);
 --
 ARRAY<STRUCT<INT64>>[{10}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # The number of rows per user is less than 5 in TestTableWithUid2, so the result
 # won't be random.
@@ -623,6 +631,8 @@ ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
  FROM TestTableWithUid2 LIMIT 1);
 --
 ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Another case with a different percentile (0.7) with less than 5 rows and
@@ -646,6 +656,8 @@ ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
  FROM TestTableWithUid2 LIMIT 1);
 --
 ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # APPROX_QUANTILES with explicit bounds. The number of rows per user is less than

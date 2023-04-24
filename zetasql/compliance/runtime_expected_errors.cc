@@ -604,6 +604,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange,
       "syntax error while parsing (value|array|object|object key|object "
       "separator)"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Invalid `wide_number_mode` specified"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

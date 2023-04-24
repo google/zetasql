@@ -713,6 +713,41 @@ QueryStmt
       +-SingleRowScan
 ==
 
+# Access fields on a struct parameter.
+[positional_parameter_types=struct<a string>,bool]
+
+SELECT ?.a, ?
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.a#1 AS a [STRING]
+| +-$query.$col2#2 AS `$col2` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[a#1, $col2#2]
+    +-expr_list=
+    | +-a#1 :=
+    | | +-GetStructField
+    | |   +-type=STRING
+    | |   +-expr=
+    | |   | +-Parameter(type=STRUCT<a STRING>, position=1)
+    | |   +-field_idx=0
+    | +-$col2#2 := Parameter(type=BOOL, position=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Struct-like positional parameters which are not typed.
+[allow_undeclared_parameters]
+
+SELECT ?, ?.a
+--
+ERROR: Cannot access field a on parameter #2 whose type is unknown [at 1:13]
+SELECT ?, ?.a
+            ^
+==
+
 # Mix of named and positional parameters
 
 select 1, "foo" = ?

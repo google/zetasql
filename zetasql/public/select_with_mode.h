@@ -33,6 +33,8 @@ enum class SelectWithMode {
   // query. See comment above for why we have ANONYMIZATION and
   // DIFFERENTIAL_PRIVACY.
   DIFFERENTIAL_PRIVACY,
+  // Represents SELECT WITH AGGREGATION_THRESHOLD query.
+  AGGREGATION_THRESHOLD,
 };
 
 }  // namespace zetasql

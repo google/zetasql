@@ -213,6 +213,8 @@ having string_agg(cast(distinct_8 as string)) like '%2%'
   and max(cast(distinct_8 as string)) > '0'
 --
 ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[{16, 2, 2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=complex_aggregation3]
 select sum(distinct_8), distinct_2, distinct_4 from TableDistincts
@@ -237,6 +239,8 @@ ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[
   {20, 1, 3, 3},
   {24, 2, 4, 3}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=complex_aggregation5]
 select sum(distinct_8), distinct_2, distinct_4 from TableDistincts
@@ -402,6 +406,8 @@ having string_agg(cast(distinct_8 as string)) like '%2%'
   and max(cast(distinct_8 as string)) > '0'
 --
 ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64>>[{16, 2, 2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=data_with_nulls_and_complex_aggregation3]
 select sum(distinct_8), distinct_2, distinct_4 from TableDistinctsWithNulls
@@ -425,6 +431,8 @@ group by distinct_2, distinct_4
 having string_agg(distinct cast(distinct_8 as string)) like '%4%'
 --
 ARRAY<STRUCT<INT64, distinct_2 INT64, distinct_4 INT64, INT64>>[{24, 2, 4, 3}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=data_with_nulls_and_complex_aggregation5]
 select sum(distinct_8), distinct_2, distinct_4 from TableDistinctsWithNulls

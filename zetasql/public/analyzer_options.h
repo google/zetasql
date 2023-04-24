@@ -164,6 +164,7 @@ struct AllowedHintsAndOptions {
   absl::flat_hash_map<std::pair<std::string, std::string>, const Type*>
       hints_lower;
   absl::flat_hash_map<std::string, AllowedOptionProperties> options_lower;
+  // Options allowed in ResolvedAnonymizedAggregateScan.
   absl::flat_hash_map<std::string, AllowedOptionProperties>
       anonymization_options_lower = {
           {"delta", {types::DoubleType()}},
@@ -174,6 +175,7 @@ struct AllowedHintsAndOptions {
            {types::Int64Type()}},  // Synonym for kappa
           {"max_rows_contributed", {types::Int64Type()}}};
 
+  // Options allowed in ResolvedDifferentialPrivacyAggregateScan.
   absl::flat_hash_map<std::string, AllowedOptionProperties>
       differential_privacy_options_lower = {
           {"delta", {types::DoubleType()}},

@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Variables
 
 ZetaSQL supports variables.

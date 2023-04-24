@@ -2121,6 +2121,7 @@ class AnalyzerTestRunner {
       case RESOLVED_SET_TRANSACTION_STMT:
       case RESOLVED_SHOW_STMT:
       case RESOLVED_TRUNCATE_STMT:
+      case RESOLVED_UNDROP_STMT:
       case RESOLVED_UPDATE_STMT:
       case RESOLVED_AUX_LOAD_DATA_STMT:
         return true;

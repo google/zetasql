@@ -888,6 +888,22 @@ cc_proto_library(
     deps = [":differential_privacy_proto"],
 )
 
+proto_library(
+    name = "array_zip_mode_proto",
+    srcs = ["array_zip_mode.proto"],
+    deps = ["//zetasql/public:type_proto"],
+)
+
+cc_proto_library(
+    name = "array_zip_mode_cc_proto",
+    deps = [":array_zip_mode_proto"],
+)
+
+java_proto_library(
+    name = "array_zip_mode_java_proto",
+    deps = [":array_zip_mode_proto"],
+)
+
 cc_library(
     name = "json_internal",
     srcs = ["json_internal.cc"],
@@ -917,6 +933,7 @@ cc_library(
         ":convert_string",
         ":json_format",
         ":json_internal",
+        ":to_json",
         "//zetasql/base:status",
         "//zetasql/base:strings",
         "//zetasql/common:errors",
@@ -1176,5 +1193,28 @@ cc_test(
         "//zetasql/common:string_util",
         "//zetasql/public:numeric_value",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "range",
+    srcs = ["range.cc"],
+    hdrs = ["range.h"],
+    deps = [
+        "//zetasql/base:case",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "range_test",
+    srcs = ["range_test.cc"],
+    deps = [
+        ":range",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
     ],
 )

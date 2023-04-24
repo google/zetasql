@@ -150,7 +150,7 @@ message FieldFormat {
     INTERVAL = 14;
 
     // A ZetaSQL Range value encoded as bytes.
-    // See RangeValue::SerializeAsBytes() for serialization format details.
+    // See engine implementation of Range for serialization format details.
     //
     // Can be applied to bytes fields.
     RANGE_DATES_ENCODED = 16;

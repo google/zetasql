@@ -34,6 +34,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/functions/array_find_mode.pb.h"
+#include "zetasql/public/functions/array_zip_mode.pb.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/differential_privacy.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
@@ -1140,6 +1141,17 @@ static const ArrayType* s_json_array_type() {
   return s_json_array_type;
 }
 
+static const EnumType* GetArrayZipModeEnumType() {
+  static const EnumType* s_array_zip_mode_enum_type = [] {
+    const EnumType* enum_type;
+    ZETASQL_CHECK_OK(internal::TypeFactoryHelper::MakeOpaqueEnumType(  // Crash OK
+        s_type_factory(), functions::ArrayZipEnums::ArrayZipMode_descriptor(),
+        &enum_type, {}));
+    return enum_type;
+  }();
+  return s_array_zip_mode_enum_type;
+}
+
 }  // namespace
 
 namespace types {
@@ -1287,6 +1299,8 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return nullptr;
   }
 }
+
+const EnumType* ArrayZipModeEnumType() { return GetArrayZipModeEnumType(); }
 
 static const RangeType* MakeRangeType(const Type* element_type) {
   const RangeType* range_type;

@@ -2067,4 +2067,11 @@ TEST(FunctionSignatureTests,
       equatable_array_arg.options().array_element_must_support_equality());
   TestArgumentTypeOptionsSerialization(equatable_array_arg);
 }
+
+TEST(FunctionSignatureTests, LambdaArgumentTypeConstructedDirectlyIsInvalid) {
+  FunctionArgumentType lambda(ARG_TYPE_LAMBDA);
+  EXPECT_THAT(
+      lambda.IsValid(PRODUCT_INTERNAL),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("constructed directly")));
+}
 }  // namespace zetasql

@@ -729,6 +729,8 @@ with string_agg_res as (
 select array_length(split(output_string, ',')) from string_agg_res
 --
 ARRAY<STRUCT<INT64>>[{2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=string_agg_distinct_with_collation_binary]
@@ -742,6 +744,8 @@ with string_agg_res as (
 select array_length(split(output_string, ',')) from string_agg_res
 --
 ARRAY<STRUCT<INT64>>[{4}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=array_agg_distinct_with_collation_ci]
@@ -758,6 +762,7 @@ ARRAY<STRUCT<INT64>>[{2}]
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ORDER_BY_IN_AGGREGATE]
 [name=string_agg_with_sort_key_with_collation_ci]
+[labels=Special:NoReference]
 select string_agg(elem order by elem) from
 unnest([collate('a', 'und:ci'), 'B', 'd', 'C', 'e']) elem
 --
@@ -766,6 +771,7 @@ ARRAY<STRUCT<STRING>>[{"a,B,C,d,e"}]
 
 [required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ORDER_BY_IN_AGGREGATE]
 [name=string_agg_with_sort_key_with_collation_binary]
+[labels=Special:NoReference]
 select string_agg(elem order by elem) from
 unnest([collate('a', 'binary'), 'B', 'd', 'C', 'e']) elem
 --

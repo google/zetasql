@@ -25,6 +25,8 @@ ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
   {"bcπ", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"},
   {"d⨝", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_STRING_analytic_from_preceding_row]
 SELECT
@@ -60,6 +62,8 @@ ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING, STRING, STRING>>[
   {"bcπ", NULL, NULL, "d⨝", "d⨝;bcπ", "d⨝;bcπ;aσ", "d⨝;bcπ;aσ;"},
   {"d⨝", NULL, NULL, NULL, "d⨝", "d⨝;bcπ", "d⨝;bcπ;aσ;"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_STRING_analytic_from_current_row]
 SELECT
@@ -83,6 +87,8 @@ ARRAY<STRUCT<elem STRING, STRING, STRING, STRING>>[
   {"bcπ", "bcπ", "bcπd⨝", "bcπd⨝"},
   {"d⨝", "d⨝", "d⨝", "d⨝"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_STRING_analytic_from_following_row]
 SELECT
@@ -108,6 +114,8 @@ ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
   {"bcπ", NULL, NULL, "d⨝", NULL},
   {"d⨝", NULL, NULL, NULL, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_BYTES_analytic_from_first_row]
 SELECT
@@ -152,6 +160,8 @@ ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
     b"bc\xcf\x80,d\xe2\xa8\x9d"
   }
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_BYTES_analytic_from_preceding_row]
 SELECT
@@ -214,6 +224,8 @@ ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
     b"a\xcf\x83;bc\xcf\x80;d\xe2\xa8\x9d"
   }
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_BYTES_analytic_from_current_row]
 SELECT
@@ -245,6 +257,8 @@ ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES>>[
     b"d\xe2\xa8\x9dbc\xcf\x80"
   }
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_BYTES_analytic_from_following_row]
 SELECT
@@ -288,6 +302,8 @@ ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES>>[
   {b"bc\xcf\x80", NULL, NULL, b"d\xe2\xa8\x9d", NULL},
   {b"d\xe2\xa8\x9d", NULL, NULL, NULL, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_STRING_analytic_from_first_row_non_null]
 SELECT
@@ -323,6 +339,8 @@ ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
    ",aσ,bcπ,d⨝,xyz",
    ",aσ,bcπ,d⨝,xyz"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_STRING_analytic_from_preceding_row_non_null]
 SELECT
@@ -362,6 +380,8 @@ ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING, STRING>>[
    "d⨝;bcπ;aσ;"},
   {"", NULL, "bcπ;aσ", "bcπ;aσ;", "bcπ;aσ;", "bcπ;aσ;"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_STRING_analytic_from_current_row_non_null]
 SELECT
@@ -387,6 +407,8 @@ ARRAY<STRUCT<elem STRING, STRING, STRING, STRING>>[
   {"d⨝", "d⨝", "d⨝xyz", "d⨝xyz"},
   {"xyz", "xyz", "xyz", "xyz"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_STRING_analytic_from_following_row_non_null]
 SELECT
@@ -414,6 +436,8 @@ ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
   {"d⨝", NULL, NULL, "xyz", NULL},
   {"xyz", NULL, NULL, NULL, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_BYTES_analytic_from_first_row_non_null]
 SELECT
@@ -448,6 +472,8 @@ ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
   {b"BC", b"BC", NULL, b"BC", b"BC", b"BC"},
   {b"xyz", b"xyz", NULL, b"xyz", b"xyz", b"xyz"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_BYTES_analytic_from_preceding_row_non_null]
 SELECT
@@ -479,6 +505,8 @@ ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
   {b"E", NULL, b"BC;D", b"BC;D;E", b"BC;D;E;xyz", b"BC;D;E;xyz"},
   {b"xyz", NULL, b"D;E", b"D;E;xyz", b"D;E;xyz", b"D;E;xyz"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_BYTES_analytic_from_current_row_non_null]
 SELECT
@@ -509,6 +537,8 @@ ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES>>[
   {b"BC", b"BC", b"BC", b"BC"},
   {b"xyz", b"xyz", b"xyz", b"xyz"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_BYTES_analytic_from_following_row_non_null]
 SELECT
@@ -538,6 +568,8 @@ ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES>>[
   {b"E", NULL, NULL, b"xyz", NULL},
   {b"xyz", NULL, NULL, NULL, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_STRING_analytic_with_longer_string]
 SELECT
@@ -611,6 +643,8 @@ ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
     NULL
   }
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=string_agg_STRING_analytic_from_first_row_for_multi_partition]
 SELECT
@@ -647,3 +681,5 @@ ARRAY<STRUCT<part_id INT64, elem STRING, STRING, STRING, STRING, STRING>>[
   {2, "bcπ", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"},
   {2, "d⨝", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"}
 ]
+
+NOTE: Reference implementation reports non-determinism.

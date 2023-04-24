@@ -839,6 +839,25 @@ static void WrapBigNumericTestCases(std::vector<QueryParamsWithResult>* tests) {
   }
 }
 
+// Wraps any test cases that use RANGE with FEATURE_RANGE_TYPE.
+static void WrapRangeTestCases(std::vector<QueryParamsWithResult>* tests) {
+  for (auto& test_case : *tests) {
+    if (test_case.required_features().empty() &&
+        test_case.result().type()->IsRangeType()) {
+      test_case = test_case.AddRequiredFeature(FEATURE_RANGE_TYPE);
+      // For V_1_2 CIVIL TIME element type we need to enable
+      // FEATURE_V_1_2_CIVIL_TIME.
+      if (test_case.result()
+              .type()
+              ->AsRange()
+              ->element_type()
+              ->UsingFeatureV12CivilTimeType()) {
+        test_case = test_case.AddRequiredFeature(FEATURE_V_1_2_CIVIL_TIME);
+      }
+    }
+  }
+}
+
 std::vector<QueryParamsWithResult> GetFunctionTestsEqual() {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
@@ -3064,7 +3083,6 @@ GetArrayFindFunctionsTestCases() {
                           .offsets_result = indices_13,
                           .required_features = v.required_features});
   }
-  // TODO: Add test cases with lambda argument.
   return test_cases;
 }
 
@@ -3118,7 +3136,6 @@ static std::vector<QueryParamsWithResult> GetArrayFindFunctionsTestCases(
           .AddRequiredFeature(FEATURE_V_1_4_ARRAY_FIND_FUNCTIONS);
     }
   }
-  // TODO: Add test cases with lambda argument.
   return test_cases;
 }
 
@@ -3817,6 +3834,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIf() {
   }
   WrapNumericTestCases(&result);
   WrapBigNumericTestCases(&result);
+  WrapRangeTestCases(&result);
   return result;
 }
 
@@ -3829,6 +3847,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIfNull() {
   }
   WrapNumericTestCases(&result);
   WrapBigNumericTestCases(&result);
+  WrapRangeTestCases(&result);
   return result;
 }
 
@@ -3874,6 +3893,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsNullIf() {
   }
   WrapNumericTestCases(&result);
   WrapBigNumericTestCases(&result);
+  WrapRangeTestCases(&result);
   return result;
 }
 
@@ -3893,6 +3913,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCoalesce() {
   }
   WrapNumericTestCases(&result);
   WrapBigNumericTestCases(&result);
+  WrapRangeTestCases(&result);
   return result;
 }
 

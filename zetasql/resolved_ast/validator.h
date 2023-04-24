@@ -32,6 +32,7 @@
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 namespace zetasql {
@@ -136,6 +137,7 @@ class Validator {
   absl::Status ValidateResolvedRunBatchStmt(const ResolvedRunBatchStmt* stmt);
   absl::Status ValidateResolvedAbortBatchStmt(
       const ResolvedAbortBatchStmt* stmt);
+  absl::Status ValidateResolvedUndropStmt(const ResolvedUndropStmt* stmt);
   absl::Status ValidateResolvedDropStmt(const ResolvedDropStmt* stmt);
   absl::Status ValidateResolvedDropMaterializedViewStmt(
       const ResolvedDropMaterializedViewStmt* stmt);
@@ -240,6 +242,9 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters);
   absl::Status ValidateResolvedDifferentialPrivacyAggregateScan(
       const ResolvedDifferentialPrivacyAggregateScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+  absl::Status ValidateResolvedAggregationThresholdAggregateScan(
+      const ResolvedAggregationThresholdAggregateScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
   absl::Status ValidateResolvedTableScan(
       const ResolvedTableScan* scan,
@@ -430,6 +435,14 @@ class Validator {
   absl::Status ValidateOptionsList(
       const std::vector<std::unique_ptr<const ResolvedOption>>& list);
 
+  template <class MapType>
+  absl::Status ValidateOptionsList(
+      const std::vector<std::unique_ptr<const ResolvedOption>>& list,
+      const MapType& allowed_options,
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      absl::string_view option_type);
+
   absl::Status ValidateHintList(
       const std::vector<std::unique_ptr<const ResolvedOption>>& list);
 
@@ -582,6 +595,14 @@ class Validator {
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedExpr* expr);
+
+  // Validates group threshold expression for differential privacy scans (called
+  // k threshold expression in ResolvedAnonymizedAggregateScan).
+  absl::Status ValidateGroupSelectionThresholdExpr(
+      const ResolvedExpr* group_threshold_expr,
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      absl::string_view expression_name);
 
   // Checks that <expr> contains only ColumnRefs, GetProtoField, GetStructField
   // and GetJsonField expressions. Sets 'ref' to point to the leaf

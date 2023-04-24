@@ -266,6 +266,13 @@ class Algebrizer {
       std::vector<std::unique_ptr<ValueExpr>> args,
       const std::vector<ResolvedCollation>& collation_list);
 
+  absl::StatusOr<std::unique_ptr<ValueExpr>>
+  AlgebrizeScalarArrayFunctionWithCollation(
+      FunctionKind kind, const Type* output_type,
+      absl::string_view function_name,
+      std::vector<std::unique_ptr<AlgebraArg>> converted_arguments,
+      const std::vector<ResolvedCollation>& collation_list);
+
   // Algebrizes IN, LIKE ANY, or LIKE ALL when the rhs is a subquery.
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInLikeAnyLikeAllRelation(
       std::unique_ptr<ValueExpr> lhs,

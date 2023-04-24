@@ -108,6 +108,8 @@ FROM (SELECT ARRAY(SELECT "foo" UNION ALL SELECT "bar") arr),
      (SELECT 0 pos UNION ALL SELECT 1)
 --
 ARRAY<STRUCT<STRING>>[{"foo"}, {"bar"}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=array_var_offset_var_out_of_range]
 SELECT arr[OFFSET(pos)]
@@ -666,6 +668,8 @@ WITH t AS (SELECT value FROM UNNEST([1, 2, 3, 4]) AS value)
 SELECT ARRAY_FIRST(ARRAY(SELECT value FROM t)) IN (1, 2, 3, 4);
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 
 ==
 [name=array_first_subquery_ordered]

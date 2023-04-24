@@ -25,6 +25,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -81,6 +82,11 @@ absl::Status ValidateTypeSupportsOrderComparison(const Type* type) {
     case TYPE_DATETIME:
     case TYPE_INTERVAL:
     case TYPE_ENUM:
+      return absl::OkStatus();
+    case TYPE_RANGE:
+      ZETASQL_RET_CHECK_OK(
+          ValidateTypeSupportsOrderComparison(type->AsRange()->element_type()))
+          << "Range element type must be orderable";
       return absl::OkStatus();
     case TYPE_ARRAY: {
       const ArrayType* array_type = type->AsArray();

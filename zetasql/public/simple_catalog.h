@@ -315,9 +315,6 @@ class SimpleCatalog : public EnumerableCatalog {
   //
   void SetDescriptorPool(const google::protobuf::DescriptorPool* pool)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  ABSL_DEPRECATED("Inline me!")
-  void SetOwnedDescriptorPool(const google::protobuf::DescriptorPool* pool)
-      ABSL_LOCKS_EXCLUDED(mutex_);
   void SetOwnedDescriptorPool(
       std::unique_ptr<const google::protobuf::DescriptorPool> pool)
       ABSL_LOCKS_EXCLUDED(mutex_);

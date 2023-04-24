@@ -5478,3 +5478,104 @@ QueryStmt
         +-column_list=[t.n#6]
         +-input_scan=
           +-WithRefScan(column_list=[t.n#6], with_query_name="t")
+==
+
+# CORRESPONDING is not allowed for set operators in WITH RECURSIVE.
+[language_features=V_1_3_WITH_RECURSIVE{{|,V_1_4_CORRESPONDING}}]
+WITH RECURSIVE
+  T1 AS (
+    SELECT 1 AS n UNION ALL CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
+SELECT * FROM T1 ORDER BY n;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CORRESPONDING and CORRESPONDING BY for WITH RECURSIVE are not supported [at 3:29]
+    SELECT 1 AS n UNION ALL CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
+                            ^
+--
+ALTERNATION GROUP: ,V_1_4_CORRESPONDING
+--
+ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:29]
+    SELECT 1 AS n UNION ALL CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
+                            ^
+==
+
+# FULL mode is not allowed for set operators in WITH RECURSIVE.
+[language_features=V_1_3_WITH_RECURSIVE{{|,V_1_4_CORRESPONDING}}]
+WITH RECURSIVE
+  T1 AS (
+    SELECT 1 AS n FULL UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
+SELECT * FROM T1 ORDER BY n;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Column propagation mode (FULL/LEFT/STRICT) for WITH RECURSIVE are not supported [at 3:19]
+    SELECT 1 AS n FULL UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
+                  ^
+--
+ALTERNATION GROUP: ,V_1_4_CORRESPONDING
+--
+ERROR: FULL cannot be in WITH RECURSIVE [at 3:19]
+    SELECT 1 AS n FULL UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
+                  ^
+==
+
+# LEFT mode is not allowed for set operators in WITH RECURSIVE.
+[language_features=V_1_3_WITH_RECURSIVE{{|,V_1_4_CORRESPONDING}}]
+WITH RECURSIVE
+  T1 AS (
+    SELECT 1 AS n LEFT UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
+SELECT * FROM T1 ORDER BY n;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Column propagation mode (FULL/LEFT/STRICT) for WITH RECURSIVE are not supported [at 3:19]
+    SELECT 1 AS n LEFT UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
+                  ^
+--
+ALTERNATION GROUP: ,V_1_4_CORRESPONDING
+--
+ERROR: LEFT cannot be in WITH RECURSIVE [at 3:19]
+    SELECT 1 AS n LEFT UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
+                  ^
+==
+
+# STRICT mode is not allowed for set operators in WITH RECURSIVE.
+[language_features=V_1_3_WITH_RECURSIVE{{|,V_1_4_CORRESPONDING}}]
+WITH RECURSIVE
+  T1 AS (
+    SELECT 1 AS n UNION ALL STRICT CORRESPONDING SELECT n + 1 FROM T1 WHERE n < 5)
+SELECT * FROM T1 ORDER BY n;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CORRESPONDING and CORRESPONDING BY for WITH RECURSIVE are not supported [at 3:36]
+    SELECT 1 AS n UNION ALL STRICT CORRESPONDING SELECT n + 1 FROM T1 WHERE n...
+                                   ^
+--
+ALTERNATION GROUP: ,V_1_4_CORRESPONDING
+--
+ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:36]
+    SELECT 1 AS n UNION ALL STRICT CORRESPONDING SELECT n + 1 FROM T1 WHERE n...
+                                   ^
+==
+
+# CORRESPONDING is not allowed for base term either.
+[language_features=V_1_3_WITH_RECURSIVE{{|,V_1_4_CORRESPONDING}}]
+WITH RECURSIVE
+  T1 AS (
+    SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + 1 FROM T1 WHERE n < 5)
+SELECT * FROM T1 ORDER BY n;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CORRESPONDING and CORRESPONDING BY for WITH RECURSIVE are not supported [at 3:29]
+    SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + ...
+                            ^
+--
+ALTERNATION GROUP: ,V_1_4_CORRESPONDING
+--
+ERROR: CORRESPONDING for set operations cannot be used in WITH RECURSIVE [at 3:29]
+    SELECT 1 AS n UNION ALL CORRESPONDING SELECT 2 AS n UNION ALL SELECT n + ...
+                            ^
+==

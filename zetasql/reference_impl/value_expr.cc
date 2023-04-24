@@ -727,7 +727,12 @@ namespace {
 
 // Adds scalar values from 'input' to 'out'.
 // If 'input' is scalar, just adds it, otherwise appends values from the array.
-void AddValues(const Value& input, std::vector<Value>* out) {
+void AddValues(const Value& input, std::vector<Value>* out,
+               bool& output_preserves_order) {
+  if (input.type_kind() == TYPE_ARRAY &&
+      InternalValue::GetOrderKind(input) != InternalValue::kPreservesOrder) {
+    output_preserves_order = false;
+  }
   if (input.type()->IsArray()) {
     if (input.is_null()) return;
     out->insert(out->end(), input.elements().begin(), input.elements().end());
@@ -750,15 +755,11 @@ bool FlattenExpr::Eval(absl::Span<const TupleData* const> params,
     result->SetValue(Value::Null(output_type()));
     return true;
   }
-  // If the input array is non-deterministic, the output is non-deterministic.
-  if (InternalValue::GetOrderKind(slot.value()) !=
-          InternalValue::kPreservesOrder &&
-      slot.value().num_elements() > 1) {
-    context->SetNonDeterministicOutput();
-  }
+
+  bool output_preserves_order = true;
 
   std::vector<Value> values;
-  AddValues(slot.value(), &values);
+  AddValues(slot.value(), &values, output_preserves_order);
 
   for (const ExprArg* get_field : GetArgs<ExprArg>(kGetFields)) {
     if (values.empty()) break;
@@ -776,13 +777,18 @@ bool FlattenExpr::Eval(absl::Span<const TupleData* const> params,
                                                  status)) {
           return false;
         }
-        AddValues(slot.value(), &next_values);
+        AddValues(slot.value(), &next_values, output_preserves_order);
       }
     }
     next_values.swap(values);
   }
 
-  result->SetValue(Value::Array(output_type()->AsArray(), values));
+  InternalValue::OrderPreservationKind order_preservation_kind =
+      output_preserves_order ? InternalValue::kPreservesOrder
+                             : InternalValue::kIgnoresOrder;
+
+  result->SetValue(InternalValue::ArrayNotChecked(
+      output_type()->AsArray(), order_preservation_kind, std::move(values)));
   return true;
 }
 

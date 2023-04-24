@@ -599,6 +599,7 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kToJsonString, "to_json_string",
                      "ToJsonString");
     RegisterFunction(FunctionKind::kParseJson, "parse_json", "ParseJson");
+    RegisterFunction(FunctionKind::kJsonArray, "json_array", "JsonArray");
     RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   }();
   [this]() {
@@ -1951,6 +1952,15 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kToJson:
     case FunctionKind::kToJsonString:
     case FunctionKind::kParseJson:
+    case FunctionKind::kJsonType:
+    case FunctionKind::kInt64:
+    case FunctionKind::kDouble:
+    case FunctionKind::kBool:
+    case FunctionKind::kLaxBool:
+    case FunctionKind::kLaxInt64:
+    case FunctionKind::kLaxDouble:
+    case FunctionKind::kLaxString:
+    case FunctionKind::kJsonArray:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kStartsWithWithCollation:
     case FunctionKind::kEndsWithWithCollation:
@@ -1960,17 +1970,6 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kSplitWithCollation:
     case FunctionKind::kCollationKey:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
-    case FunctionKind::kInt64:
-    case FunctionKind::kDouble:
-    case FunctionKind::kBool:
-      return new ConvertJsonFunction(kind, output_type);
-    case FunctionKind::kLaxBool:
-    case FunctionKind::kLaxInt64:
-    case FunctionKind::kLaxDouble:
-    case FunctionKind::kLaxString:
-      return new ConvertJsonLaxFunction(kind, output_type);
-    case FunctionKind::kJsonType:
-      return new TypeFunction(kind, output_type);
     case FunctionKind::kArrayConcat:
       return new ArrayConcatFunction(kind, output_type);
     case FunctionKind::kArrayLength:
@@ -2271,9 +2270,17 @@ ArrayFindFunctions::CreateCall(
   // We currently only support collation_list with only one element.
   ZETASQL_RET_CHECK_LE(collator_list.size(), 1);
 
-  std::unique_ptr<BuiltinScalarFunction> function =
-      std::make_unique<ArrayFindFunctions>(kind, output_type,
-                                           std::move(collator_list));
+  std::unique_ptr<BuiltinScalarFunction> function;
+  if (arguments[1]->value_expr() != nullptr) {
+    function = std::make_unique<ArrayFindFunctions>(kind, output_type,
+                                                    std::move(collator_list));
+  } else {
+    ZETASQL_RET_CHECK(arguments[1]->inline_lambda_expr() != nullptr);
+    function = std::make_unique<ArrayFindFunctions>(
+        kind, output_type, std::move(collator_list),
+        arguments[1]->mutable_inline_lambda_expr());
+  }
+
   return ScalarFunctionCallExpr::Create(std::move(function),
                                         std::move(arguments), error_mode);
 }
@@ -4480,19 +4487,36 @@ static absl::StatusOr<bool> IsEqualToTarget(const Value& element,
   }
 }
 
+static absl::StatusOr<bool> SatisfiesCondition(
+    const Value& element, const InlineLambdaExpr* lambda,
+    LambdaEvaluationContext& lambda_context) {
+  bool found = false;
+  ZETASQL_ASSIGN_OR_RETURN(Value lambda_result,
+                   lambda_context.EvaluateLambda(lambda, {element}));
+  ZETASQL_RET_CHECK(lambda_result.type()->IsBool());
+  if (!lambda_result.is_null() && lambda_result.bool_value()) {
+    found = true;
+  }
+  return found;
+}
+
 absl::StatusOr<Value> ArrayFindFunctions::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  // TODO: Update to validate a size range when adding lambda
-  // support.
+  LambdaEvaluationContext lambda_context(params, context);
+  bool using_lambda_arg = lambda_ != nullptr;
+  if (using_lambda_arg) {
+    ZETASQL_RET_CHECK_EQ(lambda_->num_args(), 1);
+  }
+
   ZETASQL_RET_CHECK(kind() == FunctionKind::kArrayOffset ||
             kind() == FunctionKind::kArrayFind ||
             kind() == FunctionKind::kArrayOffsets ||
             kind() == FunctionKind::kArrayFindAll);
   if (IsFindSingletonFunction(kind())) {
-    ZETASQL_RET_CHECK_EQ(args.size(), 3);
+    ZETASQL_RET_CHECK_EQ(args.size(), using_lambda_arg ? 2 : 3);
   } else {
-    ZETASQL_RET_CHECK_EQ(args.size(), 2);
+    ZETASQL_RET_CHECK_EQ(args.size(), using_lambda_arg ? 1 : 2);
   }
 
   if (HasNulls(args)) {
@@ -4514,12 +4538,18 @@ absl::StatusOr<Value> ArrayFindFunctions::Eval(
     context->SetNonDeterministicOutput();
   }
 
-  const Value& target = args[1];
   std::vector<Value> found_offsets;
   std::vector<Value> found_values;
   for (int i = 0; i < array_length; ++i) {
-    ZETASQL_ASSIGN_OR_RETURN(bool found, IsEqualToTarget(input_array.element(i), target,
-                                                 collator_list_));
+    bool found = false;
+    if (using_lambda_arg) {
+      ZETASQL_ASSIGN_OR_RETURN(found, SatisfiesCondition(input_array.element(i),
+                                                 lambda_, lambda_context));
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(
+          found, IsEqualToTarget(input_array.element(i), /*target=*/args[1],
+                                 collator_list_));
+    }
     if (found) {
       found_offsets.push_back(Value::Int64(i));
       found_values.push_back(input_array.element(i));
@@ -4539,7 +4569,8 @@ absl::StatusOr<Value> ArrayFindFunctions::Eval(
   if (IsFindSingletonFunction(kind())) {
     // If find mode equals to 1, get the "FIRST" found element, otherwise get
     // the "LAST" found element.
-    const int32_t mode = args[2].enum_value();
+    int mode_idx = using_lambda_arg ? 1 : 2;
+    const int32_t mode = args[mode_idx].enum_value();
     if (kind() == FunctionKind::kArrayOffset) {  // ARRAY_OFFSET
       return mode == 1 ? found_offsets.front() : found_offsets.back();
     }
@@ -10610,134 +10641,6 @@ absl::Status PercentileDiscFunction::Eval(
   }
   result->resize(values_arg.size(), output_value);
   return absl::OkStatus();
-}
-
-absl::StatusOr<Value> TypeFunction::Eval(
-    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
-    EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_EQ(args.size(), 1);
-  if (HasNulls(args)) {
-    return Value::Null(output_type());
-  }
-  JSONValue json_storage;
-  LanguageOptions language_options = context->GetLanguageOptions();
-  JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .wide_number_mode = (language_options.LanguageFeatureEnabled(
-                               FEATURE_JSON_STRICT_NUMBER_PARSING)
-                               ? JSONParsingOptions::WideNumberMode::kExact
-                               : JSONParsingOptions::WideNumberMode::kRound)};
-  ZETASQL_ASSIGN_OR_RETURN(
-      JSONValueConstRef json_value_const_ref,
-      GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
-  ZETASQL_ASSIGN_OR_RETURN(const std::string output,
-                   functions::GetJsonType(json_value_const_ref));
-  return Value::String(output);
-}
-
-absl::StatusOr<Value> ConvertJsonFunction::Eval(
-    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
-    EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_GE(args.size(), 1);
-  if (HasNulls(args)) {
-    return Value::Null(output_type());
-  }
-  JSONValue json_storage;
-  LanguageOptions language_options = context->GetLanguageOptions();
-  JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .wide_number_mode = (language_options.LanguageFeatureEnabled(
-                               FEATURE_JSON_STRICT_NUMBER_PARSING)
-                               ? JSONParsingOptions::WideNumberMode::kExact
-                               : JSONParsingOptions::WideNumberMode::kRound)};
-  switch (kind()) {
-    case FunctionKind::kInt64: {
-      ZETASQL_RET_CHECK_EQ(args.size(), 1);
-      ZETASQL_ASSIGN_OR_RETURN(
-          JSONValueConstRef json_value_const_ref,
-          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
-      ZETASQL_ASSIGN_OR_RETURN(const int64_t output,
-                       functions::ConvertJsonToInt64(json_value_const_ref));
-      return Value::Int64(output);
-    }
-    case FunctionKind::kDouble: {
-      ZETASQL_RET_CHECK_EQ(args.size(), 2);
-      ZETASQL_RET_CHECK(args[1].type()->IsString());
-      std::string wide_number_mode_as_string = args[1].string_value();
-      functions::WideNumberMode wide_number_mode;
-      if (wide_number_mode_as_string == "exact") {
-        wide_number_mode = functions::WideNumberMode::kExact;
-      } else if (wide_number_mode_as_string == "round") {
-        wide_number_mode = functions::WideNumberMode::kRound;
-      } else {
-        return MakeEvalError() << "Invalid `wide_number_mode` specified: "
-                               << wide_number_mode_as_string;
-      }
-      json_parsing_options.wide_number_mode =
-          (wide_number_mode == functions::WideNumberMode::kExact
-               ? JSONParsingOptions::WideNumberMode::kExact
-               : JSONParsingOptions::WideNumberMode::kRound);
-      ZETASQL_ASSIGN_OR_RETURN(
-          JSONValueConstRef json_value_const_ref,
-          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
-      ZETASQL_ASSIGN_OR_RETURN(
-          const double output,
-          functions::ConvertJsonToDouble(json_value_const_ref, wide_number_mode,
-                                         language_options.product_mode()));
-      return Value::Double(output);
-    }
-    case FunctionKind::kBool: {
-      ZETASQL_RET_CHECK_EQ(args.size(), 1);
-      ZETASQL_ASSIGN_OR_RETURN(
-          JSONValueConstRef json_value_const_ref,
-          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
-      ZETASQL_ASSIGN_OR_RETURN(const bool output,
-                       functions::ConvertJsonToBool(json_value_const_ref));
-      return Value::Bool(output);
-    }
-    default:
-      return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
-  }
-}
-
-absl::StatusOr<Value> ConvertJsonLaxFunction::Eval(
-    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
-    EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_EQ(args.size(), 1);
-  if (HasNulls(args)) {
-    return Value::Null(output_type());
-  }
-  JSONValue json_storage;
-  JSONParsingOptions json_parsing_options = JSONParsingOptions{
-      .wide_number_mode = (context->GetLanguageOptions().LanguageFeatureEnabled(
-                               FEATURE_JSON_STRICT_NUMBER_PARSING)
-                               ? JSONParsingOptions::WideNumberMode::kExact
-                               : JSONParsingOptions::WideNumberMode::kRound)};
-  ZETASQL_ASSIGN_OR_RETURN(
-      JSONValueConstRef json_value_const_ref,
-      GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
-  switch (kind()) {
-    case FunctionKind::kLaxBool: {
-      auto result = functions::LaxConvertJsonToBool(json_value_const_ref);
-      ZETASQL_RET_CHECK(result.ok());
-      return CreateValueFromOptional(*result);
-    }
-    case FunctionKind::kLaxInt64: {
-      auto result = functions::LaxConvertJsonToInt64(json_value_const_ref);
-      ZETASQL_RET_CHECK(result.ok());
-      return CreateValueFromOptional(*result);
-    }
-    case FunctionKind::kLaxDouble: {
-      auto result = functions::LaxConvertJsonToFloat64(json_value_const_ref);
-      ZETASQL_RET_CHECK(result.ok());
-      return CreateValueFromOptional(*result);
-    }
-    case FunctionKind::kLaxString: {
-      auto result = functions::LaxConvertJsonToString(json_value_const_ref);
-      ZETASQL_RET_CHECK(result.ok());
-      return CreateValueFromOptional(*result);
-    }
-    default:
-      return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
-  }
 }
 
 absl::StatusOr<Value> DateTimeBucketFunction::Eval(

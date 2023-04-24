@@ -107,6 +107,8 @@ message LanguageFeatureOptions {
 //
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
+//
+// Next ID: 95
 enum LanguageFeature {
   reserved 36 to 39, 44 to 46, 48, 74, 13046, 14001, 999003;
   // CROSS-VERSION FEATURES
@@ -284,6 +286,10 @@ enum LanguageFeature {
   FEATURE_DIFFERENTIAL_PRIVACY_THRESHOLDING = 90
       [(language_feature_options).in_development = true];
 
+  // Enables SELECT WITH AGGREGATION_THRESHOLD syntax,
+  // see: (broken link).
+  FEATURE_AGGREGATION_THRESHOLD = 92;
+
   // Geography type support per (broken link)
   FEATURE_GEOGRAPHY = 25;
 
@@ -363,18 +369,7 @@ enum LanguageFeature {
       [(language_feature_options).in_development = true];
 
   // JSON data type. (broken link)
-  FEATURE_JSON_TYPE = 43 [(language_feature_options).in_development = true];
-
-  // Enables support for WITH PARTITION COLUMNS in CREATE EXTERNAL TABLE.
-  // Example:
-  // CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS (x int64)
-  // More details: (broken link)
-  FEATURE_CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS = 47
-      [(language_feature_options).in_development = true];
-
-  // INTERVAL data type. (broken link)
-  // TODO: remove in_development and consider enabling it.
-  FEATURE_INTERVAL_TYPE = 49 [(language_feature_options).in_development = true];
+  FEATURE_JSON_TYPE = 43;
 
   // If enabled, JSON parsing fails for JSON documents containing number values
   // that cannot fit into the range of numbers supported by uint64, int64 or
@@ -390,6 +385,40 @@ enum LanguageFeature {
   // 14285714285714285 is not valid).
   FEATURE_JSON_STRICT_NUMBER_PARSING = 52
       [(language_feature_options).ideally_enabled = false];
+
+  // Enable support for JSON_EXTRACT_STRING_ARRAY, JSON_VALUE_ARRAY and
+  // JSON_QUERY_ARRAY. (broken link)
+  FEATURE_JSON_ARRAY_FUNCTIONS = 58;
+
+  // Enables STRING(JSON), INT64(JSON), BOOL(JSON), DOUBLE(JSON),
+  // JSON_TYPE(JSON) functions.
+  // See (broken link) for details.
+  FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS = 68;
+
+  // Enables LAX_BOOL(JSON), LAX_INT64(JSON), LAX_FLOAT64(JSON), and
+  // LAX_STRING(JSON) functions. See (broken link)
+  // for details.
+  FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS = 81
+      [(language_feature_options).in_development = true];
+
+  // Enables JSON_ARRAY(ANY, ...),
+  // JSON_OBJECT(STRING, ANY [, STRING, ANY ...]) and
+  // JSON_OBJECT(ARRAY<STRING>, ARRAY<ANY>) functions.
+  // See (broken link) for details.
+  FEATURE_JSON_CONSTRUCTOR_FUNCTIONS = 93
+      [(language_feature_options).in_development = true];
+
+  // Enables support for WITH PARTITION COLUMNS in CREATE EXTERNAL TABLE.
+  // Example:
+  // CREATE EXTERNAL TABLE t WITH PARTITION COLUMNS (x int64)
+  // More details: (broken link)
+  FEATURE_CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS = 47
+      [(language_feature_options).in_development = true];
+
+  // INTERVAL data type. (broken link)
+  // TODO: remove in_development and consider enabling it.
+  FEATURE_INTERVAL_TYPE = 49 [(language_feature_options).in_development = true];
+
   // When enabled, (table) function argument names will hide column names in
   // expression resolution and relational table function argument names will
   // hide table names from the catalog. This changes name resolution and is
@@ -409,10 +438,6 @@ enum LanguageFeature {
   // Example:
   // CREATE TABLE t1 LIKE t2
   FEATURE_CREATE_TABLE_LIKE = 57;
-
-  // Enable support for JSON_EXTRACT_STRING_ARRAY, JSON_VALUE_ARRAY and
-  // JSON_QUERY_ARRAY. (broken link)
-  FEATURE_JSON_ARRAY_FUNCTIONS = 58;
 
   // Enables explicit column list for CREATE VIEW.
   // Example:
@@ -467,12 +492,6 @@ enum LanguageFeature {
   // Enables support for ALTER TABLE RENAME COLUMN.
   // See (broken link) for details.
   FEATURE_ALTER_TABLE_RENAME_COLUMN = 67;
-
-  // Enables STRING(JSON), INT64(JSON), BOOL(JSON), DOUBLE(JSON),
-  // JSON_TYPE(JSON) functions.
-  // See (broken link) for details.
-  FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS = 68
-      [(language_feature_options).in_development = true];
 
   // Disallows "unicode", "unicode:ci", "unicode:cs" in ORDER BY ... COLLATE and
   // other collation features. "unicode" is a legacy feature, and the desired
@@ -543,12 +562,6 @@ enum LanguageFeature {
   FEATURE_STRICT_FUNCTION_DEFAULT_ARG_TYPE_COERCION = 80
       [(language_feature_options) = { ideally_enabled: false }];
 
-  // Enables LAX_BOOL(JSON), LAX_INT64(JSON), LAX_FLOAT64(JSON), and
-  // LAX_STRING(JSON) functions. See (broken link)
-  // for details.
-  FEATURE_JSON_LAX_VALUE_EXTRACTION_FUNCTIONS = 81
-      [(language_feature_options).in_development = true];
-
   // Enable proto type and basic proto operations for PRODUCT_EXTERNAL.
   // Currently a set of proto feature is enabled by default for
   // PRODUCT_INTERNAL. A subset of these internal features is selected by
@@ -580,6 +593,13 @@ enum LanguageFeature {
   // TODO: Remove in_development tag
   FEATURE_CREATE_TABLE_WITH_CONNECTION = 91
       [(language_feature_options).in_development = true];
+
+  // This feature can be enabled to disable the OUTER JOIN of arrays.
+  // RIGHT JOIN or FULL JOIN independent arrays is producing a shape that engine
+  // should already understand. It is here to ensure there is a way to fall back
+  // to rejecting the shape in case they cause trouble.
+  FEATURE_DISABLE_OUTER_JOIN_ARRAY = 94
+      [(language_feature_options) = { ideally_enabled: false }];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -999,6 +1019,17 @@ enum LanguageFeature {
   // (broken link)
   // TODO: Remove the "in_development" flag once the bug is fixed.
   FEATURE_V_1_4_CORRESPONDING = 14018
+      [(language_feature_options).in_development = true];
+
+  // Enables sequence arguments.
+  // (broken link)
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_SEQUENCE_ARG = 14019
+      [(language_feature_options).in_development = true];
+
+  // Enables grouping builtin function for grouping sets ((broken link))
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_GROUPING_BUILTIN = 14020
       [(language_feature_options).in_development = true];
 
   // EXPERIMENTAL FEATURES

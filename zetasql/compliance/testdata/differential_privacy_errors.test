@@ -140,9 +140,10 @@ ERROR: generic::invalid_argument: Differential privacy option EPSILON must be se
 
 # Total aggregation, without max_rows_contributed.
 [name=differential_privacy_max_rows_contributed_unimplemented]
-[labels=differential_privacy]
+[required_features=DIFFERENTIAL_PRIVACY]
+[labels=differential_privacy,Special:NoReference]
 SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, max_rows_contributed=1)
-  COUNT(*)
+  SUM(double_val)
 FROM TestTableWithUid;
 --
-ERROR: generic::unimplemented: Unimplemented anonymization option MAX_ROWS_CONTRIBUTED found
+ERROR: generic::unimplemented: max_rows_contributed not implemented

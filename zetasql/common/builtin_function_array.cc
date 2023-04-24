@@ -490,10 +490,21 @@ absl::Status GetArrayFindFunctions(
     NameToFunctionMap* functions, NameToTypeMap* types) {
   const Type* array_find_mode_type = types::ArrayFindModeEnumType();
 
+  // TODO: implement the behavior below for all lambda signatures
+  // in the ARRAY_FIND family.
+  // If there is collation attached to ARG_ARRAY_TYPE_ANY_1, the collation is
+  // always attached to lambda argument ARG_TYPE_ANY_1 and used during the
+  // resolution of the body of the lambda function.
+
   FunctionArgumentType input_array_arg(
       ARG_ARRAY_TYPE_ANY_1,
       FunctionArgumentTypeOptions()
           .set_array_element_must_support_equality()
+          .set_uses_array_element_for_collation()
+          .set_argument_name("input_array", kPositionalOnly));
+  FunctionArgumentType input_array_arg_for_lambda_sig(
+      ARG_ARRAY_TYPE_ANY_1,
+      FunctionArgumentTypeOptions()
           .set_uses_array_element_for_collation()
           .set_argument_name("input_array", kPositionalOnly));
   FunctionArgumentType target_element_arg(
@@ -507,6 +518,10 @@ absl::Status GetArrayFindFunctions(
       FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
           .set_default(Value::Enum(array_find_mode_type->AsEnum(), 1))
           .set_argument_name("find_mode", kPositionalOnly));
+  FunctionArgumentType lambda_arg = FunctionArgumentType::Lambda(
+      {ARG_TYPE_ANY_1}, type_factory->get_bool(),
+      FunctionArgumentTypeOptions().set_argument_name("condition",
+                                                      kPositionalOnly));
 
   constexpr absl::string_view kArrayOffsetSql = R"sql(
       IF(
@@ -535,12 +550,44 @@ absl::Status GetArrayFindFunctions(
                 ' in ARRAY_OFFSET is unsupported.'))
           END)
     )sql";
+  constexpr absl::string_view kArrayOffsetLambdaSql = R"sql(
+      IF(
+        input_array IS NULL OR find_mode IS NULL,
+        NULL,
+        CASE find_mode
+          WHEN 'FIRST'
+            THEN (
+              SELECT offset
+              FROM UNNEST(input_array) AS e WITH OFFSET
+              WHERE condition(e)
+              ORDER BY offset LIMIT 1
+            )
+          WHEN 'LAST'
+            THEN (
+              SELECT offset
+              FROM UNNEST(input_array) AS e WITH OFFSET
+              WHERE condition(e)
+              ORDER BY offset DESC LIMIT 1
+            )
+          ELSE
+            ERROR(
+              CONCAT(
+                'ARRAY_FIND_MODE ',
+                CAST(find_mode AS STRING),
+                ' in ARRAY_OFFSET is unsupported.'))
+          END)
+    )sql";
   ZETASQL_RETURN_IF_ERROR(InsertFunctionAndTypes(
       functions, types, options, "array_offset", Function::SCALAR,
       {{type_factory->get_int64(),
         {input_array_arg, target_element_arg, find_mode_arg},
         FN_ARRAY_OFFSET,
         SetDefinitionForInlining(kArrayOffsetSql)
+            .set_uses_operation_collation()},
+       {type_factory->get_int64(),
+        {input_array_arg_for_lambda_sig, lambda_arg, find_mode_arg},
+        FN_ARRAY_OFFSET_LAMBDA,
+        SetDefinitionForInlining(kArrayOffsetLambdaSql)
             .set_uses_operation_collation()}},
       /*function_options=*/{}, /*types_to_insert=*/{array_find_mode_type}));
 
@@ -554,11 +601,26 @@ absl::Status GetArrayFindFunctions(
           ORDER BY offset
         ))
     )sql";
+  constexpr absl::string_view kArrayOffsetsLambdaSql = R"sql(
+      IF(input_array IS NULL,
+        NULL,
+        ARRAY(
+          SELECT offset
+          FROM UNNEST(input_array) AS e WITH OFFSET
+          WHERE condition(e)
+          ORDER BY offset
+        ))
+    )sql";
   InsertFunction(functions, options, "array_offsets", Function::SCALAR,
                  {{types::Int64ArrayType(),
                    {input_array_arg, target_element_arg},
                    FN_ARRAY_OFFSETS,
                    SetDefinitionForInlining(kArrayOffsetsSql)
+                       .set_uses_operation_collation()},
+                  {types::Int64ArrayType(),
+                   {input_array_arg_for_lambda_sig, lambda_arg},
+                   FN_ARRAY_OFFSETS_LAMBDA,
+                   SetDefinitionForInlining(kArrayOffsetsLambdaSql)
                        .set_uses_operation_collation()}});
 
   constexpr absl::string_view kArrayFindSql = R"sql(
@@ -588,12 +650,43 @@ absl::Status GetArrayFindFunctions(
                 ' ARRAY_FIND_MODE in ARRAY_FIND is unsupported.'))
           END)
     )sql";
+  constexpr absl::string_view kArrayFindLambdaSql = R"sql(
+      IF(
+        input_array IS NULL OR find_mode IS NULL,
+        NULL,
+        CASE find_mode
+          WHEN 'FIRST'
+            THEN (
+              SELECT e
+              FROM UNNEST(input_array) AS e WITH OFFSET
+              WHERE condition(e)
+              ORDER BY offset LIMIT 1
+            )
+          WHEN 'LAST'
+            THEN (
+              SELECT e
+              FROM UNNEST(input_array) AS e WITH OFFSET
+              WHERE condition(e)
+              ORDER BY offset DESC LIMIT 1
+            )
+          ELSE
+            ERROR(
+              CONCAT(
+                'ARRAY_FIND_MODE ',
+                CAST(find_mode AS STRING),
+                ' ARRAY_FIND_MODE in ARRAY_FIND is unsupported.'))
+          END)
+    )sql";
   ZETASQL_RETURN_IF_ERROR(InsertFunctionAndTypes(
       functions, types, options, "array_find", Function::SCALAR,
       {{ARG_TYPE_ANY_1,
         {input_array_arg, target_element_arg, find_mode_arg},
         FN_ARRAY_FIND,
-        SetDefinitionForInlining(kArrayFindSql)
+        SetDefinitionForInlining(kArrayFindSql).set_uses_operation_collation()},
+       {ARG_TYPE_ANY_1,
+        {input_array_arg_for_lambda_sig, lambda_arg, find_mode_arg},
+        FN_ARRAY_FIND_LAMBDA,
+        SetDefinitionForInlining(kArrayFindLambdaSql)
             .set_uses_operation_collation()}},
       /*function_options=*/{}, /*types_to_insert=*/{array_find_mode_type}));
 
@@ -607,6 +700,16 @@ absl::Status GetArrayFindFunctions(
           ORDER BY offset
         ))
     )sql";
+  constexpr absl::string_view kArrayFindAllLambdaSql = R"sql(
+      IF(input_array IS NULL,
+        NULL,
+        ARRAY(
+          SELECT e
+          FROM UNNEST(input_array) AS e WITH OFFSET
+          WHERE condition(e)
+          ORDER BY offset
+        ))
+    )sql";
   InsertFunction(
       functions, options, "array_find_all", Function::SCALAR,
       {{{ARG_ARRAY_TYPE_ANY_1,
@@ -614,6 +717,12 @@ absl::Status GetArrayFindFunctions(
         {input_array_arg, target_element_arg},
         FN_ARRAY_FIND_ALL,
         SetDefinitionForInlining(kArrayFindAllSql)
+            .set_uses_operation_collation()},
+       {{ARG_ARRAY_TYPE_ANY_1,
+         FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+        {input_array_arg_for_lambda_sig, lambda_arg},
+        FN_ARRAY_FIND_ALL_LAMBDA,
+        SetDefinitionForInlining(kArrayFindAllLambdaSql)
             .set_uses_operation_collation()}});
 
   return absl::OkStatus();

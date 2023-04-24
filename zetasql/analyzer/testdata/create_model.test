@@ -1052,8 +1052,9 @@ ERROR: Duplicate alias training_data for aliased query list [at 5:3]
 
 ==
 
-# Create model with aliased queries referencing each other. This should fail as
-# each subquery is scoped independently and should not reference each other.
+# Create model with aliased queries referencing each other. As each aliased
+# query is independently scoped, it will not be able to reference the other
+# aliased query and instead try to reference a table with that name.
 create model m
 as
 (
@@ -1211,3 +1212,53 @@ as (training_data as (select 1))
 ERROR: CREATE MODEL columns must be named, but column 1 has no name [at 2:23]
 as (training_data as (select 1))
                       ^
+
+==
+
+# Create model with aliased query referencing a non-existing table.
+create model tt
+as
+(
+  training_data as
+  (
+    select * from non_existing_table
+  )
+)
+--
+ERROR: Table not found: non_existing_table [at 6:19]
+    select * from non_existing_table
+                  ^
+
+==
+
+# Create model with aliased query referencing named tables.
+create model tt
+as
+(
+  training_data as (select * from user_training_data),
+  custom_holiday as (select * from user_custom_holiday)
+)
+--
+CreateModelStmt
++-name_path=tt
++-aliased_query_list=
+  +-CreateModelAliasedQuery
+  | +-alias="training_data"
+  | +-query=
+  | | +-ProjectScan
+  | |   +-column_list=[user_training_data.data#1]
+  | |   +-input_scan=
+  | |     +-TableScan(column_list=[user_training_data.data#1], table=user_training_data, column_index_list=[0])
+  | +-output_column_list=
+  |   +-user_training_data.data#1 AS data [INT32]
+  +-CreateModelAliasedQuery
+    +-alias="custom_holiday"
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=user_custom_holiday.[region#2, holiday_name#3, primary_date#4]
+    |   +-input_scan=
+    |     +-TableScan(column_list=user_custom_holiday.[region#2, holiday_name#3, primary_date#4], table=user_custom_holiday, column_index_list=[0, 1, 2])
+    +-output_column_list=
+      +-user_custom_holiday.region#2 AS region [STRING]
+      +-user_custom_holiday.holiday_name#3 AS holiday_name [STRING]
+      +-user_custom_holiday.primary_date#4 AS primary_date [DATE]

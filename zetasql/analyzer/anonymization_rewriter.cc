@@ -86,8 +86,10 @@
 namespace zetasql {
 namespace {
 
+struct BoundingSpec;
 struct WithEntryRewriteState;
 struct RewritePerUserTransformResult;
+struct RewriteInnerAggregateListResult;
 struct UidColumnState;
 
 // Used for generating correct error messages for SELECT WITH ANONYMIZATION and
@@ -122,7 +124,11 @@ struct SelectWithModeName {
 //    can contribute to. While max_groups_contributed is optional, for most
 //    queries with a GROUP BY clause in the ResolvedAnonymizedAggregationScan it
 //    MUST be specified for the resulting query to provide correct epsilon-delta
-//    differential privacy.
+//    differential privacy. Setting max_groups_contributed to NULL disables
+//    adding such a ResolvedSampleScan. Leaving max_groups_contributed unset
+//    will use some default contribution bounding. The default contribution
+//    bounding is determined by the rewriter and might change in future.
+//    TODO Document the effects of max_rows_contributed.
 // 5. The final cross-user ResolvedAnonymizedAggregateScan is created:
 //   a. The input scan is set to the (possibly sampled) per-user scan
 //   b. The first argument for each ANON_* function call in the anon node is
@@ -176,10 +182,54 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
       const UidColumnState& per_user_visitor_uid_column_state,
       std::optional<const ResolvedExpr*> options_uid_column);
 
+  // Rewrites node using the PerUserRewriterVisitor.
+  //
+  // Constructs a deep copy of the input scan, attempting to identify a UID
+  // column while rewriting.
   absl::StatusOr<RewritePerUserTransformResult> RewritePerUserTransform(
       const ResolvedAggregateScanBase* node,
       SelectWithModeName select_with_mode_name,
       std::optional<const ResolvedExpr*> options_uid_column);
+
+  // Rewrites node using InnerAggregateListRewriterVisitor.
+  //
+  // Rewrites aggregates and group by columns, constructing a map from the old
+  // columns to the rewritten columns.
+  absl::StatusOr<RewriteInnerAggregateListResult> RewriteInnerAggregateList(
+      const ResolvedAggregateScanBase* node,
+      SelectWithModeName select_with_mode_name,
+      std::unique_ptr<const ResolvedExpr> inner_uid_column);
+
+  // If order_by_column is initialized, then wraps node in a ProjectScan that
+  // additionally projects a rand() for use in choosing a random subset of the
+  // partition.
+  //
+  // This method is only used when bounding L0 sensitivity / max groups
+  // contributed. We sample a limited number of elements when computing the
+  // per-partition aggregation for
+  // ANON_VAR_POP/ANON_STDDEV_POP/ANON_PERCENTILE_CONT, and we use this rand()
+  // to choose a random subset of the partition's contributions.
+  absl::StatusOr<std::unique_ptr<ResolvedScan>>
+  ProjectOrderByForSampledAggregation(std::unique_ptr<ResolvedScan> node,
+                                      const ResolvedColumn& order_by_column);
+
+  // Rewrites node, pre-aggregating each user's contributions to each group.
+  //
+  // If bounding_spec says to bound the number of groups to which a privacy
+  // unit can contribute, then this method will insert a SampleScan to do
+  // so.
+  template <class NodeType>
+  absl::StatusOr<std::unique_ptr<NodeType>> BoundGroupsContributedToInputScan(
+      const NodeType* node, BoundingSpec bounding_spec);
+
+  // Rewrites node, inserting a SampleScan to bound the number of rows that a
+  // user can contribute.
+  //
+  // If max_rows_contributed is a nullopt, then this method will use a default
+  // value for max_rows_contributed.
+  template <class NodeType>
+  absl::StatusOr<std::unique_ptr<NodeType>> BoundRowsContributedToInputScan(
+      const NodeType* node, std::optional<int64_t> max_rows_contributed);
 
   // Create the cross-user group selection threshold function call. It is called
   // k_threshold for ResolvedAnonymizedAggregateScan but the name got updated to
@@ -215,12 +265,11 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // This will only provide epsilon-delta dataset level differential privacy
   // when the query includes a GROUP BY clause.
   //
-  // If max_groups_contributed is explicitly set to NULL, then we don't add a
-  // SampleScan. If max_groups_contributed is not specified, then we add a
+  // If max_groups_contributed is a nullopt, then we add a
   // SampleScan using default_anon_kappa_value.
   absl::StatusOr<std::unique_ptr<ResolvedScan>> AddCrossPartitionSampleScan(
       std::unique_ptr<ResolvedScan> input_scan,
-      std::optional<Value> max_groups_contributed,
+      std::optional<int64_t> max_groups_contributed,
       absl::string_view max_groups_contributed_option_name,
       ResolvedColumn uid_column,
       std::vector<std::unique_ptr<ResolvedOption>>&
@@ -691,12 +740,17 @@ bool IsNonNullLiteral(const ResolvedExpr& expr) {
   return !expr.GetAs<ResolvedLiteral>()->value().is_null();
 }
 
+std::optional<ResolvedColumn> GetResolvedColumn(const ResolvedExpr* exp) {
+  if (exp != nullptr && exp->node_kind() == RESOLVED_COLUMN_REF) {
+    return exp->GetAs<ResolvedColumnRef>()->column();
+  }
+  return std::nullopt;
+}
+
 // Returns true if a given expr is uid column.
 bool IsUidColumn(const ResolvedExpr& expr, int64_t uid_column_id) {
-  if (expr.node_kind() != RESOLVED_COLUMN_REF) {
-    return false;
-  }
-  return expr.GetAs<ResolvedColumnRef>()->column().column_id() == uid_column_id;
+  ResolvedColumn column = GetResolvedColumn(&expr).value_or(ResolvedColumn());
+  return column.IsInitialized() && column.column_id() == uid_column_id;
 }
 
 // Returns true if the column (corresponding to a given column_id)
@@ -2170,25 +2224,6 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   UidColumnState current_uid_;
 };
 
-struct RewritePerUserTransformResult {
-  // The rewritten per-user transform, possibly re-wrapped in another
-  // ResolvedScan.
-  std::unique_ptr<ResolvedScan> input_scan;
-
-  // The original UID column extracted from the per-user transform. If original
-  // UID is not a column this value may be uninitialized.
-  ResolvedColumn inner_uid_column;
-
-  // A projected intermediate column that points to inner_uid_column.
-  ResolvedColumn uid_column;
-
-  // This map is populated when the per-user aggregate list is resolved. It maps
-  // the existing columns in the original DP aggregate scan `column_list` to the
-  // new intermediate columns that splice together the per-user and cross-user
-  // aggregate/groupby lists.
-  std::map<ResolvedColumn, ResolvedColumn> injected_col_map;
-};
-
 std::unique_ptr<ResolvedScan> MakePerUserAggregateScan(
     std::unique_ptr<const ResolvedScan> input_scan,
     std::vector<std::unique_ptr<ResolvedComputedColumn>> aggregate_list,
@@ -2237,33 +2272,80 @@ RewriterVisitor::ChooseUidColumn(
          << " query must query data with a specified privacy unit column";
 }
 
+struct RewritePerUserTransformResult {
+  // The rewritten per-user transform, possibly re-wrapped in another
+  // ResolvedScan.
+  std::unique_ptr<ResolvedScan> rewritten_scan;
+
+  // The original UID column extracted from the per-user transform.
+  //
+  // If original UID is not a column (e.g. if it was specified via the
+  // privacy_unit_column query option) then this value may be uninitialized.
+  // Note that if the table does not have a UID column at all, then
+  // RewritePerUserTransformResult will return a failed status. The returned
+  // value is used when identifying aggregations that perform "count distinct
+  // users" aggregations.
+  std::unique_ptr<const ResolvedExpr> inner_uid_column;
+};
+
 absl::StatusOr<RewritePerUserTransformResult>
 RewriterVisitor::RewritePerUserTransform(
     const ResolvedAggregateScanBase* node,
     SelectWithModeName select_with_mode_name,
     std::optional<const ResolvedExpr*> options_uid_column) {
-  // Construct a deep copy of the input scan, rewriting aggregates and group by
-  // columns along the way, and projecting $uid to the top.
   PerUserRewriterVisitor per_user_visitor(allocator_, type_factory_, resolver_,
                                           resolved_table_scans_, with_entries_,
                                           select_with_mode_name);
   ZETASQL_RETURN_IF_ERROR(node->input_scan()->Accept(&per_user_visitor));
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> input_scan,
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> rewritten_scan,
                    per_user_visitor.ConsumeRootNode<ResolvedScan>());
-  std::map<ResolvedColumn, ResolvedColumn> injected_col_map;
-  InnerAggregateListRewriterVisitor inner_rewriter_visitor(
-      &injected_col_map, allocator_, resolver_, select_with_mode_name.name);
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<std::unique_ptr<ResolvedComputedColumn>> inner_aggregate_list,
-      inner_rewriter_visitor.RewriteAggregateColumns(node));
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<std::unique_ptr<ResolvedComputedColumn>> inner_group_by_list,
-      inner_rewriter_visitor.RewriteGroupByColumns(node));
-
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> inner_uid_column,
                    ChooseUidColumn(node, select_with_mode_name,
                                    per_user_visitor.uid_column_state(),
                                    std::move(options_uid_column)));
+  return RewritePerUserTransformResult{
+      .rewritten_scan = std::move(rewritten_scan),
+      .inner_uid_column = std::move(inner_uid_column),
+  };
+}
+
+struct RewriteInnerAggregateListResult {
+  // A projected intermediate column that points to the inner_uid_column
+  // identified while rewriting the per-user transform.
+  ResolvedColumn uid_column;
+
+  // This map is populated when the per-user aggregate list is resolved. It maps
+  // the existing columns in the original DP aggregate scan `column_list` to the
+  // new intermediate columns that splice together the per-user and cross-user
+  // aggregate/groupby lists.
+  std::map<ResolvedColumn, ResolvedColumn> injected_col_map;
+
+  // The rewritten aggregate columns produced by
+  // InnerAggregateListRewriterVisitor.
+  std::vector<std::unique_ptr<ResolvedComputedColumn>> rewritten_aggregate_list;
+
+  // The rewritten group by columns produced by
+  // InnerAggregateListRewriterVisitor.
+  std::vector<std::unique_ptr<ResolvedComputedColumn>> rewritten_group_by_list;
+
+  // The value of InnerAggregateListRewriterVisitor::order_by_column().
+  ResolvedColumn order_by_column;
+};
+
+absl::StatusOr<RewriteInnerAggregateListResult>
+RewriterVisitor::RewriteInnerAggregateList(
+    const ResolvedAggregateScanBase* const node,
+    SelectWithModeName select_with_mode_name,
+    std::unique_ptr<const ResolvedExpr> inner_uid_column) {
+  std::map<ResolvedColumn, ResolvedColumn> injected_col_map;
+  InnerAggregateListRewriterVisitor inner_rewriter_visitor(
+      &injected_col_map, allocator_, resolver_, select_with_mode_name.name);
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedComputedColumn>>
+                       rewritten_aggregate_list,
+                   inner_rewriter_visitor.RewriteAggregateColumns(node));
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedComputedColumn>>
+                       rewritten_group_by_list,
+                   inner_rewriter_visitor.RewriteGroupByColumns(node));
 
   // This is validated by PerUserRewriterVisitor.
   ZETASQL_RET_CHECK(inner_uid_column->type()->SupportsGrouping(resolver_->language()));
@@ -2271,47 +2353,39 @@ RewriterVisitor::RewritePerUserTransform(
   // Group by the $uid column.
   ResolvedColumn uid_column =
       allocator_->MakeCol("$group_by", "$uid", inner_uid_column->type());
-  inner_group_by_list.emplace_back(
+  rewritten_group_by_list.emplace_back(
       MakeResolvedComputedColumn(uid_column, std::move(inner_uid_column)));
 
-  // We need to rewrite the ANON_VAR_POP/ANON_STDDEV_POP/ANON_PERCENTILE_CONT's
-  // InnerAggregateScan to ARRAY_AGG(expr ORDER BY rand() LIMIT 5).
-  // We allocated an `order_by_column` in the InnerAggregateListRewriter, the
-  // `order_by_column` will be rand(). Then we can use the new_project_scan as
-  // the input_scan of ResolvedAggregateScan.
-  if (inner_rewriter_visitor.order_by_column().IsInitialized()) {
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> rand_function,
-                     ResolveFunctionCall("rand", /*arguments=*/{},
-                                         /*named_arguments=*/{}, resolver_));
-    std::vector<std::unique_ptr<ResolvedComputedColumn>> order_by_expr_list;
-    std::unique_ptr<ResolvedComputedColumn> rand_expr =
-        MakeResolvedComputedColumn(inner_rewriter_visitor.order_by_column(),
-                                   std::move(rand_function));
-    ZETASQL_RET_CHECK(rand_expr != nullptr);
-    order_by_expr_list.emplace_back(std::move(rand_expr));
-
-    ResolvedColumnList wrapper_column_list = input_scan->column_list();
-    for (const auto& computed_column : order_by_expr_list) {
-      wrapper_column_list.push_back(computed_column->column());
-    }
-    std::unique_ptr<const ResolvedScan> new_project_scan =
-        MakeResolvedProjectScan(wrapper_column_list,
-                                std::move(order_by_expr_list),
-                                std::move(input_scan));
-
-    input_scan = std::move(new_project_scan);
-  }
-
-  return RewritePerUserTransformResult{
-      .input_scan = MakePerUserAggregateScan(std::move(input_scan),
-                                             std::move(inner_aggregate_list),
-                                             std::move(inner_group_by_list)),
-      .inner_uid_column = (per_user_visitor.uid_column().has_value()
-                               ? *per_user_visitor.uid_column()
-                               : ResolvedColumn()),
+  return RewriteInnerAggregateListResult{
       .uid_column = uid_column,
       .injected_col_map = std::move(injected_col_map),
+      .rewritten_aggregate_list = std::move(rewritten_aggregate_list),
+      .rewritten_group_by_list = std::move(rewritten_group_by_list),
+      .order_by_column = inner_rewriter_visitor.order_by_column(),
   };
+}
+
+absl::StatusOr<std::unique_ptr<ResolvedScan>>
+RewriterVisitor::ProjectOrderByForSampledAggregation(
+    std::unique_ptr<ResolvedScan> node, const ResolvedColumn& order_by_column) {
+  if (!order_by_column.IsInitialized()) {
+    return node;
+  }
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> rand_function,
+                   ResolveFunctionCall("rand", /*arguments=*/{},
+                                       /*named_arguments=*/{}, resolver_));
+  std::vector<std::unique_ptr<ResolvedComputedColumn>> order_by_expr_list;
+  std::unique_ptr<ResolvedComputedColumn> rand_expr =
+      MakeResolvedComputedColumn(order_by_column, std::move(rand_function));
+  ZETASQL_RET_CHECK(rand_expr != nullptr);
+  order_by_expr_list.emplace_back(std::move(rand_expr));
+
+  ResolvedColumnList wrapper_column_list = node->column_list();
+  for (const auto& computed_column : order_by_expr_list) {
+    wrapper_column_list.push_back(computed_column->column());
+  }
+  return MakeResolvedProjectScan(
+      wrapper_column_list, std::move(order_by_expr_list), std::move(node));
 }
 
 absl::StatusOr<std::unique_ptr<ResolvedComputedColumn>>
@@ -2405,49 +2479,44 @@ RewriterVisitor::CreateAggregateScanAndUpdateScanMap(
 }
 
 // Verifies that `option` is a resolved literal containing either a valid int64_t
-// value that fits into an int32_t or NULL. Returns the value of the resolved
-// literal.
-absl::StatusOr<Value> ValidateMaxGroupsContributed(
+// value that either is NULL or is strictly positive and fits into an int32_t.
+// Returns the value of the resolved literal.
+//
+// In some places, the privacy libraries only support int32_t values (e.g.
+// max_groups_contributed), but those options are declared as int64_t values in
+// SQL.
+absl::StatusOr<Value> ValidatePositiveInt32Option(
     const ResolvedOption& option, absl::string_view dp_option_error_prefix) {
   zetasql_base::StatusBuilder invalid_value_message =
       MakeSqlErrorAtNode(option)
       << dp_option_error_prefix << " must be an INT64 literal between 1 and "
       << std::numeric_limits<int32_t>::max();
-  if (option.value()->node_kind() != RESOLVED_LITERAL ||
-      !option.value()->GetAs<ResolvedLiteral>()->type()->IsInt64()) {
+  const bool is_valid_int64_value =
+      option.value()->node_kind() == RESOLVED_LITERAL &&
+      option.value()->GetAs<ResolvedLiteral>()->type()->IsInt64() &&
+      option.value()->GetAs<ResolvedLiteral>()->value().is_valid();
+  if (!is_valid_int64_value) {
     return invalid_value_message;
   }
-  Value max_groups_contributed =
-      option.value()->GetAs<ResolvedLiteral>()->value();
+  Value option_value = option.value()->GetAs<ResolvedLiteral>()->value();
 
-  if (max_groups_contributed.is_null()) {
-    return max_groups_contributed;
-  } else if (!max_groups_contributed.is_valid() ||
-             max_groups_contributed.int64_value() < 1 ||
-             max_groups_contributed.int64_value() >
-                 std::numeric_limits<int32_t>::max()) {
-    // The privacy libraries only support int32_t max_groups_contributed, so
-    // produce an error if the max_groups_contributed value does not fit in that
-    // range.
+  if (option_value.is_null()) {
+    return option_value;
+  } else if (option_value.int64_value() < 1 ||
+             option_value.int64_value() > std::numeric_limits<int32_t>::max()) {
     return invalid_value_message;
   }
-  return max_groups_contributed;
+  return option_value;
 }
 
 absl::StatusOr<std::unique_ptr<ResolvedScan>>
 RewriterVisitor::AddCrossPartitionSampleScan(
     std::unique_ptr<ResolvedScan> input_scan,
-    std::optional<Value> max_groups_contributed,
+    std::optional<int64_t> max_groups_contributed,
     absl::string_view default_max_groups_contributed_option_name,
     ResolvedColumn uid_column,
     std::vector<std::unique_ptr<ResolvedOption>>&
         resolved_anonymization_options) {
-  if (max_groups_contributed.has_value() && max_groups_contributed->is_null()) {
-    // When max_groups_contributed is explicitly set to NULL, don't add a
-    // SampleScan.
-    return input_scan;
-  }
-
   const int64_t default_max_groups_contributed =
       resolver_->analyzer_options().default_anon_kappa_value();
   ZETASQL_RET_CHECK(0 <= default_max_groups_contributed &&
@@ -2459,26 +2528,26 @@ RewriterVisitor::AddCrossPartitionSampleScan(
 
   if (!max_groups_contributed.has_value() &&
       default_max_groups_contributed > 0) {
-    max_groups_contributed = Value::Int64(default_max_groups_contributed);
+    max_groups_contributed = default_max_groups_contributed;
     std::unique_ptr<ResolvedOption> max_groups_contributed_option =
         MakeResolvedOption(
             /*qualifier=*/"",
             std::string(default_max_groups_contributed_option_name),
-            MakeResolvedLiteral(*max_groups_contributed));
+            MakeResolvedLiteral(Value::Int64(*max_groups_contributed)));
     resolved_anonymization_options.push_back(
         std::move(max_groups_contributed_option));
   }
 
   // Note that if default_max_groups_contributed is 0, then
   // max_groups_contributed might still not have a value by this point.
-  if (max_groups_contributed.has_value() &&
-      !max_groups_contributed->is_null()) {
+  if (max_groups_contributed.has_value()) {
     std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
     partition_by_list.push_back(MakeColRef(uid_column));
     const std::vector<ResolvedColumn>& column_list = input_scan->column_list();
     input_scan = MakeResolvedSampleScan(
         column_list, std::move(input_scan),
-        /*method=*/"RESERVOIR", MakeResolvedLiteral(*max_groups_contributed),
+        /*method=*/"RESERVOIR",
+        MakeResolvedLiteral(Value::Int64(*max_groups_contributed)),
         ResolvedSampleScan::ROWS, /*repeatable_argument=*/nullptr,
         /*weight_column=*/nullptr, std::move(partition_by_list));
   }
@@ -2687,37 +2756,108 @@ absl::StatusOr<std::optional<const ResolvedExpr*>> ExtractUidColumnFromOptions(
   return result;
 }
 
-template <class NodeType>
-absl::Status
-RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
-    const NodeType* node) {
-  // Look for max_groups_contributed in the options.
-  std::optional<Value> max_groups_contributed;
-  for (const auto& option : GetOptions(node)) {
-    if (DPNodeSpecificData<NodeType>::IsMaxGroupsContributedOption(
-            option->name())) {
-      ZETASQL_RET_CHECK(!max_groups_contributed.has_value())
-          << DPNodeSpecificData<NodeType>::kMaxGroupsContributedErrorPrefix
-          << " can only be set once";
-      ZETASQL_ASSIGN_OR_RETURN(
-          max_groups_contributed,
-          ValidateMaxGroupsContributed(
-              *option,
-              DPNodeSpecificData<NodeType>::kMaxGroupsContributedErrorPrefix));
+enum ContributionBoundingStrategy {
+  BOUNDING_NONE,
+  BOUNDING_MAX_GROUPS,
+  BOUNDING_MAX_ROWS,
+};
+
+struct BoundingSpec {
+  ContributionBoundingStrategy strategy;
+
+  // The maximum number of groups a privacy unit can contribute to.
+  //
+  // Only enforced if strategy is BOUNDING_MAX_GROUPS. If nullopt, then a
+  // default value will be used.
+  std::optional<int64_t> max_groups_contributed;
+
+  // The maximum number of rows a privacy unit can contribute to the dataset.
+  //
+  // Only enforced if strategy is BOUNDING_MAX_ROWS. If nullopt, then a default
+  // value will be used.
+  std::optional<int64_t> max_rows_contributed;
+
+  static absl::StatusOr<BoundingSpec> ForBounds(
+      std::optional<Value> max_groups_contributed,
+      std::optional<Value> max_rows_contributed) {
+    // This condition was already checked in the resolver.
+    ZETASQL_RET_CHECK(!(max_groups_contributed.has_value() &&
+                max_rows_contributed.has_value()))
+        << "MAX_GROUPS_CONTRIBUTED and MAX_ROWS_CONTRIBUTED are mutually "
+           "exclusive";
+    // should_disable_bounding is true iff one of the contribution bounds is
+    // explicitly set to NULL.
+    bool should_disable_bounding =
+        (max_groups_contributed ? max_groups_contributed->is_null() : false) ||
+        (max_rows_contributed ? max_rows_contributed->is_null() : false);
+
+    if (should_disable_bounding) {
+      return BoundingSpec{.strategy = BOUNDING_NONE};
+    } else if (max_rows_contributed) {
+      return BoundingSpec{
+          .strategy = BOUNDING_MAX_ROWS,
+          .max_rows_contributed = max_rows_contributed->int64_value()};
+    } else if (max_groups_contributed) {
+      return BoundingSpec{
+          .strategy = BOUNDING_MAX_GROUPS,
+          .max_groups_contributed = max_groups_contributed->int64_value()};
+    } else {
+      return BoundingSpec{.strategy = BOUNDING_MAX_GROUPS};
     }
   }
+};
 
-  ZETASQL_ASSIGN_OR_RETURN(auto options_uid_column, ExtractUidColumnFromOptions(node));
-  // Create the per-user aggregate scan, and populate the column map.
-  ZETASQL_ASSIGN_OR_RETURN(auto rewrite_per_user_result,
+template <class NodeType>
+absl::StatusOr<std::unique_ptr<NodeType>>
+RewriterVisitor::BoundRowsContributedToInputScan(
+    const NodeType* node, std::optional<int64_t> max_rows_contributed) {
+  /**
+   * TODO: Implement BoundRowsContributed:
+   *  - Use PerUserRewriterVisitor to deepcopy the input scan
+   *  - Check that PerUserRewriterVisitor found a uid column.
+   *  - Copy the aggregate list, options list, and group by list from the node
+   *  - Search the aggregate list looking for an aggregation counting unique
+   * user ids.
+   *  - Point k_threshold_expr to the COUNT UID aggregation, creating a new such
+   * aggregation if we didn't find one.
+   *  - Add k_threshold_expr to the aggregate list
+   *  - Add a sample scan to bound the number of rows contributed
+   *  - Add a ResolvedAnonymizedAggregateScan with the aggregates, group by, and
+   * options.
+   */
+  return absl::UnimplementedError("max_rows_contributed not implemented");
+}
+
+template <class NodeType>
+absl::StatusOr<std::unique_ptr<NodeType>>
+RewriterVisitor::BoundGroupsContributedToInputScan(const NodeType* node,
+                                                   BoundingSpec bounding_spec) {
+  ZETASQL_ASSIGN_OR_RETURN(std::optional<const ResolvedExpr*> options_uid_column,
+                   ExtractUidColumnFromOptions(node));
+
+  ZETASQL_ASSIGN_OR_RETURN(RewritePerUserTransformResult rewrite_per_user_result,
                    RewritePerUserTransform(
                        node, DPNodeSpecificData<NodeType>::kSelectWithModeName,
                        options_uid_column));
-  auto [input_scan, inner_uid_column, uid_column, injected_col_map] =
-      std::move(rewrite_per_user_result);
+  auto [rewritten_scan, inner_uid_column] = std::move(rewrite_per_user_result);
+  const ResolvedColumn inner_uid_resolved_column =
+      GetResolvedColumn(inner_uid_column.get()).value_or(ResolvedColumn());
+  ZETASQL_ASSIGN_OR_RETURN(auto rewrite_inner_aggregation_list_result,
+                   RewriteInnerAggregateList(
+                       node, DPNodeSpecificData<NodeType>::kSelectWithModeName,
+                       std::move(inner_uid_column)));
+  auto [uid_column, injected_col_map, inner_aggregate_list, inner_group_by_list,
+        order_by_column] = std::move(rewrite_inner_aggregation_list_result);
+
+  ZETASQL_ASSIGN_OR_RETURN(rewritten_scan,
+                   ProjectOrderByForSampledAggregation(
+                       std::move(rewritten_scan), order_by_column));
+  rewritten_scan = MakePerUserAggregateScan(std::move(rewritten_scan),
+                                            std::move(inner_aggregate_list),
+                                            std::move(inner_group_by_list));
 
   OuterAggregateListRewriterVisitor outer_rewriter_visitor(
-      injected_col_map, resolver_, inner_uid_column);
+      injected_col_map, resolver_, inner_uid_resolved_column);
   ZETASQL_ASSIGN_OR_RETURN(
       std::vector<std::unique_ptr<ResolvedComputedColumn>> outer_aggregate_list,
       outer_rewriter_visitor.RewriteAggregateColumns(node));
@@ -2812,18 +2952,67 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
     resolved_anonymization_options.push_back(std::move(option_copy));
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      input_scan,
-      AddCrossPartitionSampleScan(
-          std::move(input_scan), max_groups_contributed,
-          DPNodeSpecificData<NodeType>::kDefaultMaxGroupsContributedOptionName,
-          uid_column, resolved_anonymization_options));
+  if (bounding_spec.strategy == BOUNDING_MAX_GROUPS) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        rewritten_scan,
+        AddCrossPartitionSampleScan(
+            std::move(rewritten_scan), bounding_spec.max_groups_contributed,
+            DPNodeSpecificData<
+                NodeType>::kDefaultMaxGroupsContributedOptionName,
+            uid_column, resolved_anonymization_options));
+  }
 
-  auto result = CreateAggregateScanAndUpdateScanMap(
-      node, std::move(input_scan), std::move(outer_group_by_list),
+  return CreateAggregateScanAndUpdateScanMap(
+      node, std::move(rewritten_scan), std::move(outer_group_by_list),
       std::move(outer_aggregate_list),
       std::move(group_selection_threshold_expr),
       std::move(resolved_anonymization_options));
+}
+
+template <class NodeType>
+absl::Status
+RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
+    const NodeType* node) {
+  // Look for max_groups_contributed in the options.
+  std::optional<Value> max_groups_contributed;
+  std::optional<Value> max_rows_contributed;
+  for (const auto& option : GetOptions(node)) {
+    if (DPNodeSpecificData<NodeType>::IsMaxGroupsContributedOption(
+            option->name())) {
+      // This condition was already checked in the resolver.
+      ZETASQL_RET_CHECK(!max_groups_contributed.has_value())
+          << DPNodeSpecificData<NodeType>::kMaxGroupsContributedErrorPrefix
+          << " can only be set once";
+      ZETASQL_ASSIGN_OR_RETURN(
+          max_groups_contributed,
+          ValidatePositiveInt32Option(
+              *option,
+              DPNodeSpecificData<NodeType>::kMaxGroupsContributedErrorPrefix));
+    } else if (zetasql_base::CaseEqual(option->name(), "max_rows_contributed")) {
+      ZETASQL_RET_CHECK(!max_rows_contributed.has_value())
+          << "max_rows_contributed can only be set once";
+      ZETASQL_ASSIGN_OR_RETURN(
+          max_rows_contributed,
+          ValidatePositiveInt32Option(*option, "Option MAX_ROWS_CONTRIBUTED"));
+    }
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      BoundingSpec bounding_spec,
+      BoundingSpec::ForBounds(max_groups_contributed, max_rows_contributed));
+  std::unique_ptr<NodeType> result;
+  if (bounding_spec.strategy == BOUNDING_MAX_ROWS) {
+    ZETASQL_ASSIGN_OR_RETURN(result, BoundRowsContributedToInputScan(
+                                 node, bounding_spec.max_rows_contributed));
+  } else {
+    // Note that BoundGroupsContributedToInputScan also handles the case where
+    // no bounding is applied.
+    // TODO Verify the preceding comment is still correct once
+    // BoundRowsContributedToInputScan is fully implemented.
+    ZETASQL_ASSIGN_OR_RETURN(result,
+                     BoundGroupsContributedToInputScan(node, bounding_spec));
+  }
+
   ZETASQL_RETURN_IF_ERROR(AttachExtraNodeFields(*node, *result));
   resolved_table_scans_.clear();
   PushNodeToStack(std::move(result));
@@ -2843,15 +3032,15 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
 //    stage, begin rewriting the referenced WITH entry subquery. This can
 //    repeat recursively for nested WITH entries.
 // 4. Nested ResolvedWithScans inside of a SELECT WITH ANONYMIZATION node are
-//    rewritten immediately by PerUserRewriterVisitor and recorded into the WITH
-//    entries list.
+//    rewritten immediately by PerUserRewriterVisitor and recorded into the
+//    WITH entries list.
 // 5. Copy non-rewritten-at-this-point WITH entries, they weren't referenced
 //    during the per-user rewriting stage and don't need special handling.
 absl::Status RewriterVisitor::VisitResolvedWithScan(
     const ResolvedWithScan* node) {
   // Remember the offset for the with_entry_list_size() number of nodes we add
-  // to the list of all WITH entries, those are the ones we need to add back to
-  // with_entry_list() after rewriting.
+  // to the list of all WITH entries, those are the ones we need to add back
+  // to with_entry_list() after rewriting.
   std::size_t local_with_entries_offset = with_entries_.size();
   for (const std::unique_ptr<const ResolvedWithEntry>& entry :
        node->with_entry_list()) {

@@ -28,6 +28,7 @@
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/json_value.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
@@ -973,7 +974,7 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertJsonIncompatibleTypes() {
   return tests;
 }
 
-std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxBool() {
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxBool() {
   std::vector<FunctionTestCall> tests = {
       // BOOL
       {"lax_bool", {Json(JSONValue(true))}, Value::Bool(true)},
@@ -1009,7 +1010,7 @@ std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxBool() {
   return tests;
 }
 
-std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxInt64() {
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxInt64() {
   std::vector<FunctionTestCall> tests = {
       // BOOLS
       {"lax_int64", {Json(JSONValue(true))}, Value::Int64(1)},
@@ -1056,7 +1057,7 @@ std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxInt64() {
   return tests;
 }
 
-std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxDouble() {
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxDouble() {
   std::vector<FunctionTestCall> tests = {
       // BOOLS
       {"lax_double", {Json(JSONValue(true))}, NullDouble()},
@@ -1115,7 +1116,7 @@ std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxDouble() {
   return tests;
 }
 
-std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxString() {
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxString() {
   std::vector<FunctionTestCall> tests = {
       // BOOLS
       {"lax_string", {Json(JSONValue(true))}, Value::String("true")},
@@ -1163,6 +1164,114 @@ std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxString() {
        {Json(JSONValue::ParseJSONString(R"([1])").value())},
        NullString()},
       {"lax_string", {NullJson()}, NullString()}};
+  return tests;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsJsonArray() {
+  std::vector<FunctionTestCall> tests;
+  // One argument to JSON_ARRAY. Test cases from TO_JSON to make sure JSON_ARRAY
+  // applies TO_JSON semantics to arguments.
+  for (FunctionTestCall& test : GetFunctionTestsToJson()) {
+    if (test.params.num_params() == 2) {
+      if (test.params.param(1).is_null() || test.params.param(1).bool_value()) {
+        // No stringify mode in JSON_ARRAY.
+        continue;
+      }
+    }
+
+    auto features_set = test.params.required_features();
+    features_set.erase(FEATURE_NAMED_ARGUMENTS);
+
+    if (test.params.status().ok()) {
+      zetasql::JSONValue json_result;
+      json_result.GetRef().GetArrayElement(0).Set(
+          JSONValue::CopyFrom(test.params.result().json_value()));
+      Value result = Json(std::move(json_result));
+      tests.push_back(
+          {"json_array",
+           QueryParamsWithResult({std::move(test.params.param(0))}, result)
+               .AddRequiredFeatures(features_set)});
+    } else {
+      tests.push_back({"json_array",
+                       QueryParamsWithResult({std::move(test.params.param(0))},
+                                             NullJson(), test.params.status())
+                           .AddRequiredFeatures(features_set)});
+    }
+  }
+
+  // 0 argument
+  tests.push_back(
+      {"json_array", QueryParamsWithResult(
+                         {}, Json(JSONValue::ParseJSONString("[]").value()))});
+  // 1 argument
+  tests.push_back(
+      {"json_array", QueryParamsWithResult(
+                         {Int64Array({})},
+                         Json(JSONValue::ParseJSONString("[[]]").value()))});
+  tests.push_back(
+      {"json_array",
+       QueryParamsWithResult(
+           {Int64Array({10, -123, 156243})},
+           Json(JSONValue::ParseJSONString("[[10,-123,156243]]").value()))});
+  tests.push_back(
+      {"json_array", QueryParamsWithResult(
+                         {Struct({}, {})},
+                         Json(JSONValue::ParseJSONString("[{}]").value()))});
+  tests.push_back(
+      {"json_array",
+       QueryParamsWithResult(
+           {Struct({"x", "y", "欢迎"}, {Double(10.126), String("hello"),
+                                        Int64Array({10, 230, -12})})},
+           Json(JSONValue::ParseJSONString(
+                    R"([{"欢迎":[10,230,-12],"x":10.126,"y":"hello"}])")
+                    .value()))});
+  // 2+ arguments
+  tests.push_back(
+      {"json_array",
+       QueryParamsWithResult(
+           {NullInt64(), NullString()},
+           Json(JSONValue::ParseJSONString("[null,null]").value()))});
+  tests.push_back(
+      {"json_array",
+       QueryParamsWithResult(
+           {10, "foo"},
+           Json(JSONValue::ParseJSONString(R"([10,"foo"])").value()))});
+  tests.push_back(
+      {"json_array",
+       QueryParamsWithResult(
+           {Int64Array({10, -123, 156243}), NullInt64(), "foo", BoolArray({}),
+            StringArray({"test", "", "bar"})},
+           Json(JSONValue::ParseJSONString(
+                    R"([[10,-123,156243],null,"foo",[],["test","","bar"]])")
+                    .value()))});
+  tests.push_back(
+      {"json_array",
+       QueryParamsWithResult(
+           {10, "foo",
+            BigNumericValue::FromStringStrict("123.123456981723189237198273")
+                .value()},
+           Json(JSONValue::ParseJSONString(R"([10,"foo",123.1234569817232])")
+                    .value()))
+           .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)});
+  // Strict number parsing
+  tests.push_back(
+      {"json_array",
+       QueryParamsWithResult(
+           {10, "foo",
+            BigNumericValue::FromStringStrict("123.123456981723189237198273")
+                .value()},
+           NullJson(), OUT_OF_RANGE)
+           .AddRequiredFeature(FEATURE_BIGNUMERIC_TYPE)
+           .AddRequiredFeature(FEATURE_JSON_STRICT_NUMBER_PARSING)});
+  tests.push_back({"json_array",
+                   QueryParamsWithResult(
+                       {10, NullString(),
+                        Json(JSONValue::ParseJSONString(
+                                 R"({"a": 123, "b": {"dd": [null, true]}})")
+                                 .value())},
+                       Json(JSONValue::ParseJSONString(
+                                R"([10,null,{"a":123,"b":{"dd":[null,true]}}])")
+                                .value()))});
   return tests;
 }
 

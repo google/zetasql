@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Transactions
 
 ZetaSQL supports the following transaction statements.

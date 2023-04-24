@@ -1048,7 +1048,7 @@ void GetIntervalFunctions(TypeFactory* type_factory,
       {{interval_type, {int64_type, datepart_type}, FN_INTERVAL_CONSTRUCTOR}},
       FunctionOptions().set_get_sql_callback(&IntervalConstructorSQL));
 
-  auto with_name = [](const std::string& name) {
+  auto with_name = [](absl::string_view name) {
     return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
         .set_default(Value::Int64(0))
         .set_argument_name(name, kPositionalOrNamed);
@@ -1514,6 +1514,16 @@ void GetAggregateFunctions(TypeFactory* type_factory,
         FunctionSignatureOptions().set_uses_operation_collation()}},
       DefaultAggregateFunctionOptions().set_pre_resolution_argument_constraint(
           absl::bind_front(&CheckMinMaxArguments, "MAX")));
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_GROUPING_BUILTIN)) {
+    InsertFunction(
+        functions, options, "grouping", AGGREGATE,
+        {{int64_type, {ARG_TYPE_ANY_1}, FN_GROUPING}},
+        DefaultAggregateFunctionOptions()
+            .set_post_resolution_argument_constraint(
+                absl::bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
+  }
 
   FunctionArgumentTypeOptions non_null_non_agg;
   non_null_non_agg.set_is_not_aggregate();

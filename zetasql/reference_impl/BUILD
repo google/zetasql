@@ -128,6 +128,7 @@ cc_library(
     ],
     deps = [
         "//zetasql/base",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/public:collator_lite",
         "//zetasql/public:type",
@@ -631,6 +632,7 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:evaluator_test_table",
+        "//zetasql/common:thread_stack",
         "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public:evaluator_table_iterator",
         "//zetasql/public:language_options",

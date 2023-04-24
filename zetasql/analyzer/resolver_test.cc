@@ -925,9 +925,6 @@ TEST_F(ResolverTest, ResolvingBuiltinFucntionsFail) {
       "Syntax error: Unexpected string "
       "literal 'a'");
 
-  ParseFunctionFails("SAFE.cast(true as bool)",
-                     "Syntax error: Expected \")\" but got keyword AS");
-
   ParseFunctionFails(
       "SAFE.(case when KitchenSink.int64_key_1 = 0 then NULL else "
       "KitchenSink end)",

@@ -40,6 +40,8 @@ SELECT ROW_NUMBER() OVER ()
 FROM TestTable
 --
 ARRAY<STRUCT<INT64>>[{1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=row_number_2]
@@ -59,6 +61,8 @@ ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64>>[
   {true, 8, 4},
   {true, 10, 5}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=row_number_3]
@@ -86,6 +90,8 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[
   {NULL, 9},
   {NULL, 10}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=order_by_nulls_first_analytic_rownumber]
@@ -105,3 +111,5 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[
   {1, 9},
   {1, 10}
 ]
+
+NOTE: Reference implementation reports non-determinism.

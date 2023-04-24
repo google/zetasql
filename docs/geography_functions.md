@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Geography functions
 
 ZetaSQL supports geography functions.
@@ -156,6 +158,7 @@ behavior:
         <a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a><br>
         <a href="#st_distance"><code>ST_DISTANCE</code></a><br>
         <a href="#st_extent"><code>ST_EXTENT</code></a> (Aggregate)<br>
+        <a href="#st_linelocatepoint"><code>ST_LINELOCATEPOINT</code></a><br>
         <a href="#st_length"><code>ST_LENGTH</code></a><br>
         <a href="#st_maxdistance"><code>ST_MAXDISTANCE</code></a><br>
         <a href="#st_perimeter"><code>ST_PERIMETER</code></a><br>
@@ -240,18 +243,18 @@ WITH geos AS (
   SELECT 8 id, NULL, NULL, ST_GEOGPOINT(0, 0))
 SELECT ST_ANGLE(geo1,geo2,geo3) AS angle FROM geos ORDER BY id;
 
-+---------------------+
-| angle               |
-+---------------------+
-| 4.71238898038469    |
-| 0.78547432161873854 |
-| 0                   |
-| NULL                |
-| NULL                |
-| NULL                |
-| NULL                |
-| NULL                |
-+---------------------+
+/*---------------------*
+ | angle               |
+ +---------------------+
+ | 4.71238898038469    |
+ | 0.78547432161873854 |
+ | 0                   |
+ | NULL                |
+ | NULL                |
+ | NULL                |
+ | NULL                |
+ | NULL                |
+ *---------------------*/
 ```
 
 ### `ST_AREA`
@@ -422,17 +425,17 @@ WITH geos AS (
   SELECT 7, NULL, ST_GEOGPOINT(0, 0))
 SELECT ST_AZIMUTH(geo1, geo2) AS azimuth FROM geos ORDER BY id;
 
-+--------------------+
-| azimuth            |
-+--------------------+
-| 4.71238898038469   |
-| 1.5707963267948966 |
-| 0                  |
-| NULL               |
-| NULL               |
-| NULL               |
-| NULL               |
-+--------------------+
+/*--------------------*
+ | azimuth            |
+ +--------------------+
+ | 4.71238898038469   |
+ | 1.5707963267948966 |
+ | 0                  |
+ | NULL               |
+ | NULL               |
+ | NULL               |
+ | NULL               |
+ *--------------------*/
 ```
 
 ### `ST_BOUNDARY`
@@ -505,14 +508,14 @@ WITH data AS (
 SELECT id, ST_BOUNDINGBOX(g) AS box
 FROM data
 
-+----+------------------------------------------+
-| id | box                                      |
-+----+------------------------------------------+
-| 1  | {xmin:-125, ymin:46, xmax:-117, ymax:49} |
-| 2  | {xmin:172, ymin:53, xmax:230, ymax:70}   |
-| 3  | NULL                                     |
-| 4  | {xmin:-180, ymin:-90, xmax:180, ymax:90} |
-+----+------------------------------------------+
+/*----+------------------------------------------*
+ | id | box                                      |
+ +----+------------------------------------------+
+ | 1  | {xmin:-125, ymin:46, xmax:-117, ymax:49} |
+ | 2  | {xmin:172, ymin:53, xmax:230, ymax:70}   |
+ | 3  | NULL                                     |
+ | 4  | {xmin:-180, ymin:-90, xmax:180, ymax:90} |
+ *----+------------------------------------------*/
 ```
 
 See [`ST_EXTENT`][st-extent] for the aggregate version of `ST_BOUNDINGBOX`.
@@ -580,11 +583,11 @@ SELECT
   -- num_seg_quarter_circle=8, since 8 is the default
   ST_NUMPOINTS(ST_BUFFER(ST_GEOGFROMTEXT('POINT(100 2)'), 50)) AS thirty_two_sides;
 
-+-------------+------------------+
-| eight_sides | thirty_two_sides |
-+-------------+------------------+
-| 9           | 33               |
-+-------------+------------------+
+/*-------------+------------------*
+ | eight_sides | thirty_two_sides |
+ +-------------+------------------+
+ | 9           | 33               |
+ *-------------+------------------*/
 ```
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
@@ -652,11 +655,11 @@ SELECT
   -- tolerance_meters=1, or 1% of the buffer radius.
   st_NumPoints(ST_BUFFERWITHTOLERANCE(ST_GEOGFROMTEXT('POINT(100 2)'), 100, 1)) AS twenty_four_sides;
 
-+------------+-------------------+
-| five_sides | twenty_four_sides |
-+------------+-------------------+
-| 6          | 24                |
-+------------+-------------------+
+/*------------+-------------------*
+ | five_sides | twenty_four_sides |
+ +------------+-------------------+
+ | 6          | 24                |
+ *------------+-------------------*/
 ```
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
@@ -813,15 +816,15 @@ WITH Geos as
 SELECT row_id, geo, ST_CLUSTERDBSCAN(geo, 1e5, 1) OVER () AS cluster_num FROM
 Geos ORDER BY row_id
 
-+--------+-----------------------------------+-------------+
-| row_id |                geo                | cluster_num |
-+--------+-----------------------------------+-------------+
-|1       | GEOMETRYCOLLECTION EMPTY          |NULL         |
-|2       | MULTIPOINT(1 1, 2 2, 5 2, 4 4)    |0            |
-|3       | POINT(14 15)                      |1            |
-|4       | LINESTRING(40 1, 42 34, 44 39)    |2            |
-|5       | POLYGON((40 2, 40 1, 41 2, 40 2)) |2            |
-+--------+-----------------------------------+-------------+
+/*--------+-----------------------------------+-------------*
+ | row_id |                geo                | cluster_num |
+ +--------+-----------------------------------+-------------+
+ | 1      | GEOMETRYCOLLECTION EMPTY          | NULL        |
+ | 2      | MULTIPOINT(1 1, 2 2, 5 2, 4 4)    | 0           |
+ | 3      | POINT(14 15)                      | 1           |
+ | 4      | LINESTRING(40 1, 42 34, 44 39)    | 2           |
+ | 5      | POLYGON((40 2, 40 1, 41 2, 40 2)) | 2           |
+ *--------+-----------------------------------+-------------*/
 ```
 
 [dbscan-link]: https://en.wikipedia.org/wiki/DBSCAN
@@ -857,13 +860,13 @@ SELECT
               ST_GEOGPOINT(i, i)) AS `contains`
 FROM UNNEST([0, 1, 10]) AS i;
 
-+--------------+----------+
-| p            | contains |
-+--------------+----------+
-| POINT(0 0)   | FALSE    |
-| POINT(1 1)   | FALSE    |
-| POINT(10 10) | TRUE     |
-+--------------+----------+
+/*--------------+----------*
+ | p            | contains |
+ +--------------+----------+
+ | POINT(0 0)   | FALSE    |
+ | POINT(1 1)   | FALSE    |
+ | POINT(10 10) | TRUE     |
+ *--------------+----------*/
 ```
 
 [st_covers]: #st_covers
@@ -912,13 +915,13 @@ SELECT
   ST_CONVEXHULL(g) AS convex_hull
 FROM Geographies;
 
-+-----------------------------------------+--------------------------------------------------------+
-|             input_geography             |                      convex_hull                       |
-+-----------------------------------------+--------------------------------------------------------+
-| POINT(1 1)                              | POINT(0.999999999999943 1)                             |
-| LINESTRING(1 1, 2 2)                    | LINESTRING(2 2, 1.49988573656168 1.5000570914792, 1 1) |
-| MULTIPOINT(1 9, 4 12, 2 11, 1 12, 0 15) | POLYGON((1 9, 4 12, 0 15, 1 9))                        |
-+-----------------------------------------+--------------------------------------------------------+
+/*-----------------------------------------+--------------------------------------------------------*
+ |             input_geography             |                      convex_hull                       |
+ +-----------------------------------------+--------------------------------------------------------+
+ | POINT(1 1)                              | POINT(0.999999999999943 1)                             |
+ | LINESTRING(1 1, 2 2)                    | LINESTRING(2 2, 1.49988573656168 1.5000570914792, 1 1) |
+ | MULTIPOINT(1 9, 4 12, 2 11, 1 12, 0 15) | POLYGON((1 9, 4 12, 0 15, 1 9))                        |
+ *-----------------------------------------+--------------------------------------------------------*/
 ```
 
 ### `ST_COVEREDBY`
@@ -971,13 +974,13 @@ SELECT
             ST_GEOGPOINT(i, i)) AS `covers`
 FROM UNNEST([0, 1, 10]) AS i;
 
-+--------------+--------+
-| p            | covers |
-+--------------+--------+
-| POINT(0 0)   | FALSE  |
-| POINT(1 1)   | TRUE   |
-| POINT(10 10) | TRUE   |
-+--------------+--------+
+/*--------------+--------*
+ | p            | covers |
+ +--------------+--------+
+ | POINT(0 0)   | FALSE  |
+ | POINT(1 1)   | TRUE   |
+ | POINT(10 10) | TRUE   |
+ *--------------+--------*/
 ```
 
 ### `ST_DIFFERENCE`
@@ -1022,11 +1025,11 @@ SELECT
       ST_GEOGFROMTEXT('POLYGON((4 2, 6 2, 8 6, 4 2))')
   );
 
-+--------------------------------------------------------+
-| difference_of_geog1_and_geog2                          |
-+--------------------------------------------------------+
-| POLYGON((0 0, 10 0, 10 10, 0 0), (8 6, 6 2, 4 2, 8 6)) |
-+--------------------------------------------------------+
+/*--------------------------------------------------------*
+ | difference_of_geog1_and_geog2                          |
+ +--------------------------------------------------------+
+ | POLYGON((0 0, 10 0, 10 10, 0 0), (8 6, 6 2, 4 2, 8 6)) |
+ *--------------------------------------------------------*/
 ```
 
 ### `ST_DIMENSION`
@@ -1141,15 +1144,15 @@ SELECT
   ST_DUMP(geography) AS dumped_geographies
 FROM example
 
-+-------------------------------------+------------------------------------+
-|         original_geographies        |      dumped_geographies            |
-+-------------------------------------+------------------------------------+
-| POINT(0 0)                          | [POINT(0 0)]                       |
-| MULTIPOINT(0 0, 1 1)                | [POINT(0 0), POINT(1 1)]           |
-| GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0), LINESTRING(1 2, 2 1)] |
-|   LINESTRING(1 2, 2 1))             |                                    |
-+-------------------------------------+------------------------------------+
-```
+/*-------------------------------------+------------------------------------*
+ |         original_geographies        |      dumped_geographies            |
+ +-------------------------------------+------------------------------------+
+ | POINT(0 0)                          | [POINT(0 0)]                       |
+ | MULTIPOINT(0 0, 1 1)                | [POINT(0 0), POINT(1 1)]           |
+ | GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0), LINESTRING(1 2, 2 1)] |
+ |   LINESTRING(1 2, 2 1))             |                                    |
+ *-------------------------------------+------------------------------------*/
+ ```
 
 The following example shows how `ST_DUMP` with the dimension argument only
 returns simple geographies of the given dimension.
@@ -1162,12 +1165,12 @@ SELECT
   ST_DUMP(geography, 1) AS dumped_geographies
 FROM example
 
-+-------------------------------------+------------------------------+
-|         original_geographies        |      dumped_geographies      |
-+-------------------------------------+------------------------------+
-| GEOMETRYCOLLECTION(POINT(0 0),      | [LINESTRING(1 2, 2 1)]       |
-|   LINESTRING(1 2, 2 1))             |                              |
-+-------------------------------------+------------------------------+
+/*-------------------------------------+------------------------------*
+ |         original_geographies        |      dumped_geographies      |
+ +-------------------------------------+------------------------------+
+ | GEOMETRYCOLLECTION(POINT(0 0),      | [LINESTRING(1 2, 2 1)]       |
+ |   LINESTRING(1 2, 2 1))             |                              |
+ *-------------------------------------+------------------------------*/
 ```
 
 ### `ST_DUMPPOINTS`
@@ -1199,14 +1202,14 @@ SELECT
   ST_DUMPPOINTS(geography) AS dumped_points_geographies
 FROM example
 
-+-------------------------------------+------------------------------------+
-| original_geographies                | dumped_points_geographies          |
-+-------------------------------------+------------------------------------+
-| POINT(0 0)                          | [POINT(0 0)]                       |
-| MULTIPOINT(0 0, 1 1)                | [POINT(0 0),POINT(1 1)]            |
-| GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0),POINT(1 2),POINT(2 1)] |
-|   LINESTRING(1 2, 2 1))             |                                    |
-+-------------------------------------+------------------------------------+
+/*-------------------------------------+------------------------------------*
+ | original_geographies                | dumped_points_geographies          |
+ +-------------------------------------+------------------------------------+
+ | POINT(0 0)                          | [POINT(0 0)]                       |
+ | MULTIPOINT(0 0, 1 1)                | [POINT(0 0),POINT(1 1)]            |
+ | GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0),POINT(1 2),POINT(2 1)] |
+ |   LINESTRING(1 2, 2 1))             |                                    |
+ *-------------------------------------+------------------------------------*/
 ```
 
 ### `ST_DWITHIN`
@@ -1257,11 +1260,11 @@ Point `GEOGRAPHY`
 ```sql
 SELECT ST_ENDPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) last
 
-+--------------+
-| last         |
-+--------------+
-| POINT(3 3)   |
-+--------------+
+/*--------------*
+ | last         |
+ +--------------+
+ | POINT(3 3)   |
+ *--------------*/
 ```
 
 ### `ST_EQUALS`
@@ -1340,11 +1343,11 @@ WITH data AS (
 SELECT ST_EXTENT(g) AS box
 FROM data
 
-+----------------------------------------------+
-| box                                          |
-+----------------------------------------------+
-| {xmin:172, ymin:46, xmax:243, ymax:70}       |
-+----------------------------------------------+
+/*----------------------------------------------*
+ | box                                          |
+ +----------------------------------------------+
+ | {xmin:172, ymin:46, xmax:243, ymax:70}       |
+ *----------------------------------------------*/
 ```
 
 [`ST_BOUNDINGBOX`][st-boundingbox] for the non-aggregate version of `ST_EXTENT`.
@@ -1383,12 +1386,12 @@ WITH geo as
                                   (2 2, 3 4, 2 4, 2 2))''') as g)
 SELECT ST_EXTERIORRING(g) AS ring FROM geo;
 
-+---------------------------------------+
-| ring                                  |
-+---------------------------------------+
-| LINESTRING(2 2, 1 4, 0 0, 2 2)        |
-| LINESTRING(5 1, 5 10, 1 10, 1 1, 5 1) |
-+---------------------------------------+
+/*---------------------------------------*
+ | ring                                  |
+ +---------------------------------------+
+ | LINESTRING(2 2, 1 4, 0 0, 2 2)        |
+ | LINESTRING(5 1, 5 10, 1 10, 1 1, 5 1) |
+ *---------------------------------------*/
 ```
 
 ### `ST_GEOGFROM`
@@ -1429,11 +1432,11 @@ This takes a WKT-formatted string and returns a `GEOGRAPHY` polygon:
 ```sql
 SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format
 
-+------------------------------------+
-| WKT_format                         |
-+------------------------------------+
-| POLYGON((2 0, 2 2, 0 2, 0 0, 2 0)) |
-+------------------------------------+
+/*------------------------------------*
+ | WKT_format                         |
+ +------------------------------------+
+ | POLYGON((2 0, 2 2, 0 2, 0 0, 2 0)) |
+ *------------------------------------*/
 ```
 
 This takes a WKB-formatted hexadecimal-encoded string and returns a
@@ -1442,11 +1445,11 @@ This takes a WKB-formatted hexadecimal-encoded string and returns a
 ```sql
 SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WKB_format
 
-+----------------+
-| WKB_format     |
-+----------------+
-| POINT(2 4)     |
-+----------------+
+/*----------------*
+ | WKB_format     |
+ +----------------+
+ | POINT(2 4)     |
+ *----------------*/
 ```
 
 This takes WKB-formatted bytes and returns a `GEOGRAPHY` point:
@@ -1454,11 +1457,11 @@ This takes WKB-formatted bytes and returns a `GEOGRAPHY` point:
 ```sql
 SELECT ST_GEOGFROM('010100000000000000000000400000000000001040')-AS WKB_format
 
-+----------------+
-| WKB_format     |
-+----------------+
-| POINT(2 4)     |
-+----------------+
+/*----------------*
+ | WKB_format     |
+ +----------------+
+ | POINT(2 4)     |
+ *----------------*/
 ```
 
 This takes a GeoJSON-formatted string and returns a `GEOGRAPHY` polygon:
@@ -1468,11 +1471,11 @@ SELECT ST_GEOGFROM(
   '{ "type": "Polygon", "coordinates": [ [ [2, 0], [2, 2], [1, 2], [0, 2], [0, 0], [2, 0] ] ] }'
 ) AS GEOJSON_format
 
-+-----------------------------------------+
-| GEOJSON_format                          |
-+-----------------------------------------+
-| POLYGON((2 0, 2 2, 1 2, 0 2, 0 0, 2 0)) |
-+-----------------------------------------+
+/*-----------------------------------------*
+ | GEOJSON_format                          |
+ +-----------------------------------------+
+ | POLYGON((2 0, 2 2, 1 2, 0 2, 0 0, 2 0)) |
+ *-----------------------------------------*/
 ```
 
 [st-geogfromtext]: #st_geogfromtext
@@ -1612,11 +1615,11 @@ SELECT
   ST_CONTAINS(ST_GEOGFROMTEXT(p, TRUE),  ST_GEOGPOINT(1, 1)) AS oriented
 FROM polygon;
 
-+-------------------+---------------+-----------+
-| fromtext_default  | non_oriented  | oriented  |
-+-------------------+---------------+-----------+
-| TRUE              | TRUE          | FALSE     |
-+-------------------+---------------+-----------+
+/*-------------------+---------------+-----------*
+ | fromtext_default  | non_oriented  | oriented  |
+ +-------------------+---------------+-----------+
+ | TRUE              | TRUE          | FALSE     |
+ *-------------------+---------------+-----------*/
 ```
 
 #### Signature 2 
@@ -1685,11 +1688,11 @@ SELECT
   ST_CONTAINS(ST_GEOGFROMTEXT(p, oriented => TRUE),  ST_GEOGPOINT(1, 1)) AS oriented
 FROM polygon;
 
-+-------------------+---------------+-----------+
-| fromtext_default  | non_oriented  | oriented  |
-+-------------------+---------------+-----------+
-| TRUE              | TRUE          | FALSE     |
-+-------------------+---------------+-----------+
+/*-------------------+---------------+-----------*
+ | fromtext_default  | non_oriented  | oriented  |
+ +-------------------+---------------+-----------+
+ | TRUE              | TRUE          | FALSE     |
+ *-------------------+---------------+-----------*/
 ```
 
 The following query converts a WKT string with an invalid polygon to
@@ -1706,11 +1709,11 @@ SELECT
   SAFE.ST_GEOGFROMTEXT(wkt, make_valid => TRUE) as valid_geom
 FROM data
 
-+------+-----------------------------------------------------------------+
-| geom | valid_geom                                                      |
-+------+-----------------------------------------------------------------+
-| NULL | MULTIPOLYGON(((0 -1, 1 0, 0 1, 0 -1)), ((1 0, 2 -1, 2 1, 1 0))) |
-+------+-----------------------------------------------------------------+
+/*------+-----------------------------------------------------------------*
+ | geom | valid_geom                                                      |
+ +------+-----------------------------------------------------------------+
+ | NULL | MULTIPOLYGON(((0 -1, 1 0, 0 1, 0 -1)), ((1 0, 2 -1, 2 1, 1 0))) |
+ *------+-----------------------------------------------------------------*/
 ```
 
 [ogc-link]: https://www.ogc.org/standards/sfa
@@ -1834,11 +1837,11 @@ Returns a GeoHash of the Seattle Center with 10 characters of precision.
 ```sql
 SELECT ST_GEOHASH(ST_GEOGPOINT(-122.35, 47.62), 10) geohash
 
-+--------------+
-| geohash      |
-+--------------+
-| c22yzugqw7   |
-+--------------+
+/*--------------*
+ | geohash      |
+ +--------------+
+ | c22yzugqw7   |
+ *--------------*/
 ```
 
 [geohash-link]: https://en.wikipedia.org/wiki/Geohash
@@ -1891,14 +1894,14 @@ SELECT
   ST_GEOMETRYTYPE(geography) AS geometry_type_name
 FROM example;
 
-+-------------------------------------------------------------------+-----------------------+
-| WKT                                                               | geometry_type_name    |
-+-------------------------------------------------------------------+-----------------------+
-| POINT(0 1)                                                        | ST_Point              |
-| MULTILINESTRING((2 2, 3 4), (5 6, 7 7))                           | ST_MultiLineString    |
-| GEOMETRYCOLLECTION(MULTIPOINT(-1 2, 0 12), LINESTRING(-2 4, 0 6)) | ST_GeometryCollection |
-| GEOMETRYCOLLECTION EMPTY                                          | ST_GeometryCollection |
-+-------------------------------------------------------------------+-----------------------+
+/*-------------------------------------------------------------------+-----------------------*
+ | WKT                                                               | geometry_type_name    |
+ +-------------------------------------------------------------------+-----------------------+
+ | POINT(0 1)                                                        | ST_Point              |
+ | MULTILINESTRING((2 2, 3 4), (5 6, 7 7))                           | ST_MultiLineString    |
+ | GEOMETRYCOLLECTION(MULTIPOINT(-1 2, 0 12), LINESTRING(-2 4, 0 6)) | ST_GeometryCollection |
+ | GEOMETRYCOLLECTION EMPTY                                          | ST_GeometryCollection |
+ *-------------------------------------------------------------------+-----------------------*/
 ```
 
 [ogc-link]: https://www.ogc.org/standards/sfa
@@ -1947,15 +1950,15 @@ WITH geo AS (
   SELECT NULL)
 SELECT ST_INTERIORRINGS(g) AS rings FROM geo;
 
-+----------------------------------------------------------------------------+
-| rings                                                                      |
-+----------------------------------------------------------------------------+
-| []                                                                         |
-| [LINESTRING(2 2, 3 4, 2 4, 2 2)]                                           |
-| [LINESTRING(2.5 2, 3.5 3, 2 2.5, 2.5 2), LINESTRING(3 3, 4 6, 3.5 7, 3 3)] |
-| []                                                                         |
-| NULL                                                                       |
-+----------------------------------------------------------------------------+
+/*----------------------------------------------------------------------------*
+ | rings                                                                      |
+ +----------------------------------------------------------------------------+
+ | []                                                                         |
+ | [LINESTRING(2 2, 3 4, 2 4, 2 2)]                                           |
+ | [LINESTRING(2.5 2, 3.5 3, 2 2.5, 2.5 2), LINESTRING(3 3, 4 6, 3.5 7, 3 3)] |
+ | []                                                                         |
+ | NULL                                                                       |
+ *----------------------------------------------------------------------------*/
 ```
 
  
@@ -2045,13 +2048,14 @@ SELECT p, ST_INTERSECTSBOX(p, -90, 0, 90, 20) AS box1,
        ST_INTERSECTSBOX(p, 90, 0, -90, 20) AS box2
 FROM UNNEST([ST_GEOGPOINT(10, 10), ST_GEOGPOINT(170, 10),
              ST_GEOGPOINT(30, 30)]) p
-+----------------+--------------+--------------+
-| p              | box1         | box2         |
-+----------------+--------------+--------------+
-| POINT(10 10)   | TRUE         | FALSE        |
-| POINT(170 10)  | FALSE        | TRUE         |
-| POINT(30 30)   | FALSE        | FALSE        |
-+----------------+--------------+--------------+
+
+/*----------------+--------------+--------------*
+ | p              | box1         | box2         |
+ +----------------+--------------+--------------+
+ | POINT(10 10)   | TRUE         | FALSE        |
+ | POINT(170 10)  | FALSE        | TRUE         |
+ | POINT(30 30)   | FALSE        | FALSE        |
+ *----------------+--------------+--------------*/
 ```
 
 ### `ST_ISCLOSED`
@@ -2097,15 +2101,15 @@ SELECT
   ST_ISCLOSED(geography) AS is_closed,
 FROM example;
 
-+------------------------------------------------------+-----------+
-| geography                                            | is_closed |
-+------------------------------------------------------+-----------+
-| POINT(5 0)                                           | TRUE      |
-| LINESTRING(0 1, 4 3, 2 6, 0 1)                       | TRUE      |
-| LINESTRING(2 6, 1 3, 3 9)                            | FALSE     |
-| GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | FALSE     |
-| GEOMETRYCOLLECTION EMPTY                             | FALSE     |
-+------------------------------------------------------+-----------+
+/*------------------------------------------------------+-----------*
+ | geography                                            | is_closed |
+ +------------------------------------------------------+-----------+
+ | POINT(5 0)                                           | TRUE      |
+ | LINESTRING(0 1, 4 3, 2 6, 0 1)                       | TRUE      |
+ | LINESTRING(2 6, 1 3, 3 9)                            | FALSE     |
+ | GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | FALSE     |
+ | GEOMETRYCOLLECTION EMPTY                             | FALSE     |
+ *------------------------------------------------------+-----------*/
 ```
 
 [st-boundary]: #st_boundary
@@ -2197,6 +2201,79 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 `DOUBLE`
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_LINELOCATEPOINT`
+
+```sql
+ST_LINELOCATEPOINT(linestring_geography, point_geography)
+```
+
+**Description**
+
+Gets a section of a linestring between the start point and a selected point (a
+point on the linestring closest to the `point_geography` argument). Returns the
+percentage that this section represents in the linestring.
+
+Details:
+
++   To select a point on the linestring `GEOGRAPHY` (`linestring_geography`),
+    this function takes a point `GEOGRAPHY` (`point_geography`) and finds the
+    [closest point][st-closestpoint] to it on the linestring.
++   If two points on `linestring_geography` are an equal distance away from
+    `point_geography`, it is not guaranteed which one will be selected.
++   The return value is an inclusive value between 0 and 1 (0-100%).
++   If the selected point is the start point on the linestring, function returns
+    0 (0%).
++   If the selected point is the end point on the linestring, function returns 1
+    (100%).
+
+`NULL` and error handling:
+
++   Returns `NULL` if any input argument is `NULL`.
++   Returns an error if `linestring_geography` is not a linestring or if
+    `point_geography` is not a point. Use the `SAFE` prefix
+    to obtain `NULL` for invalid input instead of an error.
+
+**Return Type**
+
+`DOUBLE`
+
+**Examples**
+
+```sql
+WITH geos AS (
+    SELECT ST_GEOGPOINT(0, 0) AS point UNION ALL
+    SELECT ST_GEOGPOINT(1, 0) UNION ALL
+    SELECT ST_GEOGPOINT(1, 1) UNION ALL
+    SELECT ST_GEOGPOINT(2, 2) UNION ALL
+    SELECT ST_GEOGPOINT(3, 3) UNION ALL
+    SELECT ST_GEOGPOINT(4, 4) UNION ALL
+    SELECT ST_GEOGPOINT(5, 5) UNION ALL
+    SELECT ST_GEOGPOINT(6, 5) UNION ALL
+    SELECT NULL
+  )
+SELECT
+  point AS input_point,
+  ST_LINELOCATEPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 5 5)'), point)
+    AS percentage_from_beginning
+FROM geos
+
+/*-------------+---------------------------*
+ | input_point | percentage_from_beginning |
+ +-------------+---------------------------+
+ | POINT(0 0)  | 0                         |
+ | POINT(1 0)  | 0                         |
+ | POINT(1 1)  | 0                         |
+ | POINT(2 2)  | 0.25015214685147907       |
+ | POINT(3 3)  | 0.5002284283637185        |
+ | POINT(4 4)  | 0.7501905913884388        |
+ | POINT(5 5)  | 1                         |
+ | POINT(6 5)  | 1                         |
+ | NULL        | NULL                      |
+ *-------------+---------------------------*/
+```
+
+[st-closestpoint]: #st_closestpoint
 
 ### `ST_MAKELINE`
 
@@ -2444,14 +2521,14 @@ SELECT
   ST_NUMGEOMETRIES(geography) AS num_geometries,
 FROM example;
 
-+------------------------------------------------------+----------------+
-| geography                                            | num_geometries |
-+------------------------------------------------------+----------------+
-| POINT(5 0)                                           | 1              |
-| MULTIPOINT(0 1, 4 3, 2 6)                            | 3              |
-| GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | 2              |
-| GEOMETRYCOLLECTION EMPTY                             | 0              |
-+------------------------------------------------------+----------------+
+/*------------------------------------------------------+----------------*
+ | geography                                            | num_geometries |
+ +------------------------------------------------------+----------------+
+ | POINT(5 0)                                           | 1              |
+ | MULTIPOINT(0 1, 4 3, 2 6)                            | 3              |
+ | GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | 2              |
+ | GEOMETRYCOLLECTION EMPTY                             | 0              |
+ *------------------------------------------------------+----------------*/
 ```
 
 ### `ST_NUMPOINTS`
@@ -2533,11 +2610,11 @@ SELECT ST_POINTN(g, 1) AS first, ST_POINTN(g, -1) AS last,
     ST_POINTN(g, 2) AS second, ST_POINTN(g, -2) AS second_to_last
 FROM linestring;
 
-+--------------+--------------+--------------+----------------+
-| first        | last         | second       | second_to_last |
-+--------------+--------------+--------------+----------------+
-| POINT(1 1)   | POINT(3 3)   | POINT(2 1)   | POINT(3 2)     |
-+--------------+--------------+--------------+----------------+
+/*--------------+--------------+--------------+----------------*
+ | first        | last         | second       | second_to_last |
+ +--------------+--------------+--------------+----------------+
+ | POINT(1 1)   | POINT(3 3)   | POINT(2 1)   | POINT(3 2)     |
+ *--------------+--------------+--------------+----------------*/
 ```
 
 [st-startpoint]: #st_startpoint
@@ -2592,11 +2669,11 @@ SELECT
    ST_SIMPLIFY(line, 1) AS simplified_line
 FROM example;
 
-+---------------------------------------------+----------------------+
-|                original_line                |   simplified_line    |
-+---------------------------------------------+----------------------+
-| LINESTRING(0 0, 0.05 0, 0.1 0, 0.15 0, 2 0) | LINESTRING(0 0, 2 0) |
-+---------------------------------------------+----------------------+
+/*---------------------------------------------+----------------------*
+ |                original_line                |   simplified_line    |
+ +---------------------------------------------+----------------------+
+ | LINESTRING(0 0, 0.05 0, 0.1 0, 0.15 0, 2 0) | LINESTRING(0 0, 2 0) |
+ *---------------------------------------------+----------------------*/
 ```
 
 The following example illustrates how the result of `ST_SIMPLIFY` can have a
@@ -2614,13 +2691,13 @@ SELECT
   ST_SIMPLIFY(polygon, tolerance) AS simplified_result
 FROM example
 
-+-------------------------------------+------------------+-------------------------------------+
-|          original_triangle          | tolerance_meters |          simplified_result          |
-+-------------------------------------+------------------+-------------------------------------+
-| POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |             1000 | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |
-| POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |            10000 |            LINESTRING(0 0, 0.1 0.1) |
-| POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |           100000 |                          POINT(0 0) |
-+-------------------------------------+------------------+-------------------------------------+
+/*-------------------------------------+------------------+-------------------------------------*
+ |          original_triangle          | tolerance_meters |          simplified_result          |
+ +-------------------------------------+------------------+-------------------------------------+
+ | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |             1000 | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |
+ | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |            10000 |            LINESTRING(0 0, 0.1 0.1) |
+ | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |           100000 |                          POINT(0 0) |
+ *-------------------------------------+------------------+-------------------------------------*/
 ```
 
 ### `ST_SNAPTOGRID`
@@ -2665,11 +2742,11 @@ Point `GEOGRAPHY`
 ```sql
 SELECT ST_STARTPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) first
 
-+--------------+
-| first        |
-+--------------+
-| POINT(1 1)   |
-+--------------+
+/*--------------*
+ | first        |
+ +--------------+
+ | POINT(1 1)   |
+ *--------------*/
 ```
 
 ### `ST_TOUCHES`
@@ -2798,13 +2875,13 @@ WITH points AS
    ST_Y(p) as latitude
 FROM points;
 
-+--------------+-----------+----------+
-| p            | longitude | latitude |
-+--------------+-----------+----------+
-| POINT(0 1)   | 0.0       | 1.0      |
-| POINT(5 6)   | 5.0       | 6.0      |
-| POINT(12 13) | 12.0      | 13.0     |
-+--------------+-----------+----------+
+/*--------------+-----------+----------*
+ | p            | longitude | latitude |
+ +--------------+-----------+----------+
+ | POINT(0 1)   | 0.0       | 1.0      |
+ | POINT(5 6)   | 5.0       | 6.0      |
+ | POINT(12 13) | 12.0      | 13.0     |
+ *--------------+-----------+----------*/
 ```
 
 ### `ST_Y`

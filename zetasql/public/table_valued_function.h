@@ -539,10 +539,6 @@ class TVFRelation {
                          TVFRelationProto* proto) const;
   static absl::StatusOr<TVFRelation> Deserialize(
       const TVFRelationProto& proto, const TypeDeserializer& type_deserializer);
-  static absl::StatusOr<TVFRelation> Deserialize(
-      const TVFRelationProto& proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      TypeFactory* factory);
 
  private:
   ColumnList columns_;

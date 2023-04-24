@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Procedural language
 
 The ZetaSQL procedural language lets you execute multiple statements
@@ -253,14 +255,14 @@ EXECUTE IMMEDIATE
 -- first_date
 EXECUTE IMMEDIATE "SELECT publish_date FROM Books LIMIT 1" INTO first_date;
 
-+------------------+------------------+
-| title            | publish_date     |
-+------------------+------------------+
-| Hamlet           | 1599             |
-| Ulysses          | 1922             |
-| Emma             | 1815             |
-| Middlemarch      | 1871             |
-+------------------+------------------+
+/*------------------+------------------*
+ | title            | publish_date     |
+ +------------------+------------------+
+ | Hamlet           | 1599             |
+ | Ulysses          | 1922             |
+ | Emma             | 1815             |
+ | Middlemarch      | 1871             |
+ *------------------+------------------*/
 ```
 
 ## `BEGIN...END` 
@@ -753,12 +755,12 @@ SELECT x;
 
 This example outputs the following:
 
-```
-+----+
-| x  |
-+----+
-| 10 |
-+----+
+```sql
+/*----*
+ | x  |
+ +----+
+ | 10 |
+ *----*/
 ```
 
 ### `REPEAT`
@@ -802,24 +804,24 @@ END <span class="kwd">REPEAT</span>;
 
 This example outputs the following:
 
-```none
-+---+
-| x |
-+---+
-| 1 |
-+---+
+```sql
+/*---*
+ | x |
+ +---+
+ | 1 |
+ *---*/
 
-+---+
-| x |
-+---+
-| 2 |
-+---+
+/*---*
+ | x |
+ +---+
+ | 2 |
+ *---*/
 
-+---+
-| x |
-+---+
-| 3 |
-+---+
+/*---*
+ | x |
+ +---+
+ | 3 |
+ *---*/
 ```
 
 ### `WHILE`

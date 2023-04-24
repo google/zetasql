@@ -557,3 +557,11 @@ LEFT JOIN
 ORDER BY o;
 --
 ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]
+==
+
+# FLATTEN can be unordered even if the top-level array is ordered, if the
+# nested array is not.
+[name=flatten_deeply_nested_unordered_array]
+SELECT FLATTEN([( SELECT AS STRUCT ARRAY_AGG(n) AS arr FROM UNNEST([1, 2, 3, 4, 5]) AS n )].arr)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2, 4, 1, 3, 5]}]

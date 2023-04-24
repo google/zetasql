@@ -26,7 +26,6 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gtest/gtest.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 
 namespace zetasql {

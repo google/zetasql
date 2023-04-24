@@ -1135,3 +1135,21 @@ FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
 b: BOOL
 p: DOUBLE
 q: DOUBLE
+
+==
+
+# Field access on parameter.
+SELECT @p.param_field
+--
+ERROR: Cannot access field param_field on parameter p whose type is unknown [at 1:11]
+SELECT @p.param_field
+          ^
+==
+
+# Nested field access on parameter.
+SELECT @p.param_message.param_field
+
+--
+ERROR: Cannot access field param_message on parameter p whose type is unknown [at 1:11]
+SELECT @p.param_message.param_field
+          ^

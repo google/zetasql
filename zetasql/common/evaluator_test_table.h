@@ -31,6 +31,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/clock.h"
@@ -42,7 +43,7 @@ class EvaluatorTestTable : public SimpleTable {
  public:
   // 'values[i][j]' is the value of 'columns[j]' in the i-th row.
   EvaluatorTestTable(
-      const std::string& name,
+      absl::string_view name,
       const std::vector<std::pair<std::string, const Type*>>& columns,
       const std::vector<std::vector<Value>>& values,
       const absl::Status& end_status,

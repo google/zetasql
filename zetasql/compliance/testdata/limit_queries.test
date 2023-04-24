@@ -45,17 +45,23 @@ SELECT COUNT(a) FROM (
 SELECT a FROM (SELECT 1.2 a UNION ALL SELECT 2.3 UNION ALL SELECT 3.4) LIMIT 1)
 --
 ARRAY<STRUCT<INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=limit_2]
 SELECT COUNT(a) FROM (
 SELECT a FROM (SELECT 1.2 a UNION ALL SELECT 2.3 UNION ALL SELECT 3.4) LIMIT 2)
 --
 ARRAY<STRUCT<INT64>>[{2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=limit_1_same_values]
 SELECT a FROM (SELECT 'x' a UNION ALL SELECT 'x' UNION ALL SELECT 'x') LIMIT 1
 --
 ARRAY<STRUCT<a STRING>>[{"x"}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=limit_10_one_element]
 SELECT a FROM (SELECT "Hello, world!" a) LIMIT 10
@@ -94,18 +100,24 @@ SELECT COUNT(a) FROM (
 SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT 3 OFFSET 0)
 --
 ARRAY<STRUCT<INT64>>[{3}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=limit_3_offset_1]
 SELECT COUNT(a) FROM (
 SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT 3 OFFSET 1)
 --
 ARRAY<STRUCT<INT64>>[{2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=limit_3_offset_2]
 SELECT COUNT(a) FROM (
 SELECT a FROM (SELECT 1 a UNION ALL SELECT 2 UNION ALL SELECT 3) LIMIT 3 OFFSET 2)
 --
 ARRAY<STRUCT<INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=limit_3_offset_3]
 SELECT a FROM (SELECT 'x' a UNION ALL SELECT 'y' UNION ALL SELECT 'z') LIMIT 3 OFFSET 3

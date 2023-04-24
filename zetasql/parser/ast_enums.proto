@@ -152,10 +152,10 @@ message ASTSetOperationEnums {
   // query> <set_op> <right_query>
   enum ColumnPropagationMode {
     // TODO: 0 reserved for future NOT_SET.
-    INNER = 1;   // All non-matching columns are ignored.
-    LEFT = 2;    // All columns of <left query> are preserved.
-    FULL = 3;    // All columns of <left query> and <right query> are preserved.
-    STRICT = 4;  // Non-matching columns are not allowed.
+    STRICT = 1;  // Non-matching columns are not allowed.
+    INNER = 2;   // All non-matching columns are dropped.
+    LEFT = 3;    // The non-matching columns from <right_query> are dropped.
+    FULL = 4;    // All columns of <left_query> and <right_query> are projected.
   }
 }
 message ASTUnaryExpressionEnums {

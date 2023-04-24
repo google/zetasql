@@ -111,7 +111,8 @@ class Resolver {
     Hint,
     Option,
     AnonymizationOption,
-    DifferentialPrivacyOption
+    DifferentialPrivacyOption,
+    AggregationThresholdOption,
   };
   // <*analyzer_options> should outlive the constructed Resolver. It must have
   // all arenas initialized.
@@ -1246,6 +1247,10 @@ class Resolver {
       std::unique_ptr<const ResolvedTableScan> table_scan,
       std::unique_ptr<ResolvedDeleteStmt>* output);
 
+  absl::Status ResolveUndropStatement(
+      const ASTUndropStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   absl::Status ResolveDropStatement(const ASTDropStatement* ast_statement,
                                     std::unique_ptr<ResolvedStatement>* output);
 
@@ -1905,6 +1910,15 @@ class Resolver {
       const ASTSelect* select, QueryResolutionInfo* query_resolution_info,
       std::unique_ptr<const ResolvedScan>* current_scan);
 
+  // Add a AddAggregationThresholdAggregateScan wrapping <input_scan> and
+  // producing the function call / expression columns. Must only be called if
+  // FEATURE_AGGREGATION_THRESHOLD is enabled and the column list contains
+  // aggregate function calls and/or group by columns.
+  absl::StatusOr<std::unique_ptr<const ResolvedScan>>
+  AddAggregationThresholdAggregateScan(
+      const ASTSelect* select, QueryResolutionInfo* query_resolution_info,
+      std::unique_ptr<const ResolvedScan> input_scan);
+
   // Add a ResolvedAnalyticScan wrapping <current_scan> and producing the
   // analytic function columns.  A ProjectScan will be inserted between the
   // input <current_scan> and ResolvedAnalyticScan if needed.
@@ -2032,7 +2046,7 @@ class Resolver {
       const ASTNode* ast_name_location, const google::protobuf::Descriptor* descriptor,
       absl::string_view name);
 
-  // Returns a vector of FieldDesciptors that correspond to each of the fields
+  // Returns a vector of FieldDescriptors that correspond to each of the fields
   // in the path <path_vector>. The first FieldDescriptor in the returned
   // vector is looked up with respect to <root_type>.
   // <path_vector> must only contain nested field extractions.
@@ -2271,6 +2285,14 @@ class Resolver {
         absl::Span<std::unique_ptr<ResolvedSetOperationItem>> resolved_inputs)
         const;
 
+    // Adds a cast to `set_operation_item` if necessary to convert its each
+    // column to the respective final column type in `column_list`.
+    // `item_index` denotes the index of the given `set_operation_item` in
+    // the set operation.
+    absl::Status CreateWrapperScanWithCasts(
+        const ResolvedColumnList& column_list, int item_index,
+        ResolvedSetOperationItem* set_operation_item) const;
+
     // Builds the final name list for the resolution of the set operation.
     absl::StatusOr<std::shared_ptr<const NameList>> BuildFinalNameList(
         const NameList& first_item_name_list,
@@ -2281,12 +2303,12 @@ class Resolver {
     absl::Status ValidateHint() const;
 
     // TODO: Update the doc string to include the validations for
-    //   CORRESPONDING and CORRESPONDING BY as we implement the features.
+    // CORRESPONDING BY as we implement the features.
     // Validates the corresponding clause if it presents. Specifically, it
     // validates:
     // - FULL, LEFT, and STRICT, if present, are used with CORRESPONDING or
     //   CORRESPONDING BY.
-    // - CORRESPONDING is not used.
+    // - FULL, LEFT, STRICT are not used.
     // - CORRESPONDING BY is not used.
     absl::Status ValidateCorresponding() const;
 
@@ -2296,6 +2318,50 @@ class Resolver {
     // Validates that all the set operations are identical. Returns a sql error
     // if the validation fails.
     absl::Status ValidateIdenticalSetOperator() const;
+
+    // Returns the names of the matching columns in the set operations. This
+    // function should only be called when `column_match_mode` is CORRESPONDING
+    // or CORRESPONDING_BY. A sql error is returned if
+    // - Some query has a value table type; or
+    // - CORRESPONDING / CORRESPONDING_BY -specific checks failed.
+    //
+    // Currently only CORRESPONDING without outer / strict mode is implemented.
+    // TODO: Update the function as we implement outer / strict
+    // mode and CORRESPONDING_BY.
+    absl::StatusOr<std::vector<IdString>> GetMatchingColumns(
+        const std::vector<ResolvedInputResult>& resolved_inputs,
+        ASTSetOperation::ColumnMatchMode column_match_mode) const;
+
+    // This function should only be called when the column match mode for the
+    // set operation is CORRESPONDING.
+    // Returns the intersection of the column names of the `resolved_inputs` (in
+    // the order in which they appear in the first query). A sql error is
+    // returned iff
+    // - Any of the ResolvedSetOperationItem has duplicate column names in its
+    //   output_column_list; or
+    // - Any of the ResolvedSetOperationItem has anoynmous columns; or
+    // - The intersection is empty.
+    absl::StatusOr<std::vector<IdString>> GetMatchingColumnsCorresponding(
+        const std::vector<ResolvedInputResult>& resolved_inputs) const;
+
+    // Selects and reorders the columns of `resolved_inputs` to match the same
+    // name and order as `matched_column_names`.
+    //
+    // `matched_column_names`: Must be non-empty, and all the column names must
+    // be present in the column list of every query in `resolved_inputs`.
+    absl::Status SelectAndReorderColumns(
+        const std::vector<IdString>& matched_column_names,
+        std::vector<ResolvedInputResult>& resolved_inputs) const;
+
+    // Returns the `column_match_mode()` of the first set operation metadata.
+    // Must be called after verifying all set operation metadata share the same
+    // column match mode.
+    ASTSetOperation::ColumnMatchMode ASTColumnMatchMode() const;
+
+    // Returns the `column_propagation_mode()` of the first set operation
+    // metadata. Must be called after verifying all set operation metadata share
+    // the same column propagation mode.
+    ASTSetOperation::ColumnPropagationMode ASTColumnPropagationMode() const;
 
     const ASTSetOperation* const set_operation_;
     Resolver* const resolver_;
@@ -2896,7 +2962,7 @@ class Resolver {
   //   T>(...))
   // * The select list of one-column expression subqueries.
   //
-  // The caller should treat inferred_type as a hint becausee it won't affect
+  // The caller should treat inferred_type as a hint because it won't affect
   // expressions that have their own type e.g. ARRAY<T>. The caller should still
   // verify that the expression matches their expected type, adding casts if
   // needed.
@@ -3241,7 +3307,7 @@ class Resolver {
   //    AST.)
   //
   // Otherwise, we attempt folding. If an error-occurs, we ignore the results
-  // an defer evaluation to runtime.
+  // and defer evaluation to runtime.
   absl::StatusOr<bool> ShouldTryCastConstantFold(
       const ResolvedExpr* resolved_argument, const Type* resolved_cast_type);
 
@@ -3951,6 +4017,18 @@ class Resolver {
   // name scope used if any of options has OptionProto::resolving_kind ==
   // FROM_NAME_SCOPE_IDENTIFIER.
   absl::Status ResolveAnonymizationOptionsList(
+      const ASTOptionsList* options_list,
+      const QueryResolutionInfo& query_resolution_info,
+      std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options);
+
+  // Resolve <options_list> and add the options onto <resolved_options>.
+  // Requires valid aggregation threshold option names and types specified in
+  // AllowedHintsAndOptions. The option names are matched in a case insensitive
+  // way. Validates option expression types and coerces them to target types if
+  // necessary. <query_resolution_info> is used to determine option type and
+  // construct from name scope used if any of options has
+  // OptionProto::resolving_kind == FROM_NAME_SCOPE_IDENTIFIER.
+  absl::Status ResolveAggregationThresholdOptionsList(
       const ASTOptionsList* options_list,
       const QueryResolutionInfo& query_resolution_info,
       std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options);

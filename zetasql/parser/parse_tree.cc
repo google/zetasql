@@ -162,6 +162,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CREATE_PRIVILEGE_RESTRICTION_STATEMENT] =
       "CreatePrivilegeRestrictionStatement";
   map[AST_CREATE_PROCEDURE_STATEMENT] = "CreateProcedureStatement";
+  map[AST_CREATE_REPLICA_MATERIALIZED_VIEW_STATEMENT] =
+      "CreateReplicaMaterializedViewStatement";
   map[AST_CREATE_ROW_ACCESS_POLICY_STATEMENT] =
       "CreateRowAccessPolicyStatement";
   map[AST_CREATE_SCHEMA_STATEMENT] = "CreateSchemaStatement";
@@ -211,6 +213,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_EXPORT_DATA_STATEMENT] = "ExportDataStatement";
   map[AST_EXPORT_MODEL_STATEMENT] = "ExportModelStatement";
   map[AST_EXPRESSION_SUBQUERY] = "ExpressionSubquery";
+  map[AST_EXPRESSION_WITH_ALIAS] = "ExpressionWithAlias";
   map[AST_EXTRACT_EXPRESSION] = "ExtractExpression";
   map[AST_FAKE] = "Fake";  // For testing purposes only.
   map[AST_FILTER_FIELDS_ARG] = "FilterFieldsArg";
@@ -323,6 +326,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_REPLACE_FIELDS_ARG] = "ReplaceFieldsArg";
   map[AST_REPLACE_FIELDS_EXPRESSION] = "ReplaceFieldsExpression";
   map[AST_REPLACE_TTL_ACTION] = "ReplaceTtlAction";
+  map[AST_REPLICA_MATERIALIZED_VIEW_DATA_SOURCE] =
+      "ReplicaMaterializedViewDataSource";
   map[AST_RESTRICT_TO_CLAUSE] = "RestrictToClause";
   map[AST_RETURNING_CLAUSE] = "ReturningClause";
   map[AST_RETURN_STATEMENT] = "ReturnStatement";
@@ -340,6 +345,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_SELECT_COLUMN] = "SelectColumn";
   map[AST_SELECT_LIST] = "SelectList";
   map[AST_SELECT_WITH] = "SelectWith";
+  map[AST_SEQUENCE_ARG] = "SequenceArg";
   map[AST_SET_AS_ACTION] = "SetAsOperation";
   map[AST_SET_COLLATE_CLAUSE] = "SetCollateClause";
   map[AST_SET_OPERATION] = "SetOperation";

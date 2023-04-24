@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Functions, operators, and conditionals
 
 This topic is a compilation of functions, operators, and
@@ -388,11 +390,11 @@ WITH orders AS (
 )
 SELECT t.customer.address.country FROM orders AS t;
 
-+---------+
-| country |
-+---------+
-| Canada  |
-+---------+
+/*---------*
+ | country |
+ +---------+
+ | Canada  |
+ *---------*/
 ```
 
 ### Array subscript operator 
@@ -455,11 +457,11 @@ SELECT
   item_array[SAFE_OFFSET(6)] AS item_safe_offset
 FROM Items
 
-+---------------------+------------+-------------+--------------+------------------+
-| item_array          | item_index | item_offset | item_ordinal | item_safe_offset |
-+---------------------+------------+-------------+--------------+------------------+
-| [coffee, tea, milk] | coffee     | coffee      | coffee       | NULL             |
-+----------------------------------+-------------+--------------+------------------+
+/*---------------------+------------+-------------+--------------+------------------*
+ | item_array          | item_index | item_offset | item_ordinal | item_safe_offset |
+ +---------------------+------------+-------------+--------------+------------------+
+ | [coffee, tea, milk] | coffee     | coffee      | coffee       | NULL             |
+ *----------------------------------+-------------+--------------+------------------*/
 ```
 
 When you reference an index that is out of range in an array, and a positional
@@ -536,11 +538,11 @@ SELECT
   item_struct[ORDINAL(1)] AS field_ordinal
 FROM Items
 
-+-------------+--------------+---------------+
-| field_index | field_offset | field_ordinal |
-+-------------+--------------+---------------+
-| 23          | 23           | 23            |
-+-------------+--------------+---------------+
+/*-------------+--------------+---------------*
+ | field_index | field_offset | field_ordinal |
+ +-------------+--------------+---------------+
+ | 23          | 23           | 23            |
+ *-------------+--------------+---------------*/
 ```
 
 When you reference an index that is out of range in a struct, an error is
@@ -620,13 +622,13 @@ FROM
       JSON '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'])
     AS json_value;
 
-+-----------------+
-| first_student   |
-+-----------------+
-| "Jane"          |
-| NULL            |
-| "John"          |
-+-----------------+
+/*-----------------*
+ | first_student   |
+ +-----------------+
+ | "Jane"          |
+ | NULL            |
+ | "John"          |
+ *-----------------*/
 ```
 
 ### Protocol buffer map subscript operator 
@@ -683,11 +685,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+-----------+
-| map_value |
-+-----------+
-| 2         |
-+-----------+
+/*-----------*
+ | map_value |
+ +-----------+
+ | 2         |
+ *-----------*/
 ```
 
 When the key does not exist in the map field and you use `KEY`, an error is
@@ -710,11 +712,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+------------------+
-| safe_key_missing |
-+------------------+
-| NULL             |
-+------------------+
+/*------------------*
+ | safe_key_missing |
+ +------------------+
+ | NULL             |
+ *------------------*/
 ```
 
 The subscript operator returns `NULL` when the map field or key is `NULL`.
@@ -727,11 +729,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+-----------------------+
-| null_map  | null_key  |
-+-----------------------+
-| NULL      | NULL      |
-+-----------------------+
+/*-----------------------*
+ | null_map  | null_key  |
+ +-----------------------+
+ | NULL      | NULL      |
+ *-----------------------*/
 ```
 
 ### Array elements field access operator 
@@ -883,11 +885,11 @@ WITH
   )
 SELECT * FROM T;
 
-+----------------------------------------------+
-| my_array                                     |
-+----------------------------------------------+
-| [{[{[25, 75] prices}, {[30] prices}] sales}] |
-+----------------------------------------------+
+/*----------------------------------------------*
+ | my_array                                     |
+ +----------------------------------------------+
+ | [{[{[25, 75] prices}, {[30] prices}] sales}] |
+ *----------------------------------------------*/
 ```
 
 This is what the array elements field access operator looks like in the
@@ -896,11 +898,11 @@ This is what the array elements field access operator looks like in the
 ```sql
 SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM T;
 
-+--------------+
-| all_prices   |
-+--------------+
-| [25, 75, 30] |
-+--------------+
+/*--------------*
+ | all_prices   |
+ +--------------+
+ | [25, 75, 30] |
+ *--------------*/
 ```
 
 This is how you use the array subscript operator to only return values at a
@@ -909,11 +911,11 @@ specific index in the `prices` array:
 ```sql
 SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM T;
 
-+--------------+
-| first_prices |
-+--------------+
-| [25, 30]     |
-+--------------+
+/*--------------*
+ | first_prices |
+ +--------------+
+ | [25, 30]     |
+ *--------------*/
 ```
 
 This is an example of an explicit `UNNEST` operation that includes the
@@ -922,13 +924,13 @@ array elements field access operator:
 ```sql
 SELECT all_prices FROM T, UNNEST(my_array.sales.prices) AS all_prices
 
-+------------+
-| all_prices |
-+------------+
-| 25         |
-| 75         |
-| 30         |
-+------------+
+/*------------*
+ | all_prices |
+ +------------+
+ | 25         |
+ | 75         |
+ | 30         |
+ *------------*/
 ```
 
 This is an example of an implicit `UNNEST` operation that includes the
@@ -937,13 +939,13 @@ array elements field access operator:
 ```sql
 SELECT all_prices FROM T, T.my_array.sales.prices AS all_prices
 
-+------------+
-| all_prices |
-+------------+
-| 25         |
-| 75         |
-| 30         |
-+------------+
+/*------------*
+ | all_prices |
+ +------------+
+ | 25         |
+ | 75         |
+ | 30         |
+ *------------*/
 ```
 
 This query produces an error because one of the `prices` arrays does not have
@@ -961,11 +963,11 @@ produces a `NULL` value instead of an error.
 ```sql
 SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM T;
 
-+---------------+
-| second_prices |
-+---------------+
-| [75, NULL]    |
-+---------------+
+/*---------------*
+ | second_prices |
+ +---------------+
+ | [75, NULL]    |
+ *---------------*/
 ```
 
 In this next example, an empty array and a `NULL` field value have been added to
@@ -988,11 +990,11 @@ WITH
   )
 SELECT FLATTEN(my_array.sales.prices) AS first_prices FROM T;
 
-+--------------+
-| first_prices |
-+--------------+
-| [25, 75, 30] |
-+--------------+
+/*--------------*
+ | first_prices |
+ +--------------+
+ | [25, 75, 30] |
+ *--------------*/
 ```
 
 The next examples in this section reference a protocol buffer called
@@ -1031,11 +1033,11 @@ WITH
   )
 SELECT FLATTEN(albums_array.song) AS songs FROM AlbumList
 
-+------------------------------+
-| songs                        |
-+------------------------------+
-| [North,South,Snow,Ice,Water] |
-+------------------------------+
+/*------------------------------*
+ | songs                        |
+ +------------------------------+
+ | [North,South,Snow,Ice,Water] |
+ *------------------------------*/
 ```
 
 The following example extracts a flattened array of album names, one album name
@@ -1065,12 +1067,12 @@ WITH
   )
 SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
 
-+----------------------+
-| names                |
-+----------------------+
-| One Way              |
-| After Hours          |
-+----------------------+
+/*----------------------*
+ | names                |
+ +----------------------+
+ | One Way              |
+ | After Hours          |
+ *----------------------*/
 ```
 
 ### Arithmetic operators
@@ -1237,11 +1239,11 @@ days.
 ```sql
 SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 
-+------------+------------+
-| day_later  | week_ago   |
-+------------+------------+
-| 2020-09-23 | 2020-09-15 |
-+------------+------------+
+/*------------+------------*
+ | day_later  | week_ago   |
+ +------------+------------+
+ | 2020-09-23 | 2020-09-15 |
+ *------------+------------*/
 ```
 
 ### Datetime subtraction
@@ -1267,11 +1269,11 @@ SELECT
   DATE "2021-05-20" - DATE "2020-04-19" AS date_diff,
   TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00" AS time_diff
 
-+-------------------+------------------------+
-| date_diff         | time_diff              |
-+-------------------+------------------------+
-| 0-0 396 0:0:0     | 0-0 0 36:34:56.789     |
-+-------------------+------------------------+
+/*-------------------+------------------------*
+ | date_diff         | time_diff              |
+ +-------------------+------------------------+
+ | 0-0 396 0:0:0     | 0-0 0 36:34:56.789     |
+ *-------------------+------------------------*/
 ```
 
 ### Interval arithmetic operators
@@ -1300,11 +1302,11 @@ SELECT
   DATE "2021-04-20" + INTERVAL 25 HOUR AS date_plus,
   TIMESTAMP "2021-05-02 00:01:02.345" - INTERVAL 10 SECOND AS time_minus;
 
-+-------------------------+--------------------------------+
-| date_plus               | time_minus                     |
-+-------------------------+--------------------------------+
-| 2021-04-21 01:00:00     | 2021-05-02 00:00:52.345+00     |
-+-------------------------+--------------------------------+
+/*-------------------------+--------------------------------*
+ | date_plus               | time_minus                     |
+ +-------------------------+--------------------------------+
+ | 2021-04-21 01:00:00     | 2021-05-02 00:00:52.345+00     |
+ *-------------------------+--------------------------------*/
 ```
 
 **Multiplication and division**
@@ -1328,11 +1330,11 @@ SELECT
   INTERVAL 10 YEAR / 3 AS div1,
   INTERVAL 1 MONTH / 12 AS div2
 
-+----------------+--------------+-------------+--------------+
-| mul1           | mul2         | div1        | div2         |
-+----------------+--------------+-------------+--------------+
-| 0-0 0 10:20:30 | 0-0 0 0:2:20 | 3-4 0 0:0:0 | 0-0 2 12:0:0 |
-+----------------+--------------+-------------+--------------+
+/*----------------+--------------+-------------+--------------*
+ | mul1           | mul2         | div1        | div2         |
+ +----------------+--------------+-------------+--------------+
+ | 0-0 0 10:20:30 | 0-0 0 0:2:20 | 3-4 0 0:0:0 | 0-0 2 12:0:0 |
+ *----------------+--------------+-------------+--------------*/
 ```
 
 ### Bitwise operators
@@ -1472,14 +1474,14 @@ to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 The examples in this section reference a table called `entry_table`:
 
 ```sql
-+-------+
-| entry |
-+-------+
-| a     |
-| b     |
-| c     |
-| NULL  |
-+-------+
+/*-------*
+ | entry |
+ +-------+
+ | a     |
+ | b     |
+ | c     |
+ | NULL  |
+ *-------*/
 ```
 
 ```sql
@@ -1489,11 +1491,11 @@ SELECT 'a' FROM entry_table WHERE entry = 'a'
 -- b => 'b' = 'a' => FALSE
 -- NULL => NULL = 'a' => NULL
 
-+-------+
-| entry |
-+-------+
-| a     |
-+-------+
+/*-------*
+ | entry |
+ +-------+
+ | a     |
+ *-------*/
 ```
 
 ```sql
@@ -1503,12 +1505,12 @@ SELECT entry FROM entry_table WHERE NOT (entry = 'a')
 -- b => NOT('b' = 'a') => NOT(FALSE) => TRUE
 -- NULL => NOT(NULL = 'a') => NOT(NULL) => NULL
 
-+-------+
-| entry |
-+-------+
-| b     |
-| c     |
-+-------+
+/*-------*
+ | entry |
+ +-------+
+ | b     |
+ | c     |
+ *-------*/
 ```
 
 ```sql
@@ -1518,11 +1520,11 @@ SELECT entry FROM entry_table WHERE entry IS NULL
 -- b => 'b' IS NULL => FALSE
 -- NULL => NULL IS NULL => TRUE
 
-+-------+
-| entry |
-+-------+
-| NULL  |
-+-------+
+/*-------*
+ | entry |
+ +-------+
+ | NULL  |
+ *-------*/
 ```
 
 ### Comparison operators
@@ -1535,7 +1537,6 @@ them to that common type for the comparison; ZetaSQL will generally
 coerce literals to the type of non-literals, where
 present. Comparable data types are defined in
 [Data Types][operators-link-to-data-types].
-
 NOTE: ZetaSQL allows comparisons
 between signed and unsigned integers.
 
@@ -1737,11 +1738,11 @@ WITH Words AS (
  )
 SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
 
-+--------+
-| result |
-+--------+
-| FALSE  |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | FALSE  |
+ *--------*/
 ```
 
 ### `IN` operator 
@@ -1877,15 +1878,15 @@ WITH Words AS (
  )
 SELECT * FROM Words;
 
-+----------+
-| value    |
-+----------+
-| Intend   |
-| Secure   |
-| Clarity  |
-| Peace    |
-| Intend   |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Intend   |
+ | Secure   |
+ | Clarity  |
+ | Peace    |
+ | Intend   |
+ *----------*/
 ```
 
 ```sql
@@ -1897,13 +1898,13 @@ WITH
   )
 SELECT * FROM Items;
 
-+----------------------------+
-| info                       |
-+----------------------------+
-| {blue color, round shape}  |
-| {blue color, square shape} |
-| {red color, round shape}   |
-+----------------------------+
+/*----------------------------*
+ | info                       |
+ +----------------------------+
+ | {blue color, round shape}  |
+ | {blue color, square shape} |
+ | {red color, round shape}   |
+ *----------------------------*/
 ```
 
 Example with `IN` and an expression:
@@ -1911,13 +1912,13 @@ Example with `IN` and an expression:
 ```sql
 SELECT * FROM Words WHERE value IN ('Intend', 'Secure');
 
-+----------+
-| value    |
-+----------+
-| Intend   |
-| Secure   |
-| Intend   |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Intend   |
+ | Secure   |
+ | Intend   |
+ *----------*/
 ```
 
 Example with `NOT IN` and an expression:
@@ -1925,13 +1926,13 @@ Example with `NOT IN` and an expression:
 ```sql
 SELECT * FROM Words WHERE value NOT IN ('Intend');
 
-+----------+
-| value    |
-+----------+
-| Secure   |
-| Clarity  |
-| Peace    |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Secure   |
+ | Clarity  |
+ | Peace    |
+ *----------*/
 ```
 
 Example with `IN`, a scalar subquery, and an expression:
@@ -1939,13 +1940,13 @@ Example with `IN`, a scalar subquery, and an expression:
 ```sql
 SELECT * FROM Words WHERE value IN ((SELECT 'Intend'), 'Clarity');
 
-+----------+
-| value    |
-+----------+
-| Intend   |
-| Clarity  |
-| Intend   |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Intend   |
+ | Clarity  |
+ | Intend   |
+ *----------*/
 ```
 
 Example with `IN` and an `UNNEST` operation:
@@ -1953,12 +1954,12 @@ Example with `IN` and an `UNNEST` operation:
 ```sql
 SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
 
-+----------+
-| value    |
-+----------+
-| Secure   |
-| Clarity  |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Secure   |
+ | Clarity  |
+ *----------*/
 ```
 
 Example with `IN` and a struct:
@@ -1970,11 +1971,11 @@ FROM
   Items
 WHERE (info.shape, info.color) IN (('round', 'blue'));
 
-+------------------------------------+
-| item                               |
-+------------------------------------+
-| { {blue color, round shape} info } |
-+------------------------------------+
+/*------------------------------------*
+ | item                               |
+ +------------------------------------+
+ | { {blue color, round shape} info } |
+ *------------------------------------*/
 ```
 
 ### `IS` operators
@@ -2439,7 +2440,9 @@ Example with a parenthesized list of arguments:
 SELECT
   key,
   name,
-  NEW zetasql.examples.music.Chart { rank: 1 chart_name: "2" }
+  NEW zetasql.examples.music.Chart(key AS rank, name AS chart_name)
+FROM
+  (SELECT 1 AS key, "2" AS name);
 ```
 
 To learn more about protocol buffers in ZetaSQL, see [Work with
@@ -2525,11 +2528,11 @@ SELECT WITH(a AS '123',               -- a is '123'
             c AS '789',               -- c is '789'
             CONCAT(b, c)) AS result;  -- b + c is '123456789'
 
-+-------------+
-| result      |
-+-------------+
-| '123456789' |
-+-------------+
+/*-------------*
+ | result      |
+ +-------------+
+ | '123456789' |
+ *-------------*/
 ```
 
 In the following example, the volatile expression `RAND()` behaves as if it is
@@ -2539,11 +2542,11 @@ be zero:
 ```sql
 SELECT WITH(a AS RAND(), a - a);
 
-+---------+
-| result  |
-+---------+
-| 0.0     |
-+---------+
+/*---------*
+ | result  |
+ +---------+
+ | 0.0     |
+ *---------*/
 ```
 
 Aggregate or analytic function results can be stored in variables. In this
@@ -2553,11 +2556,11 @@ example, an average is computed:
 SELECT WITH(s AS SUM(input), c AS COUNT(input), s/c)
 FROM UNNEST([1.0, 2.0, 3.0]) AS input;
 
-+---------+
-| result  |
-+---------+
-| 2.0     |
-+---------+
+/*---------*
+ | result  |
+ +---------+
+ | 2.0     |
+ *---------*/
 ```
 
 Variables cannot be used in aggregate or analytic function call arguments:
@@ -2692,14 +2695,14 @@ SELECT
     AS result
 FROM Numbers
 
-+------------------+
-| A  | B  | result |
-+------------------+
-| 90 | 2  | red    |
-| 50 | 8  | blue   |
-| 60 | 6  | green  |
-| 50 | 10 | blue   |
-+------------------+
+/*------------------*
+ | A  | B  | result |
+ +------------------+
+ | 90 | 2  | red    |
+ | 50 | 8  | blue   |
+ | 60 | 6  | green  |
+ | 50 | 10 | blue   |
+ *------------------*/
 ```
 
 ### `CASE`
@@ -2755,13 +2758,13 @@ SELECT
     AS result
 FROM Numbers
 
-+------------------+
-| A  | B  | result |
-+------------------+
-| 90 | 2  | red    |
-| 50 | 6  | blue   |
-| 20 | 10 | green  |
-+------------------+
+/*------------------*
+ | A  | B  | result |
+ +------------------+
+ | 90 | 2  | red    |
+ | 50 | 6  | blue   |
+ | 20 | 10 | green  |
+ *------------------*/
 ```
 
 ### `COALESCE`
@@ -2787,21 +2790,21 @@ All input expressions must be implicitly coercible to a common
 ```sql
 SELECT COALESCE('A', 'B', 'C') as result
 
-+--------+
-| result |
-+--------+
-| A      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | A      |
+ *--------*/
 ```
 
 ```sql
 SELECT COALESCE(NULL, 'B', 'C') as result
 
-+--------+
-| result |
-+--------+
-| B      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | B      |
+ *--------*/
 ```
 
 ### `IF`
@@ -2838,13 +2841,13 @@ SELECT
   IF(A < B, 'true', 'false') AS result
 FROM Numbers
 
-+------------------+
-| A  | B  | result |
-+------------------+
-| 10 | 20 | true   |
-| 50 | 30 | false  |
-| 60 | 60 | false  |
-+------------------+
+/*------------------*
+ | A  | B  | result |
+ +------------------+
+ | 10 | 20 | true   |
+ | 50 | 30 | false  |
+ | 60 | 60 | false  |
+ *------------------*/
 ```
 
 ### `IFNULL`
@@ -2871,21 +2874,21 @@ a common [supertype][cond-exp-supertype]. Synonym for
 ```sql
 SELECT IFNULL(NULL, 0) as result
 
-+--------+
-| result |
-+--------+
-| 0      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
 ```
 
 ```sql
 SELECT IFNULL(10, 0) as result
 
-+--------+
-| result |
-+--------+
-| 10     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
 ```
 
 ### `NULLIF`
@@ -2915,21 +2918,21 @@ This expression supports specifying [collation][collation].
 ```sql
 SELECT NULLIF(0, 0) as result
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 
 ```sql
 SELECT NULLIF(10, 0) as result
 
-+--------+
-| result |
-+--------+
-| 10     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
@@ -3012,11 +3015,11 @@ Matches the input data type.
 SELECT ANY_VALUE(fruit) as any_value
 FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 
-+-----------+
-| any_value |
-+-----------+
-| apple     |
-+-----------+
+/*-----------*
+ | any_value |
+ +-----------+
+ | apple     |
+ *-----------*/
 ```
 
 ```sql
@@ -3025,13 +3028,13 @@ SELECT
   ANY_VALUE(fruit) OVER (ORDER BY LENGTH(fruit) ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS any_value
 FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 
-+--------+-----------+
-| fruit  | any_value |
-+--------+-----------+
-| pear   | pear      |
-| apple  | pear      |
-| banana | apple     |
-+--------+-----------+
+/*--------+-----------*
+ | fruit  | any_value |
+ +--------+-----------+
+ | pear   | pear      |
+ | apple  | pear      |
+ | banana | apple     |
+ *--------+-----------*/
 ```
 
 ```sql
@@ -3047,11 +3050,11 @@ WITH
   )
 SELECT ANY_VALUE(fruit HAVING MAX sold) AS a_highest_selling_fruit FROM Store;
 
-+-------------------------+
-| a_highest_selling_fruit |
-+-------------------------+
-| pears                   |
-+-------------------------+
+/*-------------------------*
+ | a_highest_selling_fruit |
+ +-------------------------+
+ | pears                   |
+ *-------------------------*/
 ```
 
 ```sql
@@ -3067,11 +3070,11 @@ WITH
   )
 SELECT ANY_VALUE(fruit HAVING MIN sold) AS a_lowest_selling_fruit FROM Store;
 
-+-------------------------+
-| a_lowest_selling_fruit  |
-+-------------------------+
-| oranges                 |
-+-------------------------+
+/*-------------------------*
+ | a_lowest_selling_fruit  |
+ +-------------------------+
+ | oranges                 |
+ *-------------------------*/
 ```
 
 ### `ARRAY_AGG`
@@ -3135,55 +3138,55 @@ If there are zero input rows, this function returns `NULL`.
 ```sql
 SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x;
 
-+-------------------------+
-| array_agg               |
-+-------------------------+
-| [2, 1, -2, 3, -2, 1, 2] |
-+-------------------------+
+/*-------------------------*
+ | array_agg               |
+ +-------------------------+
+ | [2, 1, -2, 3, -2, 1, 2] |
+ *-------------------------*/
 ```
 
 ```sql
 SELECT ARRAY_AGG(DISTINCT x) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
-+---------------+
-| array_agg     |
-+---------------+
-| [2, 1, -2, 3] |
-+---------------+
+/*---------------*
+ | array_agg     |
+ +---------------+
+ | [2, 1, -2, 3] |
+ *---------------*/
 ```
 
 ```sql
 SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg
 FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 
-+-------------------+
-| array_agg         |
-+-------------------+
-| [1, -2, 3, -2, 1] |
-+-------------------+
+/*-------------------*
+ | array_agg         |
+ +-------------------+
+ | [1, -2, 3, -2, 1] |
+ *-------------------*/
 ```
 
 ```sql
 SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
-+-------------------------+
-| array_agg               |
-+-------------------------+
-| [1, 1, 2, -2, -2, 2, 3] |
-+-------------------------+
+/*-------------------------*
+ | array_agg               |
+ +-------------------------+
+ | [1, 1, 2, -2, -2, 2, 3] |
+ *-------------------------*/
 ```
 
 ```sql
 SELECT ARRAY_AGG(x LIMIT 5) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
-+-------------------+
-| array_agg         |
-+-------------------+
-| [2, 1, -2, 3, -2] |
-+-------------------+
+/*-------------------*
+ | array_agg         |
+ +-------------------+
+ | [2, 1, -2, 3, -2] |
+ *-------------------*/
 ```
 
 ```sql
@@ -3198,11 +3201,11 @@ WITH vals AS
 SELECT ARRAY_AGG(DISTINCT x ORDER BY x) as array_agg
 FROM vals;
 
-+------------+
-| array_agg  |
-+------------+
-| [-2, 1, 3] |
-+------------+
+/*------------*
+ | array_agg  |
+ +------------+
+ | [-2, 1, 3] |
+ *------------*/
 ```
 
 ```sql
@@ -3217,12 +3220,12 @@ SELECT x, ARRAY_AGG(y) as array_agg
 FROM vals
 GROUP BY x;
 
-+---------------+
-| x | array_agg |
-+---------------+
-| 1 | [a, b]    |
-| 2 | [a, c]    |
-+---------------+
+/*---------------*
+ | x | array_agg |
+ +---------------+
+ | 1 | [a, b]    |
+ | 2 | [a, c]    |
+ *---------------*/
 ```
 
 ```sql
@@ -3231,17 +3234,17 @@ SELECT
   ARRAY_AGG(x) OVER (ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
-+----+-------------------------+
-| x  | array_agg               |
-+----+-------------------------+
-| 1  | [1, 1]                  |
-| 1  | [1, 1]                  |
-| 2  | [1, 1, 2, -2, -2, 2]    |
-| -2 | [1, 1, 2, -2, -2, 2]    |
-| -2 | [1, 1, 2, -2, -2, 2]    |
-| 2  | [1, 1, 2, -2, -2, 2]    |
-| 3  | [1, 1, 2, -2, -2, 2, 3] |
-+----+-------------------------+
+/*----+-------------------------*
+ | x  | array_agg               |
+ +----+-------------------------+
+ | 1  | [1, 1]                  |
+ | 1  | [1, 1]                  |
+ | 2  | [1, 1, 2, -2, -2, 2]    |
+ | -2 | [1, 1, 2, -2, -2, 2]    |
+ | -2 | [1, 1, 2, -2, -2, 2]    |
+ | 2  | [1, 1, 2, -2, -2, 2]    |
+ | 3  | [1, 1, 2, -2, -2, 2, 3] |
+ *----+-------------------------*/
 ```
 
 ### `ARRAY_CONCAT_AGG`
@@ -3291,11 +3294,11 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
   UNION ALL SELECT [7, 8, 9]
 );
 
-+-----------------------------------+
-| array_concat_agg                  |
-+-----------------------------------+
-| [NULL, 1, 2, 3, 4, 5, 6, 7, 8, 9] |
-+-----------------------------------+
+/*-----------------------------------*
+ | array_concat_agg                  |
+ +-----------------------------------+
+ | [NULL, 1, 2, 3, 4, 5, 6, 7, 8, 9] |
+ *-----------------------------------*/
 ```
 
 ```sql
@@ -3305,11 +3308,11 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
   UNION ALL SELECT [7, 8, 9]
 );
 
-+-----------------------------------+
-| array_concat_agg                  |
-+-----------------------------------+
-| [5, 6, 7, 8, 9, 1, 2, 3, 4]       |
-+-----------------------------------+
+/*-----------------------------------*
+ | array_concat_agg                  |
+ +-----------------------------------+
+ | [5, 6, 7, 8, 9, 1, 2, 3, 4]       |
+ *-----------------------------------*/
 ```
 
 ```sql
@@ -3319,11 +3322,11 @@ SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
   UNION ALL SELECT [7, 8, 9]
 );
 
-+--------------------------+
-| array_concat_agg         |
-+--------------------------+
-| [1, 2, 3, 4, 5, 6]       |
-+--------------------------+
+/*--------------------------*
+ | array_concat_agg         |
+ +--------------------------+
+ | [1, 2, 3, 4, 5, 6]       |
+ *--------------------------*/
 ```
 
 ```sql
@@ -3333,11 +3336,11 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
   UNION ALL SELECT [7, 8, 9]
 );
 
-+------------------+
-| array_concat_agg |
-+------------------+
-| [5, 6, 7, 8, 9]  |
-+------------------+
+/*------------------*
+ | array_concat_agg |
+ +------------------+
+ | [5, 6, 7, 8, 9]  |
+ *------------------*/
 ```
 
 ### `AVG`
@@ -3384,7 +3387,7 @@ To learn more about the `OVER` clause and how to use it, see
 <!-- mdlint on -->
 
 `AVG` can be used with differential privacy. To learn more, see
-[Differentially private aggregate functions][anonymization-functions].
+[Differentially private aggregate functions][dp-functions].
 
 Caveats:
 
@@ -3428,22 +3431,22 @@ Caveats:
 SELECT AVG(x) as avg
 FROM UNNEST([0, 2, 4, 4, 5]) as x;
 
-+-----+
-| avg |
-+-----+
-| 3   |
-+-----+
+/*-----*
+ | avg |
+ +-----+
+ | 3   |
+ *-----*/
 ```
 
 ```sql
 SELECT AVG(DISTINCT x) AS avg
 FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 
-+------+
-| avg  |
-+------+
-| 2.75 |
-+------+
+/*------*
+ | avg  |
+ +------+
+ | 2.75 |
+ *------*/
 ```
 
 ```sql
@@ -3452,19 +3455,19 @@ SELECT
   AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS avg
 FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 
-+------+------+
-| x    | avg  |
-+------+------+
-| NULL | NULL |
-| 0    | 0    |
-| 2    | 1    |
-| 4    | 3    |
-| 4    | 4    |
-| 5    | 4.5  |
-+------+------+
+/*------+------*
+ | x    | avg  |
+ +------+------+
+ | NULL | NULL |
+ | 0    | 0    |
+ | 2    | 1    |
+ | 4    | 3    |
+ | 4    | 4    |
+ | 5    | 4.5  |
+ *------+------*/
 ```
 
-[anonymization-functions]: #aggregate-dp-functions
+[dp-functions]: #aggregate-dp-functions
 
 ### `BIT_AND`
 
@@ -3505,11 +3508,11 @@ INT64
 ```sql
 SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 
-+---------+
-| bit_and |
-+---------+
-| 1       |
-+---------+
+/*---------*
+ | bit_and |
+ +---------+
+ | 1       |
+ *---------*/
 ```
 
 ### `BIT_OR`
@@ -3551,11 +3554,11 @@ INT64
 ```sql
 SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 
-+--------+
-| bit_or |
-+--------+
-| 61601  |
-+--------+
+/*--------*
+ | bit_or |
+ +--------+
+ | 61601  |
+ *--------*/
 ```
 
 ### `BIT_XOR`
@@ -3597,31 +3600,31 @@ INT64
 ```sql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x;
 
-+---------+
-| bit_xor |
-+---------+
-| 4860    |
-+---------+
+/*---------*
+ | bit_xor |
+ +---------+
+ | 4860    |
+ *---------*/
 ```
 
 ```sql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
-+---------+
-| bit_xor |
-+---------+
-| 5678    |
-+---------+
+/*---------*
+ | bit_xor |
+ +---------+
+ | 5678    |
+ *---------*/
 ```
 
 ```sql
 SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
-+---------+
-| bit_xor |
-+---------+
-| 4860    |
-+---------+
+/*---------*
+ | bit_xor |
+ +---------+
+ | 4860    |
+ *---------*/
 ```
 
 ### `COUNT`
@@ -3683,7 +3686,7 @@ This function with DISTINCT supports specifying [collation][collation].
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 `COUNT` can be used with differential privacy. To learn more, see
-[Differentially private aggregate functions][anonymization-functions].
+[Differentially private aggregate functions][dp-functions].
 
 **Supported Argument Types**
 
@@ -3706,11 +3709,11 @@ SELECT
   COUNT(DISTINCT x) AS count_dist_x
 FROM UNNEST([1, 4, 4, 5]) AS x;
 
-+------------+--------------+
-| count_star | count_dist_x |
-+------------+--------------+
-| 4          | 3            |
-+------------+--------------+
+/*------------+--------------*
+ | count_star | count_dist_x |
+ +------------+--------------+
+ | 4          | 3            |
+ *------------+--------------*/
 ```
 
 ```sql
@@ -3720,14 +3723,14 @@ SELECT
   COUNT(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS count_dist_x
 FROM UNNEST([1, 4, 4, 5]) AS x;
 
-+------+------------+--------------+
-| x    | count_star | count_dist_x |
-+------+------------+--------------+
-| 1    | 3          | 2            |
-| 4    | 3          | 2            |
-| 4    | 3          | 2            |
-| 5    | 1          | 1            |
-+------+------------+--------------+
+/*------+------------+--------------*
+ | x    | count_star | count_dist_x |
+ +------+------------+--------------+
+ | 1    | 3          | 2            |
+ | 4    | 3          | 2            |
+ | 4    | 3          | 2            |
+ | 5    | 1          | 1            |
+ *------+------------+--------------*/
 ```
 
 ```sql
@@ -3737,15 +3740,15 @@ SELECT
   COUNT(x) OVER (PARTITION BY MOD(x, 3)) AS count_x
 FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 
-+------+------------+---------+
-| x    | count_star | count_x |
-+------+------------+---------+
-| NULL | 1          | 0       |
-| 1    | 3          | 3       |
-| 4    | 3          | 3       |
-| 4    | 3          | 3       |
-| 5    | 1          | 1       |
-+------+------------+---------+
+/*------+------------+---------*
+ | x    | count_star | count_x |
+ +------+------------+---------+
+ | NULL | 1          | 0       |
+ | 1    | 3          | 3       |
+ | 4    | 3          | 3       |
+ | 4    | 3          | 3       |
+ | 5    | 1          | 1       |
+ *------+------------+---------*/
 ```
 
 If you want to count the number of distinct values of an expression for which a
@@ -3766,11 +3769,11 @@ For example, to count the number of distinct positive values of `x`:
 SELECT COUNT(DISTINCT IF(x > 0, x, NULL)) AS distinct_positive
 FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x;
 
-+-------------------+
-| distinct_positive |
-+-------------------+
-| 3                 |
-+-------------------+
+/*-------------------*
+ | distinct_positive |
+ +-------------------+
+ | 3                 |
+ *-------------------*/
 ```
 
 Or to count the number of distinct dates on which a certain kind of event
@@ -3795,16 +3798,16 @@ SELECT
     AS distinct_dates_with_failures
 FROM Events;
 
-+------------------------------+
-| distinct_dates_with_failures |
-+------------------------------+
-| 2                            |
-+------------------------------+
+/*------------------------------*
+ | distinct_dates_with_failures |
+ +------------------------------+
+ | 2                            |
+ *------------------------------*/
 ```
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
-[anonymization-functions]: #aggregate-dp-functions
+[dp-functions]: #aggregate-dp-functions
 
 ### `COUNTIF`
 
@@ -3879,11 +3882,11 @@ INT64
 SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive
 FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x;
 
-+--------------+--------------+
-| num_negative | num_positive |
-+--------------+--------------+
-| 3            | 4            |
-+--------------+--------------+
+/*--------------+--------------*
+ | num_negative | num_positive |
+ +--------------+--------------+
+ | 3            | 4            |
+ *--------------+--------------*/
 ```
 
 ```sql
@@ -3892,19 +3895,19 @@ SELECT
   COUNTIF(x<0) OVER (ORDER BY ABS(x) ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS num_negative
 FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 
-+------+--------------+
-| x    | num_negative |
-+------+--------------+
-| NULL | 0            |
-| 0    | 1            |
-| -2   | 1            |
-| 3    | 1            |
-| 4    | 0            |
-| 5    | 0            |
-| 6    | 1            |
-| -7   | 2            |
-| -10  | 2            |
-+------+--------------+
+/*------+--------------*
+ | x    | num_negative |
+ +------+--------------+
+ | NULL | 0            |
+ | 0    | 1            |
+ | -2   | 1            |
+ | 3    | 1            |
+ | 4    | 0            |
+ | 5    | 0            |
+ | 6    | 1            |
+ | -7   | 2            |
+ | -10  | 2            |
+ *------+--------------*/
 ```
 
 ### `LOGICAL_AND`
@@ -3966,11 +3969,11 @@ less than 3.
 ```sql
 SELECT LOGICAL_AND(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
-+-------------+
-| logical_and |
-+-------------+
-| FALSE       |
-+-------------+
+/*-------------*
+ | logical_and |
+ +-------------+
+ | FALSE       |
+ *-------------*/
 ```
 
 ### `LOGICAL_OR`
@@ -4032,11 +4035,11 @@ less than 3.
 ```sql
 SELECT LOGICAL_OR(x < 3) AS logical_or FROM UNNEST([1, 2, 4]) AS x;
 
-+------------+
-| logical_or |
-+------------+
-| TRUE       |
-+------------+
+/*------------*
+ | logical_or |
+ +------------+
+ | TRUE       |
+ *------------*/
 ```
 
 ### `MAX`
@@ -4105,27 +4108,27 @@ The data type of the input values.
 SELECT MAX(x) AS max
 FROM UNNEST([8, 37, 55, 4]) AS x;
 
-+-----+
-| max |
-+-----+
-| 55  |
-+-----+
+/*-----*
+ | max |
+ +-----+
+ | 55  |
+ *-----*/
 ```
 
 ```sql
 SELECT x, MAX(x) OVER (PARTITION BY MOD(x, 2)) AS max
 FROM UNNEST([8, NULL, 37, 55, NULL, 4]) AS x;
 
-+------+------+
-| x    | max  |
-+------+------+
-| NULL | NULL |
-| NULL | NULL |
-| 8    | 8    |
-| 4    | 8    |
-| 37   | 55   |
-| 55   | 55   |
-+------+------+
+/*------+------*
+ | x    | max  |
+ +------+------+
+ | NULL | NULL |
+ | NULL | NULL |
+ | 8    | 8    |
+ | 4    | 8    |
+ | 37   | 55   |
+ | 55   | 55   |
+ *------+------*/
 ```
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
@@ -4196,27 +4199,27 @@ The data type of the input values.
 SELECT MIN(x) AS min
 FROM UNNEST([8, 37, 4, 55]) AS x;
 
-+-----+
-| min |
-+-----+
-| 4   |
-+-----+
+/*-----*
+ | min |
+ +-----+
+ | 4   |
+ *-----*/
 ```
 
 ```sql
 SELECT x, MIN(x) OVER (PARTITION BY MOD(x, 2)) AS min
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
-+------+------+
-| x    | min  |
-+------+------+
-| NULL | NULL |
-| NULL | NULL |
-| 8    | 4    |
-| 4    | 4    |
-| 37   | 37   |
-| 55   | 37   |
-+------+------+
+/*------+------*
+ | x    | min  |
+ +------+------+
+ | NULL | NULL |
+ | NULL | NULL |
+ | 8    | 4    |
+ | 4    | 4    |
+ | 37   | 37   |
+ | 55   | 37   |
+ *------+------*/
 ```
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
@@ -4285,66 +4288,66 @@ Either `STRING` or `BYTES`.
 SELECT STRING_AGG(fruit) AS string_agg
 FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
-+------------------------+
-| string_agg             |
-+------------------------+
-| apple,pear,banana,pear |
-+------------------------+
+/*------------------------*
+ | string_agg             |
+ +------------------------+
+ | apple,pear,banana,pear |
+ *------------------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(fruit, " & ") AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+------------------------------+
-| string_agg                   |
-+------------------------------+
-| apple & pear & banana & pear |
-+------------------------------+
+/*------------------------------*
+ | string_agg                   |
+ +------------------------------+
+ | apple & pear & banana & pear |
+ *------------------------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(DISTINCT fruit, " & ") AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+-----------------------+
-| string_agg            |
-+-----------------------+
-| apple & pear & banana |
-+-----------------------+
+/*-----------------------*
+ | string_agg            |
+ +-----------------------+
+ | apple & pear & banana |
+ *-----------------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(fruit, " & " ORDER BY LENGTH(fruit)) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+------------------------------+
-| string_agg                   |
-+------------------------------+
-| pear & pear & apple & banana |
-+------------------------------+
+/*------------------------------*
+ | string_agg                   |
+ +------------------------------+
+ | pear & pear & apple & banana |
+ *------------------------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(fruit, " & " LIMIT 2) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+--------------+
-| string_agg   |
-+--------------+
-| apple & pear |
-+--------------+
+/*--------------*
+ | string_agg   |
+ +--------------+
+ | apple & pear |
+ *--------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(DISTINCT fruit, " & " ORDER BY fruit DESC LIMIT 2) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+---------------+
-| string_agg    |
-+---------------+
-| pear & banana |
-+---------------+
+/*---------------*
+ | string_agg    |
+ +---------------+
+ | pear & banana |
+ *---------------*/
 ```
 
 ```sql
@@ -4353,15 +4356,15 @@ SELECT
   STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) AS string_agg
 FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
-+--------+------------------------------+
-| fruit  | string_agg                   |
-+--------+------------------------------+
-| NULL   | NULL                         |
-| pear   | pear & pear                  |
-| pear   | pear & pear                  |
-| apple  | pear & pear & apple          |
-| banana | pear & pear & apple & banana |
-+--------+------------------------------+
+/*--------+------------------------------*
+ | fruit  | string_agg                   |
+ +--------+------------------------------+
+ | NULL   | NULL                         |
+ | pear   | pear & pear                  |
+ | pear   | pear & pear                  |
+ | apple  | pear & pear & apple          |
+ | banana | pear & pear & apple & banana |
+ *--------+------------------------------*/
 ```
 
 ### `SUM`
@@ -4407,6 +4410,9 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`SUM` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][dp-functions].
+
 Caveats:
 
 + If the aggregated group is empty or the argument is `NULL` for all rows in
@@ -4449,22 +4455,22 @@ Caveats:
 SELECT SUM(x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
-+-----+
-| sum |
-+-----+
-| 25  |
-+-----+
+/*-----*
+ | sum |
+ +-----+
+ | 25  |
+ *-----*/
 ```
 
 ```sql
 SELECT SUM(DISTINCT x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
-+-----+
-| sum |
-+-----+
-| 15  |
-+-----+
+/*-----*
+ | sum |
+ +-----+
+ | 15  |
+ *-----*/
 ```
 
 ```sql
@@ -4473,19 +4479,19 @@ SELECT
   SUM(x) OVER (PARTITION BY MOD(x, 3)) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
-+---+-----+
-| x | sum |
-+---+-----+
-| 3 | 6   |
-| 3 | 6   |
-| 1 | 10  |
-| 4 | 10  |
-| 4 | 10  |
-| 1 | 10  |
-| 2 | 9   |
-| 5 | 9   |
-| 2 | 9   |
-+---+-----+
+/*---+-----*
+ | x | sum |
+ +---+-----+
+ | 3 | 6   |
+ | 3 | 6   |
+ | 1 | 10  |
+ | 4 | 10  |
+ | 4 | 10  |
+ | 1 | 10  |
+ | 2 | 9   |
+ | 5 | 9   |
+ | 2 | 9   |
+ *---+-----*/
 ```
 
 ```sql
@@ -4494,33 +4500,33 @@ SELECT
   SUM(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
-+---+-----+
-| x | sum |
-+---+-----+
-| 3 | 3   |
-| 3 | 3   |
-| 1 | 5   |
-| 4 | 5   |
-| 4 | 5   |
-| 1 | 5   |
-| 2 | 7   |
-| 5 | 7   |
-| 2 | 7   |
-+---+-----+
+/*---+-----*
+ | x | sum |
+ +---+-----+
+ | 3 | 3   |
+ | 3 | 3   |
+ | 1 | 5   |
+ | 4 | 5   |
+ | 4 | 5   |
+ | 1 | 5   |
+ | 2 | 7   |
+ | 5 | 7   |
+ | 2 | 7   |
+ *---+-----*/
 ```
 
 ```sql
 SELECT SUM(x) AS sum
 FROM UNNEST([]) AS x;
 
-+------+
-| sum  |
-+------+
-| NULL |
-+------+
+/*------*
+ | sum  |
+ +------+
+ | NULL |
+ *------*/
 ```
 
-[anonymization-functions]: #aggregate-dp-functions
+[dp-functions]: #aggregate-dp-functions
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
@@ -4769,11 +4775,14 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`STDDEV_POP` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][dp-functions].
+
 **Return Data Type**
 
 `DOUBLE`
 
-[anonymization-functions]: #aggregate-dp-functions
+[dp-functions]: #aggregate-dp-functions
 
 ### `STDDEV_SAMP`
 
@@ -4906,13 +4915,13 @@ To learn more about the `OVER` clause and how to use it, see
 <!-- mdlint on -->
 
 `VAR_POP` can be used with differential privacy. To learn more, see
-[Differentially private aggregate functions][anonymization-functions].
+[Differentially private aggregate functions][dp-functions].
 
 **Return Data Type**
 
 `DOUBLE`
 
-[anonymization-functions]: #aggregate-dp-functions
+[dp-functions]: #aggregate-dp-functions
 
 ### `VAR_SAMP`
 
@@ -5054,12 +5063,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| pencil   | 38.5038356810269 |
-| pen      | 13.4725028762032 |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 38.5038356810269 |
+ | pen      | 13.4725028762032 |
+ *----------+------------------*/
 ```
 
 ```sql
@@ -5073,21 +5082,21 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ *----------+------------------*/
 ```
 
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -5137,12 +5146,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | pencil   | 5               |
+ | pen      | 2               |
+ *----------+-----------------*/
 ```
 
 ```sql
@@ -5156,13 +5165,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | scissors | 1               |
+ | pencil   | 4               |
+ | pen      | 3               |
+ *----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -5211,12 +5220,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | pencil   | 5               |
+ | pen      | 2               |
+ *----------+-----------------*/
 ```
 
 ```sql
@@ -5230,13 +5239,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | scissors | 1               |
+ | pencil   | 4               |
+ | pen      | 3               |
+ *----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -5244,11 +5253,11 @@ noise [here][dp-noise].
 
 [dp-clamp-implicit]: #dp_implicit_clamping
 
-[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
+[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from_rules
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -5301,16 +5310,16 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+----------------------+
-| item     | percentile_requested |
-+----------+----------------------+
-| pencil   | 72.00011444091797    |
-| scissors | 8.000175476074219    |
-| pen      | 23.001075744628906   |
-+----------+----------------------+
+/*----------+----------------------*
+ | item     | percentile_requested |
+ +----------+----------------------+
+ | pencil   | 72.00011444091797    |
+ | scissors | 8.000175476074219    |
+ | pen      | 23.001075744628906   |
+ *----------+----------------------*/
 ```
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -5365,15 +5374,15 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+----------------------------------------------------------------------+
-| item     | quantiles_requested                                                  |
-+----------+----------------------------------------------------------------------+
-| pen      | [6.409375,20.647684733072918,41.40625,67.30848524305556,99.80078125] |
-| pencil   | [6.849259,44.010416666666664,62.64204,65.83806818181819,98.59375]    |
-+----------+----------------------------------------------------------------------+
+/*----------+----------------------------------------------------------------------*
+ | item     | quantiles_requested                                                  |
+ +----------+----------------------------------------------------------------------+
+ | pen      | [6.409375,20.647684733072918,41.40625,67.30848524305556,99.80078125] |
+ | pencil   | [6.849259,44.010416666666664,62.64204,65.83806818181819,98.59375]    |
+ *----------+----------------------------------------------------------------------*/
 ```
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -5426,16 +5435,16 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+------------------------+
-| item     | pop_standard_deviation |
-+----------+------------------------+
-| pencil   | 25.350871122442054     |
-| scissors | 50                     |
-| pen      | 2                      |
-+----------+------------------------+
+/*----------+------------------------*
+ | item     | pop_standard_deviation |
+ +----------+------------------------+
+ | pencil   | 25.350871122442054     |
+ | scissors | 50                     |
+ | pen      | 2                      |
+ *----------+------------------------*/
 ```
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -5486,12 +5495,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------+
-| item     | quantity  |
-+----------+-----------+
-| pencil   | 143       |
-| pen      | 59        |
-+----------+-----------+
+/*----------+-----------*
+ | item     | quantity  |
+ +----------+-----------+
+ | pencil   | 143       |
+ | pen      | 59        |
+ *----------+-----------*/
 ```
 
 ```sql
@@ -5505,21 +5514,21 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+----------+
-| item     | quantity |
-+----------+----------+
-| scissors | 8        |
-| pencil   | 144      |
-| pen      | 58       |
-+----------+----------+
+/*----------+----------*
+ | item     | quantity |
+ +----------+----------+
+ | scissors | 8        |
+ | pencil   | 144      |
+ | pen      | 58       |
+ *----------+----------*/
 ```
 
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
@@ -5576,18 +5585,18 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | pop_variance    |
-+----------+-----------------+
-| pencil   | 642             |
-| pen      | 2.6666666666665 |
-| scissors | 2500            |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | pop_variance    |
+ +----------+-----------------+
+ | pencil   | 642             |
+ | pen      | 2.6666666666665 |
+ | scissors | 2500            |
+ *----------+-----------------*/
 ```
 
 [dp-clamp-explicit]: #dp_explicit_clamping
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -5637,12 +5646,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| pencil   | 38.5038356810269 |
-| pen      | 13.4725028762032 |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 38.5038356810269 |
+ | pen      | 13.4725028762032 |
+ *----------+------------------*/
 ```
 
 ```sql
@@ -5656,21 +5665,21 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ *----------+------------------*/
 ```
 
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
-[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamped-named]: #dp_clamped_named
 
@@ -5724,12 +5733,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | pencil   | 5               |
+ | pen      | 2               |
+ *----------+-----------------*/
 ```
 
 ```sql
@@ -5743,13 +5752,13 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | scissors | 1               |
+ | pencil   | 4               |
+ | pen      | 3               |
+ *----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -5800,12 +5809,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | pencil   | 5               |
+ | pen      | 2               |
+ *----------+-----------------*/
 ```
 
 ```sql
@@ -5819,13 +5828,13 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | scissors | 1               |
+ | pencil   | 4               |
+ | pen      | 3               |
+ *----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -5835,9 +5844,9 @@ noise [here][dp-noise].
 
 [dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
 
-[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamped-named]: #dp_clamped_named
 
@@ -5892,18 +5901,106 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+----------------------+
-| item     | percentile_requested |
-+----------+----------------------+
-| pencil   | 72.00011444091797    |
-| scissors | 8.000175476074219    |
-| pen      | 23.001075744628906   |
-+----------+----------------------+
+ /*----------+----------------------*
+  | item     | percentile_requested |
+  +----------+----------------------+
+  | pencil   | 72.00011444091797    |
+  | scissors | 8.000175476074219    |
+  | pen      | 23.001075744628906   |
+  *----------+----------------------*/
 ```
 
-[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-clamped-named]: #dp_clamped_named
+
+### `SUM` (differential privacy) 
+<a id="dp_sum"></a>
+
+```sql
+WITH DIFFERENTIAL_PRIVACY ...
+  SUM(expression[, contribution_bounds_per_group => (lower_bound, upper_bound)])
+```
+
+**Description**
+
+Returns the sum of non-`NULL`, non-`NaN` values in the expression. The final
+result is an aggregation across privacy unit columns.
+
+This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
+can support these arguments:
+
++ `expression`: The input expression. This can be any numeric input type,
+  such as `INT64`. `NULL`s are always ignored.
++ `contribution_bounds_per_group`: The
+  [contribution bounds named argument][anon-clamped-named].
+  Perform clamping per each group separately before performing intermediate
+  grouping on the privacy unit column.
+
+**Return type**
+
+One of the following [supertypes][anon-supertype]:
+
++ `INT64`
++ `UINT64`
++ `DOUBLE`
+
+**Examples**
+
+The following differentially private query gets the sum of items requested.
+Smaller aggregations may not be included. This query references a view called
+[`professors`][anon-example-tables].
+
+```sql
+-- With noise
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
+    item,
+    SUM(quantity, contribution_bounds_per_group => (0,100)) quantity
+FROM professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- Smaller aggregations may be removed.
+/*----------+-----------*
+ | item     | quantity  |
+ +----------+-----------+
+ | pencil   | 143       |
+ | pen      | 59        |
+ *----------+-----------*/
+```
+
+```sql
+-- Without noise (this un-noised version is for demonstration only)
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
+    item,
+    SUM(quantity) quantity
+FROM professors
+GROUP BY item;
+
+-- These results will not change when you run the query.
+/*----------+----------*
+ | item     | quantity |
+ +----------+----------+
+ | scissors | 8        |
+ | pencil   | 144      |
+ | pen      | 58       |
+ *----------+----------*/
+```
+
+Note: You can learn more about when and when not to use
+noise [here][anon-noise].
+
+[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+
+[anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+[anon-clamped-named]: #dp_clamped_named
 
 ### `VAR_POP` (differential privacy) 
 <a id="dp_var_pop"></a>
@@ -5958,25 +6055,25 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | pop_variance    |
-+----------+-----------------+
-| pencil   | 642             |
-| pen      | 2.6666666666665 |
-| scissors | 2500            |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | pop_variance    |
+ +----------+-----------------+
+ | pencil   | 642             |
+ | pen      | 2.6666666666665 |
+ | scissors | 2500            |
+ *----------+-----------------*/
 ```
 
 [dp-clamp-explicit]: #dp_explicit_clamping
 
-[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-clamped-named]: #dp_clamped_named
 
 ### Clamp values in a differentially private aggregate function 
 <a id="dp_clamping"></a>
 
-In [differentially private queries][differential-privacy],
+In [differentially private queries][dp-syntax],
 aggregation clamping is used to limit the contribution of outliers. You can
 clamp [implicitly][dp-imp-clamp] or [explicitly][dp-exp-clamp].
 
@@ -6037,13 +6134,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ *----------+------------------*/
 ```
 
 Notice what happens when most or all values fall outside of the clamped range.
@@ -6064,13 +6161,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 54               |
-| pencil   | 58               |
-| pen      | 51               |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 54               |
+ | pencil   | 58               |
+ | pen      | 51               |
+ *----------+------------------*/
 ```
 
 To learn more about when and when not to use noise in
@@ -6116,13 +6213,13 @@ SELECT WITH ANONYMIZATION
 FROM view_on_professors
 GROUP BY item;
 
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ *----------+------------------*/
 ```
 
 Notice what happens when most or all values fall outside of the clamped range.
@@ -6143,13 +6240,13 @@ SELECT WITH ANONYMIZATION
 FROM view_on_professors
 GROUP BY item;
 
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 54               |
-| pencil   | 58               |
-| pen      | 51               |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 54               |
+ | pencil   | 58               |
+ | pen      | 51               |
+ *----------+------------------*/
 ```
 
 To learn more about when and when not to use noise in
@@ -6199,19 +6296,17 @@ information.
 When clamping is implicit, part of the total epsilon is spent picking bounds.
 This leaves less epsilon for aggregations, so these aggregations are noisier.
 
-[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-[differential-privacy]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
 [dp-exp-clamp]: #dp_explicit_clamping
 
 [dp-imp-clamp]: #dp_implicit_clamping
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -6273,11 +6368,11 @@ Any data type **except**:
 SELECT APPROX_COUNT_DISTINCT(x) as approx_distinct
 FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 
-+-----------------+
-| approx_distinct |
-+-----------------+
-| 5               |
-+-----------------+
+/*-----------------*
+ | approx_distinct |
+ +-----------------+
+ | 5               |
+ *-----------------*/
 ```
 
 ### `APPROX_QUANTILES`
@@ -6329,55 +6424,55 @@ see [Aggregate function calls][aggregate-function-calls].
 SELECT APPROX_QUANTILES(x, 2) AS approx_quantiles
 FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
-+------------------+
-| approx_quantiles |
-+------------------+
-| [1, 5, 10]       |
-+------------------+
+/*------------------*
+ | approx_quantiles |
+ +------------------+
+ | [1, 5, 10]       |
+ *------------------*/
 ```
 
 ```sql
 SELECT APPROX_QUANTILES(x, 100)[OFFSET(90)] AS percentile_90
 FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
-+---------------+
-| percentile_90 |
-+---------------+
-| 9             |
-+---------------+
+/*---------------*
+ | percentile_90 |
+ +---------------+
+ | 9             |
+ *---------------*/
 ```
 
 ```sql
 SELECT APPROX_QUANTILES(DISTINCT x, 2) AS approx_quantiles
 FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
-+------------------+
-| approx_quantiles |
-+------------------+
-| [1, 6, 10]       |
-+------------------+
+/*------------------*
+ | approx_quantiles |
+ +------------------+
+ | [1, 6, 10]       |
+ *------------------*/
 ```
 
 ```sql
 SELECT APPROX_QUANTILES(x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
-+------------------+
-| approx_quantiles |
-+------------------+
-| [NULL, 4, 10]    |
-+------------------+
+/*------------------*
+ | approx_quantiles |
+ +------------------+
+ | [NULL, 4, 10]    |
+ *------------------*/
 ```
 
 ```sql
 SELECT APPROX_QUANTILES(DISTINCT x, 2 RESPECT NULLS) AS approx_quantiles
 FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
-+------------------+
-| approx_quantiles |
-+------------------+
-| [NULL, 6, 10]    |
-+------------------+
+/*------------------*
+ | approx_quantiles |
+ +------------------+
+ | [NULL, 6, 10]    |
+ *------------------*/
 ```
 
 ### `APPROX_TOP_COUNT`
@@ -6424,11 +6519,11 @@ see [Aggregate function calls][aggregate-function-calls].
 SELECT APPROX_TOP_COUNT(x, 2) as approx_top_count
 FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x;
 
-+-------------------------+
-| approx_top_count        |
-+-------------------------+
-| [{pear, 3}, {apple, 2}] |
-+-------------------------+
+/*-------------------------*
+ | approx_top_count        |
+ +-------------------------+
+ | [{pear, 3}, {apple, 2}] |
+ *-------------------------*/
 ```
 
 **NULL handling**
@@ -6439,11 +6534,11 @@ FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x;
 SELECT APPROX_TOP_COUNT(x, 2) as approx_top_count
 FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 
-+------------------------+
-| approx_top_count       |
-+------------------------+
-| [{pear, 3}, {NULL, 2}] |
-+------------------------+
+/*------------------------*
+ | approx_top_count       |
+ +------------------------+
+ | [{pear, 3}, {NULL, 2}] |
+ *------------------------*/
 ```
 
 ### `APPROX_TOP_SUM`
@@ -6508,11 +6603,11 @@ UNNEST([
   ("pear", 4)
 ]);
 
-+--------------------------+
-| approx_top_sum           |
-+--------------------------+
-| [{pear, 6}, {banana, 5}] |
-+--------------------------+
+/*--------------------------*
+ | approx_top_sum           |
+ +--------------------------+
+ | [{pear, 6}, {banana, 5}] |
+ *--------------------------*/
 ```
 
 **NULL handling**
@@ -6524,33 +6619,33 @@ parameters.
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([STRUCT("apple" AS x, NULL AS weight), ("pear", 0), ("pear", NULL)]);
 
-+----------------------------+
-| approx_top_sum             |
-+----------------------------+
-| [{pear, 0}, {apple, NULL}] |
-+----------------------------+
+/*----------------------------*
+ | approx_top_sum             |
+ +----------------------------+
+ | [{pear, 0}, {apple, NULL}] |
+ *----------------------------*/
 ```
 
 ```sql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, 2)]);
 
-+-------------------------+
-| approx_top_sum          |
-+-------------------------+
-| [{NULL, 2}, {apple, 0}] |
-+-------------------------+
+/*-------------------------*
+ | approx_top_sum          |
+ +-------------------------+
+ | [{NULL, 2}, {apple, 0}] |
+ *-------------------------*/
 ```
 
 ```sql
 SELECT APPROX_TOP_SUM(x, weight, 2) AS approx_top_sum FROM
 UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 
-+----------------------------+
-| approx_top_sum             |
-+----------------------------+
-| [{apple, 0}, {NULL, NULL}] |
-+----------------------------+
+/*----------------------------*
+ | approx_top_sum             |
+ +----------------------------+
+ | [{apple, 0}, {NULL, NULL}] |
+ *----------------------------*/
 ```
 
 [hll-functions]: #hyperloglog_functions
@@ -6630,13 +6725,13 @@ FROM
     GROUP BY country
   );
 
-+---------+--------------------------------------+
-| country | distinct_customers_with_open_invoice |
-+---------+--------------------------------------+
-| UA      |                                    2 |
-| BR      |                                    1 |
-| CZ      |                                    1 |
-+---------+--------------------------------------+
+/*---------+--------------------------------------*
+ | country | distinct_customers_with_open_invoice |
+ +---------+--------------------------------------+
+ | UA      |                                    2 |
+ | BR      |                                    1 |
+ | CZ      |                                    1 |
+ *---------+--------------------------------------*/
 ```
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
@@ -6700,13 +6795,13 @@ FROM
       ('UA', 'customer_id_2', 'invoice_id_24')])
 GROUP BY country;
 
-+---------+------------------------------------------------------------------------------------+
-| country | hll_sketch                                                                         |
-+---------+------------------------------------------------------------------------------------+
-| UA      | "\010p\020\002\030\002 \013\202\007\r\020\002\030\n \0172\005\371\344\001\315\010" |
-| CZ      | "\010p\020\002\030\002 \013\202\007\013\020\001\030\n \0172\003\371\344\001"       |
-| BR      | "\010p\020\001\030\002 \013\202\007\013\020\001\030\n \0172\003\202\341\001"       |
-+---------+------------------------------------------------------------------------------------+
+/*---------+------------------------------------------------------------------------------------*
+ | country | hll_sketch                                                                         |
+ +---------+------------------------------------------------------------------------------------+
+ | UA      | "\010p\020\002\030\002 \013\202\007\r\020\002\030\n \0172\005\371\344\001\315\010" |
+ | CZ      | "\010p\020\002\030\002 \013\202\007\013\020\001\030\n \0172\003\371\344\001"       |
+ | BR      | "\010p\020\001\030\002 \013\202\007\013\020\001\030\n \0172\003\202\341\001"       |
+ *---------+------------------------------------------------------------------------------------*/
 ```
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
@@ -6768,11 +6863,11 @@ FROM
     GROUP BY country
   );
 
-+----------------------------------------------------------------------------------------------+
-| distinct_customers_with_open_invoice                                                         |
-+----------------------------------------------------------------------------------------------+
-| "\010p\020\006\030\002 \013\202\007\020\020\003\030\017 \0242\010\320\2408\352}\244\223\002" |
-+----------------------------------------------------------------------------------------------+
+/*----------------------------------------------------------------------------------------------*
+ | distinct_customers_with_open_invoice                                                         |
+ +----------------------------------------------------------------------------------------------+
+ | "\010p\020\006\030\002 \013\202\007\020\020\003\030\017 \0242\010\320\2408\352}\244\223\002" |
+ *----------------------------------------------------------------------------------------------*/
 ```
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
@@ -6830,11 +6925,11 @@ FROM
     GROUP BY country
   );
 
-+--------------------------------------+
-| distinct_customers_with_open_invoice |
-+--------------------------------------+
-|                                    3 |
-+--------------------------------------+
+/*--------------------------------------*
+ | distinct_customers_with_open_invoice |
+ +--------------------------------------+
+ |                                    3 |
+ *--------------------------------------*/
 ```
 
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
@@ -6914,11 +7009,11 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
             SELECT 4 AS x UNION ALL
             SELECT 5 AS x));
 
-+---------+
-| median  |
-+---------+
-| [1,3,5] |
-+---------+
+/*---------*
+ | median  |
+ +---------+
+ | [1,3,5] |
+ *---------*/
 ```
 
 ### `KLL_QUANTILES.EXTRACT_UINT64`
@@ -7006,11 +7101,11 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
             SELECT 4 AS x UNION ALL
             SELECT 5 AS x));
 
-+----------+
-| quintile |
-+----------+
-|      4   |
-+----------+
+/*----------*
+ | quintile |
+ +----------+
+ |      4   |
+ *----------*/
 ```
 
 ### `KLL_QUANTILES.EXTRACT_POINT_UINT64`
@@ -7110,12 +7205,12 @@ FROM (SELECT 1 AS x UNION ALL
       SELECT 4 AS x UNION ALL
       SELECT 5 AS x);
 
-+----------------------------------------------------------------------+
-| kll_sketch                                                           |
-+----------------------------------------------------------------------+
-| "\010q\020\005 \004\212\007\025\010\200                              |
-| \020\350\007\032\001\001\"\001\005*\007\n\005\001\002\003\004\005"   |
-+----------------------------------------------------------------------+
+/*----------------------------------------------------------------------*
+ | kll_sketch                                                           |
+ +----------------------------------------------------------------------+
+ | "\010q\020\005 \004\212\007\025\010\200                              |
+ | \020\350\007\032\001\001\"\001\005*\007\n\005\001\002\003\004\005"   |
+ *----------------------------------------------------------------------*/
 ```
 
 The following examples illustrate how weight works when you initialize a
@@ -7135,11 +7230,11 @@ FROM
     FROM points
   );
 
-+---------+
-| median  |
-+---------+
-| [1,3,5] |
-+---------+
+/*---------*
+ | median  |
+ +---------+
+ | [1,3,5] |
+ *---------*/
 ```
 
 ```sql
@@ -7156,11 +7251,11 @@ FROM
     FROM points
   );
 
-+---------+
-| median  |
-+---------+
-| [1,2,5] |
-+---------+
+/*---------*
+ | median  |
+ +---------+
+ | [1,2,5] |
+ *---------*/
 ```
 
 ### `KLL_QUANTILES.INIT_UINT64`
@@ -7270,11 +7365,11 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
             SELECT 9 AS x UNION ALL
             SELECT 10 AS x));
 
-+---------------+
-| merged_sketch |
-+---------------+
-| [1,5,10]      |
-+---------------+
+/*---------------*
+ | merged_sketch |
+ +---------------+
+ | [1,5,10]      |
+ *---------------*/
 ```
 
 ### `KLL_QUANTILES.MERGE_UINT64`
@@ -7386,12 +7481,12 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
             SELECT 9 AS x UNION ALL
             SELECT 10 AS x));
 
-+-----------------------------------------------------------------------------+
-| merged_sketch                                                               |
-+-----------------------------------------------------------------------------+
-| "\010q\020\n \004\212\007\032\010\200 \020\350\007\032\001\001\"\001\n*     |
-| \014\n\n\001\002\003\004\005\006\007\010\t\n"                               |
-+-----------------------------------------------------------------------------+
+/*-----------------------------------------------------------------------------*
+ | merged_sketch                                                               |
+ +-----------------------------------------------------------------------------+
+ | "\010q\020\n \004\212\007\032\010\200 \020\350\007\032\001\001\"\001\n*     |
+ | \014\n\n\001\002\003\004\005\006\007\010\t\n"                               |
+ *-----------------------------------------------------------------------------*/
 ```
 
 ### `KLL_QUANTILES.MERGE_POINT_INT64`
@@ -7450,11 +7545,11 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
             SELECT 9 AS x UNION ALL
             SELECT 10 AS x));
 
-+---------------+
-| merged_sketch |
-+---------------+
-|             9 |
-+---------------+
+/*---------------*
+ | merged_sketch |
+ +---------------+
+ |             9 |
+ *---------------*/
 ```
 
 ### `KLL_QUANTILES.MERGE_POINT_UINT64`
@@ -7575,18 +7670,18 @@ SELECT name,
   CUME_DIST() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
 FROM finishers;
 
-+-----------------+------------------------+----------+-------------+
-| name            | finish_time            | division | finish_rank |
-+-----------------+------------------------+----------+-------------+
-| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0.25        |
-| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
-| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
-| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1           |
-| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0.25        |
-| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.5         |
-| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.75        |
-| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1           |
-+-----------------+------------------------+----------+-------------+
+/*-----------------+------------------------+----------+-------------*
+ | name            | finish_time            | division | finish_rank |
+ +-----------------+------------------------+----------+-------------+
+ | Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0.25        |
+ | Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
+ | Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
+ | Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1           |
+ | Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0.25        |
+ | Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.5         |
+ | Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.75        |
+ | Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1           |
+ *-----------------+------------------------+----------+-------------*/
 ```
 
 ### `DENSE_RANK`
@@ -7640,17 +7735,17 @@ SELECT x,
   DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank
 FROM Numbers
 
-+-------------------------+
-| x          | dense_rank |
-+-------------------------+
-| 1          | 1          |
-| 2          | 2          |
-| 2          | 2          |
-| 5          | 3          |
-| 8          | 4          |
-| 10         | 5          |
-| 10         | 5          |
-+-------------------------+
+/*-------------------------*
+ | x          | dense_rank |
+ +-------------------------+
+ | 1          | 1          |
+ | 2          | 2          |
+ | 2          | 2          |
+ | 5          | 3          |
+ | 8          | 4          |
+ | 10         | 5          |
+ | 10         | 5          |
+ *-------------------------*/
 ```
 
 ```sql
@@ -7671,18 +7766,18 @@ SELECT name,
   DENSE_RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
 FROM finishers;
 
-+-----------------+------------------------+----------+-------------+
-| name            | finish_time            | division | finish_rank |
-+-----------------+------------------------+----------+-------------+
-| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
-| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
-| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
-| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 3           |
-| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
-| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
-| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
-| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
-+-----------------+------------------------+----------+-------------+
+/*-----------------+------------------------+----------+-------------*
+ | name            | finish_time            | division | finish_rank |
+ +-----------------+------------------------+----------+-------------+
+ | Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
+ | Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+ | Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+ | Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 3           |
+ | Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
+ | Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
+ | Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
+ | Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
+ *-----------------+------------------------+----------+-------------*/
 ```
 
 ### `NTILE`
@@ -7744,18 +7839,18 @@ SELECT name,
   NTILE(3) OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
 FROM finishers;
 
-+-----------------+------------------------+----------+-------------+
-| name            | finish_time            | division | finish_rank |
-+-----------------+------------------------+----------+-------------+
-| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
-| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 1           |
-| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
-| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 3           |
-| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
-| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 1           |
-| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 2           |
-| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 3           |
-+-----------------+------------------------+----------+-------------+
+/*-----------------+------------------------+----------+-------------*
+ | name            | finish_time            | division | finish_rank |
+ +-----------------+------------------------+----------+-------------+
+ | Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
+ | Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 1           |
+ | Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+ | Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 3           |
+ | Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
+ | Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 1           |
+ | Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 2           |
+ | Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 3           |
+ *-----------------+------------------------+----------+-------------*/
 ```
 
 ### `PERCENT_RANK`
@@ -7813,18 +7908,18 @@ SELECT name,
   PERCENT_RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
 FROM finishers;
 
-+-----------------+------------------------+----------+---------------------+
-| name            | finish_time            | division | finish_rank         |
-+-----------------+------------------------+----------+---------------------+
-| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0                   |
-| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
-| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
-| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1                   |
-| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0                   |
-| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.33333333333333331 |
-| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.66666666666666663 |
-| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1                   |
-+-----------------+------------------------+----------+---------------------+
+/*-----------------+------------------------+----------+---------------------*
+ | name            | finish_time            | division | finish_rank         |
+ +-----------------+------------------------+----------+---------------------+
+ | Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0                   |
+ | Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
+ | Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
+ | Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1                   |
+ | Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0                   |
+ | Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.33333333333333331 |
+ | Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.66666666666666663 |
+ | Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1                   |
+ *-----------------+------------------------+----------+---------------------*/
 ```
 
 ### `RANK`
@@ -7879,17 +7974,17 @@ SELECT x,
   RANK() OVER (ORDER BY x ASC) AS rank
 FROM Numbers
 
-+-------------------------+
-| x          | rank       |
-+-------------------------+
-| 1          | 1          |
-| 2          | 2          |
-| 2          | 2          |
-| 5          | 4          |
-| 8          | 5          |
-| 10         | 6          |
-| 10         | 6          |
-+-------------------------+
+/*-------------------------*
+ | x          | rank       |
+ +-------------------------+
+ | 1          | 1          |
+ | 2          | 2          |
+ | 2          | 2          |
+ | 5          | 4          |
+ | 8          | 5          |
+ | 10         | 6          |
+ | 10         | 6          |
+ *-------------------------*/
 ```
 
 ```sql
@@ -7910,18 +8005,18 @@ SELECT name,
   RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
 FROM finishers;
 
-+-----------------+------------------------+----------+-------------+
-| name            | finish_time            | division | finish_rank |
-+-----------------+------------------------+----------+-------------+
-| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
-| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
-| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
-| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 4           |
-| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
-| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
-| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
-| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
-+-----------------+------------------------+----------+-------------+
+/*-----------------+------------------------+----------+-------------*
+ | name            | finish_time            | division | finish_rank |
+ +-----------------+------------------------+----------+-------------+
+ | Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
+ | Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+ | Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+ | Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 4           |
+ | Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
+ | Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
+ | Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
+ | Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
+ *-----------------+------------------------+----------+-------------*/
 ```
 
 ### `ROW_NUMBER`
@@ -7976,17 +8071,17 @@ SELECT x,
   ROW_NUMBER() OVER (ORDER BY x) AS row_num
 FROM Numbers
 
-+-------------------------+
-| x          | row_num    |
-+-------------------------+
-| 1          | 1          |
-| 2          | 2          |
-| 2          | 3          |
-| 5          | 4          |
-| 8          | 5          |
-| 10         | 6          |
-| 10         | 7          |
-+-------------------------+
+/*-------------------------*
+ | x          | row_num    |
+ +-------------------------+
+ | 1          | 1          |
+ | 2          | 2          |
+ | 2          | 3          |
+ | 5          | 4          |
+ | 8          | 5          |
+ | 10         | 6          |
+ | 10         | 7          |
+ *-------------------------*/
 ```
 
 ```sql
@@ -8007,18 +8102,18 @@ SELECT name,
   ROW_NUMBER() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
 FROM finishers;
 
-+-----------------+------------------------+----------+-------------+
-| name            | finish_time            | division | finish_rank |
-+-----------------+------------------------+----------+-------------+
-| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
-| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
-| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 3           |
-| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 4           |
-| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
-| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
-| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
-| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
-+-----------------+------------------------+----------+-------------+
+/*-----------------+------------------------+----------+-------------*
+ | name            | finish_time            | division | finish_rank |
+ +-----------------+------------------------+----------+-------------+
+ | Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
+ | Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+ | Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 3           |
+ | Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 4           |
+ | Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
+ | Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
+ | Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
+ | Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
+ *-----------------+------------------------+----------+-------------*/
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
@@ -8057,11 +8152,11 @@ The `value` parameter can represent:
 ```sql
 SELECT BIT_CAST_TO_UINT32(-1) as UINT32_value, BIT_CAST_TO_INT32(BIT_CAST_TO_UINT32(-1)) as bit_cast_value;
 
-+---------------+----------------------+
-| UINT32_value  | bit_cast_value       |
-+---------------+----------------------+
-| 4294967295    | -1                   |
-+---------------+----------------------+
+/*---------------+----------------------*
+ | UINT32_value  | bit_cast_value       |
+ +---------------+----------------------+
+ | 4294967295    | -1                   |
+ *---------------+----------------------*/
 ```
 
 ### `BIT_CAST_TO_INT64`
@@ -8090,11 +8185,11 @@ The `value` parameter can represent:
 ```sql
 SELECT BIT_CAST_TO_UINT64(-1) as UINT64_value, BIT_CAST_TO_INT64(BIT_CAST_TO_UINT64(-1)) as bit_cast_value;
 
-+-----------------------+----------------------+
-| UINT64_value          | bit_cast_value       |
-+-----------------------+----------------------+
-| 18446744073709551615  | -1                   |
-+-----------------------+----------------------+
+/*-----------------------+----------------------*
+ | UINT64_value          | bit_cast_value       |
+ +-----------------------+----------------------+
+ | 18446744073709551615  | -1                   |
+ *-----------------------+----------------------*/
 ```
 
 ### `BIT_CAST_TO_UINT32`
@@ -8123,11 +8218,11 @@ The `value` parameter can represent:
 ```sql
 SELECT -1 as UINT32_value, BIT_CAST_TO_UINT32(-1) as bit_cast_value;
 
-+--------------+----------------------+
-| UINT32_value | bit_cast_value       |
-+--------------+----------------------+
-| -1           | 4294967295           |
-+--------------+----------------------+
+/*--------------+----------------------*
+ | UINT32_value | bit_cast_value       |
+ +--------------+----------------------+
+ | -1           | 4294967295           |
+ *--------------+----------------------*/
 ```
 
 ### `BIT_CAST_TO_UINT64`
@@ -8156,11 +8251,11 @@ The `value` parameter can represent:
 ```sql
 SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
 
-+--------------+----------------------+
-| INT64_value  | bit_cast_value       |
-+--------------+----------------------+
-| -1           | 18446744073709551615 |
-+--------------+----------------------+
+/*--------------+----------------------*
+ | INT64_value  | bit_cast_value       |
+ +--------------+----------------------+
+ | -1           | 18446744073709551615 |
+ *--------------+----------------------*/
 ```
 
 ### `BIT_COUNT`
@@ -8192,18 +8287,18 @@ FROM UNNEST([
   (NULL, b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF')
 ]) AS x;
 
-+-------+--------+---------------------------------------------+--------+
-| a     | a_bits | b                                           | b_bits |
-+-------+--------+---------------------------------------------+--------+
-| 0     | 0      | b""                                         | 0      |
-| 0     | 0      | b"\x00"                                     | 0      |
-| 5     | 2      | b"\x05"                                     | 2      |
-| 8     | 1      | b"\x00\x08"                                 | 1      |
-| 65535 | 16     | b"\xff\xff"                                 | 16     |
-| -2    | 63     | b"\xff\xff\xff\xff\xff\xff\xff\xfe"         | 63     |
-| -1    | 64     | b"\xff\xff\xff\xff\xff\xff\xff\xff"         | 64     |
-| NULL  | NULL   | b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" | 80     |
-+-------+--------+---------------------------------------------+--------+
+/*-------+--------+---------------------------------------------+--------*
+ | a     | a_bits | b                                           | b_bits |
+ +-------+--------+---------------------------------------------+--------+
+ | 0     | 0      | b""                                         | 0      |
+ | 0     | 0      | b"\x00"                                     | 0      |
+ | 5     | 2      | b"\x05"                                     | 2      |
+ | 8     | 1      | b"\x00\x08"                                 | 1      |
+ | 65535 | 16     | b"\xff\xff"                                 | 16     |
+ | -2    | 63     | b"\xff\xff\xff\xff\xff\xff\xff\xfe"         | 63     |
+ | -1    | 64     | b"\xff\xff\xff\xff\xff\xff\xff\xff"         | 64     |
+ | NULL  | NULL   | b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" | 80     |
+ *-------+--------+---------------------------------------------+--------*/
 ```
 
 ## Conversion functions
@@ -8761,21 +8856,21 @@ integers:
 ```sql
 SELECT '0x123' as hex_value, CAST('0x123' as INT64) as hex_to_int;
 
-+-----------+------------+
-| hex_value | hex_to_int |
-+-----------+------------+
-| 0x123     | 291        |
-+-----------+------------+
+/*-----------+------------*
+ | hex_value | hex_to_int |
+ +-----------+------------+
+ | 0x123     | 291        |
+ *-----------+------------*/
 ```
 
 ```sql
 SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
-+-----------+------------+
-| hex_value | hex_to_int |
-+-----------+------------+
-| -0x123    | -291       |
-+-----------+------------+
+/*-----------+------------*
+ | hex_value | hex_to_int |
+ +-----------+------------+
+ | -0x123    | -291       |
+ *-----------+------------*/
 ```
 
 ### CAST AS INTERVAL
@@ -8827,15 +8922,15 @@ FROM UNNEST([
   'PT10H20M30,456S'
 ]) input
 
-+--------------------+--------------------+
-| input              | output             |
-+--------------------+--------------------+
-| 1-2 3 10:20:30.456 | 1-2 3 10:20:30.456 |
-| 1-2                | 1-2 0 0:0:0        |
-| 10:20:30           | 0-0 0 10:20:30     |
-| P1Y2M3D            | 1-2 3 0:0:0        |
-| PT10H20M30,456S    | 0-0 0 10:20:30.456 |
-+--------------------+--------------------+
+/*--------------------+--------------------*
+ | input              | output             |
+ +--------------------+--------------------+
+ | 1-2 3 10:20:30.456 | 1-2 3 10:20:30.456 |
+ | 1-2                | 1-2 0 0:0:0        |
+ | 10:20:30           | 0-0 0 10:20:30     |
+ | P1Y2M3D            | 1-2 3 0:0:0        |
+ | PT10H20M30,456S    | 0-0 0 10:20:30.456 |
+ *--------------------+--------------------*/
 ```
 
 ### CAST AS NUMERIC 
@@ -8973,16 +9068,16 @@ SELECT
     AS zetasql.examples.music.Award)
   AS award_col
 
-+---------------------------------------------------------+
-| award_col                                               |
-+---------------------------------------------------------+
-| {                                                       |
-|   year: 2001                                            |
-|   month: 9                                              |
-|   type { award_name: "Best Artist" category: "Artist" } |
-|   type { award_name: "Best Album" category: "Album" }   |
-| }                                                       |
-+---------------------------------------------------------+
+/*---------------------------------------------------------*
+ | award_col                                               |
+ +---------------------------------------------------------+
+ | {                                                       |
+ |   year: 2001                                            |
+ |   month: 9                                              |
+ |   type { award_name: "Best Artist" category: "Artist" } |
+ |   type { award_name: "Best Album" category: "Album" }   |
+ | }                                                       |
+ *---------------------------------------------------------*/
 ```
 
 ### CAST AS STRING 
@@ -9157,21 +9252,21 @@ For more information, see the following topics:
 ```sql
 SELECT CAST(CURRENT_DATE() AS STRING) AS current_date
 
-+---------------+
-| current_date  |
-+---------------+
-| 2021-03-09    |
-+---------------+
+/*---------------*
+ | current_date  |
+ +---------------+
+ | 2021-03-09    |
+ *---------------*/
 ```
 
 ```sql
 SELECT CAST(CURRENT_DATE() AS STRING FORMAT 'DAY') AS current_day
 
-+-------------+
-| current_day |
-+-------------+
-| MONDAY      |
-+-------------+
+/*-------------*
+ | current_day |
+ +-------------+
+ | MONDAY      |
+ *-------------*/
 ```
 
 ```sql
@@ -9180,11 +9275,11 @@ SELECT CAST(
   AS STRING FORMAT 'YYYY-MM-DD HH24:MI:SS TZH:TZM') AS date_time_to_string
 
 -- Results depend upon where this query was executed.
-+------------------------------+
-| date_time_to_string          |
-+------------------------------+
-| 2008-12-24 16:00:00 -08:00   |
-+------------------------------+
+/*------------------------------*
+ | date_time_to_string          |
+ +------------------------------+
+ | 2008-12-24 16:00:00 -08:00   |
+ *------------------------------*/
 ```
 
 ```sql
@@ -9194,21 +9289,21 @@ SELECT CAST(
   AT TIME ZONE 'Asia/Kolkata') AS date_time_to_string
 
 -- Because the time zone is specified, the result is always the same.
-+------------------------------+
-| date_time_to_string          |
-+------------------------------+
-| 2008-12-25 05:30:00 +05:30   |
-+------------------------------+
+/*------------------------------*
+ | date_time_to_string          |
+ +------------------------------+
+ | 2008-12-25 05:30:00 +05:30   |
+ *------------------------------*/
 ```
 
 ```sql
 SELECT CAST(INTERVAL 3 DAY AS STRING) AS interval_to_string
 
-+--------------------+
-| interval_to_string |
-+--------------------+
-| 0-0 3 0:0:0        |
-+--------------------+
+/*--------------------*
+ | interval_to_string |
+ +--------------------+
+ | 0-0 3 0:0:0        |
+ *--------------------*/
 ```
 
 ```sql
@@ -9216,11 +9311,11 @@ SELECT CAST(
   INTERVAL "1-2 3 4:5:6.789" YEAR TO SECOND
   AS STRING) AS interval_to_string
 
-+--------------------+
-| interval_to_string |
-+--------------------+
-| 1-2 3 4:5:6.789    |
-+--------------------+
+/*--------------------*
+ | interval_to_string |
+ +--------------------+
+ | 1-2 3 4:5:6.789    |
+ *--------------------*/
 ```
 
 ### CAST AS STRUCT
@@ -9409,11 +9504,11 @@ The following example casts a string-formatted timestamp as a timestamp:
 SELECT CAST("2020-06-02 17:00:53.110+00:00" AS TIMESTAMP) AS as_timestamp
 
 -- Results depend upon where this query was executed.
-+----------------------------+
-| as_timestamp               |
-+----------------------------+
-| 2020-06-03 00:00:53.110+00 |
-+----------------------------+
+/*----------------------------*
+ | as_timestamp               |
+ +----------------------------+
+ | 2020-06-03 00:00:53.110+00 |
+ *----------------------------*/
 ```
 
 The following examples cast a string-formatted date and time as a timestamp.
@@ -9470,11 +9565,11 @@ instead of raising an error.
 ```sql
 SELECT SAFE_CAST("apple" AS INT64) AS not_a_number;
 
-+--------------+
-| not_a_number |
-+--------------+
-| NULL         |
-+--------------+
+/*--------------*
+ | not_a_number |
+ +--------------+
+ | NULL         |
+ *--------------*/
 ```
 
 Some casts can include a [format clause][formatting-syntax], which provides
@@ -10034,11 +10129,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT CBRT(27) AS cube_root;
 
-+--------------------+
-| cube_root          |
-+--------------------+
-| 3.0000000000000004 |
-+--------------------+
+/*--------------------*
+ | cube_root          |
+ +--------------------+
+ | 3.0000000000000004 |
+ *--------------------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -10253,11 +10348,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT COT(1) AS a, SAFE.COT(0) AS b;
 
-+---------------------+------+
-| a                   | b    |
-+---------------------+------+
-| 0.64209261593433065 | NULL |
-+---------------------+------+
+/*---------------------+------*
+ | a                   | b    |
+ +---------------------+------+
+ | 0.64209261593433065 | NULL |
+ *---------------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -10315,11 +10410,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT COTH(1) AS a, SAFE.COTH(0) AS b;
 
-+----------------+------+
-| a              | b    |
-+----------------+------+
-| 1.313035285499 | NULL |
-+----------------+------+
+/*----------------+------*
+ | a              | b    |
+ +----------------+------+
+ | 1.313035285499 | NULL |
+ *----------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -10377,11 +10472,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT CSC(100) AS a, CSC(-1) AS b, SAFE.CSC(0) AS c;
 
-+----------------+-----------------+------+
-| a              | b               | c    |
-+----------------+-----------------+------+
-| -1.97485753142 | -1.188395105778 | NULL |
-+----------------+-----------------+------+
+/*----------------+-----------------+------*
+ | a              | b               | c    |
+ +----------------+-----------------+------+
+ | -1.97485753142 | -1.188395105778 | NULL |
+ *----------------+-----------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -10439,11 +10534,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT CSCH(0.5) AS a, CSCH(-2) AS b, SAFE.CSCH(0) AS c;
 
-+----------------+----------------+------+
-| a              | b              | c    |
-+----------------+----------------+------+
-| 1.919034751334 | -0.27572056477 | NULL |
-+----------------+----------------+------+
+/*----------------+----------------+------*
+ | a              | b              | c    |
+ +----------------+----------------+------+
+ | 1.919034751334 | -0.27572056477 | NULL |
+ *----------------+----------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -11097,6 +11192,85 @@ table.
 
 </table>
 
+### `PI`
+
+```sql
+PI()
+```
+
+**Description**
+
+Returns the mathematical constant `π` as a `DOUBLE`
+value.
+
+**Return type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT PI() AS pi
+
+/*--------------------*
+ | pi                 |
+ +--------------------+
+ | 3.1415926535897931 |
+ *--------------------*/
+```
+
+### `PI_BIGNUMERIC`
+
+```sql
+PI_BIGNUMERIC()
+```
+
+**Description**
+
+Returns the mathematical constant `π` as a `BIGNUMERIC` value.
+
+**Return type**
+
+`BIGNUMERIC`
+
+**Example**
+
+```sql
+SELECT PI_BIGNUMERIC() AS pi
+
+/*-----------------------------------------*
+ | pi                                      |
+ +-----------------------------------------+
+ | 3.1415926535897932384626433832795028842 |
+ *-----------------------------------------*/
+```
+
+### `PI_NUMERIC`
+
+```sql
+PI_NUMERIC()
+```
+
+**Description**
+
+Returns the mathematical constant `π` as a `NUMERIC` value.
+
+**Return type**
+
+`NUMERIC`
+
+**Example**
+
+```sql
+SELECT PI_NUMERIC() AS pi
+
+/*-------------*
+ | pi          |
+ +-------------+
+ | 3.141592654 |
+ *-------------*/
+```
+
 ### `POW`
 
 ```
@@ -11642,11 +11816,11 @@ that [coerces to `DOUBLE`][conversion-rules].
 ```sql
 SELECT SEC(100) AS a, SEC(-1) AS b;
 
-+----------------+---------------+
-| a              | b             |
-+----------------+---------------+
-| 1.159663822905 | 1.85081571768 |
-+----------------+---------------+
+/*----------------+---------------*
+ | a              | b             |
+ +----------------+---------------+
+ | 1.159663822905 | 1.85081571768 |
+ *----------------+---------------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -11700,11 +11874,11 @@ Never produces an error.
 ```sql
 SELECT SECH(0.5) AS a, SECH(-2) AS b, SECH(100) AS c;
 
-+----------------+----------------+---------------------+
-| a              | b              | c                   |
-+----------------+----------------+---------------------+
-| 0.88681888397  | 0.265802228834 | 7.4401519520417E-44 |
-+----------------+----------------+---------------------+
+/*----------------+----------------+---------------------*
+ | a              | b              | c                   |
+ +----------------+----------------+---------------------+
+ | 0.88681888397  | 0.265802228834 | 7.4401519520417E-44 |
+ *----------------+----------------+---------------------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -12117,20 +12291,20 @@ FROM (
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS fastest_time
   FROM finishers);
 
-+-----------------+-------------+----------+--------------+------------------+
-| name            | finish_time | division | fastest_time | delta_in_seconds |
-+-----------------+-------------+----------+--------------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
-| Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 0                |
-| Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 436              |
-| Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 891              |
-| Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 956              |
-| Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 1109             |
-| Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 0                |
-| Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 426              |
-| Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 691              |
-| Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 733              |
-+-----------------+-------------+----------+--------------+------------------+
+/*-----------------+-------------+----------+--------------+------------------*
+ | name            | finish_time | division | fastest_time | delta_in_seconds |
+ +-----------------+-------------+----------+--------------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
+ | Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 0                |
+ | Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 436              |
+ | Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 891              |
+ | Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 956              |
+ | Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 1109             |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 0                |
+ | Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 426              |
+ | Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 691              |
+ | Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 733              |
+ *-----------------+-------------+----------+--------------+------------------*/
 ```
 
 ### `LAG`
@@ -12206,20 +12380,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS preceding_runner
 FROM finishers;
 
-+-----------------+-------------+----------+------------------+
-| name            | finish_time | division | preceding_runner |
-+-----------------+-------------+----------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL             |
-| Sophia Liu      | 02:51:45    | F30-34   | NULL             |
-| Nikki Leith     | 02:59:01    | F30-34   | Sophia Liu       |
-| Jen Edwards     | 03:06:36    | F30-34   | Nikki Leith      |
-| Meghan Lederer  | 03:07:41    | F30-34   | Jen Edwards      |
-| Lauren Reasoner | 03:10:14    | F30-34   | Meghan Lederer   |
-| Lisa Stelzner   | 02:54:11    | F35-39   | NULL             |
-| Lauren Matthews | 03:01:17    | F35-39   | Lisa Stelzner    |
-| Desiree Berry   | 03:05:42    | F35-39   | Lauren Matthews  |
-| Suzy Slane      | 03:06:24    | F35-39   | Desiree Berry    |
-+-----------------+-------------+----------+------------------+
+/*-----------------+-------------+----------+------------------*
+ | name            | finish_time | division | preceding_runner |
+ +-----------------+-------------+----------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | NULL             |
+ | Sophia Liu      | 02:51:45    | F30-34   | NULL             |
+ | Nikki Leith     | 02:59:01    | F30-34   | Sophia Liu       |
+ | Jen Edwards     | 03:06:36    | F30-34   | Nikki Leith      |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Jen Edwards      |
+ | Lauren Reasoner | 03:10:14    | F30-34   | Meghan Lederer   |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | NULL             |
+ | Lauren Matthews | 03:01:17    | F35-39   | Lisa Stelzner    |
+ | Desiree Berry   | 03:05:42    | F35-39   | Lauren Matthews  |
+ | Suzy Slane      | 03:06:24    | F35-39   | Desiree Berry    |
+ *-----------------+-------------+----------+------------------*/
 ```
 
 This next example uses the optional `offset` parameter.
@@ -12245,20 +12419,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
 FROM finishers;
 
-+-----------------+-------------+----------+-------------------+
-| name            | finish_time | division | two_runners_ahead |
-+-----------------+-------------+----------+-------------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL              |
-| Sophia Liu      | 02:51:45    | F30-34   | NULL              |
-| Nikki Leith     | 02:59:01    | F30-34   | NULL              |
-| Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
-| Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
-| Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
-| Lisa Stelzner   | 02:54:11    | F35-39   | NULL              |
-| Lauren Matthews | 03:01:17    | F35-39   | NULL              |
-| Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
-| Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
-+-----------------+-------------+----------+-------------------+
+/*-----------------+-------------+----------+-------------------*
+ | name            | finish_time | division | two_runners_ahead |
+ +-----------------+-------------+----------+-------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | NULL              |
+ | Sophia Liu      | 02:51:45    | F30-34   | NULL              |
+ | Nikki Leith     | 02:59:01    | F30-34   | NULL              |
+ | Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
+ | Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | NULL              |
+ | Lauren Matthews | 03:01:17    | F35-39   | NULL              |
+ | Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
+ | Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
+ *-----------------+-------------+----------+-------------------*/
 ```
 
 The following example replaces NULL values with a default value.
@@ -12284,20 +12458,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
 FROM finishers;
 
-+-----------------+-------------+----------+-------------------+
-| name            | finish_time | division | two_runners_ahead |
-+-----------------+-------------+----------+-------------------+
-| Carly Forte     | 03:08:58    | F25-29   | Nobody            |
-| Sophia Liu      | 02:51:45    | F30-34   | Nobody            |
-| Nikki Leith     | 02:59:01    | F30-34   | Nobody            |
-| Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
-| Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
-| Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
-| Lisa Stelzner   | 02:54:11    | F35-39   | Nobody            |
-| Lauren Matthews | 03:01:17    | F35-39   | Nobody            |
-| Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
-| Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
-+-----------------+-------------+----------+-------------------+
+/*-----------------+-------------+----------+-------------------*
+ | name            | finish_time | division | two_runners_ahead |
+ +-----------------+-------------+----------+-------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | Nobody            |
+ | Sophia Liu      | 02:51:45    | F30-34   | Nobody            |
+ | Nikki Leith     | 02:59:01    | F30-34   | Nobody            |
+ | Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
+ | Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | Nobody            |
+ | Lauren Matthews | 03:01:17    | F35-39   | Nobody            |
+ | Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
+ | Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
+ *-----------------+-------------+----------+-------------------*/
 ```
 
 ### `LAST_VALUE`
@@ -12375,21 +12549,20 @@ FROM (
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS slowest_time
   FROM finishers);
 
-+-----------------+-------------+----------+--------------+------------------+
-| name            | finish_time | division | slowest_time | delta_in_seconds |
-+-----------------+-------------+----------+--------------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
-| Sophia Liu      | 02:51:45    | F30-34   | 03:10:14     | 1109             |
-| Nikki Leith     | 02:59:01    | F30-34   | 03:10:14     | 673              |
-| Jen Edwards     | 03:06:36    | F30-34   | 03:10:14     | 218              |
-| Meghan Lederer  | 03:07:41    | F30-34   | 03:10:14     | 153              |
-| Lauren Reasoner | 03:10:14    | F30-34   | 03:10:14     | 0                |
-| Lisa Stelzner   | 02:54:11    | F35-39   | 03:06:24     | 733              |
-| Lauren Matthews | 03:01:17    | F35-39   | 03:06:24     | 307              |
-| Desiree Berry   | 03:05:42    | F35-39   | 03:06:24     | 42               |
-| Suzy Slane      | 03:06:24    | F35-39   | 03:06:24     | 0                |
-+-----------------+-------------+----------+--------------+------------------+
-
+/*-----------------+-------------+----------+--------------+------------------*
+ | name            | finish_time | division | slowest_time | delta_in_seconds |
+ +-----------------+-------------+----------+--------------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
+ | Sophia Liu      | 02:51:45    | F30-34   | 03:10:14     | 1109             |
+ | Nikki Leith     | 02:59:01    | F30-34   | 03:10:14     | 673              |
+ | Jen Edwards     | 03:06:36    | F30-34   | 03:10:14     | 218              |
+ | Meghan Lederer  | 03:07:41    | F30-34   | 03:10:14     | 153              |
+ | Lauren Reasoner | 03:10:14    | F30-34   | 03:10:14     | 0                |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | 03:06:24     | 733              |
+ | Lauren Matthews | 03:01:17    | F35-39   | 03:06:24     | 307              |
+ | Desiree Berry   | 03:05:42    | F35-39   | 03:06:24     | 42               |
+ | Suzy Slane      | 03:06:24    | F35-39   | 03:06:24     | 0                |
+ *-----------------+-------------+----------+--------------+------------------*/
 ```
 
 ### `LEAD`
@@ -12465,20 +12638,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS followed_by
 FROM finishers;
 
-+-----------------+-------------+----------+-----------------+
-| name            | finish_time | division | followed_by     |
-+-----------------+-------------+----------+-----------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL            |
-| Sophia Liu      | 02:51:45    | F30-34   | Nikki Leith     |
-| Nikki Leith     | 02:59:01    | F30-34   | Jen Edwards     |
-| Jen Edwards     | 03:06:36    | F30-34   | Meghan Lederer  |
-| Meghan Lederer  | 03:07:41    | F30-34   | Lauren Reasoner |
-| Lauren Reasoner | 03:10:14    | F30-34   | NULL            |
-| Lisa Stelzner   | 02:54:11    | F35-39   | Lauren Matthews |
-| Lauren Matthews | 03:01:17    | F35-39   | Desiree Berry   |
-| Desiree Berry   | 03:05:42    | F35-39   | Suzy Slane      |
-| Suzy Slane      | 03:06:24    | F35-39   | NULL            |
-+-----------------+-------------+----------+-----------------+
+/*-----------------+-------------+----------+-----------------*
+ | name            | finish_time | division | followed_by     |
+ +-----------------+-------------+----------+-----------------+
+ | Carly Forte     | 03:08:58    | F25-29   | NULL            |
+ | Sophia Liu      | 02:51:45    | F30-34   | Nikki Leith     |
+ | Nikki Leith     | 02:59:01    | F30-34   | Jen Edwards     |
+ | Jen Edwards     | 03:06:36    | F30-34   | Meghan Lederer  |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Lauren Reasoner |
+ | Lauren Reasoner | 03:10:14    | F30-34   | NULL            |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | Lauren Matthews |
+ | Lauren Matthews | 03:01:17    | F35-39   | Desiree Berry   |
+ | Desiree Berry   | 03:05:42    | F35-39   | Suzy Slane      |
+ | Suzy Slane      | 03:06:24    | F35-39   | NULL            |
+ *-----------------+-------------+----------+-----------------*/
 ```
 
 This next example uses the optional `offset` parameter.
@@ -12504,20 +12677,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
 FROM finishers;
 
-+-----------------+-------------+----------+------------------+
-| name            | finish_time | division | two_runners_back |
-+-----------------+-------------+----------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL             |
-| Sophia Liu      | 02:51:45    | F30-34   | Jen Edwards      |
-| Nikki Leith     | 02:59:01    | F30-34   | Meghan Lederer   |
-| Jen Edwards     | 03:06:36    | F30-34   | Lauren Reasoner  |
-| Meghan Lederer  | 03:07:41    | F30-34   | NULL             |
-| Lauren Reasoner | 03:10:14    | F30-34   | NULL             |
-| Lisa Stelzner   | 02:54:11    | F35-39   | Desiree Berry    |
-| Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
-| Desiree Berry   | 03:05:42    | F35-39   | NULL             |
-| Suzy Slane      | 03:06:24    | F35-39   | NULL             |
-+-----------------+-------------+----------+------------------+
+/*-----------------+-------------+----------+------------------*
+ | name            | finish_time | division | two_runners_back |
+ +-----------------+-------------+----------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | NULL             |
+ | Sophia Liu      | 02:51:45    | F30-34   | Jen Edwards      |
+ | Nikki Leith     | 02:59:01    | F30-34   | Meghan Lederer   |
+ | Jen Edwards     | 03:06:36    | F30-34   | Lauren Reasoner  |
+ | Meghan Lederer  | 03:07:41    | F30-34   | NULL             |
+ | Lauren Reasoner | 03:10:14    | F30-34   | NULL             |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | Desiree Berry    |
+ | Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
+ | Desiree Berry   | 03:05:42    | F35-39   | NULL             |
+ | Suzy Slane      | 03:06:24    | F35-39   | NULL             |
+ *-----------------+-------------+----------+------------------*/
 ```
 
 The following example replaces NULL values with a default value.
@@ -12543,20 +12716,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
 FROM finishers;
 
-+-----------------+-------------+----------+------------------+
-| name            | finish_time | division | two_runners_back |
-+-----------------+-------------+----------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | Nobody           |
-| Sophia Liu      | 02:51:45    | F30-34   | Jen Edwards      |
-| Nikki Leith     | 02:59:01    | F30-34   | Meghan Lederer   |
-| Jen Edwards     | 03:06:36    | F30-34   | Lauren Reasoner  |
-| Meghan Lederer  | 03:07:41    | F30-34   | Nobody           |
-| Lauren Reasoner | 03:10:14    | F30-34   | Nobody           |
-| Lisa Stelzner   | 02:54:11    | F35-39   | Desiree Berry    |
-| Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
-| Desiree Berry   | 03:05:42    | F35-39   | Nobody           |
-| Suzy Slane      | 03:06:24    | F35-39   | Nobody           |
-+-----------------+-------------+----------+------------------+
+/*-----------------+-------------+----------+------------------*
+ | name            | finish_time | division | two_runners_back |
+ +-----------------+-------------+----------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | Nobody           |
+ | Sophia Liu      | 02:51:45    | F30-34   | Jen Edwards      |
+ | Nikki Leith     | 02:59:01    | F30-34   | Meghan Lederer   |
+ | Jen Edwards     | 03:06:36    | F30-34   | Lauren Reasoner  |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Nobody           |
+ | Lauren Reasoner | 03:10:14    | F30-34   | Nobody           |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | Desiree Berry    |
+ | Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
+ | Desiree Berry   | 03:05:42    | F35-39   | Nobody           |
+ | Suzy Slane      | 03:06:24    | F35-39   | Nobody           |
+ *-----------------+-------------+----------+------------------*/
 ```
 
 ### `NTH_VALUE`
@@ -12640,20 +12813,20 @@ FROM (
     PARTITION BY division ORDER BY finish_time ASC
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING));
 
-+-----------------+-------------+----------+--------------+----------------+
-| name            | finish_time | division | fastest_time | second_fastest |
-+-----------------+-------------+----------+--------------+----------------+
-| Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | NULL           |
-| Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 02:59:01       |
-| Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 02:59:01       |
-| Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 02:59:01       |
-| Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 02:59:01       |
-| Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 02:59:01       |
-| Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 03:01:17       |
-| Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 03:01:17       |
-| Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 03:01:17       |
-| Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 03:01:17       |
-+-----------------+-------------+----------+--------------+----------------+
+/*-----------------+-------------+----------+--------------+----------------*
+ | name            | finish_time | division | fastest_time | second_fastest |
+ +-----------------+-------------+----------+--------------+----------------+
+ | Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | NULL           |
+ | Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 02:59:01       |
+ | Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 02:59:01       |
+ | Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 02:59:01       |
+ | Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 02:59:01       |
+ | Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 02:59:01       |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 03:01:17       |
+ | Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 03:01:17       |
+ | Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 03:01:17       |
+ | Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 03:01:17       |
+ *-----------------+-------------+----------+--------------+----------------*/
 ```
 
 ### `PERCENTILE_CONT`
@@ -12694,7 +12867,7 @@ To learn more about the `OVER` clause and how to use it, see
 <!-- mdlint on -->
 
 `PERCENTILE_CONT` can be used with differential privacy. To learn more, see
-[Differentially private aggregate functions][anonymization-functions].
+[Differentially private aggregate functions][dp-functions].
 
 **Supported Argument Types**
 
@@ -12737,11 +12910,11 @@ SELECT
   PERCENTILE_CONT(x, 1) OVER() AS max
 FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
-+-----+-------------+--------+--------------+-----+
-| min | percentile1 | median | percentile90 | max |
-+-----+-------------+--------+--------------+-----+
-| 0   | 0.03        | 1.5    | 2.7          | 3   |
-+-----+-------------+--------+--------------+-----+
+ /*-----+-------------+--------+--------------+-----*
+  | min | percentile1 | median | percentile90 | max |
+  +-----+-------------+--------+--------------+-----+
+  | 0   | 0.03        | 1.5    | 2.7          | 3   |
+  *-----+-------------+--------+--------------+-----+
 ```
 
 The following example computes the value for some percentiles from a column of
@@ -12756,14 +12929,14 @@ SELECT
   PERCENTILE_CONT(x, 1 RESPECT NULLS) OVER() AS max
 FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
-+------+-------------+--------+--------------+-----+
-| min  | percentile1 | median | percentile90 | max |
-+------+-------------+--------+--------------+-----+
-| NULL | 0           | 1      | 2.6          | 3   |
-+------+-------------+--------+--------------+-----+
+/*------+-------------+--------+--------------+-----*
+ | min  | percentile1 | median | percentile90 | max |
+ +------+-------------+--------+--------------+-----+
+ | NULL | 0           | 1      | 2.6          | 3   |
+ *------+-------------+--------+--------------+-----+
 ```
 
-[anonymization-functions]: #aggregate-dp-functions
+[dp-functions]: #aggregate-dp-functions
 
 ### `PERCENTILE_DISC`
 
@@ -12825,14 +12998,14 @@ SELECT
   PERCENTILE_DISC(x, 1) OVER() AS max
 FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
-+------+-----+--------+-----+
-| x    | min | median | max |
-+------+-----+--------+-----+
-| c    | a   | b      | c   |
-| NULL | a   | b      | c   |
-| b    | a   | b      | c   |
-| a    | a   | b      | c   |
-+------+-----+--------+-----+
+/*------+-----+--------+-----*
+ | x    | min | median | max |
+ +------+-----+--------+-----+
+ | c    | a   | b      | c   |
+ | NULL | a   | b      | c   |
+ | b    | a   | b      | c   |
+ | a    | a   | b      | c   |
+ *------+-----+--------+-----*/
 ```
 
 The following example computes the value for some percentiles from a column of
@@ -12846,14 +13019,14 @@ SELECT
   PERCENTILE_DISC(x, 1 RESPECT NULLS) OVER() AS max
 FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
-+------+------+--------+-----+
-| x    | min  | median | max |
-+------+------+--------+-----+
-| c    | NULL | a      | c   |
-| NULL | NULL | a      | c   |
-| b    | NULL | a      | c   |
-| a    | NULL | a      | c   |
-+------+------+--------+-----+
+/*------+------+--------+-----*
+ | x    | min  | median | max |
+ +------+------+--------+-----+
+ | c    | NULL | a      | c   |
+ | NULL | NULL | a      | c   |
+ | b    | NULL | a      | c   |
+ | a    | NULL | a      | c   |
+ *------+------+--------+-----*/
 
 ```
 
@@ -12893,13 +13066,13 @@ SELECT
   FARM_FINGERPRINT(CONCAT(CAST(x AS STRING), y, CAST(z AS STRING)))
     AS row_fingerprint
 FROM example;
-+---+-------+-------+----------------------+
-| x | y     | z     | row_fingerprint      |
-+---+-------+-------+----------------------+
-| 1 | foo   | true  | -1541654101129638711 |
-| 2 | apple | false | 2794438866806483259  |
-| 3 |       | true  | -4880158226897771312 |
-+---+-------+-------+----------------------+
+/*---+-------+-------+----------------------*
+ | x | y     | z     | row_fingerprint      |
+ +---+-------+-------+----------------------+
+ | 1 | foo   | true  | -1541654101129638711 |
+ | 2 | apple | false | 2794438866806483259  |
+ | 3 |       | true  | -4880158226897771312 |
+ *---+-------+-------+----------------------*/
 ```
 
 [hash-link-to-farmhash-github]: https://github.com/google/farmhash
@@ -12924,11 +13097,11 @@ UINT64
 ```sql
 SELECT FINGERPRINT("Hello World") as fingerprint;
 
-+----------------------+
-| fingerprint          |
-+----------------------+
-| 4584092443788135411  |
-+----------------------+
+/*----------------------*
+ | fingerprint          |
+ +----------------------+
+ | 4584092443788135411  |
+ *----------------------*/
 ```
 
 ### `MD5`
@@ -12954,11 +13127,11 @@ This function returns 16 bytes.
 ```sql
 SELECT MD5("Hello World") as md5;
 
-+-------------------------------------------------+
-| md5                                             |
-+-------------------------------------------------+
-| \xb1\n\x8d\xb1d\xe0uA\x05\xb7\xa9\x9b\xe7.?\xe5 |
-+-------------------------------------------------+
+/*-------------------------------------------------*
+ | md5                                             |
+ +-------------------------------------------------+
+ | \xb1\n\x8d\xb1d\xe0uA\x05\xb7\xa9\x9b\xe7.?\xe5 |
+ *-------------------------------------------------*/
 ```
 
 [hash-link-to-md5-wikipedia]: https://en.wikipedia.org/wiki/MD5
@@ -12986,11 +13159,11 @@ This function returns 20 bytes.
 ```sql
 SELECT SHA1("Hello World") as sha1;
 
-+-----------------------------------------------------------+
-| sha1                                                      |
-+-----------------------------------------------------------+
-| \nMU\xa8\xd7x\xe5\x02/\xabp\x19w\xc5\xd8@\xbb\xc4\x86\xd0 |
-+-----------------------------------------------------------+
+/*-----------------------------------------------------------*
+ | sha1                                                      |
+ +-----------------------------------------------------------+
+ | \nMU\xa8\xd7x\xe5\x02/\xabp\x19w\xc5\xd8@\xbb\xc4\x86\xd0 |
+ *-----------------------------------------------------------*/
 ```
 
 [hash-link-to-sha-1-wikipedia]: https://en.wikipedia.org/wiki/SHA-1
@@ -13083,11 +13256,11 @@ or byte.
 ```sql
 SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
 
-+-------+-------+-------+-------+
-| A     | B     | C     | D     |
-+-------+-------+-------+-------+
-| 97    | 97    | 0     | NULL  |
-+-------+-------+-------+-------+
+/*-------+-------+-------+-------*
+ | A     | B     | C     | D     |
+ +-------+-------+-------+-------+
+ | 97    | 97    | 0     | NULL  |
+ *-------+-------+-------+-------*/
 ```
 
 ### `BYTE_LENGTH`
@@ -13118,11 +13291,11 @@ SELECT
   BYTE_LENGTH(bytes) AS bytes_example
 FROM example;
 
-+------------+----------------+-------+---------------+
-| characters | string_example | bytes | bytes_example |
-+------------+----------------+-------+---------------+
-| абвгд      | 10             | абвгд | 10            |
-+------------+----------------+-------+---------------+
+/*------------+----------------+-------+---------------*
+ | characters | string_example | bytes | bytes_example |
+ +------------+----------------+-------+---------------+
+ | абвгд      | 10             | абвгд | 10            |
+ *------------+----------------+-------+---------------*/
 ```
 
 ### `CHAR_LENGTH`
@@ -13150,11 +13323,11 @@ SELECT
   CHAR_LENGTH(characters) AS char_length_example
 FROM example;
 
-+------------+---------------------+
-| characters | char_length_example |
-+------------+---------------------+
-| абвгд      |                   5 |
-+------------+---------------------+
+/*------------+---------------------*
+ | characters | char_length_example |
+ +------------+---------------------+
+ | абвгд      |                   5 |
+ *------------+---------------------*/
 ```
 
 ### `CHARACTER_LENGTH`
@@ -13182,11 +13355,11 @@ SELECT
   CHARACTER_LENGTH(characters) AS char_length_example
 FROM example;
 
-+------------+---------------------+
-| characters | char_length_example |
-+------------+---------------------+
-| абвгд      |                   5 |
-+------------+---------------------+
+/*------------+---------------------*
+ | characters | char_length_example |
+ +------------+---------------------+
+ | абвгд      |                   5 |
+ *------------+---------------------*/
 ```
 
 [string-link-to-char-length]: #char_length
@@ -13217,21 +13390,21 @@ To work with an array of Unicode code points, see
 ```sql
 SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
 
-+-------+-------+-------+-------+
-| A     | B     | C     | D     |
-+-------+-------+-------+-------+
-| A     | ÿ     | ȁ     | Ѐ     |
-+-------+-------+-------+-------+
+/*-------+-------+-------+-------*
+ | A     | B     | C     | D     |
+ +-------+-------+-------+-------+
+ | A     | ÿ     | ȁ     | Ѐ     |
+ *-------+-------+-------+-------*/
 ```
 
 ```sql
 SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 
-+-------+-------+-------+-------+
-| A     | B     | C     | D     |
-+-------+-------+-------+-------+
-| a     | 例    |       | NULL  |
-+-------+-------+-------+-------+
+/*-------+-------+-------+-------*
+ | A     | B     | C     | D     |
+ +-------+-------+-------+-------+
+ | a     | 例    |       | NULL  |
+ *-------+-------+-------+-------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -13264,11 +13437,11 @@ The following is a basic example using `CODE_POINTS_TO_BYTES`.
 ```sql
 SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 
-+----------+
-| bytes    |
-+----------+
-| AbCd     |
-+----------+
+/*----------*
+ | bytes    |
+ +----------+
+ | AbCd     |
+ *----------*/
 ```
 
 The following example uses a rotate-by-13 places (ROT13) algorithm to encode a
@@ -13291,11 +13464,11 @@ SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
   ) ORDER BY OFFSET)) AS encoded_string
 FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 
-+------------------+
-| encoded_string   |
-+------------------+
-| Grfg Fgevat!     |
-+------------------+
+/*------------------*
+ | encoded_string   |
+ +------------------+
+ | Grfg Fgevat!     |
+ *------------------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -13327,31 +13500,31 @@ The following are basic examples using `CODE_POINTS_TO_STRING`.
 ```sql
 SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
 
-+--------+
-| string |
-+--------+
-| AÿȁЀ   |
-+--------+
+/*--------*
+ | string |
+ +--------+
+ | AÿȁЀ   |
+ *--------*/
 ```
 
 ```sql
 SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
 
-+--------+
-| string |
-+--------+
-| a例    |
-+--------+
+/*--------*
+ | string |
+ +--------+
+ | a例    |
+ *--------*/
 ```
 
 ```sql
 SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
 
-+--------+
-| string |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | string |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 
 The following example computes the frequency of letters in a set of words.
@@ -13369,21 +13542,21 @@ FROM Words,
 GROUP BY 1
 ORDER BY 2 DESC;
 
-+--------+--------------+
-| letter | letter_count |
-+--------+--------------+
-| a      | 5            |
-| f      | 3            |
-| r      | 2            |
-| b      | 2            |
-| l      | 2            |
-| o      | 2            |
-| g      | 1            |
-| z      | 1            |
-| e      | 1            |
-| m      | 1            |
-| i      | 1            |
-+--------+--------------+
+/*--------+--------------*
+ | letter | letter_count |
+ +--------+--------------+
+ | a      | 5            |
+ | f      | 3            |
+ | r      | 2            |
+ | b      | 2            |
+ | l      | 2            |
+ | o      | 2            |
+ | g      | 1            |
+ | z      | 1            |
+ | e      | 1            |
+ | m      | 1            |
+ | i      | 1            |
+ *--------+--------------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -13426,11 +13599,11 @@ WITH Words AS (
 SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
 FROM Words;
 
-+----------------+
-| a_less_than_Z  |
-+----------------+
-| TRUE           |
-+----------------+
+/*----------------*
+ | a_less_than_Z  |
+ +----------------+
+ | TRUE           |
+ *----------------*/
 ```
 
 In this example, the weight of `a` is greater than the weight of `Z`. This
@@ -13445,11 +13618,11 @@ WITH Words AS (
 SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
 FROM Words;
 
-+----------------+
-| a_less_than_Z  |
-+----------------+
-| FALSE          |
-+----------------+
+/*----------------*
+ | a_less_than_Z  |
+ +----------------+
+ | FALSE          |
+ *----------------*/
 ```
 
 [link-collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
@@ -13482,21 +13655,21 @@ values into a string.
 ```sql
 SELECT CONCAT('T.P.', ' ', 'Bar') as author;
 
-+---------------------+
-| author              |
-+---------------------+
-| T.P. Bar            |
-+---------------------+
+/*---------------------*
+ | author              |
+ +---------------------+
+ | T.P. Bar            |
+ *---------------------*/
 ```
 
 ```sql
 SELECT CONCAT('Summer', ' ', 1923) as release_date;
 
-+---------------------+
-| release_date        |
-+---------------------+
-| Summer 1923         |
-+---------------------+
+/*---------------------*
+ | release_date        |
+ +---------------------+
+ | Summer 1923         |
+ *---------------------*/
 ```
 
 ```sql
@@ -13519,13 +13692,13 @@ SELECT
   AS full_name
 FROM Employees;
 
-+---------------------+
-| full_name           |
-+---------------------+
-| John Doe            |
-| Jane Smith          |
-| Joe Jackson         |
-+---------------------+
+/*---------------------*
+ | full_name           |
+ +---------------------+
+ | John Doe            |
+ | Jane Smith          |
+ | Joe Jackson         |
+ *---------------------*/
 ```
 
 [string-link-to-operators]: #operators
@@ -13563,13 +13736,13 @@ SELECT
   ENDS_WITH(item, 'e') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-|    True |
-|   False |
-|    True |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |    True |
+ |   False |
+ |    True |
+ *---------*/
 ```
 
 ### `FORMAT` 
@@ -14384,11 +14557,11 @@ Converts the base32-encoded input `string_expr` into `BYTES` format. To convert
 ```sql
 SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 
-+-----------+
-| byte_data |
-+-----------+
-| abcde\xff |
-+-----------+
+/*-----------*
+ | byte_data |
+ +-----------+
+ | abcde\xff |
+ *-----------*/
 ```
 
 [string-link-to-base32]: #to_base32
@@ -14420,11 +14593,11 @@ function expects the alphabet `[A-Za-z0-9+/=]`.
 ```sql
 SELECT FROM_BASE64('/+A=') AS byte_data;
 
-+------------+
-| byte_data |
-+-----------+
-| \377\340  |
-+-----------+
+/*-----------*
+ | byte_data |
+ +-----------+
+ | \377\340  |
+ *-----------*/
 ```
 
 To work with an encoding using a different base64 alphabet, you might need to
@@ -14436,11 +14609,11 @@ uses `-_=` as the last characters rather than `+/=`. To decode a
 ```sql
 SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 
-+-----------+
-| binary    |
-+-----------+
-| \377\340  |
-+-----------+
+/*-----------*
+ | binary    |
+ +-----------+
+ | \377\340  |
+ *-----------*/
 ```
 
 [RFC-4648]: https://tools.ietf.org/html/rfc4648#section-4
@@ -14477,13 +14650,13 @@ WITH Input AS (
 SELECT hex_str, FROM_HEX(hex_str) AS bytes_str
 FROM Input;
 
-+------------------+----------------------------------+
-| hex_str          | bytes_str                        |
-+------------------+----------------------------------+
-| 0AF              | \x00\xaf                         |
-| 00010203aaeeefff | \x00\x01\x02\x03\xaa\xee\xef\xff |
-| 666f6f626172     | foobar                           |
-+------------------+----------------------------------+
+/*------------------+----------------------------------*
+ | hex_str          | bytes_str                        |
+ +------------------+----------------------------------+
+ | 0AF              | \x00\xaf                         |
+ | 00010203aaeeefff | \x00\x01\x02\x03\xaa\xee\xef\xff |
+ | 666f6f626172     | foobar                           |
+ *------------------+----------------------------------*/
 ```
 
 [string-link-to-to-hex]: #to_hex
@@ -14523,14 +14696,14 @@ WITH example AS
 )
 SELECT value, INITCAP(value) AS initcap_value FROM example
 
-+-------------------------------+-------------------------------+
-| value                         | initcap_value                 |
-+-------------------------------+-------------------------------+
-| Hello World-everyone!         | Hello World-Everyone!         |
-| tHe dog BARKS loudly+friendly | The Dog Barks Loudly+Friendly |
-| apples&oranges;&pears         | Apples&Oranges;&Pears         |
-| καθίσματα ταινιών             | Καθίσματα Ταινιών             |
-+-------------------------------+-------------------------------+
+/*-------------------------------+-------------------------------*
+ | value                         | initcap_value                 |
+ +-------------------------------+-------------------------------+
+ | Hello World-everyone!         | Hello World-Everyone!         |
+ | tHe dog BARKS loudly+friendly | The Dog Barks Loudly+Friendly |
+ | apples&oranges;&pears         | Apples&Oranges;&Pears         |
+ | καθίσματα ταινιών             | Καθίσματα Ταινιών             |
+ *-------------------------------+-------------------------------*/
 
 WITH example AS
 (
@@ -14541,14 +14714,14 @@ WITH example AS
 )
 SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM example;
 
-+----------------------+------------+----------------------+
-| value                | delimiters | initcap_value        |
-+----------------------+------------+----------------------+
-| hello WORLD!         |            | Hello world!         |
-| καθίσματα ταιντιώ@ν  | τ@         | ΚαθίσματΑ τΑιντΙώ@Ν  |
-| Apples1oranges2pears | 12         | Apples1Oranges2Pears |
-| tHisEisEaESentence   | E          | ThisEIsEAESentence   |
-+----------------------+------------+----------------------+
+/*----------------------+------------+----------------------*
+ | value                | delimiters | initcap_value        |
+ +----------------------+------------+----------------------+
+ | hello WORLD!         |            | Hello world!         |
+ | καθίσματα ταιντιώ@ν  | τ@         | ΚαθίσματΑ τΑιντΙώ@Ν  |
+ | Apples1oranges2pears | 12         | Apples1Oranges2Pears |
+ | tHisEisEaESentence   | E          | ThisEIsEAESentence   |
+ *----------------------+------------+----------------------*/
 ```
 
 ### `INSTR`
@@ -14625,19 +14798,19 @@ SELECT source_value, search_value, position, occurrence, INSTR(source_value,
 search_value, position, occurrence) AS instr
 FROM example;
 
-+--------------+--------------+----------+------------+-------+
-| source_value | search_value | position | occurrence | instr |
-+--------------+--------------+----------+------------+-------+
-| banana       | an           | 1        | 1          | 2     |
-| banana       | an           | 1        | 2          | 4     |
-| banana       | an           | 1        | 3          | 0     |
-| banana       | an           | 3        | 1          | 4     |
-| banana       | an           | -1       | 1          | 4     |
-| banana       | an           | -3       | 1          | 4     |
-| banana       | ann          | 1        | 1          | 0     |
-| helloooo     | oo           | 1        | 1          | 5     |
-| helloooo     | oo           | 1        | 2          | 6     |
-+--------------+--------------+----------+------------+-------+
+/*--------------+--------------+----------+------------+-------*
+ | source_value | search_value | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
+ | banana       | an           | 1        | 1          | 2     |
+ | banana       | an           | 1        | 2          | 4     |
+ | banana       | an           | 1        | 3          | 0     |
+ | banana       | an           | 3        | 1          | 4     |
+ | banana       | an           | -1       | 1          | 4     |
+ | banana       | an           | -3       | 1          | 4     |
+ | banana       | ann          | 1        | 1          | 0     |
+ | helloooo     | oo           | 1        | 1          | 5     |
+ | helloooo     | oo           | 1        | 2          | 6     |
+ *--------------+--------------+----------+------------+-------*/
 ```
 
 ### `LEFT`
@@ -14677,13 +14850,13 @@ SELECT 'абвгд' as example
 SELECT example, LEFT(example, 3) AS left_example
 FROM examples;
 
-+---------+--------------+
-| example | left_example |
-+---------+--------------+
-| apple   | app          |
-| banana  | ban          |
-| абвгд   | абв          |
-+---------+--------------+
+/*---------+--------------*
+ | example | left_example |
+ +---------+--------------+
+ | apple   | app          |
+ | banana  | ban          |
+ | абвгд   | абв          |
+ *---------+--------------*/
 ```
 
 ```sql
@@ -14697,13 +14870,13 @@ SELECT b'\xab\xcd\xef\xaa\xbb' as example
 SELECT example, LEFT(example, 3) AS left_example
 FROM examples;
 
-+----------------------+--------------+
-| example              | left_example |
-+----------------------+--------------+
-| apple                | app          |
-| banana               | ban          |
-| \xab\xcd\xef\xaa\xbb | \xab\xcd\xef |
-+----------------------+--------------+
+/*----------------------+--------------*
+ | example              | left_example |
+ +----------------------+--------------+
+ | apple                | app          |
+ | banana               | ban          |
+ | \xab\xcd\xef\xaa\xbb | \xab\xcd\xef |
+ *----------------------+--------------*/
 ```
 
 ### `LENGTH`
@@ -14735,11 +14908,11 @@ SELECT
   LENGTH(CAST(characters AS BYTES)) AS bytes_example
 FROM example;
 
-+------------+----------------+---------------+
-| characters | string_example | bytes_example |
-+------------+----------------+---------------+
-| абвгд      |              5 |            10 |
-+------------+----------------+---------------+
+/*------------+----------------+---------------*
+ | characters | string_example | bytes_example |
+ +------------+----------------+---------------+
+ | абвгд      |              5 |            10 |
+ *------------+----------------+---------------*/
 ```
 
 ### `LOWER`
@@ -14781,13 +14954,13 @@ SELECT
   LOWER(item) AS example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| foo     |
-| bar     |
-| baz     |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | foo     |
+ | bar     |
+ | baz     |
+ *---------*/
 ```
 
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
@@ -14835,13 +15008,13 @@ SELECT t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST([
   ('例子', 4)
 ]);
 
-+------+-----+----------+
-| t    | len | LPAD     |
-|------|-----|----------|
-| abc  | 5   | "  abc"  |
-| abc  | 2   | "ab"     |
-| 例子  | 4   | "  例子" |
-+------+-----+----------+
+/*------+-----+----------*
+ | t    | len | LPAD     |
+ |------|-----|----------|
+ | abc  | 5   | "  abc"  |
+ | abc  | 2   | "ab"     |
+ | 例子  | 4   | "  例子" |
+ *------+-----+----------*/
 ```
 
 ```sql
@@ -14851,13 +15024,13 @@ SELECT t, len, pattern, FORMAT('%T', LPAD(t, len, pattern)) AS LPAD FROM UNNEST(
   ('例子', 5, '中文')
 ]);
 
-+------+-----+---------+--------------+
-| t    | len | pattern | LPAD         |
-|------|-----|---------|--------------|
-| abc  | 8   | def     | "defdeabc"   |
-| abc  | 5   | -       | "--abc"      |
-| 例子  | 5   | 中文    | "中文中例子"   |
-+------+-----+---------+--------------+
+/*------+-----+---------+--------------*
+ | t    | len | pattern | LPAD         |
+ |------|-----|---------|--------------|
+ | abc  | 8   | def     | "defdeabc"   |
+ | abc  | 5   | -       | "--abc"      |
+ | 例子  | 5   | 中文    | "中文中例子"   |
+ *------+-----+---------+--------------*/
 ```
 
 ```sql
@@ -14867,13 +15040,13 @@ SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST
   (b'\xab\xcd\xef', 4)
 ]);
 
-+-----------------+-----+------------------+
-| t               | len | LPAD             |
-|-----------------|-----|------------------|
-| b"abc"          | 5   | b"  abc"         |
-| b"abc"          | 2   | b"ab"            |
-| b"\xab\xcd\xef" | 4   | b" \xab\xcd\xef" |
-+-----------------+-----+------------------+
+/*-----------------+-----+------------------*
+ | t               | len | LPAD             |
+ |-----------------|-----|------------------|
+ | b"abc"          | 5   | b"  abc"         |
+ | b"abc"          | 2   | b"ab"            |
+ | b"\xab\xcd\xef" | 4   | b" \xab\xcd\xef" |
+ *-----------------+-----+------------------*/
 ```
 
 ```sql
@@ -14888,13 +15061,13 @@ FROM UNNEST([
   (b'\xab\xcd\xef', 5, b'\x00')
 ]);
 
-+-----------------+-----+---------+-------------------------+
-| t               | len | pattern | LPAD                    |
-|-----------------|-----|---------|-------------------------|
-| b"abc"          | 8   | b"def"  | b"defdeabc"             |
-| b"abc"          | 5   | b"-"    | b"--abc"                |
-| b"\xab\xcd\xef" | 5   | b"\x00" | b"\x00\x00\xab\xcd\xef" |
-+-----------------+-----+---------+-------------------------+
+/*-----------------+-----+---------+-------------------------*
+ | t               | len | pattern | LPAD                    |
+ |-----------------|-----|---------|-------------------------|
+ | b"abc"          | 8   | b"def"  | b"defdeabc"             |
+ | b"abc"          | 5   | b"-"    | b"--abc"                |
+ | b"\xab\xcd\xef" | 5   | b"\x00" | b"\x00\x00\xab\xcd\xef" |
+ *-----------------+-----+---------+-------------------------*/
 ```
 
 ### `LTRIM`
@@ -14925,13 +15098,13 @@ SELECT
   CONCAT('#', LTRIM(item), '#') as example
 FROM items;
 
-+-------------+
-| example     |
-+-------------+
-| #apple   #  |
-| #banana   # |
-| #orange   # |
-+-------------+
+/*-------------*
+ | example     |
+ +-------------+
+ | #apple   #  |
+ | #banana   # |
+ | #orange   # |
+ *-------------*/
 ```
 
 ```sql
@@ -14946,13 +15119,13 @@ SELECT
   LTRIM(item, '*') as example
 FROM items;
 
-+-----------+
-| example   |
-+-----------+
-| apple***  |
-| banana*** |
-| orange*** |
-+-----------+
+/*-----------*
+ | example   |
+ +-----------+
+ | apple***  |
+ | banana*** |
+ | orange*** |
+ *-----------*/
 ```
 
 ```sql
@@ -14971,14 +15144,14 @@ SELECT
   LTRIM(item, 'xyz') as example
 FROM items;
 
-+-----------+
-| example   |
-+-----------+
-| applexxx  |
-| bananayyy |
-| orangezzz |
-| pearxyz   |
-+-----------+
+/*-----------*
+ | example   |
+ +-----------+
+ | applexxx  |
+ | bananayyy |
+ | orangezzz |
+ | pearxyz   |
+ *-----------*/
 ```
 
 [string-link-to-trim]: #trim
@@ -15026,11 +15199,11 @@ SELECT
   NORMALIZE_AND_CASEFOLD(a) = NORMALIZE_AND_CASEFOLD(b) as normalized_with_case_folding
 FROM (SELECT 'The red barn' AS a, 'The Red Barn' AS b);
 
-+--------------+--------------+------------+------------------------------+
-| a            | b            | normalized | normalized_with_case_folding |
-+--------------+--------------+------------+------------------------------+
-| The red barn | The Red Barn | false      | true                         |
-+--------------+--------------+------------+------------------------------+
+/*--------------+--------------+------------+------------------------------*
+ | a            | b            | normalized | normalized_with_case_folding |
+ +--------------+--------------+------------+------------------------------+
+ | The red barn | The Red Barn | false      | true                         |
+ *--------------+--------------+------------+------------------------------*/
 ```
 
 ```sql
@@ -15045,12 +15218,12 @@ SELECT a, b,
   NORMALIZE_AND_CASEFOLD(a, NFKC)=NORMALIZE_AND_CASEFOLD(b, NFKC) AS nkfc
 FROM Strings;
 
-+---+----+-------+-------+------+------+
-| a | b  | nfd   | nfc   | nkfd | nkfc |
-+---+----+-------+-------+------+------+
-| Ⅸ | IX | false | false | true | true |
-| Å | Å  | true  | true  | true | true |
-+---+----+-------+-------+------+------+
+/*---+----+-------+-------+------+------*
+ | a | b  | nfd   | nfc   | nkfd | nkfc |
+ +---+----+-------+-------+------+------+
+ | Ⅸ | IX | false | false | true | true |
+ | Å | Å  | true  | true  | true | true |
+ *---+----+-------+-------+------+------*/
 ```
 
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
@@ -15094,11 +15267,11 @@ points.
 SELECT a, b, a = b as normalized
 FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
 
-+---+---+------------+
-| a | b | normalized |
-+---+---+------------+
-| ê | ê | true       |
-+---+---+------------+
+/*---+---+------------*
+ | a | b | normalized |
+ +---+---+------------+
+ | ê | ê | true       |
+ *---+---+------------*/
 ```
 The following example normalizes different space characters.
 
@@ -15118,12 +15291,12 @@ SELECT
 FROM EquivalentNames
 GROUP BY 1;
 
-+-----------------+------------+
-| normalized_name | name_count |
-+-----------------+------------+
-| John Smith      | 2          |
-| Jane Doe        | 3          |
-+-----------------+------------+
+/*-----------------+------------*
+ | normalized_name | name_count |
+ +-----------------+------------+
+ | John Smith      | 2          |
+ | Jane Doe        | 3          |
+ *-----------------+------------*/
 ```
 
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
@@ -15175,13 +15348,13 @@ FROM
     AS addresses),
   UNNEST(addresses) AS email;
 
-+-----------------+----------+
-| email           | is_valid |
-+-----------------+----------+
-| foo@example.com | true     |
-| bar@example.org | true     |
-| www.example.net | false    |
-+-----------------+----------+
+/*-----------------+----------*
+ | email           | is_valid |
+ +-----------------+----------+
+ | foo@example.com | true     |
+ | bar@example.org | true     |
+ | www.example.net | false    |
+ *-----------------+----------*/
 
 -- Performs a full match, using ^ and $. Due to regular expression operator
 -- precedence, it is good practice to use parentheses around everything between ^
@@ -15198,15 +15371,15 @@ FROM
     AS addresses),
   UNNEST(addresses) AS email;
 
-+----------------+---------------------+---------------------+
-| email          | valid_email_address | without_parentheses |
-+----------------+---------------------+---------------------+
-| a@foo.com      | true                | true                |
-| a@foo.computer | false               | true                |
-| b@bar.org      | true                | true                |
-| !b@bar.org     | false               | true                |
-| c@buz.net      | false               | false               |
-+----------------+---------------------+---------------------+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
+ | a@foo.com      | true                | true                |
+ | a@foo.computer | false               | true                |
+ | b@bar.org      | true                | true                |
+ | !b@bar.org     | false               | true                |
+ | c@buz.net      | false               | false               |
+ *----------------+---------------------+---------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -15251,11 +15424,11 @@ SELECT
   REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
 FROM code_markdown;
 
-+----------------------------+
-| example                    |
-+----------------------------+
-| [function(x), function(y)] |
-+----------------------------+
+/*----------------------------*
+ | example                    |
+ +----------------------------+
+ | [function(x), function(y)] |
+ *----------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -15300,13 +15473,13 @@ SELECT
   AS user_name
 FROM email_addresses;
 
-+-----------+
-| user_name |
-+-----------+
-| foo       |
-| bar       |
-| baz       |
-+-----------+
+/*-----------*
+ | user_name |
+ +-----------+
+ | foo       |
+ | bar       |
+ | baz       |
+ *-----------*/
 ```
 
 ```sql
@@ -15322,13 +15495,13 @@ SELECT
   AS top_level_domain
 FROM email_addresses;
 
-+------------------+
-| top_level_domain |
-+------------------+
-| com              |
-| org              |
-| net              |
-+------------------+
+/*------------------*
+ | top_level_domain |
+ +------------------+
+ | com              |
+ | org              |
+ | net              |
+ *------------------*/
 ```
 
 ```sql
@@ -15341,14 +15514,14 @@ WITH
   )
 SELECT value, regex, REGEXP_EXTRACT(value, regex) AS result FROM characters;
 
-+-------+---------+----------+
-| value | regex   | result   |
-+-------+---------+----------+
-| ab    | .b      | ab       |
-| ab    | (.)b    | a        |
-| xyztb | (.)+b   | t        |
-| ab    | (z)?b   | NULL     |
-+-------+---------+----------+
+/*-------+---------+----------*
+ | value | regex   | result   |
+ +-------+---------+----------+
+ | ab    | .b      | ab       |
+ | ab    | (.)b    | a        |
+ | xyztb | (.)+b   | t        |
+ | ab    | (z)?b   | NULL     |
+ *-------+---------+----------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -15418,14 +15591,14 @@ WITH example AS (
 SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) AS instr
 FROM example;
 
-+---------------+--------+-------+
-| source_value  | regexp | instr |
-+---------------+--------+-------+
-| ab@gmail.com  | @[^.]* | 3     |
-| ab@mail.com   | @[^.]* | 3     |
-| abc@gmail.com | @[^.]* | 4     |
-| abc.com       | @[^.]* | 0     |
-+---------------+--------+-------+
+/*---------------+--------+-------*
+ | source_value  | regexp | instr |
+ +---------------+--------+-------+
+ | ab@gmail.com  | @[^.]* | 3     |
+ | ab@mail.com   | @[^.]* | 3     |
+ | abc@gmail.com | @[^.]* | 4     |
+ | abc.com       | @[^.]* | 0     |
+ *---------------+--------+-------*/
 ```
 
 ```sql
@@ -15439,14 +15612,14 @@ SELECT
   REGEXP_INSTR(source_value, regexp, position) AS instr
 FROM example;
 
-+-------------------------+--------+----------+-------+
-| source_value            | regexp | position | instr |
-+-------------------------+--------+----------+-------+
-| a@gmail.com b@gmail.com | @[^.]* | 1        | 2     |
-| a@gmail.com b@gmail.com | @[^.]* | 2        | 2     |
-| a@gmail.com b@gmail.com | @[^.]* | 3        | 14    |
-| a@gmail.com b@gmail.com | @[^.]* | 4        | 14    |
-+-------------------------+--------+----------+-------+
+/*-------------------------+--------+----------+-------*
+ | source_value            | regexp | position | instr |
+ +-------------------------+--------+----------+-------+
+ | a@gmail.com b@gmail.com | @[^.]* | 1        | 2     |
+ | a@gmail.com b@gmail.com | @[^.]* | 2        | 2     |
+ | a@gmail.com b@gmail.com | @[^.]* | 3        | 14    |
+ | a@gmail.com b@gmail.com | @[^.]* | 4        | 14    |
+ *-------------------------+--------+----------+-------*/
 ```
 
 ```sql
@@ -15460,13 +15633,13 @@ SELECT
   REGEXP_INSTR(source_value, regexp, position, occurrence) AS instr
 FROM example;
 
-+-------------------------------------+--------+----------+------------+-------+
-| source_value                        | regexp | position | occurrence | instr |
-+-------------------------------------+--------+----------+------------+-------+
-| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 1          | 2     |
-| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 2          | 14    |
-| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 3          | 26    |
-+-------------------------------------+--------+----------+------------+-------+
+/*-------------------------------------+--------+----------+------------+-------*
+ | source_value                        | regexp | position | occurrence | instr |
+ +-------------------------------------+--------+----------+------------+-------+
+ | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 1          | 2     |
+ | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 2          | 14    |
+ | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 3          | 26    |
+ *-------------------------------------+--------+----------+------------+-------*/
 ```
 
 ```sql
@@ -15479,12 +15652,12 @@ SELECT
   REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) AS instr
 FROM example;
 
-+--------------+--------+----------+------------+------------+-------+
-| source_value | regexp | position | occurrence | o_position | instr |
-+--------------+--------+----------+------------+------------+-------+
-| a@gmail.com  | @[^.]* | 1        | 1          | 0          | 2     |
-| a@gmail.com  | @[^.]* | 1        | 1          | 1          | 8     |
-+--------------+--------+----------+------------+------------+-------+
+/*--------------+--------+----------+------------+------------+-------*
+ | source_value | regexp | position | occurrence | o_position | instr |
+ +--------------+--------+----------+------------+------------+-------+
+ | a@gmail.com  | @[^.]* | 1        | 1          | 0          | 2     |
+ | a@gmail.com  | @[^.]* | 1        | 1          | 1          | 8     |
+ *--------------+--------+----------+------------+------------+-------*/
 ```
 
 ### `REGEXP_MATCH`
@@ -15526,13 +15699,13 @@ SELECT
                AS valid_email_address
 FROM email_addresses;
 
-+-----------------------+---------------------+
-| email                 | valid_email_address |
-+-----------------------+---------------------+
-| foo@example.com       | true                |
-| bar@example.org       | true                |
-| notavalidemailaddress | false               |
-+-----------------------+---------------------+
+/*-----------------------+---------------------*
+ | email                 | valid_email_address |
+ +-----------------------+---------------------+
+ | foo@example.com       | true                |
+ | bar@example.org       | true                |
+ | notavalidemailaddress | false               |
+ *-----------------------+---------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -15585,12 +15758,12 @@ SELECT
   AS html
 FROM markdown;
 
-+--------------------------+
-| html                     |
-+--------------------------+
-| <h1>Heading</h1>         |
-| <h1>Another heading</h1> |
-+--------------------------+
+/*--------------------------*
+ | html                     |
+ +--------------------------+
+ | <h1>Heading</h1>         |
+ | <h1>Another heading</h1> |
+ *--------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -15626,14 +15799,14 @@ SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
   (null, 3)
 ]);
 
-+------+------+-----------+
-| t    | n    | REPEAT    |
-|------|------|-----------|
-| abc  | 3    | abcabcabc |
-| 例子 | 2    | 例子例子  |
-| abc  | NULL | NULL      |
-| NULL | 3    | NULL      |
-+------+------+-----------+
+/*------+------+-----------*
+ | t    | n    | REPEAT    |
+ |------|------|-----------|
+ | abc  | 3    | abcabcabc |
+ | 例子 | 2    | 例子例子  |
+ | abc  | NULL | NULL      |
+ | NULL | 3    | NULL      |
+ *------+------+-----------*/
 ```
 
 ### `REPLACE`
@@ -15669,13 +15842,13 @@ SELECT
   REPLACE (dessert, 'pie', 'cobbler') as example
 FROM desserts;
 
-+--------------------+
-| example            |
-+--------------------+
-| apple cobbler      |
-| blackberry cobbler |
-| cherry cobbler     |
-+--------------------+
+/*--------------------*
+ | example            |
+ +--------------------+
+ | apple cobbler      |
+ | blackberry cobbler |
+ | cherry cobbler     |
+ *--------------------*/
 ```
 
 ### `REVERSE`
@@ -15706,12 +15879,12 @@ SELECT
   REVERSE(sample_bytes) AS reverse_bytes
 FROM example;
 
-+---------------+----------------+--------------+---------------+
-| sample_string | reverse_string | sample_bytes | reverse_bytes |
-+---------------+----------------+--------------+---------------+
-| foo           | oof            | bar          | rab           |
-| абвгд         | дгвба          | 123          | 321           |
-+---------------+----------------+--------------+---------------+
+/*---------------+----------------+--------------+---------------*
+ | sample_string | reverse_string | sample_bytes | reverse_bytes |
+ +---------------+----------------+--------------+---------------+
+ | foo           | oof            | bar          | rab           |
+ | абвгд         | дгвба          | 123          | 321           |
+ *---------------+----------------+--------------+---------------*/
 ```
 
 ### `RIGHT`
@@ -15751,13 +15924,13 @@ SELECT 'абвгд' as example
 SELECT example, RIGHT(example, 3) AS right_example
 FROM examples;
 
-+---------+---------------+
-| example | right_example |
-+---------+---------------+
-| apple   | ple           |
-| banana  | ana           |
-| абвгд   | вгд           |
-+---------+---------------+
+/*---------+---------------*
+ | example | right_example |
+ +---------+---------------+
+ | apple   | ple           |
+ | banana  | ana           |
+ | абвгд   | вгд           |
+ *---------+---------------*/
 ```
 
 ```sql
@@ -15771,13 +15944,13 @@ SELECT b'\xab\xcd\xef\xaa\xbb' as example
 SELECT example, RIGHT(example, 3) AS right_example
 FROM examples;
 
-+----------------------+---------------+
-| example              | right_example |
-+----------------------+---------------+
-| apple                | ple           |
-| banana               | ana           |
-| \xab\xcd\xef\xaa\xbb | \xef\xaa\xbb  |
-+----------------------+---------------+
+/*----------------------+---------------*
+ | example              | right_example |
+ +----------------------+---------------+
+ | apple                | ple           |
+ | banana               | ana           |
+ | \xab\xcd\xef\xaa\xbb | \xef\xaa\xbb  |
+ *----------------------+---------------*
 ```
 
 ### `RPAD`
@@ -15824,13 +15997,13 @@ SELECT t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST([
   ('例子', 4)
 ]);
 
-+------+-----+----------+
-| t    | len | RPAD     |
-|------|-----|----------|
-| abc  | 5   | "abc  "  |
-| abc  | 2   | "ab"     |
-| 例子  | 4   | "例子  " |
-+------+-----+----------+
+/*------+-----+----------*
+ | t    | len | RPAD     |
+ +------+-----+----------+
+ | abc  | 5   | "abc  "  |
+ | abc  | 2   | "ab"     |
+ | 例子  | 4   | "例子  " |
+ *------+-----+----------*/
 ```
 
 ```sql
@@ -15840,13 +16013,13 @@ SELECT t, len, pattern, FORMAT('%T', RPAD(t, len, pattern)) AS RPAD FROM UNNEST(
   ('例子', 5, '中文')
 ]);
 
-+------+-----+---------+--------------+
-| t    | len | pattern | RPAD         |
-|------|-----|---------|--------------|
-| abc  | 8   | def     | "abcdefde"   |
-| abc  | 5   | -       | "abc--"      |
-| 例子  | 5   | 中文     | "例子中文中"  |
-+------+-----+---------+--------------+
+/*------+-----+---------+--------------*
+ | t    | len | pattern | RPAD         |
+ +------+-----+---------+--------------+
+ | abc  | 8   | def     | "abcdefde"   |
+ | abc  | 5   | -       | "abc--"      |
+ | 例子  | 5   | 中文     | "例子中文中"  |
+ *------+-----+---------+--------------*/
 ```
 
 ```sql
@@ -15856,13 +16029,13 @@ SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST
   (b'\xab\xcd\xef', 4)
 ]);
 
-+-----------------+-----+------------------+
-| t               | len | RPAD             |
-|-----------------|-----|------------------|
-| b"abc"          | 5   | b"abc  "         |
-| b"abc"          | 2   | b"ab"            |
-| b"\xab\xcd\xef" | 4   | b"\xab\xcd\xef " |
-+-----------------+-----+------------------+
+/*-----------------+-----+------------------*
+ | t               | len | RPAD             |
+ +-----------------+-----+------------------+
+ | b"abc"          | 5   | b"abc  "         |
+ | b"abc"          | 2   | b"ab"            |
+ | b"\xab\xcd\xef" | 4   | b"\xab\xcd\xef " |
+ *-----------------+-----+------------------*/
 ```
 
 ```sql
@@ -15877,13 +16050,13 @@ FROM UNNEST([
   (b'\xab\xcd\xef', 5, b'\x00')
 ]);
 
-+-----------------+-----+---------+-------------------------+
-| t               | len | pattern | RPAD                    |
-|-----------------|-----|---------|-------------------------|
-| b"abc"          | 8   | b"def"  | b"abcdefde"             |
-| b"abc"          | 5   | b"-"    | b"abc--"                |
-| b"\xab\xcd\xef" | 5   | b"\x00" | b"\xab\xcd\xef\x00\x00" |
-+-----------------+-----+---------+-------------------------+
+/*-----------------+-----+---------+-------------------------*
+ | t               | len | pattern | RPAD                    |
+ +-----------------+-----+---------+-------------------------+
+ | b"abc"          | 8   | b"def"  | b"abcdefde"             |
+ | b"abc"          | 5   | b"-"    | b"abc--"                |
+ | b"\xab\xcd\xef" | 5   | b"\x00" | b"\xab\xcd\xef\x00\x00" |
+ *-----------------+-----+---------+-------------------------*/
 ```
 
 ### `RTRIM`
@@ -15914,13 +16087,13 @@ SELECT
   RTRIM(item, '*') as example
 FROM items;
 
-+-----------+
-| example   |
-+-----------+
-| ***apple  |
-| ***banana |
-| ***orange |
-+-----------+
+/*-----------*
+ | example   |
+ +-----------+
+ | ***apple  |
+ | ***banana |
+ | ***orange |
+ *-----------*/
 ```
 
 ```sql
@@ -15937,14 +16110,14 @@ SELECT
   RTRIM(item, 'xyz') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| apple   |
-| banana  |
-| orange  |
-| pear    |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | apple   |
+ | banana  |
+ | orange  |
+ | pear    |
+ *---------*/
 ```
 
 [string-link-to-trim]: #trim
@@ -16012,18 +16185,18 @@ WITH example AS (
 SELECT value, SOUNDEX(value) AS soundex
 FROM example;
 
-+----------------------+---------+
-| value                | soundex |
-+----------------------+---------+
-| Ashcraft             | A261    |
-| Raven                | R150    |
-| Ribbon               | R150    |
-| apple                | a140    |
-| Hello world!         | H464    |
-|   H3##!@llo w00orld! | H464    |
-| #1                   |         |
-| NULL                 | NULL    |
-+----------------------+---------+
+/*----------------------+---------*
+ | value                | soundex |
+ +----------------------+---------+
+ | Ashcraft             | A261    |
+ | Raven                | R150    |
+ | Ribbon               | R150    |
+ | apple                | a140    |
+ | Hello world!         | H464    |
+ |   H3##!@llo w00orld! | H464    |
+ | #1                   |         |
+ | NULL                 | NULL    |
+ *----------------------+---------*/
 ```
 
 [string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
@@ -16070,13 +16243,13 @@ WITH letters AS
 SELECT SPLIT(letter_group, ' ') as example
 FROM letters;
 
-+----------------------+
-| example              |
-+----------------------+
-| []                   |
-| [a]                  |
-| [b, c, d]            |
-+----------------------+
+/*----------------------*
+ | example              |
+ +----------------------+
+ | []                   |
+ | [a]                  |
+ | [b, c, d]            |
+ *----------------------*/
 ```
 
 ### `STARTS_WITH`
@@ -16112,13 +16285,13 @@ SELECT
   STARTS_WITH(item, 'b') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-|   False |
-|    True |
-|    True |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |   False |
+ |    True |
+ |    True |
+ *---------*/
 ```
 
 ### `STRPOS`
@@ -16160,14 +16333,14 @@ SELECT
   STRPOS(email_address, '@') AS example
 FROM email_addresses;
 
-+---------+
-| example |
-+---------+
-|       4 |
-|       7 |
-|      10 |
-|       0 |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |       4 |
+ |       7 |
+ |      10 |
+ |       0 |
+ *---------*/
 ```
 
 ### `SUBSTR`
@@ -16220,13 +16393,13 @@ SELECT
   SUBSTR(item, 2) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| pple    |
-| anana   |
-| range   |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | pple    |
+ | anana   |
+ | range   |
+ *---------*/
 ```
 
 ```sql
@@ -16241,13 +16414,13 @@ SELECT
   SUBSTR(item, 2, 2) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| pp      |
-| an      |
-| ra      |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | pp      |
+ | an      |
+ | ra      |
+ *---------*/
 ```
 
 ```sql
@@ -16262,13 +16435,13 @@ SELECT
   SUBSTR(item, -2) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| le      |
-| na      |
-| ge      |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | le      |
+ | na      |
+ | ge      |
+ *---------*/
 ```
 
 ```sql
@@ -16283,13 +16456,13 @@ SELECT
   SUBSTR(item, 1, 123) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| apple   |
-| banana  |
-| orange  |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | apple   |
+ | banana  |
+ | orange  |
+ *---------*/
 ```
 
 ```sql
@@ -16304,13 +16477,13 @@ SELECT
   SUBSTR(item, 123) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-|         |
-|         |
-|         |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |         |
+ |         |
+ |         |
+ *---------*/
 ```
 
 ```sql
@@ -16325,13 +16498,13 @@ SELECT
   SUBSTR(item, 123, 5) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-|         |
-|         |
-|         |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |         |
+ |         |
+ |         |
+ *---------*/
 ```
 
 ### `SUBSTRING`
@@ -16364,11 +16537,11 @@ base32-encoded `STRING` into `BYTES`, use [FROM_BASE32][string-link-to-from-base
 ```sql
 SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 
-+------------------+
-| base32_string    |
-+------------------+
-| MFRGGZDF74====== |
-+------------------+
+/*------------------*
+ | base32_string    |
+ +------------------+
+ | MFRGGZDF74====== |
+ *------------------*/
 ```
 
 [string-link-to-from-base32]: #from_base32
@@ -16398,11 +16571,11 @@ function adds padding and uses the alphabet `[A-Za-z0-9+/=]`.
 ```sql
 SELECT TO_BASE64(b'\377\340') AS base64_string;
 
-+---------------+
-| base64_string |
-+---------------+
-| /+A=          |
-+---------------+
+/*---------------*
+ | base64_string |
+ +---------------+
+ | /+A=          |
+ *---------------*/
 ```
 
 To work with an encoding using a different base64 alphabet, you might need to
@@ -16414,11 +16587,11 @@ uses `-_=` as the last characters rather than `+/=`. To encode a
 ```sql
 SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_base64;
 
-+----------------+
-| websafe_base64 |
-+----------------+
-| _-A=           |
-+----------------+
+/*----------------*
+ | websafe_base64 |
+ +----------------+
+ | _-A=           |
+ *----------------*/
 ```
 
 [string-link-to-from-base64]: #from_base64
@@ -16459,15 +16632,15 @@ words.
 SELECT word, TO_CODE_POINTS(word) AS code_points
 FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word;
 
-+---------+------------------------------------+
-| word    | code_points                        |
-+---------+------------------------------------+
-| foo     | [102, 111, 111]                    |
-| bar     | [98, 97, 114]                      |
-| baz     | [98, 97, 122]                      |
-| giraffe | [103, 105, 114, 97, 102, 102, 101] |
-| llama   | [108, 108, 97, 109, 97]            |
-+---------+------------------------------------+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
+ | foo     | [102, 111, 111]                    |
+ | bar     | [98, 97, 114]                      |
+ | baz     | [98, 97, 122]                      |
+ | giraffe | [103, 105, 114, 97, 102, 102, 101] |
+ | llama   | [108, 108, 97, 109, 97]            |
+ *---------+------------------------------------*/
 ```
 
 The following example converts integer representations of `BYTES` to their
@@ -16477,12 +16650,12 @@ corresponding ASCII character values.
 SELECT word, TO_CODE_POINTS(word) AS bytes_value_as_integer
 FROM UNNEST([b'\x00\x01\x10\xff', b'\x66\x6f\x6f']) AS word;
 
-+------------------+------------------------+
-| word             | bytes_value_as_integer |
-+------------------+------------------------+
-| \x00\x01\x10\xff | [0, 1, 16, 255]        |
-| foo              | [102, 111, 111]        |
-+------------------+------------------------+
+/*------------------+------------------------*
+ | word             | bytes_value_as_integer |
+ +------------------+------------------------+
+ | \x00\x01\x10\xff | [0, 1, 16, 255]        |
+ | foo              | [102, 111, 111]        |
+ *------------------+------------------------*/
 ```
 
 The following example demonstrates the difference between a `BYTES` result and a
@@ -16491,11 +16664,11 @@ The following example demonstrates the difference between a `BYTES` result and a
 ```sql
 SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
 
-+------------+----------+
-| b_result   | s_result |
-+------------+----------+
-| [196, 128] | [256]    |
-+------------+----------+
+/*------------+----------*
+ | b_result   | s_result |
+ +------------+----------+
+ | [196, 128] | [256]    |
+ *------------+----------*/
 ```
 
 Notice that the character, Ā, is represented as a two-byte Unicode sequence. As
@@ -16535,12 +16708,12 @@ WITH Input AS (
 SELECT byte_str, TO_HEX(byte_str) AS hex_str
 FROM Input;
 
-+----------------------------------+------------------+
-| byte_string                      | hex_string       |
-+----------------------------------+------------------+
-| \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
-| foobar                           | 666f6f626172     |
-+----------------------------------+------------------+
+/*----------------------------------+------------------*
+ | byte_string                      | hex_string       |
+ +----------------------------------+------------------+
+ | \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
+ | foobar                           | 666f6f626172     |
+ *----------------------------------+------------------*/
 ```
 
 [string-link-to-from-hex]: #from_hex
@@ -16581,12 +16754,12 @@ SELECT expression, source_characters, target_characters, TRANSLATE(expression,
 source_characters, target_characters) AS translate
 FROM example;
 
-+------------------+-------------------+-------------------+------------------+
-| expression       | source_characters | target_characters | translate        |
-+------------------+-------------------+-------------------+------------------+
-| This is a cookie | sco               | zku               | Thiz iz a kuukie |
-| A coaster        | co                | k                 | A kaster         |
-+------------------+-------------------+-------------------+------------------+
+/*------------------+-------------------+-------------------+------------------*
+ | expression       | source_characters | target_characters | translate        |
+ +------------------+-------------------+-------------------+------------------+
+ | This is a cookie | sco               | zku               | Thiz iz a kuukie |
+ | A coaster        | co                | k                 | A kaster         |
+ *------------------+-------------------+-------------------+------------------*/
 ```
 
 ### `TRIM`
@@ -16630,13 +16803,13 @@ SELECT
   CONCAT('#', TRIM(item), '#') as example
 FROM items;
 
-+----------+
-| example  |
-+----------+
-| #apple#  |
-| #banana# |
-| #orange# |
-+----------+
+/*----------*
+ | example  |
+ +----------+
+ | #apple#  |
+ | #banana# |
+ | #orange# |
+ *----------*/
 ```
 
 In the following example, all leading and trailing `*` characters are removed
@@ -16654,13 +16827,13 @@ SELECT
   TRIM(item, '*') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| apple   |
-| banana  |
-| orange  |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | apple   |
+ | banana  |
+ | orange  |
+ *---------*/
 ```
 
 In the following example, all leading and trailing `x`, `y`, and `z` characters
@@ -16680,14 +16853,14 @@ SELECT
   TRIM(item, 'xyz') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| apple   |
-| banana  |
-| orange  |
-| pear    |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | apple   |
+ | banana  |
+ | orange  |
+ | pear    |
+ *---------*/
 ```
 
 In the following example, examine how `TRIM` interprets characters as
@@ -16702,11 +16875,11 @@ SELECT
   TRIM('abaŪ̊', 'Y̊') AS c,
   TRIM('Ū̊aba', 'Y̊') AS d;
 
-+---------------------------+
-| a    | b    | c    | d    |
-+---------------------------+
-| abaW | W̊aba | abaŪ | Ūaba |
-+---------------------------+
+/*------+------+------+------*
+ | a    | b    | c    | d    |
+ +------+------+------+------+
+ | abaW | W̊aba | abaŪ | Ūaba |
+ *------+------+------+------*/
 ```
 
 In the following example, all leading and trailing `b'n'`, `b'a'`, `b'\xab'`
@@ -16722,13 +16895,13 @@ WITH items AS
 SELECT item, TRIM(item, b'na\xab') AS examples
 FROM items;
 
-+----------------------+------------------+
-| item                 | example          |
-+----------------------+------------------+
-| apple                | pple             |
-| banana               | b                |
-| \xab\xcd\xef\xaa\xbb | \xcd\xef\xaa\xbb |
-+----------------------+------------------+
+/*----------------------+------------------*
+ | item                 | example          |
+ +----------------------+------------------+
+ | apple                | pple             |
+ | banana               | b                |
+ | \xab\xcd\xef\xaa\xbb | \xcd\xef\xaa\xbb |
+ *----------------------+------------------*/
 ```
 
 ### `UNICODE`
@@ -16752,11 +16925,11 @@ point is `0`.
 ```sql
 SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL) as D;
 
-+-------+-------+-------+-------+
-| A     | B     | C     | D     |
-+-------+-------+-------+-------+
-| 226   | 226   | 0     | NULL  |
-+-------+-------+-------+-------+
+/*-------+-------+-------+-------*
+ | A     | B     | C     | D     |
+ +-------+-------+-------+-------+
+ | 226   | 226   | 0     | NULL  |
+ *-------+-------+-------+-------*/
 ```
 
 [string-code-point]: https://en.wikipedia.org/wiki/Code_point
@@ -16799,13 +16972,13 @@ SELECT
   UPPER(item) AS example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| FOO     |
-| BAR     |
-| BAZ     |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | FOO     |
+ | BAR     |
+ | BAZ     |
+ *---------*/
 ```
 
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
@@ -17054,21 +17227,21 @@ Takes a JSON expression, extracts a JSON boolean, and returns that value as a SQ
 ```sql
 SELECT BOOL(JSON 'true') AS vacancy;
 
-+---------+
-| vacancy |
-+---------+
-| true    |
-+---------+
+/*---------*
+ | vacancy |
+ +---------+
+ | true    |
+ *---------*/
 ```
 
 ```sql
 SELECT BOOL(JSON_QUERY(JSON '{"hotel class": "5-star", "vacancy": true}', "$.vacancy")) AS vacancy;
 
-+---------+
-| vacancy |
-+---------+
-| true    |
-+---------+
+/*---------*
+ | vacancy |
+ +---------+
+ | true    |
+ *---------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -17121,41 +17294,41 @@ This argument accepts one of the two case-sensitive values:
 ```sql
 SELECT DOUBLE(JSON '9.8') AS velocity;
 
-+----------+
-| velocity |
-+----------+
-| 9.8      |
-+----------+
+/*----------*
+ | velocity |
+ +----------+
+ | 9.8      |
+ *----------*/
 ```
 
 ```sql
 SELECT DOUBLE(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
 
-+---------+
-| vo2_max |
-+---------+
-| 39.1    |
-+---------+
+/*---------*
+ | vo2_max |
+ +---------+
+ | 39.1    |
+ *---------*/
 ```
 
 ```sql
 SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'round') as result;
 
-+------------------------+
-| result                 |
-+------------------------+
-| 1.8446744073709552e+19 |
-+------------------------+
+/*------------------------*
+ | result                 |
+ +------------------------+
+ | 1.8446744073709552e+19 |
+ *------------------------*/
 ```
 
 ```sql
 SELECT DOUBLE(JSON '18446744073709551615') as result;
 
-+------------------------+
-| result                 |
-+------------------------+
-| 1.8446744073709552e+19 |
-+------------------------+
+/*------------------------*
+ | result                 |
+ +------------------------+
+ | 1.8446744073709552e+19 |
+ *------------------------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -17205,31 +17378,31 @@ INT64 domain, an error is produced.
 ```sql
 SELECT INT64(JSON '2005') AS flight_number;
 
-+---------------+
-| flight_number |
-+---------------+
-| 2005          |
-+---------------+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
 ```
 
 ```sql
 SELECT INT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
-+---------------+
-| flight_number |
-+---------------+
-| 2005          |
-+---------------+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
 ```
 
 ```sql
 SELECT INT64(JSON '10.0') AS score;
 
-+-------+
-| score |
-+-------+
-| 10    |
-+-------+
+/*-------*
+ | score |
+ +-------+
+ | 10    |
+ *-------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -17240,7 +17413,6 @@ SELECT INT64(JSON '10.1') AS result;  -- Throws an error
 SELECT INT64(JSON '"strawberry"') AS result; -- Throws an error
 SELECT INT64(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
-
 ```
 
 ### `JSON_EXTRACT_SCALAR`
@@ -17296,11 +17468,11 @@ In the following example, `age` is extracted.
 ```sql
 SELECT JSON_EXTRACT_SCALAR(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
 
-+------------+
-| scalar_age |
-+------------+
-| 6          |
-+------------+
+/*------------*
+ | scalar_age |
+ +------------+
+ | 6          |
+ *------------*/
 ```
 
 The following example compares how results are returned for the `JSON_EXTRACT`
@@ -17312,22 +17484,22 @@ SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
   JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
   JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
 
-+-----------+-------------+----------+------------+
-| json_name | scalar_name | json_age | scalar_age |
-+-----------+-------------+----------+------------+
-| "Jakob"   | Jakob       | "6"      | 6          |
-+-----------+-------------+----------+------------+
+/*-----------+-------------+----------+------------*
+ | json_name | scalar_name | json_age | scalar_age |
+ +-----------+-------------+----------+------------+
+ | "Jakob"   | Jakob       | "6"      | 6          |
+ *-----------+-------------+----------+------------*/
 ```
 
 ```sql
 SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
   JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
 
-+--------------------+---------------------+
-| json_extract       | json_extract_scalar |
-+--------------------+---------------------+
-| ["apple","banana"] | NULL                |
-+--------------------+---------------------+
+/*--------------------+---------------------*
+ | json_extract       | json_extract_scalar |
+ +--------------------+---------------------+
+ | ["apple","banana"] | NULL                |
+ *--------------------+---------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -17336,11 +17508,11 @@ characters using single quotes and brackets, `[' ']`. For example:
 ```sql
 SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
+/*-------*
+ | hello |
+ +-------+
+ | world |
+ *-------*/
 ```
 
 [json-value]: #json_value
@@ -17411,11 +17583,11 @@ SELECT
   JSON_EXTRACT(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
   AS json_data;
 
-+-----------------------------------+
-| json_data                         |
-+-----------------------------------+
-| {"students":[{"id":5},{"id":12}]} |
-+-----------------------------------+
+/*-----------------------------------*
+ | json_data                         |
+ +-----------------------------------+
+ | {"students":[{"id":5},{"id":12}]} |
+ *-----------------------------------*/
 ```
 
 In the following examples, JSON data is extracted and returned as
@@ -17429,13 +17601,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-----------------------------------------------------------+
-| json_text_string                                          |
-+-----------------------------------------------------------+
-| {"class":{"students":[{"name":"Jane"}]}}                  |
-| {"class":{"students":[]}}                                 |
-| {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
-+-----------------------------------------------------------+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
+ | {"class":{"students":[{"name":"Jane"}]}}                  |
+ | {"class":{"students":[]}}                                 |
+ | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
+ *-----------------------------------------------------------*/
 ```
 
 ```sql
@@ -17446,13 +17618,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-----------------+
-| first_student   |
-+-----------------+
-| {"name":"Jane"} |
-| NULL            |
-| {"name":"John"} |
-+-----------------+
+/*-----------------*
+ | first_student   |
+ +-----------------+
+ | {"name":"Jane"} |
+ | NULL            |
+ | {"name":"John"} |
+ *-----------------*/
 ```
 
 ```sql
@@ -17464,14 +17636,14 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-------------------+
-| second_student    |
-+-------------------+
-| NULL              |
-| NULL              |
-| NULL              |
-| "Jamie"           |
-+-------------------+
+/*-------------------*
+ | second_student    |
+ +-------------------+
+ | NULL              |
+ | NULL              |
+ | NULL              |
+ | "Jamie"           |
+ *-------------------*/
 ```
 
 ```sql
@@ -17482,13 +17654,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+------------------------------------+
-| student_names                      |
-+------------------------------------+
-| [{"name":"Jane"}]                  |
-| []                                 |
-| [{"name":"John"},{"name":"Jamie"}] |
-+------------------------------------+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
+ | [{"name":"Jane"}]                  |
+ | []                                 |
+ | [{"name":"John"},{"name":"Jamie"}] |
+ *------------------------------------*/
 ```
 
 ```sql
@@ -17557,11 +17729,11 @@ SELECT JSON_QUERY_ARRAY(
   JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
   ) AS json_array;
 
-+---------------------------------+
-| json_array                      |
-+---------------------------------+
-| ["apples", "oranges", "grapes"] |
-+---------------------------------+
+/*---------------------------------*
+ | json_array                      |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
 ```
 
 This extracts the items in a JSON-formatted string to a string array:
@@ -17569,11 +17741,11 @@ This extracts the items in a JSON-formatted string to a string array:
 ```sql
 SELECT JSON_QUERY_ARRAY('[1,2,3]') AS string_array;
 
-+--------------+
-| string_array |
-+--------------+
-| [1, 2, 3]    |
-+--------------+
+/*--------------*
+ | string_array |
+ +--------------+
+ | [1, 2, 3]    |
+ *--------------*/
 ```
 
 This extracts a string array and converts it to an integer array:
@@ -17586,11 +17758,11 @@ SELECT ARRAY(
   ) AS integer_element
 ) AS integer_array;
 
-+---------------+
-| integer_array |
-+---------------+
-| [1, 2, 3]     |
-+---------------+
+/*---------------*
+ | integer_array |
+ +---------------+
+ | [1, 2, 3]     |
+ *---------------*/
 ```
 
 This extracts string values in a JSON-formatted string to an array:
@@ -17599,11 +17771,11 @@ This extracts string values in a JSON-formatted string to an array:
 -- Doesn't strip the double quotes
 SELECT JSON_QUERY_ARRAY('["apples","oranges","grapes"]', '$') AS string_array;
 
-+---------------------------------+
-| string_array                    |
-+---------------------------------+
-| ["apples", "oranges", "grapes"] |
-+---------------------------------+
+/*---------------------------------*
+ | string_array                    |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
 
 -- Strips the double quotes
 SELECT ARRAY(
@@ -17611,11 +17783,11 @@ SELECT ARRAY(
   FROM UNNEST(JSON_QUERY_ARRAY('["apples","oranges","grapes"]','$')) AS string_element
 ) AS string_array;
 
-+---------------------------+
-| string_array              |
-+---------------------------+
-| [apples, oranges, grapes] |
-+---------------------------+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
 ```
 
 This extracts only the items in the `fruit` property to an array:
@@ -17626,11 +17798,11 @@ SELECT JSON_QUERY_ARRAY(
   '$.fruit'
 ) AS string_array;
 
-+-------------------------------------------------------+
-| string_array                                          |
-+-------------------------------------------------------+
-| [{"apples":5,"oranges":10}, {"apples":2,"oranges":4}] |
-+-------------------------------------------------------+
+/*-------------------------------------------------------*
+ | string_array                                          |
+ +-------------------------------------------------------+
+ | [{"apples":5,"oranges":10}, {"apples":2,"oranges":4}] |
+ *-------------------------------------------------------*/
 ```
 
 These are equivalent:
@@ -17641,11 +17813,11 @@ SELECT JSON_QUERY_ARRAY('{"fruits":["apples","oranges","grapes"]}','$.fruits') A
 SELECT JSON_QUERY_ARRAY('{"fruits":["apples","oranges","grapes"]}','$."fruits"') AS string_array;
 
 -- The queries above produce the following result:
-+---------------------------------+
-| string_array                    |
-+---------------------------------+
-| ["apples", "oranges", "grapes"] |
-+---------------------------------+
+/*---------------------------------*
+ | string_array                    |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -17654,11 +17826,11 @@ characters using double quotes: `" "`. For example:
 ```sql
 SELECT JSON_QUERY_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 
-+-----------+
-| hello     |
-+-----------+
-| ["world"] |
-+-----------+
+/*-----------*
+ | hello     |
+ +-----------+
+ | ["world"] |
+ *-----------*/
 ```
 
 The following examples show how invalid requests and empty arrays are handled:
@@ -17670,29 +17842,29 @@ SELECT JSON_QUERY_ARRAY('["foo","bar","baz"]','INVALID_JSONPath') AS result;
 -- If the JSONPath does not refer to an array, then NULL is returned.
 SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.a') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a key that does not exist is specified, then the result is NULL.
 SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.b') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- Empty arrays in JSON-formatted strings are supported.
 SELECT JSON_QUERY_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 
-+--------+
-| result |
-+--------+
-| []     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | []     |
+ *--------*/
 ```
 
 [JSONPath-format]: #JSONPath_format
@@ -17759,11 +17931,11 @@ SELECT
   JSON_QUERY(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
   AS json_data;
 
-+-----------------------------------+
-| json_data                         |
-+-----------------------------------+
-| {"students":[{"id":5},{"id":12}]} |
-+-----------------------------------+
+/*-----------------------------------*
+ | json_data                         |
+ +-----------------------------------+
+ | {"students":[{"id":5},{"id":12}]} |
+ *-----------------------------------*/
 ```
 
 In the following examples, JSON data is extracted and returned as
@@ -17777,13 +17949,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-----------------------------------------------------------+
-| json_text_string                                          |
-+-----------------------------------------------------------+
-| {"class":{"students":[{"name":"Jane"}]}}                  |
-| {"class":{"students":[]}}                                 |
-| {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
-+-----------------------------------------------------------+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
+ | {"class":{"students":[{"name":"Jane"}]}}                  |
+ | {"class":{"students":[]}}                                 |
+ | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
+ *-----------------------------------------------------------*/
 ```
 
 ```sql
@@ -17794,13 +17966,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-----------------+
-| first_student   |
-+-----------------+
-| {"name":"Jane"} |
-| NULL            |
-| {"name":"John"} |
-+-----------------+
+/*-----------------*
+ | first_student   |
+ +-----------------+
+ | {"name":"Jane"} |
+ | NULL            |
+ | {"name":"John"} |
+ *-----------------*/
 ```
 
 ```sql
@@ -17812,14 +17984,14 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-------------------+
-| second_student    |
-+-------------------+
-| NULL              |
-| NULL              |
-| NULL              |
-| "Jamie"           |
-+-------------------+
+/*-------------------*
+ | second_student    |
+ +-------------------+
+ | NULL              |
+ | NULL              |
+ | NULL              |
+ | "Jamie"           |
+ *-------------------*/
 ```
 
 ```sql
@@ -17830,13 +18002,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+------------------------------------+
-| student_names                      |
-+------------------------------------+
-| [{"name":"Jane"}]                  |
-| []                                 |
-| [{"name":"John"},{"name":"Jamie"}] |
-+------------------------------------+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
+ | [{"name":"Jane"}]                  |
+ | []                                 |
+ | [{"name":"John"},{"name":"Jamie"}] |
+ *------------------------------------*/
 ```
 
 ```sql
@@ -17902,17 +18074,17 @@ FROM
     ]
   ) AS json_val;
 
-+----------------------------------+---------+
-| json_val                         | type    |
-+----------------------------------+---------+
-| "apple"                          | string  |
-| 10                               | number  |
-| 3.14                             | number  |
-| null                             | null    |
-| {"State":"NY","city":"New York"} | object  |
-| ["apple","banana"]               | array   |
-| false                            | boolean |
-+----------------------------------+---------+
+/*----------------------------------+---------*
+ | json_val                         | type    |
+ +----------------------------------+---------+
+ | "apple"                          | string  |
+ | 10                               | number  |
+ | 3.14                             | number  |
+ | null                             | null    |
+ | {"State":"NY","city":"New York"} | object  |
+ | ["apple","banana"]               | array   |
+ | false                            | boolean |
+ *----------------------------------+---------*/
 ```
 
 ### `JSON_VALUE`
@@ -17966,11 +18138,11 @@ In the following example, JSON data is extracted and returned as a scalar value.
 ```sql
 SELECT JSON_VALUE(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
 
-+------------+
-| scalar_age |
-+------------+
-| 6          |
-+------------+
+/*------------*
+ | scalar_age |
+ +------------+
+ | 6          |
+ *------------*/
 ```
 
 The following example compares how results are returned for the `JSON_QUERY`
@@ -17982,22 +18154,22 @@ SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
   JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
   JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
 
-+-----------+-------------+----------+------------+
-| json_name | scalar_name | json_age | scalar_age |
-+-----------+-------------+----------+------------+
-| "Jakob"   | Jakob       | "6"      | 6          |
-+-----------+-------------+----------+------------+
+/*-----------+-------------+----------+------------*
+ | json_name | scalar_name | json_age | scalar_age |
+ +-----------+-------------+----------+------------+
+ | "Jakob"   | Jakob       | "6"      | 6          |
+ *-----------+-------------+----------+------------*/
 ```
 
 ```sql
 SELECT JSON_QUERY('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_query,
   JSON_VALUE('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_value;
 
-+--------------------+------------+
-| json_query         | json_value |
-+--------------------+------------+
-| ["apple","banana"] | NULL       |
-+--------------------+------------+
+/*--------------------+------------*
+ | json_query         | json_value |
+ +--------------------+------------+
+ | ["apple","banana"] | NULL       |
+ *--------------------+------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -18006,11 +18178,11 @@ characters using double quotes. For example:
 ```sql
 SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
+/*-------*
+ | hello |
+ +-------+
+ | world |
+ *-------*/
 ```
 
 [JSONPath-format]: #JSONPath_format
@@ -18072,11 +18244,11 @@ SELECT JSON_VALUE_ARRAY(
   JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
   ) AS string_array;
 
-+---------------------------+
-| string_array              |
-+---------------------------+
-| [apples, oranges, grapes] |
-+---------------------------+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
 ```
 
 The following example compares how results are returned for the
@@ -18086,11 +18258,11 @@ The following example compares how results are returned for the
 SELECT JSON_QUERY_ARRAY('["apples","oranges"]') AS json_array,
        JSON_VALUE_ARRAY('["apples","oranges"]') AS string_array;
 
-+-----------------------+-------------------+
-| json_array            | string_array      |
-+-----------------------+-------------------+
-| ["apples", "oranges"] | [apples, oranges] |
-+-----------------------+-------------------+
+/*-----------------------+-------------------*
+ | json_array            | string_array      |
+ +-----------------------+-------------------+
+ | ["apples", "oranges"] | [apples, oranges] |
+ *-----------------------+-------------------*/
 ```
 
 This extracts the items in a JSON-formatted string to a string array:
@@ -18099,11 +18271,11 @@ This extracts the items in a JSON-formatted string to a string array:
 -- Strips the double quotes
 SELECT JSON_VALUE_ARRAY('["foo","bar","baz"]','$') AS string_array;
 
-+-----------------+
-| string_array    |
-+-----------------+
-| [foo, bar, baz] |
-+-----------------+
+/*-----------------*
+ | string_array    |
+ +-----------------+
+ | [foo, bar, baz] |
+ *-----------------*/
 ```
 
 This extracts a string array and converts it to an integer array:
@@ -18116,11 +18288,11 @@ SELECT ARRAY(
   ) AS integer_element
 ) AS integer_array;
 
-+---------------+
-| integer_array |
-+---------------+
-| [1, 2, 3]     |
-+---------------+
+/*---------------*
+ | integer_array |
+ +---------------+
+ | [1, 2, 3]     |
+ *---------------*/
 ```
 
 These are equivalent:
@@ -18130,11 +18302,11 @@ SELECT JSON_VALUE_ARRAY('{"fruits":["apples","oranges","grapes"]}','$.fruits') A
 SELECT JSON_VALUE_ARRAY('{"fruits":["apples","oranges","grapes"]}','$."fruits"') AS string_array;
 
 -- The queries above produce the following result:
-+---------------------------+
-| string_array              |
-+---------------------------+
-| [apples, oranges, grapes] |
-+---------------------------+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -18143,11 +18315,11 @@ characters using double quotes: `" "`. For example:
 ```sql
 SELECT JSON_VALUE_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 
-+---------+
-| hello   |
-+---------+
-| [world] |
-+---------+
+/*---------*
+ | hello   |
+ +---------+
+ | [world] |
+ *---------*/
 ```
 
 The following examples explore how invalid requests and empty arrays are
@@ -18160,76 +18332,76 @@ SELECT JSON_VALUE_ARRAY('["foo","bar","baz"]','INVALID_JSONPath') AS result;
 -- If the JSON-formatted string is invalid, then NULL is returned.
 SELECT JSON_VALUE_ARRAY('}}','$') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If the JSON document is NULL, then NULL is returned.
 SELECT JSON_VALUE_ARRAY(NULL,'$') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath does not match anything, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a":["foo","bar","baz"]}','$.b') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath matches an object that is not an array, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a":"foo"}','$') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath matches an array of non-scalar objects, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a":[{"b":"foo","c":1},{"b":"bar","c":2}],"d":"baz"}','$.a') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath matches an array of mixed scalar and non-scalar objects,
 -- then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a":[10, {"b": 20}]','$.a') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath matches an empty JSON array, then the output is an empty array instead of NULL.
 SELECT JSON_VALUE_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 
-+--------+
-| result |
-+--------+
-| []     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | []     |
+ *--------*/
 
 -- In the following query, the JSON null input is returned as a
 -- SQL NULL in the output.
 SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 
-+------------------+
-| result           |
-+------------------+
-| [world, NULL, 1] |
-+------------------+
+/*------------------*
+ | result           |
+ +------------------+
+ | [world, NULL, 1] |
+ *------------------*/
 
 ```
 
@@ -18282,11 +18454,11 @@ In the following example, a JSON-formatted string is converted to `JSON`.
 ```sql
 SELECT PARSE_JSON('{"coordinates":[10,20],"id":1}') AS json_data;
 
-+--------------------------------+
-| json_data                      |
-+--------------------------------+
-| {"coordinates":[10,20],"id":1} |
-+--------------------------------+
+/*--------------------------------*
+ | json_data                      |
+ +--------------------------------+
+ | {"coordinates":[10,20],"id":1} |
+ *--------------------------------*/
 ```
 
 The following queries fail because:
@@ -18305,11 +18477,11 @@ The following query rounds the number to a number that can be stored in JSON.
 ```sql
 SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'round') AS json_data;
 
-+--------------------------------+
-| json_data                      |
-+--------------------------------+
-| {"id":9.223372036854776e+20}   |
-+--------------------------------+
+/*--------------------------------*
+ | json_data                      |
+ +--------------------------------+
+ | {"id":9.223372036854776e+20}   |
+ *--------------------------------*/
 ```
 
 ### `STRING` 
@@ -18340,21 +18512,21 @@ Takes a JSON expression, extracts a JSON string, and returns that value as a SQL
 ```sql
 SELECT STRING(JSON '"purple"') AS color;
 
-+--------+
-| color  |
-+--------+
-| purple |
-+--------+
+/*--------*
+ | color  |
+ +--------+
+ | purple |
+ *--------*/
 ```
 
 ```sql
 SELECT STRING(JSON_QUERY(JSON '{"name": "sky", "color": "blue"}', "$.color")) AS color;
 
-+-------+
-| color |
-+-------+
-| blue  |
-+-------+
+/*-------*
+ | color |
+ +-------+
+ | blue  |
+ *-------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -18399,13 +18571,13 @@ With CoordinatesTable AS (
 SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
 FROM CoordinatesTable AS t;
 
-+----+-------------+--------------------------------+
-| id | coordinates | json_data                      |
-+----+-------------+--------------------------------+
-| 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
-| 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
-| 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
-+----+-------------+--------------------------------+
+/*----+-------------+--------------------------------*
+ | id | coordinates | json_data                      |
+ +----+-------------+--------------------------------+
+ | 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
+ | 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
+ | 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
+ *----+-------------+--------------------------------*/
 ```
 
 Convert rows in a table to JSON-formatted strings that are easy to read.
@@ -18417,25 +18589,25 @@ With CoordinatesTable AS (
 SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
 FROM CoordinatesTable AS t;
 
-+----+-------------+--------------------+
-| id | coordinates | json_data          |
-+----+-------------+--------------------+
-| 1  | [10, 20]    | {                  |
-|    |             |   "id": 1,         |
-|    |             |   "coordinates": [ |
-|    |             |     10,            |
-|    |             |     20             |
-|    |             |   ]                |
-|    |             | }                  |
-+----+-------------+--------------------+
-| 2  | [30, 40]    | {                  |
-|    |             |   "id": 2,         |
-|    |             |   "coordinates": [ |
-|    |             |     30,            |
-|    |             |     40             |
-|    |             |   ]                |
-|    |             | }                  |
-+----+-------------+--------------------+
+/*----+-------------+--------------------*
+ | id | coordinates | json_data          |
+ +----+-------------+--------------------+
+ | 1  | [10, 20]    | {                  |
+ |    |             |   "id": 1,         |
+ |    |             |   "coordinates": [ |
+ |    |             |     10,            |
+ |    |             |     20             |
+ |    |             |   ]                |
+ |    |             | }                  |
+ +----+-------------+--------------------+
+ | 2  | [30, 40]    | {                  |
+ |    |             |   "id": 2,         |
+ |    |             |   "coordinates": [ |
+ |    |             |     30,            |
+ |    |             |     40             |
+ |    |             |   ]                |
+ |    |             | }                  |
+ *----+-------------+--------------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -18491,13 +18663,13 @@ With CoordinatesTable AS (
 SELECT TO_JSON(t) AS json_objects
 FROM CoordinatesTable AS t;
 
-+--------------------------------+
-| json_objects                   |
-+--------------------------------+
-| {"coordinates":[10,20],"id":1} |
-| {"coordinates":[30,40],"id":2} |
-| {"coordinates":[50,60],"id":3} |
-+--------------------------------+
+/*--------------------------------*
+ | json_objects                   |
+ +--------------------------------+
+ | {"coordinates":[10,20],"id":1} |
+ | {"coordinates":[30,40],"id":2} |
+ | {"coordinates":[50,60],"id":3} |
+ *--------------------------------*/
 ```
 
 In the following example, the query returns a large numerical value as a
@@ -18506,11 +18678,11 @@ JSON string.
 ```sql
 SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on
 
-+--------------------+
-| stringify_on       |
-+--------------------+
-| "9007199254740993" |
-+--------------------+
+/*--------------------*
+ | stringify_on       |
+ +--------------------+
+ | "9007199254740993" |
+ *--------------------*/
 ```
 
 In the following example, both queries return a large numerical value as a
@@ -18520,11 +18692,11 @@ JSON number.
 SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off
 SELECT TO_JSON(9007199254740993) as stringify_off
 
-+------------------+
-| stringify_off    |
-+------------------+
-| 9007199254740993 |
-+------------------+
+/*------------------*
+ | stringify_off    |
+ +------------------+
+ | 9007199254740993 |
+ *------------------*/
 ```
 
 In the following example, only large numeric values are converted to
@@ -18537,12 +18709,12 @@ With T1 AS (
 SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
 FROM T1 AS t;
 
-+---------------------------+
-| json_objects              |
-+---------------------------+
-| {"id":"9007199254740993"} |
-| {"id":2}                  |
-+---------------------------+
+/*---------------------------*
+ | json_objects              |
+ +---------------------------+
+ | {"id":"9007199254740993"} |
+ | {"id":2}                  |
+ *---------------------------*/
 ```
 
 In this example, the values `9007199254740993` (`INT64`)
@@ -18557,12 +18729,12 @@ With T1 AS (
 SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
 FROM T1 AS t;
 
-+------------------------------+
-| json_objects                 |
-+------------------------------+
-| {"id":9.007199254740992e+15} |
-| {"id":2.1}                   |
-+------------------------------+
+/*------------------------------*
+ | json_objects                 |
+ +------------------------------+
+ | {"id":9.007199254740992e+15} |
+ | {"id":2.1}                   |
+ *------------------------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -19136,11 +19308,11 @@ For example:
 ```sql
 SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
 
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
+/*-------*
+ | hello |
+ +-------+
+ | world |
+ *-------*/
 ```
 
 ```sql
@@ -19159,21 +19331,21 @@ parsing.
 ```sql
 SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
 
-+-------------------+
-| string            |
-+-------------------+
-| {"key":1,"key":2} |
-+-------------------+
+/*-------------------*
+ | string            |
+ +-------------------+
+ | {"key":1,"key":2} |
+ *-------------------*/
 ```
 
 ```sql
 SELECT JSON_QUERY(JSON '{"key": 1, "key": 2}', "$") AS json;
 
-+-----------+
-| json      |
-+-----------+
-| {"key":1} |
-+-----------+
+/*-----------*
+ | json      |
+ +-----------+
+ | {"key":1} |
+ *-----------*/
 ```
 
 #### JSON `null`
@@ -19193,11 +19365,11 @@ SELECT JSON_QUERY(json_string, "$.name") AS name_string,
   JSON_QUERY(json, "$.name") IS NULL AS name_json_is_null
 FROM t;
 
-+-------------+---------------------+-----------+-------------------+
-| name_string | name_string_is_null | name_json | name_json_is_null |
-+-------------+---------------------+-----------+-------------------+
-| NULL        | true                | null      | false             |
-+-------------+---------------------+-----------+-------------------+
+/*-------------+---------------------+-----------+-------------------*
+ | name_string | name_string_is_null | name_json | name_json_is_null |
+ +-------------+---------------------+-----------+-------------------+
+ | NULL        | true                | null      | false             |
+ *-------------+---------------------+-----------+-------------------*/
 ```
 
 [JSONPath-format]: #JSONPath_format
@@ -19256,11 +19428,11 @@ SELECT ARRAY
    SELECT 2 UNION ALL
    SELECT 3) AS new_array;
 
-+-----------+
-| new_array |
-+-----------+
-| [1, 2, 3] |
-+-----------+
+/*-----------*
+ | new_array |
+ +-----------+
+ | [1, 2, 3] |
+ *-----------*/
 ```
 
 To construct an `ARRAY` from a subquery that contains multiple
@@ -19275,11 +19447,11 @@ SELECT
     (SELECT AS STRUCT 1, 2, 3
      UNION ALL SELECT AS STRUCT 4, 5, 6) AS new_array;
 
-+------------------------+
-| new_array              |
-+------------------------+
-| [{1, 2, 3}, {4, 5, 6}] |
-+------------------------+
+/*------------------------*
+ | new_array              |
+ +------------------------+
+ | [{1, 2, 3}, {4, 5, 6}] |
+ *------------------------*/
 ```
 
 Similarly, to construct an `ARRAY` from a subquery that contains
@@ -19290,11 +19462,11 @@ SELECT ARRAY
   (SELECT AS STRUCT [1, 2, 3] UNION ALL
    SELECT AS STRUCT [4, 5, 6]) AS new_array;
 
-+----------------------------+
-| new_array                  |
-+----------------------------+
-| [{[1, 2, 3]}, {[4, 5, 6]}] |
-+----------------------------+
+/*----------------------------*
+ | new_array                  |
+ +----------------------------+
+ | [{[1, 2, 3]}, {[4, 5, 6]}] |
+ *----------------------------*/
 ```
 
 [subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
@@ -19361,11 +19533,11 @@ The return type depends upon `T` in the input array:
 ```sql
 SELECT ARRAY_AVG([0, 2, NULL, 4, 4, 5]) as avg
 
-+-----+
-| avg |
-+-----+
-| 3   |
-+-----+
+/*-----*
+ | avg |
+ +-----+
+ | 3   |
+ *-----*/
 ```
 
 ### `ARRAY_CONCAT`
@@ -19392,11 +19564,11 @@ to concatenate arrays.
 ```sql
 SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
-+--------------------------------------------------+
-| count_to_six                                     |
-+--------------------------------------------------+
-| [1, 2, 3, 4, 5, 6]                               |
-+--------------------------------------------------+
+/*--------------------------------------------------*
+ | count_to_six                                     |
+ +--------------------------------------------------+
+ | [1, 2, 3, 4, 5, 6]                               |
+ *--------------------------------------------------*/
 ```
 
 [array-link-to-operators]: #operators
@@ -19440,11 +19612,11 @@ SELECT
   ARRAY_FILTER([1 ,2, 3], e -> e > 1) AS a1,
   ARRAY_FILTER([0, 2, 3], (e, i) -> e > i) AS a2;
 
--- +-------+-------+
--- | a1    | a2    |
--- +-------+-------+
--- | [2,3] | [2,3] |
--- +-------+-------+
+/*-------+-------*
+ | a1    | a2    |
+ +-------+-------+
+ | [2,3] | [2,3] |
+ *-------+-------*/
 ```
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
@@ -19474,92 +19646,14 @@ Matches the data type of elements in `array_expression`.
 ```sql
 SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
 
-+---------------+
-| first_element |
-+---------------+
-| a             |
-+---------------+
+/*---------------*
+ | first_element |
+ +---------------+
+ | a             |
+ *---------------*/
 ```
 
 [array-last]: #array_last
-
-### `ARRAY_INCLUDES_ALL`
-
-```sql
-ARRAY_INCLUDES_ALL(array_to_search, search_values)
-```
-
-**Description**
-
-Takes an array to search and an array of search values. Returns `TRUE` if all
-search values are in the array to search, otherwise returns `FALSE`.
-
-+   `array_to_search`: The array to search.
-+   `search_values`: The array that contains the elements to search for.
-
-Returns `NULL` if `array_to_search` or `search_values` is
-`NULL`.
-
-**Return type**
-
-`BOOL`
-
-**Example**
-
-In the following example, the query first checks to see if `3`, `4`, and `5`
-exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
-an array.
-
-```sql
-SELECT
-  ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
-  ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
-
-+------+-------+
-| a1   | a2    |
-+------+-------+
-| true | false |
-+------+-------+
-```
-
-### `ARRAY_INCLUDES_ANY`
-
-```sql
-ARRAY_INCLUDES_ANY(array_to_search, search_values)
-```
-
-**Description**
-
-Takes an array to search and an array of search values. Returns `TRUE` if any
-search values are in the array to search, otherwise returns `FALSE`.
-
-+   `array_to_search`: The array to search.
-+   `search_values`: The array that contains the elements to search for.
-
-Returns `NULL` if `array_to_search` or `search_values` is
-`NULL`.
-
-**Return type**
-
-`BOOL`
-
-**Example**
-
-In the following example, the query first checks to see if `3`, `4`, or `5`
-exists in an array. Then the query checks to see if `4`, `5`, or `6` exists in
-an array.
-
-```sql
-SELECT
-  ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
-  ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
-
-+------+-------+
-| a1   | a2    |
-+------+-------+
-| true | false |
-+------+-------+
-```
 
 ### `ARRAY_INCLUDES`
 
@@ -19599,11 +19693,11 @@ SELECT
   ARRAY_INCLUDES([1, 2, 3], 0) AS a1,
   ARRAY_INCLUDES([1, 2, 3], 1) AS a2;
 
--- +-------+------+
--- | a1    | a2   |
--- +-------+------+
--- | false | true |
--- +-------+------+
+/*-------+------*
+ | a1    | a2   |
+ +-------+------+
+ | false | true |
+ *-------+------*/
 ```
 
 #### Signature 2 
@@ -19643,14 +19737,92 @@ SELECT
   ARRAY_INCLUDES([1, 2, 3], e -> e > 3) AS a1,
   ARRAY_INCLUDES([1, 2, 3], e -> e > 0) AS a2;
 
--- +-------+------+
--- | a1    | a2   |
--- +-------+------+
--- | false | true |
--- +-------+------+
+/*-------+------*
+ | a1    | a2   |
+ +-------+------+
+ | false | true |
+ *-------+------*/
 ```
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
+
+### `ARRAY_INCLUDES_ALL`
+
+```sql
+ARRAY_INCLUDES_ALL(array_to_search, search_values)
+```
+
+**Description**
+
+Takes an array to search and an array of search values. Returns `TRUE` if all
+search values are in the array to search, otherwise returns `FALSE`.
+
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
+
+Returns `NULL` if `array_to_search` or `search_values` is
+`NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Example**
+
+In the following example, the query first checks to see if `3`, `4`, and `5`
+exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
+an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
+
+/*------+-------*
+ | a1   | a2    |
+ +------+-------+
+ | true | false |
+ *------+-------*/
+```
+
+### `ARRAY_INCLUDES_ANY`
+
+```sql
+ARRAY_INCLUDES_ANY(array_to_search, search_values)
+```
+
+**Description**
+
+Takes an array to search and an array of search values. Returns `TRUE` if any
+search values are in the array to search, otherwise returns `FALSE`.
+
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
+
+Returns `NULL` if `array_to_search` or `search_values` is
+`NULL`.
+
+**Return type**
+
+`BOOL`
+
+**Example**
+
+In the following example, the query first checks to see if `3`, `4`, or `5`
+exists in an array. Then the query checks to see if `4`, `5`, or `6` exists in
+an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
+  ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
+
+/*------+-------*
+ | a1   | a2    |
+ +------+-------+
+ | true | false |
+ *------+-------*/
+```
 
 ### `ARRAY_IS_DISTINCT`
 
@@ -19684,17 +19856,17 @@ SELECT
   ARRAY_IS_DISTINCT(arr) as is_distinct
 FROM example;
 
-+-----------------+-------------+
-| arr             | is_distinct |
-+-----------------+-------------+
-| [1, 2, 3]       | TRUE        |
-| [1, 1, 1]       | FALSE       |
-| [1, 2, NULL]    | TRUE        |
-| [1, 1, NULL]    | FALSE       |
-| [1, NULL, NULL] | FALSE       |
-| []              | TRUE        |
-| NULL            | NULL        |
-+-----------------+-------------+
+/*-----------------+-------------*
+ | arr             | is_distinct |
+ +-----------------+-------------+
+ | [1, 2, 3]       | TRUE        |
+ | [1, 1, 1]       | FALSE       |
+ | [1, 2, NULL]    | TRUE        |
+ | [1, 1, NULL]    | FALSE       |
+ | [1, NULL, NULL] | FALSE       |
+ | []              | TRUE        |
+ | NULL            | NULL        |
+ *-----------------+-------------*/
 ```
 
 ### `ARRAY_LAST`
@@ -19722,11 +19894,11 @@ Matches the data type of elements in `array_expression`.
 ```sql
 SELECT ARRAY_LAST(['a','b','c','d']) as last_element
 
-+---------------+
-| last_element  |
-+---------------+
-| d             |
-+---------------+
+/*---------------*
+ | last_element  |
+ +---------------+
+ | d             |
+ *---------------*/
 ```
 
 [array-first]: #array_first
@@ -19757,12 +19929,12 @@ SELECT ARRAY_TO_STRING(list, ', ', 'NULL'), ARRAY_LENGTH(list) AS size
 FROM items
 ORDER BY size DESC;
 
-+--------------------+------+
-| list               | size |
-+--------------------+------+
-| coffee, NULL, milk | 3    |
-| cake, pie          | 2    |
-+--------------------+------+
+/*--------------------+------*
+ | list               | size |
+ +--------------------+------+
+ | coffee, NULL, milk | 3    |
+ | cake, pie          | 2    |
+ *--------------------+------*/
 ```
 
 ### `ARRAY_MAX`
@@ -19795,11 +19967,11 @@ The same data type as `T` in the input array.
 ```sql
 SELECT ARRAY_MAX([8, 37, NULL, 55, 4]) as max
 
-+-----+
-| max |
-+-----+
-| 55  |
-+-----+
+/*-----*
+ | max |
+ +-----+
+ | 55  |
+ *-----*/
 ```
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
@@ -19834,11 +20006,11 @@ The same data type as `T` in the input array.
 ```sql
 SELECT ARRAY_MIN([8, 37, NULL, 4, 55]) as min
 
-+-----+
-| min |
-+-----+
-| 4   |
-+-----+
+/*-----*
+ | min |
+ +-----+
+ | 4   |
+ *-----*/
 ```
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
@@ -19870,13 +20042,13 @@ SELECT
   ARRAY_REVERSE(arr) AS reverse_arr
 FROM example;
 
-+-----------+-------------+
-| arr       | reverse_arr |
-+-----------+-------------+
-| [1, 2, 3] | [3, 2, 1]   |
-| [4, 5]    | [5, 4]      |
-| []        | []          |
-+-----------+-------------+
+/*-----------+-------------*
+ | arr       | reverse_arr |
+ +-----------+-------------+
+ | [1, 2, 3] | [3, 2, 1]   |
+ | [4, 5]    | [5, 4]      |
+ | []        | []          |
+ *-----------+-------------*/
 ```
 
 ### `ARRAY_SLICE`
@@ -19983,141 +20155,141 @@ Additional details:
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 3) AS result
 
-+-----------+
-| result    |
-+-----------+
-| [b, c, d] |
-+-----------+
+/*-----------*
+ | result    |
+ +-----------+
+ | [b, c, d] |
+ *-----------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, 3) AS result
 
-+-----------+
-| result    |
-+-----------+
-| []        |
-+-----------+
+/*-----------*
+ | result    |
+ +-----------+
+ | []        |
+ *-----------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -3) AS result
 
-+--------+
-| result |
-+--------+
-| [b, c] |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | [b, c] |
+ *--------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -1, -3) AS result
 
-+-----------+
-| result    |
-+-----------+
-| []        |
-+-----------+
+/*-----------*
+ | result    |
+ +-----------+
+ | []        |
+ *-----------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -1) AS result
 
-+-----------+
-| result    |
-+-----------+
-| [c, d, e] |
-+-----------+
+/*-----------*
+ | result    |
+ +-----------+
+ | [c, d, e] |
+ *-----------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 3, 3) AS result
 
-+--------+
-| result |
-+--------+
-| [d]    |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | [d]    |
+ *--------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -3, -3) AS result
 
-+--------+
-| result |
-+--------+
-| [c]    |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | [c]    |
+ *--------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 30) AS result
 
-+--------------+
-| result       |
-+--------------+
-| [b, c, d, e] |
-+--------------+
+/*--------------*
+ | result       |
+ +--------------+
+ | [b, c, d, e] |
+ *--------------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, -30) AS result
 
-+-----------+
-| result    |
-+-----------+
-| []        |
-+-----------+
+/*-----------*
+ | result    |
+ +-----------+
+ | []        |
+ *-----------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, 30) AS result
 
-+-----------------+
-| result          |
-+-----------------+
-| [a, b, c, d, e] |
-+-----------------+
+/*-----------------*
+ | result          |
+ +-----------------+
+ | [a, b, c, d, e] |
+ *-----------------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, -5) AS result
 
-+--------+
-| result |
-+--------+
-| [a]    |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | [a]    |
+ *--------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 5, 30) AS result
 
-+--------+
-| result |
-+--------+
-| []     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | []     |
+ *--------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, NULL) AS result
 
-+-----------+
-| result    |
-+-----------+
-| NULL      |
-+-----------+
+/*-----------*
+ | result    |
+ +-----------+
+ | NULL      |
+ *-----------*/
 ```
 
 ```sql
 SELECT ARRAY_SLICE(['a', 'b', NULL, 'd', 'e'], 1, 3) AS result
 
-+--------------+
-| result       |
-+--------------+
-| [b, NULL, d] |
-+--------------+
+/*--------------*
+ | result       |
+ +--------------+
+ | [b, NULL, d] |
+ *--------------*/
 ```
 
 ### `ARRAY_SUM`
@@ -20175,11 +20347,11 @@ The return type depends upon `T` in the input array:
 ```sql
 SELECT ARRAY_SUM([1, 2, 3, 4, 5, NULL, 4, 3, 2, 1]) as sum
 
-+-----+
-| sum |
-+-----+
-| 25  |
-+-----+
+/*-----*
+ | sum |
+ +-----+
+ | 25  |
+ *-----*/
 ```
 
 ### `ARRAY_TO_STRING`
@@ -20216,12 +20388,12 @@ WITH items AS
 SELECT ARRAY_TO_STRING(list, '--') AS text
 FROM items;
 
-+--------------------------------+
-| text                           |
-+--------------------------------+
-| coffee--tea--milk              |
-| cake--pie                      |
-+--------------------------------+
+/*--------------------------------*
+ | text                           |
+ +--------------------------------+
+ | coffee--tea--milk              |
+ | cake--pie                      |
+ *--------------------------------*/
 ```
 
 ```sql
@@ -20233,12 +20405,12 @@ WITH items AS
 SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text
 FROM items;
 
-+--------------------------------+
-| text                           |
-+--------------------------------+
-| coffee--tea--milk              |
-| cake--pie--MISSING             |
-+--------------------------------+
+/*--------------------------------*
+ | text                           |
+ +--------------------------------+
+ | coffee--tea--milk              |
+ | cake--pie--MISSING             |
+ *--------------------------------*/
 ```
 
 ### `ARRAY_TRANSFORM`
@@ -20280,11 +20452,11 @@ SELECT
   ARRAY_TRANSFORM([1, 2, 3], e -> e + 1) AS a1,
   ARRAY_TRANSFORM([1, 2, 3], (e, i) -> e + i) AS a2;
 
--- +---------+---------+
--- | a1      | a2      |
--- +---------+---------+
--- | [2,3,4] | [1,3,5] |
--- +---------+---------+
+/*---------+---------*
+ | a1      | a2      |
+ +---------+---------+
+ | [2,3,4] | [1,3,5] |
+ *---------+---------*/
 ```
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
@@ -20327,11 +20499,11 @@ WITH t AS (
 SELECT FLATTEN(v.sales.quantity) AS all_values
 FROM t;
 
-+--------------------------+
-| all_values               |
-+--------------------------+
-| [1, 2, 3, 4, 5, 6, 7, 8] |
-+--------------------------+
+/*--------------------------*
+ | all_values               |
+ +--------------------------+
+ | [1, 2, 3, 4, 5, 6, 7, 8] |
+ *--------------------------*/
 ```
 
 In the following example, `OFFSET` gets the second value in each array and
@@ -20348,11 +20520,11 @@ WITH t AS (
 SELECT FLATTEN(v.sales.quantity[OFFSET(1)]) AS second_values
 FROM t;
 
-+---------------+
-| second_values |
-+---------------+
-| [2, 5, 8, 11] |
-+---------------+
+/*---------------*
+ | second_values |
+ +---------------+
+ | [2, 5, 8, 11] |
+ *---------------*/
 ```
 
 In the following example, all values for `v.price` are returned in a
@@ -20369,11 +20541,11 @@ WITH t AS (
 SELECT FLATTEN(v.price) AS all_prices
 FROM t;
 
-+------------+
-| all_prices |
-+------------+
-| [1, 10]    |
-+------------+
+/*------------*
+ | all_prices |
+ +------------+
+ | [1, 10]    |
+ *------------*/
 ```
 
 For more examples, including how to use protocol buffers with `FLATTEN`, see the
@@ -20421,11 +20593,11 @@ The following returns an array of integers, with a default step of 1.
 ```sql
 SELECT GENERATE_ARRAY(1, 5) AS example_array;
 
-+-----------------+
-| example_array   |
-+-----------------+
-| [1, 2, 3, 4, 5] |
-+-----------------+
+/*-----------------*
+ | example_array   |
+ +-----------------+
+ | [1, 2, 3, 4, 5] |
+ *-----------------*/
 ```
 
 The following returns an array using a user-specified step size.
@@ -20433,11 +20605,11 @@ The following returns an array using a user-specified step size.
 ```sql
 SELECT GENERATE_ARRAY(0, 10, 3) AS example_array;
 
-+---------------+
-| example_array |
-+---------------+
-| [0, 3, 6, 9]  |
-+---------------+
+/*---------------*
+ | example_array |
+ +---------------+
+ | [0, 3, 6, 9]  |
+ *---------------*/
 ```
 
 The following returns an array using a negative value, `-3` for its step size.
@@ -20445,11 +20617,11 @@ The following returns an array using a negative value, `-3` for its step size.
 ```sql
 SELECT GENERATE_ARRAY(10, 0, -3) AS example_array;
 
-+---------------+
-| example_array |
-+---------------+
-| [10, 7, 4, 1] |
-+---------------+
+/*---------------*
+ | example_array |
+ +---------------+
+ | [10, 7, 4, 1] |
+ *---------------*/
 ```
 
 The following returns an array using the same value for the `start_expression`
@@ -20458,11 +20630,11 @@ and `end_expression`.
 ```sql
 SELECT GENERATE_ARRAY(4, 4, 10) AS example_array;
 
-+---------------+
-| example_array |
-+---------------+
-| [4]           |
-+---------------+
+/*---------------*
+ | example_array |
+ +---------------+
+ | [4]           |
+ *---------------*/
 ```
 
 The following returns an empty array, because the `start_expression` is greater
@@ -20471,11 +20643,11 @@ than the `end_expression`, and the `step_expression` value is positive.
 ```sql
 SELECT GENERATE_ARRAY(10, 0, 3) AS example_array;
 
-+---------------+
-| example_array |
-+---------------+
-| []            |
-+---------------+
+/*---------------*
+ | example_array |
+ +---------------+
+ | []            |
+ *---------------*/
 ```
 
 The following returns a `NULL` array because `end_expression` is `NULL`.
@@ -20483,11 +20655,11 @@ The following returns a `NULL` array because `end_expression` is `NULL`.
 ```sql
 SELECT GENERATE_ARRAY(5, NULL, 1) AS example_array;
 
-+---------------+
-| example_array |
-+---------------+
-| NULL          |
-+---------------+
+/*---------------*
+ | example_array |
+ +---------------+
+ | NULL          |
+ *---------------*/
 ```
 
 The following returns multiple arrays.
@@ -20496,13 +20668,13 @@ The following returns multiple arrays.
 SELECT GENERATE_ARRAY(start, 5) AS example_array
 FROM UNNEST([3, 4, 5]) AS start;
 
-+---------------+
-| example_array |
-+---------------+
-| [3, 4, 5]     |
-| [4, 5]        |
-| [5]           |
-+---------------+
+/*---------------*
+ | example_array |
+ +---------------+
+ | [3, 4, 5]     |
+ | [4, 5]        |
+ | [5]           |
+ +---------------*/
 ```
 
 ### `GENERATE_DATE_ARRAY`
@@ -20539,11 +20711,11 @@ The following returns an array of dates, with a default step of 1.
 ```sql
 SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-08') AS example;
 
-+--------------------------------------------------+
-| example                                          |
-+--------------------------------------------------+
-| [2016-10-05, 2016-10-06, 2016-10-07, 2016-10-08] |
-+--------------------------------------------------+
+/*--------------------------------------------------*
+ | example                                          |
+ +--------------------------------------------------+
+ | [2016-10-05, 2016-10-06, 2016-10-07, 2016-10-08] |
+ *--------------------------------------------------*/
 ```
 
 The following returns an array using a user-specified step size.
@@ -20552,11 +20724,11 @@ The following returns an array using a user-specified step size.
 SELECT GENERATE_DATE_ARRAY(
  '2016-10-05', '2016-10-09', INTERVAL 2 DAY) AS example;
 
-+--------------------------------------+
-| example                              |
-+--------------------------------------+
-| [2016-10-05, 2016-10-07, 2016-10-09] |
-+--------------------------------------+
+/*--------------------------------------*
+ | example                              |
+ +--------------------------------------+
+ | [2016-10-05, 2016-10-07, 2016-10-09] |
+ *--------------------------------------*/
 ```
 
 The following returns an array using a negative value, `-3` for its step size.
@@ -20565,11 +20737,11 @@ The following returns an array using a negative value, `-3` for its step size.
 SELECT GENERATE_DATE_ARRAY('2016-10-05',
   '2016-10-01', INTERVAL -3 DAY) AS example;
 
-+--------------------------+
-| example                  |
-+--------------------------+
-| [2016-10-05, 2016-10-02] |
-+--------------------------+
+/*--------------------------*
+ | example                  |
+ +--------------------------+
+ | [2016-10-05, 2016-10-02] |
+ *--------------------------*/
 ```
 
 The following returns an array using the same value for the `start_date`and
@@ -20579,11 +20751,11 @@ The following returns an array using the same value for the `start_date`and
 SELECT GENERATE_DATE_ARRAY('2016-10-05',
   '2016-10-05', INTERVAL 8 DAY) AS example;
 
-+--------------+
-| example      |
-+--------------+
-| [2016-10-05] |
-+--------------+
+/*--------------*
+ | example      |
+ +--------------+
+ | [2016-10-05] |
+ *--------------*/
 ```
 
 The following returns an empty array, because the `start_date` is greater
@@ -20593,11 +20765,11 @@ than the `end_date`, and the `step` value is positive.
 SELECT GENERATE_DATE_ARRAY('2016-10-05',
   '2016-10-01', INTERVAL 1 DAY) AS example;
 
-+---------+
-| example |
-+---------+
-| []      |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | []      |
+ *---------*/
 ```
 
 The following returns a `NULL` array, because one of its inputs is
@@ -20606,11 +20778,11 @@ The following returns a `NULL` array, because one of its inputs is
 ```sql
 SELECT GENERATE_DATE_ARRAY('2016-10-05', NULL) AS example;
 
-+---------+
-| example |
-+---------+
-| NULL    |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | NULL    |
+ *---------*/
 ```
 
 The following returns an array of dates, using MONTH as the `date_part`
@@ -20620,11 +20792,11 @@ interval:
 SELECT GENERATE_DATE_ARRAY('2016-01-01',
   '2016-12-31', INTERVAL 2 MONTH) AS example;
 
-+--------------------------------------------------------------------------+
-| example                                                                  |
-+--------------------------------------------------------------------------+
-| [2016-01-01, 2016-03-01, 2016-05-01, 2016-07-01, 2016-09-01, 2016-11-01] |
-+--------------------------------------------------------------------------+
+/*--------------------------------------------------------------------------*
+ | example                                                                  |
+ +--------------------------------------------------------------------------+
+ | [2016-01-01, 2016-03-01, 2016-05-01, 2016-07-01, 2016-09-01, 2016-11-01] |
+ *--------------------------------------------------------------------------*/
 ```
 
 The following uses non-constant dates to generate an array.
@@ -20638,14 +20810,14 @@ FROM (
   UNION ALL SELECT DATE "2016-10-01", DATE "2016-10-31"
 ) AS items;
 
-+--------------------------------------------------------------+
-| date_range                                                   |
-+--------------------------------------------------------------+
-| [2016-01-01, 2016-01-08, 2016-01-15, 2016-01-22, 2016-01-29] |
-| [2016-04-01, 2016-04-08, 2016-04-15, 2016-04-22, 2016-04-29] |
-| [2016-07-01, 2016-07-08, 2016-07-15, 2016-07-22, 2016-07-29] |
-| [2016-10-01, 2016-10-08, 2016-10-15, 2016-10-22, 2016-10-29] |
-+--------------------------------------------------------------+
+/*--------------------------------------------------------------*
+ | date_range                                                   |
+ +--------------------------------------------------------------+
+ | [2016-01-01, 2016-01-08, 2016-01-15, 2016-01-22, 2016-01-29] |
+ | [2016-04-01, 2016-04-08, 2016-04-15, 2016-04-22, 2016-04-29] |
+ | [2016-07-01, 2016-07-08, 2016-07-15, 2016-07-22, 2016-07-29] |
+ | [2016-10-01, 2016-10-08, 2016-10-15, 2016-10-22, 2016-10-29] |
+ *--------------------------------------------------------------*/
 ```
 
 ### `GENERATE_TIMESTAMP_ARRAY`
@@ -20687,11 +20859,11 @@ The following example returns an `ARRAY` of `TIMESTAMP`s at intervals of 1 day.
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-07 00:00:00',
                                 INTERVAL 1 DAY) AS timestamp_array;
 
-+--------------------------------------------------------------------------+
-| timestamp_array                                                          |
-+--------------------------------------------------------------------------+
-| [2016-10-05 00:00:00+00, 2016-10-06 00:00:00+00, 2016-10-07 00:00:00+00] |
-+--------------------------------------------------------------------------+
+/*--------------------------------------------------------------------------*
+ | timestamp_array                                                          |
+ +--------------------------------------------------------------------------+
+ | [2016-10-05 00:00:00+00, 2016-10-06 00:00:00+00, 2016-10-07 00:00:00+00] |
+ *--------------------------------------------------------------------------*/
 ```
 
 The following example returns an `ARRAY` of `TIMESTAMP`s at intervals of 1
@@ -20701,11 +20873,11 @@ second.
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:02',
                                 INTERVAL 1 SECOND) AS timestamp_array;
 
-+--------------------------------------------------------------------------+
-| timestamp_array                                                          |
-+--------------------------------------------------------------------------+
-| [2016-10-05 00:00:00+00, 2016-10-05 00:00:01+00, 2016-10-05 00:00:02+00] |
-+--------------------------------------------------------------------------+
+/*--------------------------------------------------------------------------*
+ | timestamp_array                                                          |
+ +--------------------------------------------------------------------------+
+ | [2016-10-05 00:00:00+00, 2016-10-05 00:00:01+00, 2016-10-05 00:00:02+00] |
+ *--------------------------------------------------------------------------*/
 ```
 
 The following example returns an `ARRAY` of `TIMESTAMPS` with a negative
@@ -20715,11 +20887,11 @@ interval.
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-01 00:00:00',
                                 INTERVAL -2 DAY) AS timestamp_array;
 
-+--------------------------------------------------------------------------+
-| timestamp_array                                                          |
-+--------------------------------------------------------------------------+
-| [2016-10-06 00:00:00+00, 2016-10-04 00:00:00+00, 2016-10-02 00:00:00+00] |
-+--------------------------------------------------------------------------+
+/*--------------------------------------------------------------------------*
+ | timestamp_array                                                          |
+ +--------------------------------------------------------------------------+
+ | [2016-10-06 00:00:00+00, 2016-10-04 00:00:00+00, 2016-10-02 00:00:00+00] |
+ *--------------------------------------------------------------------------*/
 ```
 
 The following example returns an `ARRAY` with a single element, because
@@ -20729,11 +20901,11 @@ The following example returns an `ARRAY` with a single element, because
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:00',
                                 INTERVAL 1 HOUR) AS timestamp_array;
 
-+--------------------------+
-| timestamp_array          |
-+--------------------------+
-| [2016-10-05 00:00:00+00] |
-+--------------------------+
+/*--------------------------*
+ | timestamp_array          |
+ +--------------------------+
+ | [2016-10-05 00:00:00+00] |
+ *--------------------------*/
 ```
 
 The following example returns an empty `ARRAY`, because `start_timestamp` is
@@ -20743,11 +20915,11 @@ later than `end_timestamp`.
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-05 00:00:00',
                                 INTERVAL 1 HOUR) AS timestamp_array;
 
-+-----------------+
-| timestamp_array |
-+-----------------+
-| []              |
-+-----------------+
+/*-----------------*
+ | timestamp_array |
+ +-----------------+
+ | []              |
+ *-----------------*/
 ```
 
 The following example returns a null `ARRAY`, because one of the inputs is
@@ -20757,11 +20929,11 @@ The following example returns a null `ARRAY`, because one of the inputs is
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', NULL, INTERVAL 1 HOUR)
   AS timestamp_array;
 
-+-----------------+
-| timestamp_array |
-+-----------------+
-| NULL            |
-+-----------------+
+/*-----------------*
+ | timestamp_array |
+ +-----------------+
+ | NULL            |
+ *-----------------*/
 ```
 
 The following example generates `ARRAY`s of `TIMESTAMP`s from columns containing
@@ -20783,13 +20955,13 @@ FROM
     TIMESTAMP '2016-10-05 23:59:00' AS start_timestamp,
     TIMESTAMP '2016-10-06 01:59:00' AS end_timestamp);
 
-+--------------------------------------------------------------------------+
-| timestamp_array                                                          |
-+--------------------------------------------------------------------------+
-| [2016-10-05 00:00:00+00, 2016-10-05 01:00:00+00, 2016-10-05 02:00:00+00] |
-| [2016-10-05 12:00:00+00, 2016-10-05 13:00:00+00, 2016-10-05 14:00:00+00] |
-| [2016-10-05 23:59:00+00, 2016-10-06 00:59:00+00, 2016-10-06 01:59:00+00] |
-+--------------------------------------------------------------------------+
+/*--------------------------------------------------------------------------*
+ | timestamp_array                                                          |
+ +--------------------------------------------------------------------------+
+ | [2016-10-05 00:00:00+00, 2016-10-05 01:00:00+00, 2016-10-05 02:00:00+00] |
+ | [2016-10-05 12:00:00+00, 2016-10-05 13:00:00+00, 2016-10-05 14:00:00+00] |
+ | [2016-10-05 23:59:00+00, 2016-10-06 00:59:00+00, 2016-10-06 01:59:00+00] |
+ *--------------------------------------------------------------------------*/
 ```
 
 ### OFFSET and ORDINAL
@@ -20846,11 +21018,11 @@ The following query produces the current date in the default time zone:
 ```sql
 SELECT CURRENT_DATE() AS the_date;
 
-+--------------+
-| the_date     |
-+--------------+
-| 2016-12-25   |
-+--------------+
+/*--------------*
+ | the_date     |
+ +--------------+
+ | 2016-12-25   |
+ *--------------*/
 ```
 
 The following queries produce the current date in a specified time zone:
@@ -20858,21 +21030,21 @@ The following queries produce the current date in a specified time zone:
 ```sql
 SELECT CURRENT_DATE('America/Los_Angeles') AS the_date;
 
-+--------------+
-| the_date     |
-+--------------+
-| 2016-12-25   |
-+--------------+
+/*--------------*
+ | the_date     |
+ +--------------+
+ | 2016-12-25   |
+ *--------------*/
 ```
 
 ```sql
 SELECT CURRENT_DATE('-08') AS the_date;
 
-+--------------+
-| the_date     |
-+--------------+
-| 2016-12-25   |
-+--------------+
+/*--------------*
+ | the_date     |
+ +--------------+
+ | 2016-12-25   |
+ *--------------*/
 ```
 
 The following query produces the current date in the default time zone.
@@ -20881,11 +21053,11 @@ Parentheses are not needed if the function has no arguments.
 ```sql
 SELECT CURRENT_DATE AS the_date;
 
-+--------------+
-| the_date     |
-+--------------+
-| 2016-12-25   |
-+--------------+
+/*--------------*
+ | the_date     |
+ +--------------+
+ | 2016-12-25   |
+ *--------------*/
 ```
 
 When a column named `current_date` is present, the column name and the function
@@ -20899,11 +21071,11 @@ column in the `current_date` column.
 WITH t AS (SELECT 'column value' AS `current_date`)
 SELECT current_date() AS the_date, t.current_date FROM t;
 
-+------------+--------------+
-| the_date   | current_date |
-+------------+--------------+
-| 2016-12-25 | column value |
-+------------+--------------+
+/*------------+--------------*
+ | the_date   | current_date |
+ +------------+--------------+
+ | 2016-12-25 | column value |
+ *------------+--------------*/
 ```
 
 [date-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
@@ -20956,11 +21128,11 @@ SELECT
   DATE(DATETIME '2016-12-25 23:59:59') AS date_dt,
   DATE(TIMESTAMP '2016-12-25 05:30:00+07', 'America/Los_Angeles') AS date_tstz;
 
-+------------+------------+------------+
-| date_ymd   | date_dt    | date_tstz  |
-+------------+------------+------------+
-| 2016-12-25 | 2016-12-25 | 2016-12-24 |
-+------------+------------+------------+
+/*------------+------------+------------*
+ | date_ymd   | date_dt    | date_tstz  |
+ +------------+------------+------------+
+ | 2016-12-25 | 2016-12-25 | 2016-12-24 |
+ *------------+------------+------------*/
 ```
 
 [date-timezone-definitions]: #timezone_definitions
@@ -20997,11 +21169,11 @@ DATE
 ```sql
 SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 
-+--------------------+
-| five_days_later    |
-+--------------------+
-| 2008-12-30         |
-+--------------------+
+/*--------------------*
+ | five_days_later    |
+ +--------------------+
+ | 2008-12-30         |
+ *--------------------*/
 ```
 
 ### `DATE_DIFF`
@@ -21043,11 +21215,11 @@ INT64
 ```sql
 SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) AS days_diff;
 
-+-----------+
-| days_diff |
-+-----------+
-| 559       |
-+-----------+
+/*-----------*
+ | days_diff |
+ +-----------+
+ | 559       |
+ *-----------*/
 ```
 
 ```sql
@@ -21055,11 +21227,11 @@ SELECT
   DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', DAY) AS days_diff,
   DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', WEEK) AS weeks_diff;
 
-+-----------+------------+
-| days_diff | weeks_diff |
-+-----------+------------+
-| 1         | 1          |
-+-----------+------------+
+/*-----------+------------*
+ | days_diff | weeks_diff |
+ +-----------+------------+
+ | 1         | 1          |
+ *-----------+------------*/
 ```
 
 The example above shows the result of `DATE_DIFF` for two days in succession.
@@ -21080,11 +21252,11 @@ SELECT
   DATE_DIFF('2017-12-30', '2014-12-30', YEAR) AS year_diff,
   DATE_DIFF('2017-12-30', '2014-12-30', ISOYEAR) AS isoyear_diff;
 
-+-----------+--------------+
-| year_diff | isoyear_diff |
-+-----------+--------------+
-| 3         | 2            |
-+-----------+--------------+
+/*-----------+--------------*
+ | year_diff | isoyear_diff |
+ +-----------+--------------+
+ | 3         | 2            |
+ *-----------+--------------*/
 ```
 
 The following example shows the result of `DATE_DIFF` for two days in
@@ -21100,11 +21272,11 @@ SELECT
   DATE_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
   DATE_DIFF('2017-12-18', '2017-12-17', ISOWEEK) AS isoweek_diff;
 
-+-----------+-------------------+--------------+
-| week_diff | week_weekday_diff | isoweek_diff |
-+-----------+-------------------+--------------+
-| 0         | 1                 | 1            |
-+-----------+-------------------+--------------+
+/*-----------+-------------------+--------------*
+ | week_diff | week_weekday_diff | isoweek_diff |
+ +-----------+-------------------+--------------+
+ | 0         | 1                 | 1            |
+ *-----------+-------------------+--------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -21130,11 +21302,11 @@ DATE
 ```sql
 SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
 
-+-----------------+
-| date_from_epoch |
-+-----------------+
-| 2008-12-25      |
-+-----------------+
+/*-----------------*
+ | date_from_epoch |
+ +-----------------+
+ | 2008-12-25      |
+ *-----------------+*/
 ```
 
 ### `DATE_SUB`
@@ -21169,11 +21341,11 @@ DATE
 ```sql
 SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 
-+---------------+
-| five_days_ago |
-+---------------+
-| 2008-12-20    |
-+---------------+
+/*---------------*
+ | five_days_ago |
+ +---------------+
+ | 2008-12-20    |
+ *---------------*/
 ```
 
 ### `DATE_TRUNC`
@@ -21229,11 +21401,11 @@ DATE
 ```sql
 SELECT DATE_TRUNC(DATE '2008-12-25', MONTH) AS month;
 
-+------------+
-| month      |
-+------------+
-| 2008-12-01 |
-+------------+
+/*------------*
+ | month      |
+ +------------+
+ | 2008-12-01 |
+ *------------*/
 ```
 
 In the following example, the original date falls on a Sunday. Because
@@ -21244,11 +21416,11 @@ preceding Monday.
 SELECT date AS original, DATE_TRUNC(date, WEEK(MONDAY)) AS truncated
 FROM (SELECT DATE('2017-11-05') AS date);
 
-+------------+------------+
-| original   | truncated  |
-+------------+------------+
-| 2017-11-05 | 2017-10-30 |
-+------------+------------+
+/*------------+------------*
+ | original   | truncated  |
+ +------------+------------+
+ | 2017-11-05 | 2017-10-30 |
+ *------------+------------*/
 ```
 
 In the following example, the original `date_expression` is in the Gregorian
@@ -21264,11 +21436,11 @@ SELECT
   DATE_TRUNC('2015-06-15', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATE '2015-06-15') AS isoyear_number;
 
-+------------------+----------------+
-| isoyear_boundary | isoyear_number |
-+------------------+----------------+
-| 2014-12-29       | 2015           |
-+------------------+----------------+
+/*------------------+----------------*
+ | isoyear_boundary | isoyear_number |
+ +------------------+----------------+
+ | 2014-12-29       | 2015           |
+ *------------------+----------------*/
 ```
 
 ### `EXTRACT`
@@ -21316,11 +21488,11 @@ date part.
 ```sql
 SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
 
-+---------+
-| the_day |
-+---------+
-| 25      |
-+---------+
+/*---------*
+ | the_day |
+ +---------+
+ | 25      |
+ *---------*/
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
@@ -21335,28 +21507,29 @@ SELECT
   EXTRACT(WEEK FROM date) AS week
 FROM UNNEST(GENERATE_DATE_ARRAY('2015-12-23', '2016-01-09')) AS date
 ORDER BY date;
-+------------+---------+---------+------+------+
-| date       | isoyear | isoweek | year | week |
-+------------+---------+---------+------+------+
-| 2015-12-23 | 2015    | 52      | 2015 | 51   |
-| 2015-12-24 | 2015    | 52      | 2015 | 51   |
-| 2015-12-25 | 2015    | 52      | 2015 | 51   |
-| 2015-12-26 | 2015    | 52      | 2015 | 51   |
-| 2015-12-27 | 2015    | 52      | 2015 | 52   |
-| 2015-12-28 | 2015    | 53      | 2015 | 52   |
-| 2015-12-29 | 2015    | 53      | 2015 | 52   |
-| 2015-12-30 | 2015    | 53      | 2015 | 52   |
-| 2015-12-31 | 2015    | 53      | 2015 | 52   |
-| 2016-01-01 | 2015    | 53      | 2016 | 0    |
-| 2016-01-02 | 2015    | 53      | 2016 | 0    |
-| 2016-01-03 | 2015    | 53      | 2016 | 1    |
-| 2016-01-04 | 2016    | 1       | 2016 | 1    |
-| 2016-01-05 | 2016    | 1       | 2016 | 1    |
-| 2016-01-06 | 2016    | 1       | 2016 | 1    |
-| 2016-01-07 | 2016    | 1       | 2016 | 1    |
-| 2016-01-08 | 2016    | 1       | 2016 | 1    |
-| 2016-01-09 | 2016    | 1       | 2016 | 1    |
-+------------+---------+---------+------+------+
+
+/*------------+---------+---------+------+------*
+ | date       | isoyear | isoweek | year | week |
+ +------------+---------+---------+------+------+
+ | 2015-12-23 | 2015    | 52      | 2015 | 51   |
+ | 2015-12-24 | 2015    | 52      | 2015 | 51   |
+ | 2015-12-25 | 2015    | 52      | 2015 | 51   |
+ | 2015-12-26 | 2015    | 52      | 2015 | 51   |
+ | 2015-12-27 | 2015    | 52      | 2015 | 52   |
+ | 2015-12-28 | 2015    | 53      | 2015 | 52   |
+ | 2015-12-29 | 2015    | 53      | 2015 | 52   |
+ | 2015-12-30 | 2015    | 53      | 2015 | 52   |
+ | 2015-12-31 | 2015    | 53      | 2015 | 52   |
+ | 2016-01-01 | 2015    | 53      | 2016 | 0    |
+ | 2016-01-02 | 2015    | 53      | 2016 | 0    |
+ | 2016-01-03 | 2015    | 53      | 2016 | 1    |
+ | 2016-01-04 | 2016    | 1       | 2016 | 1    |
+ | 2016-01-05 | 2016    | 1       | 2016 | 1    |
+ | 2016-01-06 | 2016    | 1       | 2016 | 1    |
+ | 2016-01-07 | 2016    | 1       | 2016 | 1    |
+ | 2016-01-08 | 2016    | 1       | 2016 | 1    |
+ | 2016-01-09 | 2016    | 1       | 2016 | 1    |
+ *------------+---------+---------+------+------*/
 ```
 
 In the following example, `date_expression` falls on a Sunday. `EXTRACT`
@@ -21370,11 +21543,11 @@ SELECT
   EXTRACT(WEEK(SUNDAY) FROM date) AS week_sunday,
   EXTRACT(WEEK(MONDAY) FROM date) AS week_monday FROM table;
 
-+------------+-------------+-------------+
-| date       | week_sunday | week_monday |
-+------------+-------------+-------------+
-| 2017-11-05 | 45          | 44          |
-+------------+-------------+-------------+
+/*------------+-------------+-------------*
+ | date       | week_sunday | week_monday |
+ +------------+-------------+-------------+
+ | 2017-11-05 | 45          | 44          |
+ *------------+-------------+-------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -21403,31 +21576,31 @@ STRING
 ```sql
 SELECT FORMAT_DATE('%x', DATE '2008-12-25') AS US_format;
 
-+------------+
-| US_format  |
-+------------+
-| 12/25/08   |
-+------------+
+/*------------*
+ | US_format  |
+ +------------+
+ | 12/25/08   |
+ *------------*/
 ```
 
 ```sql
 SELECT FORMAT_DATE('%b-%d-%Y', DATE '2008-12-25') AS formatted;
 
-+-------------+
-| formatted   |
-+-------------+
-| Dec-25-2008 |
-+-------------+
+/*-------------*
+ | formatted   |
+ +-------------+
+ | Dec-25-2008 |
+ *-------------*/
 ```
 
 ```sql
 SELECT FORMAT_DATE('%b %Y', DATE '2008-12-25') AS formatted;
 
-+-------------+
-| formatted   |
-+-------------+
-| Dec 2008    |
-+-------------+
+/*-------------*
+ | formatted   |
+ +-------------+
+ | Dec 2008    |
+ *-------------*/
 ```
 
 [date-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -21471,21 +21644,21 @@ These both return the last day of the month:
 ```sql
 SELECT LAST_DAY(DATE '2008-11-25', MONTH) AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-11-30 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-11-30 |
+ *------------*/
 ```
 
 ```sql
 SELECT LAST_DAY(DATE '2008-11-25') AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-11-30 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-11-30 |
+ *------------*/
 ```
 
 This returns the last day of the year:
@@ -21493,11 +21666,11 @@ This returns the last day of the year:
 ```sql
 SELECT LAST_DAY(DATE '2008-11-25', YEAR) AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-12-31 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-12-31 |
+ *------------*/
 ```
 
 This returns the last day of the week for a week that starts on a Sunday:
@@ -21505,11 +21678,11 @@ This returns the last day of the week for a week that starts on a Sunday:
 ```sql
 SELECT LAST_DAY(DATE '2008-11-10', WEEK(SUNDAY)) AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-11-15 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-11-15 |
+ *------------*/
 ```
 
 This returns the last day of the week for a week that starts on a Monday:
@@ -21517,11 +21690,11 @@ This returns the last day of the week for a week that starts on a Monday:
 ```sql
 SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-11-16 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-11-16 |
+ *------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -21583,11 +21756,11 @@ This example converts a `MM/DD/YY` formatted string to a `DATE` object:
 ```sql
 SELECT PARSE_DATE('%x', '12/25/08') AS parsed;
 
-+------------+
-| parsed     |
-+------------+
-| 2008-12-25 |
-+------------+
+/*------------*
+ | parsed     |
+ +------------+
+ | 2008-12-25 |
+ *------------*/
 ```
 
 This example converts a `YYYYMMDD` formatted string to a `DATE` object:
@@ -21595,11 +21768,11 @@ This example converts a `YYYYMMDD` formatted string to a `DATE` object:
 ```sql
 SELECT PARSE_DATE('%Y%m%d', '20081225') AS parsed;
 
-+------------+
-| parsed     |
-+------------+
-| 2008-12-25 |
-+------------+
+/*------------*
+ | parsed     |
+ +------------+
+ | 2008-12-25 |
+ *------------*/
 ```
 
 [date-format]: #format_date
@@ -21614,7 +21787,7 @@ UNIX_DATE(date_expression)
 
 **Description**
 
-Returns the number of days since 1970-01-01.
+Returns the number of days since `1970-01-01`.
 
 **Return Data Type**
 
@@ -21625,11 +21798,11 @@ INT64
 ```sql
 SELECT UNIX_DATE(DATE '2008-12-25') AS days_from_epoch;
 
-+-----------------+
-| days_from_epoch |
-+-----------------+
-| 14238           |
-+-----------------+
+/*-----------------*
+ | days_from_epoch |
+ +-----------------+
+ | 14238           |
+ *-----------------*/
 ```
 
 ## Datetime functions
@@ -21660,11 +21833,11 @@ information on how to specify a time zone.
 ```sql
 SELECT CURRENT_DATETIME() as now;
 
-+----------------------------+
-| now                        |
-+----------------------------+
-| 2016-05-19 10:38:47.046465 |
-+----------------------------+
+/*----------------------------*
+ | now                        |
+ +----------------------------+
+ | 2016-05-19 10:38:47.046465 |
+ *----------------------------*/
 ```
 
 When a column named `current_datetime` is present, the column name and the
@@ -21678,11 +21851,11 @@ column in the `current_datetime` column.
 WITH t AS (SELECT 'column value' AS `current_datetime`)
 SELECT current_datetime() as now, t.current_datetime FROM t;
 
-+----------------------------+------------------+
-| now                        | current_datetime |
-+----------------------------+------------------+
-| 2016-05-19 10:38:47.046465 | column value     |
-+----------------------------+------------------+
+/*----------------------------+------------------*
+ | now                        | current_datetime |
+ +----------------------------+------------------+
+ | 2016-05-19 10:38:47.046465 | column value     |
+ *----------------------------+------------------*/
 ```
 
 [datetime-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
@@ -21720,11 +21893,11 @@ SELECT
   DATETIME(2008, 12, 25, 05, 30, 00) as datetime_ymdhms,
   DATETIME(TIMESTAMP "2008-12-25 05:30:00+00", "America/Los_Angeles") as datetime_tstz;
 
-+---------------------+---------------------+
-| datetime_ymdhms     | datetime_tstz       |
-+---------------------+---------------------+
-| 2008-12-25 05:30:00 | 2008-12-24 21:30:00 |
-+---------------------+---------------------+
+/*---------------------+---------------------*
+ | datetime_ymdhms     | datetime_tstz       |
+ +---------------------+---------------------+
+ | 2008-12-25 05:30:00 | 2008-12-24 21:30:00 |
+ *---------------------+---------------------*/
 ```
 
 [datetime-timezone-definitions]: #timezone_definitions
@@ -21770,11 +21943,11 @@ SELECT
   DATETIME "2008-12-25 15:30:00" as original_date,
   DATETIME_ADD(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as later;
 
-+-----------------------------+------------------------+
-| original_date               | later                  |
-+-----------------------------+------------------------+
-| 2008-12-25 15:30:00         | 2008-12-25 15:40:00    |
-+-----------------------------+------------------------+
+/*-----------------------------+------------------------*
+ | original_date               | later                  |
+ +-----------------------------+------------------------+
+ | 2008-12-25 15:30:00         | 2008-12-25 15:40:00    |
+ *-----------------------------+------------------------*/
 ```
 
 ### `DATETIME_DIFF`
@@ -21831,11 +22004,11 @@ SELECT
   DATETIME_DIFF(DATETIME "2010-07-07 10:20:00",
     DATETIME "2008-12-25 15:30:00", DAY) as difference;
 
-+----------------------------+------------------------+------------------------+
-| first_datetime             | second_datetime        | difference             |
-+----------------------------+------------------------+------------------------+
-| 2010-07-07 10:20:00        | 2008-12-25 15:30:00    | 559                    |
-+----------------------------+------------------------+------------------------+
+/*----------------------------+------------------------+------------------------*
+ | first_datetime             | second_datetime        | difference             |
+ +----------------------------+------------------------+------------------------+
+ | 2010-07-07 10:20:00        | 2008-12-25 15:30:00    | 559                    |
+ *----------------------------+------------------------+------------------------*/
 ```
 
 ```sql
@@ -21845,11 +22018,11 @@ SELECT
   DATETIME_DIFF(DATETIME '2017-10-15 00:00:00',
     DATETIME '2017-10-14 00:00:00', WEEK) as weeks_diff;
 
-+-----------+------------+
-| days_diff | weeks_diff |
-+-----------+------------+
-| 1         | 1          |
-+-----------+------------+
+/*-----------+------------*
+ | days_diff | weeks_diff |
+ +-----------+------------+
+ | 1         | 1          |
+ *-----------+------------*/
 ```
 
 The example above shows the result of `DATETIME_DIFF` for two `DATETIME`s that
@@ -21873,11 +22046,11 @@ SELECT
   DATETIME_DIFF('2017-12-30 00:00:00',
     '2014-12-30 00:00:00', ISOYEAR) AS isoyear_diff;
 
-+-----------+--------------+
-| year_diff | isoyear_diff |
-+-----------+--------------+
-| 3         | 2            |
-+-----------+--------------+
+/*-----------+--------------*
+ | year_diff | isoyear_diff |
+ +-----------+--------------+
+ | 3         | 2            |
+ *-----------+--------------*/
 ```
 
 The following example shows the result of `DATETIME_DIFF` for two days in
@@ -21893,11 +22066,11 @@ SELECT
   DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
   DATETIME_DIFF('2017-12-18', '2017-12-17', ISOWEEK) AS isoweek_diff;
 
-+-----------+-------------------+--------------+
-| week_diff | week_weekday_diff | isoweek_diff |
-+-----------+-------------------+--------------+
-| 0         | 1                 | 1            |
-+-----------+-------------------+--------------+
+/*-----------+-------------------+--------------*
+ | week_diff | week_weekday_diff | isoweek_diff |
+ +-----------+-------------------+--------------+
+ | 0         | 1                 | 1            |
+ *-----------+-------------------+--------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -21945,11 +22118,11 @@ SELECT
   DATETIME "2008-12-25 15:30:00" as original_date,
   DATETIME_SUB(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE) as earlier;
 
-+-----------------------------+------------------------+
-| original_date               | earlier                |
-+-----------------------------+------------------------+
-| 2008-12-25 15:30:00         | 2008-12-25 15:20:00    |
-+-----------------------------+------------------------+
+/*-----------------------------+------------------------*
+ | original_date               | earlier                |
+ +-----------------------------+------------------------+
+ | 2008-12-25 15:30:00         | 2008-12-25 15:20:00    |
+ *-----------------------------+------------------------*/
 ```
 
 ### `DATETIME_TRUNC`
@@ -22013,11 +22186,11 @@ SELECT
   DATETIME "2008-12-25 15:30:00" as original,
   DATETIME_TRUNC(DATETIME "2008-12-25 15:30:00", DAY) as truncated;
 
-+----------------------------+------------------------+
-| original                   | truncated              |
-+----------------------------+------------------------+
-| 2008-12-25 15:30:00        | 2008-12-25 00:00:00    |
-+----------------------------+------------------------+
+/*----------------------------+------------------------*
+ | original                   | truncated              |
+ +----------------------------+------------------------+
+ | 2008-12-25 15:30:00        | 2008-12-25 00:00:00    |
+ *----------------------------+------------------------*/
 ```
 
 In the following example, the original `DATETIME` falls on a Sunday. Because the
@@ -22030,11 +22203,11 @@ SELECT
  DATETIME_TRUNC(datetime, WEEK(MONDAY)) AS truncated
 FROM (SELECT DATETIME(TIMESTAMP "2017-11-05 00:00:00+00", "UTC") AS datetime);
 
-+---------------------+---------------------+
-| original            | truncated           |
-+---------------------+---------------------+
-| 2017-11-05 00:00:00 | 2017-10-30 00:00:00 |
-+---------------------+---------------------+
+/*---------------------+---------------------*
+ | original            | truncated           |
+ +---------------------+---------------------+
+ | 2017-11-05 00:00:00 | 2017-10-30 00:00:00 |
+ *---------------------+---------------------*/
 ```
 
 In the following example, the original `datetime_expression` is in the Gregorian
@@ -22050,11 +22223,11 @@ SELECT
   DATETIME_TRUNC('2015-06-15 00:00:00', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATETIME '2015-06-15 00:00:00') AS isoyear_number;
 
-+---------------------+----------------+
-| isoyear_boundary    | isoyear_number |
-+---------------------+----------------+
-| 2014-12-29 00:00:00 | 2015           |
-+---------------------+----------------+
+/*---------------------+----------------*
+ | isoyear_boundary    | isoyear_number |
+ +---------------------+----------------+
+ | 2014-12-29 00:00:00 | 2015           |
+ *---------------------+----------------*/
 ```
 
 ### `EXTRACT`
@@ -22119,11 +22292,11 @@ time part.
 ```sql
 SELECT EXTRACT(HOUR FROM DATETIME(2008, 12, 25, 15, 30, 00)) as hour;
 
-+------------------+
-| hour             |
-+------------------+
-| 15               |
-+------------------+
+/*------------------*
+ | hour             |
+ +------------------+
+ | 15               |
+ *------------------*/
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
@@ -22147,16 +22320,16 @@ SELECT
 FROM Datetimes
 ORDER BY datetime;
 
-+---------------------+---------+---------+------+------+
-| datetime            | isoyear | isoweek | year | week |
-+---------------------+---------+---------+------+------+
-| 2005-01-03 12:34:56 | 2005    | 1       | 2005 | 1    |
-| 2007-12-31 00:00:00 | 2008    | 1       | 2007 | 52   |
-| 2009-01-01 00:00:00 | 2009    | 1       | 2009 | 0    |
-| 2009-12-31 00:00:00 | 2009    | 53      | 2009 | 52   |
-| 2017-01-02 00:00:00 | 2017    | 1       | 2017 | 1    |
-| 2017-05-26 00:00:00 | 2017    | 21      | 2017 | 21   |
-+---------------------+---------+---------+------+------+
+/*---------------------+---------+---------+------+------*
+ | datetime            | isoyear | isoweek | year | week |
+ +---------------------+---------+---------+------+------+
+ | 2005-01-03 12:34:56 | 2005    | 1       | 2005 | 1    |
+ | 2007-12-31 00:00:00 | 2008    | 1       | 2007 | 52   |
+ | 2009-01-01 00:00:00 | 2009    | 1       | 2009 | 0    |
+ | 2009-12-31 00:00:00 | 2009    | 53      | 2009 | 52   |
+ | 2017-01-02 00:00:00 | 2017    | 1       | 2017 | 1    |
+ | 2017-05-26 00:00:00 | 2017    | 21      | 2017 | 21   |
+ *---------------------+---------+---------+------+------*/
 ```
 
 In the following example, `datetime_expression` falls on a Sunday. `EXTRACT`
@@ -22171,11 +22344,11 @@ SELECT
   EXTRACT(WEEK(MONDAY) FROM datetime) AS week_monday
 FROM table;
 
-+---------------------+-------------+---------------+
-| datetime            | week_sunday | week_monday   |
-+---------------------+-------------+---------------+
-| 2017-11-05 00:00:00 | 45          | 44            |
-+---------------------+-------------+---------------+
+/*---------------------+-------------+---------------*
+ | datetime            | week_sunday | week_monday   |
+ +---------------------+-------------+---------------+
+ | 2017-11-05 00:00:00 | 45          | 44            |
+ *---------------------+-------------+---------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -22205,11 +22378,11 @@ SELECT
   FORMAT_DATETIME("%c", DATETIME "2008-12-25 15:30:00")
   AS formatted;
 
-+--------------------------+
-| formatted                |
-+--------------------------+
-| Thu Dec 25 15:30:00 2008 |
-+--------------------------+
+/*--------------------------*
+ | formatted                |
+ +--------------------------+
+ | Thu Dec 25 15:30:00 2008 |
+ *--------------------------*/
 ```
 
 ```sql
@@ -22217,11 +22390,11 @@ SELECT
   FORMAT_DATETIME("%b-%d-%Y", DATETIME "2008-12-25 15:30:00")
   AS formatted;
 
-+-------------+
-| formatted   |
-+-------------+
-| Dec-25-2008 |
-+-------------+
+/*-------------*
+ | formatted   |
+ +-------------+
+ | Dec-25-2008 |
+ *-------------*/
 ```
 
 ```sql
@@ -22229,11 +22402,11 @@ SELECT
   FORMAT_DATETIME("%b %Y", DATETIME "2008-12-25 15:30:00")
   AS formatted;
 
-+-------------+
-| formatted   |
-+-------------+
-| Dec 2008    |
-+-------------+
+/*-------------*
+ | formatted   |
+ +-------------+
+ | Dec 2008    |
+ *-------------*/
 ```
 
 [datetime-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -22277,21 +22450,21 @@ These both return the last day of the month:
 ```sql
 SELECT LAST_DAY(DATETIME '2008-11-25', MONTH) AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-11-30 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-11-30 |
+ *------------*/
 ```
 
 ```sql
 SELECT LAST_DAY(DATETIME '2008-11-25') AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-11-30 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-11-30 |
+ *------------*/
 ```
 
 This returns the last day of the year:
@@ -22299,11 +22472,11 @@ This returns the last day of the year:
 ```sql
 SELECT LAST_DAY(DATETIME '2008-11-25 15:30:00', YEAR) AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-12-31 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-12-31 |
+ *------------*/
 ```
 
 This returns the last day of the week for a week that starts on a Sunday:
@@ -22311,11 +22484,11 @@ This returns the last day of the week for a week that starts on a Sunday:
 ```sql
 SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(SUNDAY)) AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-11-15 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-11-15 |
+ *------------*/
 ```
 
 This returns the last day of the week for a week that starts on a Monday:
@@ -22323,11 +22496,11 @@ This returns the last day of the week for a week that starts on a Monday:
 ```sql
 SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
 
-+------------+
-| last_day   |
-+------------+
-| 2008-11-16 |
-+------------+
+/*------------*
+ | last_day   |
+ +------------+
+ | 2008-11-16 |
+ *------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -22396,21 +22569,21 @@ The following examples parse a `STRING` literal as a
 ```sql
 SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
 
-+---------------------+
-| datetime            |
-+---------------------+
-| 1998-10-18 13:45:55 |
-+---------------------+
+/*---------------------*
+ | datetime            |
+ +---------------------+
+ | 1998-10-18 13:45:55 |
+ *---------------------*/
 ```
 
 ```sql
 SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 pm') AS datetime
 
-+---------------------+
-| datetime            |
-+---------------------+
-| 2018-08-30 14:23:38 |
-+---------------------+
+/*---------------------*
+ | datetime            |
+ +---------------------+
+ | 2018-08-30 14:23:38 |
+ *---------------------*/
 ```
 
 The following example parses a `STRING` literal
@@ -22421,11 +22594,11 @@ containing a date in a natural language format as a
 SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
   AS datetime;
 
-+---------------------+
-| datetime            |
-+---------------------+
-| 2018-12-19 00:00:00 |
-+---------------------+
+/*---------------------*
+ | datetime            |
+ +---------------------+
+ | 2018-12-19 00:00:00 |
+ *---------------------*/
 ```
 
 [datetime-format]: #format_datetime
@@ -22462,11 +22635,11 @@ on how to specify a time zone.
 ```sql
 SELECT CURRENT_TIME() as now;
 
-+----------------------------+
-| now                        |
-+----------------------------+
-| 15:31:38.776361            |
-+----------------------------+
+/*----------------------------*
+ | now                        |
+ +----------------------------+
+ | 15:31:38.776361            |
+ *----------------------------*/
 ```
 
 When a column named `current_time` is present, the column name and the function
@@ -22480,11 +22653,11 @@ column in the `current_time` column.
 WITH t AS (SELECT 'column value' AS `current_time`)
 SELECT current_time() as now, t.current_time FROM t;
 
-+-----------------+--------------+
-| now             | current_time |
-+-----------------+--------------+
-| 15:31:38.776361 | column value |
-+-----------------+--------------+
+/*-----------------+--------------*
+ | now             | current_time |
+ +-----------------+--------------+
+ | 15:31:38.776361 | column value |
+ *-----------------+--------------*/
 ```
 
 [time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
@@ -22527,11 +22700,11 @@ time part.
 ```sql
 SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 
-+------------------+
-| hour             |
-+------------------+
-| 15               |
-+------------------+
+/*------------------*
+ | hour             |
+ +------------------+
+ | 15               |
+ *------------------*/
 ```
 
 ### `FORMAT_TIME`
@@ -22554,11 +22727,11 @@ for a list of format elements that this function supports.
 ```sql
 SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
-+----------------+
-| formatted_time |
-+----------------+
-| 15:30          |
-+----------------+
+/*----------------*
+ | formatted_time |
+ +----------------+
+ | 15:30          |
+ *----------------*/
 ```
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -22616,21 +22789,21 @@ When using `PARSE_TIME`, keep the following in mind:
 ```sql
 SELECT PARSE_TIME("%H", "15") as parsed_time;
 
-+-------------+
-| parsed_time |
-+-------------+
-| 15:00:00    |
-+-------------+
+/*-------------*
+ | parsed_time |
+ +-------------+
+ | 15:00:00    |
+ *-------------*/
 ```
 
 ```sql
 SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 
-+-------------+
-| parsed_time |
-+-------------+
-| 14:23:38    |
-+-------------+
+/*-------------*
+ | parsed_time |
+ +-------------+
+ | 14:23:38    |
+ *-------------*/
 ```
 
 [time-format]: #format_time
@@ -22668,21 +22841,21 @@ SELECT
   TIME(15, 30, 00) as time_hms,
   TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
 
-+----------+-----------+
-| time_hms | time_tstz |
-+----------+-----------+
-| 15:30:00 | 23:30:00  |
-+----------+-----------+
+/*----------+-----------*
+ | time_hms | time_tstz |
+ +----------+-----------+
+ | 15:30:00 | 23:30:00  |
+ *----------+-----------*/
 ```
 
 ```sql
 SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
 
-+----------+
-| time_dt  |
-+----------+
-| 15:30:00 |
-+----------+
+/*----------*
+ | time_dt  |
+ +----------+
+ | 15:30:00 |
+ *----------*/
 ```
 
 [time-link-to-timezone-definitions]: #timezone_definitions
@@ -22722,11 +22895,11 @@ SELECT
   TIME "15:30:00" as original_time,
   TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE) as later;
 
-+-----------------------------+------------------------+
-| original_time               | later                  |
-+-----------------------------+------------------------+
-| 15:30:00                    | 15:40:00               |
-+-----------------------------+------------------------+
+/*-----------------------------+------------------------*
+ | original_time               | later                  |
+ +-----------------------------+------------------------+
+ | 15:30:00                    | 15:40:00               |
+ *-----------------------------+------------------------*/
 ```
 
 ### `TIME_DIFF`
@@ -22767,11 +22940,11 @@ SELECT
   TIME "14:35:00" as second_time,
   TIME_DIFF(TIME "15:30:00", TIME "14:35:00", MINUTE) as difference;
 
-+----------------------------+------------------------+------------------------+
-| first_time                 | second_time            | difference             |
-+----------------------------+------------------------+------------------------+
-| 15:30:00                   | 14:35:00               | 55                     |
-+----------------------------+------------------------+------------------------+
+/*----------------------------+------------------------+------------------------*
+ | first_time                 | second_time            | difference             |
+ +----------------------------+------------------------+------------------------+
+ | 15:30:00                   | 14:35:00               | 55                     |
+ *----------------------------+------------------------+------------------------*/
 ```
 
 ### `TIME_SUB`
@@ -22809,11 +22982,11 @@ SELECT
   TIME "15:30:00" as original_date,
   TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE) as earlier;
 
-+-----------------------------+------------------------+
-| original_date                | earlier                |
-+-----------------------------+------------------------+
-| 15:30:00                    | 15:20:00               |
-+-----------------------------+------------------------+
+/*-----------------------------+------------------------*
+ | original_date               | earlier                |
+ +-----------------------------+------------------------+
+ | 15:30:00                    | 15:20:00               |
+ *-----------------------------+------------------------*/
 ```
 
 ### `TIME_TRUNC`
@@ -22846,11 +23019,11 @@ SELECT
   TIME "15:30:00" as original,
   TIME_TRUNC(TIME "15:30:00", HOUR) as truncated;
 
-+----------------------------+------------------------+
-| original                   | truncated              |
-+----------------------------+------------------------+
-| 15:30:00                   | 15:00:00               |
-+----------------------------+------------------------+
+/*----------------------------+------------------------*
+ | original                   | truncated              |
+ +----------------------------+------------------------+
+ | 15:30:00                   | 15:00:00               |
+ *----------------------------+------------------------*/
 ```
 
 [time-to-string]: #cast
@@ -22897,11 +23070,11 @@ Not applicable
 ```sql
 SELECT CURRENT_TIMESTAMP() AS now;
 
-+---------------------------------------------+
-| now                                         |
-+---------------------------------------------+
-| 2020-06-02 17:00:53.110 America/Los_Angeles |
-+---------------------------------------------+
+/*---------------------------------------------*
+ | now                                         |
+ +---------------------------------------------+
+ | 2020-06-02 17:00:53.110 America/Los_Angeles |
+ *---------------------------------------------*/
 ```
 
 When a column named `current_timestamp` is present, the column name and the
@@ -22915,11 +23088,11 @@ column in the `current_timestamp` column.
 WITH t AS (SELECT 'column value' AS `current_timestamp`)
 SELECT current_timestamp() AS now, t.current_timestamp FROM t;
 
-+---------------------------------------------+-------------------+
-| now                                         | current_timestamp |
-+---------------------------------------------+-------------------+
-| 2020-06-02 17:00:53.110 America/Los_Angeles | column value      |
-+---------------------------------------------+-------------------+
+/*---------------------------------------------+-------------------*
+ | now                                         | current_timestamp |
+ +---------------------------------------------+-------------------+
+ | 2020-06-02 17:00:53.110 America/Los_Angeles | column value      |
+ *---------------------------------------------+-------------------*/
 ```
 
 [timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
@@ -22994,11 +23167,11 @@ SELECT
   EXTRACT(DAY FROM timestamp_value AT TIME ZONE "America/Los_Angeles") AS the_day_california
 FROM Input
 
-+-------------+--------------------+
-| the_day_utc | the_day_california |
-+-------------+--------------------+
-| 25          | 24                 |
-+-------------+--------------------+
+/*-------------+--------------------*
+ | the_day_utc | the_day_california |
+ +-------------+--------------------+
+ | 25          | 24                 |
+ *-------------+--------------------*/
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
@@ -23023,16 +23196,16 @@ FROM Timestamps
 ORDER BY timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+---------+---------+------+------+
-| timestamp_value                             | isoyear | isoweek | year | week |
-+---------------------------------------------+---------+---------+------+------+
-| 2005-01-03 04:34:56.000 America/Los_Angeles | 2005    | 1       | 2005 | 1    |
-| 2007-12-31 04:00:00.000 America/Los_Angeles | 2008    | 1       | 2007 | 52   |
-| 2009-01-01 04:00:00.000 America/Los_Angeles | 2009    | 1       | 2009 | 0    |
-| 2009-12-31 04:00:00.000 America/Los_Angeles | 2009    | 53      | 2009 | 52   |
-| 2017-01-02 04:00:00.000 America/Los_Angeles | 2017    | 1       | 2017 | 1    |
-| 2017-05-26 05:00:00.000 America/Los_Angeles | 2017    | 21      | 2017 | 21   |
-+---------------------------------------------+---------+---------+------+------+
+/*---------------------------------------------+---------+---------+------+------*
+ | timestamp_value                             | isoyear | isoweek | year | week |
+ +---------------------------------------------+---------+---------+------+------+
+ | 2005-01-03 04:34:56.000 America/Los_Angeles | 2005    | 1       | 2005 | 1    |
+ | 2007-12-31 04:00:00.000 America/Los_Angeles | 2008    | 1       | 2007 | 52   |
+ | 2009-01-01 04:00:00.000 America/Los_Angeles | 2009    | 1       | 2009 | 0    |
+ | 2009-12-31 04:00:00.000 America/Los_Angeles | 2009    | 53      | 2009 | 52   |
+ | 2017-01-02 04:00:00.000 America/Los_Angeles | 2017    | 1       | 2017 | 1    |
+ | 2017-05-26 05:00:00.000 America/Los_Angeles | 2017    | 21      | 2017 | 21   |
+ *---------------------------------------------+---------+---------+------+------*/
 ```
 
 In the following example, `timestamp_expression` falls on a Monday. `EXTRACT`
@@ -23048,11 +23221,11 @@ SELECT
 FROM table;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+-------------+---------------+
-| timestamp_value                             | week_sunday | week_monday   |
-+---------------------------------------------+-------------+---------------+
-| 2017-11-05 16:00:00.000 America/Los_Angeles | 45          | 44            |
-+---------------------------------------------+-------------+---------------+
+/*---------------------------------------------+-------------+---------------*
+ | timestamp_value                             | week_sunday | week_monday   |
+ +---------------------------------------------+-------------+---------------+
+ | 2017-11-05 16:00:00.000 America/Los_Angeles | 45          | 44            |
+ *---------------------------------------------+-------------+---------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -23083,32 +23256,32 @@ for a list of format elements that this function supports.
 ```sql
 SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS formatted;
 
-+--------------------------+
-| formatted                |
-+--------------------------+
-| Thu Dec 25 15:30:00 2008 |
-+--------------------------+
+/*--------------------------*
+ | formatted                |
+ +--------------------------+
+ | Thu Dec 25 15:30:00 2008 |
+ *--------------------------*/
 ```
 
 ```sql
 SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00+00") AS formatted;
 
-+-------------+
-| formatted   |
-+-------------+
-| Dec-25-2008 |
-+-------------+
+/*-------------*
+ | formatted   |
+ +-------------+
+ | Dec-25-2008 |
+ *-------------*/
 ```
 
 ```sql
 SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
   AS formatted;
 
-+-------------+
-| formatted   |
-+-------------+
-| Dec 2008    |
-+-------------+
+/*-------------*
+ | formatted   |
+ +-------------+
+ | Dec 2008    |
+ *-------------*/
 ```
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -23173,11 +23346,11 @@ When using `PARSE_TIMESTAMP`, keep the following in mind:
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| parsed                                      |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+/*---------------------------------------------*
+ | parsed                                      |
+ +---------------------------------------------+
+ | 2008-12-25 07:30:00.000 America/Los_Angeles |
+ *---------------------------------------------*/
 ```
 
 [timestamp-format]: #format_timestamp
@@ -23206,11 +23379,11 @@ on how to specify a time zone.
 ```sql
 SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 
-+-------------------------------+
-| string                        |
-+-------------------------------+
-| 2008-12-25 15:30:00+00        |
-+-------------------------------+
+/*-------------------------------*
+ | string                        |
+ +-------------------------------+
+ | 2008-12-25 15:30:00+00        |
+ *-------------------------------*/
 ```
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
@@ -23252,55 +23425,55 @@ is used.
 SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_str                               |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+/*---------------------------------------------*
+ | timestamp_str                               |
+ +---------------------------------------------+
+ | 2008-12-25 07:30:00.000 America/Los_Angeles |
+ *---------------------------------------------*/
 ```
 
 ```sql
 SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_str                               |
-+---------------------------------------------+
-| 2008-12-25 15:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+/*---------------------------------------------*
+ | timestamp_str                               |
+ +---------------------------------------------+
+ | 2008-12-25 15:30:00.000 America/Los_Angeles |
+ *---------------------------------------------*/
 ```
 
 ```sql
 SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_str                               |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+/*---------------------------------------------*
+ | timestamp_str                               |
+ +---------------------------------------------+
+ | 2008-12-25 07:30:00.000 America/Los_Angeles |
+ *---------------------------------------------*/
 ```
 
 ```sql
 SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_datetime                          |
-+---------------------------------------------+
-| 2008-12-25 15:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+/*---------------------------------------------*
+ | timestamp_datetime                          |
+ +---------------------------------------------+
+ | 2008-12-25 15:30:00.000 America/Los_Angeles |
+ *---------------------------------------------*/
 ```
 
 ```sql
 SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_date                              |
-+---------------------------------------------+
-| 2008-12-25 00:00:00.000 America/Los_Angeles |
-+---------------------------------------------+
+/*---------------------------------------------*
+ | timestamp_date                              |
+ +---------------------------------------------+
+ | 2008-12-25 00:00:00.000 America/Los_Angeles |
+ *---------------------------------------------*/
 ```
 
 [timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
@@ -23341,11 +23514,11 @@ SELECT
   TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS later;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+---------------------------------------------+
-| original                                    | later                                       |
-+---------------------------------------------+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:40:00.000 America/Los_Angeles |
-+---------------------------------------------+---------------------------------------------+
+/*---------------------------------------------+---------------------------------------------*
+ | original                                    | later                                       |
+ +---------------------------------------------+---------------------------------------------+
+ | 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:40:00.000 America/Los_Angeles |
+ *---------------------------------------------+---------------------------------------------*/
 ```
 
 ### `TIMESTAMP_DIFF`
@@ -23389,11 +23562,11 @@ SELECT
   TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00+00", TIMESTAMP "2008-12-25 15:30:00+00", HOUR) AS hours;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+---------------------------------------------+-------+
-| later_timestamp                             | earlier_timestamp                           | hours |
-+---------------------------------------------+---------------------------------------------+-------+
-| 2010-07-07 03:20:00.000 America/Los_Angeles | 2008-12-25 07:30:00.000 America/Los_Angeles | 13410 |
-+---------------------------------------------+---------------------------------------------+-------+
+/*---------------------------------------------+---------------------------------------------+-------*
+ | later_timestamp                             | earlier_timestamp                           | hours |
+ +---------------------------------------------+---------------------------------------------+-------+
+ | 2010-07-07 03:20:00.000 America/Los_Angeles | 2008-12-25 07:30:00.000 America/Los_Angeles | 13410 |
+ *---------------------------------------------+---------------------------------------------+-------*/
 ```
 
 In the following example, the first timestamp occurs before the second
@@ -23402,11 +23575,11 @@ timestamp, resulting in a negative output.
 ```sql
 SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS negative_diff;
 
-+---------------+
-| negative_diff |
-+---------------+
-| -61           |
-+---------------+
+/*---------------*
+ | negative_diff |
+ +---------------+
+ | -61           |
+ *---------------+
 ```
 
 In this example, the result is 0 because only the number of whole specified
@@ -23415,11 +23588,11 @@ In this example, the result is 0 because only the number of whole specified
 ```sql
 SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS diff;
 
-+---------------+
-| diff          |
-+---------------+
-| 0             |
-+---------------+
+/*---------------*
+ | diff          |
+ +---------------+
+ | 0             |
+ *---------------+
 ```
 
 ### `TIMESTAMP_FROM_UNIX_MICROS`
@@ -23448,11 +23621,11 @@ the same timestamp is returned.
 SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+/*------------------------*
+ | timestamp_value        |
+ +------------------------+
+ | 2008-12-25 15:30:00+00 |
+ *------------------------*/
 ```
 
 ### `TIMESTAMP_FROM_UNIX_MILLIS`
@@ -23481,11 +23654,11 @@ the same timestamp is returned.
 SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+/*------------------------*
+ | timestamp_value        |
+ +------------------------+
+ | 2008-12-25 15:30:00+00 |
+ *------------------------*/
 ```
 
 ### `TIMESTAMP_FROM_UNIX_SECONDS`
@@ -23514,11 +23687,11 @@ the same timestamp is returned.
 SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+/*------------------------*
+ | timestamp_value        |
+ +------------------------+
+ | 2008-12-25 15:30:00+00 |
+ *------------------------*/
 ```
 
 ### `TIMESTAMP_MICROS`
@@ -23542,11 +23715,11 @@ Interprets `int64_expression` as the number of microseconds since 1970-01-01
 SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+/*------------------------*
+ | timestamp_value        |
+ +------------------------+
+ | 2008-12-25 15:30:00+00 |
+ *------------------------*/
 ```
 
 ### `TIMESTAMP_MILLIS`
@@ -23570,11 +23743,11 @@ Interprets `int64_expression` as the number of milliseconds since 1970-01-01
 SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+/*------------------------*
+ | timestamp_value        |
+ +------------------------+
+ | 2008-12-25 15:30:00+00 |
+ *------------------------*/
 ```
 
 ### `TIMESTAMP_SECONDS`
@@ -23598,11 +23771,11 @@ UTC and returns a timestamp.
 SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+------------------------+
-| timestamp_value        |
-+------------------------+
-| 2008-12-25 15:30:00+00 |
-+------------------------+
+/*------------------------*
+ | timestamp_value        |
+ +------------------------+
+ | 2008-12-25 15:30:00+00 |
+ *------------------------*/
 ```
 
 ### `TIMESTAMP_SUB`
@@ -23639,11 +23812,11 @@ SELECT
   TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+---------------------------------------------+
-| original                                    | earlier                                     |
-+---------------------------------------------+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:20:00.000 America/Los_Angeles |
-+---------------------------------------------+---------------------------------------------+
+/*---------------------------------------------+---------------------------------------------*
+ | original                                    | earlier                                     |
+ +---------------------------------------------+---------------------------------------------+
+ | 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:20:00.000 America/Los_Angeles |
+ *---------------------------------------------+---------------------------------------------*/
 ```
 
 ### `TIMESTAMP_TRUNC`
@@ -23734,11 +23907,11 @@ SELECT
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles") AS la;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+---------------------------------------------+
-| utc                                         | la                                          |
-+---------------------------------------------+---------------------------------------------+
-| 2008-12-24 16:00:00.000 America/Los_Angeles | 2008-12-25 00:00:00.000 America/Los_Angeles |
-+---------------------------------------------+---------------------------------------------+
+/*---------------------------------------------+---------------------------------------------*
+ | utc                                         | la                                          |
+ +---------------------------------------------+---------------------------------------------+
+ | 2008-12-24 16:00:00.000 America/Los_Angeles | 2008-12-25 00:00:00.000 America/Los_Angeles |
+ *---------------------------------------------+---------------------------------------------*/
 ```
 
 In the following example, `timestamp_expression` has a time zone offset of +12.
@@ -23759,11 +23932,11 @@ SELECT
 FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value);
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+---------------------------------------------+---------------------------------------------+
-| timestamp_value                             | utc_truncated                               | nzdt_truncated                              |
-+---------------------------------------------+---------------------------------------------+---------------------------------------------+
-| 2017-11-05 04:00:00.000 America/Los_Angeles | 2017-10-29 17:00:00.000 America/Los_Angeles | 2017-11-05 03:00:00.000 America/Los_Angeles |
-+---------------------------------------------+---------------------------------------------+---------------------------------------------+
+/*---------------------------------------------+---------------------------------------------+---------------------------------------------*
+ | timestamp_value                             | utc_truncated                               | nzdt_truncated                              |
+ +---------------------------------------------+---------------------------------------------+---------------------------------------------+
+ | 2017-11-05 04:00:00.000 America/Los_Angeles | 2017-10-29 17:00:00.000 America/Los_Angeles | 2017-11-05 03:00:00.000 America/Los_Angeles |
+ *---------------------------------------------+---------------------------------------------+---------------------------------------------*/
 ```
 
 In the following example, the original `timestamp_expression` is in the
@@ -23780,11 +23953,11 @@ SELECT
   EXTRACT(ISOYEAR FROM TIMESTAMP "2015-06-15 00:00:00+00") AS isoyear_number;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+----------------+
-| isoyear_boundary                            | isoyear_number |
-+---------------------------------------------+----------------+
-| 2014-12-29 00:00:00.000 America/Los_Angeles | 2015           |
-+---------------------------------------------+----------------+
+/*---------------------------------------------+----------------*
+ | isoyear_boundary                            | isoyear_number |
+ +---------------------------------------------+----------------+
+ | 2014-12-29 00:00:00.000 America/Los_Angeles | 2015           |
+ *---------------------------------------------+----------------*/
 ```
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
@@ -23797,23 +23970,34 @@ UNIX_MICROS(timestamp_expression)
 
 **Description**
 
-Returns the number of microseconds since 1970-01-01 00:00:00 UTC. Truncates
-higher levels of precision.
+Returns the number of microseconds since `1970-01-01 00:00:00 UTC`.
+Truncates higher levels of precision by
+rounding down to the beginning of the microsecond.
 
 **Return Data Type**
 
 `INT64`
 
-**Example**
+**Examples**
 
 ```sql
 SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 
-+------------------+
-| micros           |
-+------------------+
-| 1230219000000000 |
-+------------------+
+/*------------------*
+ | micros           |
+ +------------------+
+ | 1230219000000000 |
+ *------------------*/
+```
+
+```sql
+SELECT UNIX_MICROS(TIMESTAMP "1970-01-01 00:00:00.0000018+00") AS micros;
+
+/*------------------*
+ | micros           |
+ +------------------+
+ | 1                |
+ *------------------*/
 ```
 
 ### `UNIX_MILLIS`
@@ -23824,23 +24008,33 @@ UNIX_MILLIS(timestamp_expression)
 
 **Description**
 
-Returns the number of milliseconds since 1970-01-01 00:00:00 UTC. Truncates
-higher levels of precision.
+Returns the number of milliseconds since `1970-01-01 00:00:00 UTC`. Truncates
+higher levels of precision by rounding down to the beginning of the millisecond.
 
 **Return Data Type**
 
 `INT64`
 
-**Example**
+**Examples**
 
 ```sql
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
 
-+---------------+
-| millis        |
-+---------------+
-| 1230219000000 |
-+---------------+
+/*---------------*
+ | millis        |
+ +---------------+
+ | 1230219000000 |
+ *---------------*/
+```
+
+```sql
+SELECT UNIX_MILLIS(TIMESTAMP "1970-01-01 00:00:00.0018+00") AS millis;
+
+/*---------------*
+ | millis        |
+ +---------------+
+ | 1             |
+ *---------------*/
 ```
 
 ### `UNIX_SECONDS`
@@ -23851,23 +24045,33 @@ UNIX_SECONDS(timestamp_expression)
 
 **Description**
 
-Returns the number of seconds since 1970-01-01 00:00:00 UTC. Truncates higher
-levels of precision.
+Returns the number of seconds since `1970-01-01 00:00:00 UTC`. Truncates higher
+levels of precision by rounding down to the beginning of the second.
 
 **Return Data Type**
 
 `INT64`
 
-**Example**
+**Examples**
 
 ```sql
 SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
 
-+------------+
-| seconds    |
-+------------+
-| 1230219000 |
-+------------+
+/*------------*
+ | seconds    |
+ +------------+
+ | 1230219000 |
+ *------------*/
+```
+
+```sql
+SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
+
+/*------------*
+ | seconds    |
+ +------------+
+ | 1          |
+ *------------*/
 ```
 
 ### How time zones work with timestamp functions 
@@ -23946,12 +24150,12 @@ FROM
   UNNEST([INTERVAL '1-2 3 4:5:6.789999' YEAR TO SECOND,
           INTERVAL '0-13 370 48:61:61' YEAR TO SECOND]) AS i
 
-+------+-------+-----+------+--------+--------+-------+--------+
-| year | month | day | hour | minute | second | milli | micro  |
-+------+-------+-----+------+--------+--------+-------+--------+
-| 1    | 2     | 3   | 4    | 5      | 6      | 789   | 789999 |
-| 1    | 1     | 370 | 49   | 2      | 1      | 0     | 0      |
-+------+-------+-----+------+--------+--------+-------+--------+
+/*------+-------+-----+------+--------+--------+-------+--------*
+ | year | month | day | hour | minute | second | milli | micro  |
+ +------+-------+-----+------+--------+--------+-------+--------+
+ | 1    | 2     | 3   | 4    | 5      | 6      | 789   | 789999 |
+ | 1    | 1     | 370 | 49   | 2      | 1      | 0     | 0      |
+ *------+-------+-----+------+--------+--------+-------+--------*/
 ```
 
 When a negative sign precedes the time part in an interval, the negative sign
@@ -23964,11 +24168,11 @@ SELECT
 FROM
   UNNEST([INTERVAL '10 -12:30' DAY TO MINUTE]) AS i
 
-+------+--------+
-| hour | minute |
-+------+--------+
-| -12  | -30    |
-+------+--------+
+/*------+--------*
+ | hour | minute |
+ +------+--------+
+ | -12  | -30    |
+ *------+--------*/
 ```
 
 When a negative sign precedes the year and month part in an interval, the
@@ -23981,11 +24185,11 @@ SELECT
 FROM
   UNNEST([INTERVAL '-22-6 10 -12:30' YEAR TO MINUTE]) AS i
 
-+------+--------+
-| year | month  |
-+------+--------+
-| -22  | -6     |
-+------+--------+
+/*------+--------*
+ | year | month  |
+ +------+--------+
+ | -22  | -6     |
+ *------+--------*/
 ```
 
 ### `JUSTIFY_DAYS`
@@ -24013,11 +24217,11 @@ SELECT
   JUSTIFY_DAYS(INTERVAL -65 DAY) AS i4,
   JUSTIFY_DAYS(INTERVAL 370 DAY) AS i5
 
-+--------------+--------------+-------------+---------------+--------------+
-| i1           | i2           | i3          | i4            | i5           |
-+--------------+--------------+-------------+---------------+--------------+
-| 0-0 29 0:0:0 | -0-1 0 0:0:0 | 0-1 1 0:0:0 | -0-2 -5 0:0:0 | 1-0 10 0:0:0 |
-+--------------+--------------+-------------+---------------+--------------+
+/*--------------+--------------+-------------+---------------+--------------*
+ | i1           | i2           | i3          | i4            | i5           |
+ +--------------+--------------+-------------+---------------+--------------+
+ | 0-0 29 0:0:0 | -0-1 0 0:0:0 | 0-1 1 0:0:0 | -0-2 -5 0:0:0 | 1-0 10 0:0:0 |
+ *--------------+--------------+-------------+---------------+--------------*/
 ```
 
 ### `JUSTIFY_HOURS`
@@ -24044,11 +24248,11 @@ SELECT
   JUSTIFY_HOURS(INTERVAL 47 HOUR) AS i3,
   JUSTIFY_HOURS(INTERVAL -12345 MINUTE) AS i4
 
-+--------------+--------------+--------------+-----------------+
-| i1           | i2           | i3           | i4              |
-+--------------+--------------+--------------+-----------------+
-| 0-0 0 23:0:0 | 0-0 -1 0:0:0 | 0-0 1 23:0:0 | 0-0 -8 -13:45:0 |
-+--------------+--------------+--------------+-----------------+
+/*--------------+--------------+--------------+-----------------*
+ | i1           | i2           | i3           | i4              |
+ +--------------+--------------+--------------+-----------------+
+ | 0-0 0 23:0:0 | 0-0 -1 0:0:0 | 0-0 1 23:0:0 | 0-0 -8 -13:45:0 |
+ *--------------+--------------+--------------+-----------------*/
 ```
 
 ### `JUSTIFY_INTERVAL`
@@ -24070,11 +24274,11 @@ Normalizes the days and time parts of the interval.
 ```sql
 SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 
-+-------------+
-| i           |
-+-------------+
-| 0-1 1 1:0:0 |
-+-------------+
+/*-------------*
+ | i           |
+ +-------------+
+ | 0-1 1 1:0:0 |
+ *-------------*/
 ```
 
 ### `MAKE_INTERVAL`
@@ -24101,11 +24305,11 @@ SELECT
   MAKE_INTERVAL(hour => 10, second => 20) AS i2,
   MAKE_INTERVAL(1, minute => 5, day => 2) AS i3
 
-+--------------+---------------+-------------+
-| i1           | i2            | i3          |
-+--------------+---------------+-------------+
-| 1-6 15 0:0:0 | 0-0 0 10:0:20 | 1-0 2 0:5:0 |
-+--------------+---------------+-------------+
+/*--------------+---------------+-------------*
+ | i1           | i2            | i3          |
+ +--------------+---------------+-------------+
+ | 1-6 15 0:0:0 | 0-0 0 10:0:20 | 1-0 2 0:5:0 |
+ *--------------+---------------+-------------*/
 ```
 
 ## Geography functions
@@ -24264,6 +24468,7 @@ behavior:
         <a href="#st_boundingbox"><code>ST_BOUNDINGBOX</code></a><br>
         <a href="#st_distance"><code>ST_DISTANCE</code></a><br>
         <a href="#st_extent"><code>ST_EXTENT</code></a> (Aggregate)<br>
+        <a href="#st_linelocatepoint"><code>ST_LINELOCATEPOINT</code></a><br>
         <a href="#st_length"><code>ST_LENGTH</code></a><br>
         <a href="#st_maxdistance"><code>ST_MAXDISTANCE</code></a><br>
         <a href="#st_perimeter"><code>ST_PERIMETER</code></a><br>
@@ -24348,18 +24553,18 @@ WITH geos AS (
   SELECT 8 id, NULL, NULL, ST_GEOGPOINT(0, 0))
 SELECT ST_ANGLE(geo1,geo2,geo3) AS angle FROM geos ORDER BY id;
 
-+---------------------+
-| angle               |
-+---------------------+
-| 4.71238898038469    |
-| 0.78547432161873854 |
-| 0                   |
-| NULL                |
-| NULL                |
-| NULL                |
-| NULL                |
-| NULL                |
-+---------------------+
+/*---------------------*
+ | angle               |
+ +---------------------+
+ | 4.71238898038469    |
+ | 0.78547432161873854 |
+ | 0                   |
+ | NULL                |
+ | NULL                |
+ | NULL                |
+ | NULL                |
+ | NULL                |
+ *---------------------*/
 ```
 
 ### `ST_AREA`
@@ -24530,17 +24735,17 @@ WITH geos AS (
   SELECT 7, NULL, ST_GEOGPOINT(0, 0))
 SELECT ST_AZIMUTH(geo1, geo2) AS azimuth FROM geos ORDER BY id;
 
-+--------------------+
-| azimuth            |
-+--------------------+
-| 4.71238898038469   |
-| 1.5707963267948966 |
-| 0                  |
-| NULL               |
-| NULL               |
-| NULL               |
-| NULL               |
-+--------------------+
+/*--------------------*
+ | azimuth            |
+ +--------------------+
+ | 4.71238898038469   |
+ | 1.5707963267948966 |
+ | 0                  |
+ | NULL               |
+ | NULL               |
+ | NULL               |
+ | NULL               |
+ *--------------------*/
 ```
 
 ### `ST_BOUNDARY`
@@ -24613,14 +24818,14 @@ WITH data AS (
 SELECT id, ST_BOUNDINGBOX(g) AS box
 FROM data
 
-+----+------------------------------------------+
-| id | box                                      |
-+----+------------------------------------------+
-| 1  | {xmin:-125, ymin:46, xmax:-117, ymax:49} |
-| 2  | {xmin:172, ymin:53, xmax:230, ymax:70}   |
-| 3  | NULL                                     |
-| 4  | {xmin:-180, ymin:-90, xmax:180, ymax:90} |
-+----+------------------------------------------+
+/*----+------------------------------------------*
+ | id | box                                      |
+ +----+------------------------------------------+
+ | 1  | {xmin:-125, ymin:46, xmax:-117, ymax:49} |
+ | 2  | {xmin:172, ymin:53, xmax:230, ymax:70}   |
+ | 3  | NULL                                     |
+ | 4  | {xmin:-180, ymin:-90, xmax:180, ymax:90} |
+ *----+------------------------------------------*/
 ```
 
 See [`ST_EXTENT`][st-extent] for the aggregate version of `ST_BOUNDINGBOX`.
@@ -24688,11 +24893,11 @@ SELECT
   -- num_seg_quarter_circle=8, since 8 is the default
   ST_NUMPOINTS(ST_BUFFER(ST_GEOGFROMTEXT('POINT(100 2)'), 50)) AS thirty_two_sides;
 
-+-------------+------------------+
-| eight_sides | thirty_two_sides |
-+-------------+------------------+
-| 9           | 33               |
-+-------------+------------------+
+/*-------------+------------------*
+ | eight_sides | thirty_two_sides |
+ +-------------+------------------+
+ | 9           | 33               |
+ *-------------+------------------*/
 ```
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
@@ -24760,11 +24965,11 @@ SELECT
   -- tolerance_meters=1, or 1% of the buffer radius.
   st_NumPoints(ST_BUFFERWITHTOLERANCE(ST_GEOGFROMTEXT('POINT(100 2)'), 100, 1)) AS twenty_four_sides;
 
-+------------+-------------------+
-| five_sides | twenty_four_sides |
-+------------+-------------------+
-| 6          | 24                |
-+------------+-------------------+
+/*------------+-------------------*
+ | five_sides | twenty_four_sides |
+ +------------+-------------------+
+ | 6          | 24                |
+ *------------+-------------------*/
 ```
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
@@ -24921,15 +25126,15 @@ WITH Geos as
 SELECT row_id, geo, ST_CLUSTERDBSCAN(geo, 1e5, 1) OVER () AS cluster_num FROM
 Geos ORDER BY row_id
 
-+--------+-----------------------------------+-------------+
-| row_id |                geo                | cluster_num |
-+--------+-----------------------------------+-------------+
-|1       | GEOMETRYCOLLECTION EMPTY          |NULL         |
-|2       | MULTIPOINT(1 1, 2 2, 5 2, 4 4)    |0            |
-|3       | POINT(14 15)                      |1            |
-|4       | LINESTRING(40 1, 42 34, 44 39)    |2            |
-|5       | POLYGON((40 2, 40 1, 41 2, 40 2)) |2            |
-+--------+-----------------------------------+-------------+
+/*--------+-----------------------------------+-------------*
+ | row_id |                geo                | cluster_num |
+ +--------+-----------------------------------+-------------+
+ | 1      | GEOMETRYCOLLECTION EMPTY          | NULL        |
+ | 2      | MULTIPOINT(1 1, 2 2, 5 2, 4 4)    | 0           |
+ | 3      | POINT(14 15)                      | 1           |
+ | 4      | LINESTRING(40 1, 42 34, 44 39)    | 2           |
+ | 5      | POLYGON((40 2, 40 1, 41 2, 40 2)) | 2           |
+ *--------+-----------------------------------+-------------*/
 ```
 
 [dbscan-link]: https://en.wikipedia.org/wiki/DBSCAN
@@ -24965,13 +25170,13 @@ SELECT
               ST_GEOGPOINT(i, i)) AS `contains`
 FROM UNNEST([0, 1, 10]) AS i;
 
-+--------------+----------+
-| p            | contains |
-+--------------+----------+
-| POINT(0 0)   | FALSE    |
-| POINT(1 1)   | FALSE    |
-| POINT(10 10) | TRUE     |
-+--------------+----------+
+/*--------------+----------*
+ | p            | contains |
+ +--------------+----------+
+ | POINT(0 0)   | FALSE    |
+ | POINT(1 1)   | FALSE    |
+ | POINT(10 10) | TRUE     |
+ *--------------+----------*/
 ```
 
 [st_covers]: #st_covers
@@ -25020,13 +25225,13 @@ SELECT
   ST_CONVEXHULL(g) AS convex_hull
 FROM Geographies;
 
-+-----------------------------------------+--------------------------------------------------------+
-|             input_geography             |                      convex_hull                       |
-+-----------------------------------------+--------------------------------------------------------+
-| POINT(1 1)                              | POINT(0.999999999999943 1)                             |
-| LINESTRING(1 1, 2 2)                    | LINESTRING(2 2, 1.49988573656168 1.5000570914792, 1 1) |
-| MULTIPOINT(1 9, 4 12, 2 11, 1 12, 0 15) | POLYGON((1 9, 4 12, 0 15, 1 9))                        |
-+-----------------------------------------+--------------------------------------------------------+
+/*-----------------------------------------+--------------------------------------------------------*
+ |             input_geography             |                      convex_hull                       |
+ +-----------------------------------------+--------------------------------------------------------+
+ | POINT(1 1)                              | POINT(0.999999999999943 1)                             |
+ | LINESTRING(1 1, 2 2)                    | LINESTRING(2 2, 1.49988573656168 1.5000570914792, 1 1) |
+ | MULTIPOINT(1 9, 4 12, 2 11, 1 12, 0 15) | POLYGON((1 9, 4 12, 0 15, 1 9))                        |
+ *-----------------------------------------+--------------------------------------------------------*/
 ```
 
 ### `ST_COVEREDBY`
@@ -25079,13 +25284,13 @@ SELECT
             ST_GEOGPOINT(i, i)) AS `covers`
 FROM UNNEST([0, 1, 10]) AS i;
 
-+--------------+--------+
-| p            | covers |
-+--------------+--------+
-| POINT(0 0)   | FALSE  |
-| POINT(1 1)   | TRUE   |
-| POINT(10 10) | TRUE   |
-+--------------+--------+
+/*--------------+--------*
+ | p            | covers |
+ +--------------+--------+
+ | POINT(0 0)   | FALSE  |
+ | POINT(1 1)   | TRUE   |
+ | POINT(10 10) | TRUE   |
+ *--------------+--------*/
 ```
 
 ### `ST_DIFFERENCE`
@@ -25130,11 +25335,11 @@ SELECT
       ST_GEOGFROMTEXT('POLYGON((4 2, 6 2, 8 6, 4 2))')
   );
 
-+--------------------------------------------------------+
-| difference_of_geog1_and_geog2                          |
-+--------------------------------------------------------+
-| POLYGON((0 0, 10 0, 10 10, 0 0), (8 6, 6 2, 4 2, 8 6)) |
-+--------------------------------------------------------+
+/*--------------------------------------------------------*
+ | difference_of_geog1_and_geog2                          |
+ +--------------------------------------------------------+
+ | POLYGON((0 0, 10 0, 10 10, 0 0), (8 6, 6 2, 4 2, 8 6)) |
+ *--------------------------------------------------------*/
 ```
 
 ### `ST_DIMENSION`
@@ -25249,15 +25454,15 @@ SELECT
   ST_DUMP(geography) AS dumped_geographies
 FROM example
 
-+-------------------------------------+------------------------------------+
-|         original_geographies        |      dumped_geographies            |
-+-------------------------------------+------------------------------------+
-| POINT(0 0)                          | [POINT(0 0)]                       |
-| MULTIPOINT(0 0, 1 1)                | [POINT(0 0), POINT(1 1)]           |
-| GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0), LINESTRING(1 2, 2 1)] |
-|   LINESTRING(1 2, 2 1))             |                                    |
-+-------------------------------------+------------------------------------+
-```
+/*-------------------------------------+------------------------------------*
+ |         original_geographies        |      dumped_geographies            |
+ +-------------------------------------+------------------------------------+
+ | POINT(0 0)                          | [POINT(0 0)]                       |
+ | MULTIPOINT(0 0, 1 1)                | [POINT(0 0), POINT(1 1)]           |
+ | GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0), LINESTRING(1 2, 2 1)] |
+ |   LINESTRING(1 2, 2 1))             |                                    |
+ *-------------------------------------+------------------------------------*/
+ ```
 
 The following example shows how `ST_DUMP` with the dimension argument only
 returns simple geographies of the given dimension.
@@ -25270,12 +25475,12 @@ SELECT
   ST_DUMP(geography, 1) AS dumped_geographies
 FROM example
 
-+-------------------------------------+------------------------------+
-|         original_geographies        |      dumped_geographies      |
-+-------------------------------------+------------------------------+
-| GEOMETRYCOLLECTION(POINT(0 0),      | [LINESTRING(1 2, 2 1)]       |
-|   LINESTRING(1 2, 2 1))             |                              |
-+-------------------------------------+------------------------------+
+/*-------------------------------------+------------------------------*
+ |         original_geographies        |      dumped_geographies      |
+ +-------------------------------------+------------------------------+
+ | GEOMETRYCOLLECTION(POINT(0 0),      | [LINESTRING(1 2, 2 1)]       |
+ |   LINESTRING(1 2, 2 1))             |                              |
+ *-------------------------------------+------------------------------*/
 ```
 
 ### `ST_DUMPPOINTS`
@@ -25307,14 +25512,14 @@ SELECT
   ST_DUMPPOINTS(geography) AS dumped_points_geographies
 FROM example
 
-+-------------------------------------+------------------------------------+
-| original_geographies                | dumped_points_geographies          |
-+-------------------------------------+------------------------------------+
-| POINT(0 0)                          | [POINT(0 0)]                       |
-| MULTIPOINT(0 0, 1 1)                | [POINT(0 0),POINT(1 1)]            |
-| GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0),POINT(1 2),POINT(2 1)] |
-|   LINESTRING(1 2, 2 1))             |                                    |
-+-------------------------------------+------------------------------------+
+/*-------------------------------------+------------------------------------*
+ | original_geographies                | dumped_points_geographies          |
+ +-------------------------------------+------------------------------------+
+ | POINT(0 0)                          | [POINT(0 0)]                       |
+ | MULTIPOINT(0 0, 1 1)                | [POINT(0 0),POINT(1 1)]            |
+ | GEOMETRYCOLLECTION(POINT(0 0),      | [POINT(0 0),POINT(1 2),POINT(2 1)] |
+ |   LINESTRING(1 2, 2 1))             |                                    |
+ *-------------------------------------+------------------------------------*/
 ```
 
 ### `ST_DWITHIN`
@@ -25365,11 +25570,11 @@ Point `GEOGRAPHY`
 ```sql
 SELECT ST_ENDPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) last
 
-+--------------+
-| last         |
-+--------------+
-| POINT(3 3)   |
-+--------------+
+/*--------------*
+ | last         |
+ +--------------+
+ | POINT(3 3)   |
+ *--------------*/
 ```
 
 ### `ST_EQUALS`
@@ -25448,11 +25653,11 @@ WITH data AS (
 SELECT ST_EXTENT(g) AS box
 FROM data
 
-+----------------------------------------------+
-| box                                          |
-+----------------------------------------------+
-| {xmin:172, ymin:46, xmax:243, ymax:70}       |
-+----------------------------------------------+
+/*----------------------------------------------*
+ | box                                          |
+ +----------------------------------------------+
+ | {xmin:172, ymin:46, xmax:243, ymax:70}       |
+ *----------------------------------------------*/
 ```
 
 [`ST_BOUNDINGBOX`][st-boundingbox] for the non-aggregate version of `ST_EXTENT`.
@@ -25491,12 +25696,12 @@ WITH geo as
                                   (2 2, 3 4, 2 4, 2 2))''') as g)
 SELECT ST_EXTERIORRING(g) AS ring FROM geo;
 
-+---------------------------------------+
-| ring                                  |
-+---------------------------------------+
-| LINESTRING(2 2, 1 4, 0 0, 2 2)        |
-| LINESTRING(5 1, 5 10, 1 10, 1 1, 5 1) |
-+---------------------------------------+
+/*---------------------------------------*
+ | ring                                  |
+ +---------------------------------------+
+ | LINESTRING(2 2, 1 4, 0 0, 2 2)        |
+ | LINESTRING(5 1, 5 10, 1 10, 1 1, 5 1) |
+ *---------------------------------------*/
 ```
 
 ### `ST_GEOGFROM`
@@ -25537,11 +25742,11 @@ This takes a WKT-formatted string and returns a `GEOGRAPHY` polygon:
 ```sql
 SELECT ST_GEOGFROM('POLYGON((0 0, 0 2, 2 2, 2 0, 0 0))') AS WKT_format
 
-+------------------------------------+
-| WKT_format                         |
-+------------------------------------+
-| POLYGON((2 0, 2 2, 0 2, 0 0, 2 0)) |
-+------------------------------------+
+/*------------------------------------*
+ | WKT_format                         |
+ +------------------------------------+
+ | POLYGON((2 0, 2 2, 0 2, 0 0, 2 0)) |
+ *------------------------------------*/
 ```
 
 This takes a WKB-formatted hexadecimal-encoded string and returns a
@@ -25550,11 +25755,11 @@ This takes a WKB-formatted hexadecimal-encoded string and returns a
 ```sql
 SELECT ST_GEOGFROM(FROM_HEX('010100000000000000000000400000000000001040')) AS WKB_format
 
-+----------------+
-| WKB_format     |
-+----------------+
-| POINT(2 4)     |
-+----------------+
+/*----------------*
+ | WKB_format     |
+ +----------------+
+ | POINT(2 4)     |
+ *----------------*/
 ```
 
 This takes WKB-formatted bytes and returns a `GEOGRAPHY` point:
@@ -25562,11 +25767,11 @@ This takes WKB-formatted bytes and returns a `GEOGRAPHY` point:
 ```sql
 SELECT ST_GEOGFROM('010100000000000000000000400000000000001040')-AS WKB_format
 
-+----------------+
-| WKB_format     |
-+----------------+
-| POINT(2 4)     |
-+----------------+
+/*----------------*
+ | WKB_format     |
+ +----------------+
+ | POINT(2 4)     |
+ *----------------*/
 ```
 
 This takes a GeoJSON-formatted string and returns a `GEOGRAPHY` polygon:
@@ -25576,11 +25781,11 @@ SELECT ST_GEOGFROM(
   '{ "type": "Polygon", "coordinates": [ [ [2, 0], [2, 2], [1, 2], [0, 2], [0, 0], [2, 0] ] ] }'
 ) AS GEOJSON_format
 
-+-----------------------------------------+
-| GEOJSON_format                          |
-+-----------------------------------------+
-| POLYGON((2 0, 2 2, 1 2, 0 2, 0 0, 2 0)) |
-+-----------------------------------------+
+/*-----------------------------------------*
+ | GEOJSON_format                          |
+ +-----------------------------------------+
+ | POLYGON((2 0, 2 2, 1 2, 0 2, 0 0, 2 0)) |
+ *-----------------------------------------*/
 ```
 
 [st-geogfromtext]: #st_geogfromtext
@@ -25720,11 +25925,11 @@ SELECT
   ST_CONTAINS(ST_GEOGFROMTEXT(p, TRUE),  ST_GEOGPOINT(1, 1)) AS oriented
 FROM polygon;
 
-+-------------------+---------------+-----------+
-| fromtext_default  | non_oriented  | oriented  |
-+-------------------+---------------+-----------+
-| TRUE              | TRUE          | FALSE     |
-+-------------------+---------------+-----------+
+/*-------------------+---------------+-----------*
+ | fromtext_default  | non_oriented  | oriented  |
+ +-------------------+---------------+-----------+
+ | TRUE              | TRUE          | FALSE     |
+ *-------------------+---------------+-----------*/
 ```
 
 #### Signature 2 
@@ -25793,11 +25998,11 @@ SELECT
   ST_CONTAINS(ST_GEOGFROMTEXT(p, oriented => TRUE),  ST_GEOGPOINT(1, 1)) AS oriented
 FROM polygon;
 
-+-------------------+---------------+-----------+
-| fromtext_default  | non_oriented  | oriented  |
-+-------------------+---------------+-----------+
-| TRUE              | TRUE          | FALSE     |
-+-------------------+---------------+-----------+
+/*-------------------+---------------+-----------*
+ | fromtext_default  | non_oriented  | oriented  |
+ +-------------------+---------------+-----------+
+ | TRUE              | TRUE          | FALSE     |
+ *-------------------+---------------+-----------*/
 ```
 
 The following query converts a WKT string with an invalid polygon to
@@ -25814,11 +26019,11 @@ SELECT
   SAFE.ST_GEOGFROMTEXT(wkt, make_valid => TRUE) as valid_geom
 FROM data
 
-+------+-----------------------------------------------------------------+
-| geom | valid_geom                                                      |
-+------+-----------------------------------------------------------------+
-| NULL | MULTIPOLYGON(((0 -1, 1 0, 0 1, 0 -1)), ((1 0, 2 -1, 2 1, 1 0))) |
-+------+-----------------------------------------------------------------+
+/*------+-----------------------------------------------------------------*
+ | geom | valid_geom                                                      |
+ +------+-----------------------------------------------------------------+
+ | NULL | MULTIPOLYGON(((0 -1, 1 0, 0 1, 0 -1)), ((1 0, 2 -1, 2 1, 1 0))) |
+ *------+-----------------------------------------------------------------*/
 ```
 
 [ogc-link]: https://www.ogc.org/standards/sfa
@@ -25942,11 +26147,11 @@ Returns a GeoHash of the Seattle Center with 10 characters of precision.
 ```sql
 SELECT ST_GEOHASH(ST_GEOGPOINT(-122.35, 47.62), 10) geohash
 
-+--------------+
-| geohash      |
-+--------------+
-| c22yzugqw7   |
-+--------------+
+/*--------------*
+ | geohash      |
+ +--------------+
+ | c22yzugqw7   |
+ *--------------*/
 ```
 
 [geohash-link]: https://en.wikipedia.org/wiki/Geohash
@@ -25999,14 +26204,14 @@ SELECT
   ST_GEOMETRYTYPE(geography) AS geometry_type_name
 FROM example;
 
-+-------------------------------------------------------------------+-----------------------+
-| WKT                                                               | geometry_type_name    |
-+-------------------------------------------------------------------+-----------------------+
-| POINT(0 1)                                                        | ST_Point              |
-| MULTILINESTRING((2 2, 3 4), (5 6, 7 7))                           | ST_MultiLineString    |
-| GEOMETRYCOLLECTION(MULTIPOINT(-1 2, 0 12), LINESTRING(-2 4, 0 6)) | ST_GeometryCollection |
-| GEOMETRYCOLLECTION EMPTY                                          | ST_GeometryCollection |
-+-------------------------------------------------------------------+-----------------------+
+/*-------------------------------------------------------------------+-----------------------*
+ | WKT                                                               | geometry_type_name    |
+ +-------------------------------------------------------------------+-----------------------+
+ | POINT(0 1)                                                        | ST_Point              |
+ | MULTILINESTRING((2 2, 3 4), (5 6, 7 7))                           | ST_MultiLineString    |
+ | GEOMETRYCOLLECTION(MULTIPOINT(-1 2, 0 12), LINESTRING(-2 4, 0 6)) | ST_GeometryCollection |
+ | GEOMETRYCOLLECTION EMPTY                                          | ST_GeometryCollection |
+ *-------------------------------------------------------------------+-----------------------*/
 ```
 
 [ogc-link]: https://www.ogc.org/standards/sfa
@@ -26055,15 +26260,15 @@ WITH geo AS (
   SELECT NULL)
 SELECT ST_INTERIORRINGS(g) AS rings FROM geo;
 
-+----------------------------------------------------------------------------+
-| rings                                                                      |
-+----------------------------------------------------------------------------+
-| []                                                                         |
-| [LINESTRING(2 2, 3 4, 2 4, 2 2)]                                           |
-| [LINESTRING(2.5 2, 3.5 3, 2 2.5, 2.5 2), LINESTRING(3 3, 4 6, 3.5 7, 3 3)] |
-| []                                                                         |
-| NULL                                                                       |
-+----------------------------------------------------------------------------+
+/*----------------------------------------------------------------------------*
+ | rings                                                                      |
+ +----------------------------------------------------------------------------+
+ | []                                                                         |
+ | [LINESTRING(2 2, 3 4, 2 4, 2 2)]                                           |
+ | [LINESTRING(2.5 2, 3.5 3, 2 2.5, 2.5 2), LINESTRING(3 3, 4 6, 3.5 7, 3 3)] |
+ | []                                                                         |
+ | NULL                                                                       |
+ *----------------------------------------------------------------------------*/
 ```
 
  
@@ -26153,13 +26358,14 @@ SELECT p, ST_INTERSECTSBOX(p, -90, 0, 90, 20) AS box1,
        ST_INTERSECTSBOX(p, 90, 0, -90, 20) AS box2
 FROM UNNEST([ST_GEOGPOINT(10, 10), ST_GEOGPOINT(170, 10),
              ST_GEOGPOINT(30, 30)]) p
-+----------------+--------------+--------------+
-| p              | box1         | box2         |
-+----------------+--------------+--------------+
-| POINT(10 10)   | TRUE         | FALSE        |
-| POINT(170 10)  | FALSE        | TRUE         |
-| POINT(30 30)   | FALSE        | FALSE        |
-+----------------+--------------+--------------+
+
+/*----------------+--------------+--------------*
+ | p              | box1         | box2         |
+ +----------------+--------------+--------------+
+ | POINT(10 10)   | TRUE         | FALSE        |
+ | POINT(170 10)  | FALSE        | TRUE         |
+ | POINT(30 30)   | FALSE        | FALSE        |
+ *----------------+--------------+--------------*/
 ```
 
 ### `ST_ISCLOSED`
@@ -26205,15 +26411,15 @@ SELECT
   ST_ISCLOSED(geography) AS is_closed,
 FROM example;
 
-+------------------------------------------------------+-----------+
-| geography                                            | is_closed |
-+------------------------------------------------------+-----------+
-| POINT(5 0)                                           | TRUE      |
-| LINESTRING(0 1, 4 3, 2 6, 0 1)                       | TRUE      |
-| LINESTRING(2 6, 1 3, 3 9)                            | FALSE     |
-| GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | FALSE     |
-| GEOMETRYCOLLECTION EMPTY                             | FALSE     |
-+------------------------------------------------------+-----------+
+/*------------------------------------------------------+-----------*
+ | geography                                            | is_closed |
+ +------------------------------------------------------+-----------+
+ | POINT(5 0)                                           | TRUE      |
+ | LINESTRING(0 1, 4 3, 2 6, 0 1)                       | TRUE      |
+ | LINESTRING(2 6, 1 3, 3 9)                            | FALSE     |
+ | GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | FALSE     |
+ | GEOMETRYCOLLECTION EMPTY                             | FALSE     |
+ *------------------------------------------------------+-----------*/
 ```
 
 [st-boundary]: #st_boundary
@@ -26305,6 +26511,79 @@ the value `FALSE`. The default value of `use_spheroid` is `FALSE`.
 `DOUBLE`
 
 [wgs84-link]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+### `ST_LINELOCATEPOINT`
+
+```sql
+ST_LINELOCATEPOINT(linestring_geography, point_geography)
+```
+
+**Description**
+
+Gets a section of a linestring between the start point and a selected point (a
+point on the linestring closest to the `point_geography` argument). Returns the
+percentage that this section represents in the linestring.
+
+Details:
+
++   To select a point on the linestring `GEOGRAPHY` (`linestring_geography`),
+    this function takes a point `GEOGRAPHY` (`point_geography`) and finds the
+    [closest point][st-closestpoint] to it on the linestring.
++   If two points on `linestring_geography` are an equal distance away from
+    `point_geography`, it is not guaranteed which one will be selected.
++   The return value is an inclusive value between 0 and 1 (0-100%).
++   If the selected point is the start point on the linestring, function returns
+    0 (0%).
++   If the selected point is the end point on the linestring, function returns 1
+    (100%).
+
+`NULL` and error handling:
+
++   Returns `NULL` if any input argument is `NULL`.
++   Returns an error if `linestring_geography` is not a linestring or if
+    `point_geography` is not a point. Use the `SAFE` prefix
+    to obtain `NULL` for invalid input instead of an error.
+
+**Return Type**
+
+`DOUBLE`
+
+**Examples**
+
+```sql
+WITH geos AS (
+    SELECT ST_GEOGPOINT(0, 0) AS point UNION ALL
+    SELECT ST_GEOGPOINT(1, 0) UNION ALL
+    SELECT ST_GEOGPOINT(1, 1) UNION ALL
+    SELECT ST_GEOGPOINT(2, 2) UNION ALL
+    SELECT ST_GEOGPOINT(3, 3) UNION ALL
+    SELECT ST_GEOGPOINT(4, 4) UNION ALL
+    SELECT ST_GEOGPOINT(5, 5) UNION ALL
+    SELECT ST_GEOGPOINT(6, 5) UNION ALL
+    SELECT NULL
+  )
+SELECT
+  point AS input_point,
+  ST_LINELOCATEPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 5 5)'), point)
+    AS percentage_from_beginning
+FROM geos
+
+/*-------------+---------------------------*
+ | input_point | percentage_from_beginning |
+ +-------------+---------------------------+
+ | POINT(0 0)  | 0                         |
+ | POINT(1 0)  | 0                         |
+ | POINT(1 1)  | 0                         |
+ | POINT(2 2)  | 0.25015214685147907       |
+ | POINT(3 3)  | 0.5002284283637185        |
+ | POINT(4 4)  | 0.7501905913884388        |
+ | POINT(5 5)  | 1                         |
+ | POINT(6 5)  | 1                         |
+ | NULL        | NULL                      |
+ *-------------+---------------------------*/
+```
+
+[st-closestpoint]: #st_closestpoint
 
 ### `ST_MAKELINE`
 
@@ -26552,14 +26831,14 @@ SELECT
   ST_NUMGEOMETRIES(geography) AS num_geometries,
 FROM example;
 
-+------------------------------------------------------+----------------+
-| geography                                            | num_geometries |
-+------------------------------------------------------+----------------+
-| POINT(5 0)                                           | 1              |
-| MULTIPOINT(0 1, 4 3, 2 6)                            | 3              |
-| GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | 2              |
-| GEOMETRYCOLLECTION EMPTY                             | 0              |
-+------------------------------------------------------+----------------+
+/*------------------------------------------------------+----------------*
+ | geography                                            | num_geometries |
+ +------------------------------------------------------+----------------+
+ | POINT(5 0)                                           | 1              |
+ | MULTIPOINT(0 1, 4 3, 2 6)                            | 3              |
+ | GEOMETRYCOLLECTION(POINT(0 0), LINESTRING(1 2, 2 1)) | 2              |
+ | GEOMETRYCOLLECTION EMPTY                             | 0              |
+ *------------------------------------------------------+----------------*/
 ```
 
 ### `ST_NUMPOINTS`
@@ -26641,11 +26920,11 @@ SELECT ST_POINTN(g, 1) AS first, ST_POINTN(g, -1) AS last,
     ST_POINTN(g, 2) AS second, ST_POINTN(g, -2) AS second_to_last
 FROM linestring;
 
-+--------------+--------------+--------------+----------------+
-| first        | last         | second       | second_to_last |
-+--------------+--------------+--------------+----------------+
-| POINT(1 1)   | POINT(3 3)   | POINT(2 1)   | POINT(3 2)     |
-+--------------+--------------+--------------+----------------+
+/*--------------+--------------+--------------+----------------*
+ | first        | last         | second       | second_to_last |
+ +--------------+--------------+--------------+----------------+
+ | POINT(1 1)   | POINT(3 3)   | POINT(2 1)   | POINT(3 2)     |
+ *--------------+--------------+--------------+----------------*/
 ```
 
 [st-startpoint]: #st_startpoint
@@ -26700,11 +26979,11 @@ SELECT
    ST_SIMPLIFY(line, 1) AS simplified_line
 FROM example;
 
-+---------------------------------------------+----------------------+
-|                original_line                |   simplified_line    |
-+---------------------------------------------+----------------------+
-| LINESTRING(0 0, 0.05 0, 0.1 0, 0.15 0, 2 0) | LINESTRING(0 0, 2 0) |
-+---------------------------------------------+----------------------+
+/*---------------------------------------------+----------------------*
+ |                original_line                |   simplified_line    |
+ +---------------------------------------------+----------------------+
+ | LINESTRING(0 0, 0.05 0, 0.1 0, 0.15 0, 2 0) | LINESTRING(0 0, 2 0) |
+ *---------------------------------------------+----------------------*/
 ```
 
 The following example illustrates how the result of `ST_SIMPLIFY` can have a
@@ -26722,13 +27001,13 @@ SELECT
   ST_SIMPLIFY(polygon, tolerance) AS simplified_result
 FROM example
 
-+-------------------------------------+------------------+-------------------------------------+
-|          original_triangle          | tolerance_meters |          simplified_result          |
-+-------------------------------------+------------------+-------------------------------------+
-| POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |             1000 | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |
-| POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |            10000 |            LINESTRING(0 0, 0.1 0.1) |
-| POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |           100000 |                          POINT(0 0) |
-+-------------------------------------+------------------+-------------------------------------+
+/*-------------------------------------+------------------+-------------------------------------*
+ |          original_triangle          | tolerance_meters |          simplified_result          |
+ +-------------------------------------+------------------+-------------------------------------+
+ | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |             1000 | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |
+ | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |            10000 |            LINESTRING(0 0, 0.1 0.1) |
+ | POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0)) |           100000 |                          POINT(0 0) |
+ *-------------------------------------+------------------+-------------------------------------*/
 ```
 
 ### `ST_SNAPTOGRID`
@@ -26773,11 +27052,11 @@ Point `GEOGRAPHY`
 ```sql
 SELECT ST_STARTPOINT(ST_GEOGFROMTEXT('LINESTRING(1 1, 2 1, 3 2, 3 3)')) first
 
-+--------------+
-| first        |
-+--------------+
-| POINT(1 1)   |
-+--------------+
+/*--------------*
+ | first        |
+ +--------------+
+ | POINT(1 1)   |
+ *--------------*/
 ```
 
 ### `ST_TOUCHES`
@@ -26906,13 +27185,13 @@ WITH points AS
    ST_Y(p) as latitude
 FROM points;
 
-+--------------+-----------+----------+
-| p            | longitude | latitude |
-+--------------+-----------+----------+
-| POINT(0 1)   | 0.0       | 1.0      |
-| POINT(5 6)   | 5.0       | 6.0      |
-| POINT(12 13) | 12.0      | 13.0     |
-+--------------+-----------+----------+
+/*--------------+-----------+----------*
+ | p            | longitude | latitude |
+ +--------------+-----------+----------+
+ | POINT(0 1)   | 0.0       | 1.0      |
+ | POINT(5 6)   | 5.0       | 6.0      |
+ | POINT(12 13) | 12.0      | 13.0     |
+ *--------------+-----------+----------*/
 ```
 
 ### `ST_Y`
@@ -26989,11 +27268,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+------------+------------+
-| contains_a | contains_b |
-+------------+------------+
-| TRUE       | FALSE      |
-+------------+------------+
+/*------------+------------*
+ | contains_a | contains_b |
+ +------------+------------+
+ | TRUE       | FALSE      |
+ *------------+------------*/
 ```
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
@@ -27096,12 +27375,12 @@ that contains a proto-typed column called `Album`.
 SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
 FROM AlbumList
 
-+------------------+
-| name_of_album    |
-+------------------+
-| New Moon         |
-| Grit             |
-+------------------+
+/*------------------*
+ | name_of_album    |
+ +------------------+
+ | New Moon         |
+ | Grit             |
+ *------------------*/
 ```
 
 A table called `AlbumList` contains a proto-typed column called `Album`.
@@ -27119,12 +27398,12 @@ SELECT
   EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
 FROM AlbumList
 
-+----------+----------------+
-| raw_date | formatted_date |
-+----------+----------------+
-| 16914    | 2016-04-23     |
-| 0        | 1970-01-01     |
-+----------+----------------+
+/*----------+----------------*
+ | raw_date | formatted_date |
+ +----------+----------------+
+ | 16914    | 2016-04-23     |
+ | 0        | 1970-01-01     |
+ *----------+----------------*/
 ```
 
 The following example checks to see if release dates exist in a table called
@@ -27134,12 +27413,12 @@ The following example checks to see if release dates exist in a table called
 SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
 FROM AlbumList
 
-+------------------+
-| has_release_date |
-+------------------+
-| TRUE             |
-| FALSE            |
-+------------------+
+/*------------------*
+ | has_release_date |
+ +------------------+
+ | TRUE             |
+ | FALSE            |
+ *------------------*/
 ```
 
 The following example extracts the group name that is assigned to an artist in
@@ -27151,12 +27430,12 @@ exists inside the `Chart` protocol buffer.
 SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
 FROM AlbumList;
 
-+-------------+
-| artist_type |
-+-------------+
-| solo        |
-| band        |
-+-------------+
+/*-------------*
+ | artist_type |
+ +-------------+
+ | solo        |
+ | band        |
+ *-------------*/
 ```
 
 [querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
@@ -27258,21 +27537,21 @@ WITH
 SELECT *
 FROM MusicAwards
 
-+---------------------------------------------------------+
-| award_col                                               |
-+---------------------------------------------------------+
-| {                                                       |
-|   year: 2001                                            |
-|   month: 9                                              |
-|   type { award_name: "Best Artist" category: "Artist" } |
-|   type { award_name: "Best Album" category: "Album" }   |
-| }                                                       |
-| {                                                       |
-|   year: 2001                                            |
-|   month: 12                                             |
-|   type { award_name: "Best Song" category: "Song" }     |
-| }                                                       |
-+---------------------------------------------------------+
+/*---------------------------------------------------------*
+ | award_col                                               |
+ +---------------------------------------------------------+
+ | {                                                       |
+ |   year: 2001                                            |
+ |   month: 9                                              |
+ |   type { award_name: "Best Artist" category: "Artist" } |
+ |   type { award_name: "Best Album" category: "Album" }   |
+ | }                                                       |
+ | {                                                       |
+ |   year: 2001                                            |
+ |   month: 12                                             |
+ |   type { award_name: "Best Song" category: "Song" }     |
+ | }                                                       |
+ *---------------------------------------------------------*/
 ```
 
 The following example returns protocol buffers that only include the `year`
@@ -27282,12 +27561,12 @@ field.
 SELECT FILTER_FIELDS(award_col, +year) AS filtered_fields
 FROM MusicAwards
 
-+-----------------+
-| filtered_fields |
-+-----------------+
-| {year: 2001}    |
-| {year: 2001}    |
-+-----------------+
+/*-----------------*
+ | filtered_fields |
+ +-----------------+
+ | {year: 2001}    |
+ | {year: 2001}    |
+ *-----------------*/
 ```
 
 The following example returns protocol buffers that include all but the `type`
@@ -27297,12 +27576,12 @@ field.
 SELECT FILTER_FIELDS(award_col, -type) AS filtered_fields
 FROM MusicAwards
 
-+------------------------+
-| filtered_fields        |
-+------------------------+
-| {year: 2001 month: 9}  |
-| {year: 2001 month: 12} |
-+------------------------+
+/*------------------------*
+ | filtered_fields        |
+ +------------------------+
+ | {year: 2001 month: 9}  |
+ | {year: 2001 month: 12} |
+ *------------------------*/
 ```
 
 The following example returns protocol buffers that only include the `year` and
@@ -27312,19 +27591,19 @@ The following example returns protocol buffers that only include the `year` and
 SELECT FILTER_FIELDS(award_col, +year, +type.award_name) AS filtered_fields
 FROM MusicAwards
 
-+--------------------------------------+
-| filtered_fields                      |
-+--------------------------------------+
-| {                                    |
-|   year: 2001                         |
-|   type { award_name: "Best Artist" } |
-|   type { award_name: "Best Album" }  |
-| }                                    |
-| {                                    |
-|   year: 2001                         |
-|   type { award_name: "Best Song" }   |
-| }                                    |
-+--------------------------------------+
+/*--------------------------------------*
+ | filtered_fields                      |
+ +--------------------------------------+
+ | {                                    |
+ |   year: 2001                         |
+ |   type { award_name: "Best Artist" } |
+ |   type { award_name: "Best Album" }  |
+ | }                                    |
+ | {                                    |
+ |   year: 2001                         |
+ |   type { award_name: "Best Song" }   |
+ | }                                    |
+ *--------------------------------------*/
 ```
 
 The following example returns the `year` and `type` fields, but excludes the
@@ -27334,19 +27613,19 @@ The following example returns the `year` and `type` fields, but excludes the
 SELECT FILTER_FIELDS(award_col, +year, +type, -type.award_name) AS filtered_fields
 FROM MusicAwards
 
-+---------------------------------+
-| filtered_fields                 |
-+---------------------------------+
-| {                               |
-|   year: 2001                    |
-|   type { category: "Artist" }   |
-|   type { category: "Album" }    |
-| }                               |
-| {                               |
-|   year: 2001                    |
-|   type { category: "Song" }     |
-| }                               |
-+---------------------------------+
+/*---------------------------------*
+ | filtered_fields                 |
+ +---------------------------------+
+ | {                               |
+ |   year: 2001                    |
+ |   type { category: "Artist" }   |
+ |   type { category: "Album" }    |
+ | }                               |
+ | {                               |
+ |   year: 2001                    |
+ |   type { category: "Song" }     |
+ | }                               |
+ *---------------------------------*/
 ```
 
 The following example produces an error because `year` is a required field
@@ -27543,11 +27822,11 @@ SELECT FROM_PROTO(
   )
 )
 
-+------------+
-| $col1      |
-+------------+
-| 2019-10-30 |
-+------------+
+/*------------*
+ | $col1      |
+ +------------+
+ | 2019-10-30 |
+ *------------*/
 ```
 
 Pass in and return a `DATE` type.
@@ -27555,11 +27834,11 @@ Pass in and return a `DATE` type.
 ```sql
 SELECT FROM_PROTO(DATE '2019-10-30')
 
-+------------+
-| $col1      |
-+------------+
-| 2019-10-30 |
-+------------+
+/*------------*
+ | $col1      |
+ +------------+
+ | 2019-10-30 |
+ *------------*/
 ```
 
 ### `MODIFY_MAP`
@@ -27619,11 +27898,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
 
-+---------------------------------------------+
-| result_map                                  |
-+---------------------------------------------+
-| { key: 'B' value: 4 } { key: 'C' value: 6 } |
-+---------------------------------------------+
+/*---------------------------------------------*
+ | result_map                                  |
+ +---------------------------------------------+
+ | { key: 'B' value: 4 } { key: 'C' value: 6 } |
+ *---------------------------------------------*/
 ```
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
@@ -27676,11 +27955,11 @@ message Book {
 This is the result if `book.country` evaluates to `Canada`.
 
 ```sql
-+-----------------+
-| origin          |
-+-----------------+
-| Canada          |
-+-----------------+
+/*-----------------*
+ | origin          |
+ +-----------------+
+ | Canada          |
+ *-----------------*/
 ```
 
 This is the result if `book` is `NULL`. Since `book` is `NULL`,
@@ -27688,11 +27967,11 @@ This is the result if `book` is `NULL`. Since `book` is `NULL`,
 default value for `country`.
 
 ```sql
-+-----------------+
-| origin          |
-+-----------------+
-| Unknown         |
-+-----------------+
+/*-----------------*
+ | origin          |
+ +-----------------+
+ | Unknown         |
+ *-----------------*/
 ```
 
 ### `REPLACE_FIELDS`
@@ -27747,11 +28026,12 @@ SELECT REPLACE_FIELDS(
   "The Hummingbird II" AS title,
   11 AS details.chapters)
 AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird II" details: {chapters: 11 }}                       |
-+-----------------------------------------------------------------------------+
+
+/*-----------------------------------------------------------------------------*
+ | proto                                                                       |
+ +-----------------------------------------------------------------------------+
+ |{title: "The Hummingbird II" details: {chapters: 11 }}                       |
+ *-----------------------------------------------------------------------------*/
 ```
 
 The function can replace value of repeated fields.
@@ -27762,12 +28042,13 @@ SELECT REPLACE_FIELDS(
     NEW BookDetails(10 AS chapters) AS details),
   ["A good read!", "Highly recommended."] AS reviews)
 AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
-| details: {chapters: 10 }}                                                   |
-+-----------------------------------------------------------------------------+
+
+/*-----------------------------------------------------------------------------*
+ | proto                                                                       |
+ +-----------------------------------------------------------------------------+
+ |{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
+ | details: {chapters: 10 }}                                                   |
+ *-----------------------------------------------------------------------------*/
 ```
 
 It can set a field to `NULL`.
@@ -27778,11 +28059,12 @@ SELECT REPLACE_FIELDS(
     NEW BookDetails(10 AS chapters) AS details),
   NULL AS details)
 AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird" }                                                  |
-+-----------------------------------------------------------------------------+
+
+/*-----------------------------------------------------------------------------*
+ | proto                                                                       |
+ +-----------------------------------------------------------------------------+
+ |{title: "The Hummingbird" }                                                  |
+ *-----------------------------------------------------------------------------*/
 ```
 
 ### `TO_PROTO`
@@ -27928,11 +28210,11 @@ Convert a `DATE` type into a `google.type.Date` type.
 ```sql
 SELECT TO_PROTO(DATE '2019-10-30')
 
-+--------------------------------+
-| $col1                          |
-+--------------------------------+
-| {year: 2019 month: 10 day: 30} |
-+--------------------------------+
+/*--------------------------------*
+ | $col1                          |
+ +--------------------------------+
+ | {year: 2019 month: 10 day: 30} |
+ *--------------------------------*/
 ```
 
 Pass in and return a `google.type.Date` type.
@@ -27946,11 +28228,11 @@ SELECT TO_PROTO(
   )
 )
 
-+--------------------------------+
-| $col1                          |
-+--------------------------------+
-| {year: 2019 month: 10 day: 30} |
-+--------------------------------+
+/*--------------------------------*
+ | $col1                          |
+ +--------------------------------+
+ | {year: 2019 month: 10 day: 30} |
+ *--------------------------------*/
 ```
 
 ## Security functions
@@ -27982,11 +28264,11 @@ For more information about identities, see
 ```sql
 SELECT SESSION_USER() as user;
 
-+----------------------+
-| user                 |
-+----------------------+
-| jdoe@example.com     |
-+----------------------+
+/*----------------------*
+ | user                 |
+ +----------------------+
+ | jdoe@example.com     |
+ *----------------------*/
 ```
 
 ## Net functions
@@ -28123,14 +28405,16 @@ FROM UNNEST([
   '3031:3233:3435:3637:3839:4041:4243:4445',
   '::ffff:192.0.2.128'
 ]) AS addr_str;
-```
 
-| addr_str                                | ip_from_string                                                      |
-|-----------------------------------------|---------------------------------------------------------------------|
-| 48.49.50.51                             | b"0123"                                                             |
-| ::1                                     | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" |
-| 3031:3233:3435:3637:3839:4041:4243:4445 | b"0123456789@ABCDE"                                                 |
-| ::ffff:192.0.2.128                      | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" |
+/*---------------------------------------------------------------------------------------------------------------*
+ | addr_str                                | ip_from_string                                                      |
+ +---------------------------------------------------------------------------------------------------------------+
+ | 48.49.50.51                             | b"0123"                                                             |
+ | ::1                                     | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" |
+ | 3031:3233:3435:3637:3839:4041:4243:4445 | b"0123456789@ABCDE"                                                 |
+ | ::ffff:192.0.2.128                      | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" |
+ *---------------------------------------------------------------------------------------------------------------*/
+```
 
 [net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
 
@@ -28196,16 +28480,18 @@ FROM UNNEST([
   (16, 1),
   (16, 128)
 ]);
-```
 
-| x  | y   | ip_net_mask                                                         |
-|----|-----|---------------------------------------------------------------------|
-| 4  | 0   | b"\x00\x00\x00\x00"                                                 |
-| 4  | 20  | b"\xff\xff\xf0\x00"                                                 |
-| 4  | 32  | b"\xff\xff\xff\xff"                                                 |
-| 16 | 0   | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" |
-| 16 | 1   | b"\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" |
-| 16 | 128 | b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" |
+/*--------------------------------------------------------------------------------*
+ | x  | y   | ip_net_mask                                                         |
+ +--------------------------------------------------------------------------------+
+ | 4  | 0   | b"\x00\x00\x00\x00"                                                 |
+ | 4  | 20  | b"\xff\xff\xf0\x00"                                                 |
+ | 4  | 32  | b"\xff\xff\xff\xff"                                                 |
+ | 16 | 0   | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" |
+ | 16 | 1   | b"\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" |
+ | 16 | 128 | b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" |
+ *--------------------------------------------------------------------------------*/
+```
 
 ### `NET.IP_TO_STRING`
 
@@ -28237,14 +28523,16 @@ FROM UNNEST([
   b"0123456789@ABCDE",
   b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80"
 ]) AS x;
-```
 
-| addr_bin                                                            | ip_to_string                            |
-|---------------------------------------------------------------------|-----------------------------------------|
-| b"0123"                                                             | 48.49.50.51                             |
-| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" | ::1                                     |
-| b"0123456789@ABCDE"                                                 | 3031:3233:3435:3637:3839:4041:4243:4445 |
-| b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" | ::ffff:192.0.2.128                      |
+/*---------------------------------------------------------------------------------------------------------------*
+ | addr_bin                                                            | ip_to_string                            |
+ +---------------------------------------------------------------------------------------------------------------+
+ | b"0123"                                                             | 48.49.50.51                             |
+ | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" | ::1                                     |
+ | b"0123456789@ABCDE"                                                 | 3031:3233:3435:3637:3839:4041:4243:4445 |
+ | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" | ::ffff:192.0.2.128                      |
+ *---------------------------------------------------------------------------------------------------------------*/
+```
 
 ### `NET.IP_TRUNC`
 
@@ -28277,16 +28565,18 @@ FROM UNNEST([
   (b"\xAA\xBB\xCC\xDD", 24), (b"\xAA\xBB\xCC\xDD", 32),
   (b'0123456789@ABCDE', 80)
 ]);
-```
 
-| addr_bin            | prefix_length | ip_trunc                              |
-|---------------------|---------------|---------------------------------------|
-| b"\xaa\xbb\xcc\xdd" | 0             | b"\x00\x00\x00\x00"                   |
-| b"\xaa\xbb\xcc\xdd" | 11            | b"\xaa\xa0\x00\x00"                   |
-| b"\xaa\xbb\xcc\xdd" | 12            | b"\xaa\xb0\x00\x00"                   |
-| b"\xaa\xbb\xcc\xdd" | 24            | b"\xaa\xbb\xcc\x00"                   |
-| b"\xaa\xbb\xcc\xdd" | 32            | b"\xaa\xbb\xcc\xdd"                   |
-| b"0123456789@ABCDE" | 80            | b"0123456789\x00\x00\x00\x00\x00\x00" |
+/*-----------------------------------------------------------------------------*
+ | addr_bin            | prefix_length | ip_trunc                              |
+ +-----------------------------------------------------------------------------+
+ | b"\xaa\xbb\xcc\xdd" | 0             | b"\x00\x00\x00\x00"                   |
+ | b"\xaa\xbb\xcc\xdd" | 11            | b"\xaa\xa0\x00\x00"                   |
+ | b"\xaa\xbb\xcc\xdd" | 12            | b"\xaa\xb0\x00\x00"                   |
+ | b"\xaa\xbb\xcc\xdd" | 24            | b"\xaa\xbb\xcc\x00"                   |
+ | b"\xaa\xbb\xcc\xdd" | 32            | b"\xaa\xbb\xcc\xdd"                   |
+ | b"0123456789@ABCDE" | 80            | b"0123456789\x00\x00\x00\x00\x00\x00" |
+ *-----------------------------------------------------------------------------*/
+```
 
 ### `NET.IPV4_FROM_INT64`
 
@@ -28320,15 +28610,17 @@ FROM (
   SELECT CAST(x_hex AS INT64) x, x_hex
   FROM UNNEST(["0x0", "0xABCDEF", "0xFFFFFFFF", "-0x1", "-0x2"]) AS x_hex
 );
-```
 
-| x          | x_hex      | ipv4_from_int64     |
-|------------|------------|---------------------|
-| 0          | 0x0        | b"\x00\x00\x00\x00" |
-| 11259375   | 0xABCDEF   | b"\x00\xab\xcd\xef" |
-| 4294967295 | 0xFFFFFFFF | b"\xff\xff\xff\xff" |
-| -1         | -0x1       | b"\xff\xff\xff\xff" |
-| -2         | -0x2       | b"\xff\xff\xff\xfe" |
+/*-----------------------------------------------*
+ | x          | x_hex      | ipv4_from_int64     |
+ +-----------------------------------------------+
+ | 0          | 0x0        | b"\x00\x00\x00\x00" |
+ | 11259375   | 0xABCDEF   | b"\x00\xab\xcd\xef" |
+ | 4294967295 | 0xFFFFFFFF | b"\xff\xff\xff\xff" |
+ | -1         | -0x1       | b"\xff\xff\xff\xff" |
+ | -2         | -0x2       | b"\xff\xff\xff\xfe" |
+ *-----------------------------------------------*/
+```
 
 ### `NET.IPV4_TO_INT64`
 
@@ -28360,13 +28652,15 @@ SELECT
   FORMAT("0x%X", NET.IPV4_TO_INT64(x)) AS ipv4_to_int64
 FROM
 UNNEST([b"\x00\x00\x00\x00", b"\x00\xab\xcd\xef", b"\xff\xff\xff\xff"]) AS x;
-```
 
-| addr_bin            | ipv4_to_int64 |
-|---------------------|---------------|
-| b"\x00\x00\x00\x00" | 0x0           |
-| b"\x00\xab\xcd\xef" | 0xABCDEF      |
-| b"\xff\xff\xff\xff" | 0xFFFFFFFF    |
+/*-------------------------------------*
+ | addr_bin            | ipv4_to_int64 |
+ +-------------------------------------+
+ | b"\x00\x00\x00\x00" | 0x0           |
+ | b"\x00\xab\xcd\xef" | 0xABCDEF      |
+ | b"\xff\xff\xff\xff" | 0xFFFFFFFF    |
+ *-------------------------------------*/
+```
 
 ### `NET.MAKE_NET`
 
@@ -28648,17 +28942,19 @@ FROM UNNEST([
   '48.49.50',
   '::wxyz'
 ]) AS addr_str;
-```
 
-| addr_str                                | safe_ip_from_string                                                 |
-|-----------------------------------------|---------------------------------------------------------------------|
-| 48.49.50.51                             | b"0123"                                                             |
-| ::1                                     | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" |
-| 3031:3233:3435:3637:3839:4041:4243:4445 | b"0123456789@ABCDE"                                                 |
-| ::ffff:192.0.2.128                      | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" |
-| 48.49.50.51/32                          | NULL                                                                |
-| 48.49.50                                | NULL                                                                |
-| ::wxyz                                  | NULL                                                                |
+/*---------------------------------------------------------------------------------------------------------------*
+ | addr_str                                | safe_ip_from_string                                                 |
+ +---------------------------------------------------------------------------------------------------------------+
+ | 48.49.50.51                             | b"0123"                                                             |
+ | ::1                                     | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" |
+ | 3031:3233:3435:3637:3839:4041:4243:4445 | b"0123456789@ABCDE"                                                 |
+ | ::ffff:192.0.2.128                      | b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80" |
+ | 48.49.50.51/32                          | NULL                                                                |
+ | 48.49.50                                | NULL                                                                |
+ | ::wxyz                                  | NULL                                                                |
+ *---------------------------------------------------------------------------------------------------------------*/
+```
 
 [net-link-to-ip-from-string]: #netip_from_string
 
@@ -28773,21 +29069,21 @@ In the following examples, the query successfully evaluates `try_expression`.
 ```sql
 SELECT IFERROR('a', 'b') AS result
 
-+--------+
-| result |
-+--------+
-| a      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | a      |
+ *--------*/
 ```
 
 ```sql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
 
-+--------+
-| result |
-+--------+
-| 1      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
 ```
 
 In the following examples, `IFERROR` catches an evaluation error in the
@@ -28796,21 +29092,21 @@ In the following examples, `IFERROR` catches an evaluation error in the
 ```sql
 SELECT IFERROR(ERROR('a'), 'b') AS result
 
-+--------+
-| result |
-+--------+
-| b      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | b      |
+ *--------*/
 ```
 
 ```sql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
 
-+--------+
-| result |
-+--------+
-| -1     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | -1     |
+ *--------*/
 ```
 
 In the following query, the error is handled by the innermost `IFERROR`
@@ -28819,11 +29115,11 @@ operation, `IFERROR(ERROR('a'), 'b')`.
 ```sql
 SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
 
-+--------+
-| result |
-+--------+
-| b      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | b      |
+ *--------*/
 ```
 
 In the following query, the error is handled by the outermost `IFERROR`
@@ -28832,11 +29128,11 @@ operation, `IFERROR(..., 'c')`.
 ```sql
 SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
 
-+--------+
-| result |
-+--------+
-| c      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | c      |
+ *--------*/
 ```
 
 In the following example, an evaluation error is produced because the subquery
@@ -28845,11 +29141,11 @@ passed in as the `try_expression` evaluates to a table, not a scalar value.
 ```sql
 SELECT IFERROR((SELECT e FROM UNNEST([1, 2]) AS e), 3) AS result
 
-+--------+
-| result |
-+--------+
-| 3      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 3      |
+ *--------*/
 ```
 
 In the following example, `IFERROR` catches an evaluation error in `ERROR('a')`
@@ -28896,31 +29192,31 @@ In the following examples, `ISERROR` successfully evaluates `try_expression`.
 ```sql
 SELECT ISERROR('a') AS is_error
 
-+----------+
-| is_error |
-+----------+
-| false    |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | false    |
+ *----------*/
 ```
 
 ```sql
 SELECT ISERROR(2/1) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| false    |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | false    |
+ *----------*/
 ```
 
 ```sql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| false    |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | false    |
+ *----------*/
 ```
 
 In the following examples, `ISERROR` catches an evaluation error in
@@ -28929,31 +29225,31 @@ In the following examples, `ISERROR` catches an evaluation error in
 ```sql
 SELECT ISERROR(ERROR('a')) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | true     |
+ *----------*/
 ```
 
 ```sql
 SELECT ISERROR(2/0) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | true     |
+ *----------*/
 ```
 
 ```sql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | true     |
+ *----------*/
 ```
 
 In the following example, an evaluation error is produced because the subquery
@@ -28962,11 +29258,11 @@ passed in as `try_expression` evaluates to a table, not a scalar value.
 ```sql
 SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | true     |
+ *----------*/
 ```
 
 ### `NULLIFERROR`
@@ -29002,21 +29298,21 @@ In the following examples, `NULLIFERROR` successfully evaluates
 ```sql
 SELECT NULLIFERROR('a') AS result
 
-+--------+
-| result |
-+--------+
-| a      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | a      |
+ *--------*/
 ```
 
 ```sql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
 
-+--------+
-| result |
-+--------+
-| 1      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
 ```
 
 In the following examples, `NULLIFERROR` catches an evaluation error in
@@ -29025,21 +29321,21 @@ In the following examples, `NULLIFERROR` catches an evaluation error in
 ```sql
 SELECT NULLIFERROR(ERROR('a')) AS result
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 
 ```sql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 
 In the following example, an evaluation error is produced because the subquery
@@ -29048,11 +29344,11 @@ passed in as `try_expression` evaluates to a table, not a scalar value.
 ```sql
 SELECT NULLIFERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS result
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->

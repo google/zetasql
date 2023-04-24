@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Work with protocol buffers
 
 Protocol buffers are a flexible, efficient mechanism for serializing structured
@@ -134,7 +136,7 @@ WHERE
 
 ### Returning repeated fields
 
-Often, a protocol buffer message contains one or more repeated fields which are
+A protocol buffer message might contain repeated fields, which are
 returned as `ARRAY` values when referenced in SQL statements. For example, our
 protocol buffer message contains a repeated field, `line_item`.
 
@@ -148,8 +150,11 @@ FROM
   Customers AS c;
 ```
 
-For more information, see
+For more information about arrays, see
 [Work with arrays][working-with-arrays].
+
+For more information about default field values, see [Default values and
+`NULL`s][default-values].
 
 ### Returning the number of elements in an array
 
@@ -190,11 +195,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 22 }" AS Item)) AS m;
 
-+-----------------------------------------------+
-| result_map                                    |
-+-----------------------------------------------+
-| { key: 'A' value: 22 } { key: 'B' value: 11 } |
-+-----------------------------------------------+
+/*-----------------------------------------------*
+ | result_map                                    |
+ +-----------------------------------------------+
+ | { key: 'A' value: 22 } { key: 'B' value: 11 } |
+ *-----------------------------------------------*/
 ```
 
 #### Use a protocol buffer map array 
@@ -205,7 +210,7 @@ protocol buffer map field, using an array of
 [typeless structs][typeless-structs] with this format:
 
 ```
-STRUCT<key_type, map_type>(key_expression, value_expression)
+STRUCT<key_type, value_type>(key_expression, value_expression)
 ```
 
 + `key_type` and `value_type` represent ZetaSQL data types.
@@ -248,11 +253,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 22 }" AS Item)) AS m;
 
-+-----------------------+
-| result_map            |
-+-----------------------+
-| { key: "A" value: 6 } |
-+-----------------------+
+/*-----------------------*
+ | result_map            |
+ +-----------------------+
+ | { key: "A" value: 6 } |
+ *-----------------------*/
 ```
 
 ### Removing values from map fields 
@@ -276,11 +281,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 22 } purchased { key: 'B' value: 11 }" AS Item)) AS m;
 
-+------------------------+
-| result_map             |
-+------------------------+
-| { key: "B" value: 11 } |
-+------------------------+
+/*------------------------*
+ | result_map             |
+ +------------------------+
+ | { key: "B" value: 11 } |
+ *------------------------*/
 ```
 
 ### Checking if a map field contains a key 
@@ -304,11 +309,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+----------------+
-| key_is_present |
-+----------------+
-| FALSE          |
-+----------------+
+/*----------------*
+ | key_is_present |
+ +----------------+
+ | FALSE          |
+ *----------------*/
 ```
 
 ### Querying map fields 
@@ -332,11 +337,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+-----------+
-| map_value |
-+-----------+
-| 2         |
-+-----------+
+/*-----------*
+ | map_value |
+ +-----------+
+ | 2         |
+ *-----------*/
 ```
 
 ## Extensions
@@ -627,28 +632,40 @@ This example uses an annotation, which is described in
 
 ### Default values and `NULL`s  {#default_values_and_nulls}
 
-Protocol buffer messages themselves do not have a default value &mdash; only the
-fields contained inside a protocol buffer have defaults. When a full protocol
-buffer value is returned in the result of a query, it is returned as a blob and
-all fields are preserved as they were stored, including unset fields. This means
-that you can run a query that returns a protocol buffer, and then extract fields
-or check field presence in your client code with normal protocol buffer default
-behavior.
+Protocol buffer messages themselves don't have a default value; only the
+non-repeated fields contained inside a protocol buffer have defaults. When a
+full protocol buffer value is returned in the result of a query, it's returned
+as a blob and all fields are preserved as they were stored, including unset
+fields. This means that you can run a query that returns a protocol buffer, and
+then extract fields or check field presence in your client code with normal
+protocol buffer default behavior.
 
-By default, `NULL` values are never returned when accessing non-repeated leaf
+However, `NULL` values are never returned when accessing non-repeated leaf
 fields contained in a `PROTO` from within a SQL statement, unless a containing
-value is also `NULL`.  If the field value is not explicitly set, the default
-value for the field is returned.  A change to the default value for a protocol
-buffer field affects all future reads of that field for records where the value
-is unset.
+parent message is `NULL`. This behavior is consistent with the standards for
+handling protocol buffers messages. If the field value isn't explicitly set on
+a non-repeated leaf field, the `PROTO` default value for the field is returned.
+A change to the default value for a `PROTO` field affects all future reads of
+that field using the new `PROTO` definition for records where the value is
+unset.
 
-For example, suppose that `proto_msg` of type `PROTO` has a field named
-`leaf_field`. A reference to `proto_msg.leaf_field` returns:
+For example, suppose that `proto_msg` of type `PROTO` has a non-repeated leaf
+field named `leaf_field`. A reference to `proto_msg.leaf_field` returns:
 
-+ `NULL` if `proto_msg` is `NULL`.
-+ A default value if `proto_msg` is not `NULL` but `leaf_field` is not set.
-+ The value of `leaf_field` if `proto_msg` is not `NULL` and `leaf_field`
-  is set.
++   `NULL` if `proto_msg` is `NULL`.
++   The default value if `proto_msg` isn't `NULL` but `leaf_field` isn't set.
++   The value of `leaf_field` if `proto_msg` isn't `NULL` and `leaf_field` is
+    set.
+
+The behavior is similar for repeated fields because protocol buffers can't
+define a default value for repeated fields. ZetaSQL represents
+repeated fields as arrays, so a reference to `proto_msg.repeated_field` returns:
+
++   `NULL` if `proto_msg` is `NULL`.
++   An empty `ARRAY` (as `[]`) if `proto_msg` isn't `NULL` but `repeated_field`
+    isn't set.
++   An `ARRAY` containing each value of `repeated_field` if `proto_msg` isn't
+    `NULL` and `repeated_field` is set.
 
 ###  `zetasql.use_defaults`
 
@@ -732,9 +749,15 @@ FROM
   Customer AS c;
 ```
 
-If `has_country` returns `TRUE`, it indicates that the value for the `country`
-field has been explicitly set. If it returns `FALSE` or `NULL`, it means the
-value is not explicitly set.
+If `has_country` is `TRUE`, that means the value for the `country` field has
+been explicitly set. If `has_country` is `FALSE`, that means the parent message
+`c.Orders.shipping_address` isn't `NULL`, but the `country` field hasn't been
+explicitly set. If `has_country` is `NULL`, that means the parent message
+`c.Orders.shipping_address` is `NULL`, and therefore `country` can't be
+considered either set or unset.
+
+For more information about default field values, see [Default values and
+`NULL`s][default-values].
 
 ### Checking for a repeated value 
 <a id="checking_for_a_repeated_value"></a>
@@ -895,6 +918,8 @@ type][proto-data-type-construct].
 [protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers
 
 [nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
+
+[default-values]: #default_values_and_nulls
 
 [correlated-join]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#correlated_join
 

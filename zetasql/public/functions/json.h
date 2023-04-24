@@ -348,6 +348,15 @@ absl::StatusOr<std::optional<double>> LaxConvertJsonToFloat64(
 absl::StatusOr<std::optional<std::string>> LaxConvertJsonToString(
     JSONValueConstRef input);
 
+// Converts a variadic number of arguments into a JSON array of these arguments.
+// If canonicalize_zero is true, the sign on a signed zero is removed when
+// converting a numeric type to JSON.
+// TODO : remove canonicalize_zero flag when all
+// engines have rolled out this new behavior.
+absl::StatusOr<JSONValue> JsonArray(absl::Span<const Value> args,
+                                    const LanguageOptions& language_options,
+                                    bool canonicalize_zero);
+
 }  // namespace functions
 }  // namespace zetasql
 #endif  // ZETASQL_PUBLIC_FUNCTIONS_JSON_H_

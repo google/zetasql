@@ -1285,7 +1285,7 @@ class FunctionSignature {
       const std::vector<InputArgumentType>& arguments) const;
 
   // If verbose is true, include FunctionOptions modifiers.
-  std::string DebugString(const std::string& function_name = "",
+  std::string DebugString(absl::string_view function_name = "",
                           bool verbose = false) const;
 
   // Returns a string containing the DebugString()s of all its
@@ -1293,7 +1293,7 @@ class FunctionSignature {
   // <separator> appears between each signature string.
   static std::string SignaturesToString(
       const std::vector<FunctionSignature>& signatures, bool verbose = false,
-      const std::string& prefix = "  ", const std::string& separator = "\n");
+      absl::string_view prefix = "  ", const std::string& separator = "\n");
 
   // Get the SQL declaration for this signature, including all options.
   // For each argument in the signature, the name will be taken from the
@@ -1357,6 +1357,20 @@ class FunctionSignature {
   // function signature (when `rewrite_options` has a value) and it is enabled.
   // See `FunctionSignatureRewriteOptions` for details.
   bool HasEnabledRewriteImplementation() const;
+
+  // Returns true if this signature should be hidden in the supported signature
+  // list in signature mismatch error message.
+  // Signatures are hidden if they are internal, deprecated, or unsupported
+  // according to LanguageOptions.
+  bool HideInSupportedSignatureList(
+      const LanguageOptions& language_options) const;
+
+  // Returns the list of arguments to be used in error messages by calling
+  // FunctionArgumentType::UserFacingNameWithCardinality on each individual
+  // argument of the signature.
+  std::vector<std::string> GetArgumentsUserFacingTextWithCardinality(
+      const LanguageOptions& language_options,
+      FunctionArgumentType::NamePrintingStyle print_style) const;
 
  private:
   bool ComputeIsConcrete() const;

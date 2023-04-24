@@ -50,6 +50,7 @@
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status_macros.h"
@@ -114,7 +115,7 @@ class AlgebrizerTestBase : public ::testing::Test {
   }
 
   void TestAlgebrizeExpression(
-      const ResolvedExpr* resolved_expr, const std::string& expected,
+      const ResolvedExpr* resolved_expr, absl::string_view expected,
       const ColumnToVariableMapping::Map* column_to_variable_map = nullptr) {
     absl::StatusOr<std::unique_ptr<const ValueExpr>> expr =
         TestAlgebrizeExpressionInternal(resolved_expr, column_to_variable_map);
@@ -160,13 +161,13 @@ class AlgebrizerTestBase : public ::testing::Test {
     TestAlgebrizeExpression(expr.get(), std::move(expected));
   }
 
-  void TestAlgebrizeString(const std::string& value, std::string expected) {
+  void TestAlgebrizeString(absl::string_view value, std::string expected) {
     std::unique_ptr<const ResolvedExpr> expr(
         MakeResolvedLiteral(Value::String(value)));
     TestAlgebrizeExpression(expr.get(), std::move(expected));
   }
 
-  void TestAlgebrizeColumnRef(int column_id, const std::string& column_name,
+  void TestAlgebrizeColumnRef(int column_id, absl::string_view column_name,
                               const Type* type, const std::string& expected) {
     ResolvedColumn column(column_id,
                           zetasql::IdString::MakeGlobal("table_name_unused"),

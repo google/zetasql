@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Navigation functions
 
 ZetaSQL supports navigation functions.
@@ -89,20 +91,20 @@ FROM (
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS fastest_time
   FROM finishers);
 
-+-----------------+-------------+----------+--------------+------------------+
-| name            | finish_time | division | fastest_time | delta_in_seconds |
-+-----------------+-------------+----------+--------------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
-| Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 0                |
-| Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 436              |
-| Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 891              |
-| Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 956              |
-| Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 1109             |
-| Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 0                |
-| Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 426              |
-| Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 691              |
-| Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 733              |
-+-----------------+-------------+----------+--------------+------------------+
+/*-----------------+-------------+----------+--------------+------------------*
+ | name            | finish_time | division | fastest_time | delta_in_seconds |
+ +-----------------+-------------+----------+--------------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
+ | Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 0                |
+ | Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 436              |
+ | Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 891              |
+ | Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 956              |
+ | Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 1109             |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 0                |
+ | Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 426              |
+ | Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 691              |
+ | Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 733              |
+ *-----------------+-------------+----------+--------------+------------------*/
 ```
 
 ### `LAG`
@@ -178,20 +180,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS preceding_runner
 FROM finishers;
 
-+-----------------+-------------+----------+------------------+
-| name            | finish_time | division | preceding_runner |
-+-----------------+-------------+----------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL             |
-| Sophia Liu      | 02:51:45    | F30-34   | NULL             |
-| Nikki Leith     | 02:59:01    | F30-34   | Sophia Liu       |
-| Jen Edwards     | 03:06:36    | F30-34   | Nikki Leith      |
-| Meghan Lederer  | 03:07:41    | F30-34   | Jen Edwards      |
-| Lauren Reasoner | 03:10:14    | F30-34   | Meghan Lederer   |
-| Lisa Stelzner   | 02:54:11    | F35-39   | NULL             |
-| Lauren Matthews | 03:01:17    | F35-39   | Lisa Stelzner    |
-| Desiree Berry   | 03:05:42    | F35-39   | Lauren Matthews  |
-| Suzy Slane      | 03:06:24    | F35-39   | Desiree Berry    |
-+-----------------+-------------+----------+------------------+
+/*-----------------+-------------+----------+------------------*
+ | name            | finish_time | division | preceding_runner |
+ +-----------------+-------------+----------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | NULL             |
+ | Sophia Liu      | 02:51:45    | F30-34   | NULL             |
+ | Nikki Leith     | 02:59:01    | F30-34   | Sophia Liu       |
+ | Jen Edwards     | 03:06:36    | F30-34   | Nikki Leith      |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Jen Edwards      |
+ | Lauren Reasoner | 03:10:14    | F30-34   | Meghan Lederer   |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | NULL             |
+ | Lauren Matthews | 03:01:17    | F35-39   | Lisa Stelzner    |
+ | Desiree Berry   | 03:05:42    | F35-39   | Lauren Matthews  |
+ | Suzy Slane      | 03:06:24    | F35-39   | Desiree Berry    |
+ *-----------------+-------------+----------+------------------*/
 ```
 
 This next example uses the optional `offset` parameter.
@@ -217,20 +219,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
 FROM finishers;
 
-+-----------------+-------------+----------+-------------------+
-| name            | finish_time | division | two_runners_ahead |
-+-----------------+-------------+----------+-------------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL              |
-| Sophia Liu      | 02:51:45    | F30-34   | NULL              |
-| Nikki Leith     | 02:59:01    | F30-34   | NULL              |
-| Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
-| Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
-| Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
-| Lisa Stelzner   | 02:54:11    | F35-39   | NULL              |
-| Lauren Matthews | 03:01:17    | F35-39   | NULL              |
-| Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
-| Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
-+-----------------+-------------+----------+-------------------+
+/*-----------------+-------------+----------+-------------------*
+ | name            | finish_time | division | two_runners_ahead |
+ +-----------------+-------------+----------+-------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | NULL              |
+ | Sophia Liu      | 02:51:45    | F30-34   | NULL              |
+ | Nikki Leith     | 02:59:01    | F30-34   | NULL              |
+ | Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
+ | Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | NULL              |
+ | Lauren Matthews | 03:01:17    | F35-39   | NULL              |
+ | Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
+ | Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
+ *-----------------+-------------+----------+-------------------*/
 ```
 
 The following example replaces NULL values with a default value.
@@ -256,20 +258,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
 FROM finishers;
 
-+-----------------+-------------+----------+-------------------+
-| name            | finish_time | division | two_runners_ahead |
-+-----------------+-------------+----------+-------------------+
-| Carly Forte     | 03:08:58    | F25-29   | Nobody            |
-| Sophia Liu      | 02:51:45    | F30-34   | Nobody            |
-| Nikki Leith     | 02:59:01    | F30-34   | Nobody            |
-| Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
-| Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
-| Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
-| Lisa Stelzner   | 02:54:11    | F35-39   | Nobody            |
-| Lauren Matthews | 03:01:17    | F35-39   | Nobody            |
-| Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
-| Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
-+-----------------+-------------+----------+-------------------+
+/*-----------------+-------------+----------+-------------------*
+ | name            | finish_time | division | two_runners_ahead |
+ +-----------------+-------------+----------+-------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | Nobody            |
+ | Sophia Liu      | 02:51:45    | F30-34   | Nobody            |
+ | Nikki Leith     | 02:59:01    | F30-34   | Nobody            |
+ | Jen Edwards     | 03:06:36    | F30-34   | Sophia Liu        |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Nikki Leith       |
+ | Lauren Reasoner | 03:10:14    | F30-34   | Jen Edwards       |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | Nobody            |
+ | Lauren Matthews | 03:01:17    | F35-39   | Nobody            |
+ | Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
+ | Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
+ *-----------------+-------------+----------+-------------------*/
 ```
 
 ### `LAST_VALUE`
@@ -347,21 +349,20 @@ FROM (
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS slowest_time
   FROM finishers);
 
-+-----------------+-------------+----------+--------------+------------------+
-| name            | finish_time | division | slowest_time | delta_in_seconds |
-+-----------------+-------------+----------+--------------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
-| Sophia Liu      | 02:51:45    | F30-34   | 03:10:14     | 1109             |
-| Nikki Leith     | 02:59:01    | F30-34   | 03:10:14     | 673              |
-| Jen Edwards     | 03:06:36    | F30-34   | 03:10:14     | 218              |
-| Meghan Lederer  | 03:07:41    | F30-34   | 03:10:14     | 153              |
-| Lauren Reasoner | 03:10:14    | F30-34   | 03:10:14     | 0                |
-| Lisa Stelzner   | 02:54:11    | F35-39   | 03:06:24     | 733              |
-| Lauren Matthews | 03:01:17    | F35-39   | 03:06:24     | 307              |
-| Desiree Berry   | 03:05:42    | F35-39   | 03:06:24     | 42               |
-| Suzy Slane      | 03:06:24    | F35-39   | 03:06:24     | 0                |
-+-----------------+-------------+----------+--------------+------------------+
-
+/*-----------------+-------------+----------+--------------+------------------*
+ | name            | finish_time | division | slowest_time | delta_in_seconds |
+ +-----------------+-------------+----------+--------------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
+ | Sophia Liu      | 02:51:45    | F30-34   | 03:10:14     | 1109             |
+ | Nikki Leith     | 02:59:01    | F30-34   | 03:10:14     | 673              |
+ | Jen Edwards     | 03:06:36    | F30-34   | 03:10:14     | 218              |
+ | Meghan Lederer  | 03:07:41    | F30-34   | 03:10:14     | 153              |
+ | Lauren Reasoner | 03:10:14    | F30-34   | 03:10:14     | 0                |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | 03:06:24     | 733              |
+ | Lauren Matthews | 03:01:17    | F35-39   | 03:06:24     | 307              |
+ | Desiree Berry   | 03:05:42    | F35-39   | 03:06:24     | 42               |
+ | Suzy Slane      | 03:06:24    | F35-39   | 03:06:24     | 0                |
+ *-----------------+-------------+----------+--------------+------------------*/
 ```
 
 ### `LEAD`
@@ -437,20 +438,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS followed_by
 FROM finishers;
 
-+-----------------+-------------+----------+-----------------+
-| name            | finish_time | division | followed_by     |
-+-----------------+-------------+----------+-----------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL            |
-| Sophia Liu      | 02:51:45    | F30-34   | Nikki Leith     |
-| Nikki Leith     | 02:59:01    | F30-34   | Jen Edwards     |
-| Jen Edwards     | 03:06:36    | F30-34   | Meghan Lederer  |
-| Meghan Lederer  | 03:07:41    | F30-34   | Lauren Reasoner |
-| Lauren Reasoner | 03:10:14    | F30-34   | NULL            |
-| Lisa Stelzner   | 02:54:11    | F35-39   | Lauren Matthews |
-| Lauren Matthews | 03:01:17    | F35-39   | Desiree Berry   |
-| Desiree Berry   | 03:05:42    | F35-39   | Suzy Slane      |
-| Suzy Slane      | 03:06:24    | F35-39   | NULL            |
-+-----------------+-------------+----------+-----------------+
+/*-----------------+-------------+----------+-----------------*
+ | name            | finish_time | division | followed_by     |
+ +-----------------+-------------+----------+-----------------+
+ | Carly Forte     | 03:08:58    | F25-29   | NULL            |
+ | Sophia Liu      | 02:51:45    | F30-34   | Nikki Leith     |
+ | Nikki Leith     | 02:59:01    | F30-34   | Jen Edwards     |
+ | Jen Edwards     | 03:06:36    | F30-34   | Meghan Lederer  |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Lauren Reasoner |
+ | Lauren Reasoner | 03:10:14    | F30-34   | NULL            |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | Lauren Matthews |
+ | Lauren Matthews | 03:01:17    | F35-39   | Desiree Berry   |
+ | Desiree Berry   | 03:05:42    | F35-39   | Suzy Slane      |
+ | Suzy Slane      | 03:06:24    | F35-39   | NULL            |
+ *-----------------+-------------+----------+-----------------*/
 ```
 
 This next example uses the optional `offset` parameter.
@@ -476,20 +477,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
 FROM finishers;
 
-+-----------------+-------------+----------+------------------+
-| name            | finish_time | division | two_runners_back |
-+-----------------+-------------+----------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | NULL             |
-| Sophia Liu      | 02:51:45    | F30-34   | Jen Edwards      |
-| Nikki Leith     | 02:59:01    | F30-34   | Meghan Lederer   |
-| Jen Edwards     | 03:06:36    | F30-34   | Lauren Reasoner  |
-| Meghan Lederer  | 03:07:41    | F30-34   | NULL             |
-| Lauren Reasoner | 03:10:14    | F30-34   | NULL             |
-| Lisa Stelzner   | 02:54:11    | F35-39   | Desiree Berry    |
-| Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
-| Desiree Berry   | 03:05:42    | F35-39   | NULL             |
-| Suzy Slane      | 03:06:24    | F35-39   | NULL             |
-+-----------------+-------------+----------+------------------+
+/*-----------------+-------------+----------+------------------*
+ | name            | finish_time | division | two_runners_back |
+ +-----------------+-------------+----------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | NULL             |
+ | Sophia Liu      | 02:51:45    | F30-34   | Jen Edwards      |
+ | Nikki Leith     | 02:59:01    | F30-34   | Meghan Lederer   |
+ | Jen Edwards     | 03:06:36    | F30-34   | Lauren Reasoner  |
+ | Meghan Lederer  | 03:07:41    | F30-34   | NULL             |
+ | Lauren Reasoner | 03:10:14    | F30-34   | NULL             |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | Desiree Berry    |
+ | Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
+ | Desiree Berry   | 03:05:42    | F35-39   | NULL             |
+ | Suzy Slane      | 03:06:24    | F35-39   | NULL             |
+ *-----------------+-------------+----------+------------------*/
 ```
 
 The following example replaces NULL values with a default value.
@@ -515,20 +516,20 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
 FROM finishers;
 
-+-----------------+-------------+----------+------------------+
-| name            | finish_time | division | two_runners_back |
-+-----------------+-------------+----------+------------------+
-| Carly Forte     | 03:08:58    | F25-29   | Nobody           |
-| Sophia Liu      | 02:51:45    | F30-34   | Jen Edwards      |
-| Nikki Leith     | 02:59:01    | F30-34   | Meghan Lederer   |
-| Jen Edwards     | 03:06:36    | F30-34   | Lauren Reasoner  |
-| Meghan Lederer  | 03:07:41    | F30-34   | Nobody           |
-| Lauren Reasoner | 03:10:14    | F30-34   | Nobody           |
-| Lisa Stelzner   | 02:54:11    | F35-39   | Desiree Berry    |
-| Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
-| Desiree Berry   | 03:05:42    | F35-39   | Nobody           |
-| Suzy Slane      | 03:06:24    | F35-39   | Nobody           |
-+-----------------+-------------+----------+------------------+
+/*-----------------+-------------+----------+------------------*
+ | name            | finish_time | division | two_runners_back |
+ +-----------------+-------------+----------+------------------+
+ | Carly Forte     | 03:08:58    | F25-29   | Nobody           |
+ | Sophia Liu      | 02:51:45    | F30-34   | Jen Edwards      |
+ | Nikki Leith     | 02:59:01    | F30-34   | Meghan Lederer   |
+ | Jen Edwards     | 03:06:36    | F30-34   | Lauren Reasoner  |
+ | Meghan Lederer  | 03:07:41    | F30-34   | Nobody           |
+ | Lauren Reasoner | 03:10:14    | F30-34   | Nobody           |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | Desiree Berry    |
+ | Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
+ | Desiree Berry   | 03:05:42    | F35-39   | Nobody           |
+ | Suzy Slane      | 03:06:24    | F35-39   | Nobody           |
+ *-----------------+-------------+----------+------------------*/
 ```
 
 ### `NTH_VALUE`
@@ -612,20 +613,20 @@ FROM (
     PARTITION BY division ORDER BY finish_time ASC
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING));
 
-+-----------------+-------------+----------+--------------+----------------+
-| name            | finish_time | division | fastest_time | second_fastest |
-+-----------------+-------------+----------+--------------+----------------+
-| Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | NULL           |
-| Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 02:59:01       |
-| Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 02:59:01       |
-| Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 02:59:01       |
-| Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 02:59:01       |
-| Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 02:59:01       |
-| Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 03:01:17       |
-| Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 03:01:17       |
-| Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 03:01:17       |
-| Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 03:01:17       |
-+-----------------+-------------+----------+--------------+----------------+
+/*-----------------+-------------+----------+--------------+----------------*
+ | name            | finish_time | division | fastest_time | second_fastest |
+ +-----------------+-------------+----------+--------------+----------------+
+ | Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | NULL           |
+ | Sophia Liu      | 02:51:45    | F30-34   | 02:51:45     | 02:59:01       |
+ | Nikki Leith     | 02:59:01    | F30-34   | 02:51:45     | 02:59:01       |
+ | Jen Edwards     | 03:06:36    | F30-34   | 02:51:45     | 02:59:01       |
+ | Meghan Lederer  | 03:07:41    | F30-34   | 02:51:45     | 02:59:01       |
+ | Lauren Reasoner | 03:10:14    | F30-34   | 02:51:45     | 02:59:01       |
+ | Lisa Stelzner   | 02:54:11    | F35-39   | 02:54:11     | 03:01:17       |
+ | Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 03:01:17       |
+ | Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 03:01:17       |
+ | Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 03:01:17       |
+ *-----------------+-------------+----------+--------------+----------------*/
 ```
 
 ### `PERCENTILE_CONT`
@@ -666,7 +667,7 @@ To learn more about the `OVER` clause and how to use it, see
 <!-- mdlint on -->
 
 `PERCENTILE_CONT` can be used with differential privacy. To learn more, see
-[Differentially private aggregate functions][anonymization-functions].
+[Differentially private aggregate functions][dp-functions].
 
 **Supported Argument Types**
 
@@ -709,11 +710,11 @@ SELECT
   PERCENTILE_CONT(x, 1) OVER() AS max
 FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
-+-----+-------------+--------+--------------+-----+
-| min | percentile1 | median | percentile90 | max |
-+-----+-------------+--------+--------------+-----+
-| 0   | 0.03        | 1.5    | 2.7          | 3   |
-+-----+-------------+--------+--------------+-----+
+ /*-----+-------------+--------+--------------+-----*
+  | min | percentile1 | median | percentile90 | max |
+  +-----+-------------+--------+--------------+-----+
+  | 0   | 0.03        | 1.5    | 2.7          | 3   |
+  *-----+-------------+--------+--------------+-----+
 ```
 
 The following example computes the value for some percentiles from a column of
@@ -728,14 +729,14 @@ SELECT
   PERCENTILE_CONT(x, 1 RESPECT NULLS) OVER() AS max
 FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
-+------+-------------+--------+--------------+-----+
-| min  | percentile1 | median | percentile90 | max |
-+------+-------------+--------+--------------+-----+
-| NULL | 0           | 1      | 2.6          | 3   |
-+------+-------------+--------+--------------+-----+
+/*------+-------------+--------+--------------+-----*
+ | min  | percentile1 | median | percentile90 | max |
+ +------+-------------+--------+--------------+-----+
+ | NULL | 0           | 1      | 2.6          | 3   |
+ *------+-------------+--------+--------------+-----+
 ```
 
-[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
+[dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 ### `PERCENTILE_DISC`
 
@@ -797,14 +798,14 @@ SELECT
   PERCENTILE_DISC(x, 1) OVER() AS max
 FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
-+------+-----+--------+-----+
-| x    | min | median | max |
-+------+-----+--------+-----+
-| c    | a   | b      | c   |
-| NULL | a   | b      | c   |
-| b    | a   | b      | c   |
-| a    | a   | b      | c   |
-+------+-----+--------+-----+
+/*------+-----+--------+-----*
+ | x    | min | median | max |
+ +------+-----+--------+-----+
+ | c    | a   | b      | c   |
+ | NULL | a   | b      | c   |
+ | b    | a   | b      | c   |
+ | a    | a   | b      | c   |
+ *------+-----+--------+-----*/
 ```
 
 The following example computes the value for some percentiles from a column of
@@ -818,14 +819,14 @@ SELECT
   PERCENTILE_DISC(x, 1 RESPECT NULLS) OVER() AS max
 FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
-+------+------+--------+-----+
-| x    | min  | median | max |
-+------+------+--------+-----+
-| c    | NULL | a      | c   |
-| NULL | NULL | a      | c   |
-| b    | NULL | a      | c   |
-| a    | NULL | a      | c   |
-+------+------+--------+-----+
+/*------+------+--------+-----*
+ | x    | min  | median | max |
+ +------+------+--------+-----+
+ | c    | NULL | a      | c   |
+ | NULL | NULL | a      | c   |
+ | b    | NULL | a      | c   |
+ | a    | NULL | a      | c   |
+ *------+------+--------+-----*/
 
 ```
 

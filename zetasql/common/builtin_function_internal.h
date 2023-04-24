@@ -43,13 +43,14 @@ namespace zetasql {
 class FunctionSignatureOnHeap {
  public:
   FunctionSignatureOnHeap(FunctionArgumentType result_type,
-                          FunctionArgumentTypeList arguments, int64_t context_id)
+                          FunctionArgumentTypeList arguments,
+                          int64_t context_id)
       : signature_(new FunctionSignature(std::move(result_type),
                                          std::move(arguments), context_id)) {}
 
   FunctionSignatureOnHeap(FunctionArgumentType result_type,
-                          FunctionArgumentTypeList arguments, int64_t context_id,
-                          FunctionSignatureOptions options)
+                          FunctionArgumentTypeList arguments,
+                          int64_t context_id, FunctionSignatureOptions options)
       : signature_(new FunctionSignature(std::move(result_type),
                                          std::move(arguments), context_id,
                                          std::move(options))) {}

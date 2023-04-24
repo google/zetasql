@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Lexical structure and syntax
 
 A ZetaSQL statement comprises a series of tokens. Tokens include
@@ -502,8 +504,8 @@ single field, use typeless struct syntax or typed struct syntax.
 <td><code>STRUCT&lt;foo INT64, bar STRING&gt;</code></td>
 </tr>
 <tr>
-<td><code>STRUCT&lt;INT32, INT64&gt;(1, 2)</code></td>
-<td><code>STRUCT&lt;INT32, INT64&gt;</code></td>
+<td><code>STRUCT&lt;INT64, STRING&gt;(1, 'abc')</code></td>
+<td><code>STRUCT&lt;INT64, STRING&gt;</code></td>
 </tr>
 <tr>
 <td><code>STRUCT(1)</code></td>

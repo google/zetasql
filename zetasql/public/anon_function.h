@@ -23,6 +23,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -41,7 +42,7 @@ class AnonFunction : public Function {
   // three arguments with the second two being the CLAMPED BETWEEN clause. The
   // appropriate error message callbacks for rendering the function call with
   // CLAMPED BETWEEN syntax are automatically added.
-  AnonFunction(const std::string& name, const std::string& group,
+  AnonFunction(absl::string_view name, const std::string& group,
                const std::vector<FunctionSignature>& function_signatures,
                const FunctionOptions& function_options,
                const std::string& partial_aggregate_name);

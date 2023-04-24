@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # JSON functions
 
 ZetaSQL supports the following functions, which can retrieve and
@@ -242,21 +244,21 @@ Takes a JSON expression, extracts a JSON boolean, and returns that value as a SQ
 ```sql
 SELECT BOOL(JSON 'true') AS vacancy;
 
-+---------+
-| vacancy |
-+---------+
-| true    |
-+---------+
+/*---------*
+ | vacancy |
+ +---------+
+ | true    |
+ *---------*/
 ```
 
 ```sql
 SELECT BOOL(JSON_QUERY(JSON '{"hotel class": "5-star", "vacancy": true}', "$.vacancy")) AS vacancy;
 
-+---------+
-| vacancy |
-+---------+
-| true    |
-+---------+
+/*---------*
+ | vacancy |
+ +---------+
+ | true    |
+ *---------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -309,41 +311,41 @@ This argument accepts one of the two case-sensitive values:
 ```sql
 SELECT DOUBLE(JSON '9.8') AS velocity;
 
-+----------+
-| velocity |
-+----------+
-| 9.8      |
-+----------+
+/*----------*
+ | velocity |
+ +----------+
+ | 9.8      |
+ *----------*/
 ```
 
 ```sql
 SELECT DOUBLE(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
 
-+---------+
-| vo2_max |
-+---------+
-| 39.1    |
-+---------+
+/*---------*
+ | vo2_max |
+ +---------+
+ | 39.1    |
+ *---------*/
 ```
 
 ```sql
 SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'round') as result;
 
-+------------------------+
-| result                 |
-+------------------------+
-| 1.8446744073709552e+19 |
-+------------------------+
+/*------------------------*
+ | result                 |
+ +------------------------+
+ | 1.8446744073709552e+19 |
+ *------------------------*/
 ```
 
 ```sql
 SELECT DOUBLE(JSON '18446744073709551615') as result;
 
-+------------------------+
-| result                 |
-+------------------------+
-| 1.8446744073709552e+19 |
-+------------------------+
+/*------------------------*
+ | result                 |
+ +------------------------+
+ | 1.8446744073709552e+19 |
+ *------------------------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -393,31 +395,31 @@ INT64 domain, an error is produced.
 ```sql
 SELECT INT64(JSON '2005') AS flight_number;
 
-+---------------+
-| flight_number |
-+---------------+
-| 2005          |
-+---------------+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
 ```
 
 ```sql
 SELECT INT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
-+---------------+
-| flight_number |
-+---------------+
-| 2005          |
-+---------------+
+/*---------------*
+ | flight_number |
+ +---------------+
+ | 2005          |
+ *---------------*/
 ```
 
 ```sql
 SELECT INT64(JSON '10.0') AS score;
 
-+-------+
-| score |
-+-------+
-| 10    |
-+-------+
+/*-------*
+ | score |
+ +-------+
+ | 10    |
+ *-------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -428,7 +430,6 @@ SELECT INT64(JSON '10.1') AS result;  -- Throws an error
 SELECT INT64(JSON '"strawberry"') AS result; -- Throws an error
 SELECT INT64(JSON 'null') AS result; -- Throws an error
 SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
-
 ```
 
 ### `JSON_EXTRACT_SCALAR`
@@ -484,11 +485,11 @@ In the following example, `age` is extracted.
 ```sql
 SELECT JSON_EXTRACT_SCALAR(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
 
-+------------+
-| scalar_age |
-+------------+
-| 6          |
-+------------+
+/*------------*
+ | scalar_age |
+ +------------+
+ | 6          |
+ *------------*/
 ```
 
 The following example compares how results are returned for the `JSON_EXTRACT`
@@ -500,22 +501,22 @@ SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
   JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
   JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
 
-+-----------+-------------+----------+------------+
-| json_name | scalar_name | json_age | scalar_age |
-+-----------+-------------+----------+------------+
-| "Jakob"   | Jakob       | "6"      | 6          |
-+-----------+-------------+----------+------------+
+/*-----------+-------------+----------+------------*
+ | json_name | scalar_name | json_age | scalar_age |
+ +-----------+-------------+----------+------------+
+ | "Jakob"   | Jakob       | "6"      | 6          |
+ *-----------+-------------+----------+------------*/
 ```
 
 ```sql
 SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
   JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
 
-+--------------------+---------------------+
-| json_extract       | json_extract_scalar |
-+--------------------+---------------------+
-| ["apple","banana"] | NULL                |
-+--------------------+---------------------+
+/*--------------------+---------------------*
+ | json_extract       | json_extract_scalar |
+ +--------------------+---------------------+
+ | ["apple","banana"] | NULL                |
+ *--------------------+---------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -524,11 +525,11 @@ characters using single quotes and brackets, `[' ']`. For example:
 ```sql
 SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
+/*-------*
+ | hello |
+ +-------+
+ | world |
+ *-------*/
 ```
 
 [json-value]: #json_value
@@ -599,11 +600,11 @@ SELECT
   JSON_EXTRACT(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
   AS json_data;
 
-+-----------------------------------+
-| json_data                         |
-+-----------------------------------+
-| {"students":[{"id":5},{"id":12}]} |
-+-----------------------------------+
+/*-----------------------------------*
+ | json_data                         |
+ +-----------------------------------+
+ | {"students":[{"id":5},{"id":12}]} |
+ *-----------------------------------*/
 ```
 
 In the following examples, JSON data is extracted and returned as
@@ -617,13 +618,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-----------------------------------------------------------+
-| json_text_string                                          |
-+-----------------------------------------------------------+
-| {"class":{"students":[{"name":"Jane"}]}}                  |
-| {"class":{"students":[]}}                                 |
-| {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
-+-----------------------------------------------------------+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
+ | {"class":{"students":[{"name":"Jane"}]}}                  |
+ | {"class":{"students":[]}}                                 |
+ | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
+ *-----------------------------------------------------------*/
 ```
 
 ```sql
@@ -634,13 +635,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-----------------+
-| first_student   |
-+-----------------+
-| {"name":"Jane"} |
-| NULL            |
-| {"name":"John"} |
-+-----------------+
+/*-----------------*
+ | first_student   |
+ +-----------------+
+ | {"name":"Jane"} |
+ | NULL            |
+ | {"name":"John"} |
+ *-----------------*/
 ```
 
 ```sql
@@ -652,14 +653,14 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-------------------+
-| second_student    |
-+-------------------+
-| NULL              |
-| NULL              |
-| NULL              |
-| "Jamie"           |
-+-------------------+
+/*-------------------*
+ | second_student    |
+ +-------------------+
+ | NULL              |
+ | NULL              |
+ | NULL              |
+ | "Jamie"           |
+ *-------------------*/
 ```
 
 ```sql
@@ -670,13 +671,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+------------------------------------+
-| student_names                      |
-+------------------------------------+
-| [{"name":"Jane"}]                  |
-| []                                 |
-| [{"name":"John"},{"name":"Jamie"}] |
-+------------------------------------+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
+ | [{"name":"Jane"}]                  |
+ | []                                 |
+ | [{"name":"John"},{"name":"Jamie"}] |
+ *------------------------------------*/
 ```
 
 ```sql
@@ -745,11 +746,11 @@ SELECT JSON_QUERY_ARRAY(
   JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
   ) AS json_array;
 
-+---------------------------------+
-| json_array                      |
-+---------------------------------+
-| ["apples", "oranges", "grapes"] |
-+---------------------------------+
+/*---------------------------------*
+ | json_array                      |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
 ```
 
 This extracts the items in a JSON-formatted string to a string array:
@@ -757,11 +758,11 @@ This extracts the items in a JSON-formatted string to a string array:
 ```sql
 SELECT JSON_QUERY_ARRAY('[1,2,3]') AS string_array;
 
-+--------------+
-| string_array |
-+--------------+
-| [1, 2, 3]    |
-+--------------+
+/*--------------*
+ | string_array |
+ +--------------+
+ | [1, 2, 3]    |
+ *--------------*/
 ```
 
 This extracts a string array and converts it to an integer array:
@@ -774,11 +775,11 @@ SELECT ARRAY(
   ) AS integer_element
 ) AS integer_array;
 
-+---------------+
-| integer_array |
-+---------------+
-| [1, 2, 3]     |
-+---------------+
+/*---------------*
+ | integer_array |
+ +---------------+
+ | [1, 2, 3]     |
+ *---------------*/
 ```
 
 This extracts string values in a JSON-formatted string to an array:
@@ -787,11 +788,11 @@ This extracts string values in a JSON-formatted string to an array:
 -- Doesn't strip the double quotes
 SELECT JSON_QUERY_ARRAY('["apples","oranges","grapes"]', '$') AS string_array;
 
-+---------------------------------+
-| string_array                    |
-+---------------------------------+
-| ["apples", "oranges", "grapes"] |
-+---------------------------------+
+/*---------------------------------*
+ | string_array                    |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
 
 -- Strips the double quotes
 SELECT ARRAY(
@@ -799,11 +800,11 @@ SELECT ARRAY(
   FROM UNNEST(JSON_QUERY_ARRAY('["apples","oranges","grapes"]','$')) AS string_element
 ) AS string_array;
 
-+---------------------------+
-| string_array              |
-+---------------------------+
-| [apples, oranges, grapes] |
-+---------------------------+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
 ```
 
 This extracts only the items in the `fruit` property to an array:
@@ -814,11 +815,11 @@ SELECT JSON_QUERY_ARRAY(
   '$.fruit'
 ) AS string_array;
 
-+-------------------------------------------------------+
-| string_array                                          |
-+-------------------------------------------------------+
-| [{"apples":5,"oranges":10}, {"apples":2,"oranges":4}] |
-+-------------------------------------------------------+
+/*-------------------------------------------------------*
+ | string_array                                          |
+ +-------------------------------------------------------+
+ | [{"apples":5,"oranges":10}, {"apples":2,"oranges":4}] |
+ *-------------------------------------------------------*/
 ```
 
 These are equivalent:
@@ -829,11 +830,11 @@ SELECT JSON_QUERY_ARRAY('{"fruits":["apples","oranges","grapes"]}','$.fruits') A
 SELECT JSON_QUERY_ARRAY('{"fruits":["apples","oranges","grapes"]}','$."fruits"') AS string_array;
 
 -- The queries above produce the following result:
-+---------------------------------+
-| string_array                    |
-+---------------------------------+
-| ["apples", "oranges", "grapes"] |
-+---------------------------------+
+/*---------------------------------*
+ | string_array                    |
+ +---------------------------------+
+ | ["apples", "oranges", "grapes"] |
+ *---------------------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -842,11 +843,11 @@ characters using double quotes: `" "`. For example:
 ```sql
 SELECT JSON_QUERY_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 
-+-----------+
-| hello     |
-+-----------+
-| ["world"] |
-+-----------+
+/*-----------*
+ | hello     |
+ +-----------+
+ | ["world"] |
+ *-----------*/
 ```
 
 The following examples show how invalid requests and empty arrays are handled:
@@ -858,29 +859,29 @@ SELECT JSON_QUERY_ARRAY('["foo","bar","baz"]','INVALID_JSONPath') AS result;
 -- If the JSONPath does not refer to an array, then NULL is returned.
 SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.a') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a key that does not exist is specified, then the result is NULL.
 SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.b') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- Empty arrays in JSON-formatted strings are supported.
 SELECT JSON_QUERY_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 
-+--------+
-| result |
-+--------+
-| []     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | []     |
+ *--------*/
 ```
 
 [JSONPath-format]: #JSONPath_format
@@ -947,11 +948,11 @@ SELECT
   JSON_QUERY(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
   AS json_data;
 
-+-----------------------------------+
-| json_data                         |
-+-----------------------------------+
-| {"students":[{"id":5},{"id":12}]} |
-+-----------------------------------+
+/*-----------------------------------*
+ | json_data                         |
+ +-----------------------------------+
+ | {"students":[{"id":5},{"id":12}]} |
+ *-----------------------------------*/
 ```
 
 In the following examples, JSON data is extracted and returned as
@@ -965,13 +966,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-----------------------------------------------------------+
-| json_text_string                                          |
-+-----------------------------------------------------------+
-| {"class":{"students":[{"name":"Jane"}]}}                  |
-| {"class":{"students":[]}}                                 |
-| {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
-+-----------------------------------------------------------+
+/*-----------------------------------------------------------*
+ | json_text_string                                          |
+ +-----------------------------------------------------------+
+ | {"class":{"students":[{"name":"Jane"}]}}                  |
+ | {"class":{"students":[]}}                                 |
+ | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
+ *-----------------------------------------------------------*/
 ```
 
 ```sql
@@ -982,13 +983,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-----------------+
-| first_student   |
-+-----------------+
-| {"name":"Jane"} |
-| NULL            |
-| {"name":"John"} |
-+-----------------+
+/*-----------------*
+ | first_student   |
+ +-----------------+
+ | {"name":"Jane"} |
+ | NULL            |
+ | {"name":"John"} |
+ *-----------------*/
 ```
 
 ```sql
@@ -1000,14 +1001,14 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+-------------------+
-| second_student    |
-+-------------------+
-| NULL              |
-| NULL              |
-| NULL              |
-| "Jamie"           |
-+-------------------+
+/*-------------------*
+ | second_student    |
+ +-------------------+
+ | NULL              |
+ | NULL              |
+ | NULL              |
+ | "Jamie"           |
+ *-------------------*/
 ```
 
 ```sql
@@ -1018,13 +1019,13 @@ FROM UNNEST([
   '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
   ]) AS json_text;
 
-+------------------------------------+
-| student_names                      |
-+------------------------------------+
-| [{"name":"Jane"}]                  |
-| []                                 |
-| [{"name":"John"},{"name":"Jamie"}] |
-+------------------------------------+
+/*------------------------------------*
+ | student_names                      |
+ +------------------------------------+
+ | [{"name":"Jane"}]                  |
+ | []                                 |
+ | [{"name":"John"},{"name":"Jamie"}] |
+ *------------------------------------*/
 ```
 
 ```sql
@@ -1090,17 +1091,17 @@ FROM
     ]
   ) AS json_val;
 
-+----------------------------------+---------+
-| json_val                         | type    |
-+----------------------------------+---------+
-| "apple"                          | string  |
-| 10                               | number  |
-| 3.14                             | number  |
-| null                             | null    |
-| {"State":"NY","city":"New York"} | object  |
-| ["apple","banana"]               | array   |
-| false                            | boolean |
-+----------------------------------+---------+
+/*----------------------------------+---------*
+ | json_val                         | type    |
+ +----------------------------------+---------+
+ | "apple"                          | string  |
+ | 10                               | number  |
+ | 3.14                             | number  |
+ | null                             | null    |
+ | {"State":"NY","city":"New York"} | object  |
+ | ["apple","banana"]               | array   |
+ | false                            | boolean |
+ *----------------------------------+---------*/
 ```
 
 ### `JSON_VALUE`
@@ -1154,11 +1155,11 @@ In the following example, JSON data is extracted and returned as a scalar value.
 ```sql
 SELECT JSON_VALUE(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
 
-+------------+
-| scalar_age |
-+------------+
-| 6          |
-+------------+
+/*------------*
+ | scalar_age |
+ +------------+
+ | 6          |
+ *------------*/
 ```
 
 The following example compares how results are returned for the `JSON_QUERY`
@@ -1170,22 +1171,22 @@ SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
   JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
   JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
 
-+-----------+-------------+----------+------------+
-| json_name | scalar_name | json_age | scalar_age |
-+-----------+-------------+----------+------------+
-| "Jakob"   | Jakob       | "6"      | 6          |
-+-----------+-------------+----------+------------+
+/*-----------+-------------+----------+------------*
+ | json_name | scalar_name | json_age | scalar_age |
+ +-----------+-------------+----------+------------+
+ | "Jakob"   | Jakob       | "6"      | 6          |
+ *-----------+-------------+----------+------------*/
 ```
 
 ```sql
 SELECT JSON_QUERY('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_query,
   JSON_VALUE('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_value;
 
-+--------------------+------------+
-| json_query         | json_value |
-+--------------------+------------+
-| ["apple","banana"] | NULL       |
-+--------------------+------------+
+/*--------------------+------------*
+ | json_query         | json_value |
+ +--------------------+------------+
+ | ["apple","banana"] | NULL       |
+ *--------------------+------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -1194,11 +1195,11 @@ characters using double quotes. For example:
 ```sql
 SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
+/*-------*
+ | hello |
+ +-------+
+ | world |
+ *-------*/
 ```
 
 [JSONPath-format]: #JSONPath_format
@@ -1260,11 +1261,11 @@ SELECT JSON_VALUE_ARRAY(
   JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
   ) AS string_array;
 
-+---------------------------+
-| string_array              |
-+---------------------------+
-| [apples, oranges, grapes] |
-+---------------------------+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
 ```
 
 The following example compares how results are returned for the
@@ -1274,11 +1275,11 @@ The following example compares how results are returned for the
 SELECT JSON_QUERY_ARRAY('["apples","oranges"]') AS json_array,
        JSON_VALUE_ARRAY('["apples","oranges"]') AS string_array;
 
-+-----------------------+-------------------+
-| json_array            | string_array      |
-+-----------------------+-------------------+
-| ["apples", "oranges"] | [apples, oranges] |
-+-----------------------+-------------------+
+/*-----------------------+-------------------*
+ | json_array            | string_array      |
+ +-----------------------+-------------------+
+ | ["apples", "oranges"] | [apples, oranges] |
+ *-----------------------+-------------------*/
 ```
 
 This extracts the items in a JSON-formatted string to a string array:
@@ -1287,11 +1288,11 @@ This extracts the items in a JSON-formatted string to a string array:
 -- Strips the double quotes
 SELECT JSON_VALUE_ARRAY('["foo","bar","baz"]','$') AS string_array;
 
-+-----------------+
-| string_array    |
-+-----------------+
-| [foo, bar, baz] |
-+-----------------+
+/*-----------------*
+ | string_array    |
+ +-----------------+
+ | [foo, bar, baz] |
+ *-----------------*/
 ```
 
 This extracts a string array and converts it to an integer array:
@@ -1304,11 +1305,11 @@ SELECT ARRAY(
   ) AS integer_element
 ) AS integer_array;
 
-+---------------+
-| integer_array |
-+---------------+
-| [1, 2, 3]     |
-+---------------+
+/*---------------*
+ | integer_array |
+ +---------------+
+ | [1, 2, 3]     |
+ *---------------*/
 ```
 
 These are equivalent:
@@ -1318,11 +1319,11 @@ SELECT JSON_VALUE_ARRAY('{"fruits":["apples","oranges","grapes"]}','$.fruits') A
 SELECT JSON_VALUE_ARRAY('{"fruits":["apples","oranges","grapes"]}','$."fruits"') AS string_array;
 
 -- The queries above produce the following result:
-+---------------------------+
-| string_array              |
-+---------------------------+
-| [apples, oranges, grapes] |
-+---------------------------+
+/*---------------------------*
+ | string_array              |
+ +---------------------------+
+ | [apples, oranges, grapes] |
+ *---------------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -1331,11 +1332,11 @@ characters using double quotes: `" "`. For example:
 ```sql
 SELECT JSON_VALUE_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 
-+---------+
-| hello   |
-+---------+
-| [world] |
-+---------+
+/*---------*
+ | hello   |
+ +---------+
+ | [world] |
+ *---------*/
 ```
 
 The following examples explore how invalid requests and empty arrays are
@@ -1348,76 +1349,76 @@ SELECT JSON_VALUE_ARRAY('["foo","bar","baz"]','INVALID_JSONPath') AS result;
 -- If the JSON-formatted string is invalid, then NULL is returned.
 SELECT JSON_VALUE_ARRAY('}}','$') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If the JSON document is NULL, then NULL is returned.
 SELECT JSON_VALUE_ARRAY(NULL,'$') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath does not match anything, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a":["foo","bar","baz"]}','$.b') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath matches an object that is not an array, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a":"foo"}','$') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath matches an array of non-scalar objects, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a":[{"b":"foo","c":1},{"b":"bar","c":2}],"d":"baz"}','$.a') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath matches an array of mixed scalar and non-scalar objects,
 -- then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a":[10, {"b": 20}]','$.a') AS result;
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 
 -- If a JSONPath matches an empty JSON array, then the output is an empty array instead of NULL.
 SELECT JSON_VALUE_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 
-+--------+
-| result |
-+--------+
-| []     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | []     |
+ *--------*/
 
 -- In the following query, the JSON null input is returned as a
 -- SQL NULL in the output.
 SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 
-+------------------+
-| result           |
-+------------------+
-| [world, NULL, 1] |
-+------------------+
+/*------------------*
+ | result           |
+ +------------------+
+ | [world, NULL, 1] |
+ *------------------*/
 
 ```
 
@@ -1470,11 +1471,11 @@ In the following example, a JSON-formatted string is converted to `JSON`.
 ```sql
 SELECT PARSE_JSON('{"coordinates":[10,20],"id":1}') AS json_data;
 
-+--------------------------------+
-| json_data                      |
-+--------------------------------+
-| {"coordinates":[10,20],"id":1} |
-+--------------------------------+
+/*--------------------------------*
+ | json_data                      |
+ +--------------------------------+
+ | {"coordinates":[10,20],"id":1} |
+ *--------------------------------*/
 ```
 
 The following queries fail because:
@@ -1493,11 +1494,11 @@ The following query rounds the number to a number that can be stored in JSON.
 ```sql
 SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'round') AS json_data;
 
-+--------------------------------+
-| json_data                      |
-+--------------------------------+
-| {"id":9.223372036854776e+20}   |
-+--------------------------------+
+/*--------------------------------*
+ | json_data                      |
+ +--------------------------------+
+ | {"id":9.223372036854776e+20}   |
+ *--------------------------------*/
 ```
 
 ### `STRING` 
@@ -1528,21 +1529,21 @@ Takes a JSON expression, extracts a JSON string, and returns that value as a SQL
 ```sql
 SELECT STRING(JSON '"purple"') AS color;
 
-+--------+
-| color  |
-+--------+
-| purple |
-+--------+
+/*--------*
+ | color  |
+ +--------+
+ | purple |
+ *--------*/
 ```
 
 ```sql
 SELECT STRING(JSON_QUERY(JSON '{"name": "sky", "color": "blue"}', "$.color")) AS color;
 
-+-------+
-| color |
-+-------+
-| blue  |
-+-------+
+/*-------*
+ | color |
+ +-------+
+ | blue  |
+ *-------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -1587,13 +1588,13 @@ With CoordinatesTable AS (
 SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
 FROM CoordinatesTable AS t;
 
-+----+-------------+--------------------------------+
-| id | coordinates | json_data                      |
-+----+-------------+--------------------------------+
-| 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
-| 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
-| 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
-+----+-------------+--------------------------------+
+/*----+-------------+--------------------------------*
+ | id | coordinates | json_data                      |
+ +----+-------------+--------------------------------+
+ | 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
+ | 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
+ | 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
+ *----+-------------+--------------------------------*/
 ```
 
 Convert rows in a table to JSON-formatted strings that are easy to read.
@@ -1605,25 +1606,25 @@ With CoordinatesTable AS (
 SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
 FROM CoordinatesTable AS t;
 
-+----+-------------+--------------------+
-| id | coordinates | json_data          |
-+----+-------------+--------------------+
-| 1  | [10, 20]    | {                  |
-|    |             |   "id": 1,         |
-|    |             |   "coordinates": [ |
-|    |             |     10,            |
-|    |             |     20             |
-|    |             |   ]                |
-|    |             | }                  |
-+----+-------------+--------------------+
-| 2  | [30, 40]    | {                  |
-|    |             |   "id": 2,         |
-|    |             |   "coordinates": [ |
-|    |             |     30,            |
-|    |             |     40             |
-|    |             |   ]                |
-|    |             | }                  |
-+----+-------------+--------------------+
+/*----+-------------+--------------------*
+ | id | coordinates | json_data          |
+ +----+-------------+--------------------+
+ | 1  | [10, 20]    | {                  |
+ |    |             |   "id": 1,         |
+ |    |             |   "coordinates": [ |
+ |    |             |     10,            |
+ |    |             |     20             |
+ |    |             |   ]                |
+ |    |             | }                  |
+ +----+-------------+--------------------+
+ | 2  | [30, 40]    | {                  |
+ |    |             |   "id": 2,         |
+ |    |             |   "coordinates": [ |
+ |    |             |     30,            |
+ |    |             |     40             |
+ |    |             |   ]                |
+ |    |             | }                  |
+ *----+-------------+--------------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -1679,13 +1680,13 @@ With CoordinatesTable AS (
 SELECT TO_JSON(t) AS json_objects
 FROM CoordinatesTable AS t;
 
-+--------------------------------+
-| json_objects                   |
-+--------------------------------+
-| {"coordinates":[10,20],"id":1} |
-| {"coordinates":[30,40],"id":2} |
-| {"coordinates":[50,60],"id":3} |
-+--------------------------------+
+/*--------------------------------*
+ | json_objects                   |
+ +--------------------------------+
+ | {"coordinates":[10,20],"id":1} |
+ | {"coordinates":[30,40],"id":2} |
+ | {"coordinates":[50,60],"id":3} |
+ *--------------------------------*/
 ```
 
 In the following example, the query returns a large numerical value as a
@@ -1694,11 +1695,11 @@ JSON string.
 ```sql
 SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on
 
-+--------------------+
-| stringify_on       |
-+--------------------+
-| "9007199254740993" |
-+--------------------+
+/*--------------------*
+ | stringify_on       |
+ +--------------------+
+ | "9007199254740993" |
+ *--------------------*/
 ```
 
 In the following example, both queries return a large numerical value as a
@@ -1708,11 +1709,11 @@ JSON number.
 SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off
 SELECT TO_JSON(9007199254740993) as stringify_off
 
-+------------------+
-| stringify_off    |
-+------------------+
-| 9007199254740993 |
-+------------------+
+/*------------------*
+ | stringify_off    |
+ +------------------+
+ | 9007199254740993 |
+ *------------------*/
 ```
 
 In the following example, only large numeric values are converted to
@@ -1725,12 +1726,12 @@ With T1 AS (
 SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
 FROM T1 AS t;
 
-+---------------------------+
-| json_objects              |
-+---------------------------+
-| {"id":"9007199254740993"} |
-| {"id":2}                  |
-+---------------------------+
+/*---------------------------*
+ | json_objects              |
+ +---------------------------+
+ | {"id":"9007199254740993"} |
+ | {"id":2}                  |
+ *---------------------------*/
 ```
 
 In this example, the values `9007199254740993` (`INT64`)
@@ -1745,12 +1746,12 @@ With T1 AS (
 SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
 FROM T1 AS t;
 
-+------------------------------+
-| json_objects                 |
-+------------------------------+
-| {"id":9.007199254740992e+15} |
-| {"id":2.1}                   |
-+------------------------------+
+/*------------------------------*
+ | json_objects                 |
+ +------------------------------+
+ | {"id":9.007199254740992e+15} |
+ | {"id":2.1}                   |
+ *------------------------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -2324,11 +2325,11 @@ For example:
 ```sql
 SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
 
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
+/*-------*
+ | hello |
+ +-------+
+ | world |
+ *-------*/
 ```
 
 ```sql
@@ -2347,21 +2348,21 @@ parsing.
 ```sql
 SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
 
-+-------------------+
-| string            |
-+-------------------+
-| {"key":1,"key":2} |
-+-------------------+
+/*-------------------*
+ | string            |
+ +-------------------+
+ | {"key":1,"key":2} |
+ *-------------------*/
 ```
 
 ```sql
 SELECT JSON_QUERY(JSON '{"key": 1, "key": 2}', "$") AS json;
 
-+-----------+
-| json      |
-+-----------+
-| {"key":1} |
-+-----------+
+/*-----------*
+ | json      |
+ +-----------+
+ | {"key":1} |
+ *-----------*/
 ```
 
 #### JSON `null`
@@ -2381,11 +2382,11 @@ SELECT JSON_QUERY(json_string, "$.name") AS name_string,
   JSON_QUERY(json, "$.name") IS NULL AS name_json_is_null
 FROM t;
 
-+-------------+---------------------+-----------+-------------------+
-| name_string | name_string_is_null | name_json | name_json_is_null |
-+-------------+---------------------+-----------+-------------------+
-| NULL        | true                | null      | false             |
-+-------------+---------------------+-----------+-------------------+
+/*-------------+---------------------+-----------+-------------------*
+ | name_string | name_string_is_null | name_json | name_json_is_null |
+ +-------------+---------------------+-----------+-------------------+
+ | NULL        | true                | null      | false             |
+ *-------------+---------------------+-----------+-------------------*/
 ```
 
 [JSONPath-format]: #JSONPath_format

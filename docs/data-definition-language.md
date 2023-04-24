@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Data definition language
 
 ZetaSQL specifies the syntax for data definition language (DDL)
@@ -39,11 +41,11 @@ CREATE DATABASE library OPTIONS(
   owner='libadmin'
 );
 
-+--------------------+
-| Database           |
-+--------------------+
-| library            |
-+--------------------+
+/*--------------------*
+ | Database           |
+ +--------------------+
+ | library            |
+ *--------------------*/
 ```
 
 <a id="create_table_statement"></a>
@@ -752,11 +754,11 @@ Use it in a statement:
 ```sql
 SELECT (DEFAULT_HEIGHT + 5) AS result;
 
-+--------+
-| result |
-+--------+
-| 30     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 30     |
+ *--------*/
 ```
 
 ### `CREATE AGGREGATE FUNCTION`

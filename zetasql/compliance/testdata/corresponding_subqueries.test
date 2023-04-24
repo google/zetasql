@@ -1,0 +1,5476 @@
+# This file tests nested subqueries for CORRESPONDING, specifically it
+# alternates:
+# - which set operation item (1st or 2nd) is a subquery.
+# - operation types for the query and subquery, e.g. UNION ALL, EXCEPT DISTINCT
+# - column match modes for the query and subquery, e.g. BY_POSITION and
+#   CORRESPONDING
+# - column orders
+
+[default required_features=V_1_4_CORRESPONDING]
+[prepare_database]
+CREATE TABLE Manual1 AS
+SELECT CAST(1 AS INT32) AS int32_val, CAST(10 AS INT64) AS int64_val
+UNION ALL
+SELECT CAST(2 AS INT32) AS int32_val, CAST(20 AS INT64) AS int64_val
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+==
+[prepare_database]
+CREATE TABLE Manual2 AS
+SELECT CAST(1 AS INT32) AS int32_val, CAST(10 AS INT64) AS int64_val
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}]
+==
+# Table1 contains a column for each primitive data type.
+# This means no enums, structs and arrays.
+# Each column has 9 rows of data with different repeated counts.
+# 1, 1, 1, 2, 2, 3, 4, NULL, NULL
+[prepare_database]
+CREATE TABLE Table1 AS
+SELECT cast(1 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-1 as int32) as int32_val, cast(-1 as int64) as int64_val,
+       cast(1 as uint32) as uint32_val, cast(1 as uint64) as uint64_val,
+       cast(0.1 as float) as float_val, cast(0.1 as double) as double_val,
+       cast("1" as string) as str_val, CAST("1" as bytes) as bytes_val
+UNION ALL
+SELECT cast(2 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-1 as int32) as int32_val, cast(-1 as int64) as int64_val,
+       cast(1 as uint32) as uint32_val, cast(1 as uint64) as uint64_val,
+       cast(0.1 as float) as float_val, cast(0.1 as double) as double_val,
+       cast("1" as string) as str_val, CAST("1" as bytes) as bytes_val
+UNION ALL
+SELECT cast(3 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-1 as int32) as int32_val, cast(-1 as int64) as int64_val,
+       cast(1 as uint32) as uint32_val, cast(1 as uint64) as uint64_val,
+       cast(0.1 as float) as float_val, cast(0.1 as double) as double_val,
+       cast("1" as string) as str_val, CAST("1" as bytes) as bytes_val
+UNION ALL
+SELECT cast(4 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-2 as int32) as int32_val, cast(-2 as int64) as int64_val,
+       cast(2 as uint32) as uint32_val, cast(2 as uint64) as uint64_val,
+       cast(0.2 as float) as float_val, cast(0.2 as double) as double_val,
+       cast("2" as string) as str_val, CAST("2" as bytes) as bytes_val
+UNION ALL
+SELECT cast(5 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-2 as int32) as int32_val, cast(-2 as int64) as int64_val,
+       cast(2 as uint32) as uint32_val, cast(2 as uint64) as uint64_val,
+       cast(0.2 as float) as float_val, cast(0.2 as double) as double_val,
+       cast("2" as string) as str_val, CAST("2" as bytes) as bytes_val
+UNION ALL
+SELECT cast(6 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-3 as int32) as int32_val, cast(-3 as int64) as int64_val,
+       cast(3 as uint32) as uint32_val, cast(3 as uint64) as uint64_val,
+       cast(0.3 as float) as float_val, cast(0.3 as double) as double_val,
+       cast("3" as string) as str_val, CAST("3" as bytes) as bytes_val
+UNION ALL
+SELECT cast(7 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-4 as int32) as int32_val, cast(-4 as int64) as int64_val,
+       cast(4 as uint32) as uint32_val, cast(4 as uint64) as uint64_val,
+       cast(0.4 as float) as float_val, cast(0.4 as double) as double_val,
+       cast("4" as string) as str_val, CAST("4" as bytes) as bytes_val
+UNION ALL
+SELECT cast(8 as int64) as primary_key, cast(NULL as bool) as bool_val,
+       cast(NULL as int32) as int32_val, cast(NULL as int64) as int64_val,
+       cast(NULL as uint32) as uint32_val, cast(NULL as uint64) as uint64_val,
+       cast(NULL as float) as float_val, cast(NULL as double) as double_val,
+       cast(NULL as string) as str_val, CAST(NULL as bytes) as bytes_val
+UNION ALL
+SELECT cast(9 as int64) as primary_key, cast(NULL as bool) as bool_val,
+       cast(NULL as int32) as int32_val, cast(NULL as int64) as int64_val,
+       cast(NULL as uint32) as uint32_val, cast(NULL as uint64) as uint64_val,
+       cast(NULL as float) as float_val, cast(NULL as double) as double_val,
+       cast(NULL as string) as str_val, CAST(NULL as bytes) as bytes_val
+--
+ARRAY<STRUCT<primary_key INT64,
+             bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             float_val FLOAT,
+             double_val DOUBLE,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {1, true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {2, true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {3, true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {4, false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {5, false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {6, true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"},
+  {7, false, -4, -4, 4, 4, 0.4, 0.4, "4", b"4"},
+  {8, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {9, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+]
+==
+# Table2 contains a column for each primitive data type.
+# This means no enums, structs and arrays.
+# Each column has 8 rows of data with different repeated counts.
+# 3, 3, 3, 2, 2, 1, 0, NULL
+[prepare_database]
+CREATE TABLE Table2 AS
+SELECT cast(1 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-3 as int32) as int32_val, cast(-3 as int64) as int64_val,
+       cast(3 as uint32) as uint32_val, cast(3 as uint64) as uint64_val,
+       cast(0.3 as float) as float_val, cast(0.3 as double) as double_val,
+       cast("3" as string) as str_val, CAST("3" as bytes) as bytes_val
+UNION ALL
+SELECT cast(2 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-3 as int32) as int32_val, cast(-3 as int64) as int64_val,
+       cast(3 as uint32) as uint32_val, cast(3 as uint64) as uint64_val,
+       cast(0.3 as float) as float_val, cast(0.3 as double) as double_val,
+       cast("3" as string) as str_val, CAST("3" as bytes) as bytes_val
+UNION ALL
+SELECT cast(3 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-3 as int32) as int32_val, cast(-3 as int64) as int64_val,
+       cast(3 as uint32) as uint32_val, cast(3 as uint64) as uint64_val,
+       cast(0.3 as float) as float_val, cast(0.3 as double) as double_val,
+       cast("3" as string) as str_val, CAST("3" as bytes) as bytes_val
+UNION ALL
+SELECT cast(4 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-2 as int32) as int32_val, cast(-2 as int64) as int64_val,
+       cast(2 as uint32) as uint32_val, cast(2 as uint64) as uint64_val,
+       cast(0.2 as float) as float_val, cast(0.2 as double) as double_val,
+       cast("2" as string) as str_val, CAST("2" as bytes) as bytes_val
+UNION ALL
+SELECT cast(5 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-2 as int32) as int32_val, cast(-2 as int64) as int64_val,
+       cast(2 as uint32) as uint32_val, cast(2 as uint64) as uint64_val,
+       cast(0.2 as float) as float_val, cast(0.2 as double) as double_val,
+       cast("2" as string) as str_val, CAST("2" as bytes) as bytes_val
+UNION ALL
+SELECT cast(6 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-1 as int32) as int32_val, cast(-1 as int64) as int64_val,
+       cast(1 as uint32) as uint32_val, cast(1 as uint64) as uint64_val,
+       cast(0.1 as float) as float_val, cast(0.1 as double) as double_val,
+       cast("1" as string) as str_val, CAST("1" as bytes) as bytes_val
+UNION ALL
+SELECT cast(7 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(0 as int32) as int32_val, cast(0 as int64) as int64_val,
+       cast(0 as uint32) as uint32_val, cast(0 as uint64) as uint64_val,
+       cast(0.0 as float) as float_val, cast(0.0 as double) as double_val,
+       cast("0" as string) as str_val, CAST("0" as bytes) as bytes_val
+UNION ALL
+SELECT cast(8 as int64) as primary_key, cast(NULL as bool) as bool_val,
+       cast(NULL as int32) as int32_val, cast(NULL as int64) as int64_val,
+       cast(NULL as uint32) as uint32_val, cast(NULL as uint64) as uint64_val,
+       cast(NULL as float) as float_val, cast(NULL as double) as double_val,
+       cast(NULL as string) as str_val, CAST(NULL as bytes) as bytes_val
+--
+ARRAY<STRUCT<primary_key INT64,
+             bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             float_val FLOAT,
+             double_val DOUBLE,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {1, true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"},
+  {2, true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"},
+  {3, true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"},
+  {4, false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {5, false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {6, true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {7, false, 0, 0, 0, 0, 0, 0, "0", b"0"},
+  {8, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+]
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[
+  {2, 20},
+  {1, 10},
+  {1, 10},
+  {10, 1},
+  {20, 2}
+]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_by_position_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[
+  {10, 1},
+  {20, 2},
+  {2, 20},
+  {1, 10},
+  {1, 10}
+]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {0, 0, 0},
+  {NULL, NULL, NULL},
+  {-4, -4, 0.40000000596046448},
+  {-1, -1, 0.10000000149011612},
+  {-2, -2, 0.20000000298023224},
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-2, -2, 0.20000000298023224},
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612},
+  {-3, -3, 0.30000001192092896},
+  {-3, -3, 0.30000001192092896},
+  {-1, -1, 0.10000000149011612},
+  {-1, -1, 0.10000000149011612},
+  {NULL, NULL, NULL},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL}
+]
+==
+[name=parenthesized_outer_inner_union_all_by_position_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {0, 0, 0},
+  {NULL, NULL, NULL},
+  {-4, -4, 0.40000000596046448},
+  {-1, -1, 0.10000000149011612},
+  {-2, -2, 0.20000000298023224},
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-2, -2, 0.20000000298023224},
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612},
+  {-3, -3, 0.30000001192092896},
+  {-3, -3, 0.30000001192092896},
+  {-1, -1, 0.10000000149011612},
+  {-1, -1, 0.10000000149011612},
+  {NULL, NULL, NULL}
+]
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[
+  {1, 10},
+  {2, 20},
+  {1, 10},
+  {2, 20},
+  {1, 10}
+]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_corresponding_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[
+  {20, 2},
+  {10, 1},
+  {10, 1},
+  {20, 2},
+  {10, 1}
+]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {0, 0, 0},
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-4, -4, 0.4},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1},
+  {-3, -3, 0.3},
+  {-2, -2, 0.2},
+  {-1, -1, 0.1},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-3, -3, 0.3},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-4, -4, 0.4},
+  {NULL, NULL, NULL}
+]
+==
+[name=parenthesized_outer_inner_union_all_corresponding_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-3, 0.3, -3},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-4, 0.4, -4},
+  {NULL, NULL, NULL},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {0, 0, 0},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-4, 0.4, -4},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1},
+  {-3, 0.3, -3},
+  {-2, 0.2, -2},
+  {-1, 0.1, -1},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL}
+]
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[
+  {1, 10},
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_by_position_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[
+  {1, 10},
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.40000000596046448},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, -2, 0.20000000298023224},
+  {-2, 0.20000000298023224, -2},
+  {-1, -1, 0.10000000149011612},
+  {-1, 0.10000000149011612, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_by_position_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.40000000596046448},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, -2, 0.20000000298023224},
+  {-2, 0.20000000298023224, -2},
+  {-1, -1, 0.10000000149011612},
+  {-1, 0.10000000149011612, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.4},
+  {-3, -3, 0.3},
+  {-2, -2, 0.2},
+  {-1, -1, 0.1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_corresponding_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {NULL, NULL, NULL},
+  {-4, 0.4, -4},
+  {-3, 0.3, -3},
+  {-2, 0.2, -2},
+  {-1, 0.1, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_by_position_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_by_position_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_corresponding_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-4, -4, 0.4},
+  {-2, -2, 0.2},
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_corresponding_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_by_position_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_by_position_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_corresponding_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-4, -4, 0.4},
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_corresponding_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {1, 10}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_by_position_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{20, 2}, {10, 1}]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-4, -4, 0.40000000596046448},
+  {-3, -3, 0.30000001192092896},
+  {-3, -3, 0.30000001192092896},
+  {-3, -3, 0.30000001192092896},
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-2, -2, 0.20000000298023224},
+  {-2, -2, 0.20000000298023224},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612},
+  {-1, -1, 0.10000000149011612},
+  {-1, -1, 0.10000000149011612},
+  {-1, -1, 0.10000000149011612},
+  {0, 0, 0},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_by_position_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_corresponding_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-2, -2, 0.2},
+  {-2, -2, 0.2},
+  {0, 0, 0},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-3, -3, 0.3},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_corresponding_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_by_position_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{20, 2}, {10, 1}]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-4, -4, 0.40000000596046448},
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_by_position_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_all_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_corresponding_union_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[]
+==
+[name=parenthesized_inner_outer_union_all_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[{0, 0, 0}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_corresponding_union_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[
+  {1, 10},
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_by_position_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[
+  {10, 1},
+  {20, 2},
+  {1, 10},
+  {2, 20}
+]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-2, -2, 0.20000000298023224},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.10000000149011612},
+  {-4, -4, 0.40000000596046448},
+  {0, 0, 0},
+  {-3, -3, 0.30000001192092896},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_by_position_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-2, -2, 0.20000000298023224},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.10000000149011612},
+  {-4, -4, 0.40000000596046448},
+  {0, 0, 0},
+  {-3, -3, 0.30000001192092896}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[
+  {2, 20},
+  {1, 10},
+  {2, 20},
+  {1, 10}
+]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_corresponding_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[
+  {20, 2},
+  {10, 1},
+  {20, 2},
+  {10, 1}
+]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-4, -4, 0.4},
+  {-2, -2, 0.2},
+  {0, 0, 0},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-3, -3, 0.3},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-4, -4, 0.4},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_corresponding_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-3, 0.3, -3},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-4, 0.4, -4},
+  {NULL, NULL, NULL},
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {0, 0, 0},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[
+  {1, 10},
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_by_position_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[
+  {1, 10},
+  {2, 20},
+  {10, 1},
+  {20, 2}
+]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.40000000596046448},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, -2, 0.20000000298023224},
+  {-2, 0.20000000298023224, -2},
+  {-1, -1, 0.10000000149011612},
+  {-1, 0.10000000149011612, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_by_position_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.40000000596046448},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, -2, 0.20000000298023224},
+  {-2, 0.20000000298023224, -2},
+  {-1, -1, 0.10000000149011612},
+  {-1, 0.10000000149011612, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.4},
+  {-3, -3, 0.3},
+  {-2, -2, 0.2},
+  {-1, -1, 0.1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_corresponding_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {NULL, NULL, NULL},
+  {-4, 0.4, -4},
+  {-3, 0.3, -3},
+  {-2, 0.2, -2},
+  {-1, 0.1, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_by_position_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_by_position_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_corresponding_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-4, -4, 0.4},
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_corresponding_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_by_position_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_by_position_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_corresponding_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-4, -4, 0.4},
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_corresponding_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_by_position_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{20, 2}, {10, 1}]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-4, -4, 0.40000000596046448},
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_by_position_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_corresponding_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[{0, 0, 0}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_corresponding_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_by_position_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{20, 2}, {10, 1}]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-4, -4, 0.40000000596046448},
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_by_position_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_union_distinct_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_corresponding_union_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  UNION DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[]
+==
+[name=parenthesized_inner_outer_union_distinct_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[{0, 0, 0}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_corresponding_union_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  UNION DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_by_position_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}, {1, 10}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-3, -3, 0.30000001192092896},
+  {NULL, NULL, NULL},
+  {-2, -2, 0.20000000298023224},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_by_position_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.30000001192092896},
+  {NULL, NULL, NULL},
+  {-2, -2, 0.20000000298023224},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_corresponding_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}, {10, 1}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-2, -2, 0.2},
+  {-3, -3, 0.3},
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-3, -3, 0.3},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-4, -4, 0.4},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_corresponding_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-3, 0.3, -3},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-4, 0.4, -4},
+  {NULL, NULL, NULL},
+  {-2, 0.2, -2},
+  {-3, 0.3, -3},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_by_position_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, -2, 0.20000000298023224},
+  {-2, 0.20000000298023224, -2},
+  {-1, -1, 0.10000000149011612},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_by_position_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, -2, 0.20000000298023224},
+  {-2, 0.20000000298023224, -2},
+  {-1, -1, 0.10000000149011612},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.4},
+  {-3, -3, 0.3},
+  {-2, -2, 0.2},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_corresponding_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {NULL, NULL, NULL},
+  {-4, 0.4, -4},
+  {-3, 0.3, -3},
+  {-2, 0.2, -2},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_by_position_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_by_position_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_corresponding_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-2, -2, 0.2},
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_corresponding_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-2, 0.2, -2},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_by_position_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_by_position_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_corresponding_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_corresponding_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_by_position_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_by_position_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_corresponding_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_corresponding_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_by_position_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_by_position_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_all_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_corresponding_intersect_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_all_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_corresponding_intersect_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_by_position_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}, {1, 10}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-1, -1, 0.10000000149011612},
+  {-3, -3, 0.30000001192092896},
+  {NULL, NULL, NULL},
+  {-2, -2, 0.20000000298023224},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_by_position_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.10000000149011612},
+  {-3, -3, 0.30000001192092896},
+  {NULL, NULL, NULL},
+  {-2, -2, 0.20000000298023224}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}, {10, 1}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-3, -3, 0.3},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-4, -4, 0.4},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-3, 0.3, -3},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-4, 0.4, -4},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-3, 0.3, -3}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_by_position_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{1, 10}, {10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, -2, 0.20000000298023224},
+  {-2, 0.20000000298023224, -2},
+  {-1, -1, 0.10000000149011612},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_by_position_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, -2, 0.20000000298023224},
+  {-2, 0.20000000298023224, -2},
+  {-1, -1, 0.10000000149011612},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.4},
+  {-3, -3, 0.3},
+  {-2, -2, 0.2},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {NULL, NULL, NULL},
+  {-4, 0.4, -4},
+  {-3, 0.3, -3},
+  {-2, 0.2, -2},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_by_position_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_by_position_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_by_position_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_by_position_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-2, -2, 0.2},
+  {NULL, NULL, NULL},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_by_position_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_by_position_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_by_position_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-3, -3, 0.30000001192092896},
+  {-2, -2, 0.20000000298023224},
+  {-1, -1, 0.10000000149011612}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_by_position_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_intersect_distinct_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}]
+==
+[name=parenthesized_inner_outer_intersect_distinct_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_corresponding_intersect_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_by_position_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}, {2, 20}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {0, 0, 0},
+  {-3, -3, 0.30000001192092896},
+  {-3, -3, 0.30000001192092896},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_by_position_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {0, 0, 0},
+  {-3, -3, 0.30000001192092896},
+  {-3, -3, 0.30000001192092896}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_corresponding_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-3, -3, 0.3},
+  {0, 0, 0},
+  {-3, -3, 0.3},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-3, -3, 0.3},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-4, -4, 0.4},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_corresponding_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-3, 0.3, -3},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-4, 0.4, -4},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {0, 0, 0},
+  {-3, 0.3, -3}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_by_position_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_by_position_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, 0.40000000596046448, -4},
+  {-3, -3, 0.30000001192092896},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.4},
+  {-3, -3, 0.3},
+  {-2, -2, 0.2},
+  {-1, -1, 0.1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_corresponding_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {NULL, NULL, NULL},
+  {-4, 0.4, -4},
+  {-3, 0.3, -3},
+  {-2, 0.2, -2},
+  {-1, 0.1, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_by_position_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_by_position_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_corresponding_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-3, -3, 0.3}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_corresponding_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-3, 0.3, -3}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_by_position_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_by_position_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_corresponding_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {-3, -3, 0.3}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_corresponding_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-3, 0.3, -3}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_by_position_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-3, -3, 0.30000001192092896},
+  {-3, -3, 0.30000001192092896},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_by_position_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {-2, 0.20000000298023224, -2},
+  {-2, 0.20000000298023224, -2}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_corresponding_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {0, 0, 0},
+  {-3, -3, 0.3}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_corresponding_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_by_position_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {-3, -3, 0.30000001192092896},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_by_position_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {NULL, NULL, NULL},
+  {-2, 0.20000000298023224, -2}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_all_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_corresponding_except_all_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT ALL CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}]
+==
+[name=parenthesized_inner_outer_except_all_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[{0, 0, 0}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_corresponding_except_all_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_by_position_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}, {2, 20}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_union_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {0, 0, 0},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_by_position_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-1, 0.10000000149011612, -1},
+  {-4, 0.40000000596046448, -4},
+  {-1, 0.10000000149011612, -1},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}, {2, 20}, {1, 10}]
+==
+[name=manual_table_parenthesized_outer_inner_union_all_corresponding_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}, {10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_union_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {0, 0, 0},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-3, -3, 0.3},
+  {NULL, NULL, NULL},
+  {-1, -1, 0.1},
+  {-1, -1, 0.1},
+  {-2, -2, 0.2},
+  {-4, -4, 0.4},
+  {NULL, NULL, NULL}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_all_corresponding_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-3, 0.3, -3},
+  {NULL, NULL, NULL},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1},
+  {-2, 0.2, -2},
+  {-4, 0.4, -4},
+  {NULL, NULL, NULL},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_by_position_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{2, 20}, {10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_union_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_by_position_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {NULL, NULL, NULL},
+  {-4, 0.40000000596046448, -4},
+  {-3, 0.30000001192092896, -3},
+  {-2, 0.20000000298023224, -2},
+  {-1, 0.10000000149011612, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_union_distinct_corresponding_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_union_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+UNION DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[
+  {NULL, NULL, NULL},
+  {-4, -4, 0.4},
+  {-3, -3, 0.3},
+  {-2, -2, 0.2},
+  {-1, -1, 0.1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_union_distinct_corresponding_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+UNION DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {NULL, NULL, NULL},
+  {-4, 0.4, -4},
+  {-3, 0.3, -3},
+  {-2, 0.2, -2},
+  {-1, 0.1, -1},
+  {0, 0, 0}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_by_position_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_intersect_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_by_position_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_all_corresponding_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_intersect_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_all_corresponding_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_by_position_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_intersect_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_by_position_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_intersect_distinct_corresponding_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{20, 2}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_intersect_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_intersect_distinct_corresponding_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_by_position_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_except_all_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[{0, 0, 0}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_by_position_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-2, 0.20000000298023224, -2},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_all_corresponding_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_except_all_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT ALL CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[{0, 0, 0}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_all_corresponding_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val INT64>>[{2, 20}]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_by_position_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT64>>[{10, 1}, {20, 2}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_except_distinct_by_position]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT64, int64_val DOUBLE, float_val DOUBLE>>[{0, 0, 0}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_by_position_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val DOUBLE, int32_val DOUBLE>>[
+  {-4, 0.40000000596046448, -4},
+  {-2, 0.20000000298023224, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.30000001192092896, -3},
+  {-1, 0.10000000149011612, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=manual_table_parenthesized_inner_outer_except_distinct_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, int32_val
+FROM Manual1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[]
+==
+[name=manual_table_parenthesized_outer_inner_except_distinct_corresponding_except_distinct_corresponding]
+SELECT int64_val, int32_val
+FROM Manual1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val
+  FROM Manual1
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int64_val, int32_val
+  FROM Manual2
+)
+--
+ARRAY<STRUCT<int64_val INT64, int32_val INT32>>[{10, 1}]
+==
+[name=parenthesized_inner_outer_except_distinct_corresponding_except_distinct_corresponding]
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val, float_val, int32_val
+FROM Table1
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64, float_val FLOAT>>[{0, 0, 0}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=parenthesized_outer_inner_except_distinct_corresponding_except_distinct_corresponding]
+SELECT int64_val, float_val, int32_val
+FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, float_val FLOAT, int32_val INT32>>[
+  {-4, 0.4, -4},
+  {-2, 0.2, -2},
+  {NULL, NULL, NULL},
+  {-3, 0.3, -3},
+  {-1, 0.1, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.

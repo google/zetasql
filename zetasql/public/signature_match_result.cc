@@ -50,8 +50,7 @@ void SignatureMatchResult::UpdateFromResult(
   literals_distance_ += other_result.literals_distance_;
   mismatch_message_ = other_result.mismatch_message();
   tvf_bad_argument_index_ = other_result.tvf_bad_argument_index();
-  tvf_arg_col_nums_to_coerce_type_ =
-      other_result.tvf_arg_col_nums_to_coerce_type();
+  tvf_relation_coercion_map_ = other_result.tvf_relation_coercion_map_;
 }
 
 std::string SignatureMatchResult::DebugString() const {
@@ -64,14 +63,14 @@ std::string SignatureMatchResult::DebugString() const {
   if (!mismatch_message_.empty()) {
     absl::StrAppend(&result, ", mismatch message: \"", mismatch_message_, "\"");
   }
-  if (!tvf_arg_col_nums_to_coerce_type_.empty()) {
+  if (!tvf_relation_coercion_map_.empty()) {
     std::vector<std::string> entries;
-    for (const std::pair<const std::pair<int, int>, const Type*>& kv :
-         tvf_arg_col_nums_to_coerce_type_) {
-      entries.push_back(absl::StrCat("(", kv.first.first, ", ", kv.first.second,
-                                     ")->", kv.second->DebugString()));
+    for (const auto& [key, value] : tvf_relation_coercion_map_) {
+      entries.push_back(absl::StrCat("(arg: ", key.argument_index,
+                                     ", col: ", key.column_index, ")->",
+                                     value->DebugString(true)));
     }
-    absl::StrAppend(&result, "\", tvf arg col nums to coerce type: [",
+    absl::StrAppend(&result, "\", tvf relation coercion map: [",
                     absl::StrJoin(entries, ", "), "]");
   }
   return result;

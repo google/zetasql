@@ -67,7 +67,8 @@ google::protobuf::Timestamp MakeGoogleApiTimestamp(int64_t s, int32_t ns) {
 // Helper function that tests the EncodeGoogleApiProto() and
 // DecodeGoogleApiProto() functions. Both variants of the EncodeGoogleApiProto
 // are tested to ensure they return the proto result.
-void RoundTripGoogleApi(absl::Time v, int64_t expected_sec, int32_t expected_nsec) {
+void RoundTripGoogleApi(absl::Time v, int64_t expected_sec,
+                        int32_t expected_nsec) {
   google::protobuf::Timestamp proto;
   const auto status = EncodeGoogleApiProto(v, &proto);
   ZETASQL_ASSERT_OK(status);

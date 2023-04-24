@@ -43,6 +43,10 @@ TYPES_SRCS = [
     "TypeParameters.java",
     "TVFRelation.java",
     "Value.java",
+    "SimpleValue.java",
+    "AnnotationMap.java",
+    "ArrayAnnotationMap.java",
+    "StructAnnotationMap.java",
 ]
 
 java_library(
@@ -52,11 +56,14 @@ java_library(
     deps = [
         "//zetasql/proto:anon_output_with_report_java_proto",
         "//zetasql/proto:function_java_proto",
+        "//zetasql/public:annotation_java_proto",
         "//zetasql/public:options_java_proto",
+        "//zetasql/public:simple_value_java_proto",
         "//zetasql/public:type_parameters_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public:value_java_proto",
         "//zetasql/public/functions:array_find_mode_java_proto",
+        "//zetasql/public/functions:array_zip_mode_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/public/functions:differential_privacy_java_proto",
         "//zetasql/public/functions:normalize_mode_java_proto",

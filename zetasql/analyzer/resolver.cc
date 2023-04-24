@@ -39,6 +39,7 @@
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/name_scope.h"
+#include "zetasql/public/aggregation_threshold_utils.h"
 // This includes common macro definitions to define in the resolver cc files.
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver_common_inl.h"
@@ -337,6 +338,7 @@ absl::Status Resolver::ResolveExprWithFunctionArguments(
         function_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* output) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   Reset(sql);
   auto arg_info = std::make_unique<FunctionArgumentInfo>();
   for (auto& [arg_name, resolved_arg] : *function_arguments) {
@@ -363,6 +365,7 @@ absl::Status Resolver::ResolveQueryStatementWithFunctionArguments(
     IdStringHashMapCase<TVFRelation>* function_table_arguments,
     std::unique_ptr<const ResolvedStatement>* output_stmt,
     std::shared_ptr<const NameList>* output_name_list) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   Reset(sql);
   auto arg_info = std::make_unique<FunctionArgumentInfo>();
   for (auto& [arg_name, resolved_arg] : *function_arguments) {
@@ -426,6 +429,7 @@ absl::Status Resolver::ResolveTypeName(const std::string& type_name,
 absl::Status Resolver::ResolveTypeNameInternal(const std::string& type_name,
                                                const Type** type,
                                                TypeModifiers* type_modifiers) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ParseType(type_name, analyzer_options_.GetParserOptions(),
                             &parser_output));
@@ -734,7 +738,7 @@ static std::string HintName(std::string_view qualifier, std::string_view name) {
                       ToIdentifierLiteral(name));
 }
 
-static const char* GetHintOrOptionName(
+static constexpr const char* GetHintOrOptionName(
     Resolver::HintOrOptionType hint_or_option_type) {
   switch (hint_or_option_type) {
     case Resolver::HintOrOptionType::Hint:
@@ -745,6 +749,8 @@ static const char* GetHintOrOptionName(
       return "option";
     case Resolver::HintOrOptionType::DifferentialPrivacyOption:
       return "differential privacy option";
+    case Resolver::HintOrOptionType::AggregationThresholdOption:
+      return "aggregation threshold option";
   }
 }
 
@@ -752,6 +758,17 @@ static absl::StatusOr<AllowedOptionProperties> GetHintOrOptionProperties(
     const AllowedHintsAndOptions& allowed, std::string_view qualifier,
     const ASTIdentifier* ast_name, std::string_view name,
     Resolver::HintOrOptionType hint_or_option_type) {
+  auto process_select_with_options =
+      [&](const auto& option_map) -> absl::StatusOr<AllowedOptionProperties> {
+    ZETASQL_RET_CHECK(qualifier.empty());
+    auto iter = option_map.find(absl::AsciiStrToLower(name));
+    if (iter == option_map.end()) {
+      return MakeSqlErrorAt(ast_name)
+             << "Unknown " << GetHintOrOptionName(hint_or_option_type) << ": "
+             << HintName(qualifier, name);
+    }
+    return iter->second;
+  };
   switch (hint_or_option_type) {
     case Resolver::HintOrOptionType::Hint: {
       auto iter = allowed.hints_lower.find(std::make_pair(
@@ -778,30 +795,14 @@ static absl::StatusOr<AllowedOptionProperties> GetHintOrOptionProperties(
       }
       return AllowedOptionProperties{.type = nullptr};
     } break;
-    case Resolver::HintOrOptionType::AnonymizationOption: {
-      ZETASQL_RET_CHECK(qualifier.empty());
-      auto iter =
-          allowed.anonymization_options_lower.find(absl::AsciiStrToLower(name));
-      if (iter == allowed.anonymization_options_lower.end()) {
-        return MakeSqlErrorAt(ast_name)
-               << "Unknown anonymization option: " << HintName(qualifier, name);
-      }
-      return iter->second;
-    } break;
-    case Resolver::HintOrOptionType::DifferentialPrivacyOption: {
-      ZETASQL_RET_CHECK(qualifier.empty());
-      auto iter = allowed.differential_privacy_options_lower.find(
-          absl::AsciiStrToLower(name));
-      if (iter == allowed.differential_privacy_options_lower.end()) {
-        return MakeSqlErrorAt(ast_name)
-               << "Unknown differential privacy option: "
-               << HintName(qualifier, name);
-      }
-      return iter->second;
-    } break;
-    default:
-      return absl::InternalError(absl::StrCat(
-          "Unknown option type: ", static_cast<int>(hint_or_option_type)));
+    case Resolver::HintOrOptionType::AnonymizationOption:
+      return process_select_with_options(allowed.anonymization_options_lower);
+    case Resolver::HintOrOptionType::DifferentialPrivacyOption:
+      return process_select_with_options(
+          allowed.differential_privacy_options_lower);
+    case Resolver::HintOrOptionType::AggregationThresholdOption:
+      return process_select_with_options(
+          GetAllowedAggregationThresholdOptions());
   }
 }
 
@@ -882,9 +883,13 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
     } break;
 
     case AllowedHintsAndOptionsProto::OptionProto::FROM_NAME_SCOPE_IDENTIFIER: {
-      ZETASQL_RET_CHECK(
+      const bool is_dp_syntax =
           hint_or_option_type == HintOrOptionType::DifferentialPrivacyOption &&
-          language().LanguageFeatureEnabled(FEATURE_DIFFERENTIAL_PRIVACY));
+          language().LanguageFeatureEnabled(FEATURE_DIFFERENTIAL_PRIVACY);
+      const bool is_aggregation_threshold_syntax =
+          hint_or_option_type == HintOrOptionType::AggregationThresholdOption &&
+          language().LanguageFeatureEnabled(FEATURE_AGGREGATION_THRESHOLD);
+      ZETASQL_RET_CHECK(is_dp_syntax || is_aggregation_threshold_syntax);
       ZETASQL_RET_CHECK_NE(from_name_scope, nullptr);
       // TODO: Add support for multi column privacy unit column as
       // defined in proposal: (broken link).
@@ -1156,6 +1161,46 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
           "Anonymization option kappa is deprecated, instead use "
           "max_groups_contributed"));
     }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAggregationThresholdOptionsList(
+    const ASTOptionsList* options_list,
+    const QueryResolutionInfo& query_resolution_info,
+    std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options) {
+  if (options_list == nullptr) {
+    return absl::OkStatus();
+  }
+  absl::flat_hash_set<std::string> specified_options;
+  NameScope from_name_scope(*query_resolution_info.from_clause_name_list());
+  for (const ASTOptionsEntry* options_entry : options_list->options_entries()) {
+    const std::string option_name =
+        absl::AsciiStrToLower(options_entry->name()->GetAsString());
+    if (!zetasql_base::InsertIfNotPresent(&specified_options, option_name)) {
+      return MakeSqlErrorAt(options_entry->name())
+             << "Duplicate "
+             << GetHintOrOptionName(
+                    HintOrOptionType::AggregationThresholdOption)
+             << " specified for '" << options_entry->name()->GetAsString()
+             << "'";
+    }
+    ZETASQL_RETURN_IF_ERROR(ResolveHintOrOptionAndAppend(
+        options_entry->value(), /*ast_qualifier=*/nullptr,
+        options_entry->name(), HintOrOptionType::AggregationThresholdOption,
+        analyzer_options_.allowed_hints_and_options(), &from_name_scope,
+        resolved_options));
+  }
+
+  // Validate that at most one of the options max_groups_contributed,
+  // and max_rows_contributed are specified.
+  if (specified_options.contains("max_rows_contributed") &&
+      specified_options.contains("max_groups_contributed")) {
+    return MakeSqlErrorAt(options_list)
+           << "The "
+           << GetHintOrOptionName(HintOrOptionType::AggregationThresholdOption)
+           << "s specify mutually exclusive options max_rows_contributed and "
+              "max_groups_contributed";
   }
   return absl::OkStatus();
 }

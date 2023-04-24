@@ -26,6 +26,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <optional>
 #include <ostream>
@@ -1680,8 +1681,8 @@ inline void MaybeRoundFinalBigNumericToEven(
 }
 
 // Rounds to the Pow-th digit using 2 divisions of Factors, whose product must
-// equal 10^Pow, where Pow <= 38. If round_away_from_zero is false, the value is
-// always rounded down.
+// equal 10^Pow, where Pow <= 38. Rounds depending on the rounding_mode, if the
+// rounding mode is kTrunc, the value is always rounded down.
 template <int Pow, uint64_t Factor1, uint64_t Factor2,
           RoundingMode rounding_mode>
     inline void
@@ -2016,16 +2017,26 @@ void Format(NumericValue::FormatSpec spec, const FixedInt<64, n>& input,
 }
 
 absl::Status FromScaledValueOutOfRangeError(absl::string_view type_name,
-                                            size_t input_len, int scale) {
+                                            size_t input_len,
+                                            int source_scale) {
   return MakeEvalError() << "Value is out of range after scaling to "
                          << type_name << " type; input length: " << input_len
-                         << "; scale: " << scale;
+                         << "; scale: " << source_scale;
 }
 
+// This function takes in a large number of scale and precision arguments that
+// all signify different important pieces of parsing a little endian value.
+// source_scale: the scale of the endian value being inserted
+// fractional_digits_to_keep: the scale of the column being loaded into
+// destination_scale: fractional digits (9 or 38) for the destination (input may
+// need to be scaled up to have this number of fractional digits)
+// destination_max_integer_digits: max integer digits (29 or 38)
+// This function is called for both NUMERIC and BIGNUMERIC parsing
+template <RoundingMode rounding_mode>
 absl::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
-    absl::string_view little_endian_value, int scale, int max_integer_digits,
-    int max_fractional_digits, bool allow_rounding,
-    absl::string_view type_name) {
+    absl::string_view little_endian_value, int source_scale,
+    int fractional_digits_to_keep, int destination_scale,
+    int destination_max_integer_digits, absl::string_view type_name) {
   const size_t original_input_len = little_endian_value.size();
   if (original_input_len == 0) {
     return FixedInt<64, 4>();
@@ -2049,21 +2060,22 @@ absl::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
       absl::string_view(little_endian_value.data(),
                         most_significant_byte - little_endian_value.data() + 1);
 
-  if (scale <= max_fractional_digits) {
+  if (source_scale <= fractional_digits_to_keep) {
     // Scale up the value.
     FixedInt<64, 4> value;
-    if (scale <= -max_integer_digits ||
+    if (source_scale <= -destination_max_integer_digits ||
         !value.DeserializeFromBytes(little_endian_value)) {
       return FromScaledValueOutOfRangeError(type_name, original_input_len,
-                                            scale);
+                                            source_scale);
     }
-    int scale_up_digits = max_fractional_digits - scale;
+    int scale_up_digits = destination_scale - source_scale;
     ZETASQL_DCHECK_GE(scale_up_digits, 0);
-    ZETASQL_DCHECK_LT(scale_up_digits, max_fractional_digits + max_integer_digits);
+    ZETASQL_DCHECK_LT(scale_up_digits,
+              destination_scale + destination_max_integer_digits);
     if (scale_up_digits > 0 &&
         value.MultiplyOverflow(FixedInt<64, 4>::PowerOf10(scale_up_digits))) {
       return FromScaledValueOutOfRangeError(type_name, original_input_len,
-                                            scale);
+                                            source_scale);
     }
     return value;
   }
@@ -2081,9 +2093,13 @@ absl::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
     }
   }
 
-  int scale_down_digits = scale - max_fractional_digits;
+  int scale_down_digits = source_scale - fractional_digits_to_keep;
   uint64_t remainder;
   uint64_t divisor;
+  // Cache whether during the scale down while loop, we have a remainder we
+  // throw out. this helps us determine if we are in a "half way value"
+  // when rounding.
+  bool has_scale_down_remainder_discarded = false;
   // Compute dividend /= pow(10, scale_down_digits) by repeating
   // dividend /= uint64_t divisor. When scale_down_digits > 19, this loop is not
   // as efficient as fixed_int_internal::LongDiv, but this method is not
@@ -2096,31 +2112,68 @@ absl::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
     int to_scale_down = std::min(scale_down_digits, 19);
     divisor = var_int_ref.ScaleDown(to_scale_down, remainder);
     scale_down_digits -= to_scale_down;
-    if (remainder != 0 && !allow_rounding) {
+    // If we're going to execute this while loop again, we're wiping the
+    // remainder, so want to cache whether we had a remainder or not for
+    // future rounding.
+    if constexpr (rounding_mode != RoundingMode::kTrunc) {
+      has_scale_down_remainder_discarded |=
+          (remainder != 0) & (scale_down_digits > 0);
+    } else if (remainder != 0) {
       return MakeEvalError()
              << "Value will lose precision after "
                 "scaling down to "
              << type_name << " type; input length: " << original_input_len
-             << "; scale: " << scale;
+             << "; scale: " << source_scale;
     }
     if (dividend.back() == 0) {
       dividend.pop_back();
     }
   }
   if (dividend.size() > 4) {
-    return FromScaledValueOutOfRangeError(type_name, original_input_len, scale);
+    return FromScaledValueOutOfRangeError(type_name, original_input_len,
+                                          source_scale);
   }
   std::array<uint64_t, 4> src;
   auto itr = std::copy(dividend.begin(), dividend.end(), src.begin());
   std::fill(itr, src.end(), 0);
   FixedUint<64, 4> abs_value(src);
-  // Here half is rounded away from zero. divisor is always an even number.
-  if (remainder >= (divisor >> 1) && abs_value.AddOverflow(uint64_t{1})) {
-    return FromScaledValueOutOfRangeError(type_name, original_input_len, scale);
+  // Round based on the rounding mode. Divisor is always an even number.
+  bool should_round_up = false;
+  if constexpr (rounding_mode == RoundingMode::kRoundHalfEven) {
+    // Check whether the current remainder is exactly half of the divisor AND
+    // we had no remainder during the scaling down of the value.
+    const bool half_way_value =
+        remainder == (divisor >> 1) && !has_scale_down_remainder_discarded;
+    // if we're at a halfway value, check previous digit to being even or odd
+    // to decide if we round up or not.
+    if (half_way_value) {
+      // For ROUND_HALF_EVEN, if the last digit is even, round down, if odd
+      // round up
+      should_round_up = abs_value.number()[0] & 1;
+    } else {
+      should_round_up = remainder >= (divisor >> 1);
+    }
+  } else if constexpr (rounding_mode == RoundingMode::kRoundHalfAwayFromZero) {
+    should_round_up = remainder >= (divisor >> 1);
+  }
+  if (should_round_up && abs_value.AddOverflow(uint64_t{1})) {
+    return FromScaledValueOutOfRangeError(type_name, original_input_len,
+                                          source_scale);
   }
   FixedInt<64, 4> value;
   if (!value.SetSignAndAbs(is_negative, abs_value)) {
-    return FromScaledValueOutOfRangeError(type_name, original_input_len, scale);
+    return FromScaledValueOutOfRangeError(type_name, original_input_len,
+                                          source_scale);
+  }
+  // If our destination scale is less than max fractional digits, scale the
+  // remaining of the fractional digits we haven't already scaled to
+  if (fractional_digits_to_keep < destination_scale) {
+    int extra_scaling_factor = destination_scale - fractional_digits_to_keep;
+    if (value.MultiplyOverflow(
+            FixedInt<64, 4>::PowerOf10(extra_scaling_factor))) {
+      return FromScaledValueOutOfRangeError(type_name, original_input_len,
+                                            source_scale);
+    }
   }
   return value;
 }
@@ -2161,17 +2214,35 @@ absl::StatusOr<NumericValue> NumericValue::Rescale(int scale,
 }
 
 absl::StatusOr<NumericValue> NumericValue::FromScaledLittleEndianValue(
-    absl::string_view little_endian_value, int scale, bool allow_rounding) {
+    absl::string_view little_endian_value, int source_scale,
+    int fractional_digits_to_keep, bool allow_rounding, bool round_half_even) {
   FixedInt<64, 4> value;
-  ZETASQL_ASSIGN_OR_RETURN(value, FixedIntFromScaledValue(
-                              little_endian_value, scale, kMaxIntegerDigits,
-                              kMaxFractionalDigits, allow_rounding, "NUMERIC"));
+  int destination_scale = NumericValue::kMaxFractionalDigits;
+  int destination_max_integer_digits = NumericValue::kMaxIntegerDigits;
+  if (!allow_rounding) {
+    ZETASQL_ASSIGN_OR_RETURN(value, FixedIntFromScaledValue<RoundingMode::kTrunc>(
+                                little_endian_value, source_scale,
+                                fractional_digits_to_keep, destination_scale,
+                                destination_max_integer_digits, "NUMERIC"));
+  } else if (round_half_even) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        value,
+        FixedIntFromScaledValue<RoundingMode::kRoundHalfEven>(
+            little_endian_value, source_scale, fractional_digits_to_keep,
+            destination_scale, destination_max_integer_digits, "NUMERIC"));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(
+        value,
+        FixedIntFromScaledValue<RoundingMode::kRoundHalfAwayFromZero>(
+            little_endian_value, source_scale, fractional_digits_to_keep,
+            destination_scale, destination_max_integer_digits, "NUMERIC"));
+  }
   auto res_status = NumericValue::FromFixedInt(value);
   if (res_status.ok()) {
     return res_status;
   }
   return FromScaledValueOutOfRangeError("NUMERIC", little_endian_value.size(),
-                                        scale);
+                                        source_scale);
 }
 
 absl::StatusOr<NumericValue> NumericValue::SumAggregator::GetSum() const {
@@ -2831,12 +2902,29 @@ std::ostream& operator<<(std::ostream& out, const BigNumericValue& value) {
 }
 
 absl::StatusOr<BigNumericValue> BigNumericValue::FromScaledLittleEndianValue(
-    absl::string_view little_endian_value, int scale, bool allow_rounding) {
+    absl::string_view little_endian_value, int source_scale,
+    int fractional_digits_to_keep, bool allow_rounding, bool round_half_even) {
   FixedInt<64, 4> value;
-  ZETASQL_ASSIGN_OR_RETURN(
-      value, FixedIntFromScaledValue(little_endian_value, scale,
-                                     kMaxIntegerDigits, kMaxFractionalDigits,
-                                     allow_rounding, "BIGNUMERIC"));
+  int destination_scale = BigNumericValue::kMaxFractionalDigits;
+  int destination_max_integer_digits = BigNumericValue::kMaxIntegerDigits;
+  if (!allow_rounding) {
+    ZETASQL_ASSIGN_OR_RETURN(value, FixedIntFromScaledValue<RoundingMode::kTrunc>(
+                                little_endian_value, source_scale,
+                                fractional_digits_to_keep, destination_scale,
+                                destination_max_integer_digits, "BIGNUMERIC"));
+  } else if (round_half_even) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        value,
+        FixedIntFromScaledValue<RoundingMode::kRoundHalfEven>(
+            little_endian_value, source_scale, fractional_digits_to_keep,
+            destination_scale, destination_max_integer_digits, "BIGNUMERIC"));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(
+        value,
+        FixedIntFromScaledValue<RoundingMode::kRoundHalfAwayFromZero>(
+            little_endian_value, source_scale, fractional_digits_to_keep,
+            destination_scale, destination_max_integer_digits, "BIGNUMERIC"));
+  }
   return BigNumericValue(value);
 }
 

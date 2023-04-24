@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 391
+NEXT_NODE_TAG_ID = 396
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -256,7 +256,7 @@ SCALAR_COLUMN_MATCH_MODE = EnumScalarType(
 )
 
 SCALAR_COLUMN_PROPAGATION_MODE = EnumScalarType(
-    'ColumnPropagationMode', 'ASTSetOperation', 'INNER'
+    'ColumnPropagationMode', 'ASTSetOperation', 'STRICT'
 )
 
 
@@ -1799,6 +1799,23 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTExpressionWithAlias',
+      tag_id=395,
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'alias',
+              'ASTAlias',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
       name='ASTFunctionCall',
       tag_id=45,
       parent='ASTExpression',
@@ -2476,6 +2493,24 @@ def main(argv):
               'ASTIdentifier',
               tag_id=4),
       ])
+
+  gen.AddNode(
+      name='ASTSequenceArg',
+      tag_id=391,
+      parent='ASTExpression',
+      comment="""
+    This represents a clause of form "SEQUENCE <target>", where <target> is a
+    sequence name.
+      """,
+      fields=[
+          Field(
+              'sequence_path',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTNamedArgument',
@@ -8820,6 +8855,35 @@ def main(argv):
       """,
   )
 
+  gen.AddNode(
+      name='ASTReplicaMaterializedViewDataSource',
+      tag_id=392,
+      parent='ASTTableDataSource',
+  )
+
+  gen.AddNode(
+      name='ASTCreateReplicaMaterializedViewStatement',
+      tag_id=393,
+      parent='ASTCreateStatement',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'data_source',
+              'ASTReplicaMaterializedViewDataSource',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field('options_list', 'ASTOptionsList', tag_id=4),
+      ],
+      extra_public_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """,
+  )
   gen.Generate(output_path, template_path=template_path)
 
 

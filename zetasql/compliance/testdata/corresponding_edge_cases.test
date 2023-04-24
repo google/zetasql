@@ -1,0 +1,235 @@
+# This file tests some edge cases for CORRESPONDING, including:
+# - SELECT DISTINCT missing ProjectScans
+# - Duplicate columns with different aliases
+
+[default required_features=V_1_4_CORRESPONDING]
+[prepare_database]
+CREATE TABLE Manual1 AS
+SELECT CAST(1 AS INT32) AS int32_val, CAST(10 AS INT64) AS int64_val
+UNION ALL
+SELECT CAST(2 AS INT32) AS int32_val, CAST(20 AS INT64) AS int64_val
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}, {2, 20}]
+==
+[prepare_database]
+CREATE TABLE Manual2 AS
+SELECT CAST(1 AS INT32) AS int32_val, CAST(10 AS INT64) AS int64_val
+--
+ARRAY<STRUCT<int32_val INT32, int64_val INT64>>[{1, 10}]
+==
+[name=select_distinct_union_all_corresponding_select_distinct]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+UNION ALL CORRESPONDING
+SELECT DISTINCT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{20, 2}, {10, 1}, {10, 1}]
+==
+[name=select_distinct_union_all_corresponding_select]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+UNION ALL CORRESPONDING
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{20, 2}, {10, 1}, {10, 1}]
+==
+[name=select_union_all_corresponding_select_distinct]
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+UNION ALL CORRESPONDING
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+--
+ARRAY<STRUCT<c INT32, b INT64>>[{1, 10}, {2, 20}, {1, 10}]
+==
+[name=union_all_duplicate_columns_different_aliases]
+SELECT int32_val AS a, int32_val AS b, int64_val AS c
+FROM Manual1
+UNION ALL CORRESPONDING
+SELECT int64_val AS c, int32_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT32, c INT64>>[{2, 20}, {1, 10}, {1, 10}]
+==
+[name=select_distinct_union_distinct_corresponding_select_distinct]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+UNION DISTINCT CORRESPONDING
+SELECT DISTINCT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{10, 1}, {20, 2}]
+==
+[name=select_distinct_union_distinct_corresponding_select]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+UNION DISTINCT CORRESPONDING
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{10, 1}, {20, 2}]
+==
+[name=select_union_distinct_corresponding_select_distinct]
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+UNION DISTINCT CORRESPONDING
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+--
+ARRAY<STRUCT<c INT32, b INT64>>[{1, 10}, {2, 20}]
+==
+[name=union_distinct_duplicate_columns_different_aliases]
+SELECT int32_val AS a, int32_val AS b, int64_val AS c
+FROM Manual1
+UNION DISTINCT CORRESPONDING
+SELECT int64_val AS c, int32_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT32, c INT64>>[{1, 10}, {2, 20}]
+==
+[name=select_distinct_intersect_all_corresponding_select_distinct]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+INTERSECT ALL CORRESPONDING
+SELECT DISTINCT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{10, 1}]
+==
+[name=select_distinct_intersect_all_corresponding_select]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+INTERSECT ALL CORRESPONDING
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{10, 1}]
+==
+[name=select_intersect_all_corresponding_select_distinct]
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+INTERSECT ALL CORRESPONDING
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+--
+ARRAY<STRUCT<c INT32, b INT64>>[{1, 10}]
+==
+[name=intersect_all_duplicate_columns_different_aliases]
+SELECT int32_val AS a, int32_val AS b, int64_val AS c
+FROM Manual1
+INTERSECT ALL CORRESPONDING
+SELECT int64_val AS c, int32_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT32, c INT64>>[{1, 10}]
+==
+[name=select_distinct_intersect_distinct_corresponding_select_distinct]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+INTERSECT DISTINCT CORRESPONDING
+SELECT DISTINCT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{10, 1}]
+==
+[name=select_distinct_intersect_distinct_corresponding_select]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+INTERSECT DISTINCT CORRESPONDING
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{10, 1}]
+==
+[name=select_intersect_distinct_corresponding_select_distinct]
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+INTERSECT DISTINCT CORRESPONDING
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+--
+ARRAY<STRUCT<c INT32, b INT64>>[{1, 10}]
+==
+[name=intersect_distinct_duplicate_columns_different_aliases]
+SELECT int32_val AS a, int32_val AS b, int64_val AS c
+FROM Manual1
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val AS c, int32_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT32, c INT64>>[{1, 10}]
+==
+[name=select_distinct_except_all_corresponding_select_distinct]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+EXCEPT ALL CORRESPONDING
+SELECT DISTINCT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{20, 2}]
+==
+[name=select_distinct_except_all_corresponding_select]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+EXCEPT ALL CORRESPONDING
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{20, 2}]
+==
+[name=select_except_all_corresponding_select_distinct]
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+EXCEPT ALL CORRESPONDING
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+--
+ARRAY<STRUCT<c INT32, b INT64>>[]
+==
+[name=except_all_duplicate_columns_different_aliases]
+SELECT int32_val AS a, int32_val AS b, int64_val AS c
+FROM Manual1
+EXCEPT ALL CORRESPONDING
+SELECT int64_val AS c, int32_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT32, c INT64>>[{2, 20}]
+==
+[name=select_distinct_except_distinct_corresponding_select_distinct]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+EXCEPT DISTINCT CORRESPONDING
+SELECT DISTINCT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{20, 2}]
+==
+[name=select_distinct_except_distinct_corresponding_select]
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+EXCEPT DISTINCT CORRESPONDING
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT64, c INT32>>[{20, 2}]
+==
+[name=select_except_distinct_corresponding_select_distinct]
+SELECT int32_val AS c, int64_val AS b
+FROM Manual2
+EXCEPT DISTINCT CORRESPONDING
+SELECT DISTINCT int64_val AS a, int64_val AS b, int32_val AS c
+FROM Manual1
+--
+ARRAY<STRUCT<c INT32, b INT64>>[]
+==
+[name=except_distinct_duplicate_columns_different_aliases]
+SELECT int32_val AS a, int32_val AS b, int64_val AS c
+FROM Manual1
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val AS c, int32_val AS b
+FROM Manual2
+--
+ARRAY<STRUCT<b INT32, c INT64>>[{2, 20}]
+==

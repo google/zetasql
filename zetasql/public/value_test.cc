@@ -532,69 +532,6 @@ TEST_F(ValueTest, SimpleRoundTrip) {
   EXPECT_EQ(min_micros, TimestampFromUnixMicros(min_micros).ToUnixMicros());
 }
 
-class TestRangeRoundtrip : public ::testing::TestWithParam<Value> {};
-
-INSTANTIATE_TEST_SUITE_P(
-    RangeRoundtrip, TestRangeRoundtrip,
-    ::testing::Values(
-        Range(Value::Date(1), Value::Date(2)),
-        Range(Value::UnboundedStartDate(), Value::Date(4)),
-        Range(Value::Date(5), Value::UnboundedEndDate()),
-        Range(Value::UnboundedStartDate(), Value::UnboundedEndDate()),
-        // Ranges of datetimes
-        Range(Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(2020, 3, 3, 4,
-                                                                 5, 6, 7)),
-              Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(2021, 4, 3, 4,
-                                                                 5, 6, 7))),
-        Range(Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(2020, 2, 3, 4,
-                                                                 5, 6, 7)),
-              Value::UnboundedEndDatetime()),
-        Range(Value::UnboundedStartDatetime(),
-              Value::Datetime(DatetimeValue::FromYMDHMSAndMicros(2021, 2, 3, 4,
-                                                                 5, 6, 7))),
-        Range(Value::UnboundedStartDatetime(), Value::UnboundedEndDatetime()),
-        // Ranges of timestamps
-        Range(Value::Timestamp(absl::FromCivil(absl::CivilSecond(2020, 01, 01,
-                                                                 0, 0, 0),
-                                               absl::UTCTimeZone())),
-              Value::Timestamp(absl::FromCivil(absl::CivilSecond(2021, 01, 01,
-                                                                 0, 0, 0),
-                                               absl::UTCTimeZone()))),
-        Range(Value::Timestamp(absl::FromCivil(absl::CivilSecond(2019, 01, 01,
-                                                                 0, 0, 0),
-                                               absl::UTCTimeZone())),
-              Value::UnboundedEndTimestamp()),
-        Range(Value::UnboundedStartTimestamp(),
-              Value::Timestamp(absl::FromCivil(absl::CivilSecond(2020, 01, 01,
-                                                                 0, 0, 0),
-                                               absl::UTCTimeZone()))),
-        Range(Value::UnboundedStartTimestamp(),
-              Value::UnboundedEndTimestamp())));
-
-absl::StatusOr<Value> MakeRoundtripRange(Value range) {
-  switch (range.type()->AsRange()->element_type()->kind()) {
-    case TypeKind::TYPE_DATE:
-      return Value::MakeRangeDates(range.ToRangeValueDateValues());
-    case TypeKind::TYPE_DATETIME:
-      return Value::MakeRangeDatetimes(
-          range.ToRangeValuePacked64DatetimeMicros());
-    case TypeKind::TYPE_TIMESTAMP:
-      return Value::MakeRangeTimestamps(
-          range.ToRangeValueTimestampUnixMicros());
-    default: {
-      return absl::InvalidArgumentError(absl::StrFormat(
-          "Unsupported element type kind: %s",
-          range.type()->AsRange()->element_type()->DebugString()));
-    }
-  }
-}
-
-TEST_P(TestRangeRoundtrip, TestRangeRoundtrip) {
-  Value range = GetParam();
-  ZETASQL_ASSERT_OK_AND_ASSIGN(Value roundrip_range, MakeRoundtripRange(range));
-  EXPECT_EQ(range, roundrip_range);
-}
-
 TEST_F(ValueTest, DateFormatting) {
   const Value date = Value::Date(19251);
   EXPECT_EQ(date.DebugString(/*verbose=*/true), "Date(2022-09-16)");
@@ -3801,7 +3738,7 @@ TEST_F(ValueTest, EquivalentProtos) {
       Value::Enum(enum_type, 1).LessThan(Value::Enum(alt_enum_type, 2)));
 }
 
-static std::string TestParseInteger(const std::string& input) {
+static std::string TestParseInteger(absl::string_view input) {
   Value value;
   if (!Value::ParseInteger(input, &value)) {
     return "ERROR";
@@ -5015,6 +4952,54 @@ TEST_P(DeserializeInvalidRangesTest, InvalidRangeValuesFail) {
   EXPECT_THAT(status_or_value,
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr(param.expected_error_message)));
+}
+
+// Test that Value::DebugString stack overflow cutoffs work and we don't crash.
+static void StackOverflowTest() {
+  TypeFactory factory;
+  Value v = values::Int64(5);
+  for (int i = 0; i < 1000; ++i) {
+    const StructType* new_type;
+    absl::Status status =
+        factory.MakeStructType({{"field", v.type()}}, &new_type);
+    if (!status.ok()) {
+      EXPECT_GE(i, 100) << status;
+      EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
+      break;
+    }
+    const ArrayType* new_array_type;
+    status = factory.MakeArrayType(new_type, &new_array_type);
+    if (!status.ok()) {
+      EXPECT_GE(i, 100) << status;
+      EXPECT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
+      break;
+    }
+
+    (void)new_type->DebugString();
+    (void)new_array_type->DebugString(true /* detailed */);
+
+    v = values::Struct(new_type, {v});
+    v = values::Array(new_array_type, {v});
+    LOG_EVERY_N_SEC(INFO, 10) << "Depth " << i << " " << v;
+  }
+  std::string s = v.DebugString();
+  ZETASQL_LOG(INFO) << s;
+  EXPECT_GT(s.size(), 100) << s;
+  if (ZETASQL_DEBUG_MODE) {
+    EXPECT_THAT(s, HasSubstr("[{field:[{field:[{field:[{field:5}]}]}]}]"));
+  }
+
+  s = v.DebugString(true /* verbose */);
+  ZETASQL_LOG(INFO) << s;
+  EXPECT_GT(s.size(), 200) << s;
+  if (ZETASQL_DEBUG_MODE) {
+    EXPECT_THAT(
+        s, HasSubstr("Struct{field:Array[Struct{field:Int64(5)}]}]}]}]}]}"));
+  }
+}
+
+TEST(ValueDebugString, StackOverflow) {
+  StackOverflowTest();
 }
 
 namespace {

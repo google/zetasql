@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/thread_stack.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -31,6 +32,8 @@ namespace zetasql {
 
 absl::Status CycleDetector::ObjectInfo::DetectCycle(
     absl::string_view object_type) const {
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
+      "Recursive dependencies are too complex");
   if (!cycle_detected_) {
     return absl::OkStatus();
   }

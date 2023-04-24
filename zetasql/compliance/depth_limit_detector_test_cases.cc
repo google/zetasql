@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <ostream>
 #include <sstream>
@@ -35,6 +36,7 @@
 #include "zetasql/public/options.pb.h"
 #include "gtest/gtest.h"
 #include "absl/flags/flag.h"
+#include "absl/functional/any_invocable.h"
 #include "absl/functional/function_ref.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
@@ -51,6 +53,10 @@ ABSL_FLAG(absl::Duration, depth_limit_detector_max_seed_probing_duration,
           absl::Seconds(10),
           "Approximate length of time to search for biggest nested query test "
           "case for test seeds");
+ABSL_FLAG(absl::Duration, depth_limit_detector_total_seed_probing_duration,
+          absl::Minutes(2),
+          "Approximate total length of time to search for biggest nested query "
+          "test seeds");
 
 namespace zetasql {
 
@@ -280,30 +286,42 @@ DepthLimitDetectorTestResult RunDepthLimitDetectorTestCase(
   return result;
 }
 
-std::vector<std::tuple<std::string>> DepthLimitDetectorSeeds(
-    absl::FunctionRef<absl::Status(std::string_view)> test_driver_function) {
-  std::vector<std::tuple<std::string>> seeds;
-  absl::Time start_seeding_time = absl::Now();
-  for (const zetasql::DepthLimitDetectorTestCase& test_case :
-       AllDepthLimitDetectorTestCases()) {
-    DepthLimitDetectorRuntimeControl control;
-    control.max_probing_duration =
-        absl::GetFlag(FLAGS_depth_limit_detector_max_seed_probing_duration);
-    auto result =
-        RunDepthLimitDetectorTestCase(test_case, test_driver_function, control);
-    ZETASQL_LOG(INFO) << "DepthLimitDetectorSeeds " << result.depth_limit_test_case_name
-              << " first condition "
-              << result.depth_limit_detector_return_conditions[0];
-    for (const auto& cond : result.depth_limit_detector_return_conditions) {
-      seeds.push_back(zetasql::DepthLimitDetectorTemplateToString(
-          test_case, cond.starting_depth));
-      seeds.push_back(zetasql::DepthLimitDetectorTemplateToString(
-          test_case, cond.ending_depth));
+absl::AnyInvocable<std::vector<std::tuple<std::string>>() const>
+DepthLimitDetectorSeeds(absl::AnyInvocable<absl::Status(std::string_view) const>
+                            test_driver_function) {
+  return [test_driver_function = std::move(test_driver_function)]() {
+    std::vector<std::tuple<std::string>> seeds;
+
+    absl::Time start_seeding_time = absl::Now();
+    absl::Time target_ending_time =
+        start_seeding_time +
+        absl::GetFlag(FLAGS_depth_limit_detector_total_seed_probing_duration);
+    int64_t remaining_cases = AllDepthLimitDetectorTestCases().size();
+    for (const zetasql::DepthLimitDetectorTestCase& test_case :
+         AllDepthLimitDetectorTestCases()) {
+      DepthLimitDetectorRuntimeControl control;
+      control.max_probing_duration = std::min(
+          (target_ending_time - absl::Now()) / remaining_cases,
+          absl::GetFlag(FLAGS_depth_limit_detector_max_seed_probing_duration));
+      DepthLimitDetectorTestResult result = RunDepthLimitDetectorTestCase(
+          test_case, test_driver_function, control);
+      ZETASQL_LOG(INFO) << "DepthLimitDetectorSeeds "
+                << result.depth_limit_test_case_name << " first condition "
+                << result.depth_limit_detector_return_conditions[0];
+      for (const DepthLimitDetectorReturnCondition& cond :
+           result.depth_limit_detector_return_conditions) {
+        seeds.push_back(
+            DepthLimitDetectorTemplateToString(test_case, cond.starting_depth));
+        seeds.push_back(
+            DepthLimitDetectorTemplateToString(test_case, cond.ending_depth));
+      }
+      remaining_cases--;
     }
-  }
-  ZETASQL_LOG(INFO) << "DepthLimitDetector seeds finished in "
-            << absl::Now() - start_seeding_time;
-  return seeds;
+    ZETASQL_LOG(INFO) << "DepthLimitDetector seeds finished in "
+              << absl::Now() - start_seeding_time << " with "
+              << (target_ending_time - absl::Now()) << " to spare";
+    return seeds;
+  };
 }
 
 absl::Span<const std::reference_wrapper<const DepthLimitDetectorTestCase>>
@@ -438,6 +456,14 @@ AllDepthLimitDetectorTestCases() {
           {
               .depth_limit_test_case_name = "repeated_plus_one",
               .depth_limit_template = {"SELECT 1", R({"+1"}), " AS c"},
+          },
+          {
+              .depth_limit_test_case_name = "repeated_divide_two",
+              .depth_limit_template = {"SELECT 1.0", R({"/2"}), " AS c"},
+          },
+          {
+              .depth_limit_test_case_name = "repeated_minus_one",
+              .depth_limit_template = {"SELECT 1", R({"-1"}), " AS c"},
           },
           {
               .depth_limit_test_case_name = "with_joins",

@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Query syntax
 
 Query statements scan one or more tables or expressions and return the computed
@@ -54,15 +56,15 @@ The `Roster` table includes a list of player names (`LastName`) and the
 unique ID assigned to their school (`SchoolID`). It looks like this:
 
 ```sql
-+-----------------------+
-| LastName   | SchoolID |
-+-----------------------+
-| Adams      | 50       |
-| Buchanan   | 52       |
-| Coolidge   | 52       |
-| Davis      | 51       |
-| Eisenhower | 77       |
-+-----------------------+
+/*-----------------------*
+ | LastName   | SchoolID |
+ +-----------------------+
+ | Adams      | 50       |
+ | Buchanan   | 52       |
+ | Coolidge   | 52       |
+ | Davis      | 51       |
+ | Eisenhower | 77       |
+ *-----------------------*/
 ```
 
 You can use this `WITH` clause to emulate a temporary table name for the
@@ -85,15 +87,15 @@ unique ID assigned to the opponent they played in a given game (`OpponentID`)
 and the number of points scored by the athlete in that game (`PointsScored`).
 
 ```sql
-+----------------------------------------+
-| LastName   | OpponentID | PointsScored |
-+----------------------------------------+
-| Adams      | 51         | 3            |
-| Buchanan   | 77         | 0            |
-| Coolidge   | 77         | 1            |
-| Adams      | 52         | 4            |
-| Buchanan   | 50         | 13           |
-+----------------------------------------+
+/*----------------------------------------*
+ | LastName   | OpponentID | PointsScored |
+ +----------------------------------------+
+ | Adams      | 51         | 3            |
+ | Buchanan   | 77         | 0            |
+ | Coolidge   | 77         | 1            |
+ | Adams      | 52         | 4            |
+ | Buchanan   | 50         | 13           |
+ *----------------------------------------*/
 ```
 
 You can use this `WITH` clause to emulate a temporary table name for the
@@ -115,14 +117,14 @@ The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
 mascot for that school (`Mascot`).
 
 ```sql
-+---------------------+
-| SchoolID | Mascot   |
-+---------------------+
-| 50       | Jaguars  |
-| 51       | Knights  |
-| 52       | Lakers   |
-| 53       | Mustangs |
-+---------------------+
+/*---------------------*
+ | SchoolID | Mascot   |
+ +---------------------+
+ | 50       | Jaguars  |
+ | 51       | Knights  |
+ | 52       | Lakers   |
+ | 53       | Mustangs |
+ *---------------------*/
 ```
 
 You can use this `WITH` clause to emulate a temporary table name for the
@@ -177,11 +179,11 @@ each column that is visible after executing the full query.
 ```sql
 SELECT * FROM (SELECT "apple" AS fruit, "carrot" AS vegetable);
 
-+-------+-----------+
-| fruit | vegetable |
-+-------+-----------+
-| apple | carrot    |
-+-------+-----------+
+/*-------+-----------*
+ | fruit | vegetable |
+ +-------+-----------+
+ | apple | carrot    |
+ *-------+-----------*/
 ```
 
 ### `SELECT expression` 
@@ -214,11 +216,11 @@ WITH groceries AS
 SELECT g.*
 FROM groceries AS g;
 
-+-------+---------+-------+
-| dairy | protein | grain |
-+-------+---------+-------+
-| milk  | eggs    | bread |
-+-------+---------+-------+
+/*-------+---------+-------*
+ | dairy | protein | grain |
+ +-------+---------+-------+
+ | milk  | eggs    | bread |
+ *-------+---------+-------*/
 ```
 
 More examples:
@@ -231,12 +233,12 @@ WITH locations AS
 SELECT l.location.*
 FROM locations l;
 
-+---------+------------+
-| city    | state      |
-+---------+------------+
-| Seattle | Washington |
-| Phoenix | Arizona    |
-+---------+------------+
+/*---------+------------*
+ | city    | state      |
+ +---------+------------+
+ | Seattle | Washington |
+ | Phoenix | Arizona    |
+ *---------+------------*/
 ```
 
 ```sql
@@ -246,11 +248,11 @@ WITH locations AS
 SELECT l.LOCATION[offset(0)].*
 FROM locations l;
 
-+---------+------------+
-| city    | state      |
-+---------+------------+
-| Seattle | Washington |
-+---------+------------+
+/*---------+------------*
+ | city    | state      |
+ +---------+------------+
+ | Seattle | Washington |
+ *---------+------------*/
 ```
 
 ### `SELECT * EXCEPT`
@@ -266,11 +268,11 @@ WITH orders AS
 SELECT * EXCEPT (order_id)
 FROM orders;
 
-+-----------+----------+
-| item_name | quantity |
-+-----------+----------+
-| sprocket  | 200      |
-+-----------+----------+
+/*-----------+----------*
+ | item_name | quantity |
+ +-----------+----------+
+ | sprocket  | 200      |
+ *-----------+----------*/
 ```
 
 Note: `SELECT * EXCEPT` does not exclude columns that do not have names.
@@ -294,11 +296,11 @@ WITH orders AS
 SELECT * REPLACE ("widget" AS item_name)
 FROM orders;
 
-+----------+-----------+----------+
-| order_id | item_name | quantity |
-+----------+-----------+----------+
-| 5        | widget    | 200      |
-+----------+-----------+----------+
+/*----------+-----------+----------*
+ | order_id | item_name | quantity |
+ +----------+-----------+----------+
+ | 5        | widget    | 200      |
+ *----------+-----------+----------*/
 
 WITH orders AS
   (SELECT 5 as order_id,
@@ -307,11 +309,11 @@ WITH orders AS
 SELECT * REPLACE (quantity/2 AS quantity)
 FROM orders;
 
-+----------+-----------+----------+
-| order_id | item_name | quantity |
-+----------+-----------+----------+
-| 5        | sprocket  | 100      |
-+----------+-----------+----------+
+/*----------+-----------+----------*
+ | order_id | item_name | quantity |
+ +----------+-----------+----------+
+ | 5        | sprocket  | 100      |
+ *----------+-----------+----------*/
 ```
 
 Note: `SELECT * REPLACE` does not replace columns that do not have names.
@@ -638,12 +640,12 @@ FROM UNNEST(
         (1, 'foo', (10, 11)),
         (3, 'bar', (20, 21))]);
 
-+---+-----+----------+
-| x | y   | z        |
-+---+-----+----------+
-| 1 | foo | {10, 11} |
-| 3 | bar | {20, 21} |
-+---+-----+----------+
+/*---+-----+----------*
+ | x | y   | z        |
+ +---+-----+----------+
+ | 1 | foo | {10, 11} |
+ | 3 | bar | {20, 21} |
+ *---+-----+----------*/
 ```
 
 Because the `UNNEST` operator returns a
@@ -665,12 +667,12 @@ FROM UNNEST(
       (1, 'foo'),
       (3, 'bar')]) AS struct_value;
 
-+---+-----+--------------+
-| x | y   | struct_value |
-+---+-----+--------------+
-| 3 | bar | {3, bar}     |
-| 1 | foo | {1, foo}     |
-+---+-----+--------------+
+/*---+-----+--------------*
+ | x | y   | struct_value |
+ +---+-----+--------------+
+ | 3 | bar | {3, bar}     |
+ | 1 | foo | {1, foo}     |
+ *---+-----+--------------*/
 ```
 
 ### `UNNEST` and protocol buffers
@@ -691,11 +693,12 @@ FROM UNNEST(
     )
   ]
 );
-+-------------------------+--------+----------------------------------+
-| album_name              | singer | song                             |
-+-------------------------+--------+----------------------------------+
-| The Goldberg Variations | NULL   | [Aria, Variation 1, Variation 2] |
-+-------------------------+--------+----------------------------------+
+
+/*-------------------------+--------+----------------------------------*
+ | album_name              | singer | song                             |
+ +-------------------------+--------+----------------------------------+
+ | The Goldberg Variations | NULL   | [Aria, Variation 1, Variation 2] |
+ *-------------------------+--------+----------------------------------*/
 ```
 
 As with structs, you can alias `UNNEST` here to define a range variable. You
@@ -712,11 +715,12 @@ FROM UNNEST(
     )
   ]
 ) AS proto_value;
-+---------------------------------------------------------------------+
-| proto_value                                                         |
-+---------------------------------------------------------------------+
-| {album_name: "The Goldberg Variations" song: "Aria" song: "Var. 1"} |
-+---------------------------------------------------------------------+
+
+/*---------------------------------------------------------------------*
+ | proto_value                                                         |
+ +---------------------------------------------------------------------+
+ | {album_name: "The Goldberg Variations" song: "Aria" song: "Var. 1"} |
+ *---------------------------------------------------------------------*/
 ```
 
 ### Explicit and implicit `UNNEST`
@@ -836,13 +840,13 @@ Example:
 ```sql
 SELECT * FROM UNNEST ([10,20,30]) as numbers WITH OFFSET;
 
-+---------+--------+
-| numbers | offset |
-+---------+--------+
-| 10      | 0      |
-| 20      | 1      |
-| 30      | 2      |
-+---------+--------+
+/*---------+--------*
+ | numbers | offset |
+ +---------+--------+
+ | 10      | 0      |
+ | 20      | 1      |
+ | 30      | 2      |
+ *---------+--------*/
 ```
 
 ## `UNPIVOT` operator 
@@ -891,26 +895,26 @@ Conceptual example:
 
 ```sql
 -- Before UNPIVOT is used to rotate Q1, Q2, Q3, Q4 into sales and quarter columns:
-+---------+----+----+----+----+
-| product | Q1 | Q2 | Q3 | Q4 |
-+---------+----+----+----+----+
-| Kale    | 51 | 23 | 45 | 3  |
-| Apple   | 77 | 0  | 25 | 2  |
-+---------+----+----+----+----+
+/*---------+----+----+----+----*
+ | product | Q1 | Q2 | Q3 | Q4 |
+ +---------+----+----+----+----+
+ | Kale    | 51 | 23 | 45 | 3  |
+ | Apple   | 77 | 0  | 25 | 2  |
+ *---------+----+----+----+----*/
 
 -- After UNPIVOT is used to rotate Q1, Q2, Q3, Q4 into sales and quarter columns:
-+---------+-------+---------+
-| product | sales | quarter |
-+---------+-------+---------+
-| Kale    | 51    | Q1      |
-| Kale    | 23    | Q2      |
-| Kale    | 45    | Q3      |
-| Kale    | 3     | Q4      |
-| Apple   | 77    | Q1      |
-| Apple   | 0     | Q2      |
-| Apple   | 25    | Q3      |
-| Apple   | 2     | Q4      |
-+---------+-------+---------+
+/*---------+-------+---------*
+ | product | sales | quarter |
+ +---------+-------+---------+
+ | Kale    | 51    | Q1      |
+ | Kale    | 23    | Q2      |
+ | Kale    | 45    | Q3      |
+ | Kale    | 3     | Q4      |
+ | Apple   | 77    | Q1      |
+ | Apple   | 0     | Q2      |
+ | Apple   | 25    | Q3      |
+ | Apple   | 2     | Q4      |
+ *---------+-------+---------*/
 ```
 
 **Definitions**
@@ -1036,12 +1040,12 @@ WITH Produce AS (
   SELECT 'Apple', 77, 0, 25, 2)
 SELECT * FROM Produce
 
-+---------+----+----+----+----+
-| product | Q1 | Q2 | Q3 | Q4 |
-+---------+----+----+----+----+
-| Kale    | 51 | 23 | 45 | 3  |
-| Apple   | 77 | 0  | 25 | 2  |
-+---------+----+----+----+----+
+/*---------+----+----+----+----*
+ | product | Q1 | Q2 | Q3 | Q4 |
+ +---------+----+----+----+----+
+ | Kale    | 51 | 23 | 45 | 3  |
+ | Apple   | 77 | 0  | 25 | 2  |
+ *---------+----+----+----+----*/
 ```
 
 With the `UNPIVOT` operator, the columns `Q1`, `Q2`, `Q3`, and `Q4` are
@@ -1053,18 +1057,18 @@ This is a single-column unpivot operation.
 SELECT * FROM Produce
 UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
 
-+---------+-------+---------+
-| product | sales | quarter |
-+---------+-------+---------+
-| Kale    | 51    | Q1      |
-| Kale    | 23    | Q2      |
-| Kale    | 45    | Q3      |
-| Kale    | 3     | Q4      |
-| Apple   | 77    | Q1      |
-| Apple   | 0     | Q2      |
-| Apple   | 25    | Q3      |
-| Apple   | 2     | Q4      |
-+---------+-------+---------+
+/*---------+-------+---------*
+ | product | sales | quarter |
+ +---------+-------+---------+
+ | Kale    | 51    | Q1      |
+ | Kale    | 23    | Q2      |
+ | Kale    | 45    | Q3      |
+ | Kale    | 3     | Q4      |
+ | Apple   | 77    | Q1      |
+ | Apple   | 0     | Q2      |
+ | Apple   | 25    | Q3      |
+ | Apple   | 2     | Q4      |
+ *---------+-------+---------*/
 ```
 
 In this example, we `UNPIVOT` four quarters into two semesters.
@@ -1077,14 +1081,14 @@ UNPIVOT(
   FOR semesters
   IN ((Q1, Q2) AS 'semester_1', (Q3, Q4) AS 'semester_2'))
 
-+---------+------------------+-------------------+------------+
-| product | first_half_sales | second_half_sales | semesters  |
-+---------+------------------+-------------------+------------+
-| Kale    | 51               | 23                | semester_1 |
-| Kale    | 45               | 3                 | semester_2 |
-| Apple   | 77               | 0                 | semester_1 |
-| Apple   | 25               | 2                 | semester_2 |
-+---------+------------------+-------------------+------------+
+/*---------+------------------+-------------------+------------*
+ | product | first_half_sales | second_half_sales | semesters  |
+ +---------+------------------+-------------------+------------+
+ | Kale    | 51               | 23                | semester_1 |
+ | Kale    | 45               | 3                 | semester_2 |
+ | Apple   | 77               | 0                 | semester_1 |
+ | Apple   | 25               | 2                 | semester_2 |
+ *---------+------------------+-------------------+------------*/
 ```
 
 ## `TABLESAMPLE` operator
@@ -1373,6 +1377,7 @@ without actually calculating the Cartesian product.
 ```sql
 FROM A INNER JOIN B ON A.w = B.y
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +---------------+
 | w | x |  *  | y | z |  =  | w | x | y | z |
@@ -1383,11 +1388,13 @@ Table A       Table B       Result
 | 3 | d |     | 4 | p |     | 3 | d | 3 | m |
 +-------+     +-------+     | 3 | d | 3 | n |
                             +---------------+
+*/
 ```
 
 ```sql
 FROM A INNER JOIN B USING (x)
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +-----------+
 | x | y |  *  | x | z |  =  | x | y | z |
@@ -1398,6 +1405,7 @@ Table A       Table B       Result
 | 3 | d |     | 4 | p |     | 3 | d | m |
 +-------+     +-------+     | 3 | d | n |
                             +-----------+
+*/
 ```
 
 **Example**
@@ -1409,14 +1417,14 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
-+---------------------------+
-| LastName   | Mascot       |
-+---------------------------+
-| Adams      | Jaguars      |
-| Buchanan   | Lakers       |
-| Coolidge   | Lakers       |
-| Davis      | Knights      |
-+---------------------------+
+/*---------------------------*
+ | LastName   | Mascot       |
+ +---------------------------+
+ | Adams      | Jaguars      |
+ | Buchanan   | Lakers       |
+ | Coolidge   | Lakers       |
+ | Davis      | Knights      |
+ *---------------------------*/
 ```
 
 ### `CROSS JOIN`
@@ -1434,6 +1442,7 @@ In a `FROM` clause, a `CROSS JOIN` can be written like this:
 ```sql
 FROM A CROSS JOIN B
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +---------------+
 | w | x |  *  | y | z |  =  | w | x | y | z |
@@ -1443,6 +1452,7 @@ Table A       Table B       Result
 +-------+     +-------+     | 2 | b | 2 | c |
                             | 2 | b | 3 | d |
                             +---------------+
+*/
 ```
 
 You can use a [correlated][correlated-join] cross join to convert or
@@ -1458,19 +1468,19 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster CROSS JOIN TeamMascot;
 
-+---------------------------+
-| LastName   | Mascot       |
-+---------------------------+
-| Adams      | Jaguars      |
-| Adams      | Knights      |
-| Adams      | Lakers       |
-| Adams      | Mustangs     |
-| Buchanan   | Jaguars      |
-| Buchanan   | Knights      |
-| Buchanan   | Lakers       |
-| Buchanan   | Mustangs     |
-| ...                       |
-+---------------------------+
+/*---------------------------*
+ | LastName   | Mascot       |
+ +---------------------------+
+ | Adams      | Jaguars      |
+ | Adams      | Knights      |
+ | Adams      | Lakers       |
+ | Adams      | Mustangs     |
+ | Buchanan   | Jaguars      |
+ | Buchanan   | Knights      |
+ | Buchanan   | Lakers       |
+ | Buchanan   | Mustangs     |
+ | ...                       |
+ *---------------------------*/
 ```
 
 ### Comma cross join (,) 
@@ -1484,6 +1494,7 @@ A comma cross join looks like this in a `FROM` clause:
 ```sql
 FROM A, B
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +---------------+
 | w | x |  *  | y | z |  =  | w | x | y | z |
@@ -1493,6 +1504,7 @@ Table A       Table B       Result
 +-------+     +-------+     | 2 | b | 2 | c |
                             | 2 | b | 3 | d |
                             +---------------+
+*/
 ```
 
 You cannot write comma cross joins inside parentheses. To learn more, see
@@ -1515,19 +1527,19 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster, TeamMascot;
 
-+---------------------------+
-| LastName   | Mascot       |
-+---------------------------+
-| Adams      | Jaguars      |
-| Adams      | Knights      |
-| Adams      | Lakers       |
-| Adams      | Mustangs     |
-| Buchanan   | Jaguars      |
-| Buchanan   | Knights      |
-| Buchanan   | Lakers       |
-| Buchanan   | Mustangs     |
-| ...                       |
-+---------------------------+
+/*---------------------------*
+ | LastName   | Mascot       |
+ +---------------------------+
+ | Adams      | Jaguars      |
+ | Adams      | Knights      |
+ | Adams      | Lakers       |
+ | Adams      | Mustangs     |
+ | Buchanan   | Jaguars      |
+ | Buchanan   | Knights      |
+ | Buchanan   | Lakers       |
+ | Buchanan   | Mustangs     |
+ | ...                       |
+ *---------------------------*/
 ```
 
 ### `FULL [OUTER] JOIN` 
@@ -1541,6 +1553,7 @@ with `NULL` values for all columns from the other `from_item`.
 ```sql
 FROM A FULL OUTER JOIN B ON A.w = B.y
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +---------------------------+
 | w | x |  *  | y | z |  =  | w    | x    | y    | z    |
@@ -1553,11 +1566,13 @@ Table A       Table B       Result
                             | 3    | d    | 3    | n    |
                             | NULL | NULL | 4    | p    |
                             +---------------------------+
+*/
 ```
 
 ```sql
 FROM A FULL OUTER JOIN B USING (x)
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +--------------------+
 | x | y |  *  | x | z |  =  | x    | y    | z    |
@@ -1570,6 +1585,7 @@ Table A       Table B       Result
                             | 3    | d    | n    |
                             | 4    | NULL | p    |
                             +--------------------+
+*/
 ```
 
 **Example**
@@ -1581,16 +1597,16 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
-+---------------------------+
-| LastName   | Mascot       |
-+---------------------------+
-| Adams      | Jaguars      |
-| Buchanan   | Lakers       |
-| Coolidge   | Lakers       |
-| Davis      | Knights      |
-| Eisenhower | NULL         |
-| NULL       | Mustangs     |
-+---------------------------+
+/*---------------------------*
+ | LastName   | Mascot       |
+ +---------------------------+
+ | Adams      | Jaguars      |
+ | Buchanan   | Lakers       |
+ | Coolidge   | Lakers       |
+ | Davis      | Knights      |
+ | Eisenhower | NULL         |
+ | NULL       | Mustangs     |
+ *---------------------------*/
 ```
 
 ### `LEFT [OUTER] JOIN` 
@@ -1610,6 +1626,7 @@ columns exclusively from the right `from_item`. Rows from the right
 ```sql
 FROM A LEFT OUTER JOIN B ON A.w = B.y
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +---------------------------+
 | w | x |  *  | y | z |  =  | w    | x    | y    | z    |
@@ -1621,11 +1638,13 @@ Table A       Table B       Result
 +-------+     +-------+     | 3    | d    | 3    | m    |
                             | 3    | d    | 3    | n    |
                             +---------------------------+
+*/
 ```
 
 ```sql
 FROM A LEFT OUTER JOIN B USING (x)
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +--------------------+
 | x | y |  *  | x | z |  =  | x    | y    | z    |
@@ -1637,6 +1656,7 @@ Table A       Table B       Result
 +-------+     +-------+     | 3    | d    | m    |
                             | 3    | d    | n    |
                             +--------------------+
+*/
 ```
 
 **Example**
@@ -1648,15 +1668,15 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster LEFT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
-+---------------------------+
-| LastName   | Mascot       |
-+---------------------------+
-| Adams      | Jaguars      |
-| Buchanan   | Lakers       |
-| Coolidge   | Lakers       |
-| Davis      | Knights      |
-| Eisenhower | NULL         |
-+---------------------------+
+/*---------------------------*
+ | LastName   | Mascot       |
+ +---------------------------+
+ | Adams      | Jaguars      |
+ | Buchanan   | Lakers       |
+ | Coolidge   | Lakers       |
+ | Davis      | Knights      |
+ | Eisenhower | NULL         |
+ *---------------------------*/
 ```
 
 ### `RIGHT [OUTER] JOIN` 
@@ -1676,6 +1696,7 @@ that do not join to any row in the right `from_item` are discarded.
 ```sql
 FROM A RIGHT OUTER JOIN B ON A.w = B.y
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +---------------------------+
 | w | x |  *  | y | z |  =  | w    | x    | y    | z    |
@@ -1687,11 +1708,13 @@ Table A       Table B       Result
 +-------+     +-------+     | 3    | d    | 3    | n    |
                             | NULL | NULL | 4    | p    |
                             +---------------------------+
+*/
 ```
 
 ```sql
 FROM A RIGHT OUTER JOIN B USING (x)
 
+/*
 Table A       Table B       Result
 +-------+     +-------+     +--------------------+
 | x | y |  *  | x | z |  =  | x    | y    | z    |
@@ -1703,6 +1726,7 @@ Table A       Table B       Result
 +-------+     +-------+     | 3    | d    | n    |
                             | 4    | NULL | p    |
                             +--------------------+
+*/
 ```
 
 **Example**
@@ -1714,15 +1738,15 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
-+---------------------------+
-| LastName   | Mascot       |
-+---------------------------+
-| Adams      | Jaguars      |
-| Buchanan   | Lakers       |
-| Coolidge   | Lakers       |
-| Davis      | Knights      |
-| NULL       | Mustangs     |
-+---------------------------+
+/*---------------------------*
+ | LastName   | Mascot       |
+ +---------------------------+
+ | Adams      | Jaguars      |
+ | Buchanan   | Lakers       |
+ | Coolidge   | Lakers       |
+ | Davis      | Knights      |
+ | NULL       | Mustangs     |
+ *---------------------------*/
 ```
 
 ### Join conditions 
@@ -1745,6 +1769,7 @@ if join condition returns `TRUE`.
 ```sql
 FROM A JOIN B ON A.x = B.x
 
+/*
 Table A   Table B   Result (A.x, B.x)
 +---+     +---+     +-------+
 | x |  *  | x |  =  | x | x |
@@ -1753,6 +1778,7 @@ Table A   Table B   Result (A.x, B.x)
 | 2 |     | 3 |     | 3 | 3 |
 | 3 |     | 4 |     +-------+
 +---+     +---+
+*/
 ```
 
 **Example**
@@ -1764,14 +1790,14 @@ This query performs an `INNER JOIN` on the
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
-+---------------------------+
-| LastName   | Mascot       |
-+---------------------------+
-| Adams      | Jaguars      |
-| Buchanan   | Lakers       |
-| Coolidge   | Lakers       |
-| Davis      | Knights      |
-+---------------------------+
+/*---------------------------*
+ | LastName   | Mascot       |
+ +---------------------------+
+ | Adams      | Jaguars      |
+ | Buchanan   | Lakers       |
+ | Coolidge   | Lakers       |
+ | Davis      | Knights      |
+ *---------------------------*/
 ```
 
 #### `USING` clause 
@@ -1784,6 +1810,7 @@ and the rows meet the join condition if the equality comparison returns `TRUE`.
 ```sql
 FROM A JOIN B USING (x)
 
+/*
 Table A   Table B   Result
 +---+     +---+     +---+
 | x |  *  | x |  =  | x |
@@ -1792,6 +1819,7 @@ Table A   Table B   Result
 | 2 |     | 3 |     | 3 |
 | 3 |     | 4 |     +---+
 +---+     +---+
+*/
 ```
 
 **NOTE**: The `USING` keyword is not supported in
@@ -1810,14 +1838,14 @@ single `SchoolID` column.
 ```sql
 SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
 
-+----------------------------------------+
-| SchoolID   | LastName   | Mascot       |
-+----------------------------------------+
-| 50         | Adams      | Jaguars      |
-| 52         | Buchanan   | Lakers       |
-| 52         | Coolidge   | Lakers       |
-| 51         | Davis      | Knights      |
-+----------------------------------------+
+/*----------------------------------------*
+ | SchoolID   | LastName   | Mascot       |
+ +----------------------------------------+
+ | 50         | Adams      | Jaguars      |
+ | 52         | Buchanan   | Lakers       |
+ | 52         | Coolidge   | Lakers       |
+ | 51         | Davis      | Knights      |
+ *----------------------------------------*/
 ```
 
 ### `ON` and `USING` equivalency
@@ -1829,6 +1857,7 @@ The `ON` and `USING` keywords are not equivalent, but they are similar.
 FROM A JOIN B ON A.x = B.x
 FROM A JOIN B USING (x)
 
+/*
 Table A   Table B   Result ON     Result USING
 +---+     +---+     +-------+     +---+
 | x |  *  | x |  =  | x | x |     | x |
@@ -1837,6 +1866,7 @@ Table A   Table B   Result ON     Result USING
 | 2 |     | 3 |     | 3 | 3 |     | 3 |
 | 3 |     | 4 |     +-------+     +---+
 +---+     +---+
+*/
 ```
 
 Although `ON` and `USING` are not equivalent, they can return the same results
@@ -1846,6 +1876,7 @@ if you specify the columns you want to return.
 SELECT x FROM A JOIN B USING (x);
 SELECT A.x FROM A JOIN B ON A.x = B.x;
 
+/*
 Table A   Table B   Result
 +---+     +---+     +---+
 | x |  *  | x |  =  | x |
@@ -1854,6 +1885,7 @@ Table A   Table B   Result
 | 2 |     | 3 |     | 3 |
 | 3 |     | 4 |     +---+
 +---+     +---+
+*/
 ```
 
 ### Join operations in a sequence 
@@ -2030,12 +2062,12 @@ JOIN
     )) AS PlayerMatches
   ON PlayerMatches.LastName = 'Buchanan'
 
-+------------+----------+----------+------------+--------------+
-| LastName   | SchoolID | LastName | OpponentID | PointsScored |
-+------------+----------+----------+------------+--------------+
-| Adams      | 50       | Buchanan | 50         | 13           |
-| Eisenhower | 77       | Buchanan | 77         | 0            |
-+------------+----------+----------+------------+--------------+
+/*------------+----------+----------+------------+--------------*
+ | LastName   | SchoolID | LastName | OpponentID | PointsScored |
+ +------------+----------+----------+------------+--------------+
+ | Adams      | 50       | Buchanan | 50         | 13           |
+ | Eisenhower | 77       | Buchanan | 77         | 0            |
+ *------------+----------+----------+------------+--------------*/
 ```
 
 A common pattern for a correlated `LEFT JOIN` is to have an `UNNEST` operation
@@ -2059,15 +2091,15 @@ FROM
 LEFT JOIN
   A.items AS item;
 
-+--------+------+---------------------+
-| name   | item | item_count_for_name |
-+--------+------+---------------------+
-| first  | 1    | 4                   |
-| first  | 2    | 4                   |
-| first  | 3    | 4                   |
-| first  | 4    | 4                   |
-| second | NULL | 0                   |
-+--------+------+---------------------+
+/*--------+------+---------------------*
+ | name   | item | item_count_for_name |
+ +--------+------+---------------------+
+ | first  | 1    | 4                   |
+ | first  | 2    | 4                   |
+ | first  | 3    | 4                   |
+ | first  | 4    | 4                   |
+ | second | NULL | 0                   |
+ *--------+------+---------------------*/
 ```
 
 In the case of a correlated `CROSS JOIN`, when the input on the right side
@@ -2088,14 +2120,14 @@ FROM
 CROSS JOIN
   A.items AS item;
 
-+-------+------+
-| name  | item |
-+-------+------+
-| first | 1    |
-| first | 2    |
-| first | 3    |
-| first | 4    |
-+-------+------+
+/*-------+------*
+ | name  | item |
+ +-------+------+
+ | first | 1    |
+ | first | 2    |
+ | first | 3    |
+ | first | 4    |
+ *-------+------*/
 ```
 
 ## `WHERE` clause 
@@ -2272,14 +2304,14 @@ The query above outputs a row for each day in addition to the rolled up total
 across all days, as indicated by a `NULL` day:
 
 ```sql
-+------+-------+
-| day  | total |
-+------+-------+
-| NULL | 39.77 |
-|    1 | 23.54 |
-|    2 |  9.99 |
-|    3 |  6.24 |
-+------+-------+
+/*------+-------*
+ | day  | total |
+ +------+-------+
+ | NULL | 39.77 |
+ |    1 | 23.54 |
+ |    2 |  9.99 |
+ |    3 |  6.24 |
+ *------+-------*/
 ```
 
 Example:
@@ -2314,19 +2346,19 @@ distinct sku-day combination, the total for each sku across all days, and the
 grand total:
 
 ```sql
-+------+------+-------+
-| sku  | day  | total |
-+------+------+-------+
-| NULL | NULL | 39.77 |
-|  123 | NULL | 28.97 |
-|  123 |    1 | 18.98 |
-|  123 |    2 |  9.99 |
-|  456 | NULL |  8.81 |
-|  456 |    1 |  4.56 |
-|  456 |    3 |  4.25 |
-|  789 |    3 |  1.99 |
-|  789 | NULL |  1.99 |
-+------+------+-------+
+/*------+------+-------*
+ | sku  | day  | total |
+ +------+------+-------+
+ | NULL | NULL | 39.77 |
+ |  123 | NULL | 28.97 |
+ |  123 |    1 | 18.98 |
+ |  123 |    2 |  9.99 |
+ |  456 | NULL |  8.81 |
+ |  456 |    1 |  4.56 |
+ |  456 |    3 |  4.25 |
+ |  789 |    3 |  1.99 |
+ |  789 | NULL |  1.99 |
+ *------+------+-------*/
 ```
 
 ## `HAVING` clause 
@@ -2476,13 +2508,14 @@ FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT 9, true UNION ALL
       SELECT NULL, false)
 ORDER BY x;
-+------+-------+
-| x    | y     |
-+------+-------+
-| NULL | false |
-| 1    | true  |
-| 9    | true  |
-+------+-------+
+
+/*------+-------*
+ | x    | y     |
+ +------+-------+
+ | NULL | false |
+ | 1    | true  |
+ | 9    | true  |
+ *------+-------*/
 ```
 
 Use the default sort order (ascending), but return null values last.
@@ -2493,13 +2526,14 @@ FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT 9, true UNION ALL
       SELECT NULL, false)
 ORDER BY x NULLS LAST;
-+------+-------+
-| x    | y     |
-+------+-------+
-| 1    | true  |
-| 9    | true  |
-| NULL | false |
-+------+-------+
+
+/*------+-------*
+ | x    | y     |
+ +------+-------+
+ | 1    | true  |
+ | 9    | true  |
+ | NULL | false |
+ *------+-------*/
 ```
 
 Use descending sort order.
@@ -2510,13 +2544,14 @@ FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT 9, true UNION ALL
       SELECT NULL, false)
 ORDER BY x DESC;
-+------+-------+
-| x    | y     |
-+------+-------+
-| 9    | true  |
-| 1    | true  |
-| NULL | false |
-+------+-------+
+
+/*------+-------*
+ | x    | y     |
+ +------+-------+
+ | 9    | true  |
+ | 1    | true  |
+ | NULL | false |
+ *------+-------*/
 ```
 
 Use descending sort order, but return null values first.
@@ -2527,13 +2562,14 @@ FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT 9, true UNION ALL
       SELECT NULL, false)
 ORDER BY x DESC NULLS FIRST;
-+------+-------+
-| x    | y     |
-+------+-------+
-| NULL | false |
-| 9    | true  |
-| 1    | true  |
-+------+-------+
+
+/*------+-------*
+ | x    | y     |
+ +------+-------+
+ | NULL | false |
+ | 9    | true  |
+ | 1    | true  |
+ *------+-------*/
 ```
 
 It is possible to order by multiple columns. In the example below, the result
@@ -2685,13 +2721,13 @@ FROM Produce
 WHERE Produce.category = 'vegetable'
 QUALIFY rank <= 3
 
-+---------+------+
-| item    | rank |
-+---------+------+
-| kale    | 1    |
-| lettuce | 2    |
-| cabbage | 3    |
-+---------+------+
+/*---------+------*
+ | item    | rank |
+ +---------+------+
+ | kale    | 1    |
+ | lettuce | 2    |
+ | cabbage | 3    |
+ *---------+------*/
 ```
 
 You don't have to include a window function in the `SELECT` list to use
@@ -2704,13 +2740,13 @@ FROM Produce
 WHERE Produce.category = 'vegetable'
 QUALIFY RANK() OVER (PARTITION BY category ORDER BY purchases DESC) <= 3
 
-+---------+
-| item    |
-+---------+
-| kale    |
-| lettuce |
-| cabbage |
-+---------+
+/*---------*
+ | item    |
+ +---------+
+ | kale    |
+ | lettuce |
+ | cabbage |
+ *---------*/
 ```
 
 ## `WINDOW` clause 
@@ -2866,12 +2902,12 @@ Example:
 SELECT * FROM UNNEST(ARRAY<int64>[1, 2, 3]) AS number
 EXCEPT DISTINCT SELECT 1;
 
-+--------+
-| number |
-+--------+
-| 2      |
-| 3      |
-+--------+
+/*--------*
+ | number |
+ +--------+
+ | 2      |
+ | 3      |
+ *--------*/
 ```
 
 ## `LIMIT` and `OFFSET` clauses 
@@ -2901,12 +2937,12 @@ SELECT *
 FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
 ORDER BY letter ASC LIMIT 2
 
-+---------+
-| letter  |
-+---------+
-| a       |
-| b       |
-+---------+
+/*---------*
+ | letter  |
+ +---------+
+ | a       |
+ | b       |
+ *---------*/
 ```
 
 ```sql
@@ -2914,13 +2950,13 @@ SELECT *
 FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
 ORDER BY letter ASC LIMIT 3 OFFSET 1
 
-+---------+
-| letter  |
-+---------+
-| b       |
-| c       |
-| d       |
-+---------+
+/*---------*
+ | letter  |
+ +---------+
+ | b       |
+ | c       |
+ | d       |
+ *---------*/
 ```
 
 ## `WITH` clause 
@@ -3069,13 +3105,13 @@ WITH RECURSIVE
   T1 AS ( (SELECT 1 AS n) UNION ALL (SELECT n + 1 AS n FROM T1 WHERE n < 3) )
 SELECT n FROM T1
 
-+---+
-| n |
-+---+
-| 2 |
-| 1 |
-| 3 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 2 |
+ | 1 |
+ | 3 |
+ *---*/
 ```
 
 The first iteration of a recursive union operation runs the base term.
@@ -3106,13 +3142,13 @@ WITH RECURSIVE
     (SELECT n + 2 FROM T1 WHERE n < 4))
 SELECT * FROM T1 ORDER BY n
 
-+---+
-| n |
-+---+
-| 1 |
-| 3 |
-| 5 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 1 |
+ | 3 |
+ | 5 |
+ *---*/
 ```
 
 Multiple subqueries in the same recursive CTE are okay, as
@@ -3127,14 +3163,14 @@ WITH RECURSIVE
   T3 AS (SELECT * FROM T1 INNER JOIN T2 USING (n))
 SELECT * FROM T3 ORDER BY n
 
-+---+
-| n |
-+---+
-| 1 |
-| 2 |
-| 3 |
-| 4 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 1 |
+ | 2 |
+ | 3 |
+ | 4 |
+ *---*/
 ```
 
 Aggregate functions can be invoked in subqueries, as long as they are not
@@ -3146,12 +3182,12 @@ WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + (SELECT COUNT(*) FROM T0) FROM T1 WHERE n < 4))
 SELECT * FROM T1 ORDER BY n
 
-+---+
-| n |
-+---+
-| 1 |
-| 4 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 1 |
+ | 4 |
+ *---*/
 ```
 
 `INNER JOIN` can be used inside subqueries:
@@ -3162,12 +3198,12 @@ WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 INNER JOIN T0 USING (n)))
 SELECT * FROM T1 ORDER BY n
 
-+---+
-| n |
-+---+
-| 1 |
-| 2 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 1 |
+ | 2 |
+ *---*/
 ```
 
 `CROSS JOIN` can be used inside subqueries:
@@ -3178,13 +3214,13 @@ WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT T1.n + T0.p FROM T1 CROSS JOIN T0 WHERE T1.n < 4))
 SELECT * FROM T1 CROSS JOIN T0 ORDER BY n
 
-+---+---+
-| n | p |
-+---+---+
-| 1 | 2 |
-| 3 | 2 |
-| 5 | 2 |
-+---+---+
+/*---+---*
+ | n | p |
+ +---+---+
+ | 1 | 2 |
+ | 3 | 2 |
+ | 5 | 2 |
+ *---+---*/
 ```
 
 In the following query, if `UNION DISTINCT` was replaced with `UNION ALL`,
@@ -3197,15 +3233,15 @@ WITH RECURSIVE
   T1 AS ( (SELECT 0 AS n) UNION DISTINCT (SELECT MOD(n + 1, 5) FROM T1) )
 SELECT * FROM T1 ORDER BY n
 
-+---+
-| n |
-+---+
-| 0 |
-| 1 |
-| 2 |
-| 3 |
-| 4 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 0 |
+ | 1 |
+ | 2 |
+ | 3 |
+ | 4 |
+ *---*/
 ```
 
 ##### Examples of disallowed recursive CTEs
@@ -3430,13 +3466,13 @@ WITH RECURSIVE
   A AS (SELECT 1 AS n UNION ALL (SELECT n + 1 FROM A WHERE n < 3))
 SELECT * FROM A
 
-+---+
-| n |
-+---+
-| 1 |
-| 2 |
-| 3 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 1 |
+ | 2 |
+ | 3 |
+ *---*/
 ```
 
 `A` can reference `B` because references between CTEs can go forwards:
@@ -3447,11 +3483,11 @@ WITH RECURSIVE
   B AS (SELECT 1 AS n)
 SELECT * FROM B
 
-+---+
-| n |
-+---+
-| 1 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 1 |
+ *---*/
 ```
 
 `B` can reference `A` because references between CTEs can go backwards:
@@ -3462,11 +3498,11 @@ WITH RECURSIVE
   B AS (SELECT * FROM A)
 SELECT * FROM B
 
-+---+
-| n |
-+---+
-| 1 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 1 |
+ *---*/
 ```
 
 This produces an error. `A` and `B` reference each other, which creates a cycle:
@@ -3526,11 +3562,11 @@ WITH
   B AS (SELECT * FROM A)
 SELECT * FROM B
 
-+---+
-| n |
-+---+
-| 1 |
-+---+
+/*---*
+ | n |
+ +---+
+ | 1 |
+ *---*/
 ```
 
 This produces an error. `A` and `B` reference each other, which creates a
@@ -3548,15 +3584,373 @@ SELECT * FROM B
 ## Differential privacy clause 
 <a id="dp_clause"></a>
 
-<pre class="lang-sql prettyprint">
-WITH
-  { DIFFERENTIAL_PRIVACY | ANONYMIZATION }
-  OPTIONS( privacy_parameters )
+This clause lets you transform the results of a query with
+[differentially private aggregations][dp-functions]. To learn more about
+differential privacy, see [Differential privacy][dp-concepts].
+
+### Differential privacy syntax 
+<a id="dp_query_syntax"></a>
+
+**Anonymization clause**
+
+<pre class="lang-sql notranslate prettyprint">
+WITH ANONYMIZATION OPTIONS( privacy_parameters )
+
+privacy_parameters:
+  epsilon = expression,
+  { delta = expression | k_threshold = expression },
+  [ { kappa = expression | max_groups_contributed = expression } ]
 </pre>
 
-This clause lets you transform the results of a query with differentially
-private aggregations. To learn more about this clause, see
-[Differential privacy][dp-concepts].
+**Differential privacy clause**
+
+<pre class="lang-sql notranslate prettyprint">
+WITH DIFFERENTIAL_PRIVACY OPTIONS( privacy_parameters )
+
+privacy_parameters:
+  epsilon = expression,
+  delta = expression,
+  [ max_groups_contributed = expression ],
+  [ privacy_unit_column = column_name ]
+</pre>
+
+**Notation rules**
+
++ Square brackets `[ ]` indicate optional clauses.
++ Curly braces `{ }` with vertical bars `|` represent logical `OR` options.
+
+**Description**
+
+If you want to use this syntax, add it after the `SELECT` keyword with one or
+more [differentially private aggregate functions][dp-functions] in
+the `SELECT` list.
+
+Both the anonymization and differential privacy clause indicate that you are
+adding differential privacy to your query. If possible, use
+the differential privacy clause as the anonymization clause contains
+legacy syntax.
+
+You can use the following privacy parameters to control how the results are
+transformed:
+
++  [`epsilon`][dp-epsilon]: Controls the amount of noise added to the results.
+   A higher epsilon means less noise. `1e20` is large enough to add no
+   noise. `expression` must be a literal and return a
+   `DOUBLE`.
++  [`delta`][dp-delta]: The probability that any row in the result fails to
+   be epsilon-differentially private. `expression` must be a literal and return
+   a `DOUBLE`.
++  [`k_threshold`][dp-k-threshold]: The number of entities that must
+   contribute to a group in order for the group to be exposed in the results.
+   `expression` must return an `INT64`.
++  [`kappa` or `max_groups_contributed`][dp-kappa]: A positive integer identifying the limit on
+   the number of groups that an entity is allowed to contribute to. This number
+   is also used to scale the noise for each group. `expression` must be a
+   literal and return an `INT64`.
++ [`privacy_unit_column`][dp-privacy-unit-id]: The column that represents the
+  privacy unit column. Replace `column_name` with the path expression for the
+  column. The first identifier in the path can start with either a table name
+  or a column name that is visible in the `FROM` clause.
+
+Important: Avoid using `kappa` as it is soon to be depreciated. Instead, use
+`max_groups_contributed`.
+
+Note: `delta` and `k_threshold` are mutually exclusive; `delta` is preferred
+over `k_threshold`.
+
+### Privacy parameters
+
+Privacy parameters control how the results of a query are transformed.
+Appropriate values for these settings can depend on many things such
+as the characteristics of your data, the exposure level, and the
+privacy level.
+
+#### `epsilon` 
+<a id="dp_epsilon"></a>
+
+Noise is added primarily based on the specified `epsilon`.
+The higher the epsilon the less noise is added. More noise corresponding to
+smaller epsilons equals more privacy protection.
+
+Noise can be eliminated by setting `epsilon` to `1e20`, which can be
+useful during initial data exploration and experimentation with
+differential privacy. Extremely large `epsilon` values, such as `1e308`,
+cause query failure.
+
+ZetaSQL splits `epsilon` between the differentially private
+aggregates in the query. In addition to the explicit
+differentially private aggregate functions, the differential privacy process
+will also inject an implicit differentially private aggregate into the plan for
+removing small groups that computes a noisy entity count per group. If you have
+`n` explicit differentially private aggregate functions in your query, then each
+aggregate individually gets `epsilon/(n+1)` for its computation. If used with
+`kappa` or `max_groups_contributed`, the effective `epsilon` per function per groups is further
+split by `kappa` or `max_groups_contributed`. Additionally, if implicit clamping is used for an
+aggregate differentially private function, then half of the function's epsilon
+is applied towards computing implicit bounds, and half of the function's epsilon
+is applied towards the differentially private aggregation itself.
+
+#### `delta` 
+<a id="dp_delta"></a>
+
+`delta` represents the probability that any row fails to be
+`epsilon`-differentially private in the result of a
+differentially private query.
+
+If you have to choose between `delta` and `k_threshold`, use `delta`.
+When supporting `delta`, the specification of `epsilon/delta` must be evaluated
+to determine `k_threshold`, and the specification of `epsilon/k_threshold` must
+be evaluated to determine `delta`. This allows a user to specify either
+(`epsilon`,`delta`) or (`epsilon`, `k_threshold`) in their
+differentially private query.
+
+While doing testing or initial data exploration, it is often useful to set
+`delta` to a value where all groups, including small groups, are
+preserved. This removes privacy protection and should only be done when it is
+not necessary to protect query results, such as when working with non-private
+test data. `delta` roughly corresponds to the probability of keeping a small
+group.  In order to avoid losing small groups, set `delta` very close to 1,
+for example `0.99999`.
+
+#### `k_threshold` 
+<a id="dp_k_threshold"></a>
+
+Important: `k_threshold` is discouraged. If possible, use `delta` instead.
+
+Tip: We recommend that engines implementing this specification don't allow
+entities to specify `k_threshold`.
+
+`k_threshold` computes a noisy entity count for each group and eliminates groups
+with few entities from the output. Use this parameter to define how many unique
+entities must be included in the group for the value to be included in the
+output.
+
+#### `kappa` or `max_groups_contributed` 
+<a id="dp_kappa"></a>
+
+Important: Avoid using `kappa` as it is soon to be depreciated. Instead, use
+`max_groups_contributed`.
+
+`kappa` or `max_groups_contributed` is a positive integer that, if specified, scales the noise and
+limits the number of groups that each entity can contribute to.
+
+The default values for `kappa` and `max_groups_contributed` are determined by the
+query engine.
+
+If `kappa` or `max_groups_contributed` is unspecified, then there is no limit to the number of
+groups that each entity can contribute to.
+
+If `kappa` or `max_groups_contributed` is unspecified, the language can't guarantee that the
+results will be differentially private. We recommend `kappa` or `max_groups_contributed` to be
+specified. Without `kappa` or `max_groups_contributed` specified, the results may still be
+differentially private if certain preconditions are met. For example, if you
+know that the privacy unit column in a table or view is unique in the
+`FROM` clause, the entity can't contribute to more than one group and therefore
+the results will be the same regardless of whether `kappa` or `max_groups_contributed` is set.
+
+Tip: We recommend that engines require `kappa` or `max_groups_contributed` to be set.
+
+#### `privacy_unit_column` 
+<a id="dp_privacy_unit_id"></a>
+
+To learn about the privacy unit and how to define a privacy unit column, see
+[Define a privacy unit column][dp-define-privacy-unit-id].
+
+### Differential privacy examples
+
+This section contains examples which illustrate how to work with
+differential privacy in ZetaSQL.
+
+#### Tables for examples 
+<a id="dp_example_tables"></a>
+
+The examples in this section reference these tables:
+
+```sql
+CREATE OR REPLACE TABLE professors AS (
+  SELECT 101 id, "pencil" item, 24 quantity UNION ALL
+  SELECT 123, "pen", 16 UNION ALL
+  SELECT 123, "pencil", 10 UNION ALL
+  SELECT 123, "pencil", 38 UNION ALL
+  SELECT 101, "pen", 19 UNION ALL
+  SELECT 101, "pen", 23 UNION ALL
+  SELECT 130, "scissors", 8 UNION ALL
+  SELECT 150, "pencil", 72);
+```
+
+```sql
+CREATE OR REPLACE TABLE students AS (
+  SELECT 1 id, "pencil" item, 5 quantity UNION ALL
+  SELECT 1, "pen", 2 UNION ALL
+  SELECT 2, "pen", 1 UNION ALL
+  SELECT 3, "pen", 4);
+```
+
+#### Views for examples 
+<a id="dp_example_views"></a>
+
+The examples in this section reference these views:
+
+```sql
+CREATE OR REPLACE VIEW view_on_professors
+OPTIONS(anonymization_userid_column='id')
+AS (SELECT * FROM professors);
+```
+
+```sql
+CREATE OR REPLACE VIEW view_on_students
+OPTIONS(anonymization_userid_column='id')
+AS (SELECT * FROM students);
+```
+
+These views reference the [professors][dp-example-tables] and
+[students][dp-example-tables] example tables.
+
+#### Remove noise 
+<a id="eliminate_noise"></a>
+
+Removing noise removes privacy protection. Only remove noise for
+testing queries on non-private data. When `epsilon` is high, noise is removed
+from the results.
+
+```sql
+-- This gets the average number of items requested per professor and removes
+-- noise from the results
+SELECT
+  WITH ANONYMIZATION
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=2)
+    item,
+    ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ | scissors | 8                |
+ *----------+------------------*/
+```
+
+```sql
+-- This gets the average number of items requested per professor and removes
+-- noise from the results
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=2, privacy_unit_column=id)
+    item,
+    AVG(quantity, contribution_bounds_per_group => (0,100)) average_quantity
+FROM professors
+GROUP BY item;
+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ | scissors | 8                |
+ *----------+------------------*/
+```
+
+#### Add noise 
+<a id="add_noise"></a>
+
+You can add noise to a differentially private query. Smaller groups may not be
+included. Smaller epsilons and more noise will provide greater
+privacy protection.
+
+```sql
+-- This gets the average number of items requested per professor and adds
+-- noise to the results
+SELECT
+  WITH ANONYMIZATION
+    OPTIONS(epsilon=10, delta=.01, max_groups_contributed=2)
+    item,
+    ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- The scissors group was removed this time, but may not be
+-- removed the next time.
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 38.5038356810269 |
+ | pen      | 13.4725028762032 |
+ *----------+------------------*/
+```
+
+```sql
+-- This gets the average number of items requested per professor and adds
+-- noise to the results
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=10, delta=.01, max_groups_contributed=2, privacy_unit_column=id)
+    item,
+    AVG(quantity, contribution_bounds_per_group => (0,100)) average_quantity
+FROM professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- The scissors group was removed this time, but may not be
+-- removed the next time.
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 38.5038356810269 |
+ | pen      | 13.4725028762032 |
+ *----------+------------------*/
+```
+
+#### Limit the groups in which a privacy unit ID can exist
+<a id="limit_groups"></a>
+
+A privacy unit column can exist within multiple groups. For example, in the
+`professors` table, the privacy unit column `123` exists in the `pencil` and
+`pen` group. You can set `kappa` or `max_groups_contributed` to different values to limit how many
+groups each privacy unit column will be included in.
+
+```sql
+SELECT
+  WITH ANONYMIZATION
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+-- privacy unit ID 123 was only included in the pen group in this example.
+-- Noise was removed from this query for demonstration purposes only.
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ | scissors | 8                |
+ *----------+------------------*/
+```
+
+```sql
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, privacy_unit_column=id)
+    item,
+    AVG(quantity, contribution_bounds_per_group => (0,100)) average_quantity
+FROM professors
+GROUP BY item;
+
+-- privacy unit column 123 was only included in the pen group in this example.
+-- Noise was removed from this query for demonstration purposes only.
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ | scissors | 8                |
+ *----------+------------------*/
+```
 
 ## Using aliases 
 <a id="using_aliases"></a>
@@ -3777,11 +4171,11 @@ Example:
 ```sql
 SELECT 1 AS a, 2 AS a;
 
-+---+---+
-| a | a |
-+---+---+
-| 1 | 2 |
-+---+---+
+/*---+---*
+ | a | a |
+ +---+---+
+ | 1 | 2 |
+ *---+---*/
 ```
 
 ### Ambiguous aliases 
@@ -3878,11 +4272,11 @@ which in effect selects column `x` from table `Grid`.
 WITH Grid AS (SELECT 1 x, 2 y)
 SELECT Coordinate.x FROM Grid AS Coordinate;
 
-+---+
-| x |
-+---+
-| 1 |
-+---+
+/*---*
+ | x |
+ +---+
+ | 1 |
+ *---*/
 ```
 
 The following example selects all columns from range variable `Coordinate`,
@@ -3892,11 +4286,11 @@ which in effect selects all columns from table `Grid`.
 WITH Grid AS (SELECT 1 x, 2 y)
 SELECT Coordinate.* FROM Grid AS Coordinate;
 
-+---+---+
-| x | y |
-+---+---+
-| 1 | 2 |
-+---+---+
+/*---+---*
+ | x | y |
+ +---+---+
+ | 1 | 2 |
+ *---+---*/
 ```
 
 The following example selects the range variable `Coordinate`, which is a
@@ -3908,11 +4302,11 @@ from `Grid`.
 WITH Grid AS (SELECT 1 x, 2 y)
 SELECT Coordinate FROM Grid AS Coordinate;
 
-+--------------+
-| Coordinate   |
-+--------------+
-| {x: 1, y: 2} |
-+--------------+
+/*--------------*
+ | Coordinate   |
+ +--------------+
+ | {x: 1, y: 2} |
+ *--------------*/
 ```
 
 ## Table function calls
@@ -4273,6 +4667,22 @@ Results:
 [collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
 
 [value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
+
+[dp-example-tables]: #dp_example_tables
+
+[dp-k-threshold]: #dp_k_threshold
+
+[dp-epsilon]: #dp_epsilon
+
+[dp-kappa]: #dp_kappa
+
+[dp-delta]: #dp_delta
+
+[dp-privacy-unit-id]: #dp_privacy_unit_id
+
+[dp-define-privacy-unit-id]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_define_privacy_unit_id
+
+[dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 <!-- mdlint on -->
 

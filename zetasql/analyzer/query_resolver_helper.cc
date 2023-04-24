@@ -446,6 +446,8 @@ std::string QueryResolutionInfo::DebugString() const {
         return "ANONYMIZATION";
       case SelectWithMode::DIFFERENTIAL_PRIVACY:
         return "DIFFERENTIAL_PRIVACY";
+      case SelectWithMode::AGGREGATION_THRESHOLD:
+        return "AGGREGATION_THRESHOLD";
     }
   }();
   absl::StrAppend(&debug_string, "select_with_mode: ", select_with_mode_str,

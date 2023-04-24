@@ -212,6 +212,8 @@ ARRAY<STRUCT<elem UINT64, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
     ARRAY<UINT64>[0, NULL, NULL]
   }
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=array_agg_with_null_FLOAT_analytic]
 SELECT

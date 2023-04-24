@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Security functions
 
 ZetaSQL supports the following security functions.
@@ -29,10 +31,10 @@ For more information about identities, see
 ```sql
 SELECT SESSION_USER() as user;
 
-+----------------------+
-| user                 |
-+----------------------+
-| jdoe@example.com     |
-+----------------------+
+/*----------------------*
+ | user                 |
+ +----------------------+
+ | jdoe@example.com     |
+ *----------------------*/
 ```
 

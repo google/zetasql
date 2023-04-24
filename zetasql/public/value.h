@@ -37,7 +37,6 @@
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/range_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/extended_type.h"
@@ -184,19 +183,6 @@ class Value {
 
   // REQUIRES: bignumeric type
   const BigNumericValue& bignumeric_value() const;
-
-  // Returns Value of type Range as lightweight RangeValue where
-  // start and end are represented as <start/end>.date_value()
-  // REQUIRES: range type, date element type kind
-  RangeValue<int32_t> ToRangeValueDateValues() const;
-  // Returns Value of type Range as lightweight RangeValue where
-  // start and end are represented as <start/end>.ToPacked64TimeMicros()
-  // REQUIRES: range type, datetime element type kind
-  RangeValue<int64_t> ToRangeValuePacked64DatetimeMicros() const;
-  // Returns Value of type Range as lightweight RangeValue where
-  // start and end are represented as <start/end>.ToUnixMicros()
-  // REQUIRES: range type, timestamp element type kind
-  RangeValue<int64_t> ToRangeValueTimestampUnixMicros() const;
 
   // Checks whether the value belongs to the JSON type, non-NULL and is in
   // validated representation.
@@ -684,13 +670,6 @@ class Value {
   // range element type is inferred from the values. If 'start' or 'end' are
   // null values, then the range is unbounded on that end respectively.
   static absl::StatusOr<Value> MakeRange(const Value& start, const Value& end);
-
-  static absl::StatusOr<Value> MakeRangeDates(
-      const RangeValue<int32_t>& range_value);
-  static absl::StatusOr<Value> MakeRangeDatetimes(
-      const RangeValue<int64_t>& range_value);
-  static absl::StatusOr<Value> MakeRangeTimestamps(
-      const RangeValue<int64_t>& range_value);
 
   // Creates a null of the given 'type'.
   static Value Null(const Type* type);

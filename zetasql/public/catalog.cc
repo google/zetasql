@@ -24,6 +24,7 @@
 #include "zetasql/public/strings.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "google/protobuf/io/tokenizer.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -64,7 +65,7 @@ absl::Status Catalog::FindTable(const absl::Span<const std::string>& path,
 namespace {
 
 absl::Status TableNotFoundErrorWithPathPrefix(
-    const std::string& root_name, absl::Span<const std::string> table_path) {
+    absl::string_view root_name, absl::Span<const std::string> table_path) {
   const std::string& name = table_path.back();
   const int length = static_cast<int>(table_path.size());
   if (length > 1) {
@@ -612,7 +613,7 @@ absl::Status Catalog::GetConstant(const std::string& name,
 }
 
 absl::Status Catalog::GenericNotFoundError(
-    const std::string& object_type, absl::Span<const std::string> path) const {
+    absl::string_view object_type, absl::Span<const std::string> path) const {
   const std::string& name = path.front();
   if (path.size() > 1) {
     return ::zetasql_base::NotFoundErrorBuilder()
@@ -680,11 +681,10 @@ absl::Status Catalog::ConversionNotFoundError(
 }
 
 absl::Status Catalog::EmptyNamePathInternalError(
-    const std::string& object_type) const {
+    absl::string_view object_type) const {
   return ::zetasql_base::InternalErrorBuilder()
          << "Invalid empty " << object_type << " name path";
 }
-
 
 // static
 absl::StatusOr<AnonymizationUserIdInfo> AnonymizationUserIdInfo::Create(

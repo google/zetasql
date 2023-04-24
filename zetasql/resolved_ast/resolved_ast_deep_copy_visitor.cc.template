@@ -173,6 +173,16 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
   // a constructor arg.
   ZETASQL_RETURN_IF_ERROR(CopyWithGroupRowsParameterList<{{node.name}}>(node,
                                                                 copy.get()));
+  # elif field.name == "column_match_mode"
+  // Copy the `column_match_mode` field explicitly because it is not
+  // a constructor arg.
+  copy.get()->set_column_match_mode(node->column_match_mode());
+
+  # elif field.name == "column_propagation_mode"
+  // Copy the `column_match_mode` field explicitly because it is not
+  // a constructor arg.
+  copy.get()->set_column_propagation_mode(node->column_propagation_mode());
+
    # elif not field.is_constructor_arg and not field.is_node_ptr
   // Unhandled non-constructor argument not copied to new node explicitly.
   static_assert(false, CopyField{{field.name}}Of{{node.name}}MustBeImplementedManually);

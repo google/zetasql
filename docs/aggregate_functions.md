@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Aggregate functions
 
 ZetaSQL supports the following general aggregate functions.
@@ -67,11 +69,11 @@ Matches the input data type.
 SELECT ANY_VALUE(fruit) as any_value
 FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 
-+-----------+
-| any_value |
-+-----------+
-| apple     |
-+-----------+
+/*-----------*
+ | any_value |
+ +-----------+
+ | apple     |
+ *-----------*/
 ```
 
 ```sql
@@ -80,13 +82,13 @@ SELECT
   ANY_VALUE(fruit) OVER (ORDER BY LENGTH(fruit) ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS any_value
 FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 
-+--------+-----------+
-| fruit  | any_value |
-+--------+-----------+
-| pear   | pear      |
-| apple  | pear      |
-| banana | apple     |
-+--------+-----------+
+/*--------+-----------*
+ | fruit  | any_value |
+ +--------+-----------+
+ | pear   | pear      |
+ | apple  | pear      |
+ | banana | apple     |
+ *--------+-----------*/
 ```
 
 ```sql
@@ -102,11 +104,11 @@ WITH
   )
 SELECT ANY_VALUE(fruit HAVING MAX sold) AS a_highest_selling_fruit FROM Store;
 
-+-------------------------+
-| a_highest_selling_fruit |
-+-------------------------+
-| pears                   |
-+-------------------------+
+/*-------------------------*
+ | a_highest_selling_fruit |
+ +-------------------------+
+ | pears                   |
+ *-------------------------*/
 ```
 
 ```sql
@@ -122,11 +124,11 @@ WITH
   )
 SELECT ANY_VALUE(fruit HAVING MIN sold) AS a_lowest_selling_fruit FROM Store;
 
-+-------------------------+
-| a_lowest_selling_fruit  |
-+-------------------------+
-| oranges                 |
-+-------------------------+
+/*-------------------------*
+ | a_lowest_selling_fruit  |
+ +-------------------------+
+ | oranges                 |
+ *-------------------------*/
 ```
 
 ### `ARRAY_AGG`
@@ -190,55 +192,55 @@ If there are zero input rows, this function returns `NULL`.
 ```sql
 SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x;
 
-+-------------------------+
-| array_agg               |
-+-------------------------+
-| [2, 1, -2, 3, -2, 1, 2] |
-+-------------------------+
+/*-------------------------*
+ | array_agg               |
+ +-------------------------+
+ | [2, 1, -2, 3, -2, 1, 2] |
+ *-------------------------*/
 ```
 
 ```sql
 SELECT ARRAY_AGG(DISTINCT x) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
-+---------------+
-| array_agg     |
-+---------------+
-| [2, 1, -2, 3] |
-+---------------+
+/*---------------*
+ | array_agg     |
+ +---------------+
+ | [2, 1, -2, 3] |
+ *---------------*/
 ```
 
 ```sql
 SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg
 FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
 
-+-------------------+
-| array_agg         |
-+-------------------+
-| [1, -2, 3, -2, 1] |
-+-------------------+
+/*-------------------*
+ | array_agg         |
+ +-------------------+
+ | [1, -2, 3, -2, 1] |
+ *-------------------*/
 ```
 
 ```sql
 SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
-+-------------------------+
-| array_agg               |
-+-------------------------+
-| [1, 1, 2, -2, -2, 2, 3] |
-+-------------------------+
+/*-------------------------*
+ | array_agg               |
+ +-------------------------+
+ | [1, 1, 2, -2, -2, 2, 3] |
+ *-------------------------*/
 ```
 
 ```sql
 SELECT ARRAY_AGG(x LIMIT 5) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
-+-------------------+
-| array_agg         |
-+-------------------+
-| [2, 1, -2, 3, -2] |
-+-------------------+
+/*-------------------*
+ | array_agg         |
+ +-------------------+
+ | [2, 1, -2, 3, -2] |
+ *-------------------*/
 ```
 
 ```sql
@@ -253,11 +255,11 @@ WITH vals AS
 SELECT ARRAY_AGG(DISTINCT x ORDER BY x) as array_agg
 FROM vals;
 
-+------------+
-| array_agg  |
-+------------+
-| [-2, 1, 3] |
-+------------+
+/*------------*
+ | array_agg  |
+ +------------+
+ | [-2, 1, 3] |
+ *------------*/
 ```
 
 ```sql
@@ -272,12 +274,12 @@ SELECT x, ARRAY_AGG(y) as array_agg
 FROM vals
 GROUP BY x;
 
-+---------------+
-| x | array_agg |
-+---------------+
-| 1 | [a, b]    |
-| 2 | [a, c]    |
-+---------------+
+/*---------------*
+ | x | array_agg |
+ +---------------+
+ | 1 | [a, b]    |
+ | 2 | [a, c]    |
+ *---------------*/
 ```
 
 ```sql
@@ -286,17 +288,17 @@ SELECT
   ARRAY_AGG(x) OVER (ORDER BY ABS(x)) AS array_agg
 FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
-+----+-------------------------+
-| x  | array_agg               |
-+----+-------------------------+
-| 1  | [1, 1]                  |
-| 1  | [1, 1]                  |
-| 2  | [1, 1, 2, -2, -2, 2]    |
-| -2 | [1, 1, 2, -2, -2, 2]    |
-| -2 | [1, 1, 2, -2, -2, 2]    |
-| 2  | [1, 1, 2, -2, -2, 2]    |
-| 3  | [1, 1, 2, -2, -2, 2, 3] |
-+----+-------------------------+
+/*----+-------------------------*
+ | x  | array_agg               |
+ +----+-------------------------+
+ | 1  | [1, 1]                  |
+ | 1  | [1, 1]                  |
+ | 2  | [1, 1, 2, -2, -2, 2]    |
+ | -2 | [1, 1, 2, -2, -2, 2]    |
+ | -2 | [1, 1, 2, -2, -2, 2]    |
+ | 2  | [1, 1, 2, -2, -2, 2]    |
+ | 3  | [1, 1, 2, -2, -2, 2, 3] |
+ *----+-------------------------*/
 ```
 
 ### `ARRAY_CONCAT_AGG`
@@ -346,11 +348,11 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
   UNION ALL SELECT [7, 8, 9]
 );
 
-+-----------------------------------+
-| array_concat_agg                  |
-+-----------------------------------+
-| [NULL, 1, 2, 3, 4, 5, 6, 7, 8, 9] |
-+-----------------------------------+
+/*-----------------------------------*
+ | array_concat_agg                  |
+ +-----------------------------------+
+ | [NULL, 1, 2, 3, 4, 5, 6, 7, 8, 9] |
+ *-----------------------------------*/
 ```
 
 ```sql
@@ -360,11 +362,11 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x)) AS array_concat_agg FROM (
   UNION ALL SELECT [7, 8, 9]
 );
 
-+-----------------------------------+
-| array_concat_agg                  |
-+-----------------------------------+
-| [5, 6, 7, 8, 9, 1, 2, 3, 4]       |
-+-----------------------------------+
+/*-----------------------------------*
+ | array_concat_agg                  |
+ +-----------------------------------+
+ | [5, 6, 7, 8, 9, 1, 2, 3, 4]       |
+ *-----------------------------------*/
 ```
 
 ```sql
@@ -374,11 +376,11 @@ SELECT ARRAY_CONCAT_AGG(x LIMIT 2) AS array_concat_agg FROM (
   UNION ALL SELECT [7, 8, 9]
 );
 
-+--------------------------+
-| array_concat_agg         |
-+--------------------------+
-| [1, 2, 3, 4, 5, 6]       |
-+--------------------------+
+/*--------------------------*
+ | array_concat_agg         |
+ +--------------------------+
+ | [1, 2, 3, 4, 5, 6]       |
+ *--------------------------*/
 ```
 
 ```sql
@@ -388,11 +390,11 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
   UNION ALL SELECT [7, 8, 9]
 );
 
-+------------------+
-| array_concat_agg |
-+------------------+
-| [5, 6, 7, 8, 9]  |
-+------------------+
+/*------------------*
+ | array_concat_agg |
+ +------------------+
+ | [5, 6, 7, 8, 9]  |
+ *------------------*/
 ```
 
 ### `AVG`
@@ -439,7 +441,7 @@ To learn more about the `OVER` clause and how to use it, see
 <!-- mdlint on -->
 
 `AVG` can be used with differential privacy. To learn more, see
-[Differentially private aggregate functions][anonymization-functions].
+[Differentially private aggregate functions][dp-functions].
 
 Caveats:
 
@@ -483,22 +485,22 @@ Caveats:
 SELECT AVG(x) as avg
 FROM UNNEST([0, 2, 4, 4, 5]) as x;
 
-+-----+
-| avg |
-+-----+
-| 3   |
-+-----+
+/*-----*
+ | avg |
+ +-----+
+ | 3   |
+ *-----*/
 ```
 
 ```sql
 SELECT AVG(DISTINCT x) AS avg
 FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 
-+------+
-| avg  |
-+------+
-| 2.75 |
-+------+
+/*------*
+ | avg  |
+ +------+
+ | 2.75 |
+ *------*/
 ```
 
 ```sql
@@ -507,19 +509,19 @@ SELECT
   AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS avg
 FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 
-+------+------+
-| x    | avg  |
-+------+------+
-| NULL | NULL |
-| 0    | 0    |
-| 2    | 1    |
-| 4    | 3    |
-| 4    | 4    |
-| 5    | 4.5  |
-+------+------+
+/*------+------*
+ | x    | avg  |
+ +------+------+
+ | NULL | NULL |
+ | 0    | 0    |
+ | 2    | 1    |
+ | 4    | 3    |
+ | 4    | 4    |
+ | 5    | 4.5  |
+ *------+------*/
 ```
 
-[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
+[dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 ### `BIT_AND`
 
@@ -560,11 +562,11 @@ INT64
 ```sql
 SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 
-+---------+
-| bit_and |
-+---------+
-| 1       |
-+---------+
+/*---------*
+ | bit_and |
+ +---------+
+ | 1       |
+ *---------*/
 ```
 
 ### `BIT_OR`
@@ -606,11 +608,11 @@ INT64
 ```sql
 SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 
-+--------+
-| bit_or |
-+--------+
-| 61601  |
-+--------+
+/*--------*
+ | bit_or |
+ +--------+
+ | 61601  |
+ *--------*/
 ```
 
 ### `BIT_XOR`
@@ -652,31 +654,31 @@ INT64
 ```sql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x;
 
-+---------+
-| bit_xor |
-+---------+
-| 4860    |
-+---------+
+/*---------*
+ | bit_xor |
+ +---------+
+ | 4860    |
+ *---------*/
 ```
 
 ```sql
 SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
-+---------+
-| bit_xor |
-+---------+
-| 5678    |
-+---------+
+/*---------*
+ | bit_xor |
+ +---------+
+ | 5678    |
+ *---------*/
 ```
 
 ```sql
 SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 
-+---------+
-| bit_xor |
-+---------+
-| 4860    |
-+---------+
+/*---------*
+ | bit_xor |
+ +---------+
+ | 4860    |
+ *---------*/
 ```
 
 ### `COUNT`
@@ -738,7 +740,7 @@ This function with DISTINCT supports specifying [collation][collation].
 [collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
 
 `COUNT` can be used with differential privacy. To learn more, see
-[Differentially private aggregate functions][anonymization-functions].
+[Differentially private aggregate functions][dp-functions].
 
 **Supported Argument Types**
 
@@ -761,11 +763,11 @@ SELECT
   COUNT(DISTINCT x) AS count_dist_x
 FROM UNNEST([1, 4, 4, 5]) AS x;
 
-+------------+--------------+
-| count_star | count_dist_x |
-+------------+--------------+
-| 4          | 3            |
-+------------+--------------+
+/*------------+--------------*
+ | count_star | count_dist_x |
+ +------------+--------------+
+ | 4          | 3            |
+ *------------+--------------*/
 ```
 
 ```sql
@@ -775,14 +777,14 @@ SELECT
   COUNT(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS count_dist_x
 FROM UNNEST([1, 4, 4, 5]) AS x;
 
-+------+------------+--------------+
-| x    | count_star | count_dist_x |
-+------+------------+--------------+
-| 1    | 3          | 2            |
-| 4    | 3          | 2            |
-| 4    | 3          | 2            |
-| 5    | 1          | 1            |
-+------+------------+--------------+
+/*------+------------+--------------*
+ | x    | count_star | count_dist_x |
+ +------+------------+--------------+
+ | 1    | 3          | 2            |
+ | 4    | 3          | 2            |
+ | 4    | 3          | 2            |
+ | 5    | 1          | 1            |
+ *------+------------+--------------*/
 ```
 
 ```sql
@@ -792,15 +794,15 @@ SELECT
   COUNT(x) OVER (PARTITION BY MOD(x, 3)) AS count_x
 FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 
-+------+------------+---------+
-| x    | count_star | count_x |
-+------+------------+---------+
-| NULL | 1          | 0       |
-| 1    | 3          | 3       |
-| 4    | 3          | 3       |
-| 4    | 3          | 3       |
-| 5    | 1          | 1       |
-+------+------------+---------+
+/*------+------------+---------*
+ | x    | count_star | count_x |
+ +------+------------+---------+
+ | NULL | 1          | 0       |
+ | 1    | 3          | 3       |
+ | 4    | 3          | 3       |
+ | 4    | 3          | 3       |
+ | 5    | 1          | 1       |
+ *------+------------+---------*/
 ```
 
 If you want to count the number of distinct values of an expression for which a
@@ -821,11 +823,11 @@ For example, to count the number of distinct positive values of `x`:
 SELECT COUNT(DISTINCT IF(x > 0, x, NULL)) AS distinct_positive
 FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x;
 
-+-------------------+
-| distinct_positive |
-+-------------------+
-| 3                 |
-+-------------------+
+/*-------------------*
+ | distinct_positive |
+ +-------------------+
+ | 3                 |
+ *-------------------*/
 ```
 
 Or to count the number of distinct dates on which a certain kind of event
@@ -850,16 +852,16 @@ SELECT
     AS distinct_dates_with_failures
 FROM Events;
 
-+------------------------------+
-| distinct_dates_with_failures |
-+------------------------------+
-| 2                            |
-+------------------------------+
+/*------------------------------*
+ | distinct_dates_with_failures |
+ +------------------------------+
+ | 2                            |
+ *------------------------------*/
 ```
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
-[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
+[dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 ### `COUNTIF`
 
@@ -934,11 +936,11 @@ INT64
 SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive
 FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x;
 
-+--------------+--------------+
-| num_negative | num_positive |
-+--------------+--------------+
-| 3            | 4            |
-+--------------+--------------+
+/*--------------+--------------*
+ | num_negative | num_positive |
+ +--------------+--------------+
+ | 3            | 4            |
+ *--------------+--------------*/
 ```
 
 ```sql
@@ -947,19 +949,19 @@ SELECT
   COUNTIF(x<0) OVER (ORDER BY ABS(x) ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS num_negative
 FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 
-+------+--------------+
-| x    | num_negative |
-+------+--------------+
-| NULL | 0            |
-| 0    | 1            |
-| -2   | 1            |
-| 3    | 1            |
-| 4    | 0            |
-| 5    | 0            |
-| 6    | 1            |
-| -7   | 2            |
-| -10  | 2            |
-+------+--------------+
+/*------+--------------*
+ | x    | num_negative |
+ +------+--------------+
+ | NULL | 0            |
+ | 0    | 1            |
+ | -2   | 1            |
+ | 3    | 1            |
+ | 4    | 0            |
+ | 5    | 0            |
+ | 6    | 1            |
+ | -7   | 2            |
+ | -10  | 2            |
+ *------+--------------*/
 ```
 
 ### `LOGICAL_AND`
@@ -1021,11 +1023,11 @@ less than 3.
 ```sql
 SELECT LOGICAL_AND(x < 3) AS logical_and FROM UNNEST([1, 2, 4]) AS x;
 
-+-------------+
-| logical_and |
-+-------------+
-| FALSE       |
-+-------------+
+/*-------------*
+ | logical_and |
+ +-------------+
+ | FALSE       |
+ *-------------*/
 ```
 
 ### `LOGICAL_OR`
@@ -1087,11 +1089,11 @@ less than 3.
 ```sql
 SELECT LOGICAL_OR(x < 3) AS logical_or FROM UNNEST([1, 2, 4]) AS x;
 
-+------------+
-| logical_or |
-+------------+
-| TRUE       |
-+------------+
+/*------------*
+ | logical_or |
+ +------------+
+ | TRUE       |
+ *------------*/
 ```
 
 ### `MAX`
@@ -1160,27 +1162,27 @@ The data type of the input values.
 SELECT MAX(x) AS max
 FROM UNNEST([8, 37, 55, 4]) AS x;
 
-+-----+
-| max |
-+-----+
-| 55  |
-+-----+
+/*-----*
+ | max |
+ +-----+
+ | 55  |
+ *-----*/
 ```
 
 ```sql
 SELECT x, MAX(x) OVER (PARTITION BY MOD(x, 2)) AS max
 FROM UNNEST([8, NULL, 37, 55, NULL, 4]) AS x;
 
-+------+------+
-| x    | max  |
-+------+------+
-| NULL | NULL |
-| NULL | NULL |
-| 8    | 8    |
-| 4    | 8    |
-| 37   | 55   |
-| 55   | 55   |
-+------+------+
+/*------+------*
+ | x    | max  |
+ +------+------+
+ | NULL | NULL |
+ | NULL | NULL |
+ | 8    | 8    |
+ | 4    | 8    |
+ | 37   | 55   |
+ | 55   | 55   |
+ *------+------*/
 ```
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
@@ -1251,27 +1253,27 @@ The data type of the input values.
 SELECT MIN(x) AS min
 FROM UNNEST([8, 37, 4, 55]) AS x;
 
-+-----+
-| min |
-+-----+
-| 4   |
-+-----+
+/*-----*
+ | min |
+ +-----+
+ | 4   |
+ *-----*/
 ```
 
 ```sql
 SELECT x, MIN(x) OVER (PARTITION BY MOD(x, 2)) AS min
 FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
-+------+------+
-| x    | min  |
-+------+------+
-| NULL | NULL |
-| NULL | NULL |
-| 8    | 4    |
-| 4    | 4    |
-| 37   | 37   |
-| 55   | 37   |
-+------+------+
+/*------+------*
+ | x    | min  |
+ +------+------+
+ | NULL | NULL |
+ | NULL | NULL |
+ | 8    | 4    |
+ | 4    | 4    |
+ | 37   | 37   |
+ | 55   | 37   |
+ *------+------*/
 ```
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
@@ -1340,66 +1342,66 @@ Either `STRING` or `BYTES`.
 SELECT STRING_AGG(fruit) AS string_agg
 FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
-+------------------------+
-| string_agg             |
-+------------------------+
-| apple,pear,banana,pear |
-+------------------------+
+/*------------------------*
+ | string_agg             |
+ +------------------------+
+ | apple,pear,banana,pear |
+ *------------------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(fruit, " & ") AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+------------------------------+
-| string_agg                   |
-+------------------------------+
-| apple & pear & banana & pear |
-+------------------------------+
+/*------------------------------*
+ | string_agg                   |
+ +------------------------------+
+ | apple & pear & banana & pear |
+ *------------------------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(DISTINCT fruit, " & ") AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+-----------------------+
-| string_agg            |
-+-----------------------+
-| apple & pear & banana |
-+-----------------------+
+/*-----------------------*
+ | string_agg            |
+ +-----------------------+
+ | apple & pear & banana |
+ *-----------------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(fruit, " & " ORDER BY LENGTH(fruit)) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+------------------------------+
-| string_agg                   |
-+------------------------------+
-| pear & pear & apple & banana |
-+------------------------------+
+/*------------------------------*
+ | string_agg                   |
+ +------------------------------+
+ | pear & pear & apple & banana |
+ *------------------------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(fruit, " & " LIMIT 2) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+--------------+
-| string_agg   |
-+--------------+
-| apple & pear |
-+--------------+
+/*--------------*
+ | string_agg   |
+ +--------------+
+ | apple & pear |
+ *--------------*/
 ```
 
 ```sql
 SELECT STRING_AGG(DISTINCT fruit, " & " ORDER BY fruit DESC LIMIT 2) AS string_agg
 FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit;
 
-+---------------+
-| string_agg    |
-+---------------+
-| pear & banana |
-+---------------+
+/*---------------*
+ | string_agg    |
+ +---------------+
+ | pear & banana |
+ *---------------*/
 ```
 
 ```sql
@@ -1408,15 +1410,15 @@ SELECT
   STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) AS string_agg
 FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
-+--------+------------------------------+
-| fruit  | string_agg                   |
-+--------+------------------------------+
-| NULL   | NULL                         |
-| pear   | pear & pear                  |
-| pear   | pear & pear                  |
-| apple  | pear & pear & apple          |
-| banana | pear & pear & apple & banana |
-+--------+------------------------------+
+/*--------+------------------------------*
+ | fruit  | string_agg                   |
+ +--------+------------------------------+
+ | NULL   | NULL                         |
+ | pear   | pear & pear                  |
+ | pear   | pear & pear                  |
+ | apple  | pear & pear & apple          |
+ | banana | pear & pear & apple & banana |
+ *--------+------------------------------*/
 ```
 
 ### `SUM`
@@ -1462,6 +1464,9 @@ To learn more about the `OVER` clause and how to use it, see
 
 <!-- mdlint on -->
 
+`SUM` can be used with differential privacy. To learn more, see
+[Differentially private aggregate functions][dp-functions].
+
 Caveats:
 
 + If the aggregated group is empty or the argument is `NULL` for all rows in
@@ -1504,22 +1509,22 @@ Caveats:
 SELECT SUM(x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
-+-----+
-| sum |
-+-----+
-| 25  |
-+-----+
+/*-----*
+ | sum |
+ +-----+
+ | 25  |
+ *-----*/
 ```
 
 ```sql
 SELECT SUM(DISTINCT x) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
-+-----+
-| sum |
-+-----+
-| 15  |
-+-----+
+/*-----*
+ | sum |
+ +-----+
+ | 15  |
+ *-----*/
 ```
 
 ```sql
@@ -1528,19 +1533,19 @@ SELECT
   SUM(x) OVER (PARTITION BY MOD(x, 3)) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
-+---+-----+
-| x | sum |
-+---+-----+
-| 3 | 6   |
-| 3 | 6   |
-| 1 | 10  |
-| 4 | 10  |
-| 4 | 10  |
-| 1 | 10  |
-| 2 | 9   |
-| 5 | 9   |
-| 2 | 9   |
-+---+-----+
+/*---+-----*
+ | x | sum |
+ +---+-----+
+ | 3 | 6   |
+ | 3 | 6   |
+ | 1 | 10  |
+ | 4 | 10  |
+ | 4 | 10  |
+ | 1 | 10  |
+ | 2 | 9   |
+ | 5 | 9   |
+ | 2 | 9   |
+ *---+-----*/
 ```
 
 ```sql
@@ -1549,33 +1554,33 @@ SELECT
   SUM(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) AS sum
 FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 
-+---+-----+
-| x | sum |
-+---+-----+
-| 3 | 3   |
-| 3 | 3   |
-| 1 | 5   |
-| 4 | 5   |
-| 4 | 5   |
-| 1 | 5   |
-| 2 | 7   |
-| 5 | 7   |
-| 2 | 7   |
-+---+-----+
+/*---+-----*
+ | x | sum |
+ +---+-----+
+ | 3 | 3   |
+ | 3 | 3   |
+ | 1 | 5   |
+ | 4 | 5   |
+ | 4 | 5   |
+ | 1 | 5   |
+ | 2 | 7   |
+ | 5 | 7   |
+ | 2 | 7   |
+ *---+-----*/
 ```
 
 ```sql
 SELECT SUM(x) AS sum
 FROM UNNEST([]) AS x;
 
-+------+
-| sum  |
-+------+
-| NULL |
-+------+
+/*------*
+ | sum  |
+ +------+
+ | NULL |
+ *------*/
 ```
 
-[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
+[dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 

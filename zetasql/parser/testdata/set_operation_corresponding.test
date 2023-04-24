@@ -1,0 +1,1079 @@
+select abc from T
+UNION ALL CORRESPONDING
+select 5
+UNION ALL CORRESPONDING
+select null from T2
+--
+QueryStatement [0-94] [select abc...null from T2]
+  Query [0-94] [select abc...null from T2]
+    SetOperation(UNION ALL) [0-94] [select abc...null from T2]
+      SetOperationMetadataList [17-74] [UNION ALL...CORRESPONDING]
+        SetOperationMetadata [17-41] [UNION ALL CORRESPONDING]
+          SetOperationType [18-23] [UNION]
+          ASTSetOperationAllOrDistinct [24-27] [ALL]
+          ASTSetOperationColumnMatchMode [28-41] [CORRESPONDING]
+        SetOperationMetadata [50-74] [UNION ALL CORRESPONDING]
+          SetOperationType [51-56] [UNION]
+          ASTSetOperationAllOrDistinct [57-60] [ALL]
+          ASTSetOperationColumnMatchMode [61-74] [CORRESPONDING]
+      Select [0-17] [select abc from T]
+        SelectList [7-10] [abc]
+          SelectColumn [7-10] [abc]
+            PathExpression [7-10] [abc]
+              Identifier(abc) [7-10] [abc]
+        FromClause [11-17] [from T]
+          TablePathExpression [16-17] [T]
+            PathExpression [16-17] [T]
+              Identifier(T) [16-17] [T]
+      Select [42-50] [select 5]
+        SelectList [49-50] [5]
+          SelectColumn [49-50] [5]
+            IntLiteral(5) [49-50] [5]
+      Select [75-94] [select null from T2]
+        SelectList [82-86] [null]
+          SelectColumn [82-86] [null]
+            NullLiteral(null) [82-86] [null]
+        FromClause [87-94] [from T2]
+          TablePathExpression [92-94] [T2]
+            PathExpression [92-94] [T2]
+              Identifier(T2) [92-94] [T2]
+--
+SELECT
+  abc
+FROM
+  T
+UNION ALL CORRESPONDING
+SELECT
+  5
+UNION ALL CORRESPONDING
+SELECT
+  null
+FROM
+  T2
+==
+
+# UNION with CORRESPONDING in a table subquery
+select 1
+from (select 2 UNION ALL CORRESPONDING select 3)
+--
+QueryStatement [0-57] [select 1 from...select 3)]
+  Query [0-57] [select 1 from...select 3)]
+    Select [0-57] [select 1 from...select 3)]
+      SelectList [7-8] [1]
+        SelectColumn [7-8] [1]
+          IntLiteral(1) [7-8] [1]
+      FromClause [9-57] [from (select...select 3)]
+        TableSubquery [14-57] [(select 2...select 3)]
+          Query [15-56] [select 2 UNION...DING select 3]
+            SetOperation(UNION ALL) [15-56] [select 2 UNION...DING select 3]
+              SetOperationMetadataList [23-47] [UNION ALL CORRESPONDING]
+                SetOperationMetadata [23-47] [UNION ALL CORRESPONDING]
+                  SetOperationType [24-29] [UNION]
+                  ASTSetOperationAllOrDistinct [30-33] [ALL]
+                  ASTSetOperationColumnMatchMode [34-47] [CORRESPONDING]
+              Select [15-23] [select 2]
+                SelectList [22-23] [2]
+                  SelectColumn [22-23] [2]
+                    IntLiteral(2) [22-23] [2]
+              Select [48-56] [select 3]
+                SelectList [55-56] [3]
+                  SelectColumn [55-56] [3]
+                    IntLiteral(3) [55-56] [3]
+--
+SELECT
+  1
+FROM
+  (
+    SELECT
+      2
+    UNION ALL CORRESPONDING
+    SELECT
+      3
+  )
+==
+
+# UNION DISTINCT with CORRESPONDING
+select 1
+UNION DISTINCT CORRESPONDING
+select 2
+--
+QueryStatement [0-46] [select 1 UNION...DING select 2]
+  Query [0-46] [select 1 UNION...DING select 2]
+    SetOperation(UNION DISTINCT) [0-46] [select 1 UNION...DING select 2]
+      SetOperationMetadataList [8-37] [UNION DISTINCT CORRESPONDING]
+        SetOperationMetadata [8-37] [UNION DISTINCT CORRESPONDING]
+          SetOperationType [9-14] [UNION]
+          ASTSetOperationAllOrDistinct [15-23] [DISTINCT]
+          ASTSetOperationColumnMatchMode [24-37] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [38-46] [select 2]
+        SelectList [45-46] [2]
+          SelectColumn [45-46] [2]
+            IntLiteral(2) [45-46] [2]
+--
+SELECT
+  1
+UNION DISTINCT CORRESPONDING
+SELECT
+  2
+==
+
+# UNION with CORRESPONDING but without ALL or DISTINCT not supported.
+select 1
+UNION CORRESPONDING
+select 2
+--
+ERROR: Syntax error: Expected keyword ALL or keyword DISTINCT but got keyword CORRESPONDING [at 2:7]
+UNION CORRESPONDING
+      ^
+==
+
+select 1
+EXCEPT ALL CORRESPONDING
+select 2
+--
+QueryStatement [0-42] [select 1 EXCEPT...ING select 2]
+  Query [0-42] [select 1 EXCEPT...ING select 2]
+    SetOperation(EXCEPT ALL) [0-42] [select 1 EXCEPT...ING select 2]
+      SetOperationMetadataList [8-33] [EXCEPT ALL CORRESPONDING]
+        SetOperationMetadata [8-33] [EXCEPT ALL CORRESPONDING]
+          SetOperationType [9-15] [EXCEPT]
+          ASTSetOperationAllOrDistinct [16-19] [ALL]
+          ASTSetOperationColumnMatchMode [20-33] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [34-42] [select 2]
+        SelectList [41-42] [2]
+          SelectColumn [41-42] [2]
+            IntLiteral(2) [41-42] [2]
+--
+SELECT
+  1
+EXCEPT ALL CORRESPONDING
+SELECT
+  2
+==
+
+select 1
+EXCEPT DISTINCT CORRESPONDING
+select 2
+--
+QueryStatement [0-47] [select 1 EXCEPT...ING select 2]
+  Query [0-47] [select 1 EXCEPT...ING select 2]
+    SetOperation(EXCEPT DISTINCT) [0-47] [select 1 EXCEPT...ING select 2]
+      SetOperationMetadataList [8-38] [EXCEPT DISTINCT CORRESPONDING]
+        SetOperationMetadata [8-38] [EXCEPT DISTINCT CORRESPONDING]
+          SetOperationType [9-15] [EXCEPT]
+          ASTSetOperationAllOrDistinct [16-24] [DISTINCT]
+          ASTSetOperationColumnMatchMode [25-38] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [39-47] [select 2]
+        SelectList [46-47] [2]
+          SelectColumn [46-47] [2]
+            IntLiteral(2) [46-47] [2]
+--
+SELECT
+  1
+EXCEPT DISTINCT CORRESPONDING
+SELECT
+  2
+==
+
+# EXCEPT with CORRESPONDING but without ALL or DISTINCT not supported.
+select 1
+EXCEPT CORRESPONDING
+select 2
+--
+ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 2:1]
+EXCEPT CORRESPONDING
+^
+==
+
+# EXCEPT with CORRESPONDING with other garbage after gives the same error.
+SELECT * FROM Table
+EXCEPT CORRESPONDING
+{{Garbage|5|'abc'|FROM|;|+}}
+--
+ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 2:1]
+EXCEPT CORRESPONDING
+^
+==
+
+select 1
+INTERSECT ALL CORRESPONDING
+select 2
+--
+QueryStatement [0-45] [select 1 INTERSEC...G select 2]
+  Query [0-45] [select 1 INTERSEC...G select 2]
+    SetOperation(INTERSECT ALL) [0-45] [select 1 INTERSEC...G select 2]
+      SetOperationMetadataList [8-36] [INTERSECT ALL CORRESPONDING]
+        SetOperationMetadata [8-36] [INTERSECT ALL CORRESPONDING]
+          SetOperationType [9-18] [INTERSECT]
+          ASTSetOperationAllOrDistinct [19-22] [ALL]
+          ASTSetOperationColumnMatchMode [23-36] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [37-45] [select 2]
+        SelectList [44-45] [2]
+          SelectColumn [44-45] [2]
+            IntLiteral(2) [44-45] [2]
+--
+SELECT
+  1
+INTERSECT ALL CORRESPONDING
+SELECT
+  2
+==
+
+select 1
+INTERSECT DISTINCT CORRESPONDING
+select 2
+--
+QueryStatement [0-50] [select 1 INTERSEC...G select 2]
+  Query [0-50] [select 1 INTERSEC...G select 2]
+    SetOperation(INTERSECT DISTINCT) [0-50] [select 1 INTERSEC...G select 2]
+      SetOperationMetadataList [8-41] [INTERSECT...CORRESPONDING]
+        SetOperationMetadata [8-41] [INTERSECT...CORRESPONDING]
+          SetOperationType [9-18] [INTERSECT]
+          ASTSetOperationAllOrDistinct [19-27] [DISTINCT]
+          ASTSetOperationColumnMatchMode [28-41] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [42-50] [select 2]
+        SelectList [49-50] [2]
+          SelectColumn [49-50] [2]
+            IntLiteral(2) [49-50] [2]
+--
+SELECT
+  1
+INTERSECT DISTINCT CORRESPONDING
+SELECT
+  2
+==
+
+# INTERSECT with CORRESPONDING without ALL or DISTINCT not supported.
+select 1
+INTERSECT CORRESPONDING
+select 2
+--
+ERROR: Syntax error: Expected keyword ALL or keyword DISTINCT but got keyword CORRESPONDING [at 2:11]
+INTERSECT CORRESPONDING
+          ^
+==
+
+select 1
+UNION DISTINCT CORRESPONDING
+select 2
+UNION DISTINCT CORRESPONDING
+select 1
+--
+QueryStatement [0-84] [select 1 UNION...DING select 1]
+  Query [0-84] [select 1 UNION...DING select 1]
+    SetOperation(UNION DISTINCT) [0-84] [select 1 UNION...DING select 1]
+      SetOperationMetadataList [8-75] [UNION DISTINCT...CORRESPONDING]
+        SetOperationMetadata [8-37] [UNION DISTINCT CORRESPONDING]
+          SetOperationType [9-14] [UNION]
+          ASTSetOperationAllOrDistinct [15-23] [DISTINCT]
+          ASTSetOperationColumnMatchMode [24-37] [CORRESPONDING]
+        SetOperationMetadata [46-75] [UNION DISTINCT CORRESPONDING]
+          SetOperationType [47-52] [UNION]
+          ASTSetOperationAllOrDistinct [53-61] [DISTINCT]
+          ASTSetOperationColumnMatchMode [62-75] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [38-46] [select 2]
+        SelectList [45-46] [2]
+          SelectColumn [45-46] [2]
+            IntLiteral(2) [45-46] [2]
+      Select [76-84] [select 1]
+        SelectList [83-84] [1]
+          SelectColumn [83-84] [1]
+            IntLiteral(1) [83-84] [1]
+--
+SELECT
+  1
+UNION DISTINCT CORRESPONDING
+SELECT
+  2
+UNION DISTINCT CORRESPONDING
+SELECT
+  1
+==
+
+select 1
+EXCEPT ALL CORRESPONDING
+select 2
+EXCEPT ALL CORRESPONDING
+select 3
+--
+QueryStatement [0-76] [select 1 EXCEPT...ING select 3]
+  Query [0-76] [select 1 EXCEPT...ING select 3]
+    SetOperation(EXCEPT ALL) [0-76] [select 1 EXCEPT...ING select 3]
+      SetOperationMetadataList [8-67] [EXCEPT ALL...CORRESPONDING]
+        SetOperationMetadata [8-33] [EXCEPT ALL CORRESPONDING]
+          SetOperationType [9-15] [EXCEPT]
+          ASTSetOperationAllOrDistinct [16-19] [ALL]
+          ASTSetOperationColumnMatchMode [20-33] [CORRESPONDING]
+        SetOperationMetadata [42-67] [EXCEPT ALL CORRESPONDING]
+          SetOperationType [43-49] [EXCEPT]
+          ASTSetOperationAllOrDistinct [50-53] [ALL]
+          ASTSetOperationColumnMatchMode [54-67] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [34-42] [select 2]
+        SelectList [41-42] [2]
+          SelectColumn [41-42] [2]
+            IntLiteral(2) [41-42] [2]
+      Select [68-76] [select 3]
+        SelectList [75-76] [3]
+          SelectColumn [75-76] [3]
+            IntLiteral(3) [75-76] [3]
+--
+SELECT
+  1
+EXCEPT ALL CORRESPONDING
+SELECT
+  2
+EXCEPT ALL CORRESPONDING
+SELECT
+  3
+==
+
+select 1
+EXCEPT DISTINCT CORRESPONDING
+select 2
+EXCEPT DISTINCT CORRESPONDING
+select 1
+--
+QueryStatement [0-86] [select 1 EXCEPT...ING select 1]
+  Query [0-86] [select 1 EXCEPT...ING select 1]
+    SetOperation(EXCEPT DISTINCT) [0-86] [select 1 EXCEPT...ING select 1]
+      SetOperationMetadataList [8-77] [EXCEPT DISTINCT...ORRESPONDING]
+        SetOperationMetadata [8-38] [EXCEPT DISTINCT CORRESPONDING]
+          SetOperationType [9-15] [EXCEPT]
+          ASTSetOperationAllOrDistinct [16-24] [DISTINCT]
+          ASTSetOperationColumnMatchMode [25-38] [CORRESPONDING]
+        SetOperationMetadata [47-77] [EXCEPT DISTINCT CORRESPONDING]
+          SetOperationType [48-54] [EXCEPT]
+          ASTSetOperationAllOrDistinct [55-63] [DISTINCT]
+          ASTSetOperationColumnMatchMode [64-77] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [39-47] [select 2]
+        SelectList [46-47] [2]
+          SelectColumn [46-47] [2]
+            IntLiteral(2) [46-47] [2]
+      Select [78-86] [select 1]
+        SelectList [85-86] [1]
+          SelectColumn [85-86] [1]
+            IntLiteral(1) [85-86] [1]
+--
+SELECT
+  1
+EXCEPT DISTINCT CORRESPONDING
+SELECT
+  2
+EXCEPT DISTINCT CORRESPONDING
+SELECT
+  1
+==
+
+select 1
+INTERSECT ALL CORRESPONDING
+select 2
+INTERSECT ALL CORRESPONDING
+select 3
+--
+QueryStatement [0-82] [select 1 INTERSEC...G select 3]
+  Query [0-82] [select 1 INTERSEC...G select 3]
+    SetOperation(INTERSECT ALL) [0-82] [select 1 INTERSEC...G select 3]
+      SetOperationMetadataList [8-73] [INTERSECT...CORRESPONDING]
+        SetOperationMetadata [8-36] [INTERSECT ALL CORRESPONDING]
+          SetOperationType [9-18] [INTERSECT]
+          ASTSetOperationAllOrDistinct [19-22] [ALL]
+          ASTSetOperationColumnMatchMode [23-36] [CORRESPONDING]
+        SetOperationMetadata [45-73] [INTERSECT ALL CORRESPONDING]
+          SetOperationType [46-55] [INTERSECT]
+          ASTSetOperationAllOrDistinct [56-59] [ALL]
+          ASTSetOperationColumnMatchMode [60-73] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [37-45] [select 2]
+        SelectList [44-45] [2]
+          SelectColumn [44-45] [2]
+            IntLiteral(2) [44-45] [2]
+      Select [74-82] [select 3]
+        SelectList [81-82] [3]
+          SelectColumn [81-82] [3]
+            IntLiteral(3) [81-82] [3]
+--
+SELECT
+  1
+INTERSECT ALL CORRESPONDING
+SELECT
+  2
+INTERSECT ALL CORRESPONDING
+SELECT
+  3
+==
+
+select 1
+INTERSECT DISTINCT CORRESPONDING
+select 2
+INTERSECT DISTINCT CORRESPONDING
+select 3
+--
+QueryStatement [0-92] [select 1 INTERSEC...G select 3]
+  Query [0-92] [select 1 INTERSEC...G select 3]
+    SetOperation(INTERSECT DISTINCT) [0-92] [select 1 INTERSEC...G select 3]
+      SetOperationMetadataList [8-83] [INTERSECT...CORRESPONDING]
+        SetOperationMetadata [8-41] [INTERSECT...CORRESPONDING]
+          SetOperationType [9-18] [INTERSECT]
+          ASTSetOperationAllOrDistinct [19-27] [DISTINCT]
+          ASTSetOperationColumnMatchMode [28-41] [CORRESPONDING]
+        SetOperationMetadata [50-83] [INTERSECT...CORRESPONDING]
+          SetOperationType [51-60] [INTERSECT]
+          ASTSetOperationAllOrDistinct [61-69] [DISTINCT]
+          ASTSetOperationColumnMatchMode [70-83] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [42-50] [select 2]
+        SelectList [49-50] [2]
+          SelectColumn [49-50] [2]
+            IntLiteral(2) [49-50] [2]
+      Select [84-92] [select 3]
+        SelectList [91-92] [3]
+          SelectColumn [91-92] [3]
+            IntLiteral(3) [91-92] [3]
+--
+SELECT
+  1
+INTERSECT DISTINCT CORRESPONDING
+SELECT
+  2
+INTERSECT DISTINCT CORRESPONDING
+SELECT
+  3
+==
+
+select 1
+UNION ALL CORRESPONDING
+select 2
+UNION CORRESPONDING
+select 3
+--
+ERROR: Syntax error: Expected keyword ALL or keyword DISTINCT but got keyword CORRESPONDING [at 4:7]
+UNION CORRESPONDING
+      ^
+==
+
+
+# Use paranthesis to make multiple set operations work in a single query.
+select 1
+UNION ALL CORRESPONDING
+(select 2 EXCEPT ALL CORRESPONDING select 3)
+--
+QueryStatement [0-77] [select 1 UNION...select 3)]
+  Query [0-77] [select 1 UNION...select 3)]
+    SetOperation(UNION ALL) [0-77] [select 1 UNION...select 3)]
+      SetOperationMetadataList [8-32] [UNION ALL CORRESPONDING]
+        SetOperationMetadata [8-32] [UNION ALL CORRESPONDING]
+          SetOperationType [9-14] [UNION]
+          ASTSetOperationAllOrDistinct [15-18] [ALL]
+          ASTSetOperationColumnMatchMode [19-32] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Query [34-76] [select 2 EXCEPT...ING select 3]
+        SetOperation(EXCEPT ALL) [34-76] [select 2 EXCEPT...ING select 3]
+          SetOperationMetadataList [42-67] [EXCEPT ALL CORRESPONDING]
+            SetOperationMetadata [42-67] [EXCEPT ALL CORRESPONDING]
+              SetOperationType [43-49] [EXCEPT]
+              ASTSetOperationAllOrDistinct [50-53] [ALL]
+              ASTSetOperationColumnMatchMode [54-67] [CORRESPONDING]
+          Select [34-42] [select 2]
+            SelectList [41-42] [2]
+              SelectColumn [41-42] [2]
+                IntLiteral(2) [41-42] [2]
+          Select [68-76] [select 3]
+            SelectList [75-76] [3]
+              SelectColumn [75-76] [3]
+                IntLiteral(3) [75-76] [3]
+--
+SELECT
+  1
+UNION ALL CORRESPONDING(
+SELECT
+  2
+EXCEPT ALL CORRESPONDING
+SELECT
+  3
+)
+==
+
+select 1
+INTERSECT ALL CORRESPONDING
+(select 2 INTERSECT DISTINCT CORRESPONDING select 3)
+--
+QueryStatement [0-89] [select 1 INTERSEC...select 3)]
+  Query [0-89] [select 1 INTERSEC...select 3)]
+    SetOperation(INTERSECT ALL) [0-89] [select 1 INTERSEC...select 3)]
+      SetOperationMetadataList [8-36] [INTERSECT ALL CORRESPONDING]
+        SetOperationMetadata [8-36] [INTERSECT ALL CORRESPONDING]
+          SetOperationType [9-18] [INTERSECT]
+          ASTSetOperationAllOrDistinct [19-22] [ALL]
+          ASTSetOperationColumnMatchMode [23-36] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Query [38-88] [select 2 INTERSEC...G select 3]
+        SetOperation(INTERSECT DISTINCT) [38-88] [select 2 INTERSEC...G select 3]
+          SetOperationMetadataList [46-79] [INTERSECT...CORRESPONDING]
+            SetOperationMetadata [46-79] [INTERSECT...CORRESPONDING]
+              SetOperationType [47-56] [INTERSECT]
+              ASTSetOperationAllOrDistinct [57-65] [DISTINCT]
+              ASTSetOperationColumnMatchMode [66-79] [CORRESPONDING]
+          Select [38-46] [select 2]
+            SelectList [45-46] [2]
+              SelectColumn [45-46] [2]
+                IntLiteral(2) [45-46] [2]
+          Select [80-88] [select 3]
+            SelectList [87-88] [3]
+              SelectColumn [87-88] [3]
+                IntLiteral(3) [87-88] [3]
+--
+SELECT
+  1
+INTERSECT ALL CORRESPONDING(
+SELECT
+  2
+INTERSECT DISTINCT CORRESPONDING
+SELECT
+  3
+)
+==
+
+
+select 1
+UNION ALL CORRESPONDING
+(select 2
+ INTERSECT ALL CORRESPONDING
+ (select 3 EXCEPT ALL CORRESPONDING select 4))
+--
+QueryStatement [0-118] [select 1 UNION...select 4))]
+  Query [0-118] [select 1 UNION...select 4))]
+    SetOperation(UNION ALL) [0-118] [select 1 UNION...select 4))]
+      SetOperationMetadataList [8-32] [UNION ALL CORRESPONDING]
+        SetOperationMetadata [8-32] [UNION ALL CORRESPONDING]
+          SetOperationType [9-14] [UNION]
+          ASTSetOperationAllOrDistinct [15-18] [ALL]
+          ASTSetOperationColumnMatchMode [19-32] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Query [34-117] [select 2...select 4)]
+        SetOperation(INTERSECT ALL) [34-117] [select 2...select 4)]
+          SetOperationMetadataList [42-71] [INTERSECT ALL CORRESPONDING]
+            SetOperationMetadata [42-71] [INTERSECT ALL CORRESPONDING]
+              SetOperationType [44-53] [INTERSECT]
+              ASTSetOperationAllOrDistinct [54-57] [ALL]
+              ASTSetOperationColumnMatchMode [58-71] [CORRESPONDING]
+          Select [34-42] [select 2]
+            SelectList [41-42] [2]
+              SelectColumn [41-42] [2]
+                IntLiteral(2) [41-42] [2]
+          Query [74-116] [select 3 EXCEPT...ING select 4]
+            SetOperation(EXCEPT ALL) [74-116] [select 3 EXCEPT...ING select 4]
+              SetOperationMetadataList [82-107] [EXCEPT ALL CORRESPONDING]
+                SetOperationMetadata [82-107] [EXCEPT ALL CORRESPONDING]
+                  SetOperationType [83-89] [EXCEPT]
+                  ASTSetOperationAllOrDistinct [90-93] [ALL]
+                  ASTSetOperationColumnMatchMode [94-107] [CORRESPONDING]
+              Select [74-82] [select 3]
+                SelectList [81-82] [3]
+                  SelectColumn [81-82] [3]
+                    IntLiteral(3) [81-82] [3]
+              Select [108-116] [select 4]
+                SelectList [115-116] [4]
+                  SelectColumn [115-116] [4]
+                    IntLiteral(4) [115-116] [4]
+--
+SELECT
+  1
+UNION ALL CORRESPONDING(
+SELECT
+  2
+INTERSECT ALL CORRESPONDING(
+SELECT
+  3
+EXCEPT ALL CORRESPONDING
+SELECT
+  4
+))
+==
+
+# 2 children and 1 simple hint (UNION ALL CORRESPONDING)
+# The extra whitespace below is intentional.
+select 1
+UNION  @{ key = 5 } ALL CORRESPONDING
+select 2
+--
+QueryStatement [0-55] [select 1 UNION...DING select 2]
+  Query [0-55] [select 1 UNION...DING select 2]
+    SetOperation(UNION ALL) [0-55] [select 1 UNION...DING select 2]
+      SetOperationMetadataList [8-46] [UNION  @{...CORRESPONDING]
+        SetOperationMetadata [8-46] [UNION  @{...CORRESPONDING]
+          SetOperationType [9-14] [UNION]
+          ASTSetOperationAllOrDistinct [29-32] [ALL]
+          Hint [16-28] [@{ key = 5 }]
+            HintEntry [19-26] [key = 5]
+              Identifier(key) [19-22] [key]
+              IntLiteral(5) [25-26] [5]
+          ASTSetOperationColumnMatchMode [33-46] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [47-55] [select 2]
+        SelectList [54-55] [2]
+          SelectColumn [54-55] [2]
+            IntLiteral(2) [54-55] [2]
+--
+SELECT
+  1
+UNION @{ key = 5 } ALL CORRESPONDING
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (INTERSECT ALL CORRESPONDING)
+# The extra whitespace below is intentional.
+select 1
+INTERSECT  @{ key = 5 } ALL CORRESPONDING
+select 2
+--
+QueryStatement [0-59] [select 1 INTERSEC...G select 2]
+  Query [0-59] [select 1 INTERSEC...G select 2]
+    SetOperation(INTERSECT ALL) [0-59] [select 1 INTERSEC...G select 2]
+      SetOperationMetadataList [8-50] [INTERSECT...CORRESPONDING]
+        SetOperationMetadata [8-50] [INTERSECT...CORRESPONDING]
+          SetOperationType [9-18] [INTERSECT]
+          ASTSetOperationAllOrDistinct [33-36] [ALL]
+          Hint [20-32] [@{ key = 5 }]
+            HintEntry [23-30] [key = 5]
+              Identifier(key) [23-26] [key]
+              IntLiteral(5) [29-30] [5]
+          ASTSetOperationColumnMatchMode [37-50] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [51-59] [select 2]
+        SelectList [58-59] [2]
+          SelectColumn [58-59] [2]
+            IntLiteral(2) [58-59] [2]
+--
+SELECT
+  1
+INTERSECT @{ key = 5 } ALL CORRESPONDING
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (EXCEPT ALL CORRESPONDING)
+# The extra whitespace below is intentional.
+select 1
+EXCEPT  @{ key = 5 } ALL CORRESPONDING
+select 2
+--
+QueryStatement [0-56] [select 1 EXCEPT...ING select 2]
+  Query [0-56] [select 1 EXCEPT...ING select 2]
+    SetOperation(EXCEPT ALL) [0-56] [select 1 EXCEPT...ING select 2]
+      SetOperationMetadataList [8-47] [EXCEPT  @{...CORRESPONDING]
+        SetOperationMetadata [8-47] [EXCEPT  @{...CORRESPONDING]
+          SetOperationType [9-15] [EXCEPT]
+          ASTSetOperationAllOrDistinct [30-33] [ALL]
+          Hint [17-29] [@{ key = 5 }]
+            HintEntry [20-27] [key = 5]
+              Identifier(key) [20-23] [key]
+              IntLiteral(5) [26-27] [5]
+          ASTSetOperationColumnMatchMode [34-47] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [48-56] [select 2]
+        SelectList [55-56] [2]
+          SelectColumn [55-56] [2]
+            IntLiteral(2) [55-56] [2]
+--
+SELECT
+  1
+EXCEPT @{ key = 5 } ALL CORRESPONDING
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (UNION DISTINCT)
+# The extra whitespace below is intentional.
+select 1
+UNION  @{ key = 5 } DISTINCT CORRESPONDING
+select 2
+--
+QueryStatement [0-60] [select 1 UNION...DING select 2]
+  Query [0-60] [select 1 UNION...DING select 2]
+    SetOperation(UNION DISTINCT) [0-60] [select 1 UNION...DING select 2]
+      SetOperationMetadataList [8-51] [UNION  @{...CORRESPONDING]
+        SetOperationMetadata [8-51] [UNION  @{...CORRESPONDING]
+          SetOperationType [9-14] [UNION]
+          ASTSetOperationAllOrDistinct [29-37] [DISTINCT]
+          Hint [16-28] [@{ key = 5 }]
+            HintEntry [19-26] [key = 5]
+              Identifier(key) [19-22] [key]
+              IntLiteral(5) [25-26] [5]
+          ASTSetOperationColumnMatchMode [38-51] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [52-60] [select 2]
+        SelectList [59-60] [2]
+          SelectColumn [59-60] [2]
+            IntLiteral(2) [59-60] [2]
+--
+SELECT
+  1
+UNION @{ key = 5 } DISTINCT CORRESPONDING
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (INTERSECT DISTINCT CORRESPONDING)
+select 1
+INTERSECT @{ key = 5 } DISTINCT CORRESPONDING
+select 2
+--
+QueryStatement [0-63] [select 1 INTERSEC...G select 2]
+  Query [0-63] [select 1 INTERSEC...G select 2]
+    SetOperation(INTERSECT DISTINCT) [0-63] [select 1 INTERSEC...G select 2]
+      SetOperationMetadataList [8-54] [INTERSECT...CORRESPONDING]
+        SetOperationMetadata [8-54] [INTERSECT...CORRESPONDING]
+          SetOperationType [9-18] [INTERSECT]
+          ASTSetOperationAllOrDistinct [32-40] [DISTINCT]
+          Hint [19-31] [@{ key = 5 }]
+            HintEntry [22-29] [key = 5]
+              Identifier(key) [22-25] [key]
+              IntLiteral(5) [28-29] [5]
+          ASTSetOperationColumnMatchMode [41-54] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [55-63] [select 2]
+        SelectList [62-63] [2]
+          SelectColumn [62-63] [2]
+            IntLiteral(2) [62-63] [2]
+--
+SELECT
+  1
+INTERSECT @{ key = 5 } DISTINCT CORRESPONDING
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (EXCEPT DISTINCT CORRESPONDING)
+# The extra whitespace below is intentional.
+select 1
+EXCEPT  @{ key = 5 } DISTINCT CORRESPONDING
+select 2
+--
+QueryStatement [0-61] [select 1 EXCEPT...ING select 2]
+  Query [0-61] [select 1 EXCEPT...ING select 2]
+    SetOperation(EXCEPT DISTINCT) [0-61] [select 1 EXCEPT...ING select 2]
+      SetOperationMetadataList [8-52] [EXCEPT  @{...CORRESPONDING]
+        SetOperationMetadata [8-52] [EXCEPT  @{...CORRESPONDING]
+          SetOperationType [9-15] [EXCEPT]
+          ASTSetOperationAllOrDistinct [30-38] [DISTINCT]
+          Hint [17-29] [@{ key = 5 }]
+            HintEntry [20-27] [key = 5]
+              Identifier(key) [20-23] [key]
+              IntLiteral(5) [26-27] [5]
+          ASTSetOperationColumnMatchMode [39-52] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [53-61] [select 2]
+        SelectList [60-61] [2]
+          SelectColumn [60-61] [2]
+            IntLiteral(2) [60-61] [2]
+--
+SELECT
+  1
+EXCEPT @{ key = 5 } DISTINCT CORRESPONDING
+SELECT
+  2
+==
+
+# 3 children and 1 simple hint
+select 1
+UNION @{ key = 5 } ALL CORRESPONDING
+select 2
+UNION ALL CORRESPONDING
+select 3
+--
+QueryStatement [0-87] [select 1 UNION...DING select 3]
+  Query [0-87] [select 1 UNION...DING select 3]
+    SetOperation(UNION ALL) [0-87] [select 1 UNION...DING select 3]
+      SetOperationMetadataList [8-78] [UNION @{ key...CORRESPONDING]
+        SetOperationMetadata [8-45] [UNION @{ key...CORRESPONDING]
+          SetOperationType [9-14] [UNION]
+          ASTSetOperationAllOrDistinct [28-31] [ALL]
+          Hint [15-27] [@{ key = 5 }]
+            HintEntry [18-25] [key = 5]
+              Identifier(key) [18-21] [key]
+              IntLiteral(5) [24-25] [5]
+          ASTSetOperationColumnMatchMode [32-45] [CORRESPONDING]
+        SetOperationMetadata [54-78] [UNION ALL CORRESPONDING]
+          SetOperationType [55-60] [UNION]
+          ASTSetOperationAllOrDistinct [61-64] [ALL]
+          ASTSetOperationColumnMatchMode [65-78] [CORRESPONDING]
+      Select [0-8] [select 1]
+        SelectList [7-8] [1]
+          SelectColumn [7-8] [1]
+            IntLiteral(1) [7-8] [1]
+      Select [46-54] [select 2]
+        SelectList [53-54] [2]
+          SelectColumn [53-54] [2]
+            IntLiteral(2) [53-54] [2]
+      Select [79-87] [select 3]
+        SelectList [86-87] [3]
+          SelectColumn [86-87] [3]
+            IntLiteral(3) [86-87] [3]
+--
+SELECT
+  1
+UNION @{ key = 5 } ALL CORRESPONDING
+SELECT
+  2
+UNION ALL CORRESPONDING
+SELECT
+  3
+==
+
+# More than one hint but in the proper location (expanding from left)
+(select 1
+  UNION @{ key = 1 } ALL CORRESPONDING
+  select 2)
+UNION @{ key = 2 } ALL CORRESPONDING
+select 3
+--
+QueryStatement [0-106] [(select 1...ESPONDING select 3]
+  Query [0-106] [(select 1...ESPONDING select 3]
+    SetOperation(UNION ALL) [0-106] [(select 1...ESPONDING select 3]
+      SetOperationMetadataList [60-97] [UNION @{ key...CORRESPONDING]
+        SetOperationMetadata [60-97] [UNION @{ key...CORRESPONDING]
+          SetOperationType [61-66] [UNION]
+          ASTSetOperationAllOrDistinct [80-83] [ALL]
+          Hint [67-79] [@{ key = 2 }]
+            HintEntry [70-77] [key = 2]
+              Identifier(key) [70-73] [key]
+              IntLiteral(2) [76-77] [2]
+          ASTSetOperationColumnMatchMode [84-97] [CORRESPONDING]
+      Query [1-59] [select 1...select 2]
+        SetOperation(UNION ALL) [1-59] [select 1...select 2]
+          SetOperationMetadataList [9-48] [UNION @{ key...CORRESPONDING]
+            SetOperationMetadata [9-48] [UNION @{ key...CORRESPONDING]
+              SetOperationType [12-17] [UNION]
+              ASTSetOperationAllOrDistinct [31-34] [ALL]
+              Hint [18-30] [@{ key = 1 }]
+                HintEntry [21-28] [key = 1]
+                  Identifier(key) [21-24] [key]
+                  IntLiteral(1) [27-28] [1]
+              ASTSetOperationColumnMatchMode [35-48] [CORRESPONDING]
+          Select [1-9] [select 1]
+            SelectList [8-9] [1]
+              SelectColumn [8-9] [1]
+                IntLiteral(1) [8-9] [1]
+          Select [51-59] [select 2]
+            SelectList [58-59] [2]
+              SelectColumn [58-59] [2]
+                IntLiteral(2) [58-59] [2]
+      Select [98-106] [select 3]
+        SelectList [105-106] [3]
+          SelectColumn [105-106] [3]
+            IntLiteral(3) [105-106] [3]
+--
+(
+SELECT
+  1
+UNION @{ key = 1 } ALL CORRESPONDING
+SELECT
+  2
+) UNION @{ key = 2 } ALL CORRESPONDING
+SELECT
+  3
+==
+
+# More than one hint but in the proper location (expanding from right)
+select 3
+UNION @{ key = 2 } ALL CORRESPONDING
+  (select 1
+  UNION @{ key = 1 } ALL CORRESPONDING
+  select 2)
+--
+QueryStatement [0-108] [select 3 UNION...select 2)]
+  Query [0-108] [select 3 UNION...select 2)]
+    SetOperation(UNION ALL) [0-108] [select 3 UNION...select 2)]
+      SetOperationMetadataList [8-45] [UNION @{ key...CORRESPONDING]
+        SetOperationMetadata [8-45] [UNION @{ key...CORRESPONDING]
+          SetOperationType [9-14] [UNION]
+          ASTSetOperationAllOrDistinct [28-31] [ALL]
+          Hint [15-27] [@{ key = 2 }]
+            HintEntry [18-25] [key = 2]
+              Identifier(key) [18-21] [key]
+              IntLiteral(2) [24-25] [2]
+          ASTSetOperationColumnMatchMode [32-45] [CORRESPONDING]
+      Select [0-8] [select 3]
+        SelectList [7-8] [3]
+          SelectColumn [7-8] [3]
+            IntLiteral(3) [7-8] [3]
+      Query [49-107] [select 1...select 2]
+        SetOperation(UNION ALL) [49-107] [select 1...select 2]
+          SetOperationMetadataList [57-96] [UNION @{ key...CORRESPONDING]
+            SetOperationMetadata [57-96] [UNION @{ key...CORRESPONDING]
+              SetOperationType [60-65] [UNION]
+              ASTSetOperationAllOrDistinct [79-82] [ALL]
+              Hint [66-78] [@{ key = 1 }]
+                HintEntry [69-76] [key = 1]
+                  Identifier(key) [69-72] [key]
+                  IntLiteral(1) [75-76] [1]
+              ASTSetOperationColumnMatchMode [83-96] [CORRESPONDING]
+          Select [49-57] [select 1]
+            SelectList [56-57] [1]
+              SelectColumn [56-57] [1]
+                IntLiteral(1) [56-57] [1]
+          Select [99-107] [select 2]
+            SelectList [106-107] [2]
+              SelectColumn [106-107] [2]
+                IntLiteral(2) [106-107] [2]
+--
+SELECT
+  3
+UNION @{ key = 2 } ALL CORRESPONDING(
+SELECT
+  1
+UNION @{ key = 1 } ALL CORRESPONDING
+SELECT
+  2
+)
+==
+
+SELECT 3 {{UNION|INTERSECT|EXCEPT}} @5 ALL CORRESPONDING SELECT 2
+--
+ALTERNATION GROUP: UNION
+--
+QueryStatement [0-44] [SELECT 3 UNION...DING SELECT 2]
+  Query [0-44] [SELECT 3 UNION...DING SELECT 2]
+    SetOperation(UNION ALL) [0-44] [SELECT 3 UNION...DING SELECT 2]
+      SetOperationMetadataList [8-35] [UNION @5 ALL CORRESPONDING]
+        SetOperationMetadata [8-35] [UNION @5 ALL CORRESPONDING]
+          SetOperationType [9-14] [UNION]
+          ASTSetOperationAllOrDistinct [18-21] [ALL]
+          Hint [15-17] [@5]
+            IntLiteral(5) [16-17] [5]
+          ASTSetOperationColumnMatchMode [22-35] [CORRESPONDING]
+      Select [0-8] [SELECT 3]
+        SelectList [7-8] [3]
+          SelectColumn [7-8] [3]
+            IntLiteral(3) [7-8] [3]
+      Select [36-44] [SELECT 2]
+        SelectList [43-44] [2]
+          SelectColumn [43-44] [2]
+            IntLiteral(2) [43-44] [2]
+--
+SELECT
+  3
+UNION @5 ALL CORRESPONDING
+SELECT
+  2
+--
+ALTERNATION GROUP: INTERSECT
+--
+QueryStatement [0-48] [SELECT 3 INTERSEC...G SELECT 2]
+  Query [0-48] [SELECT 3 INTERSEC...G SELECT 2]
+    SetOperation(INTERSECT ALL) [0-48] [SELECT 3 INTERSEC...G SELECT 2]
+      SetOperationMetadataList [8-39] [INTERSECT @5 ALL CORRESPONDING]
+        SetOperationMetadata [8-39] [INTERSECT @5 ALL CORRESPONDING]
+          SetOperationType [9-18] [INTERSECT]
+          ASTSetOperationAllOrDistinct [22-25] [ALL]
+          Hint [19-21] [@5]
+            IntLiteral(5) [20-21] [5]
+          ASTSetOperationColumnMatchMode [26-39] [CORRESPONDING]
+      Select [0-8] [SELECT 3]
+        SelectList [7-8] [3]
+          SelectColumn [7-8] [3]
+            IntLiteral(3) [7-8] [3]
+      Select [40-48] [SELECT 2]
+        SelectList [47-48] [2]
+          SelectColumn [47-48] [2]
+            IntLiteral(2) [47-48] [2]
+--
+SELECT
+  3
+INTERSECT @5 ALL CORRESPONDING
+SELECT
+  2
+--
+ALTERNATION GROUP: EXCEPT
+--
+QueryStatement [0-45] [SELECT 3 EXCEPT...ING SELECT 2]
+  Query [0-45] [SELECT 3 EXCEPT...ING SELECT 2]
+    SetOperation(EXCEPT ALL) [0-45] [SELECT 3 EXCEPT...ING SELECT 2]
+      SetOperationMetadataList [8-36] [EXCEPT @5 ALL CORRESPONDING]
+        SetOperationMetadata [8-36] [EXCEPT @5 ALL CORRESPONDING]
+          SetOperationType [9-15] [EXCEPT]
+          ASTSetOperationAllOrDistinct [19-22] [ALL]
+          Hint [16-18] [@5]
+            IntLiteral(5) [17-18] [5]
+          ASTSetOperationColumnMatchMode [23-36] [CORRESPONDING]
+      Select [0-8] [SELECT 3]
+        SelectList [7-8] [3]
+          SelectColumn [7-8] [3]
+            IntLiteral(3) [7-8] [3]
+      Select [37-45] [SELECT 2]
+        SelectList [44-45] [2]
+          SelectColumn [44-45] [2]
+            IntLiteral(2) [44-45] [2]
+--
+SELECT
+  3
+EXCEPT @5 ALL CORRESPONDING
+SELECT
+  2
+==

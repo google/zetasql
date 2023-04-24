@@ -651,6 +651,13 @@ const EnumType* ArrayFindModeEnumType();
 // represents the report output format for differential privacy functions.
 const EnumType* DifferentialPrivacyReportFormatEnumType();
 
+// Accessor for the enum type (functions::ArrayZipEnums::ArrayZipMode)
+// that represents the array zip mode to be used as an optional argument of the
+// function ARRAY_ZIP and UNNEST. It decides the row generation behavior of
+// ARRAY_ZIP and UNNEST when there are multiple arrays of different lengths.
+// This is an opaque enum type.
+const EnumType* ArrayZipModeEnumType();
+
 // Return a type of 'type_kind' if 'type_kind' is a simple type, otherwise
 // returns nullptr. This is similar to TypeFactory::MakeSimpleType, but doesn't
 // require TypeFactory.

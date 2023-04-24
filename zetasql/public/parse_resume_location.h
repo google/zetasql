@@ -40,7 +40,7 @@ class ParseResumeLocation {
   }
   ParseResumeLocation(ParseResumeLocation&& rhs) {
     // This invokes the move assignment operator.
-    *this = rhs;
+    *this = std::move(rhs);
   }
   ParseResumeLocation& operator=(const ParseResumeLocation& rhs) {
     byte_position_ = rhs.byte_position_;

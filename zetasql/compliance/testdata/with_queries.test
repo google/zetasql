@@ -32,6 +32,8 @@ WITH
 SELECT R1.a = R2.a FROM R AS R1, R AS R2
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # Subquery returns 0 rows.
 [name=with_5]
@@ -153,6 +155,8 @@ SELECT count(*), count(distinct c)
 FROM t3;
 --
 ARRAY<STRUCT<INT64, INT64>>[{20, 10}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=with_run_once4]
@@ -162,6 +166,8 @@ WITH t1 AS (select k1,k2 from UNNEST([1,2,3,4,5,6,7,8,9,10]) k1,
 SELECT a.c=b.c from t2 a CROSS JOIN t2 b;
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=bug119901615_a]

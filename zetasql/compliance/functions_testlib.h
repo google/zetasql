@@ -285,10 +285,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
 std::vector<FunctionTestCall> GetFunctionTestsParseJson();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJson();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJsonIncompatibleTypes();
-std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxBool();
-std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxInt64();
-std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxDouble();
-std::vector<FunctionTestCall> GetFunctionTestConvertJsonLaxString();
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxBool();
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxInt64();
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxDouble();
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxString();
+std::vector<FunctionTestCall> GetFunctionTestsJsonArray();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

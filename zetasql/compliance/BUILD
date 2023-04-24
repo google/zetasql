@@ -167,13 +167,13 @@ cc_library(
     name = "compliance_test_base",
     testonly = 1,
     data = glob(["testdata/*.test"]) + [
-        "//zetasql/testdata:test_schema_proto",
         "//zetasql/testdata:test_proto3_proto",
+        "//zetasql/testdata:test_schema_proto",
+        "@com_google_googleapis//google/type:date_proto",
+        "@com_google_googleapis//google/type:latlng_proto",
+        "@com_google_googleapis//google/type:timeofday_proto",
         "@com_google_protobuf//:timestamp_proto",
         "@com_google_protobuf//:wrappers_proto",
-        "@com_google_googleapis//google/type:latlng_proto",
-        "@com_google_googleapis//google/type:date_proto",
-        "@com_google_googleapis//google/type:timeofday_proto",
     ],
     deps = [
         ":sql_test_base",
@@ -297,6 +297,7 @@ cc_library(
         "//zetasql/public:options_cc_proto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
@@ -408,10 +409,9 @@ cc_test(
     srcs = ["matchers_test.cc"],
     deps = [
         ":matchers",
-        "//zetasql/base",
+        "//zetasql/base:logging",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/testdata:test_schema_cc_proto",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
     ],
 )
@@ -490,6 +490,7 @@ cc_library(
     copts = ["$(STACK_FRAME_UNLIMITED)"],
     deps = [
         "//zetasql/base",
+        "//zetasql/base:check",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
         "//zetasql/base:stl_util",

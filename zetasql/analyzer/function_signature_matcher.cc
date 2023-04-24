@@ -26,6 +26,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/lambda_util.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/function.h"
@@ -1132,7 +1133,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
                                   required_col_type, /*is_explicit=*/false,
                                   signature_match_result)) {
       // Make a note to coerce the relation argument later and continue.
-      signature_match_result->tvf_map_arg_col_nums_to_coerce_type(
+      signature_match_result->AddTVFRelationCoercionEntry(
           arg_idx, provided_col_idx, required_col_type);
     } else {
       // The provided column type is invalid. Mark the argument index and
@@ -1300,6 +1301,9 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
     std::unique_ptr<FunctionSignature>* result_signature,
     SignatureMatchResult* signature_match_result,
     std::vector<FunctionArgumentOverride>* arg_overrides) const {
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
+      "Out of stack space due to deeply nested query expression "
+      "during signature matching");
   if (!signature.options().check_all_required_features_are_enabled(
           language_.GetEnabledLanguageFeatures())) {
     return false;
@@ -1447,10 +1451,10 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
 
   // Propagate information about coercing TVF relation arguments to the final
   // signature match statistics, if applicable.
-  for (const std::pair<const std::pair<int, int>, const Type*>& kv :
-       local_signature_match_result.tvf_arg_col_nums_to_coerce_type()) {
-    signature_match_result->tvf_map_arg_col_nums_to_coerce_type(
-        kv.first.first, kv.first.second, kv.second);
+  for (const auto& [key, value] :
+       local_signature_match_result.tvf_relation_coercion_map()) {
+    signature_match_result->AddTVFRelationCoercionEntry(
+        key.argument_index, key.column_index, value);
   }
 
   return true;

@@ -199,12 +199,15 @@ SCALAR_PROCEDURE = ScalarType('const Procedure*', 'ProcedureRefProto',
 SCALAR_COLUMN = ScalarType('const Column*', 'ColumnRefProto', 'Column')
 
 
-def EnumScalarType(enum_name, node_name):
+def EnumScalarType(enum_name, node_name, cpp_default=None, java_default=None):
   """Create a ScalarType for enums defined in resolved_ast_enums.proto.
 
   Args:
     enum_name: name of the enum.
     node_name: name of the ResolvedNode that this enum belongs to.
+    cpp_default: the default c++ value of this enum.
+    java_default: the default java value of this enum.
+
   Returns:
     The ScalarType.
   """
@@ -213,13 +216,28 @@ def EnumScalarType(enum_name, node_name):
       java_type=enum_name,
       proto_type='%sEnums.%s' % (node_name, enum_name),
       has_proto_setter=True,
-      is_enum=True)
+      is_enum=True,
+      cpp_default=cpp_default,
+      java_default=java_default,
+  )
 
 
 SCALAR_SUBQUERY_TYPE = EnumScalarType('SubqueryType', 'ResolvedSubqueryExpr')
 SCALAR_JOIN_TYPE = EnumScalarType('JoinType', 'ResolvedJoinScan')
 SCALAR_SET_OPERATION_TYPE = EnumScalarType('SetOperationType',
                                            'ResolvedSetOperationScan')
+SCALAR_SET_OPERATION_COLUMN_MATCH_MODE = EnumScalarType(
+    'SetOperationColumnMatchMode',
+    'ResolvedSetOperationScan',
+    cpp_default='BY_POSITION',
+    java_default='SetOperationColumnMatchMode.BY_POSITION',
+)
+SCALAR_SET_OPERATION_COLUMN_PROPAGATION_MODE = EnumScalarType(
+    'SetOperationColumnPropagationMode',
+    'ResolvedSetOperationScan',
+    cpp_default='STRICT',
+    java_default='SetOperationColumnPropagationMode.STRICT',
+)
 SCALAR_RECURSIVE_SET_OPERATION_TYPE = EnumScalarType(
     'RecursiveSetOperationType', 'ResolvedRecursiveScan')
 SCALAR_SAMPLE_UNIT = EnumScalarType('SampleUnit', 'ResolvedSampleScan')
@@ -529,7 +547,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 226
+          Next tag_id: 233
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -2669,6 +2687,30 @@ value.
       ])
 
   gen.AddNode(
+      name='ResolvedAggregationThresholdAggregateScan',
+      tag_id=228,
+      parent='ResolvedAggregateScanBase',
+      comment="""
+      Apply aggregation to rows produced from input_scan and output rows to
+      that pass aggregation thresholds. It adds:
+      HAVING COUNT(DISTINCT `privacy_unit_column`) >= `threshold`.
+      Spec: (broken link)
+
+      <option_list> provides user-specified options. Allowed options are defined
+      in GetAllowedAggregationThresholdOptions function.
+              """,
+      fields=[
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=5,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+          )
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedSetOperationItem',
       tag_id=94,
       parent='ResolvedArgument',
@@ -2715,8 +2757,17 @@ value.
         appear once in the output if m > 0 and n = 0.
 
       - For n (>2) input scans, the above operations generalize so the output is
-        the same as if the inputs were combined incrementally from left to \
-right.
+        the same as if the inputs were combined incrementally from left to
+        right.
+
+      <column_match_mode> represents how columns from different queries were
+      matched, for example BY_POSITION or CORRESPONDING (by name). Engines can
+      ignore this field; it is included for informational purposes.
+
+      <column_propagation_mode> represents how non-matching columns were
+      treated, for example INNER (non-matching columns are dropped) or STRICT
+      (non-matching columns are not allowed). Engines can ignore this field;
+      it is included for informational purposes.
               """,
       fields=[
           Field('op_type', SCALAR_SET_OPERATION_TYPE, tag_id=2),
@@ -2724,8 +2775,24 @@ right.
               'input_item_list',
               'ResolvedSetOperationItem',
               tag_id=4,
-              vector=True)
-      ])
+              vector=True,
+          ),
+          Field(
+              'column_match_mode',
+              SCALAR_SET_OPERATION_COLUMN_MATCH_MODE,
+              tag_id=5,
+              is_constructor_arg=False,
+              ignorable=IGNORABLE,
+          ),
+          Field(
+              'column_propagation_mode',
+              SCALAR_SET_OPERATION_COLUMN_PROPAGATION_MODE,
+              tag_id=6,
+              is_constructor_arg=False,
+              ignorable=IGNORABLE,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ResolvedOrderByScan',
@@ -8326,6 +8393,45 @@ ResolvedArgumentRef(y)
               ignorable=IGNORABLE_DEFAULT)
       ])
 
+  gen.AddNode(
+      name='ResolvedUndropStmt',
+      tag_id=227,
+      parent='ResolvedStatement',
+      comment="""
+      This statement:
+        UNDROP <schema_object_kind> [IF NOT EXISTS] <name_path>
+        FOR SYSTEM_TIME AS OF [<for_system_time_expr>];
+
+      <schema_object_kind> is a string identifier for the entity to be
+      undroped. Currently, only 'SCHEMA' object is supported.
+
+      <name_path> is a vector giving the identifier path for the object to
+      be undropped.
+
+      <is_if_not_exists> if set, skip the undrop if the resource already
+      exists.
+
+      <for_system_time_expr> specifies point in time from which entity is to
+      be undropped.
+          """,
+      fields=[
+          Field('schema_object_kind', SCALAR_STRING, tag_id=2),
+          Field(
+              'is_if_not_exists',
+              SCALAR_BOOL,
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('name_path', SCALAR_STRING, tag_id=4, vector=True),
+          Field(
+              'for_system_time_expr',
+              'ResolvedExpr',
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+      ],
+  )
+
   gen.Generate(
       input_file_paths=input_templates,
       output_file_paths=output_files,
@@ -8335,3 +8441,5 @@ if __name__ == '__main__':
   flags.mark_flag_as_required('input_templates')
   flags.mark_flag_as_required('output_files')
   app.run(main)
+
+

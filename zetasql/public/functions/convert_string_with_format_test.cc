@@ -706,7 +706,7 @@ TEST(Convert, TextMininmal) {
 }
 
 void ValidateOutput(const Value& value, absl::string_view format_string,
-                    const std::string& expected) {
+                    absl::string_view expected) {
   for (bool canonicalize_zero : {true, false}) {
     EXPECT_THAT(NumericalToStringWithFormat(value, format_string,
                                             ProductMode::PRODUCT_INTERNAL,

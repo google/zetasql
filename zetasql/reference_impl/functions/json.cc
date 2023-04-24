@@ -36,6 +36,26 @@
 namespace zetasql {
 namespace {
 
+absl::StatusOr<JSONValueConstRef> GetJSONValueConstRef(
+    const Value& json, const JSONParsingOptions& json_parsing_options,
+    JSONValue& json_storage) {
+  if (json.is_validated_json()) {
+    return json.json_value();
+  }
+  ZETASQL_ASSIGN_OR_RETURN(json_storage,
+                   JSONValue::ParseJSONString(json.json_value_unparsed(),
+                                              json_parsing_options));
+  return json_storage.GetConstRef();
+}
+
+template <typename T>
+Value CreateValueFromOptional(std::optional<T> opt) {
+  if (opt.has_value()) {
+    return Value::Make<T>(opt.value());
+  }
+  return Value::MakeNull<T>();
+}
+
 // Sets the provided EvaluationContext to have non-deterministic output based on
 // <arg> type.
 void MaybeSetNonDeterministicContext(const Value& arg,
@@ -58,9 +78,9 @@ void MaybeSetNonDeterministicContext(const Value& arg,
 // JSON_EXTRACT/JSON_QUERY(json, string) -> json
 // JSON_EXTRACT_SCALAR/JSON_VALUE(string[, string]) -> string
 // JSON_EXTRACT_SCALAR/JSON_VALUE(json[, string]) -> string
-class JsonFunction : public SimpleBuiltinScalarFunction {
+class JsonExtractFunction : public SimpleBuiltinScalarFunction {
  public:
-  JsonFunction(FunctionKind kind, const Type* output_type)
+  JsonExtractFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {
     ZETASQL_DCHECK(output_type->Equals(types::JsonType()) ||
            output_type->Equals(types::StringType()));
@@ -70,9 +90,9 @@ class JsonFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
-class JsonArrayFunction : public SimpleBuiltinScalarFunction {
+class JsonExtractArrayFunction : public SimpleBuiltinScalarFunction {
  public:
-  JsonArrayFunction(FunctionKind kind, const Type* output_type)
+  JsonExtractArrayFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {
     ZETASQL_DCHECK(output_type->Equals(types::JsonArrayType()) ||
            output_type->Equals(types::StringArrayType()));
@@ -115,6 +135,44 @@ class ParseJsonFunction : public SimpleBuiltinScalarFunction {
  public:
   ParseJsonFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kParseJson,
+                                    types::JsonType()) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class ConvertJsonFunction : public SimpleBuiltinScalarFunction {
+ public:
+  ConvertJsonFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class ConvertJsonLaxFunction : public SimpleBuiltinScalarFunction {
+ public:
+  ConvertJsonLaxFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class JsonTypeFunction : public SimpleBuiltinScalarFunction {
+ public:
+  JsonTypeFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kJsonType,
+                                    types::StringType()) {}
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class JsonArrayFunction : public SimpleBuiltinScalarFunction {
+ public:
+  JsonArrayFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kJsonArray,
                                     types::JsonType()) {}
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
@@ -218,7 +276,7 @@ absl::StatusOr<Value> JsonSubscriptFunction::Eval(
              : Value::Null(output_type());
 }
 
-absl::StatusOr<Value> JsonFunction::Eval(
+absl::StatusOr<Value> JsonExtractFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
   if (kind() == FunctionKind::kJsonValue ||
@@ -358,7 +416,7 @@ absl::StatusOr<Value> JsonExtractArrayJson(
   return Value::Null(types::JsonArrayType());
 }
 
-absl::StatusOr<Value> JsonArrayFunction::Eval(
+absl::StatusOr<Value> JsonExtractArrayFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
   ZETASQL_RET_CHECK_GE(args.size(), 1);
@@ -466,6 +524,153 @@ absl::StatusOr<Value> ParseJsonFunction::Eval(
   return Value::Json(std::move(*result));
 }
 
+absl::StatusOr<Value> JsonTypeFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  JSONValue json_storage;
+  LanguageOptions language_options = context->GetLanguageOptions();
+  JSONParsingOptions json_parsing_options = JSONParsingOptions{
+      .wide_number_mode = (language_options.LanguageFeatureEnabled(
+                               FEATURE_JSON_STRICT_NUMBER_PARSING)
+                               ? JSONParsingOptions::WideNumberMode::kExact
+                               : JSONParsingOptions::WideNumberMode::kRound)};
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValueConstRef json_value_const_ref,
+      GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+  ZETASQL_ASSIGN_OR_RETURN(const std::string output,
+                   functions::GetJsonType(json_value_const_ref));
+  return Value::String(output);
+}
+
+absl::StatusOr<Value> ConvertJsonFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_GE(args.size(), 1);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  JSONValue json_storage;
+  LanguageOptions language_options = context->GetLanguageOptions();
+  JSONParsingOptions json_parsing_options = JSONParsingOptions{
+      .wide_number_mode = (language_options.LanguageFeatureEnabled(
+                               FEATURE_JSON_STRICT_NUMBER_PARSING)
+                               ? JSONParsingOptions::WideNumberMode::kExact
+                               : JSONParsingOptions::WideNumberMode::kRound)};
+  switch (kind()) {
+    case FunctionKind::kInt64: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(const int64_t output,
+                       functions::ConvertJsonToInt64(json_value_const_ref));
+      return Value::Int64(output);
+    }
+    case FunctionKind::kDouble: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 2);
+      ZETASQL_RET_CHECK(args[1].type()->IsString());
+      std::string wide_number_mode_as_string = args[1].string_value();
+      functions::WideNumberMode wide_number_mode;
+      if (wide_number_mode_as_string == "exact") {
+        wide_number_mode = functions::WideNumberMode::kExact;
+      } else if (wide_number_mode_as_string == "round") {
+        wide_number_mode = functions::WideNumberMode::kRound;
+      } else {
+        return MakeEvalError() << "Invalid `wide_number_mode` specified: "
+                               << wide_number_mode_as_string;
+      }
+      json_parsing_options.wide_number_mode =
+          (wide_number_mode == functions::WideNumberMode::kExact
+               ? JSONParsingOptions::WideNumberMode::kExact
+               : JSONParsingOptions::WideNumberMode::kRound);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(
+          const double output,
+          functions::ConvertJsonToDouble(json_value_const_ref, wide_number_mode,
+                                         language_options.product_mode()));
+      return Value::Double(output);
+    }
+    case FunctionKind::kBool: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(const bool output,
+                       functions::ConvertJsonToBool(json_value_const_ref));
+      return Value::Bool(output);
+    }
+    default:
+      return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
+  }
+}
+
+absl::StatusOr<Value> ConvertJsonLaxFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  JSONValue json_storage;
+  JSONParsingOptions json_parsing_options = JSONParsingOptions{
+      .wide_number_mode = (context->GetLanguageOptions().LanguageFeatureEnabled(
+                               FEATURE_JSON_STRICT_NUMBER_PARSING)
+                               ? JSONParsingOptions::WideNumberMode::kExact
+                               : JSONParsingOptions::WideNumberMode::kRound)};
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValueConstRef json_value_const_ref,
+      GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+  switch (kind()) {
+    case FunctionKind::kLaxBool: {
+      auto result = functions::LaxConvertJsonToBool(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
+    }
+    case FunctionKind::kLaxInt64: {
+      auto result = functions::LaxConvertJsonToInt64(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
+    }
+    case FunctionKind::kLaxDouble: {
+      auto result = functions::LaxConvertJsonToFloat64(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
+    }
+    case FunctionKind::kLaxString: {
+      auto result = functions::LaxConvertJsonToString(json_value_const_ref);
+      ZETASQL_RET_CHECK(result.ok());
+      return CreateValueFromOptional(*result);
+    }
+    default:
+      return ::zetasql_base::InvalidArgumentErrorBuilder() << "Unsupported function";
+  }
+}
+
+absl::StatusOr<Value> JsonArrayFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  for (const Value& arg : args) {
+    ZETASQL_RETURN_IF_ERROR(ValidateMicrosPrecision(arg, context));
+  }
+  auto result = functions::JsonArray(args, context->GetLanguageOptions(),
+                                     /*canonicalize_zero=*/true);
+
+  if (!result.ok()) {
+    return MakeEvalError() << "Invalid input to JSON_ARRAY: "
+                           << result.status().message();
+  }
+  for (const Value& arg : args) {
+    MaybeSetNonDeterministicContext(arg, context);
+  }
+  return Value::Json(*std::move(result));
+}
+
 }  // namespace
 
 void RegisterBuiltinJsonFunctions() {
@@ -473,13 +678,13 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kJsonExtract, FunctionKind::kJsonExtractScalar,
        FunctionKind::kJsonQuery, FunctionKind::kJsonValue},
       [](FunctionKind kind, const Type* output_type) {
-        return new JsonFunction(kind, output_type);
+        return new JsonExtractFunction(kind, output_type);
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
       {FunctionKind::kJsonExtractArray, FunctionKind::kJsonExtractStringArray,
        FunctionKind::kJsonQueryArray, FunctionKind::kJsonValueArray},
       [](FunctionKind kind, const Type* output_type) {
-        return new JsonArrayFunction(kind, output_type);
+        return new JsonExtractArrayFunction(kind, output_type);
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
       {FunctionKind::kSubscript},
@@ -499,6 +704,27 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kParseJson},
       [](FunctionKind kind, const zetasql::Type* output_type) {
         return new ParseJsonFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kInt64, FunctionKind::kDouble, FunctionKind::kBool},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new ConvertJsonFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kLaxInt64, FunctionKind::kLaxDouble,
+       FunctionKind::kLaxBool, FunctionKind::kLaxString},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new ConvertJsonLaxFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kJsonType},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new JsonTypeFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kJsonArray},
+      [](FunctionKind kind, const zetasql::Type* output_type) {
+        return new JsonArrayFunction();
       });
 }
 

@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Modules
 
 In ZetaSQL, a module is a collection of reusable [data definition
@@ -52,7 +54,8 @@ Each module file must contain only one `MODULE` statement.
 By convention, an `IMPORT` statement for this module will generally include the
 `identifier_path` in the `IMPORT` statement. For clarity, the `identifier_path`
 should reflect the path to the module file that contains the `MODULE` statement.
- For example, if a module file is stored at `search_path/x/y/z.sqlm`,
+
+For example, if a module file is stored at `search_path/x/y/z.sqlm`,
 then the `MODULE` statement will be:
 
 ```sql
@@ -65,12 +68,13 @@ And the `IMPORT` statement will be:
 IMPORT MODULE x.y.z;
 ```
 
-The `IMPORT` statement should not include the `.sqlm` file extension.
+Caveats:
 
-Note: If you import module `x.y.z`, ZetaSQL looks for the module at
-`search_path/x/y/z.sqlm`. If the module is not found, ZetaSQL looks for
-the module at `search_path/x/y/z/z.sqlm` and you can import it with either
-`IMPORT MODULE x.y.z` or `IMPORT MODULE x.y.z.z`.
++ The `IMPORT` statement should not include the `.sqlm` file extension.
++ If you import module `x.y.z`, ZetaSQL looks for the module at
+  `search_path/x/y/z.sqlm`. If the module is not found, ZetaSQL looks for
+  the module at `search_path/x/y/z/z.sqlm` and you can import it with either
+  `IMPORT MODULE x.y.z` or `IMPORT MODULE x.y.z.z`.
 
 ### Create objects within modules
 
@@ -126,11 +130,11 @@ Use it in a statement:
 ```sql
 SELECT (DEFAULT_HEIGHT + 5) AS result;
 
-+--------+
-| result |
-+--------+
-| 30     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 30     |
+ *--------*/
 ```
 
 #### Create UDFs and TVFs

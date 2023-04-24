@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Data import and export statements
 
 ZetaSQL can specify the syntax for exporting and importing data.

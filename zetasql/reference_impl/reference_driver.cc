@@ -37,6 +37,7 @@
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
@@ -164,13 +165,13 @@ ReferenceDriver::~ReferenceDriver() = default;
 bool ReferenceDriver::UsesUnsupportedType(const LanguageOptions& options,
                                           const ResolvedNode* root,
                                           const Type** example) {
-  std::vector<const ResolvedNode*> column_refs;
-  root->GetDescendantsWithKinds({RESOLVED_COLUMN_REF}, &column_refs);
-  for (const ResolvedNode* ref : column_refs) {
-    const ResolvedColumnRef* column_ref = ref->GetAs<ResolvedColumnRef>();
-    if (!column_ref->type()->IsSupportedType(options)) {
+  std::vector<const ResolvedNode*> exprs;
+  root->GetDescendantsSatisfying(&ResolvedNode::IsExpression, &exprs);
+  for (const ResolvedNode* node : exprs) {
+    const ResolvedExpr* expr = node->GetAs<ResolvedExpr>();
+    if (!expr->type()->IsSupportedType(options)) {
       if (example != nullptr) {
-        *example = column_ref->type();
+        *example = expr->type();
       }
       return true;
     }

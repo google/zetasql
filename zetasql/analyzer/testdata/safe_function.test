@@ -183,7 +183,7 @@ QueryStmt
 [language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
 select safe.cast(1 as int64)
 --
-ERROR: Syntax error: Expected ")" but got keyword AS [at 1:20]
+ERROR: Unexpected function call argument alias found at safe.`cast` [at 1:20]
 select safe.cast(1 as int64)
                    ^
 ==

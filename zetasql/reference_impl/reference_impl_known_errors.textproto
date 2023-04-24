@@ -27,12 +27,6 @@ known_errors {
   label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_int64_basic"
   label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_partial_basic"
   label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_uint64_basic"
-}
-
-known_errors {
-  # TODO: Correct these tests or the function signatures
-  mode: ALLOW_ERROR
-  reason: "Compiletime Error: Argument 2 to KLL_QUANTILES.MERGE_POINT_INT64 must be between 0 and 1"
   label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_double_basic"
   label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_int64_basic"
   label: "analytic_kll_quantiles_test:analytic_kll_quantiles_merge_point_uint64_basic"

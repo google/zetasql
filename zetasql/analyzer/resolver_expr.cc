@@ -73,6 +73,7 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
+#include "zetasql/public/functions/range.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
@@ -736,18 +737,16 @@ Resolver::ResolveJsonLiteral(const ASTJSONLiteral* json_literal) {
 }
 
 absl::StatusOr<Value> ParseRangeBoundary(
-    const TypeKind& type_kind, absl::string_view boundary_value,
-    const ProductMode& product_mode, const LanguageOptions& language,
-    const absl::TimeZone default_time_zone) {
-  bool unbounded = zetasql_base::CaseEqual(boundary_value, "UNBOUNDED") ||
-                   zetasql_base::CaseEqual(boundary_value, "NULL");
+    const TypeKind& type_kind, std::optional<absl::string_view> boundary_value,
+    const LanguageOptions& language, const absl::TimeZone default_time_zone) {
+  bool unbounded = !boundary_value.has_value();
   switch (type_kind) {
     case TYPE_DATE: {
       if (unbounded) {
         return Value::NullDate();
       }
       int32_t date;
-      ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDate(boundary_value, &date));
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDate(*boundary_value, &date));
       return Value::Date(date);
     }
     case TYPE_DATETIME: {
@@ -759,8 +758,8 @@ absl::StatusOr<Value> ParseRangeBoundary(
           language.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)
               ? functions::kNanoseconds
               : functions::kMicroseconds;
-      ZETASQL_RETURN_IF_ERROR(
-          functions::ConvertStringToDatetime(boundary_value, scale, &datetime));
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDatetime(*boundary_value, scale,
+                                                         &datetime));
       if (!datetime.IsValid()) {
         return absl::InvalidArgumentError("Datetime is invalid");
       }
@@ -773,63 +772,39 @@ absl::StatusOr<Value> ParseRangeBoundary(
       if (language.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
         absl::Time timestamp;
         ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-            boundary_value, default_time_zone, functions::kNanoseconds,
+            *boundary_value, default_time_zone, functions::kNanoseconds,
             /*allow_tz_in_str=*/true, &timestamp));
         return Value::Timestamp(timestamp);
       } else {
         int64_t timestamp;
         ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-            boundary_value, default_time_zone, functions::kMicroseconds,
+            *boundary_value, default_time_zone, functions::kMicroseconds,
             &timestamp));
         return Value::TimestampFromUnixMicros(timestamp);
       }
     }
     default: {
-      return absl::InvalidArgumentError(
-          absl::StrCat("Parsing of RANGE literal of type ",
-                       Type::TypeKindToString(type_kind, product_mode),
-                       " is not supported"));
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Parsing of RANGE literal of type ",
+          Type::TypeKindToString(type_kind, language.product_mode()),
+          " is not supported"));
     }
   }
 }
 
-struct RangeBoundaries {
-  Value start;
-  Value end;
-};
-
-absl::StatusOr<RangeBoundaries> GetRangeBoundaries(
-    absl::string_view range_value, const TypeKind& type_kind,
-    const ProductMode& product_mode, const LanguageOptions& language,
-    const absl::TimeZone default_time_zone) {
-  if (!absl::StartsWith(range_value, "[")) {
-    return absl::InvalidArgumentError("expected to start with \"[\"");
-  }
-  if (!absl::EndsWith(range_value, ")")) {
-    return absl::InvalidArgumentError("expected to end with \")\"");
-  }
-  // Trim opening and closing parenthesis
-  const auto& trimmed_range_value =
-      range_value.substr(1, range_value.size() - 2);
-  std::vector<std::string> range_parts =
-      absl::StrSplit(trimmed_range_value, ',');
-  // Range parts must be divided by ", ". Verify this invariant
-  if (range_parts.size() != 2 || !absl::StartsWith(range_parts[1], " ")) {
-    return absl::InvalidArgumentError(
-        "expected to have exactly two parts divided with \", \"");
-  }
-  // range_value was split by ',' not ", ". Trim " " from the second part
-  range_parts[1] = range_parts[1].substr(1);
-
-  RangeBoundaries boundaries;
-  ZETASQL_ASSIGN_OR_RETURN(boundaries.start,
-                   ParseRangeBoundary(type_kind, range_parts[0], product_mode,
-                                      language, default_time_zone));
-
-  ZETASQL_ASSIGN_OR_RETURN(boundaries.end,
-                   ParseRangeBoundary(type_kind, range_parts[1], product_mode,
-                                      language, default_time_zone));
-  return boundaries;
+absl::StatusOr<Value> ParseRange(const std::string& range_literal,
+                                 const RangeType* range_type,
+                                 const LanguageOptions& language,
+                                 const absl::TimeZone default_time_zone) {
+  ZETASQL_ASSIGN_OR_RETURN(const auto boundaries, ParseRangeBoundaries(range_literal));
+  ZETASQL_ASSIGN_OR_RETURN(
+      Value start,
+      ParseRangeBoundary(range_type->element_type()->kind(), boundaries.start,
+                         language, default_time_zone));
+  ZETASQL_ASSIGN_OR_RETURN(Value end, ParseRangeBoundary(
+                                  range_type->element_type()->kind(),
+                                  boundaries.end, language, default_time_zone));
+  return Value::MakeRange(start, end);
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedLiteral>>
@@ -846,26 +821,19 @@ Resolver::ResolveRangeLiteral(const ASTRangeLiteral* range_literal) {
               "a STRING literal";
   }
 
-  const TypeKind& type_kind = range_type->element_type()->kind();
-  const absl::StatusOr<RangeBoundaries> boundaries = GetRangeBoundaries(
-      range_literal->range_value()->string_value(), type_kind, product_mode(),
-      language(), default_time_zone());
-  if (!boundaries.ok()) {
-    return MakeSqlErrorAt(range_literal->range_value())
-           << "Invalid RANGE literal value: " << boundaries.status().message();
-  }
-
   absl::StatusOr<Value> range =
-      Value::MakeRange(boundaries->start, boundaries->end);
+      ParseRange(range_literal->range_value()->string_value(), range_type,
+                 language(), default_time_zone());
   if (!range.ok()) {
     return MakeSqlErrorAt(range_literal)
-           << "Invalid RANGE: " << range.status().message();
+           << "Invalid RANGE literal value: " << range.status().message();
   }
 
-  return MakeResolvedLiteral(range_literal,
-                             types::RangeTypeFromSimpleTypeKind(type_kind),
-                             std::move(range.value()),
-                             /*has_explicit_type=*/true);
+  return MakeResolvedLiteral(
+      range_literal,
+      types::RangeTypeFromSimpleTypeKind(range_type->element_type()->kind()),
+      std::move(range.value()),
+      /*has_explicit_type=*/true);
 }
 
 absl::Status Resolver::ResolveExpr(
@@ -2147,6 +2115,15 @@ absl::Status Resolver::ResolveFieldAccess(
            << lhs_type->ShortTypeName(product_mode()) << ". "
            << "You may need an explicit call to FLATTEN, and the flattened "
            << "argument may only contain 'dot' after the first array";
+  } else if (resolved_lhs->Is<ResolvedParameter>() &&
+             resolved_lhs->GetAs<ResolvedParameter>()->is_untyped()) {
+    const ResolvedParameter* param = resolved_lhs->GetAs<ResolvedParameter>();
+    return MakeSqlErrorAt(identifier)
+           << "Cannot access field " << identifier->GetAsIdString()
+           << " on parameter "
+           << (param->position() == 0 ? param->name()
+                                      : absl::StrCat("#", param->position()))
+           << " whose type is unknown";
   } else {
     return MakeSqlErrorAt(identifier)
            << "Cannot access field " << identifier->GetAsIdString()
@@ -3773,6 +3750,21 @@ absl::Status Resolver::MakeDatePartEnumResolvedLiteralFromNames(
   return MakeDatePartEnumResolvedLiteral(local_date_part, resolved_date_part);
 }
 
+// For a given ASTFunctionCall with non-empty argument list, check if any of the
+// arguments contain alias. If it does, throw a SQL error in the first failing
+// node.
+static absl::Status ValidateASTFunctionCallWithoutArgumentAlias(
+    const ASTFunctionCall* ast_function) {
+  for (const ASTExpression* arg : ast_function->arguments()) {
+    if (arg->node_kind() == AST_EXPRESSION_WITH_ALIAS) {
+      return MakeSqlErrorAt(arg->GetAsOrDie<ASTExpressionWithAlias>()->alias())
+             << "Unexpected function call argument alias found at "
+             << ast_function->function()->ToIdentifierPathString();
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveDatePartArgument(
     const ASTExpression* date_part_ast_location,
     std::unique_ptr<const ResolvedExpr>* resolved_date_part,
@@ -3816,6 +3808,8 @@ absl::Status Resolver::ResolveDatePartArgument(
                << "()";
       }
 
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateASTFunctionCallWithoutArgumentAlias(ast_function_call));
       date_part_arg_ast_location = ast_function_call->arguments()[0];
       if (date_part_arg_ast_location->node_kind() != AST_PATH_EXPRESSION) {
         // We don't allow AST_IDENTIFIER because the grammar won't allow it to
@@ -3933,6 +3927,8 @@ absl::Status Resolver::ResolveProtoExtractExpression(
            << ast_function_call->function()->ToIdentifierPathString() << "()";
   }
 
+  ZETASQL_RETURN_IF_ERROR(
+      ValidateASTFunctionCallWithoutArgumentAlias(ast_function_call));
   const ASTExpression* field_ast_location = ast_function_call->arguments()[0];
   // We don't allow AST_IDENTIFIER because the grammar won't allow it to
   // be used as a function argument, despite ASTIdentifier inheriting from
@@ -4259,6 +4255,12 @@ absl::Status Resolver::GetFunctionNameAndArgumentsForAnonFunctions(
             SelectWithMode::ANONYMIZATION);
         break;
 
+      case SelectWithMode::AGGREGATION_THRESHOLD:
+        return MakeSqlErrorAt(function_call)
+               << "ANON functions are not allowed in SELECT WITH "
+                  "AGGREGATION_THRESHOLD queries.";
+        break;
+
       case SelectWithMode::DIFFERENTIAL_PRIVACY:
         return MakeSqlErrorAt(function_call)
                << "ANON functions are not allowed in SELECT WITH "
@@ -4437,6 +4439,9 @@ absl::Status Resolver::GetFunctionNameAndArguments(
                                (query_resolution_info == nullptr)
                                    ? SelectWithMode::NONE
                                    : query_resolution_info->select_with_mode());
+
+  ZETASQL_RETURN_IF_ERROR(ValidateASTFunctionCallWithoutArgumentAlias(function_call));
+
   switch (function_family) {
     // A normal function with no special handling.
     case FAMILY_NONE:
@@ -5575,6 +5580,8 @@ absl::Status Resolver::ResolveStructSubscriptElementAccess(
              << "Subscript access using [" << field_expr_wrapper.ToStringView()
              << "()] on structs only supports one argument";
     }
+    ZETASQL_RETURN_IF_ERROR(
+        ValidateASTFunctionCallWithoutArgumentAlias(ast_function_call));
     ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_function_call->arguments()[0],
                                 expr_resolution_info, &resolved_position));
   }
@@ -5594,7 +5601,8 @@ absl::Status Resolver::ResolveStructSubscriptElementAccess(
   int64_t position;
 
   if (!resolved_position->Is<ResolvedLiteral>() ||
-      !resolved_position->type()->IsInteger()) {
+      !resolved_position->type()->IsInteger() ||
+      resolved_position->GetAs<ResolvedLiteral>()->value().is_null()) {
     return MakeSqlErrorAt(field_position)
            << "Field element access is only supported for literal integer "
               "positions";
@@ -5660,6 +5668,8 @@ absl::Status Resolver::ResolveNonArraySubscriptElementAccess(
                  << resolved_lhs->type()->ShortTypeName(product_mode())
                  << " only support one argument";
         }
+        ZETASQL_RETURN_IF_ERROR(
+            ValidateASTFunctionCallWithoutArgumentAlias(ast_function_call));
         *unwrapped_ast_position_expr = ast_function_call->arguments()[0];
         ZETASQL_RETURN_IF_ERROR(ResolveExpr(*unwrapped_ast_position_expr,
                                     expr_resolution_info, resolved_expr_out));
@@ -5696,6 +5706,8 @@ absl::Status Resolver::ResolveArrayElementAccess(
     if (ast_function_call->function()->num_names() == 1 &&
         ast_function_call->arguments().size() == 1 &&
         !ast_function_call->HasModifiers()) {
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateASTFunctionCallWithoutArgumentAlias(ast_function_call));
       const IdString name =
           ast_function_call->function()->first_name()->GetAsIdString();
       *original_wrapper_name = name.ToString();
@@ -7160,6 +7172,8 @@ absl::Status Resolver::ResolveExpressionArguments(
           break;
         }
       }
+    } else if (arg->Is<ASTSequenceArg>()) {
+      return MakeSqlErrorAt(arg) << "Sequence args are not supported";
     } else if (arg->Is<ASTLambda>()) {
       if (!language().LanguageFeatureEnabled(
               FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT)) {

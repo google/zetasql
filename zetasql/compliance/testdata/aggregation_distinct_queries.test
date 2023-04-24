@@ -982,6 +982,8 @@ SELECT STRING_AGG(DISTINCT x) IN ("first,second", "second,first")
 FROM ((SELECT "first" x) UNION ALL (SELECT "second") UNION ALL (SELECT "first"))
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=aggregation_distinct_string_agg_2]
 SELECT
@@ -993,6 +995,8 @@ FROM ((SELECT b"1" x) UNION ALL (SELECT b"2") UNION ALL (SELECT b"3")
       UNION ALL (SELECT b"2") UNION ALL (SELECT b"1")))
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=aggregation_distinct_string_agg_3]
 SELECT LENGTH(STRING_AGG(DISTINCT str_val)),
@@ -1000,11 +1004,15 @@ SELECT LENGTH(STRING_AGG(DISTINCT str_val)),
 FROM TableAllTypes
 --
 ARRAY<STRUCT<INT64, INT64>>[{28, 28}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=aggregation_distinct_string_agg_4]
 SELECT STRPOS(STRING_AGG(DISTINCT str_val, ":"), ":2") > 0 FROM TableAllTypes
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=aggregation_distinct_string_agg_5]
 SELECT STRING_AGG(DISTINCT str_val), STRING_AGG(DISTINCT bytes_val)
@@ -1788,12 +1796,16 @@ SELECT ANY_VALUE(DISTINCT double_val) IN (CAST("Inf" AS float), CAST("-Inf" AS f
 FROM TableAllTypes WHERE IS_INF(double_val)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=aggregation_distinct_any_value_float_INF]
 SELECT ANY_VALUE(DISTINCT float_val) IN (CAST("Inf" AS float), CAST("-Inf" AS float))
 FROM TableAllTypes WHERE IS_INF(float_val)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=aggregation_distinct_any_value_double_NaN]
 SELECT ANY_VALUE(DISTINCT double_val)

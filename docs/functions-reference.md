@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Function calls
 
 When you call a function, specific rules may apply. You can also add the
@@ -83,12 +85,12 @@ output: the `SAFE.` prefix has no effect.
 SELECT SAFE.SUBSTR('foo', 0, -2) AS safe_output UNION ALL
 SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 
-+-------------+
-| safe_output |
-+-------------+
-| NULL        |
-| ba          |
-+-------------+
+/*-------------*
+ | safe_output |
+ +-------------+
+ | NULL        |
+ | ba          |
+ *-------------*/
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->

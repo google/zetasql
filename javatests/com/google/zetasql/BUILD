@@ -32,6 +32,7 @@ java_library(
         "@maven//:com_google_guava_guava_testlib",
         "//java/com/google/zetasql:analyzer",
         "//java/com/google/zetasql:client",
+        "//zetasql/public:annotation_java_proto",
         "//java/com/google/zetasql:types",
         "//java/com/google/zetasql/resolvedast",
         "//zetasql/local_service:local_service_java_proto",
@@ -47,6 +48,7 @@ java_library(
         "//zetasql/public:options_java_proto",
         "//zetasql/public:parse_resume_location_java_proto",
         "//zetasql/public:simple_table_java_proto",
+        "//zetasql/public:simple_value_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public/functions:rounding_mode_java_proto",
         "//zetasql/public:type_parameters_java_proto",
@@ -66,6 +68,7 @@ java_library(
 java_library(
     name = "util",
     srcs = [
+        "AnnotationMapTestConstants.java",
         "TestUtil.java",
         "TypeTestBase.java",
     ],
@@ -73,6 +76,7 @@ java_library(
         "//java/com/google/zetasql:types",
         "//zetasql/public:type_proto_java_proto",
         "@com_google_protobuf//:protobuf_java",
+        "@maven//:com_google_guava_guava",
         "@maven//:com_google_guava_guava_testlib",
         "@maven//:com_google_truth_truth",
     ],

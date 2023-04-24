@@ -554,20 +554,15 @@ std::string Function::GetSupportedSignaturesUserFacingText(
   for (const FunctionSignature& signature : signatures()) {
     // Ignore deprecated signatures, and signatures that include
     // unsupported data types.
-    if (signature.IsDeprecated() || signature.IsInternal() ||
-        signature.HasUnsupportedType(language_options) ||
-        !signature.options().check_all_required_features_are_enabled(
-            language_options.GetEnabledLanguageFeatures())) {
+    if (signature.HideInSupportedSignatureList(language_options)) {
       continue;
     }
     if (!supported_signatures.empty()) {
       absl::StrAppend(&supported_signatures, "; ");
     }
-    std::vector<std::string> argument_texts;
-    for (const FunctionArgumentType& argument : signature.arguments()) {
-      argument_texts.push_back(argument.UserFacingNameWithCardinality(
-          language_options.product_mode(), print_style));
-    }
+    std::vector<std::string> argument_texts =
+        signature.GetArgumentsUserFacingTextWithCardinality(language_options,
+                                                            print_style);
     (*num_signatures)++;
     absl::StrAppend(&supported_signatures, GetSQL(argument_texts));
   }

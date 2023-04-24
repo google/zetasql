@@ -16,6 +16,8 @@ SELECT ARRAY_AGG(t.r) rs FROM (
 (SELECT R.r FROM R) UNION ALL (SELECT R.r FROM R)) t)
 --
 ARRAY<STRUCT<right1 BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Tests which should pass with very high probability
@@ -39,6 +41,8 @@ FROM
          FROM unnest([1,2,3]) x)) rs);
 --
 ARRAY<STRUCT<wrong BOOL>>[{false}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=uniform_distribution]

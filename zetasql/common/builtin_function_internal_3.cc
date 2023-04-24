@@ -782,7 +782,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                 return absl::OkStatus();
               })
           .set_no_matching_signature_callback(
-              [=](const std::string& qualified_function_name,
+              [=](absl::string_view qualified_function_name,
                   const std::vector<InputArgumentType>& args,
                   const ProductMode& product_mode) {
                 std::string ret = absl::StrCat("No matching signature for ",
@@ -1079,6 +1079,8 @@ void GetJSONFunctions(TypeFactory* type_factory,
   ZETASQL_CHECK_OK(type_factory->MakeArrayType(json_type, &array_json_type));
 
   const Function::Mode SCALAR = Function::SCALAR;
+  const FunctionArgumentType::ArgumentCardinality REPEATED =
+      FunctionArgumentType::REPEATED;
 
   const FunctionArgumentType default_json_path_argument = FunctionArgumentType(
       string_type, FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
@@ -1224,6 +1226,16 @@ void GetJSONFunctions(TypeFactory* type_factory,
                      {{string_type, {json_type}, FN_JSON_LAX_TO_STRING}});
     }
   }
+
+  InsertFunction(
+      functions, options, "json_array", SCALAR,
+      {{json_type,
+        {{ARG_TYPE_ARBITRARY,
+          FunctionArgumentTypeOptions().set_cardinality(REPEATED)}},
+        FN_JSON_ARRAY}},
+      FunctionOptions()
+          .add_required_language_feature(FEATURE_JSON_TYPE)
+          .add_required_language_feature(FEATURE_JSON_CONSTRUCTOR_FUNCTIONS));
 
   InsertFunction(functions, options, "json_extract", SCALAR,
                  json_extract_signatures,
@@ -2411,7 +2423,7 @@ void GetGeographyFunctions(TypeFactory* type_factory,
       FunctionArgumentTypeOptions().set_must_be_constant().set_cardinality(
           OPTIONAL);
 
-  auto const_with_mandatory_name_and_default_value = [](const std::string& name,
+  auto const_with_mandatory_name_and_default_value = [](absl::string_view name,
                                                         Value default_value) {
     return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
         .set_must_be_constant()
@@ -2419,21 +2431,21 @@ void GetGeographyFunctions(TypeFactory* type_factory,
         .set_default(default_value);
   };
 
-  auto arg_with_mandatory_name_and_default_value = [](const std::string& name,
+  auto arg_with_mandatory_name_and_default_value = [](absl::string_view name,
                                                       Value default_value) {
     return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
         .set_argument_name(name, kNamedOnly)
         .set_default(default_value);
   };
 
-  auto arg_with_optional_name_and_default_value = [](const std::string& name,
+  auto arg_with_optional_name_and_default_value = [](absl::string_view name,
                                                      Value default_value) {
     return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
         .set_argument_name(name, kPositionalOrNamed)
         .set_default(default_value);
   };
 
-  auto required_arg_with_optional_name = [](const std::string& name) {
+  auto required_arg_with_optional_name = [](absl::string_view name) {
     return FunctionArgumentTypeOptions(FunctionArgumentType::REQUIRED)
         .set_argument_name(name, kPositionalOrNamed);
   };
@@ -3273,7 +3285,7 @@ void GetDifferentialPrivacyFunctions(
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
 
   auto no_matching_signature_callback =
-      [](const std::string& qualified_function_name,
+      [](absl::string_view qualified_function_name,
          const std::vector<InputArgumentType>& arguments,
          ProductMode product_mode) {
         return absl::StrCat(

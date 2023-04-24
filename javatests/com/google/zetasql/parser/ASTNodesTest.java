@@ -48,5 +48,18 @@ public class ASTNodesTest {
     ASTSelectColumn col1 = select.getSelectList().getColumns().get(0);
     assertThat(((ASTIntLiteral) col1.getExpression()).getImage()).isEqualTo("123");
   }
+
+  @Test
+  public void testParseLocationRange() throws IOException {
+    // Serialized proto of simple query "select 123", starts at index 0 and ends at 10
+    String path = "protos/query_statement1.textproto";
+    String textproto = Resources.toString(getResource(this.getClass(), path), UTF_8);
+    AnyASTStatementProto proto = TextFormat.parse(textproto, AnyASTStatementProto.class);
+
+    ASTQueryStatement stmt = (ASTQueryStatement) ASTStatement.deserialize(proto);
+
+    assertThat(stmt.getParseLocationRange().start()).isEqualTo(0);
+    assertThat(stmt.getParseLocationRange().end()).isEqualTo(10);
+  }
   //TODO: Add test for more complex queries.
 }

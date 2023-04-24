@@ -1683,6 +1683,8 @@ SELECT string_agg(y) IN ("bar,foo", "foo,bar"),
 FROM T
 --
 ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=aggregation_string_agg_2]
 SELECT string_agg(CAST(y as bytes)) IN (b"bar,foo", b"foo,bar"),
@@ -1690,6 +1692,8 @@ SELECT string_agg(CAST(y as bytes)) IN (b"bar,foo", b"foo,bar"),
 FROM T
 --
 ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # string_agg with NULL values and several non-NULL values. Note that the order
 # of the elements in the output string is non-deterministic.
@@ -1701,6 +1705,8 @@ FROM (SELECT "a" x UNION ALL SELECT NULL UNION ALL
       SELECT "c" UNION ALL SELECT "d")
 --
 ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # string_agg on bytes with NULL values and several non-NULL values, as above.
 [name=aggregation_string_agg_4]
@@ -1712,6 +1718,8 @@ FROM (SELECT "a" x UNION ALL SELECT NULL UNION ALL
       SELECT "c" UNION ALL SELECT "d")
 --
 ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # string_agg on string with a single value
 [name=aggregation_string_agg_5]
@@ -1731,6 +1739,8 @@ ARRAY<STRUCT<BYTES, BYTES>>[{b"a", b"a"}]
 SELECT STRING_AGG(x) FROM ((SELECT "f,oo" as x) UNION ALL (SELECT "f,oo"))
 --
 ARRAY<STRUCT<STRING>>[{"f,oo,f,oo"}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # string_agg on string with NULL separator gives error
@@ -2289,12 +2299,16 @@ SELECT ANY_VALUE(double_val) IN (CAST("Inf" AS float), CAST("-Inf" AS float))
 FROM TableAllTypes WHERE IS_INF(double_val)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=aggregation_any_value_float_INF]
 SELECT ANY_VALUE(float_val) IN (CAST("Inf" AS float), CAST("-Inf" AS float))
 FROM TableAllTypes WHERE IS_INF(float_val)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=aggregation_any_value_double_NaN]
 SELECT ANY_VALUE(double_val) FROM TableAllTypes WHERE IS_NAN(double_val)

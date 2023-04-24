@@ -1,10 +1,36 @@
 # max_rows_contributed added to differential privacy options
-# Should not cause any compilation errors.
 [default language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(max_rows_contributed = 5)
 count(*)
-from SimpleTypesWithAnonymizationUid a
+from SimpleTypesWithAnonymizationUid
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        +-option_list=
+          +-max_rows_contributed := Literal(type=INT64, value=5)
+
+Rewrite ERROR: generic::unimplemented: max_rows_contributed not implemented
+==
+
+# Don't bound contributions when max_rows_contributed is set to NULL
+select with differential_privacy options(max_rows_contributed = NULL)
+count(*)
+from SimpleTypesWithAnonymizationUid
 --
 QueryStmt
 +-output_column_list=
@@ -16,13 +42,13 @@ QueryStmt
       +-DifferentialPrivacyAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
         +-aggregate_list=
         | +-$agg1#13 :=
         |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
         |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
         +-option_list=
-          +-max_rows_contributed := Literal(type=INT64, value=5)
+          +-max_rows_contributed := Literal(type=INT64, value=NULL)
 
 [REWRITTEN AST]
 QueryStmt
@@ -38,7 +64,7 @@ QueryStmt
         | +-AggregateScan
         |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
         |   +-input_scan=
-        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
         |   +-group_by_list=
         |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
         |   +-aggregate_list=
@@ -55,20 +81,20 @@ QueryStmt
         +-group_selection_threshold_expr=
         | +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#20)
         +-option_list=
-          +-max_rows_contributed := Literal(type=INT64, value=5)
+          +-max_rows_contributed := Literal(type=INT64, value=NULL)
 
 [TableScan Groups]
 {
-  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
 }
 ==
 
 # Invalid max_rows_contributed, specified twice
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
+[language_features=DIFFERENTIAL_PRIVACY]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(max_rows_contributed = 5, MAX_ROWS_CONTRIBUTED = 5)
 count(*)
-from SimpleTypesWithAnonymizationUid a
+from SimpleTypesWithAnonymizationUid
 --
 ERROR: Duplicate differential privacy option specified for 'MAX_ROWS_CONTRIBUTED' [at 1:68]
 ...options(max_rows_contributed = 5, MAX_ROWS_CONTRIBUTED = 5)
@@ -76,10 +102,11 @@ ERROR: Duplicate differential privacy option specified for 'MAX_ROWS_CONTRIBUTED
 ==
 
 # Invalid max_rows_contributed, because max_groups_contributed is also specified
+# Options are lower-case
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(max_rows_contributed = 5, max_groups_contributed = 3)
 count(*)
-from SimpleTypesWithAnonymizationUid a
+from SimpleTypesWithAnonymizationUid
 --
 ERROR: At most one of the options max_groups_contributed or max_rows_contributed may be specified in differential privacy options, instead got: max_groups_contributed, max_rows_contributed [at 1:41]
 select with differential_privacy options(max_rows_contributed = 5, max_groups...
@@ -87,12 +114,167 @@ select with differential_privacy options(max_rows_contributed = 5, max_groups...
 ==
 
 # Invalid max_rows_contributed, because max_groups_contributed is also specified
-[language_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
+# Options are upper-case
+[language_features=DIFFERENTIAL_PRIVACY,ANONYMIZATION_CASE_INSENSITIVE_OPTIONS]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(MAX_ROWS_CONTRIBUTED = 5, MAX_GROUPS_CONTRIBUTED = 2)
 count(*)
-from SimpleTypesWithAnonymizationUid a
+from SimpleTypesWithAnonymizationUid
 --
 ERROR: At most one of the options max_groups_contributed or max_rows_contributed may be specified in differential privacy options, instead got: max_groups_contributed, max_rows_contributed [at 1:41]
 select with differential_privacy options(MAX_ROWS_CONTRIBUTED = 5, MAX_GROUPS...
                                         ^
+==
+
+# Invalid max_rows_contributed, because max_groups_contributed is also specified, with max_rows_contributed = NULL
+# Options are lower-case
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with differential_privacy options(max_rows_contributed = NULL, max_groups_contributed = 3)
+count(*)
+from SimpleTypesWithAnonymizationUid
+--
+ERROR: At most one of the options max_groups_contributed or max_rows_contributed may be specified in differential privacy options, instead got: max_groups_contributed, max_rows_contributed [at 1:41]
+select with differential_privacy options(max_rows_contributed = NULL, max_gro...
+                                        ^
+==
+
+# Invalid max_rows_contributed, because max_groups_contributed is also specified, with max_groups_contributed = NULL
+# Options are lower-case
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with differential_privacy options(max_rows_contributed = 2, max_groups_contributed = NULL)
+count(*)
+from SimpleTypesWithAnonymizationUid
+--
+ERROR: At most one of the options max_groups_contributed or max_rows_contributed may be specified in differential privacy options, instead got: max_groups_contributed, max_rows_contributed [at 1:41]
+select with differential_privacy options(max_rows_contributed = 2, max_groups...
+                                        ^
+==
+
+# Invalid max_rows_contributed, because max_groups_contributed is also specified, with both options NULL
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with differential_privacy options(max_rows_contributed = NULL, max_groups_contributed = NULL)
+count(*)
+from SimpleTypesWithAnonymizationUid
+--
+ERROR: At most one of the options max_groups_contributed or max_rows_contributed may be specified in differential privacy options, instead got: max_groups_contributed, max_rows_contributed [at 1:41]
+select with differential_privacy options(max_rows_contributed = NULL, max_gro...
+                                        ^
+==
+
+# Invalid max_rows_contributed < 1
+select with differential_privacy options(max_rows_contributed = 0) count(*)
+from SimpleTypesWithAnonymizationUid
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        +-option_list=
+          +-max_rows_contributed := Literal(type=INT64, value=0)
+
+Rewrite ERROR: Option MAX_ROWS_CONTRIBUTED must be an INT64 literal between 1 and 2147483647
+==
+
+# The privacy libraries only support L0 bounds that are int32s, not int64s.
+# Since we derive the L0 bound from max_rows_contributed, we need to ensure that
+# max_rows_contributed fits into an int32 too.
+select with differential_privacy options(max_rows_contributed = 2147483648) count(*)
+from SimpleTypesWithAnonymizationUid
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        +-option_list=
+          +-max_rows_contributed := Literal(type=INT64, value=2147483648)
+
+Rewrite ERROR: Option MAX_ROWS_CONTRIBUTED must be an INT64 literal between 1 and 2147483647
+
+==
+
+# Invalid max_rows_contributed type
+select with differential_privacy options(max_rows_contributed = 2.0) count(*)
+from SimpleTypesWithAnonymizationUid
+--
+ERROR: Differential privacy option max_rows_contributed value has type DOUBLE which cannot be coerced to expected type INT64 [at 1:65]
+select with differential_privacy options(max_rows_contributed = 2.0) count(*)
+                                                                ^
+==
+
+# Invalid max_rows_contributed, non-literal
+select with differential_privacy options(max_rows_contributed = 1+2) count(*)
+from SimpleTypesWithAnonymizationUid
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        +-option_list=
+          +-max_rows_contributed :=
+            +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+              +-Literal(type=INT64, value=1)
+              +-Literal(type=INT64, value=2)
+
+Rewrite ERROR: Option MAX_ROWS_CONTRIBUTED must be an INT64 literal between 1 and 2147483647
+==
+
+# Invalid max_rows_contributed, parameter
+select with differential_privacy options(max_rows_contributed = @test_param_int64) count(*)
+from SimpleTypesWithAnonymizationUid
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
+        |     +-Literal(type=STRUCT<INT64, INT64>, value=NULL)
+        +-option_list=
+          +-max_rows_contributed := Parameter(type=INT64, name="test_param_int64")
+
+Rewrite ERROR: Option MAX_ROWS_CONTRIBUTED must be an INT64 literal between 1 and 2147483647

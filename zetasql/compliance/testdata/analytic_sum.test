@@ -321,6 +321,8 @@ ARRAY<STRUCT<bool_val BOOL,
   {true, 3, 1, 2.5, 11, 16, 10, 24, 5, 11},
   {true, 4, 2, -1.5, 11, 16, 10, 24, 5, 11}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=analytic_sum]
@@ -3037,6 +3039,8 @@ ARRAY<STRUCT<bool_val BOOL,
   {true, 8, 4, -1.5, 9, 6, 5.5},
   {true, 10, 3, 2.5, 9, 6, 5.5}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=analytic_sum_distinct_no_overflow_int64_1]
@@ -3264,6 +3268,8 @@ ARRAY<STRUCT<row_id INT64, val INT64, INT64>>[
   {4, 6, 6},
   {4, 7, 7}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Some rows have NULL values in their windows, some have all NULL

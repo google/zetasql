@@ -326,6 +326,8 @@ ARRAY<STRUCT<result PROTO<zetasql_test__.MessageWithMapField>>>[
      }
    }}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=map_lookup_with_ordinal]

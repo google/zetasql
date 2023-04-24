@@ -42,6 +42,7 @@
 #include "zetasql/public/functions/convert_string_with_format.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/functions/range.h"
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
@@ -1252,7 +1253,26 @@ absl::StatusOr<Value> CastContext::CastValue(
       } else {
         return NumericToString<BigNumericValue>(v, canonicalize_zero_);
       }
-
+    case FCT(TYPE_STRING, TYPE_RANGE): {
+      if (v.is_null()) {
+        return Value::Null(to_type);
+      }
+      ZETASQL_ASSIGN_OR_RETURN(const auto boundaries,
+                       ParseRangeBoundaries(v.string_value()));
+      const Type* element_type = to_type->AsRange()->element_type();
+      Value start = Value::Null(element_type);
+      if (boundaries.start.has_value()) {
+        ZETASQL_ASSIGN_OR_RETURN(start,
+                         CastValue(Value::String(boundaries.start.value()),
+                                   element_type, format));
+      }
+      Value end = Value::Null(element_type);
+      if (boundaries.end.has_value()) {
+        ZETASQL_ASSIGN_OR_RETURN(end, CastValue(Value::String(boundaries.end.value()),
+                                        element_type, format));
+      }
+      return Value::MakeRange(start, end);
+    }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unimplemented cast from "

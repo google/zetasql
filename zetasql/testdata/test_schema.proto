@@ -368,6 +368,23 @@ message KitchenSinkPB {
   extensions 1000 to 1008;
 }
 
+message KitchenSinkAsStructPB {
+  option (zetasql.is_struct) = true;
+
+  optional KitchenSinkPB kitchen_sink = 1;
+  optional NullableInt nullable_int = 2;
+  repeated NullableInt nullable_int_array = 3;
+
+  optional KeyValueStruct key_value = 4;
+  repeated KeyValueStruct key_value_array = 5;
+
+  repeated int64 repeated_int64 = 6;
+  repeated TestEnum repeated_test_enum = 7;
+  repeated bytes repeated_bytes = 8;
+  repeated TableWithIsHiddenAnnotation repeated_table = 9;
+  repeated int32 repeated_int32_packed = 909 [packed = true];
+}
+
 message KitchenSinkEnumPB {
   required TestEnum required_test_enum = 1;
   optional TestEnum test_enum = 2;

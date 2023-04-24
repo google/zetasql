@@ -1297,7 +1297,7 @@ class EvaluatorTableScanOp final : public RelationalOp {
 
  private:
   EvaluatorTableScanOp(
-      const Table* table, const std::string& alias,
+      const Table* table, absl::string_view alias,
       absl::Span<const int> column_idxs,
       absl::Span<const std::string> column_names,
       absl::Span<const VariableId> variables,

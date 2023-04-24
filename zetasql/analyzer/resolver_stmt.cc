@@ -251,6 +251,11 @@ absl::Status Resolver::ResolveStatement(
       }
       break;
 
+    case AST_CREATE_REPLICA_MATERIALIZED_VIEW_STATEMENT:
+      return MakeSqlErrorAt(statement)
+             << "CREATE REPLICA MATERIALIZED VIEW is not supported";
+      break;
+
     case AST_CREATE_SNAPSHOT_TABLE_STATEMENT:
       if (language().SupportsStatementKind(
               RESOLVED_CREATE_SNAPSHOT_TABLE_STMT)) {
@@ -425,6 +430,13 @@ absl::Status Resolver::ResolveStatement(
             ResolveDeleteStatement(statement->GetAsOrDie<ASTDeleteStatement>(),
                                    &resolved_delete_stmt));
         stmt = std::move(resolved_delete_stmt);
+      }
+      break;
+
+    case AST_UNDROP_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_UNDROP_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveUndropStatement(
+            statement->GetAsOrDie<ASTUndropStatement>(), &stmt));
       }
       break;
 
@@ -5671,6 +5683,22 @@ absl::Status Resolver::ResolveAbortBatchStatement(
     const ASTAbortBatchStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
   *output = MakeResolvedAbortBatchStmt();
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveUndropStatement(
+    const ASTUndropStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  const std::vector<std::string> name =
+      ast_statement->name()->ToIdentifierVector();
+  std::unique_ptr<const ResolvedExpr> for_system_time_expr;
+  if (ast_statement->for_system_time() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveForSystemTimeExpr(ast_statement->for_system_time(),
+                                             &for_system_time_expr));
+  }
+  *output = MakeResolvedUndropStmt(
+      std::string(SchemaObjectKindToName(ast_statement->schema_object_kind())),
+      ast_statement->is_if_not_exists(), name, std::move(for_system_time_expr));
   return absl::OkStatus();
 }
 

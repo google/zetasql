@@ -36,6 +36,8 @@ ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     }
   }
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=proto_5]
 SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2,
@@ -59,6 +61,8 @@ ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     }
   }
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # NULL in required field.
 [name=proto_6]

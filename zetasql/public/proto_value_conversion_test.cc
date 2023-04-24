@@ -495,6 +495,40 @@ TEST_F(ProtoValueConversionTest, TimestampSeconds) {
   }
 }
 
+class ProtoValueConversionRangeRoundtripTest
+    : public ProtoValueConversionTest,
+      public ::testing::WithParamInterface<std::string> {};
+
+std::vector<std::string> GetRangeTestCases() {
+  return {
+      // Dates
+      {"STRUCT(RANGE<DATE> '[2022-12-06, 2022-12-07)')"},
+      {"STRUCT(RANGE<DATE> '[2022-12-06, UNBOUNDED)')"},
+      {"STRUCT(RANGE<DATE> '[UNBOUNDED, 2022-12-07)')"},
+      {"STRUCT(RANGE<DATE> '[UNBOUNDED, UNBOUNDED)')"},
+      // Datetimes
+      {"STRUCT(RANGE<DATETIME> '[2022-12-05 16:44:00.000007, 2022-12-05 "
+       "16:45:00.000007)')"},
+      {"STRUCT(RANGE<DATETIME> '[2022-12-05 16:44:00.000007, UNBOUNDED)')"},
+      {"STRUCT(RANGE<DATETIME> '[UNBOUNDED, 2022-12-05 16:45:00.000007)')"},
+      {"STRUCT(RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)')"},
+      // Timestamps
+      {"STRUCT(RANGE<TIMESTAMP> '[2022-12-05 16:44:00.000007+00, 2022-12-05 "
+       "16:45:00.000007+00)')"},
+      {"STRUCT(RANGE<TIMESTAMP> '[2022-12-05 16:44:00.000007+00, UNBOUNDED)')"},
+      {"STRUCT(RANGE<TIMESTAMP> '[UNBOUNDED, 2022-12-05 16:45:00.000007+00)')"},
+      {"STRUCT(RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)')"},
+  };
+}
+
+INSTANTIATE_TEST_SUITE_P(Range, ProtoValueConversionRangeRoundtripTest,
+                         ::testing::ValuesIn(GetRangeTestCases()));
+
+TEST_P(ProtoValueConversionRangeRoundtripTest, Do) {
+  ConvertTypeToProtoOptions options;
+  ASSERT_TRUE(RoundTripTest(GetParam(), options));
+}
+
 class SimpleErrorCollector : public DescriptorPool::ErrorCollector {
  public:
   SimpleErrorCollector() {}
@@ -693,7 +727,7 @@ TEST_F(ProtoValueConversionTest, InvalidRange) {
   EXPECT_THAT(ConvertProtoMessageToStructOrArrayValue(*proto, value.type(),
                                                       &result_value),
               StatusIs(absl::StatusCode::kOutOfRange,
-                       HasSubstr("Too few bytes to read RANGE")));
+                       HasSubstr("Invalid encoded range")));
 }
 
 // Verify MergeValueToProtoField using various combinations of destination proto

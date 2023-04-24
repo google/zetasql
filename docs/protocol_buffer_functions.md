@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Protocol buffer functions
 
 ZetaSQL supports the following protocol buffer functions.
@@ -49,11 +51,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+------------+------------+
-| contains_a | contains_b |
-+------------+------------+
-| TRUE       | FALSE      |
-+------------+------------+
+/*------------+------------*
+ | contains_a | contains_b |
+ +------------+------------+
+ | TRUE       | FALSE      |
+ *------------+------------*/
 ```
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
@@ -156,12 +158,12 @@ that contains a proto-typed column called `Album`.
 SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
 FROM AlbumList
 
-+------------------+
-| name_of_album    |
-+------------------+
-| New Moon         |
-| Grit             |
-+------------------+
+/*------------------*
+ | name_of_album    |
+ +------------------+
+ | New Moon         |
+ | Grit             |
+ *------------------*/
 ```
 
 A table called `AlbumList` contains a proto-typed column called `Album`.
@@ -179,12 +181,12 @@ SELECT
   EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
 FROM AlbumList
 
-+----------+----------------+
-| raw_date | formatted_date |
-+----------+----------------+
-| 16914    | 2016-04-23     |
-| 0        | 1970-01-01     |
-+----------+----------------+
+/*----------+----------------*
+ | raw_date | formatted_date |
+ +----------+----------------+
+ | 16914    | 2016-04-23     |
+ | 0        | 1970-01-01     |
+ *----------+----------------*/
 ```
 
 The following example checks to see if release dates exist in a table called
@@ -194,12 +196,12 @@ The following example checks to see if release dates exist in a table called
 SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
 FROM AlbumList
 
-+------------------+
-| has_release_date |
-+------------------+
-| TRUE             |
-| FALSE            |
-+------------------+
+/*------------------*
+ | has_release_date |
+ +------------------+
+ | TRUE             |
+ | FALSE            |
+ *------------------*/
 ```
 
 The following example extracts the group name that is assigned to an artist in
@@ -211,12 +213,12 @@ exists inside the `Chart` protocol buffer.
 SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
 FROM AlbumList;
 
-+-------------+
-| artist_type |
-+-------------+
-| solo        |
-| band        |
-+-------------+
+/*-------------*
+ | artist_type |
+ +-------------+
+ | solo        |
+ | band        |
+ *-------------*/
 ```
 
 [querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
@@ -318,21 +320,21 @@ WITH
 SELECT *
 FROM MusicAwards
 
-+---------------------------------------------------------+
-| award_col                                               |
-+---------------------------------------------------------+
-| {                                                       |
-|   year: 2001                                            |
-|   month: 9                                              |
-|   type { award_name: "Best Artist" category: "Artist" } |
-|   type { award_name: "Best Album" category: "Album" }   |
-| }                                                       |
-| {                                                       |
-|   year: 2001                                            |
-|   month: 12                                             |
-|   type { award_name: "Best Song" category: "Song" }     |
-| }                                                       |
-+---------------------------------------------------------+
+/*---------------------------------------------------------*
+ | award_col                                               |
+ +---------------------------------------------------------+
+ | {                                                       |
+ |   year: 2001                                            |
+ |   month: 9                                              |
+ |   type { award_name: "Best Artist" category: "Artist" } |
+ |   type { award_name: "Best Album" category: "Album" }   |
+ | }                                                       |
+ | {                                                       |
+ |   year: 2001                                            |
+ |   month: 12                                             |
+ |   type { award_name: "Best Song" category: "Song" }     |
+ | }                                                       |
+ *---------------------------------------------------------*/
 ```
 
 The following example returns protocol buffers that only include the `year`
@@ -342,12 +344,12 @@ field.
 SELECT FILTER_FIELDS(award_col, +year) AS filtered_fields
 FROM MusicAwards
 
-+-----------------+
-| filtered_fields |
-+-----------------+
-| {year: 2001}    |
-| {year: 2001}    |
-+-----------------+
+/*-----------------*
+ | filtered_fields |
+ +-----------------+
+ | {year: 2001}    |
+ | {year: 2001}    |
+ *-----------------*/
 ```
 
 The following example returns protocol buffers that include all but the `type`
@@ -357,12 +359,12 @@ field.
 SELECT FILTER_FIELDS(award_col, -type) AS filtered_fields
 FROM MusicAwards
 
-+------------------------+
-| filtered_fields        |
-+------------------------+
-| {year: 2001 month: 9}  |
-| {year: 2001 month: 12} |
-+------------------------+
+/*------------------------*
+ | filtered_fields        |
+ +------------------------+
+ | {year: 2001 month: 9}  |
+ | {year: 2001 month: 12} |
+ *------------------------*/
 ```
 
 The following example returns protocol buffers that only include the `year` and
@@ -372,19 +374,19 @@ The following example returns protocol buffers that only include the `year` and
 SELECT FILTER_FIELDS(award_col, +year, +type.award_name) AS filtered_fields
 FROM MusicAwards
 
-+--------------------------------------+
-| filtered_fields                      |
-+--------------------------------------+
-| {                                    |
-|   year: 2001                         |
-|   type { award_name: "Best Artist" } |
-|   type { award_name: "Best Album" }  |
-| }                                    |
-| {                                    |
-|   year: 2001                         |
-|   type { award_name: "Best Song" }   |
-| }                                    |
-+--------------------------------------+
+/*--------------------------------------*
+ | filtered_fields                      |
+ +--------------------------------------+
+ | {                                    |
+ |   year: 2001                         |
+ |   type { award_name: "Best Artist" } |
+ |   type { award_name: "Best Album" }  |
+ | }                                    |
+ | {                                    |
+ |   year: 2001                         |
+ |   type { award_name: "Best Song" }   |
+ | }                                    |
+ *--------------------------------------*/
 ```
 
 The following example returns the `year` and `type` fields, but excludes the
@@ -394,19 +396,19 @@ The following example returns the `year` and `type` fields, but excludes the
 SELECT FILTER_FIELDS(award_col, +year, +type, -type.award_name) AS filtered_fields
 FROM MusicAwards
 
-+---------------------------------+
-| filtered_fields                 |
-+---------------------------------+
-| {                               |
-|   year: 2001                    |
-|   type { category: "Artist" }   |
-|   type { category: "Album" }    |
-| }                               |
-| {                               |
-|   year: 2001                    |
-|   type { category: "Song" }     |
-| }                               |
-+---------------------------------+
+/*---------------------------------*
+ | filtered_fields                 |
+ +---------------------------------+
+ | {                               |
+ |   year: 2001                    |
+ |   type { category: "Artist" }   |
+ |   type { category: "Album" }    |
+ | }                               |
+ | {                               |
+ |   year: 2001                    |
+ |   type { category: "Song" }     |
+ | }                               |
+ *---------------------------------*/
 ```
 
 The following example produces an error because `year` is a required field
@@ -603,11 +605,11 @@ SELECT FROM_PROTO(
   )
 )
 
-+------------+
-| $col1      |
-+------------+
-| 2019-10-30 |
-+------------+
+/*------------*
+ | $col1      |
+ +------------+
+ | 2019-10-30 |
+ *------------*/
 ```
 
 Pass in and return a `DATE` type.
@@ -615,11 +617,11 @@ Pass in and return a `DATE` type.
 ```sql
 SELECT FROM_PROTO(DATE '2019-10-30')
 
-+------------+
-| $col1      |
-+------------+
-| 2019-10-30 |
-+------------+
+/*------------*
+ | $col1      |
+ +------------+
+ | 2019-10-30 |
+ *------------*/
 ```
 
 ### `MODIFY_MAP`
@@ -679,11 +681,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
 
-+---------------------------------------------+
-| result_map                                  |
-+---------------------------------------------+
-| { key: 'B' value: 4 } { key: 'C' value: 6 } |
-+---------------------------------------------+
+/*---------------------------------------------*
+ | result_map                                  |
+ +---------------------------------------------+
+ | { key: 'B' value: 4 } { key: 'C' value: 6 } |
+ *---------------------------------------------*/
 ```
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
@@ -736,11 +738,11 @@ message Book {
 This is the result if `book.country` evaluates to `Canada`.
 
 ```sql
-+-----------------+
-| origin          |
-+-----------------+
-| Canada          |
-+-----------------+
+/*-----------------*
+ | origin          |
+ +-----------------+
+ | Canada          |
+ *-----------------*/
 ```
 
 This is the result if `book` is `NULL`. Since `book` is `NULL`,
@@ -748,11 +750,11 @@ This is the result if `book` is `NULL`. Since `book` is `NULL`,
 default value for `country`.
 
 ```sql
-+-----------------+
-| origin          |
-+-----------------+
-| Unknown         |
-+-----------------+
+/*-----------------*
+ | origin          |
+ +-----------------+
+ | Unknown         |
+ *-----------------*/
 ```
 
 ### `REPLACE_FIELDS`
@@ -807,11 +809,12 @@ SELECT REPLACE_FIELDS(
   "The Hummingbird II" AS title,
   11 AS details.chapters)
 AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird II" details: {chapters: 11 }}                       |
-+-----------------------------------------------------------------------------+
+
+/*-----------------------------------------------------------------------------*
+ | proto                                                                       |
+ +-----------------------------------------------------------------------------+
+ |{title: "The Hummingbird II" details: {chapters: 11 }}                       |
+ *-----------------------------------------------------------------------------*/
 ```
 
 The function can replace value of repeated fields.
@@ -822,12 +825,13 @@ SELECT REPLACE_FIELDS(
     NEW BookDetails(10 AS chapters) AS details),
   ["A good read!", "Highly recommended."] AS reviews)
 AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
-| details: {chapters: 10 }}                                                   |
-+-----------------------------------------------------------------------------+
+
+/*-----------------------------------------------------------------------------*
+ | proto                                                                       |
+ +-----------------------------------------------------------------------------+
+ |{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
+ | details: {chapters: 10 }}                                                   |
+ *-----------------------------------------------------------------------------*/
 ```
 
 It can set a field to `NULL`.
@@ -838,11 +842,12 @@ SELECT REPLACE_FIELDS(
     NEW BookDetails(10 AS chapters) AS details),
   NULL AS details)
 AS proto;
-+-----------------------------------------------------------------------------+
-| proto                                                                       |
-+-----------------------------------------------------------------------------+
-|{title: "The Hummingbird" }                                                  |
-+-----------------------------------------------------------------------------+
+
+/*-----------------------------------------------------------------------------*
+ | proto                                                                       |
+ +-----------------------------------------------------------------------------+
+ |{title: "The Hummingbird" }                                                  |
+ *-----------------------------------------------------------------------------*/
 ```
 
 ### `TO_PROTO`
@@ -988,11 +993,11 @@ Convert a `DATE` type into a `google.type.Date` type.
 ```sql
 SELECT TO_PROTO(DATE '2019-10-30')
 
-+--------------------------------+
-| $col1                          |
-+--------------------------------+
-| {year: 2019 month: 10 day: 30} |
-+--------------------------------+
+/*--------------------------------*
+ | $col1                          |
+ +--------------------------------+
+ | {year: 2019 month: 10 day: 30} |
+ *--------------------------------*/
 ```
 
 Pass in and return a `google.type.Date` type.
@@ -1006,10 +1011,10 @@ SELECT TO_PROTO(
   )
 )
 
-+--------------------------------+
-| $col1                          |
-+--------------------------------+
-| {year: 2019 month: 10 day: 30} |
-+--------------------------------+
+/*--------------------------------*
+ | $col1                          |
+ +--------------------------------+
+ | {year: 2019 month: 10 day: 30} |
+ *--------------------------------*/
 ```
 

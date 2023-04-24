@@ -641,3 +641,192 @@ QueryStmt
           +-FunctionCall(ZetaSQL:$equal(ARRAY<INT32>, ARRAY<INT32>) -> BOOL)
             +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4)
             +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#10)
+==
+
+[language_features={{|DISABLE_OUTER_JOIN_ARRAY}}]
+[no_run_unparser]
+# RIGHT JOIN a table with multiple identifiers in the path (which looks like an
+# array path)
+SELECT *
+FROM KeyValue RIGHT JOIN nested_catalog.KeyValueNested
+USING (Key)
+--
+QueryStmt
++-output_column_list=
+| +-KeyValueNested.Key#3 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-KeyValueNested.Value#4 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValueNested.Key#3, KeyValue.Value#2, KeyValueNested.Value#4]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, KeyValueNested.Key#3, KeyValueNested.Value#4]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-right_scan=
+        | +-TableScan(column_list=KeyValueNested.[Key#3, Value#4], table=nested_catalog.KeyValueNested, column_index_list=[0, 1])
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-ColumnRef(type=INT64, column=KeyValueNested.Key#3)
+==
+
+[no_run_unparser]
+[language_features={{|DISABLE_OUTER_JOIN_ARRAY}}]
+# RIGHT JOIN a table with multiple identifiers in the path (which looks like an
+# array path). When the first identifiers as well as the whole path are both
+# valid table name, we always attempt to resolve the whole path as table name.
+SELECT *
+FROM ArrayTypes RIGHT JOIN ArrayTableOrCatalog.Int32Array
+ON TRUE
+--
+QueryStmt
++-output_column_list=
+| +-ArrayTypes.Int32Array#1 AS Int32Array [ARRAY<INT32>]
+| +-ArrayTypes.Int64Array#2 AS Int64Array [ARRAY<INT64>]
+| +-ArrayTypes.UInt32Array#3 AS UInt32Array [ARRAY<UINT32>]
+| +-ArrayTypes.UInt64Array#4 AS UInt64Array [ARRAY<UINT64>]
+| +-ArrayTypes.StringArray#5 AS StringArray [ARRAY<STRING>]
+| +-ArrayTypes.BytesArray#6 AS BytesArray [ARRAY<BYTES>]
+| +-ArrayTypes.BoolArray#7 AS BoolArray [ARRAY<BOOL>]
+| +-ArrayTypes.FloatArray#8 AS FloatArray [ARRAY<FLOAT>]
+| +-ArrayTypes.DoubleArray#9 AS DoubleArray [ARRAY<DOUBLE>]
+| +-ArrayTypes.DateArray#10 AS DateArray [ARRAY<DATE>]
+| +-ArrayTypes.TimestampSecondsArray#11 AS TimestampSecondsArray [ARRAY<TIMESTAMP>]
+| +-ArrayTypes.TimestampMillisArray#12 AS TimestampMillisArray [ARRAY<TIMESTAMP>]
+| +-ArrayTypes.TimestampMicrosArray#13 AS TimestampMicrosArray [ARRAY<TIMESTAMP>]
+| +-ArrayTypes.TimestampArray#14 AS TimestampArray [ARRAY<TIMESTAMP>]
+| +-ArrayTypes.ProtoArray#15 AS ProtoArray [ARRAY<PROTO<zetasql_test__.TestExtraPB>>]
+| +-ArrayTypes.StructArray#16 AS StructArray [ARRAY<STRUCT<a INT32, b STRING>>]
+| +-ArrayTypes.JsonArray#17 AS JsonArray [ARRAY<JSON>]
+| +-Int32Array.Int32Array#18 AS Int32Array [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.Int64Array#2, ArrayTypes.UInt32Array#3, ArrayTypes.UInt64Array#4, ArrayTypes.StringArray#5, ArrayTypes.BytesArray#6, ArrayTypes.BoolArray#7, ArrayTypes.FloatArray#8, ArrayTypes.DoubleArray#9, ArrayTypes.DateArray#10, ArrayTypes.TimestampSecondsArray#11, ArrayTypes.TimestampMillisArray#12, ArrayTypes.TimestampMicrosArray#13, ArrayTypes.TimestampArray#14, ArrayTypes.ProtoArray#15, ArrayTypes.StructArray#16, ArrayTypes.JsonArray#17, Int32Array.Int32Array#18]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[ArrayTypes.Int32Array#1, ArrayTypes.Int64Array#2, ArrayTypes.UInt32Array#3, ArrayTypes.UInt64Array#4, ArrayTypes.StringArray#5, ArrayTypes.BytesArray#6, ArrayTypes.BoolArray#7, ArrayTypes.FloatArray#8, ArrayTypes.DoubleArray#9, ArrayTypes.DateArray#10, ArrayTypes.TimestampSecondsArray#11, ArrayTypes.TimestampMillisArray#12, ArrayTypes.TimestampMicrosArray#13, ArrayTypes.TimestampArray#14, ArrayTypes.ProtoArray#15, ArrayTypes.StructArray#16, ArrayTypes.JsonArray#17, Int32Array.Int32Array#18]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-TableScan(column_list=ArrayTypes.[Int32Array#1, Int64Array#2, UInt32Array#3, UInt64Array#4, StringArray#5, BytesArray#6, BoolArray#7, FloatArray#8, DoubleArray#9, DateArray#10, TimestampSecondsArray#11, TimestampMillisArray#12, TimestampMicrosArray#13, TimestampArray#14, ProtoArray#15, StructArray#16, JsonArray#17], table=ArrayTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+        +-right_scan=
+        | +-TableScan(column_list=[Int32Array.Int32Array#18], table=ArrayTableOrCatalog.Int32Array, column_index_list=[0])
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
+[no_run_unparser]
+[language_features={{|DISABLE_OUTER_JOIN_ARRAY}}]
+# Same as above, except that the table with multiple identifiers show up in the
+# lhs of the RIGHT JOIN.
+SELECT *
+FROM ArrayTableOrCatalog.Int32Array RIGHT JOIN ArrayTypes
+ON TRUE
+--
+QueryStmt
++-output_column_list=
+| +-Int32Array.Int32Array#1 AS Int32Array [ARRAY<INT32>]
+| +-ArrayTypes.Int32Array#2 AS Int32Array [ARRAY<INT32>]
+| +-ArrayTypes.Int64Array#3 AS Int64Array [ARRAY<INT64>]
+| +-ArrayTypes.UInt32Array#4 AS UInt32Array [ARRAY<UINT32>]
+| +-ArrayTypes.UInt64Array#5 AS UInt64Array [ARRAY<UINT64>]
+| +-ArrayTypes.StringArray#6 AS StringArray [ARRAY<STRING>]
+| +-ArrayTypes.BytesArray#7 AS BytesArray [ARRAY<BYTES>]
+| +-ArrayTypes.BoolArray#8 AS BoolArray [ARRAY<BOOL>]
+| +-ArrayTypes.FloatArray#9 AS FloatArray [ARRAY<FLOAT>]
+| +-ArrayTypes.DoubleArray#10 AS DoubleArray [ARRAY<DOUBLE>]
+| +-ArrayTypes.DateArray#11 AS DateArray [ARRAY<DATE>]
+| +-ArrayTypes.TimestampSecondsArray#12 AS TimestampSecondsArray [ARRAY<TIMESTAMP>]
+| +-ArrayTypes.TimestampMillisArray#13 AS TimestampMillisArray [ARRAY<TIMESTAMP>]
+| +-ArrayTypes.TimestampMicrosArray#14 AS TimestampMicrosArray [ARRAY<TIMESTAMP>]
+| +-ArrayTypes.TimestampArray#15 AS TimestampArray [ARRAY<TIMESTAMP>]
+| +-ArrayTypes.ProtoArray#16 AS ProtoArray [ARRAY<PROTO<zetasql_test__.TestExtraPB>>]
+| +-ArrayTypes.StructArray#17 AS StructArray [ARRAY<STRUCT<a INT32, b STRING>>]
+| +-ArrayTypes.JsonArray#18 AS JsonArray [ARRAY<JSON>]
++-query=
+  +-ProjectScan
+    +-column_list=[Int32Array.Int32Array#1, ArrayTypes.Int32Array#2, ArrayTypes.Int64Array#3, ArrayTypes.UInt32Array#4, ArrayTypes.UInt64Array#5, ArrayTypes.StringArray#6, ArrayTypes.BytesArray#7, ArrayTypes.BoolArray#8, ArrayTypes.FloatArray#9, ArrayTypes.DoubleArray#10, ArrayTypes.DateArray#11, ArrayTypes.TimestampSecondsArray#12, ArrayTypes.TimestampMillisArray#13, ArrayTypes.TimestampMicrosArray#14, ArrayTypes.TimestampArray#15, ArrayTypes.ProtoArray#16, ArrayTypes.StructArray#17, ArrayTypes.JsonArray#18]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[Int32Array.Int32Array#1, ArrayTypes.Int32Array#2, ArrayTypes.Int64Array#3, ArrayTypes.UInt32Array#4, ArrayTypes.UInt64Array#5, ArrayTypes.StringArray#6, ArrayTypes.BytesArray#7, ArrayTypes.BoolArray#8, ArrayTypes.FloatArray#9, ArrayTypes.DoubleArray#10, ArrayTypes.DateArray#11, ArrayTypes.TimestampSecondsArray#12, ArrayTypes.TimestampMillisArray#13, ArrayTypes.TimestampMicrosArray#14, ArrayTypes.TimestampArray#15, ArrayTypes.ProtoArray#16, ArrayTypes.StructArray#17, ArrayTypes.JsonArray#18]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-TableScan(column_list=[Int32Array.Int32Array#1], table=ArrayTableOrCatalog.Int32Array, column_index_list=[0])
+        +-right_scan=
+        | +-TableScan(column_list=ArrayTypes.[Int32Array#2, Int64Array#3, UInt32Array#4, UInt64Array#5, StringArray#6, BytesArray#7, BoolArray#8, FloatArray#9, DoubleArray#10, DateArray#11, TimestampSecondsArray#12, TimestampMillisArray#13, TimestampMicrosArray#14, TimestampArray#15, ProtoArray#16, StructArray#17, JsonArray#18], table=ArrayTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
+[language_features={{|DISABLE_OUTER_JOIN_ARRAY}}]
+SELECT ARRAY(
+  SELECT AS STRUCT *
+  FROM s.arr1 RIGHT JOIN s.arr2 ON TRUE
+)
+FROM (SELECT [1, 2, 3] AS arr1, [1, 2, 3] AS arr2) AS s
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#6 AS `$col1` [ARRAY<STRUCT<arr1 INT64, arr2 INT64>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#6]
+    +-expr_list=
+    | +-$col1#6 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<STRUCT<arr1 INT64, arr2 INT64>>
+    |     +-subquery_type=ARRAY
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=ARRAY<INT64>, column=s.arr1#1)
+    |     | +-ColumnRef(type=ARRAY<INT64>, column=s.arr2#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#5]
+    |         +-expr_list=
+    |         | +-$struct#5 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<arr1 INT64, arr2 INT64>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=INT64, column=$array.arr1#3)
+    |         |       +-ColumnRef(type=INT64, column=$array.arr2#4)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$array.[arr1#3, arr2#4]
+    |             +-input_scan=
+    |               +-JoinScan
+    |                 +-column_list=$array.[arr1#3, arr2#4]
+    |                 +-join_type=RIGHT
+    |                 +-left_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.arr1#3]
+    |                 |   +-array_expr=
+    |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=s.arr1#1, is_correlated=TRUE)
+    |                 |   +-element_column=$array.arr1#3
+    |                 +-right_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.arr2#4]
+    |                 |   +-array_expr=
+    |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=s.arr2#2, is_correlated=TRUE)
+    |                 |   +-element_column=$array.arr2#4
+    |                 +-join_expr=
+    |                   +-Literal(type=BOOL, value=true)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=s.[arr1#1, arr2#2]
+        +-expr_list=
+        | +-arr1#1 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        | +-arr2#2 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        +-input_scan=
+          +-SingleRowScan
+--
+ALTERNATION GROUP: DISABLE_OUTER_JOIN_ARRAY
+--
+ERROR: Array scan is not allowed with RIGHT JOIN: s.arr2 [at 3:26]
+  FROM s.arr1 RIGHT JOIN s.arr2 ON TRUE
+                         ^
+==
+

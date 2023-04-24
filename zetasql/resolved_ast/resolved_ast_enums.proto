@@ -58,6 +58,23 @@ message ResolvedSetOperationScanEnums {
     EXCEPT_ALL = 4;
     EXCEPT_DISTINCT = 5;
   }
+  // Represents how columns from the set operation inputs are matched.
+  enum SetOperationColumnMatchMode {
+    BY_POSITION = 0;    // Match by index
+    CORRESPONDING = 1;  // Match by implicit column names
+    // TODO: CORRESPONDING_BY is not implemented.
+    CORRESPONDING_BY = 2;  // Match by the provided column name list
+  }
+  // Represents how non-matching columns are treated in a set operation: <left
+  // query> <set_op> <right_query>.
+  enum SetOperationColumnPropagationMode {
+    // TODO: STRICT, LEFT, and FULL are not implemented for
+    // CORRESPONDING.
+    STRICT = 0;  // Non-matching columns are not allowed.
+    INNER = 1;   // All non-matching columns are ignored.
+    LEFT = 2;    // All columns of <left query> are preserved.
+    FULL = 3;    // All columns of <left query> and <right query> are preserved.
+  }
 }
 
 message ResolvedRecursiveScanEnums {

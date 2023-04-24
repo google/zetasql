@@ -88,6 +88,7 @@ cc_library(
         "//zetasql/public:value_cc_proto",
         "//zetasql/public:value_content",
         "//zetasql/public/functions:array_find_mode_cc_proto",
+        "//zetasql/public/functions:array_zip_mode_cc_proto",
         "//zetasql/public/functions:convert_proto",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",

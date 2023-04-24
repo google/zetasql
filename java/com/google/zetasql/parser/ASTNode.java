@@ -18,11 +18,23 @@
 package com.google.zetasql.parser;
 
 import com.google.zetasql.DebugPrintableNode;
+import com.google.zetasql.ParseLocationRange;
 
 /** ASTNode is the common base class of all generated node classes. */
 public abstract class ASTNode implements DebugPrintableNode {
 
-  ASTNode(ASTNodeProto proto) {}
+  private final ParseLocationRange parseLocationRange;
+
+  ASTNode(ASTNodeProto proto) {
+    this.parseLocationRange =
+        proto.hasParseLocationRange()
+            ? ParseLocationRange.deserialize(proto.getParseLocationRange())
+            : null;
+  }
+
+  public ParseLocationRange getParseLocationRange() {
+    return parseLocationRange;
+  }
 
   @Override
   public String toString() {

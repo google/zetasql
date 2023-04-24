@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Conditional expressions
 
 ZetaSQL supports conditional expressions.
@@ -68,14 +70,14 @@ SELECT
     AS result
 FROM Numbers
 
-+------------------+
-| A  | B  | result |
-+------------------+
-| 90 | 2  | red    |
-| 50 | 8  | blue   |
-| 60 | 6  | green  |
-| 50 | 10 | blue   |
-+------------------+
+/*------------------*
+ | A  | B  | result |
+ +------------------+
+ | 90 | 2  | red    |
+ | 50 | 8  | blue   |
+ | 60 | 6  | green  |
+ | 50 | 10 | blue   |
+ *------------------*/
 ```
 
 ### `CASE`
@@ -131,13 +133,13 @@ SELECT
     AS result
 FROM Numbers
 
-+------------------+
-| A  | B  | result |
-+------------------+
-| 90 | 2  | red    |
-| 50 | 6  | blue   |
-| 20 | 10 | green  |
-+------------------+
+/*------------------*
+ | A  | B  | result |
+ +------------------+
+ | 90 | 2  | red    |
+ | 50 | 6  | blue   |
+ | 20 | 10 | green  |
+ *------------------*/
 ```
 
 ### `COALESCE`
@@ -163,21 +165,21 @@ All input expressions must be implicitly coercible to a common
 ```sql
 SELECT COALESCE('A', 'B', 'C') as result
 
-+--------+
-| result |
-+--------+
-| A      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | A      |
+ *--------*/
 ```
 
 ```sql
 SELECT COALESCE(NULL, 'B', 'C') as result
 
-+--------+
-| result |
-+--------+
-| B      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | B      |
+ *--------*/
 ```
 
 ### `IF`
@@ -214,13 +216,13 @@ SELECT
   IF(A < B, 'true', 'false') AS result
 FROM Numbers
 
-+------------------+
-| A  | B  | result |
-+------------------+
-| 10 | 20 | true   |
-| 50 | 30 | false  |
-| 60 | 60 | false  |
-+------------------+
+/*------------------*
+ | A  | B  | result |
+ +------------------+
+ | 10 | 20 | true   |
+ | 50 | 30 | false  |
+ | 60 | 60 | false  |
+ *------------------*/
 ```
 
 ### `IFNULL`
@@ -247,21 +249,21 @@ a common [supertype][cond-exp-supertype]. Synonym for
 ```sql
 SELECT IFNULL(NULL, 0) as result
 
-+--------+
-| result |
-+--------+
-| 0      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 0      |
+ *--------*/
 ```
 
 ```sql
 SELECT IFNULL(10, 0) as result
 
-+--------+
-| result |
-+--------+
-| 10     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
 ```
 
 ### `NULLIF`
@@ -291,21 +293,21 @@ This expression supports specifying [collation][collation].
 ```sql
 SELECT NULLIF(0, 0) as result
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 
 ```sql
 SELECT NULLIF(10, 0) as result
 
-+--------+
-| result |
-+--------+
-| 10     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 10     |
+ *--------*/
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->

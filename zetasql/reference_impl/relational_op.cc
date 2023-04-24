@@ -28,7 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/thread_stack.h"
 #include "zetasql/public/catalog.h"
@@ -42,7 +41,7 @@
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
 #include "zetasql/reference_impl/variable_id.h"
-#include <cstdint>
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
@@ -440,7 +439,7 @@ namespace {
 class EvaluatorTableTupleIterator : public TupleIterator {
  public:
   EvaluatorTableTupleIterator(
-      const std::string& name, std::unique_ptr<TupleSchema> schema,
+      absl::string_view name, std::unique_ptr<TupleSchema> schema,
       int num_extra_slots, EvaluationContext* context,
       std::unique_ptr<EvaluatorTableIterator> evaluator_table_iter)
       : name_(name),
@@ -588,7 +587,7 @@ std::string EvaluatorTableScanOp::DebugInternal(const std::string& indent,
 }
 
 EvaluatorTableScanOp::EvaluatorTableScanOp(
-    const Table* table, const std::string& alias,
+    const Table* table, absl::string_view alias,
     absl::Span<const int> column_idxs,
     absl::Span<const std::string> column_names,
     absl::Span<const VariableId> variables,
@@ -4645,4 +4644,5 @@ const RelationalOp* RootOp::input() const {
 RelationalOp* RootOp::mutable_input() {
   return GetMutableArg(kInput)->mutable_node()->AsMutableRelationalOp();
 }
+
 }  // namespace zetasql

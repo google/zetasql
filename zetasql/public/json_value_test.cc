@@ -504,8 +504,6 @@ TEST_P(JSONParserTest, ParseLargeNumbers) {
                       .message(),
                   ::testing::HasSubstr("cannot round-trip"));
       break;
-    case WideNumberMode::kIgnore:
-      ZETASQL_LOG(DFATAL) << "Incorrect value for wide_number_mode: kIgnore";
   }
 
   auto result = JSONValue::ParseJSONString("3.14e314", GetParam());
@@ -777,43 +775,6 @@ TEST(JSONStrictNumberParsingTest, NumberParsingFailure) {
         ::testing::HasSubstr(pair.second))
         << "Input: " << pair.first;
   }
-}
-
-TEST(JSONStrictNumberParsingTest, TestsWideNumberModeIsCorrectlySelected) {
-  absl::string_view json = "-1.003502000000000000000000001";
-
-  // No options: defaults to kRound.
-  ZETASQL_EXPECT_OK(JSONValue::ParseJSONString(json).status());
-
-  // Maps to kRound.
-  ZETASQL_EXPECT_OK(JSONValue::ParseJSONString(json, {.strict_number_parsing = false})
-                .status());
-
-  // Maps to kExact.
-  EXPECT_THAT(JSONValue::ParseJSONString(json, {.strict_number_parsing = true})
-                  .status(),
-              StatusIs(absl::StatusCode::kOutOfRange,
-                       HasSubstr("cannot round-trip through string")));
-
-  // kRound.
-  ZETASQL_EXPECT_OK(JSONValue::ParseJSONString(
-                json, {.wide_number_mode =
-                           JSONParsingOptions::WideNumberMode::kRound})
-                .status());
-
-  // kExact.
-  EXPECT_THAT(JSONValue::ParseJSONString(
-                  json, {.wide_number_mode =
-                             JSONParsingOptions::WideNumberMode::kExact})
-                  .status(),
-              StatusIs(absl::StatusCode::kOutOfRange,
-                       HasSubstr("cannot round-trip through string")));
-
-  // kIgnore will use 'strict_number_mode' which default to false = kRound.
-  ZETASQL_EXPECT_OK(JSONValue::ParseJSONString(
-                json, {.wide_number_mode =
-                           JSONParsingOptions::WideNumberMode::kIgnore})
-                .status());
 }
 
 TEST(JSONStandardParserTest, ParseErrorStandard) {

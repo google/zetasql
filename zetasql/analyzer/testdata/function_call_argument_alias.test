@@ -1,0 +1,49 @@
+# Function call argument alias is disallowed for scalar function
+SELECT concat("Hello" AS str1, " World!" AS str2)
+--
+ERROR: Unexpected function call argument alias found at concat [at 1:23]
+SELECT concat("Hello" AS str1, " World!" AS str2)
+                      ^
+==
+
+# The detection of illegal function call argument alias is currently done before
+# the signature is resolved.
+SELECT ARRAY_FIND(x AS arr1)
+--
+ERROR: Unexpected function call argument alias found at ARRAY_FIND [at 1:21]
+SELECT ARRAY_FIND(x AS arr1)
+                    ^
+==
+
+SELECT s1[OFFSET(1 AS offset)]
+FROM (SELECT AS STRUCT 1 AS a, 2 AS b) s1
+--
+ERROR: Unexpected function call argument alias found at OFFSET [at 1:20]
+SELECT s1[OFFSET(1 AS offset)]
+                   ^
+==
+
+SELECT s1[OFFSET(1) AS offset]
+FROM (SELECT AS STRUCT 1 AS a, 2 AS b) s1
+--
+ERROR: Syntax error: Unexpected keyword AS [at 1:21]
+SELECT s1[OFFSET(1) AS offset]
+                    ^
+==
+
+# Function call argument alias is disallowed for aggregate function
+SELECT SUM(x AS agg)
+FROM (SELECT 1 AS x)
+--
+ERROR: Unexpected function call argument alias found at SUM [at 1:14]
+SELECT SUM(x AS agg)
+             ^
+==
+
+SELECT SAFE.CONCAT("HELLO", " WORLD" AS str2)
+--
+ERROR: Unexpected function call argument alias found at SAFE.CONCAT [at 1:38]
+SELECT SAFE.CONCAT("HELLO", " WORLD" AS str2)
+                                     ^
+==
+

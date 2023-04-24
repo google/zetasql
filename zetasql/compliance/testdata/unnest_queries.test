@@ -80,14 +80,6 @@ ARRAY<STRUCT<
       >>
 [{5, {4, 6}}, {3, NULL}]
 ==
-# Full join is not allowed with UNNEST.
-[name=unnest_10]
-SELECT * FROM (SELECT 1) r FULL JOIN UNNEST(ARRAY(SELECT 2)) s
---
-ERROR: generic::invalid_argument: Array scan is not allowed with FULL JOIN: UNNEST expression [at 1:38]
-SELECT * FROM (SELECT 1) r FULL JOIN UNNEST(ARRAY(SELECT 2)) s
-                                     ^
-==
 [name=unnest_null_array]
 SELECT e FROM UNNEST(CAST(NULL AS ARRAY<INT64>)) e
 --

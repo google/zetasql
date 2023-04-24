@@ -200,6 +200,173 @@ ARRAY<STRUCT<
 ]
 ==
 
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE DateRangeTable
+(
+  id INT64,
+  name STRING,
+  date_range_val RANGE<DATE>
+)
+AS SELECT 1, "a", RANGE<DATE> '[2014-01-01, 2015-01-01)'
+UNION ALL SELECT 2, "a", RANGE<DATE> '[2014-01-01, UNBOUNDED)'
+UNION ALL SELECT 3, "a", RANGE<DATE> '[UNBOUNDED, 2015-01-01)'
+UNION ALL SELECT 4, "b", RANGE<DATE> '[UNBOUNDED, UNBOUNDED)'
+UNION ALL SELECT 5, "b", CAST(NULL AS RANGE<DATE>)
+UNION ALL SELECT 6, "b", RANGE<DATE> '[UNBOUNDED, 2015-01-01)'
+UNION ALL SELECT 7, "c", RANGE<DATE> '[UNBOUNDED, UNBOUNDED)'
+UNION ALL SELECT 8, "c", RANGE<DATE> '[UNBOUNDED, 2015-01-01)'
+UNION ALL SELECT 9, "c", RANGE<DATE> '[UNBOUNDED, UNBOUNDED)'
+UNION ALL SELECT 10, "d", RANGE<DATE> '[UNBOUNDED, UNBOUNDED)';
+--
+ARRAY<STRUCT<
+        id INT64,
+        name STRING,
+        date_range_val RANGE<DATE>
+      >>
+[{
+   1,
+   "a",
+   [2014-01-01, 2015-01-01)
+ },
+ {2, "a", [2014-01-01, NULL)},
+ {3, "a", [NULL, 2015-01-01)},
+ {4, "b", [NULL, NULL)},
+ {5, "b", NULL},
+ {6, "b", [NULL, 2015-01-01)},
+ {7, "c", [NULL, NULL)},
+ {8, "c", [NULL, 2015-01-01)},
+ {9, "c", [NULL, NULL)},
+ {10, "d", [NULL, NULL)}]
+==
+
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[prepare_database]
+CREATE TABLE DatetimeRangeTable
+(
+  id INT64,
+  name STRING,
+  datetime_range_val RANGE<DATETIME>
+)
+AS SELECT 1, "a", RANGE<DATETIME> '[2016-01-01 12:00:00, 2017-01-01 12:00:00)'
+UNION ALL SELECT 2, "a", RANGE<DATETIME> '[2016-01-01 12:00:00, UNBOUNDED)'
+UNION ALL SELECT 3, "a", RANGE<DATETIME> '[UNBOUNDED, 2017-01-01 12:00:00)'
+UNION ALL SELECT 4, "b", RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)'
+UNION ALL SELECT 5, "b", CAST(NULL AS RANGE<DATETIME>)
+UNION ALL SELECT 6, "b", RANGE<DATETIME> '[UNBOUNDED, 2017-01-01 12:00:00)'
+UNION ALL SELECT 7, "c", RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)'
+UNION ALL SELECT 8, "c", RANGE<DATETIME> '[UNBOUNDED, 2017-01-01 12:00:00)'
+UNION ALL SELECT 9, "c", RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)'
+UNION ALL SELECT 10, "d", RANGE<DATETIME> '[UNBOUNDED, UNBOUNDED)';
+--
+ARRAY<STRUCT<
+        id INT64,
+        name STRING,
+        datetime_range_val RANGE<DATETIME>
+      >>
+[{
+   1,
+   "a",
+   [2016-01-01 12:00:00, 2017-01-01 12:00:00)
+ },
+ {
+   2,
+   "a",
+   [2016-01-01 12:00:00, NULL)
+ },
+ {
+   3,
+   "a",
+   [NULL, 2017-01-01 12:00:00)
+ },
+ {4, "b", [NULL, NULL)},
+ {5, "b", NULL},
+ {
+   6,
+   "b",
+   [NULL, 2017-01-01 12:00:00)
+ },
+ {7, "c", [NULL, NULL)},
+ {
+   8,
+   "c",
+   [NULL, 2017-01-01 12:00:00)
+ },
+ {9, "c", [NULL, NULL)},
+ {10, "d", [NULL, NULL)}]
+==
+
+[required_features=RANGE_TYPE]
+[prepare_database]
+CREATE TABLE TimestampRangeTable
+(
+  id INT64,
+  name STRING,
+  timestamp_range_val RANGE<TIMESTAMP>
+)
+AS SELECT 1, "a", RANGE<TIMESTAMP> '[2018-10-01 12:00:00+08, 2019-01-01 12:00:00+08)'
+UNION ALL SELECT 2, "a",  RANGE<TIMESTAMP> '[2018-10-01 12:00:00+08, UNBOUNDED)'
+UNION ALL SELECT 3, "a", RANGE<TIMESTAMP> '[UNBOUNDED, 2019-01-01 12:00:00+08)'
+UNION ALL SELECT 4, "b", RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)'
+UNION ALL SELECT 5, "b", CAST(NULL AS RANGE<TIMESTAMP>)
+UNION ALL SELECT 6, "b", RANGE<TIMESTAMP> '[2018-10-01 12:00:00+08, UNBOUNDED)'
+UNION ALL SELECT 7, "c", RANGE<TIMESTAMP> '[UNBOUNDED, 2019-01-01 12:00:00+08)'
+UNION ALL SELECT 8, "c", RANGE<TIMESTAMP> '[UNBOUNDED, 2019-01-01 12:00:00+08)'
+UNION ALL SELECT 9, "c", RANGE<TIMESTAMP> '[UNBOUNDED, 2019-01-01 12:00:00+08)'
+UNION ALL SELECT 10, "d", RANGE<TIMESTAMP> '[UNBOUNDED, UNBOUNDED)';
+--
+ARRAY<STRUCT<
+        id INT64,
+        name STRING,
+        timestamp_range_val RANGE<TIMESTAMP>
+      >>
+[{1,
+  "a",
+  [
+    2018-10-01 04:00:00+00,
+    2019-01-01 04:00:00+00
+  )},
+ {2,
+  "a",
+  [
+    2018-10-01 04:00:00+00,
+    NULL
+  )},
+ {3,
+  "a",
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  )},
+ {4, "b", [NULL, NULL)},
+ {5, "b", NULL},
+ {6,
+  "b",
+  [
+    2018-10-01 04:00:00+00,
+    NULL
+  )},
+ {7,
+  "c",
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  )},
+ {8,
+  "c",
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  )},
+ {9,
+  "c",
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  )},
+ {10, "d", [NULL, NULL)}]
+==
+
 # TODO: add more test cases including:
 # 0 rows meet the join condition.
 # All rows meet the join condition (hence no NULL extension)
@@ -921,3 +1088,271 @@ ARRAY<STRUCT<
     NULL
   }
 ]
+==
+
+[required_features=RANGE_TYPE]
+[name=date_range_inner_join]
+SELECT t1.date_range_val, t1.id, t2.date_range_val, t2.id
+FROM (
+  SELECT date_range_val, id FROM DateRangeTable WHERE id <= 5
+) AS t1
+JOIN (
+  SELECT date_range_val, id FROM DateRangeTable WHERE id > 5
+) AS t2
+USING (date_range_val) ORDER BY t1.id, t2.id;
+--
+ARRAY<STRUCT<
+        date_range_val RANGE<DATE>,
+        id INT64,
+        date_range_val RANGE<DATE>,
+        id INT64
+      >>
+[
+  {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 6},
+  {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 8},
+  {[NULL, NULL), 4, [NULL, NULL), 7},
+  {[NULL, NULL), 4, [NULL, NULL), 9},
+  {[NULL, NULL), 4, [NULL, NULL), 10}
+]
+==
+
+[required_features=RANGE_TYPE]
+[name=date_range_left_join]
+SELECT t1.date_range_val, t1.id, t2.date_range_val, t2.id
+FROM (
+  SELECT date_range_val, id FROM DateRangeTable WHERE id <= 5
+) AS t1
+LEFT JOIN (
+  SELECT date_range_val, id FROM DateRangeTable WHERE id > 5
+) AS t2
+USING (date_range_val) ORDER BY t1.id, t2.id;
+--
+ARRAY<STRUCT<
+        date_range_val RANGE<DATE>,
+        id INT64,
+        date_range_val RANGE<DATE>,
+        id INT64
+      >>
+[{
+   [2014-01-01, 2015-01-01),
+   1,
+   NULL,
+   NULL
+ },
+ {[2014-01-01, NULL), 2, NULL, NULL},
+ {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 6},
+ {[NULL, 2015-01-01), 3, [NULL, 2015-01-01), 8},
+ {[NULL, NULL), 4, [NULL, NULL), 7},
+ {[NULL, NULL), 4, [NULL, NULL), 9},
+ {[NULL, NULL), 4, [NULL, NULL), 10},
+ {NULL, 5, NULL, NULL}]
+==
+
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=datetime_range_inner_join]
+SELECT t1.datetime_range_val, t1.id, t2.datetime_range_val, t2.id
+FROM (
+  SELECT datetime_range_val, id FROM DatetimeRangeTable WHERE id <= 5
+) AS t1
+JOIN (
+  SELECT datetime_range_val, id FROM DatetimeRangeTable WHERE id > 5
+) AS t2
+USING (datetime_range_val) ORDER BY t1.id, t2.id;
+--
+ARRAY<STRUCT<
+        datetime_range_val RANGE<DATETIME>,
+        id INT64,
+        datetime_range_val RANGE<DATETIME>,
+        id INT64
+      >>
+[{
+   [NULL, 2017-01-01 12:00:00),
+   3,
+   [NULL, 2017-01-01 12:00:00),
+   6
+ },
+ {
+   [NULL, 2017-01-01 12:00:00),
+   3,
+   [NULL, 2017-01-01 12:00:00),
+   8
+ },
+ {[NULL, NULL), 4, [NULL, NULL), 7},
+ {[NULL, NULL), 4, [NULL, NULL), 9},
+ {[NULL, NULL), 4, [NULL, NULL), 10}]
+==
+
+[required_features=RANGE_TYPE,V_1_2_CIVIL_TIME]
+[name=datetime_range_left_join]
+SELECT t1.datetime_range_val, t1.id, t2.datetime_range_val, t2.id
+FROM (
+  SELECT datetime_range_val, id FROM DatetimeRangeTable WHERE id <= 5
+) AS t1
+LEFT JOIN (
+  SELECT datetime_range_val, id FROM DatetimeRangeTable WHERE id > 5
+) AS t2
+USING (datetime_range_val) ORDER BY t1.id, t2.id;
+--
+ARRAY<STRUCT<
+        datetime_range_val RANGE<DATETIME>,
+        id INT64,
+        datetime_range_val RANGE<DATETIME>,
+        id INT64
+      >>
+[{
+   [2016-01-01 12:00:00, 2017-01-01 12:00:00),
+   1,
+   NULL,
+   NULL
+ },
+ {
+   [2016-01-01 12:00:00, NULL),
+   2,
+   NULL,
+   NULL
+ },
+ {
+   [NULL, 2017-01-01 12:00:00),
+   3,
+   [NULL, 2017-01-01 12:00:00),
+   6
+ },
+ {
+   [NULL, 2017-01-01 12:00:00),
+   3,
+   [NULL, 2017-01-01 12:00:00),
+   8
+ },
+ {[NULL, NULL), 4, [NULL, NULL), 7},
+ {[NULL, NULL), 4, [NULL, NULL), 9},
+ {[NULL, NULL), 4, [NULL, NULL), 10},
+ {NULL, 5, NULL, NULL}]
+==
+
+[required_features=RANGE_TYPE]
+[name=timestamp_range_inner_join]
+SELECT t1.timestamp_range_val, t1.id, t2.timestamp_range_val, t2.id
+FROM (
+  SELECT timestamp_range_val, id FROM TimestampRangeTable WHERE id <= 5
+) AS t1
+JOIN (
+  SELECT timestamp_range_val, id FROM TimestampRangeTable WHERE id > 5
+) AS t2
+USING (timestamp_range_val) ORDER BY t1.id, t2.id;
+--
+ARRAY<STRUCT<
+        timestamp_range_val RANGE<TIMESTAMP>,
+        id INT64,
+        timestamp_range_val RANGE<TIMESTAMP>,
+        id INT64
+      >>
+[{[
+    2018-10-01 04:00:00+00,
+    NULL
+  ),
+  2,
+  [
+    2018-10-01 04:00:00+00,
+    NULL
+  ),
+  6},
+ {[
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  3,
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  7},
+ {[
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  3,
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  8},
+ {[
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  3,
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  9},
+ {[NULL, NULL), 4, [NULL, NULL), 10}]
+==
+
+[required_features=RANGE_TYPE]
+[name=timestamp_range_left_join]
+SELECT t1.timestamp_range_val, t1.id, t2.timestamp_range_val, t2.id
+FROM (
+  SELECT timestamp_range_val, id FROM TimestampRangeTable WHERE id <= 5
+) AS t1
+LEFT JOIN (
+  SELECT timestamp_range_val, id FROM TimestampRangeTable WHERE id > 5
+) AS t2
+USING (timestamp_range_val) ORDER BY t1.id, t2.id;
+--
+ARRAY<STRUCT<
+        timestamp_range_val RANGE<TIMESTAMP>,
+        id INT64,
+        timestamp_range_val RANGE<TIMESTAMP>,
+        id INT64
+      >>
+[{[
+    2018-10-01 04:00:00+00,
+    2019-01-01 04:00:00+00
+  ),
+  1,
+  NULL,
+  NULL},
+ {[
+    2018-10-01 04:00:00+00,
+    NULL
+  ),
+  2,
+  [
+    2018-10-01 04:00:00+00,
+    NULL
+  ),
+  6},
+ {[
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  3,
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  7},
+ {[
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  3,
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  8},
+ {[
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  3,
+  [
+    NULL,
+    2019-01-01 04:00:00+00
+  ),
+  9},
+ {[NULL, NULL), 4, [NULL, NULL), 10},
+ {NULL, 5, NULL, NULL}]
+==

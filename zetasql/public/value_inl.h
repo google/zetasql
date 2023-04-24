@@ -60,6 +60,7 @@ class Value::TypedList : public internal::ValueContentContainer {
       : values_(std::move(values)) {}
   TypedList(const TypedList&) = delete;
   TypedList& operator=(const TypedList&) = delete;
+  ~TypedList() override;
 
   std::vector<Value>& values() { return values_; }
 

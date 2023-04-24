@@ -20,6 +20,7 @@
 
 #include <stddef.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdint>
@@ -50,6 +51,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/status_macros.h"
@@ -2946,6 +2948,37 @@ TEST(JsonLaxConversionTest, String) {
         LaxConvertJsonToString(input.GetConstRef());
     ZETASQL_ASSERT_OK(result);
     EXPECT_EQ(*result, expected_output);
+  }
+}
+
+TEST(JsonArray, Compliance) {
+  const std::vector<FunctionTestCall> tests = GetFunctionTestsJsonArray();
+
+  for (const FunctionTestCall& test : tests) {
+    SCOPED_TRACE(absl::Substitute(
+        "JSON_ARRAY($0)",
+        absl::StrJoin(test.params.params(), ",",
+                      [](std::string* out, const Value& value) {
+                        absl::StrAppend(out, value.ShortDebugString());
+                      })));
+    zetasql::LanguageOptions language_options;
+    for (const auto& feature : test.params.required_features()) {
+      language_options.EnableLanguageFeature(feature);
+    }
+
+    absl::StatusOr<JSONValue> output =
+        JsonArray(test.params.params(), language_options,
+                  /*canonicalize_zero=*/true);
+
+    const Value expected_value = test.params.result();
+    const absl::Status expected_status = test.params.status();
+
+    if (expected_status.ok()) {
+      ZETASQL_ASSERT_OK(output);
+      EXPECT_EQ(expected_value, values::Json(*std::move(output)));
+    } else {
+      EXPECT_EQ(output.status().code(), expected_status.code());
+    }
   }
 }
 

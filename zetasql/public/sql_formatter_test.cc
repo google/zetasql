@@ -179,7 +179,7 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
   // GetParseTokens fail. Original sql is returned in this case even if the
   // first statement can be formatted.
   EXPECT_THAT(FormatSql("select 1;  select $d ;", &formatted_sql),
-              StatusIs(_, HasSubstr("Macros are not supported")));
+              StatusIs(_, HasSubstr("Unexpected macro")));
   EXPECT_EQ("select 1;  select $d ;", formatted_sql);
 }
 

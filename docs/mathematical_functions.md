@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Mathematical functions
 
 ZetaSQL supports mathematical functions.
@@ -431,11 +433,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT CBRT(27) AS cube_root;
 
-+--------------------+
-| cube_root          |
-+--------------------+
-| 3.0000000000000004 |
-+--------------------+
+/*--------------------*
+ | cube_root          |
+ +--------------------+
+ | 3.0000000000000004 |
+ *--------------------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -650,11 +652,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT COT(1) AS a, SAFE.COT(0) AS b;
 
-+---------------------+------+
-| a                   | b    |
-+---------------------+------+
-| 0.64209261593433065 | NULL |
-+---------------------+------+
+/*---------------------+------*
+ | a                   | b    |
+ +---------------------+------+
+ | 0.64209261593433065 | NULL |
+ *---------------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -712,11 +714,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT COTH(1) AS a, SAFE.COTH(0) AS b;
 
-+----------------+------+
-| a              | b    |
-+----------------+------+
-| 1.313035285499 | NULL |
-+----------------+------+
+/*----------------+------*
+ | a              | b    |
+ +----------------+------+
+ | 1.313035285499 | NULL |
+ *----------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -774,11 +776,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT CSC(100) AS a, CSC(-1) AS b, SAFE.CSC(0) AS c;
 
-+----------------+-----------------+------+
-| a              | b               | c    |
-+----------------+-----------------+------+
-| -1.97485753142 | -1.188395105778 | NULL |
-+----------------+-----------------+------+
+/*----------------+-----------------+------*
+ | a              | b               | c    |
+ +----------------+-----------------+------+
+ | -1.97485753142 | -1.188395105778 | NULL |
+ *----------------+-----------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -836,11 +838,11 @@ Supports the `SAFE.` prefix.
 ```sql
 SELECT CSCH(0.5) AS a, CSCH(-2) AS b, SAFE.CSCH(0) AS c;
 
-+----------------+----------------+------+
-| a              | b              | c    |
-+----------------+----------------+------+
-| 1.919034751334 | -0.27572056477 | NULL |
-+----------------+----------------+------+
+/*----------------+----------------+------*
+ | a              | b              | c    |
+ +----------------+----------------+------+
+ | 1.919034751334 | -0.27572056477 | NULL |
+ *----------------+----------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -1494,6 +1496,85 @@ table.
 
 </table>
 
+### `PI`
+
+```sql
+PI()
+```
+
+**Description**
+
+Returns the mathematical constant `π` as a `DOUBLE`
+value.
+
+**Return type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT PI() AS pi
+
+/*--------------------*
+ | pi                 |
+ +--------------------+
+ | 3.1415926535897931 |
+ *--------------------*/
+```
+
+### `PI_BIGNUMERIC`
+
+```sql
+PI_BIGNUMERIC()
+```
+
+**Description**
+
+Returns the mathematical constant `π` as a `BIGNUMERIC` value.
+
+**Return type**
+
+`BIGNUMERIC`
+
+**Example**
+
+```sql
+SELECT PI_BIGNUMERIC() AS pi
+
+/*-----------------------------------------*
+ | pi                                      |
+ +-----------------------------------------+
+ | 3.1415926535897932384626433832795028842 |
+ *-----------------------------------------*/
+```
+
+### `PI_NUMERIC`
+
+```sql
+PI_NUMERIC()
+```
+
+**Description**
+
+Returns the mathematical constant `π` as a `NUMERIC` value.
+
+**Return type**
+
+`NUMERIC`
+
+**Example**
+
+```sql
+SELECT PI_NUMERIC() AS pi
+
+/*-------------*
+ | pi          |
+ +-------------+
+ | 3.141592654 |
+ *-------------*/
+```
+
 ### `POW`
 
 ```
@@ -2039,11 +2120,11 @@ that [coerces to `DOUBLE`][conversion-rules].
 ```sql
 SELECT SEC(100) AS a, SEC(-1) AS b;
 
-+----------------+---------------+
-| a              | b             |
-+----------------+---------------+
-| 1.159663822905 | 1.85081571768 |
-+----------------+---------------+
+/*----------------+---------------*
+ | a              | b             |
+ +----------------+---------------+
+ | 1.159663822905 | 1.85081571768 |
+ *----------------+---------------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
@@ -2097,11 +2178,11 @@ Never produces an error.
 ```sql
 SELECT SECH(0.5) AS a, SECH(-2) AS b, SECH(100) AS c;
 
-+----------------+----------------+---------------------+
-| a              | b              | c                   |
-+----------------+----------------+---------------------+
-| 0.88681888397  | 0.265802228834 | 7.4401519520417E-44 |
-+----------------+----------------+---------------------+
+/*----------------+----------------+---------------------*
+ | a              | b              | c                   |
+ +----------------+----------------+---------------------+
+ | 0.88681888397  | 0.265802228834 | 7.4401519520417E-44 |
+ *----------------+----------------+---------------------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules

@@ -1744,16 +1744,16 @@ bool IsValidTimestamp(int64_t timestamp, TimestampScale scale) {
 }
 
 bool IsValidTime(absl::Time time) {
-  static const absl::Time kTimeMin =
+  static constexpr absl::Time kTimeMin =
       absl::FromUnixMicros(zetasql::types::kTimestampMin);
-  static const absl::Time kTimeMax =
+  static constexpr absl::Time kTimeMax =
       absl::FromUnixMicros(zetasql::types::kTimestampMax + 1);
   return time >= kTimeMin && time < kTimeMax;
 }
 
 bool IsValidTimeZone(int timezone_minutes_offset) {
-  const int64_t kTimezoneOffsetMin = -60 * 14;
-  const int64_t kTimezoneOffsetMax = 60 * 14;
+  static constexpr int64_t kTimezoneOffsetMin = -60 * 14;
+  static constexpr int64_t kTimezoneOffsetMax = 60 * 14;
   return timezone_minutes_offset >= kTimezoneOffsetMin &&
          timezone_minutes_offset <= kTimezoneOffsetMax;
 }

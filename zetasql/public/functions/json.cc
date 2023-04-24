@@ -29,6 +29,7 @@
 #include "zetasql/public/functions/convert.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/json_internal.h"
+#include "zetasql/public/functions/to_json.h"
 #include "zetasql/public/json_value.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -518,6 +519,28 @@ absl::StatusOr<std::optional<std::string>> LaxConvertJsonToString(
     return input.GetString();
   }
   return std::nullopt;
+}
+
+absl::StatusOr<JSONValue> JsonArray(absl::Span<const Value> args,
+                                    const LanguageOptions& language_options,
+                                    bool canonicalize_zero) {
+  JSONValue json;
+  JSONValueRef json_ref = json.GetRef();
+  json_ref.SetToEmptyArray();
+  if (args.empty()) {
+    return json;
+  }
+
+  json_ref.GetArrayElement(args.size() - 1);
+  for (size_t i = 0; i < args.size(); ++i) {
+    const Value& arg = args[i];
+    JSONValueRef ref = json_ref.GetArrayElement(i);
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue value,
+                     ToJson(arg, /*stringify_wide_numbers=*/false,
+                            language_options, canonicalize_zero));
+    ref.Set(std::move(value));
+  }
+  return json;
 }
 
 }  // namespace functions

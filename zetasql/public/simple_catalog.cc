@@ -710,10 +710,6 @@ void SimpleCatalog::SetDescriptorPool(const google::protobuf::DescriptorPool* po
   descriptor_pool_ = pool;
 }
 
-void SimpleCatalog::SetOwnedDescriptorPool(const google::protobuf::DescriptorPool* pool) {
-  SetOwnedDescriptorPool(absl::WrapUnique(pool));
-}
-
 void SimpleCatalog::SetOwnedDescriptorPool(
     std::unique_ptr<const google::protobuf::DescriptorPool> pool) {
   absl::MutexLock l(&mutex_);

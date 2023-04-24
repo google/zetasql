@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Reference
 
 The topics in this section provide the reference information you need to work
@@ -12,6 +14,7 @@ with ZetaSQL:
 * [Data Manipulation Language Reference](https://github.com/google/zetasql/blob/master/docs/data-manipulation-language.md)
 * [Data Model](https://github.com/google/zetasql/blob/master/docs/data-model.md)
 * [Data Definition Language Reference](https://github.com/google/zetasql/blob/master/docs/data-definition-language.md)
+* [Modules](https://github.com/google/zetasql/blob/master/docs/modules.md)
 
 ## License
 

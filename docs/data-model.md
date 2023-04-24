@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Data model
 
 The following sections provide an overview of the ZetaSQL data
@@ -231,11 +233,11 @@ In the following example, a value table for a `STRUCT` is produced with the
 ```sql
 SELECT * FROM (SELECT AS VALUE STRUCT(123 AS a, FALSE AS b))
 
-+-----+-------+
-| a   | b     |
-+-----+-------+
-| 123 | FALSE |
-+-----+-------+
+/*-----+-------*
+ | a   | b     |
+ +-----+-------+
+ | 123 | FALSE |
+ *-----+-------*/
 ```
 
 Value tables are often but not exclusively used with compound data types.
@@ -423,13 +425,13 @@ scanned rows, not the value.
 -- This works
 SELECT a.ROWNUM, a.albumtitle AS title FROM AlbumReviewData AS a
 
-+--------+---------------------------+
-| ROWNUM | title                     |
-+--------+---------------------------+
-| 1      | "Songs on a Broken Banjo" |
-| 2      | "Six and Seven"           |
-| 3      | "Go! Go! Go!"             |
-+--------+---------------------------+
+/*--------+---------------------------*
+ | ROWNUM | title                     |
+ +--------+---------------------------+
+ | 1      | "Songs on a Broken Banjo" |
+ | 2      | "Six and Seven"           |
+ | 3      | "Go! Go! Go!"             |
+ *--------+---------------------------*/
 ```
 
 However, if you try to construct the query as follows, the query does not work.

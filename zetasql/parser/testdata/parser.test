@@ -853,6 +853,52 @@ SELECT
   "\\U00012346" AS `\\U00012345`
 ==
 
+SELECT fake_alias_function(1 as example_alias)
+--
+QueryStatement [0-46] [SELECT fake_alias...ple_alias)]
+  Query [0-46] [SELECT fake_alias...ple_alias)]
+    Select [0-46] [SELECT fake_alias...ple_alias)]
+      SelectList [7-46] [fake_alias_functi...ple_alias)]
+        SelectColumn [7-46] [fake_alias_functi...ple_alias)]
+          FunctionCall [7-46] [fake_alias_functi...ple_alias)]
+            PathExpression [7-26] [fake_alias_function]
+              Identifier(fake_alias_function) [7-26] [fake_alias_function]
+            ExpressionWithAlias [27-45] [1 as example_alias]
+              IntLiteral(1) [27-28] [1]
+              Alias [29-45] [as example_alias]
+                Identifier(example_alias) [32-45] [example_alias]
+--
+SELECT
+  fake_alias_function(1 AS example_alias)
+==
+
+SELECT fake_cast(1 as zetasql_test__.KitchenSinkPB)
+--
+ERROR: Syntax error: Expected ")" but got "." [at 1:37]
+SELECT fake_cast(1 as zetasql_test__.KitchenSinkPB)
+                                    ^
+==
+
+SELECT safe.cast(1 as int32)
+--
+QueryStatement [0-28] [SELECT safe.cast(1 as int32)]
+  Query [0-28] [SELECT safe.cast(1 as int32)]
+    Select [0-28] [SELECT safe.cast(1 as int32)]
+      SelectList [7-28] [safe.cast(1 as int32)]
+        SelectColumn [7-28] [safe.cast(1 as int32)]
+          FunctionCall [7-28] [safe.cast(1 as int32)]
+            PathExpression [7-16] [safe.cast]
+              Identifier(safe) [7-11] [safe]
+              Identifier(`cast`) [12-16] [cast]
+            ExpressionWithAlias [17-27] [1 as int32]
+              IntLiteral(1) [17-18] [1]
+              Alias [19-27] [as int32]
+                Identifier(int32) [22-27] [int32]
+--
+SELECT
+  safe.`cast`(1 AS int32)
+==
+
 select {{safe_cast|cast}}("1" as int32);
 --
 ALTERNATION GROUP: safe_cast
@@ -2672,10 +2718,3 @@ ALTERNATION GROUPS:
 ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 2:8]
        ( foo)
        ^
-==
-
-SELECT fake_cast(1 as int32)
---
-ERROR: Syntax error: Expected ")" but got keyword AS [at 1:20]
-SELECT fake_cast(1 as int32)
-                   ^

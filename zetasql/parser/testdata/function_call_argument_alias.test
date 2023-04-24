@@ -1,0 +1,207 @@
+[default no_show_parse_location_text]
+
+# One argument with alias
+SELECT ARRAY_ZIP(array1 {{|first|AS first}})
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [26-51]
+  Query [26-51]
+    Select [26-51]
+      SelectList [33-51]
+        SelectColumn [33-51]
+          FunctionCall [33-51]
+            PathExpression [33-42]
+              Identifier(ARRAY_ZIP) [33-42]
+            PathExpression [43-49]
+              Identifier(array1) [43-49]
+--
+SELECT
+  ARRAY_ZIP(array1)
+--
+ALTERNATION GROUP: first
+--
+ERROR: Syntax error: Expected ")" but got keyword FIRST [at 2:25]
+SELECT ARRAY_ZIP(array1 first)
+                        ^
+--
+ALTERNATION GROUP: AS first
+--
+QueryStatement [26-59]
+  Query [26-59]
+    Select [26-59]
+      SelectList [33-59]
+        SelectColumn [33-59]
+          FunctionCall [33-59]
+            PathExpression [33-42]
+              Identifier(ARRAY_ZIP) [33-42]
+            ExpressionWithAlias [43-58]
+              PathExpression [43-49]
+                Identifier(array1) [43-49]
+              Alias [50-58]
+                Identifier(first) [53-58]
+--
+SELECT
+  ARRAY_ZIP(array1 AS first)
+==
+
+# Two arguments with alias
+SELECT ARRAY_ZIP(array1 AS first, array2 {{|second|AS second}})
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-42]
+        SelectColumn [7-42]
+          FunctionCall [7-42]
+            PathExpression [7-16]
+              Identifier(ARRAY_ZIP) [7-16]
+            ExpressionWithAlias [17-32]
+              PathExpression [17-23]
+                Identifier(array1) [17-23]
+              Alias [24-32]
+                Identifier(first) [27-32]
+            PathExpression [34-40]
+              Identifier(array2) [34-40]
+--
+SELECT
+  ARRAY_ZIP(array1 AS first, array2)
+--
+ALTERNATION GROUP: second
+--
+ERROR: Syntax error: Expected ")" but got identifier "second" [at 1:42]
+SELECT ARRAY_ZIP(array1 AS first, array2 second)
+                                         ^
+--
+ALTERNATION GROUP: AS second
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-51]
+        SelectColumn [7-51]
+          FunctionCall [7-51]
+            PathExpression [7-16]
+              Identifier(ARRAY_ZIP) [7-16]
+            ExpressionWithAlias [17-32]
+              PathExpression [17-23]
+                Identifier(array1) [17-23]
+              Alias [24-32]
+                Identifier(first) [27-32]
+            ExpressionWithAlias [34-50]
+              PathExpression [34-40]
+                Identifier(array2) [34-40]
+              Alias [41-50]
+                Identifier(second) [44-50]
+--
+SELECT
+  ARRAY_ZIP(array1 AS first, array2 AS second)
+==
+
+# Three arguments with alias
+SELECT ARRAY_ZIP(array1 AS a1, array2 AS a2, array3 {{|a3|AS a3}})
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-53]
+  Query [0-53]
+    Select [0-53]
+      SelectList [7-53]
+        SelectColumn [7-53]
+          FunctionCall [7-53]
+            PathExpression [7-16]
+              Identifier(ARRAY_ZIP) [7-16]
+            ExpressionWithAlias [17-29]
+              PathExpression [17-23]
+                Identifier(array1) [17-23]
+              Alias [24-29]
+                Identifier(a1) [27-29]
+            ExpressionWithAlias [31-43]
+              PathExpression [31-37]
+                Identifier(array2) [31-37]
+              Alias [38-43]
+                Identifier(a2) [41-43]
+            PathExpression [45-51]
+              Identifier(array3) [45-51]
+--
+SELECT
+  ARRAY_ZIP(array1 AS a1, array2 AS a2, array3)
+--
+ALTERNATION GROUP: a3
+--
+ERROR: Syntax error: Expected ")" but got identifier "a3" [at 1:53]
+SELECT ARRAY_ZIP(array1 AS a1, array2 AS a2, array3 a3)
+                                                    ^
+--
+ALTERNATION GROUP: AS a3
+--
+QueryStatement [0-58]
+  Query [0-58]
+    Select [0-58]
+      SelectList [7-58]
+        SelectColumn [7-58]
+          FunctionCall [7-58]
+            PathExpression [7-16]
+              Identifier(ARRAY_ZIP) [7-16]
+            ExpressionWithAlias [17-29]
+              PathExpression [17-23]
+                Identifier(array1) [17-23]
+              Alias [24-29]
+                Identifier(a1) [27-29]
+            ExpressionWithAlias [31-43]
+              PathExpression [31-37]
+                Identifier(array2) [31-37]
+              Alias [38-43]
+                Identifier(a2) [41-43]
+            ExpressionWithAlias [45-57]
+              PathExpression [45-51]
+                Identifier(array3) [45-51]
+              Alias [52-57]
+                Identifier(a3) [55-57]
+--
+SELECT
+  ARRAY_ZIP(array1 AS a1, array2 AS a2, array3 AS a3)
+==
+
+SELECT date('2021-07-04'{{| AS date}}) AS date
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-33]
+  Query [0-33]
+    Select [0-33]
+      SelectList [7-33]
+        SelectColumn [7-33]
+          FunctionCall [7-25]
+            PathExpression [7-11]
+              Identifier(date) [7-11]
+            StringLiteral('2021-07-04') [12-24]
+          Alias [26-33]
+            Identifier(date) [29-33]
+--
+SELECT
+  date('2021-07-04') AS date
+--
+ALTERNATION GROUP:  AS date
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [7-41]
+        SelectColumn [7-41]
+          FunctionCall [7-33]
+            PathExpression [7-11]
+              Identifier(date) [7-11]
+            ExpressionWithAlias [12-32]
+              StringLiteral('2021-07-04') [12-24]
+              Alias [25-32]
+                Identifier(date) [28-32]
+          Alias [34-41]
+            Identifier(date) [37-41]
+--
+SELECT
+  date('2021-07-04' AS date) AS date
+==
+

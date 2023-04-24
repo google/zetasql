@@ -865,6 +865,8 @@ ARRAY<STRUCT<INT64>>[
   {2},
   {2}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=lag_non_constant_default_expr]
@@ -901,6 +903,8 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[
   {NULL, 1},
   {NULL, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=order_by_nulls_first_analytic_lag]
@@ -920,3 +924,5 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[
   {1, 1},
   {1, 1}
 ]
+
+NOTE: Reference implementation reports non-determinism.

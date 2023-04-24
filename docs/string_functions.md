@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # String functions
 
 ZetaSQL supports string functions.
@@ -36,11 +38,11 @@ or byte.
 ```sql
 SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
 
-+-------+-------+-------+-------+
-| A     | B     | C     | D     |
-+-------+-------+-------+-------+
-| 97    | 97    | 0     | NULL  |
-+-------+-------+-------+-------+
+/*-------+-------+-------+-------*
+ | A     | B     | C     | D     |
+ +-------+-------+-------+-------+
+ | 97    | 97    | 0     | NULL  |
+ *-------+-------+-------+-------*/
 ```
 
 ### `BYTE_LENGTH`
@@ -71,11 +73,11 @@ SELECT
   BYTE_LENGTH(bytes) AS bytes_example
 FROM example;
 
-+------------+----------------+-------+---------------+
-| characters | string_example | bytes | bytes_example |
-+------------+----------------+-------+---------------+
-| абвгд      | 10             | абвгд | 10            |
-+------------+----------------+-------+---------------+
+/*------------+----------------+-------+---------------*
+ | characters | string_example | bytes | bytes_example |
+ +------------+----------------+-------+---------------+
+ | абвгд      | 10             | абвгд | 10            |
+ *------------+----------------+-------+---------------*/
 ```
 
 ### `CHAR_LENGTH`
@@ -103,11 +105,11 @@ SELECT
   CHAR_LENGTH(characters) AS char_length_example
 FROM example;
 
-+------------+---------------------+
-| characters | char_length_example |
-+------------+---------------------+
-| абвгд      |                   5 |
-+------------+---------------------+
+/*------------+---------------------*
+ | characters | char_length_example |
+ +------------+---------------------+
+ | абвгд      |                   5 |
+ *------------+---------------------*/
 ```
 
 ### `CHARACTER_LENGTH`
@@ -135,11 +137,11 @@ SELECT
   CHARACTER_LENGTH(characters) AS char_length_example
 FROM example;
 
-+------------+---------------------+
-| characters | char_length_example |
-+------------+---------------------+
-| абвгд      |                   5 |
-+------------+---------------------+
+/*------------+---------------------*
+ | characters | char_length_example |
+ +------------+---------------------+
+ | абвгд      |                   5 |
+ *------------+---------------------*/
 ```
 
 [string-link-to-char-length]: #char_length
@@ -170,21 +172,21 @@ To work with an array of Unicode code points, see
 ```sql
 SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
 
-+-------+-------+-------+-------+
-| A     | B     | C     | D     |
-+-------+-------+-------+-------+
-| A     | ÿ     | ȁ     | Ѐ     |
-+-------+-------+-------+-------+
+/*-------+-------+-------+-------*
+ | A     | B     | C     | D     |
+ +-------+-------+-------+-------+
+ | A     | ÿ     | ȁ     | Ѐ     |
+ *-------+-------+-------+-------*/
 ```
 
 ```sql
 SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 
-+-------+-------+-------+-------+
-| A     | B     | C     | D     |
-+-------+-------+-------+-------+
-| a     | 例    |       | NULL  |
-+-------+-------+-------+-------+
+/*-------+-------+-------+-------*
+ | A     | B     | C     | D     |
+ +-------+-------+-------+-------+
+ | a     | 例    |       | NULL  |
+ *-------+-------+-------+-------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -217,11 +219,11 @@ The following is a basic example using `CODE_POINTS_TO_BYTES`.
 ```sql
 SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 
-+----------+
-| bytes    |
-+----------+
-| AbCd     |
-+----------+
+/*----------*
+ | bytes    |
+ +----------+
+ | AbCd     |
+ *----------*/
 ```
 
 The following example uses a rotate-by-13 places (ROT13) algorithm to encode a
@@ -244,11 +246,11 @@ SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
   ) ORDER BY OFFSET)) AS encoded_string
 FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 
-+------------------+
-| encoded_string   |
-+------------------+
-| Grfg Fgevat!     |
-+------------------+
+/*------------------*
+ | encoded_string   |
+ +------------------+
+ | Grfg Fgevat!     |
+ *------------------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -280,31 +282,31 @@ The following are basic examples using `CODE_POINTS_TO_STRING`.
 ```sql
 SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
 
-+--------+
-| string |
-+--------+
-| AÿȁЀ   |
-+--------+
+/*--------*
+ | string |
+ +--------+
+ | AÿȁЀ   |
+ *--------*/
 ```
 
 ```sql
 SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
 
-+--------+
-| string |
-+--------+
-| a例    |
-+--------+
+/*--------*
+ | string |
+ +--------+
+ | a例    |
+ *--------*/
 ```
 
 ```sql
 SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
 
-+--------+
-| string |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | string |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 
 The following example computes the frequency of letters in a set of words.
@@ -322,21 +324,21 @@ FROM Words,
 GROUP BY 1
 ORDER BY 2 DESC;
 
-+--------+--------------+
-| letter | letter_count |
-+--------+--------------+
-| a      | 5            |
-| f      | 3            |
-| r      | 2            |
-| b      | 2            |
-| l      | 2            |
-| o      | 2            |
-| g      | 1            |
-| z      | 1            |
-| e      | 1            |
-| m      | 1            |
-| i      | 1            |
-+--------+--------------+
+/*--------+--------------*
+ | letter | letter_count |
+ +--------+--------------+
+ | a      | 5            |
+ | f      | 3            |
+ | r      | 2            |
+ | b      | 2            |
+ | l      | 2            |
+ | o      | 2            |
+ | g      | 1            |
+ | z      | 1            |
+ | e      | 1            |
+ | m      | 1            |
+ | i      | 1            |
+ *--------+--------------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -379,11 +381,11 @@ WITH Words AS (
 SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
 FROM Words;
 
-+----------------+
-| a_less_than_Z  |
-+----------------+
-| TRUE           |
-+----------------+
+/*----------------*
+ | a_less_than_Z  |
+ +----------------+
+ | TRUE           |
+ *----------------*/
 ```
 
 In this example, the weight of `a` is greater than the weight of `Z`. This
@@ -398,11 +400,11 @@ WITH Words AS (
 SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
 FROM Words;
 
-+----------------+
-| a_less_than_Z  |
-+----------------+
-| FALSE          |
-+----------------+
+/*----------------*
+ | a_less_than_Z  |
+ +----------------+
+ | FALSE          |
+ *----------------*/
 ```
 
 [link-collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
@@ -435,21 +437,21 @@ values into a string.
 ```sql
 SELECT CONCAT('T.P.', ' ', 'Bar') as author;
 
-+---------------------+
-| author              |
-+---------------------+
-| T.P. Bar            |
-+---------------------+
+/*---------------------*
+ | author              |
+ +---------------------+
+ | T.P. Bar            |
+ *---------------------*/
 ```
 
 ```sql
 SELECT CONCAT('Summer', ' ', 1923) as release_date;
 
-+---------------------+
-| release_date        |
-+---------------------+
-| Summer 1923         |
-+---------------------+
+/*---------------------*
+ | release_date        |
+ +---------------------+
+ | Summer 1923         |
+ *---------------------*/
 ```
 
 ```sql
@@ -472,13 +474,13 @@ SELECT
   AS full_name
 FROM Employees;
 
-+---------------------+
-| full_name           |
-+---------------------+
-| John Doe            |
-| Jane Smith          |
-| Joe Jackson         |
-+---------------------+
+/*---------------------*
+ | full_name           |
+ +---------------------+
+ | John Doe            |
+ | Jane Smith          |
+ | Joe Jackson         |
+ *---------------------*/
 ```
 
 [string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
@@ -516,13 +518,13 @@ SELECT
   ENDS_WITH(item, 'e') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-|    True |
-|   False |
-|    True |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |    True |
+ |   False |
+ |    True |
+ *---------*/
 ```
 
 ### `FORMAT` 
@@ -1337,11 +1339,11 @@ Converts the base32-encoded input `string_expr` into `BYTES` format. To convert
 ```sql
 SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 
-+-----------+
-| byte_data |
-+-----------+
-| abcde\xff |
-+-----------+
+/*-----------*
+ | byte_data |
+ +-----------+
+ | abcde\xff |
+ *-----------*/
 ```
 
 [string-link-to-base32]: #to_base32
@@ -1373,11 +1375,11 @@ function expects the alphabet `[A-Za-z0-9+/=]`.
 ```sql
 SELECT FROM_BASE64('/+A=') AS byte_data;
 
-+------------+
-| byte_data |
-+-----------+
-| \377\340  |
-+-----------+
+/*-----------*
+ | byte_data |
+ +-----------+
+ | \377\340  |
+ *-----------*/
 ```
 
 To work with an encoding using a different base64 alphabet, you might need to
@@ -1389,11 +1391,11 @@ uses `-_=` as the last characters rather than `+/=`. To decode a
 ```sql
 SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 
-+-----------+
-| binary    |
-+-----------+
-| \377\340  |
-+-----------+
+/*-----------*
+ | binary    |
+ +-----------+
+ | \377\340  |
+ *-----------*/
 ```
 
 [RFC-4648]: https://tools.ietf.org/html/rfc4648#section-4
@@ -1430,13 +1432,13 @@ WITH Input AS (
 SELECT hex_str, FROM_HEX(hex_str) AS bytes_str
 FROM Input;
 
-+------------------+----------------------------------+
-| hex_str          | bytes_str                        |
-+------------------+----------------------------------+
-| 0AF              | \x00\xaf                         |
-| 00010203aaeeefff | \x00\x01\x02\x03\xaa\xee\xef\xff |
-| 666f6f626172     | foobar                           |
-+------------------+----------------------------------+
+/*------------------+----------------------------------*
+ | hex_str          | bytes_str                        |
+ +------------------+----------------------------------+
+ | 0AF              | \x00\xaf                         |
+ | 00010203aaeeefff | \x00\x01\x02\x03\xaa\xee\xef\xff |
+ | 666f6f626172     | foobar                           |
+ *------------------+----------------------------------*/
 ```
 
 [string-link-to-to-hex]: #to_hex
@@ -1476,14 +1478,14 @@ WITH example AS
 )
 SELECT value, INITCAP(value) AS initcap_value FROM example
 
-+-------------------------------+-------------------------------+
-| value                         | initcap_value                 |
-+-------------------------------+-------------------------------+
-| Hello World-everyone!         | Hello World-Everyone!         |
-| tHe dog BARKS loudly+friendly | The Dog Barks Loudly+Friendly |
-| apples&oranges;&pears         | Apples&Oranges;&Pears         |
-| καθίσματα ταινιών             | Καθίσματα Ταινιών             |
-+-------------------------------+-------------------------------+
+/*-------------------------------+-------------------------------*
+ | value                         | initcap_value                 |
+ +-------------------------------+-------------------------------+
+ | Hello World-everyone!         | Hello World-Everyone!         |
+ | tHe dog BARKS loudly+friendly | The Dog Barks Loudly+Friendly |
+ | apples&oranges;&pears         | Apples&Oranges;&Pears         |
+ | καθίσματα ταινιών             | Καθίσματα Ταινιών             |
+ *-------------------------------+-------------------------------*/
 
 WITH example AS
 (
@@ -1494,14 +1496,14 @@ WITH example AS
 )
 SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM example;
 
-+----------------------+------------+----------------------+
-| value                | delimiters | initcap_value        |
-+----------------------+------------+----------------------+
-| hello WORLD!         |            | Hello world!         |
-| καθίσματα ταιντιώ@ν  | τ@         | ΚαθίσματΑ τΑιντΙώ@Ν  |
-| Apples1oranges2pears | 12         | Apples1Oranges2Pears |
-| tHisEisEaESentence   | E          | ThisEIsEAESentence   |
-+----------------------+------------+----------------------+
+/*----------------------+------------+----------------------*
+ | value                | delimiters | initcap_value        |
+ +----------------------+------------+----------------------+
+ | hello WORLD!         |            | Hello world!         |
+ | καθίσματα ταιντιώ@ν  | τ@         | ΚαθίσματΑ τΑιντΙώ@Ν  |
+ | Apples1oranges2pears | 12         | Apples1Oranges2Pears |
+ | tHisEisEaESentence   | E          | ThisEIsEAESentence   |
+ *----------------------+------------+----------------------*/
 ```
 
 ### `INSTR`
@@ -1578,19 +1580,19 @@ SELECT source_value, search_value, position, occurrence, INSTR(source_value,
 search_value, position, occurrence) AS instr
 FROM example;
 
-+--------------+--------------+----------+------------+-------+
-| source_value | search_value | position | occurrence | instr |
-+--------------+--------------+----------+------------+-------+
-| banana       | an           | 1        | 1          | 2     |
-| banana       | an           | 1        | 2          | 4     |
-| banana       | an           | 1        | 3          | 0     |
-| banana       | an           | 3        | 1          | 4     |
-| banana       | an           | -1       | 1          | 4     |
-| banana       | an           | -3       | 1          | 4     |
-| banana       | ann          | 1        | 1          | 0     |
-| helloooo     | oo           | 1        | 1          | 5     |
-| helloooo     | oo           | 1        | 2          | 6     |
-+--------------+--------------+----------+------------+-------+
+/*--------------+--------------+----------+------------+-------*
+ | source_value | search_value | position | occurrence | instr |
+ +--------------+--------------+----------+------------+-------+
+ | banana       | an           | 1        | 1          | 2     |
+ | banana       | an           | 1        | 2          | 4     |
+ | banana       | an           | 1        | 3          | 0     |
+ | banana       | an           | 3        | 1          | 4     |
+ | banana       | an           | -1       | 1          | 4     |
+ | banana       | an           | -3       | 1          | 4     |
+ | banana       | ann          | 1        | 1          | 0     |
+ | helloooo     | oo           | 1        | 1          | 5     |
+ | helloooo     | oo           | 1        | 2          | 6     |
+ *--------------+--------------+----------+------------+-------*/
 ```
 
 ### `LEFT`
@@ -1630,13 +1632,13 @@ SELECT 'абвгд' as example
 SELECT example, LEFT(example, 3) AS left_example
 FROM examples;
 
-+---------+--------------+
-| example | left_example |
-+---------+--------------+
-| apple   | app          |
-| banana  | ban          |
-| абвгд   | абв          |
-+---------+--------------+
+/*---------+--------------*
+ | example | left_example |
+ +---------+--------------+
+ | apple   | app          |
+ | banana  | ban          |
+ | абвгд   | абв          |
+ *---------+--------------*/
 ```
 
 ```sql
@@ -1650,13 +1652,13 @@ SELECT b'\xab\xcd\xef\xaa\xbb' as example
 SELECT example, LEFT(example, 3) AS left_example
 FROM examples;
 
-+----------------------+--------------+
-| example              | left_example |
-+----------------------+--------------+
-| apple                | app          |
-| banana               | ban          |
-| \xab\xcd\xef\xaa\xbb | \xab\xcd\xef |
-+----------------------+--------------+
+/*----------------------+--------------*
+ | example              | left_example |
+ +----------------------+--------------+
+ | apple                | app          |
+ | banana               | ban          |
+ | \xab\xcd\xef\xaa\xbb | \xab\xcd\xef |
+ *----------------------+--------------*/
 ```
 
 ### `LENGTH`
@@ -1688,11 +1690,11 @@ SELECT
   LENGTH(CAST(characters AS BYTES)) AS bytes_example
 FROM example;
 
-+------------+----------------+---------------+
-| characters | string_example | bytes_example |
-+------------+----------------+---------------+
-| абвгд      |              5 |            10 |
-+------------+----------------+---------------+
+/*------------+----------------+---------------*
+ | characters | string_example | bytes_example |
+ +------------+----------------+---------------+
+ | абвгд      |              5 |            10 |
+ *------------+----------------+---------------*/
 ```
 
 ### `LOWER`
@@ -1734,13 +1736,13 @@ SELECT
   LOWER(item) AS example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| foo     |
-| bar     |
-| baz     |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | foo     |
+ | bar     |
+ | baz     |
+ *---------*/
 ```
 
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
@@ -1788,13 +1790,13 @@ SELECT t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST([
   ('例子', 4)
 ]);
 
-+------+-----+----------+
-| t    | len | LPAD     |
-|------|-----|----------|
-| abc  | 5   | "  abc"  |
-| abc  | 2   | "ab"     |
-| 例子  | 4   | "  例子" |
-+------+-----+----------+
+/*------+-----+----------*
+ | t    | len | LPAD     |
+ |------|-----|----------|
+ | abc  | 5   | "  abc"  |
+ | abc  | 2   | "ab"     |
+ | 例子  | 4   | "  例子" |
+ *------+-----+----------*/
 ```
 
 ```sql
@@ -1804,13 +1806,13 @@ SELECT t, len, pattern, FORMAT('%T', LPAD(t, len, pattern)) AS LPAD FROM UNNEST(
   ('例子', 5, '中文')
 ]);
 
-+------+-----+---------+--------------+
-| t    | len | pattern | LPAD         |
-|------|-----|---------|--------------|
-| abc  | 8   | def     | "defdeabc"   |
-| abc  | 5   | -       | "--abc"      |
-| 例子  | 5   | 中文    | "中文中例子"   |
-+------+-----+---------+--------------+
+/*------+-----+---------+--------------*
+ | t    | len | pattern | LPAD         |
+ |------|-----|---------|--------------|
+ | abc  | 8   | def     | "defdeabc"   |
+ | abc  | 5   | -       | "--abc"      |
+ | 例子  | 5   | 中文    | "中文中例子"   |
+ *------+-----+---------+--------------*/
 ```
 
 ```sql
@@ -1820,13 +1822,13 @@ SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST
   (b'\xab\xcd\xef', 4)
 ]);
 
-+-----------------+-----+------------------+
-| t               | len | LPAD             |
-|-----------------|-----|------------------|
-| b"abc"          | 5   | b"  abc"         |
-| b"abc"          | 2   | b"ab"            |
-| b"\xab\xcd\xef" | 4   | b" \xab\xcd\xef" |
-+-----------------+-----+------------------+
+/*-----------------+-----+------------------*
+ | t               | len | LPAD             |
+ |-----------------|-----|------------------|
+ | b"abc"          | 5   | b"  abc"         |
+ | b"abc"          | 2   | b"ab"            |
+ | b"\xab\xcd\xef" | 4   | b" \xab\xcd\xef" |
+ *-----------------+-----+------------------*/
 ```
 
 ```sql
@@ -1841,13 +1843,13 @@ FROM UNNEST([
   (b'\xab\xcd\xef', 5, b'\x00')
 ]);
 
-+-----------------+-----+---------+-------------------------+
-| t               | len | pattern | LPAD                    |
-|-----------------|-----|---------|-------------------------|
-| b"abc"          | 8   | b"def"  | b"defdeabc"             |
-| b"abc"          | 5   | b"-"    | b"--abc"                |
-| b"\xab\xcd\xef" | 5   | b"\x00" | b"\x00\x00\xab\xcd\xef" |
-+-----------------+-----+---------+-------------------------+
+/*-----------------+-----+---------+-------------------------*
+ | t               | len | pattern | LPAD                    |
+ |-----------------|-----|---------|-------------------------|
+ | b"abc"          | 8   | b"def"  | b"defdeabc"             |
+ | b"abc"          | 5   | b"-"    | b"--abc"                |
+ | b"\xab\xcd\xef" | 5   | b"\x00" | b"\x00\x00\xab\xcd\xef" |
+ *-----------------+-----+---------+-------------------------*/
 ```
 
 ### `LTRIM`
@@ -1878,13 +1880,13 @@ SELECT
   CONCAT('#', LTRIM(item), '#') as example
 FROM items;
 
-+-------------+
-| example     |
-+-------------+
-| #apple   #  |
-| #banana   # |
-| #orange   # |
-+-------------+
+/*-------------*
+ | example     |
+ +-------------+
+ | #apple   #  |
+ | #banana   # |
+ | #orange   # |
+ *-------------*/
 ```
 
 ```sql
@@ -1899,13 +1901,13 @@ SELECT
   LTRIM(item, '*') as example
 FROM items;
 
-+-----------+
-| example   |
-+-----------+
-| apple***  |
-| banana*** |
-| orange*** |
-+-----------+
+/*-----------*
+ | example   |
+ +-----------+
+ | apple***  |
+ | banana*** |
+ | orange*** |
+ *-----------*/
 ```
 
 ```sql
@@ -1924,14 +1926,14 @@ SELECT
   LTRIM(item, 'xyz') as example
 FROM items;
 
-+-----------+
-| example   |
-+-----------+
-| applexxx  |
-| bananayyy |
-| orangezzz |
-| pearxyz   |
-+-----------+
+/*-----------*
+ | example   |
+ +-----------+
+ | applexxx  |
+ | bananayyy |
+ | orangezzz |
+ | pearxyz   |
+ *-----------*/
 ```
 
 [string-link-to-trim]: #trim
@@ -1979,11 +1981,11 @@ SELECT
   NORMALIZE_AND_CASEFOLD(a) = NORMALIZE_AND_CASEFOLD(b) as normalized_with_case_folding
 FROM (SELECT 'The red barn' AS a, 'The Red Barn' AS b);
 
-+--------------+--------------+------------+------------------------------+
-| a            | b            | normalized | normalized_with_case_folding |
-+--------------+--------------+------------+------------------------------+
-| The red barn | The Red Barn | false      | true                         |
-+--------------+--------------+------------+------------------------------+
+/*--------------+--------------+------------+------------------------------*
+ | a            | b            | normalized | normalized_with_case_folding |
+ +--------------+--------------+------------+------------------------------+
+ | The red barn | The Red Barn | false      | true                         |
+ *--------------+--------------+------------+------------------------------*/
 ```
 
 ```sql
@@ -1998,12 +2000,12 @@ SELECT a, b,
   NORMALIZE_AND_CASEFOLD(a, NFKC)=NORMALIZE_AND_CASEFOLD(b, NFKC) AS nkfc
 FROM Strings;
 
-+---+----+-------+-------+------+------+
-| a | b  | nfd   | nfc   | nkfd | nkfc |
-+---+----+-------+-------+------+------+
-| Ⅸ | IX | false | false | true | true |
-| Å | Å  | true  | true  | true | true |
-+---+----+-------+-------+------+------+
+/*---+----+-------+-------+------+------*
+ | a | b  | nfd   | nfc   | nkfd | nkfc |
+ +---+----+-------+-------+------+------+
+ | Ⅸ | IX | false | false | true | true |
+ | Å | Å  | true  | true  | true | true |
+ *---+----+-------+-------+------+------*/
 ```
 
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
@@ -2047,11 +2049,11 @@ points.
 SELECT a, b, a = b as normalized
 FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
 
-+---+---+------------+
-| a | b | normalized |
-+---+---+------------+
-| ê | ê | true       |
-+---+---+------------+
+/*---+---+------------*
+ | a | b | normalized |
+ +---+---+------------+
+ | ê | ê | true       |
+ *---+---+------------*/
 ```
 The following example normalizes different space characters.
 
@@ -2071,12 +2073,12 @@ SELECT
 FROM EquivalentNames
 GROUP BY 1;
 
-+-----------------+------------+
-| normalized_name | name_count |
-+-----------------+------------+
-| John Smith      | 2          |
-| Jane Doe        | 3          |
-+-----------------+------------+
+/*-----------------+------------*
+ | normalized_name | name_count |
+ +-----------------+------------+
+ | John Smith      | 2          |
+ | Jane Doe        | 3          |
+ *-----------------+------------*/
 ```
 
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
@@ -2128,13 +2130,13 @@ FROM
     AS addresses),
   UNNEST(addresses) AS email;
 
-+-----------------+----------+
-| email           | is_valid |
-+-----------------+----------+
-| foo@example.com | true     |
-| bar@example.org | true     |
-| www.example.net | false    |
-+-----------------+----------+
+/*-----------------+----------*
+ | email           | is_valid |
+ +-----------------+----------+
+ | foo@example.com | true     |
+ | bar@example.org | true     |
+ | www.example.net | false    |
+ *-----------------+----------*/
 
 -- Performs a full match, using ^ and $. Due to regular expression operator
 -- precedence, it is good practice to use parentheses around everything between ^
@@ -2151,15 +2153,15 @@ FROM
     AS addresses),
   UNNEST(addresses) AS email;
 
-+----------------+---------------------+---------------------+
-| email          | valid_email_address | without_parentheses |
-+----------------+---------------------+---------------------+
-| a@foo.com      | true                | true                |
-| a@foo.computer | false               | true                |
-| b@bar.org      | true                | true                |
-| !b@bar.org     | false               | true                |
-| c@buz.net      | false               | false               |
-+----------------+---------------------+---------------------+
+/*----------------+---------------------+---------------------*
+ | email          | valid_email_address | without_parentheses |
+ +----------------+---------------------+---------------------+
+ | a@foo.com      | true                | true                |
+ | a@foo.computer | false               | true                |
+ | b@bar.org      | true                | true                |
+ | !b@bar.org     | false               | true                |
+ | c@buz.net      | false               | false               |
+ *----------------+---------------------+---------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -2204,11 +2206,11 @@ SELECT
   REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
 FROM code_markdown;
 
-+----------------------------+
-| example                    |
-+----------------------------+
-| [function(x), function(y)] |
-+----------------------------+
+/*----------------------------*
+ | example                    |
+ +----------------------------+
+ | [function(x), function(y)] |
+ *----------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -2253,13 +2255,13 @@ SELECT
   AS user_name
 FROM email_addresses;
 
-+-----------+
-| user_name |
-+-----------+
-| foo       |
-| bar       |
-| baz       |
-+-----------+
+/*-----------*
+ | user_name |
+ +-----------+
+ | foo       |
+ | bar       |
+ | baz       |
+ *-----------*/
 ```
 
 ```sql
@@ -2275,13 +2277,13 @@ SELECT
   AS top_level_domain
 FROM email_addresses;
 
-+------------------+
-| top_level_domain |
-+------------------+
-| com              |
-| org              |
-| net              |
-+------------------+
+/*------------------*
+ | top_level_domain |
+ +------------------+
+ | com              |
+ | org              |
+ | net              |
+ *------------------*/
 ```
 
 ```sql
@@ -2294,14 +2296,14 @@ WITH
   )
 SELECT value, regex, REGEXP_EXTRACT(value, regex) AS result FROM characters;
 
-+-------+---------+----------+
-| value | regex   | result   |
-+-------+---------+----------+
-| ab    | .b      | ab       |
-| ab    | (.)b    | a        |
-| xyztb | (.)+b   | t        |
-| ab    | (z)?b   | NULL     |
-+-------+---------+----------+
+/*-------+---------+----------*
+ | value | regex   | result   |
+ +-------+---------+----------+
+ | ab    | .b      | ab       |
+ | ab    | (.)b    | a        |
+ | xyztb | (.)+b   | t        |
+ | ab    | (z)?b   | NULL     |
+ *-------+---------+----------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -2371,14 +2373,14 @@ WITH example AS (
 SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) AS instr
 FROM example;
 
-+---------------+--------+-------+
-| source_value  | regexp | instr |
-+---------------+--------+-------+
-| ab@gmail.com  | @[^.]* | 3     |
-| ab@mail.com   | @[^.]* | 3     |
-| abc@gmail.com | @[^.]* | 4     |
-| abc.com       | @[^.]* | 0     |
-+---------------+--------+-------+
+/*---------------+--------+-------*
+ | source_value  | regexp | instr |
+ +---------------+--------+-------+
+ | ab@gmail.com  | @[^.]* | 3     |
+ | ab@mail.com   | @[^.]* | 3     |
+ | abc@gmail.com | @[^.]* | 4     |
+ | abc.com       | @[^.]* | 0     |
+ *---------------+--------+-------*/
 ```
 
 ```sql
@@ -2392,14 +2394,14 @@ SELECT
   REGEXP_INSTR(source_value, regexp, position) AS instr
 FROM example;
 
-+-------------------------+--------+----------+-------+
-| source_value            | regexp | position | instr |
-+-------------------------+--------+----------+-------+
-| a@gmail.com b@gmail.com | @[^.]* | 1        | 2     |
-| a@gmail.com b@gmail.com | @[^.]* | 2        | 2     |
-| a@gmail.com b@gmail.com | @[^.]* | 3        | 14    |
-| a@gmail.com b@gmail.com | @[^.]* | 4        | 14    |
-+-------------------------+--------+----------+-------+
+/*-------------------------+--------+----------+-------*
+ | source_value            | regexp | position | instr |
+ +-------------------------+--------+----------+-------+
+ | a@gmail.com b@gmail.com | @[^.]* | 1        | 2     |
+ | a@gmail.com b@gmail.com | @[^.]* | 2        | 2     |
+ | a@gmail.com b@gmail.com | @[^.]* | 3        | 14    |
+ | a@gmail.com b@gmail.com | @[^.]* | 4        | 14    |
+ *-------------------------+--------+----------+-------*/
 ```
 
 ```sql
@@ -2413,13 +2415,13 @@ SELECT
   REGEXP_INSTR(source_value, regexp, position, occurrence) AS instr
 FROM example;
 
-+-------------------------------------+--------+----------+------------+-------+
-| source_value                        | regexp | position | occurrence | instr |
-+-------------------------------------+--------+----------+------------+-------+
-| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 1          | 2     |
-| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 2          | 14    |
-| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 3          | 26    |
-+-------------------------------------+--------+----------+------------+-------+
+/*-------------------------------------+--------+----------+------------+-------*
+ | source_value                        | regexp | position | occurrence | instr |
+ +-------------------------------------+--------+----------+------------+-------+
+ | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 1          | 2     |
+ | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 2          | 14    |
+ | a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 3          | 26    |
+ *-------------------------------------+--------+----------+------------+-------*/
 ```
 
 ```sql
@@ -2432,12 +2434,12 @@ SELECT
   REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) AS instr
 FROM example;
 
-+--------------+--------+----------+------------+------------+-------+
-| source_value | regexp | position | occurrence | o_position | instr |
-+--------------+--------+----------+------------+------------+-------+
-| a@gmail.com  | @[^.]* | 1        | 1          | 0          | 2     |
-| a@gmail.com  | @[^.]* | 1        | 1          | 1          | 8     |
-+--------------+--------+----------+------------+------------+-------+
+/*--------------+--------+----------+------------+------------+-------*
+ | source_value | regexp | position | occurrence | o_position | instr |
+ +--------------+--------+----------+------------+------------+-------+
+ | a@gmail.com  | @[^.]* | 1        | 1          | 0          | 2     |
+ | a@gmail.com  | @[^.]* | 1        | 1          | 1          | 8     |
+ *--------------+--------+----------+------------+------------+-------*/
 ```
 
 ### `REGEXP_MATCH`
@@ -2479,13 +2481,13 @@ SELECT
                AS valid_email_address
 FROM email_addresses;
 
-+-----------------------+---------------------+
-| email                 | valid_email_address |
-+-----------------------+---------------------+
-| foo@example.com       | true                |
-| bar@example.org       | true                |
-| notavalidemailaddress | false               |
-+-----------------------+---------------------+
+/*-----------------------+---------------------*
+ | email                 | valid_email_address |
+ +-----------------------+---------------------+
+ | foo@example.com       | true                |
+ | bar@example.org       | true                |
+ | notavalidemailaddress | false               |
+ *-----------------------+---------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -2538,12 +2540,12 @@ SELECT
   AS html
 FROM markdown;
 
-+--------------------------+
-| html                     |
-+--------------------------+
-| <h1>Heading</h1>         |
-| <h1>Another heading</h1> |
-+--------------------------+
+/*--------------------------*
+ | html                     |
+ +--------------------------+
+ | <h1>Heading</h1>         |
+ | <h1>Another heading</h1> |
+ *--------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -2579,14 +2581,14 @@ SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
   (null, 3)
 ]);
 
-+------+------+-----------+
-| t    | n    | REPEAT    |
-|------|------|-----------|
-| abc  | 3    | abcabcabc |
-| 例子 | 2    | 例子例子  |
-| abc  | NULL | NULL      |
-| NULL | 3    | NULL      |
-+------+------+-----------+
+/*------+------+-----------*
+ | t    | n    | REPEAT    |
+ |------|------|-----------|
+ | abc  | 3    | abcabcabc |
+ | 例子 | 2    | 例子例子  |
+ | abc  | NULL | NULL      |
+ | NULL | 3    | NULL      |
+ *------+------+-----------*/
 ```
 
 ### `REPLACE`
@@ -2622,13 +2624,13 @@ SELECT
   REPLACE (dessert, 'pie', 'cobbler') as example
 FROM desserts;
 
-+--------------------+
-| example            |
-+--------------------+
-| apple cobbler      |
-| blackberry cobbler |
-| cherry cobbler     |
-+--------------------+
+/*--------------------*
+ | example            |
+ +--------------------+
+ | apple cobbler      |
+ | blackberry cobbler |
+ | cherry cobbler     |
+ *--------------------*/
 ```
 
 ### `REVERSE`
@@ -2659,12 +2661,12 @@ SELECT
   REVERSE(sample_bytes) AS reverse_bytes
 FROM example;
 
-+---------------+----------------+--------------+---------------+
-| sample_string | reverse_string | sample_bytes | reverse_bytes |
-+---------------+----------------+--------------+---------------+
-| foo           | oof            | bar          | rab           |
-| абвгд         | дгвба          | 123          | 321           |
-+---------------+----------------+--------------+---------------+
+/*---------------+----------------+--------------+---------------*
+ | sample_string | reverse_string | sample_bytes | reverse_bytes |
+ +---------------+----------------+--------------+---------------+
+ | foo           | oof            | bar          | rab           |
+ | абвгд         | дгвба          | 123          | 321           |
+ *---------------+----------------+--------------+---------------*/
 ```
 
 ### `RIGHT`
@@ -2704,13 +2706,13 @@ SELECT 'абвгд' as example
 SELECT example, RIGHT(example, 3) AS right_example
 FROM examples;
 
-+---------+---------------+
-| example | right_example |
-+---------+---------------+
-| apple   | ple           |
-| banana  | ana           |
-| абвгд   | вгд           |
-+---------+---------------+
+/*---------+---------------*
+ | example | right_example |
+ +---------+---------------+
+ | apple   | ple           |
+ | banana  | ana           |
+ | абвгд   | вгд           |
+ *---------+---------------*/
 ```
 
 ```sql
@@ -2724,13 +2726,13 @@ SELECT b'\xab\xcd\xef\xaa\xbb' as example
 SELECT example, RIGHT(example, 3) AS right_example
 FROM examples;
 
-+----------------------+---------------+
-| example              | right_example |
-+----------------------+---------------+
-| apple                | ple           |
-| banana               | ana           |
-| \xab\xcd\xef\xaa\xbb | \xef\xaa\xbb  |
-+----------------------+---------------+
+/*----------------------+---------------*
+ | example              | right_example |
+ +----------------------+---------------+
+ | apple                | ple           |
+ | banana               | ana           |
+ | \xab\xcd\xef\xaa\xbb | \xef\xaa\xbb  |
+ *----------------------+---------------*
 ```
 
 ### `RPAD`
@@ -2777,13 +2779,13 @@ SELECT t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST([
   ('例子', 4)
 ]);
 
-+------+-----+----------+
-| t    | len | RPAD     |
-|------|-----|----------|
-| abc  | 5   | "abc  "  |
-| abc  | 2   | "ab"     |
-| 例子  | 4   | "例子  " |
-+------+-----+----------+
+/*------+-----+----------*
+ | t    | len | RPAD     |
+ +------+-----+----------+
+ | abc  | 5   | "abc  "  |
+ | abc  | 2   | "ab"     |
+ | 例子  | 4   | "例子  " |
+ *------+-----+----------*/
 ```
 
 ```sql
@@ -2793,13 +2795,13 @@ SELECT t, len, pattern, FORMAT('%T', RPAD(t, len, pattern)) AS RPAD FROM UNNEST(
   ('例子', 5, '中文')
 ]);
 
-+------+-----+---------+--------------+
-| t    | len | pattern | RPAD         |
-|------|-----|---------|--------------|
-| abc  | 8   | def     | "abcdefde"   |
-| abc  | 5   | -       | "abc--"      |
-| 例子  | 5   | 中文     | "例子中文中"  |
-+------+-----+---------+--------------+
+/*------+-----+---------+--------------*
+ | t    | len | pattern | RPAD         |
+ +------+-----+---------+--------------+
+ | abc  | 8   | def     | "abcdefde"   |
+ | abc  | 5   | -       | "abc--"      |
+ | 例子  | 5   | 中文     | "例子中文中"  |
+ *------+-----+---------+--------------*/
 ```
 
 ```sql
@@ -2809,13 +2811,13 @@ SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST
   (b'\xab\xcd\xef', 4)
 ]);
 
-+-----------------+-----+------------------+
-| t               | len | RPAD             |
-|-----------------|-----|------------------|
-| b"abc"          | 5   | b"abc  "         |
-| b"abc"          | 2   | b"ab"            |
-| b"\xab\xcd\xef" | 4   | b"\xab\xcd\xef " |
-+-----------------+-----+------------------+
+/*-----------------+-----+------------------*
+ | t               | len | RPAD             |
+ +-----------------+-----+------------------+
+ | b"abc"          | 5   | b"abc  "         |
+ | b"abc"          | 2   | b"ab"            |
+ | b"\xab\xcd\xef" | 4   | b"\xab\xcd\xef " |
+ *-----------------+-----+------------------*/
 ```
 
 ```sql
@@ -2830,13 +2832,13 @@ FROM UNNEST([
   (b'\xab\xcd\xef', 5, b'\x00')
 ]);
 
-+-----------------+-----+---------+-------------------------+
-| t               | len | pattern | RPAD                    |
-|-----------------|-----|---------|-------------------------|
-| b"abc"          | 8   | b"def"  | b"abcdefde"             |
-| b"abc"          | 5   | b"-"    | b"abc--"                |
-| b"\xab\xcd\xef" | 5   | b"\x00" | b"\xab\xcd\xef\x00\x00" |
-+-----------------+-----+---------+-------------------------+
+/*-----------------+-----+---------+-------------------------*
+ | t               | len | pattern | RPAD                    |
+ +-----------------+-----+---------+-------------------------+
+ | b"abc"          | 8   | b"def"  | b"abcdefde"             |
+ | b"abc"          | 5   | b"-"    | b"abc--"                |
+ | b"\xab\xcd\xef" | 5   | b"\x00" | b"\xab\xcd\xef\x00\x00" |
+ *-----------------+-----+---------+-------------------------*/
 ```
 
 ### `RTRIM`
@@ -2867,13 +2869,13 @@ SELECT
   RTRIM(item, '*') as example
 FROM items;
 
-+-----------+
-| example   |
-+-----------+
-| ***apple  |
-| ***banana |
-| ***orange |
-+-----------+
+/*-----------*
+ | example   |
+ +-----------+
+ | ***apple  |
+ | ***banana |
+ | ***orange |
+ *-----------*/
 ```
 
 ```sql
@@ -2890,14 +2892,14 @@ SELECT
   RTRIM(item, 'xyz') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| apple   |
-| banana  |
-| orange  |
-| pear    |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | apple   |
+ | banana  |
+ | orange  |
+ | pear    |
+ *---------*/
 ```
 
 [string-link-to-trim]: #trim
@@ -2965,18 +2967,18 @@ WITH example AS (
 SELECT value, SOUNDEX(value) AS soundex
 FROM example;
 
-+----------------------+---------+
-| value                | soundex |
-+----------------------+---------+
-| Ashcraft             | A261    |
-| Raven                | R150    |
-| Ribbon               | R150    |
-| apple                | a140    |
-| Hello world!         | H464    |
-|   H3##!@llo w00orld! | H464    |
-| #1                   |         |
-| NULL                 | NULL    |
-+----------------------+---------+
+/*----------------------+---------*
+ | value                | soundex |
+ +----------------------+---------+
+ | Ashcraft             | A261    |
+ | Raven                | R150    |
+ | Ribbon               | R150    |
+ | apple                | a140    |
+ | Hello world!         | H464    |
+ |   H3##!@llo w00orld! | H464    |
+ | #1                   |         |
+ | NULL                 | NULL    |
+ *----------------------+---------*/
 ```
 
 [string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
@@ -3023,13 +3025,13 @@ WITH letters AS
 SELECT SPLIT(letter_group, ' ') as example
 FROM letters;
 
-+----------------------+
-| example              |
-+----------------------+
-| []                   |
-| [a]                  |
-| [b, c, d]            |
-+----------------------+
+/*----------------------*
+ | example              |
+ +----------------------+
+ | []                   |
+ | [a]                  |
+ | [b, c, d]            |
+ *----------------------*/
 ```
 
 ### `STARTS_WITH`
@@ -3065,13 +3067,13 @@ SELECT
   STARTS_WITH(item, 'b') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-|   False |
-|    True |
-|    True |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |   False |
+ |    True |
+ |    True |
+ *---------*/
 ```
 
 ### `STRPOS`
@@ -3113,14 +3115,14 @@ SELECT
   STRPOS(email_address, '@') AS example
 FROM email_addresses;
 
-+---------+
-| example |
-+---------+
-|       4 |
-|       7 |
-|      10 |
-|       0 |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |       4 |
+ |       7 |
+ |      10 |
+ |       0 |
+ *---------*/
 ```
 
 ### `SUBSTR`
@@ -3173,13 +3175,13 @@ SELECT
   SUBSTR(item, 2) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| pple    |
-| anana   |
-| range   |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | pple    |
+ | anana   |
+ | range   |
+ *---------*/
 ```
 
 ```sql
@@ -3194,13 +3196,13 @@ SELECT
   SUBSTR(item, 2, 2) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| pp      |
-| an      |
-| ra      |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | pp      |
+ | an      |
+ | ra      |
+ *---------*/
 ```
 
 ```sql
@@ -3215,13 +3217,13 @@ SELECT
   SUBSTR(item, -2) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| le      |
-| na      |
-| ge      |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | le      |
+ | na      |
+ | ge      |
+ *---------*/
 ```
 
 ```sql
@@ -3236,13 +3238,13 @@ SELECT
   SUBSTR(item, 1, 123) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| apple   |
-| banana  |
-| orange  |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | apple   |
+ | banana  |
+ | orange  |
+ *---------*/
 ```
 
 ```sql
@@ -3257,13 +3259,13 @@ SELECT
   SUBSTR(item, 123) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-|         |
-|         |
-|         |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |         |
+ |         |
+ |         |
+ *---------*/
 ```
 
 ```sql
@@ -3278,13 +3280,13 @@ SELECT
   SUBSTR(item, 123, 5) as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-|         |
-|         |
-|         |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ |         |
+ |         |
+ |         |
+ *---------*/
 ```
 
 ### `SUBSTRING`
@@ -3317,11 +3319,11 @@ base32-encoded `STRING` into `BYTES`, use [FROM_BASE32][string-link-to-from-base
 ```sql
 SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 
-+------------------+
-| base32_string    |
-+------------------+
-| MFRGGZDF74====== |
-+------------------+
+/*------------------*
+ | base32_string    |
+ +------------------+
+ | MFRGGZDF74====== |
+ *------------------*/
 ```
 
 [string-link-to-from-base32]: #from_base32
@@ -3351,11 +3353,11 @@ function adds padding and uses the alphabet `[A-Za-z0-9+/=]`.
 ```sql
 SELECT TO_BASE64(b'\377\340') AS base64_string;
 
-+---------------+
-| base64_string |
-+---------------+
-| /+A=          |
-+---------------+
+/*---------------*
+ | base64_string |
+ +---------------+
+ | /+A=          |
+ *---------------*/
 ```
 
 To work with an encoding using a different base64 alphabet, you might need to
@@ -3367,11 +3369,11 @@ uses `-_=` as the last characters rather than `+/=`. To encode a
 ```sql
 SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_base64;
 
-+----------------+
-| websafe_base64 |
-+----------------+
-| _-A=           |
-+----------------+
+/*----------------*
+ | websafe_base64 |
+ +----------------+
+ | _-A=           |
+ *----------------*/
 ```
 
 [string-link-to-from-base64]: #from_base64
@@ -3412,15 +3414,15 @@ words.
 SELECT word, TO_CODE_POINTS(word) AS code_points
 FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word;
 
-+---------+------------------------------------+
-| word    | code_points                        |
-+---------+------------------------------------+
-| foo     | [102, 111, 111]                    |
-| bar     | [98, 97, 114]                      |
-| baz     | [98, 97, 122]                      |
-| giraffe | [103, 105, 114, 97, 102, 102, 101] |
-| llama   | [108, 108, 97, 109, 97]            |
-+---------+------------------------------------+
+/*---------+------------------------------------*
+ | word    | code_points                        |
+ +---------+------------------------------------+
+ | foo     | [102, 111, 111]                    |
+ | bar     | [98, 97, 114]                      |
+ | baz     | [98, 97, 122]                      |
+ | giraffe | [103, 105, 114, 97, 102, 102, 101] |
+ | llama   | [108, 108, 97, 109, 97]            |
+ *---------+------------------------------------*/
 ```
 
 The following example converts integer representations of `BYTES` to their
@@ -3430,12 +3432,12 @@ corresponding ASCII character values.
 SELECT word, TO_CODE_POINTS(word) AS bytes_value_as_integer
 FROM UNNEST([b'\x00\x01\x10\xff', b'\x66\x6f\x6f']) AS word;
 
-+------------------+------------------------+
-| word             | bytes_value_as_integer |
-+------------------+------------------------+
-| \x00\x01\x10\xff | [0, 1, 16, 255]        |
-| foo              | [102, 111, 111]        |
-+------------------+------------------------+
+/*------------------+------------------------*
+ | word             | bytes_value_as_integer |
+ +------------------+------------------------+
+ | \x00\x01\x10\xff | [0, 1, 16, 255]        |
+ | foo              | [102, 111, 111]        |
+ *------------------+------------------------*/
 ```
 
 The following example demonstrates the difference between a `BYTES` result and a
@@ -3444,11 +3446,11 @@ The following example demonstrates the difference between a `BYTES` result and a
 ```sql
 SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
 
-+------------+----------+
-| b_result   | s_result |
-+------------+----------+
-| [196, 128] | [256]    |
-+------------+----------+
+/*------------+----------*
+ | b_result   | s_result |
+ +------------+----------+
+ | [196, 128] | [256]    |
+ *------------+----------*/
 ```
 
 Notice that the character, Ā, is represented as a two-byte Unicode sequence. As
@@ -3488,12 +3490,12 @@ WITH Input AS (
 SELECT byte_str, TO_HEX(byte_str) AS hex_str
 FROM Input;
 
-+----------------------------------+------------------+
-| byte_string                      | hex_string       |
-+----------------------------------+------------------+
-| \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
-| foobar                           | 666f6f626172     |
-+----------------------------------+------------------+
+/*----------------------------------+------------------*
+ | byte_string                      | hex_string       |
+ +----------------------------------+------------------+
+ | \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
+ | foobar                           | 666f6f626172     |
+ *----------------------------------+------------------*/
 ```
 
 [string-link-to-from-hex]: #from_hex
@@ -3534,12 +3536,12 @@ SELECT expression, source_characters, target_characters, TRANSLATE(expression,
 source_characters, target_characters) AS translate
 FROM example;
 
-+------------------+-------------------+-------------------+------------------+
-| expression       | source_characters | target_characters | translate        |
-+------------------+-------------------+-------------------+------------------+
-| This is a cookie | sco               | zku               | Thiz iz a kuukie |
-| A coaster        | co                | k                 | A kaster         |
-+------------------+-------------------+-------------------+------------------+
+/*------------------+-------------------+-------------------+------------------*
+ | expression       | source_characters | target_characters | translate        |
+ +------------------+-------------------+-------------------+------------------+
+ | This is a cookie | sco               | zku               | Thiz iz a kuukie |
+ | A coaster        | co                | k                 | A kaster         |
+ *------------------+-------------------+-------------------+------------------*/
 ```
 
 ### `TRIM`
@@ -3583,13 +3585,13 @@ SELECT
   CONCAT('#', TRIM(item), '#') as example
 FROM items;
 
-+----------+
-| example  |
-+----------+
-| #apple#  |
-| #banana# |
-| #orange# |
-+----------+
+/*----------*
+ | example  |
+ +----------+
+ | #apple#  |
+ | #banana# |
+ | #orange# |
+ *----------*/
 ```
 
 In the following example, all leading and trailing `*` characters are removed
@@ -3607,13 +3609,13 @@ SELECT
   TRIM(item, '*') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| apple   |
-| banana  |
-| orange  |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | apple   |
+ | banana  |
+ | orange  |
+ *---------*/
 ```
 
 In the following example, all leading and trailing `x`, `y`, and `z` characters
@@ -3633,14 +3635,14 @@ SELECT
   TRIM(item, 'xyz') as example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| apple   |
-| banana  |
-| orange  |
-| pear    |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | apple   |
+ | banana  |
+ | orange  |
+ | pear    |
+ *---------*/
 ```
 
 In the following example, examine how `TRIM` interprets characters as
@@ -3655,11 +3657,11 @@ SELECT
   TRIM('abaŪ̊', 'Y̊') AS c,
   TRIM('Ū̊aba', 'Y̊') AS d;
 
-+---------------------------+
-| a    | b    | c    | d    |
-+---------------------------+
-| abaW | W̊aba | abaŪ | Ūaba |
-+---------------------------+
+/*------+------+------+------*
+ | a    | b    | c    | d    |
+ +------+------+------+------+
+ | abaW | W̊aba | abaŪ | Ūaba |
+ *------+------+------+------*/
 ```
 
 In the following example, all leading and trailing `b'n'`, `b'a'`, `b'\xab'`
@@ -3675,13 +3677,13 @@ WITH items AS
 SELECT item, TRIM(item, b'na\xab') AS examples
 FROM items;
 
-+----------------------+------------------+
-| item                 | example          |
-+----------------------+------------------+
-| apple                | pple             |
-| banana               | b                |
-| \xab\xcd\xef\xaa\xbb | \xcd\xef\xaa\xbb |
-+----------------------+------------------+
+/*----------------------+------------------*
+ | item                 | example          |
+ +----------------------+------------------+
+ | apple                | pple             |
+ | banana               | b                |
+ | \xab\xcd\xef\xaa\xbb | \xcd\xef\xaa\xbb |
+ *----------------------+------------------*/
 ```
 
 ### `UNICODE`
@@ -3705,11 +3707,11 @@ point is `0`.
 ```sql
 SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL) as D;
 
-+-------+-------+-------+-------+
-| A     | B     | C     | D     |
-+-------+-------+-------+-------+
-| 226   | 226   | 0     | NULL  |
-+-------+-------+-------+-------+
+/*-------+-------+-------+-------*
+ | A     | B     | C     | D     |
+ +-------+-------+-------+-------+
+ | 226   | 226   | 0     | NULL  |
+ *-------+-------+-------+-------*/
 ```
 
 [string-code-point]: https://en.wikipedia.org/wiki/Code_point
@@ -3752,13 +3754,13 @@ SELECT
   UPPER(item) AS example
 FROM items;
 
-+---------+
-| example |
-+---------+
-| FOO     |
-| BAR     |
-| BAZ     |
-+---------+
+/*---------*
+ | example |
+ +---------+
+ | FOO     |
+ | BAR     |
+ | BAZ     |
+ *---------*/
 ```
 
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/

@@ -85,9 +85,13 @@ ARRAY<STRUCT<STRING>>[{"0.1A-50001-01-01true1999-12-31 23:59:59.999-08"}]
 SELECT CONCAT(@pbool, @pint, @pdouble, @pdate)
 --
 ARRAY<STRUCT<STRING>>[{"false-3219.8761999-11-22"}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=concat_operator]
 [parameters=123 as num]
 SELECT date '2000-01-01' || ' ' || (1 > 0) || @num || ' ,pi=' || round(acos(0.0)*2,8)
 --
 ARRAY<STRUCT<STRING>>[{"2000-01-01 true123 ,pi=3.14159265"}]
+
+NOTE: Reference implementation reports non-determinism.

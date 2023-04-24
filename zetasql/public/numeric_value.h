@@ -84,13 +84,16 @@ class NumericValue final {
   // in little endian byte order, using 2's complement encoding for negative
   // values (the last byte's highest bit determines the sign). For example, if
   // little_endian_value = "\x00\xff" and scale = 5, then the result is
-  // -256 / pow(10, 5). When the result has more than 9 digits in the
-  // fractional part, the result will be rounded half away from zero if
-  // allow_rounding is true, or an error will be returned if allow_rounding is
-  // false. This method is not optimized for performance, and is much slower
-  // than FromScaledValue(int64_t), FromPackedInt and FromHighAndLowBits.
+  // -256 / pow(10, 5). When the result has more than the fractional digits to
+  // keep, the result will be rounded using round_half_away_from_zero, or
+  // round_half_even if specified, only if allow_rounding is true. If
+  // allow_rounding is false and the result has more than the fractional digits
+  // to keep, an error will be returned. This method
+  // is not optimized for performance, and is much slower than
+  // FromScaledValue(int64_t), FromPackedInt and FromHighAndLowBits.
   static absl::StatusOr<NumericValue> FromScaledLittleEndianValue(
-      absl::string_view little_endian_value, int scale, bool allow_rounding);
+      absl::string_view little_endian_value, int source_scale,
+      int fractional_digits_to_keep, bool allow_rounding, bool round_half_even);
 
   // Returns <*this> / pow(10, kMaxFractionalDigits - <scale>), or an error
   // if <scale> is not in the supported range [0, kMaxFractionalDigits].
@@ -589,13 +592,16 @@ class BigNumericValue final {
   // in little endian byte order, using 2's complement encoding for negative
   // values (the last byte's highest bit determines the sign). For example, if
   // little_endian_value = "\x00\xff" and scale = 5, then the result is
-  // -256 / pow(10, 5). When the result has more than 38 digits in the
-  // fractional part, the result will be rounded half away from zero if
-  // allow_rounding is true, or an error will be returned if allow_rounding is
-  // false. This method is not optimized for performance, and is much slower
-  // than FromScaledValue(__int128) and FromPackedLittleEndianArray.
+  // -256 / pow(10, 5). When the result has more than the fractional digits to
+  // keep, the result will be rounded using round_half_away_from_zero, or
+  // round_half_even if specified, and only if allow_rounding is true. If
+  // allow_rounding is false and the result has more than the fractional digits
+  // to keep, an error will be returned if allow_rounding is false. This method
+  // is not optimized for performance, and is much slower than
+  // FromScaledValue(__int128) and FromPackedLittleEndianArray.
   static absl::StatusOr<BigNumericValue> FromScaledLittleEndianValue(
-      absl::string_view little_endian_value, int scale, bool allow_rounding);
+      absl::string_view little_endian_value, int source_scale,
+      int fractional_digits_to_keep, bool allow_rounding, bool round_half_even);
 
   // Returns <*this> / pow(10, kMaxFractionalDigits - <scale>), or an error
   // if <scale> is not in the supported range [0, kMaxFractionalDigits].

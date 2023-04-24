@@ -112,6 +112,8 @@ ARRAY<STRUCT<bool_val BOOL,
   {true, 8, 4, 2.75, 1.5, 2.666666667, 3, 0.5},
   {true, 10, 3, 2.75, 1.833333333, 2.75, 2, 2.5}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # According to the compliance test for the aggregate AVG, AVG can produce either
@@ -473,6 +475,8 @@ ARRAY<STRUCT<bool_val BOOL,
   {true, 6, 2, 2, NULL, 2.75, 2, 3, 1.375},
   {true, 2, 2, 3, 1.5, 2.75, 2, 3, 1.375}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # When partitioning by int64_val, some of the partitions now take the AVG

@@ -365,13 +365,6 @@ absl::StatusOr<TVFRelation> TVFRelation::Deserialize(
   }
 }
 
-absl::StatusOr<TVFRelation> TVFRelation::Deserialize(
-    const TVFRelationProto& proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory) {
-  return TVFRelation::Deserialize(proto, TypeDeserializer(factory, pools));
-}
-
 bool operator==(const TVFSchemaColumn& a, const TVFSchemaColumn& b) {
   return a.name == b.name && a.is_pseudo_column == b.is_pseudo_column &&
          (a.type == b.type ||

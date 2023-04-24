@@ -198,9 +198,3 @@ known_errors {
   label: "regression_test:b/228574862_1"
   label: "regression_test:b/228574862_2"
 }
-
-known_errors {
-  mode: ALLOW_UNIMPLEMENTED
-  label: "range_constructors_test:.*"
-  label: "code:RangeComparisons*"
-}

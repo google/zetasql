@@ -420,7 +420,8 @@ typedef absl::node_hash_set<std::string, std::hash<std::string>,
 typedef absl::node_hash_set<const char*, test_hash<const char*>, streq,
                             ArenaAllocator<const char*, UnsafeArena> >
     CStringHSet;
-typedef absl::node_hash_set<uint32_t, std::hash<uint32_t>, std::equal_to<uint32_t>,
+typedef absl::node_hash_set<uint32_t, std::hash<uint32_t>,
+                            std::equal_to<uint32_t>,
                             ArenaAllocator<uint32_t, UnsafeArena> >
     IntHSet;
 typedef std::set<std::string, std::less<std::string>,
@@ -428,7 +429,8 @@ typedef std::set<std::string, std::less<std::string>,
     StringSet;
 typedef std::set<char*, strlt, ArenaAllocator<char*, UnsafeArena> > CStringSet;
 typedef std::set<uint32_t, std::less<uint32_t>,
-  ArenaAllocator<uint32_t, UnsafeArena> > IntSet;
+                 ArenaAllocator<uint32_t, UnsafeArena> >
+    IntSet;
 typedef std::vector<std::string, ArenaAllocator<std::string, UnsafeArena> >
     StringVec;
 typedef std::vector<const char*, ArenaAllocator<const char*, UnsafeArena> >
@@ -460,12 +462,10 @@ TEST(ArenaTest, STL) {
       "abided",       "abides",       "abiding"};
 
   static const uint32_t test_ints[] = {
-    53,         97,         193,       389,       769,
-    1543,       3079,       6151,      12289,     24593,
-    49157,      98317,      196613,    393241,    786433,
-    1572869,    3145739,    6291469,   12582917,  25165843,
-    50331653,   100663319,  201326611, 402653189, 805306457,
-    1610612741};
+      53,        97,        193,       389,       769,       1543,     3079,
+      6151,      12289,     24593,     49157,     98317,     196613,   393241,
+      786433,    1572869,   3145739,   6291469,   12582917,  25165843, 50331653,
+      100663319, 201326611, 402653189, 805306457, 1610612741};
 
   // Observe that although this definition is natural, used carelessly
   // it can leak memory.  How?  A string is not a atomic type and its

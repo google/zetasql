@@ -311,6 +311,8 @@ SELECT DISTINCT
 from TableAllNull
 --
 ARRAY<STRUCT<float_val FLOAT, double_val DOUBLE>>[{NULL, NULL}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 
@@ -391,6 +393,8 @@ from (select cast(1.0 as float) FLOAT union all
       select cast(NULL as float)) val
 --
 ARRAY<STRUCT<FLOAT FLOAT>>[{NULL}, {-1}, {1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_double]
@@ -403,6 +407,8 @@ from (select cast(1.0 as double) DOUBLE union all
       select cast(NULL as double)) val
 --
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{NULL}, {-1}, {1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_string]
@@ -566,6 +572,8 @@ from (select -0.0 DOUBLE union all
       select cast("+0.0" as DOUBLE)) val
 --
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{0}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_positive_infinities]
@@ -580,6 +588,8 @@ from (select IEEE_DIVIDE(1, 0) DOUBLE union all
       select CAST("Inf" as DOUBLE)) val
 --
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{inf}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_negative_infinities]
@@ -591,6 +601,8 @@ from (select IEEE_DIVIDE(-1, 0) DOUBLE union all
       select CAST("-Inf" as DOUBLE)) val
 --
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{-inf}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_nan]
@@ -607,6 +619,8 @@ from (select TAN(IEEE_DIVIDE(1, 0)) NAN union all
       select -cast("NAN" as DOUBLE)) val
 --
 ARRAY<STRUCT<NAN DOUBLE>>[{nan}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_doubles]
@@ -660,6 +674,8 @@ from (select -0.0 DOUBLE union all
       select -cast("NAN" as DOUBLE)) val
 --
 ARRAY<STRUCT<DOUBLE DOUBLE>>[{NULL}, {nan}, {-inf}, {-1}, {0}, {1}, {inf}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # -------------------
@@ -688,6 +704,8 @@ from (select cast(-0.0 as float) FLOAT union all
       select cast("+0.0" as float)) val
 --
 ARRAY<STRUCT<FLOAT FLOAT>>[{0}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_positive_infinities_float]
@@ -702,6 +720,8 @@ from (select cast(IEEE_DIVIDE(1, 0) as float) FLOAT union all
       select CAST("Inf" as float)) val
 --
 ARRAY<STRUCT<FLOAT FLOAT>>[{inf}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_negative_infinities_float]
@@ -713,6 +733,8 @@ from (select cast(IEEE_DIVIDE(-1, 0) as float) FLOAT union all
       select CAST("-Inf" as float)) val
 --
 ARRAY<STRUCT<FLOAT FLOAT>>[{-inf}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_nan_float]
@@ -729,6 +751,8 @@ from (select cast(TAN(IEEE_DIVIDE(1, 0)) as float) NAN union all
       select -cast("NAN" as float)) val
 --
 ARRAY<STRUCT<NAN FLOAT>>[{nan}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_floats]
@@ -778,6 +802,8 @@ from (select cast(-0.0 as float) FLOAT union all
       select -cast("NAN" as float)) val
 --
 ARRAY<STRUCT<FLOAT FLOAT>>[{nan}, {-inf}, {-1}, {0}, {1}, {inf}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=distinct_groupby_aggregate_input]
@@ -914,6 +940,8 @@ select count(*)
 from (SELECT DISTINCT distinct_16 from TableDistincts LIMIT 8)
 --
 ARRAY<STRUCT<INT64>>[{8}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=limit_on_distinct_2]
@@ -921,6 +949,8 @@ select count(*)
 from (SELECT DISTINCT distinct_8 from TableDistincts LIMIT 8)
 --
 ARRAY<STRUCT<INT64>>[{8}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=limit_on_distinct_3]
@@ -935,6 +965,8 @@ SELECT DISTINCT *
 from (select distinct_1 from TableDistincts LIMIT 8)
 --
 ARRAY<STRUCT<distinct_1 INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=offset_on_distinct]
@@ -942,3 +974,5 @@ select count(*)
 from (SELECT DISTINCT distinct_4 from TableDistincts LIMIT 4 OFFSET 3)
 --
 ARRAY<STRUCT<INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.

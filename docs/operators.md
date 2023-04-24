@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Operators
 
 ZetaSQL supports operators.
@@ -376,11 +378,11 @@ WITH orders AS (
 )
 SELECT t.customer.address.country FROM orders AS t;
 
-+---------+
-| country |
-+---------+
-| Canada  |
-+---------+
+/*---------*
+ | country |
+ +---------+
+ | Canada  |
+ *---------*/
 ```
 
 ### Array subscript operator 
@@ -443,11 +445,11 @@ SELECT
   item_array[SAFE_OFFSET(6)] AS item_safe_offset
 FROM Items
 
-+---------------------+------------+-------------+--------------+------------------+
-| item_array          | item_index | item_offset | item_ordinal | item_safe_offset |
-+---------------------+------------+-------------+--------------+------------------+
-| [coffee, tea, milk] | coffee     | coffee      | coffee       | NULL             |
-+----------------------------------+-------------+--------------+------------------+
+/*---------------------+------------+-------------+--------------+------------------*
+ | item_array          | item_index | item_offset | item_ordinal | item_safe_offset |
+ +---------------------+------------+-------------+--------------+------------------+
+ | [coffee, tea, milk] | coffee     | coffee      | coffee       | NULL             |
+ *----------------------------------+-------------+--------------+------------------*/
 ```
 
 When you reference an index that is out of range in an array, and a positional
@@ -524,11 +526,11 @@ SELECT
   item_struct[ORDINAL(1)] AS field_ordinal
 FROM Items
 
-+-------------+--------------+---------------+
-| field_index | field_offset | field_ordinal |
-+-------------+--------------+---------------+
-| 23          | 23           | 23            |
-+-------------+--------------+---------------+
+/*-------------+--------------+---------------*
+ | field_index | field_offset | field_ordinal |
+ +-------------+--------------+---------------+
+ | 23          | 23           | 23            |
+ *-------------+--------------+---------------*/
 ```
 
 When you reference an index that is out of range in a struct, an error is
@@ -608,13 +610,13 @@ FROM
       JSON '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'])
     AS json_value;
 
-+-----------------+
-| first_student   |
-+-----------------+
-| "Jane"          |
-| NULL            |
-| "John"          |
-+-----------------+
+/*-----------------*
+ | first_student   |
+ +-----------------+
+ | "Jane"          |
+ | NULL            |
+ | "John"          |
+ *-----------------*/
 ```
 
 ### Protocol buffer map subscript operator 
@@ -671,11 +673,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+-----------+
-| map_value |
-+-----------+
-| 2         |
-+-----------+
+/*-----------*
+ | map_value |
+ +-----------+
+ | 2         |
+ *-----------*/
 ```
 
 When the key does not exist in the map field and you use `KEY`, an error is
@@ -698,11 +700,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+------------------+
-| safe_key_missing |
-+------------------+
-| NULL             |
-+------------------+
+/*------------------*
+ | safe_key_missing |
+ +------------------+
+ | NULL             |
+ *------------------*/
 ```
 
 The subscript operator returns `NULL` when the map field or key is `NULL`.
@@ -715,11 +717,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-+-----------------------+
-| null_map  | null_key  |
-+-----------------------+
-| NULL      | NULL      |
-+-----------------------+
+/*-----------------------*
+ | null_map  | null_key  |
+ +-----------------------+
+ | NULL      | NULL      |
+ *-----------------------*/
 ```
 
 ### Array elements field access operator 
@@ -871,11 +873,11 @@ WITH
   )
 SELECT * FROM T;
 
-+----------------------------------------------+
-| my_array                                     |
-+----------------------------------------------+
-| [{[{[25, 75] prices}, {[30] prices}] sales}] |
-+----------------------------------------------+
+/*----------------------------------------------*
+ | my_array                                     |
+ +----------------------------------------------+
+ | [{[{[25, 75] prices}, {[30] prices}] sales}] |
+ *----------------------------------------------*/
 ```
 
 This is what the array elements field access operator looks like in the
@@ -884,11 +886,11 @@ This is what the array elements field access operator looks like in the
 ```sql
 SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM T;
 
-+--------------+
-| all_prices   |
-+--------------+
-| [25, 75, 30] |
-+--------------+
+/*--------------*
+ | all_prices   |
+ +--------------+
+ | [25, 75, 30] |
+ *--------------*/
 ```
 
 This is how you use the array subscript operator to only return values at a
@@ -897,11 +899,11 @@ specific index in the `prices` array:
 ```sql
 SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM T;
 
-+--------------+
-| first_prices |
-+--------------+
-| [25, 30]     |
-+--------------+
+/*--------------*
+ | first_prices |
+ +--------------+
+ | [25, 30]     |
+ *--------------*/
 ```
 
 This is an example of an explicit `UNNEST` operation that includes the
@@ -910,13 +912,13 @@ array elements field access operator:
 ```sql
 SELECT all_prices FROM T, UNNEST(my_array.sales.prices) AS all_prices
 
-+------------+
-| all_prices |
-+------------+
-| 25         |
-| 75         |
-| 30         |
-+------------+
+/*------------*
+ | all_prices |
+ +------------+
+ | 25         |
+ | 75         |
+ | 30         |
+ *------------*/
 ```
 
 This is an example of an implicit `UNNEST` operation that includes the
@@ -925,13 +927,13 @@ array elements field access operator:
 ```sql
 SELECT all_prices FROM T, T.my_array.sales.prices AS all_prices
 
-+------------+
-| all_prices |
-+------------+
-| 25         |
-| 75         |
-| 30         |
-+------------+
+/*------------*
+ | all_prices |
+ +------------+
+ | 25         |
+ | 75         |
+ | 30         |
+ *------------*/
 ```
 
 This query produces an error because one of the `prices` arrays does not have
@@ -949,11 +951,11 @@ produces a `NULL` value instead of an error.
 ```sql
 SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM T;
 
-+---------------+
-| second_prices |
-+---------------+
-| [75, NULL]    |
-+---------------+
+/*---------------*
+ | second_prices |
+ +---------------+
+ | [75, NULL]    |
+ *---------------*/
 ```
 
 In this next example, an empty array and a `NULL` field value have been added to
@@ -976,11 +978,11 @@ WITH
   )
 SELECT FLATTEN(my_array.sales.prices) AS first_prices FROM T;
 
-+--------------+
-| first_prices |
-+--------------+
-| [25, 75, 30] |
-+--------------+
+/*--------------*
+ | first_prices |
+ +--------------+
+ | [25, 75, 30] |
+ *--------------*/
 ```
 
 The next examples in this section reference a protocol buffer called
@@ -1019,11 +1021,11 @@ WITH
   )
 SELECT FLATTEN(albums_array.song) AS songs FROM AlbumList
 
-+------------------------------+
-| songs                        |
-+------------------------------+
-| [North,South,Snow,Ice,Water] |
-+------------------------------+
+/*------------------------------*
+ | songs                        |
+ +------------------------------+
+ | [North,South,Snow,Ice,Water] |
+ *------------------------------*/
 ```
 
 The following example extracts a flattened array of album names, one album name
@@ -1053,12 +1055,12 @@ WITH
   )
 SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
 
-+----------------------+
-| names                |
-+----------------------+
-| One Way              |
-| After Hours          |
-+----------------------+
+/*----------------------*
+ | names                |
+ +----------------------+
+ | One Way              |
+ | After Hours          |
+ *----------------------*/
 ```
 
 ### Arithmetic operators
@@ -1225,11 +1227,11 @@ days.
 ```sql
 SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 
-+------------+------------+
-| day_later  | week_ago   |
-+------------+------------+
-| 2020-09-23 | 2020-09-15 |
-+------------+------------+
+/*------------+------------*
+ | day_later  | week_ago   |
+ +------------+------------+
+ | 2020-09-23 | 2020-09-15 |
+ *------------+------------*/
 ```
 
 ### Datetime subtraction
@@ -1255,11 +1257,11 @@ SELECT
   DATE "2021-05-20" - DATE "2020-04-19" AS date_diff,
   TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00" AS time_diff
 
-+-------------------+------------------------+
-| date_diff         | time_diff              |
-+-------------------+------------------------+
-| 0-0 396 0:0:0     | 0-0 0 36:34:56.789     |
-+-------------------+------------------------+
+/*-------------------+------------------------*
+ | date_diff         | time_diff              |
+ +-------------------+------------------------+
+ | 0-0 396 0:0:0     | 0-0 0 36:34:56.789     |
+ *-------------------+------------------------*/
 ```
 
 ### Interval arithmetic operators
@@ -1288,11 +1290,11 @@ SELECT
   DATE "2021-04-20" + INTERVAL 25 HOUR AS date_plus,
   TIMESTAMP "2021-05-02 00:01:02.345" - INTERVAL 10 SECOND AS time_minus;
 
-+-------------------------+--------------------------------+
-| date_plus               | time_minus                     |
-+-------------------------+--------------------------------+
-| 2021-04-21 01:00:00     | 2021-05-02 00:00:52.345+00     |
-+-------------------------+--------------------------------+
+/*-------------------------+--------------------------------*
+ | date_plus               | time_minus                     |
+ +-------------------------+--------------------------------+
+ | 2021-04-21 01:00:00     | 2021-05-02 00:00:52.345+00     |
+ *-------------------------+--------------------------------*/
 ```
 
 **Multiplication and division**
@@ -1316,11 +1318,11 @@ SELECT
   INTERVAL 10 YEAR / 3 AS div1,
   INTERVAL 1 MONTH / 12 AS div2
 
-+----------------+--------------+-------------+--------------+
-| mul1           | mul2         | div1        | div2         |
-+----------------+--------------+-------------+--------------+
-| 0-0 0 10:20:30 | 0-0 0 0:2:20 | 3-4 0 0:0:0 | 0-0 2 12:0:0 |
-+----------------+--------------+-------------+--------------+
+/*----------------+--------------+-------------+--------------*
+ | mul1           | mul2         | div1        | div2         |
+ +----------------+--------------+-------------+--------------+
+ | 0-0 0 10:20:30 | 0-0 0 0:2:20 | 3-4 0 0:0:0 | 0-0 2 12:0:0 |
+ *----------------+--------------+-------------+--------------*/
 ```
 
 ### Bitwise operators
@@ -1460,14 +1462,14 @@ to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 The examples in this section reference a table called `entry_table`:
 
 ```sql
-+-------+
-| entry |
-+-------+
-| a     |
-| b     |
-| c     |
-| NULL  |
-+-------+
+/*-------*
+ | entry |
+ +-------+
+ | a     |
+ | b     |
+ | c     |
+ | NULL  |
+ *-------*/
 ```
 
 ```sql
@@ -1477,11 +1479,11 @@ SELECT 'a' FROM entry_table WHERE entry = 'a'
 -- b => 'b' = 'a' => FALSE
 -- NULL => NULL = 'a' => NULL
 
-+-------+
-| entry |
-+-------+
-| a     |
-+-------+
+/*-------*
+ | entry |
+ +-------+
+ | a     |
+ *-------*/
 ```
 
 ```sql
@@ -1491,12 +1493,12 @@ SELECT entry FROM entry_table WHERE NOT (entry = 'a')
 -- b => NOT('b' = 'a') => NOT(FALSE) => TRUE
 -- NULL => NOT(NULL = 'a') => NOT(NULL) => NULL
 
-+-------+
-| entry |
-+-------+
-| b     |
-| c     |
-+-------+
+/*-------*
+ | entry |
+ +-------+
+ | b     |
+ | c     |
+ *-------*/
 ```
 
 ```sql
@@ -1506,11 +1508,11 @@ SELECT entry FROM entry_table WHERE entry IS NULL
 -- b => 'b' IS NULL => FALSE
 -- NULL => NULL IS NULL => TRUE
 
-+-------+
-| entry |
-+-------+
-| NULL  |
-+-------+
+/*-------*
+ | entry |
+ +-------+
+ | NULL  |
+ *-------*/
 ```
 
 ### Comparison operators
@@ -1523,7 +1525,6 @@ them to that common type for the comparison; ZetaSQL will generally
 coerce literals to the type of non-literals, where
 present. Comparable data types are defined in
 [Data Types][operators-link-to-data-types].
-
 NOTE: ZetaSQL allows comparisons
 between signed and unsigned integers.
 
@@ -1725,11 +1726,11 @@ WITH Words AS (
  )
 SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
 
-+--------+
-| result |
-+--------+
-| FALSE  |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | FALSE  |
+ *--------*/
 ```
 
 ### `IN` operator 
@@ -1865,15 +1866,15 @@ WITH Words AS (
  )
 SELECT * FROM Words;
 
-+----------+
-| value    |
-+----------+
-| Intend   |
-| Secure   |
-| Clarity  |
-| Peace    |
-| Intend   |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Intend   |
+ | Secure   |
+ | Clarity  |
+ | Peace    |
+ | Intend   |
+ *----------*/
 ```
 
 ```sql
@@ -1885,13 +1886,13 @@ WITH
   )
 SELECT * FROM Items;
 
-+----------------------------+
-| info                       |
-+----------------------------+
-| {blue color, round shape}  |
-| {blue color, square shape} |
-| {red color, round shape}   |
-+----------------------------+
+/*----------------------------*
+ | info                       |
+ +----------------------------+
+ | {blue color, round shape}  |
+ | {blue color, square shape} |
+ | {red color, round shape}   |
+ *----------------------------*/
 ```
 
 Example with `IN` and an expression:
@@ -1899,13 +1900,13 @@ Example with `IN` and an expression:
 ```sql
 SELECT * FROM Words WHERE value IN ('Intend', 'Secure');
 
-+----------+
-| value    |
-+----------+
-| Intend   |
-| Secure   |
-| Intend   |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Intend   |
+ | Secure   |
+ | Intend   |
+ *----------*/
 ```
 
 Example with `NOT IN` and an expression:
@@ -1913,13 +1914,13 @@ Example with `NOT IN` and an expression:
 ```sql
 SELECT * FROM Words WHERE value NOT IN ('Intend');
 
-+----------+
-| value    |
-+----------+
-| Secure   |
-| Clarity  |
-| Peace    |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Secure   |
+ | Clarity  |
+ | Peace    |
+ *----------*/
 ```
 
 Example with `IN`, a scalar subquery, and an expression:
@@ -1927,13 +1928,13 @@ Example with `IN`, a scalar subquery, and an expression:
 ```sql
 SELECT * FROM Words WHERE value IN ((SELECT 'Intend'), 'Clarity');
 
-+----------+
-| value    |
-+----------+
-| Intend   |
-| Clarity  |
-| Intend   |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Intend   |
+ | Clarity  |
+ | Intend   |
+ *----------*/
 ```
 
 Example with `IN` and an `UNNEST` operation:
@@ -1941,12 +1942,12 @@ Example with `IN` and an `UNNEST` operation:
 ```sql
 SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
 
-+----------+
-| value    |
-+----------+
-| Secure   |
-| Clarity  |
-+----------+
+/*----------*
+ | value    |
+ +----------+
+ | Secure   |
+ | Clarity  |
+ *----------*/
 ```
 
 Example with `IN` and a struct:
@@ -1958,11 +1959,11 @@ FROM
   Items
 WHERE (info.shape, info.color) IN (('round', 'blue'));
 
-+------------------------------------+
-| item                               |
-+------------------------------------+
-| { {blue color, round shape} info } |
-+------------------------------------+
+/*------------------------------------*
+ | item                               |
+ +------------------------------------+
+ | { {blue color, round shape} info } |
+ *------------------------------------*/
 ```
 
 ### `IS` operators
@@ -2427,7 +2428,9 @@ Example with a parenthesized list of arguments:
 SELECT
   key,
   name,
-  NEW zetasql.examples.music.Chart { rank: 1 chart_name: "2" }
+  NEW zetasql.examples.music.Chart(key AS rank, name AS chart_name)
+FROM
+  (SELECT 1 AS key, "2" AS name);
 ```
 
 To learn more about protocol buffers in ZetaSQL, see [Work with
@@ -2513,11 +2516,11 @@ SELECT WITH(a AS '123',               -- a is '123'
             c AS '789',               -- c is '789'
             CONCAT(b, c)) AS result;  -- b + c is '123456789'
 
-+-------------+
-| result      |
-+-------------+
-| '123456789' |
-+-------------+
+/*-------------*
+ | result      |
+ +-------------+
+ | '123456789' |
+ *-------------*/
 ```
 
 In the following example, the volatile expression `RAND()` behaves as if it is
@@ -2527,11 +2530,11 @@ be zero:
 ```sql
 SELECT WITH(a AS RAND(), a - a);
 
-+---------+
-| result  |
-+---------+
-| 0.0     |
-+---------+
+/*---------*
+ | result  |
+ +---------+
+ | 0.0     |
+ *---------*/
 ```
 
 Aggregate or analytic function results can be stored in variables. In this
@@ -2541,11 +2544,11 @@ example, an average is computed:
 SELECT WITH(s AS SUM(input), c AS COUNT(input), s/c)
 FROM UNNEST([1.0, 2.0, 3.0]) AS input;
 
-+---------+
-| result  |
-+---------+
-| 2.0     |
-+---------+
+/*---------*
+ | result  |
+ +---------+
+ | 2.0     |
+ *---------*/
 ```
 
 Variables cannot be used in aggregate or analytic function call arguments:

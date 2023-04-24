@@ -35,6 +35,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/public/functions/comparison.h"
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/date_time_util.h"
@@ -280,40 +281,6 @@ absl::StatusOr<Value> Value::MakeRange(const Value& start, const Value& end) {
   return result;
 }
 
-/* static */
-absl::StatusOr<Value> Value::MakeRangeDates(
-    const RangeValue<int32_t>& range_value) {
-  return Value::MakeRange(
-      range_value.start().has_value() ? Value::Date(range_value.start().value())
-                                      : Value::NullDate(),
-      range_value.end().has_value() ? Value::Date(range_value.end().value())
-                                    : Value::NullDate());
-}
-/* static */
-absl::StatusOr<Value> Value::MakeRangeDatetimes(
-    const RangeValue<int64_t>& range_value) {
-  return Value::MakeRange(
-      range_value.start().has_value()
-          ? values::Datetime(
-                DatetimeValue::FromPacked64Micros(range_value.start().value()))
-          : Value::NullDatetime(),
-      range_value.end().has_value()
-          ? values::Datetime(
-                DatetimeValue::FromPacked64Micros(range_value.end().value()))
-          : Value::NullDatetime());
-}
-/* static */
-absl::StatusOr<Value> Value::MakeRangeTimestamps(
-    const RangeValue<int64_t>& range_value) {
-  return Value::MakeRange(
-      range_value.start().has_value()
-          ? values::TimestampFromUnixMicros(range_value.start().value())
-          : Value::NullTimestamp(),
-      range_value.end().has_value()
-          ? values::TimestampFromUnixMicros(range_value.end().value())
-          : Value::NullTimestamp());
-}
-
 const Type* Value::type() const {
   ZETASQL_CHECK(is_valid()) << DebugString();
   return metadata_.type();
@@ -526,53 +493,6 @@ absl::Status Value::ToUnixNanos(int64_t* nanos) const {
 ValueContent Value::extended_value() const {
   ZETASQL_CHECK_EQ(type_kind(), TYPE_EXTENDED);
   return GetContent();
-}
-
-RangeValue<int32_t> Value::ToRangeValueDateValues() const {
-  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind()) << "Not a range type";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
-  const TypeKind& element_type_kind =
-      metadata_.type()->AsRange()->element_type()->kind();
-  ZETASQL_CHECK_EQ(element_type_kind, TYPE_DATE)
-      << "Cannot create RangeValue<int32_t> from RANGE with element type "
-      << Type::TypeKindToString(element_type_kind, PRODUCT_EXTERNAL);
-  absl::StatusOr<RangeValue<int32_t>> range = RangeValueFromDates(
-      start().is_null() ? std::nullopt : std::optional{start().date_value()},
-      end().is_null() ? std::nullopt : std::optional{end().date_value()});
-
-  ZETASQL_CHECK_OK(range.status());
-  return *range;
-}
-
-RangeValue<int64_t> Value::ToRangeValuePacked64DatetimeMicros() const {
-  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind()) << "Not a range type";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
-  const TypeKind& element_type_kind =
-      metadata_.type()->AsRange()->element_type()->kind();
-  ZETASQL_CHECK_EQ(element_type_kind, TYPE_DATETIME)
-      << "Cannot create RangeValue<int64_t> from RANGE with element type "
-      << Type::TypeKindToString(element_type_kind, PRODUCT_EXTERNAL);
-  absl::StatusOr<RangeValue<int64_t>> range = RangeValueFromDatetimeMicros(
-      start().is_null() ? std::nullopt
-                        : std::optional{start().datetime_value()},
-      end().is_null() ? std::nullopt : std::optional{end().datetime_value()});
-  ZETASQL_CHECK_OK(range.status());
-  return *range;
-}
-
-RangeValue<int64_t> Value::ToRangeValueTimestampUnixMicros() const {
-  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind()) << "Not a range type";
-  ZETASQL_CHECK(!metadata_.is_null()) << "Null value";
-  const TypeKind& element_type_kind =
-      metadata_.type()->AsRange()->element_type()->kind();
-  ZETASQL_CHECK_EQ(element_type_kind, TYPE_TIMESTAMP)
-      << "Cannot create RangeValue<int64_t> from RANGE with element type "
-      << Type::TypeKindToString(element_type_kind, PRODUCT_EXTERNAL);
-  absl::StatusOr<RangeValue<int64_t>> range = RangeValueFromTimestampMicros(
-      start().is_null() ? std::nullopt : std::optional{start().ToUnixMicros()},
-      end().is_null() ? std::nullopt : std::optional{end().ToUnixMicros()});
-  ZETASQL_CHECK_OK(range.status());
-  return *range;
 }
 
 google::protobuf::Message* Value::ToMessage(
@@ -1658,6 +1578,9 @@ Value::Metadata::Metadata(const Type* type, bool is_null,
   ZETASQL_DCHECK(content()->type() == type);
   ZETASQL_DCHECK(content()->preserves_order() == preserves_order);
   ZETASQL_DCHECK(content()->is_null() == is_null);
+}
+
+Value::TypedList::~TypedList() {
 }
 
 }  // namespace zetasql

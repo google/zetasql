@@ -273,6 +273,8 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64, INT64>>[
   {true, 2, 2},
   {true, 2, 3}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=ntile_bool]
@@ -331,6 +333,8 @@ ARRAY<STRUCT<str_val STRING, int64_val INT64, INT64>>[
   {"b", 2, 8},
   {"B", 2, 9}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=ntile_int32_uint64]
@@ -350,6 +354,8 @@ ARRAY<STRUCT<int32_val INT32, UINT64, INT64>>[
   {3, 1, 7},
   {3, 2, 8}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=ntile_uint32_int64]
@@ -484,6 +490,8 @@ ARRAY<STRUCT<
    2014-01-01 00:00:01.011011+00,
    4
  }]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=ntile_bytes]

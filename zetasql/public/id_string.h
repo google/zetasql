@@ -70,7 +70,7 @@ class IdStringPool;
 class IdString {
  public:
   // Create an empty string.
-  IdString() : IdString(*kEmptyString) {}
+  IdString() : IdString(*GlobalEmptyString()) {}
 
   // Create an IdString in the global IdStringPool.
   //
@@ -78,7 +78,7 @@ class IdString {
   // Do NOT use for any allocations that are done on a per-query basis.
   static IdString MakeGlobal(absl::string_view str);
 
-  void clear() { *this = *kEmptyString; }
+  void clear() { *this = *GlobalEmptyString(); }
 
   char operator[](size_t pos) const { CheckAlive(); return value_->str[pos]; }
 
@@ -282,7 +282,7 @@ class IdString {
   int64_t pool_id_;
 #endif
 
-  static const IdString* const kEmptyString;
+  static const IdString* GlobalEmptyString();
 
 #ifndef NDEBUG
   explicit IdString(const Shared* shared, int64_t pool_id)
@@ -504,6 +504,14 @@ inline IdString IdStringPool::MakeGlobal(absl::string_view str) {
 
 inline IdString IdString::MakeGlobal(absl::string_view str) {
   return IdStringPool::MakeGlobal(str);
+}
+
+// We want to keep one global empty string constant so that we can implement
+// the default constructor and clear() as assignment, without allocating
+// a new Shared object.
+inline const IdString* IdString::GlobalEmptyString() {
+  static const IdString* empty = new IdString(IdString::MakeGlobal(""));
+  return empty;
 }
 
 inline void IdString::CheckAlive() const {

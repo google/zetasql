@@ -34,6 +34,7 @@
 #include "zetasql/analyzer/filter_fields_path_validator.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/thread_stack.h"
+#include "zetasql/public/aggregation_threshold_utils.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/constant.h"
@@ -57,12 +58,14 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/stl_util.h"
@@ -1382,6 +1385,12 @@ absl::Status Validator::ValidateResolvedAggregateScanBase(
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedComputedColumnList(
       *input_scan_visible_columns, visible_parameters, scan->aggregate_list()));
 
+  // Validates other constructs in aggregates such as ORDER BY and LIMIT.
+  for (const auto& computed_column : scan->aggregate_list()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedAggregateComputedColumn(
+        computed_column.get(), *input_scan_visible_columns,
+        visible_parameters));
+  }
   return absl::OkStatus();
 }
 
@@ -1438,17 +1447,77 @@ absl::Status Validator::ValidateResolvedAggregateScan(
   }
 
   std::set<ResolvedColumn> visible_columns;
-  ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(
-      scan->group_by_list(), &visible_columns));
-  ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(
-      scan->aggregate_list(), &visible_columns));
+  ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
+                                                   &visible_columns));
+  ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->group_by_list(),
+                                                   &visible_columns));
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
-  // Validates other constructs in aggregates such as ORDER BY and LIMIT.
-  for (const auto& computed_column : scan->aggregate_list()) {
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedAggregateComputedColumn(
-        computed_column.get(),
-        input_scan_visible_columns, visible_parameters));
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateGroupSelectionThresholdExpr(
+    const ResolvedExpr* group_threshold_expr,
+    const std::set<ResolvedColumn>& visible_columns,
+    const std::set<ResolvedColumn>& visible_parameters,
+    absl::string_view expression_name) {
+  if (group_threshold_expr != nullptr) {
+    VALIDATOR_RET_CHECK(group_threshold_expr->type()->IsNumerical());
+    if (group_threshold_expr->Is<ResolvedColumnRef>()) {
+      ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(
+          group_threshold_expr->GetAs<ResolvedColumnRef>()->column(),
+          visible_columns));
+    } else if (group_threshold_expr->Is<ResolvedGetProtoField>()) {
+      // We expect k_threshold_expr be exactly of the following structure:
+      // ResolvedGetProtoField -> ResolvedGetProtoField -> ResolvedColumnRef.
+      // This structure is guaranteed because k_threshold_expr of this form is
+      // being constructed in the anonymization_rewriter in the cases when
+      // the user query contains unique users count in it and the output type is
+      // report (format=PROTO).
+      VALIDATOR_RET_CHECK(group_threshold_expr->GetAs<ResolvedGetProtoField>()
+                              ->expr()
+                              ->Is<ResolvedGetProtoField>());
+      VALIDATOR_RET_CHECK(group_threshold_expr->GetAs<ResolvedGetProtoField>()
+                              ->expr()
+                              ->GetAs<ResolvedGetProtoField>()
+                              ->expr()
+                              ->Is<ResolvedColumnRef>());
+      ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(
+          group_threshold_expr->GetAs<ResolvedGetProtoField>()
+              ->expr()
+              ->GetAs<ResolvedGetProtoField>()
+              ->expr()
+              ->GetAs<ResolvedColumnRef>()
+              ->column(),
+          visible_columns));
+    } else if (group_threshold_expr->Is<ResolvedFunctionCall>()) {
+      // We expect k_threshold_expr have exactly the following structure:
+      // ResolvedFunctionCall -> ResolvedFunctionCall  -> ResolvedColumnRef.
+      // This structure is guaranteed because k_threshold_expr of this form is
+      // being constructed in the anonymization_rewriter in the cases when the
+      // user query contains unique users count in it and the output type is
+      // report (format=JSON).
+      VALIDATOR_RET_CHECK(group_threshold_expr->GetAs<ResolvedFunctionCall>()
+                              ->argument_list(0)
+                              ->Is<ResolvedFunctionCall>());
+      VALIDATOR_RET_CHECK(group_threshold_expr->GetAs<ResolvedFunctionCall>()
+                              ->argument_list(0)
+                              ->GetAs<ResolvedFunctionCall>()
+                              ->argument_list(0)
+                              ->Is<ResolvedColumnRef>());
+      ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(
+          group_threshold_expr->GetAs<ResolvedFunctionCall>()
+              ->argument_list(0)
+              ->GetAs<ResolvedFunctionCall>()
+              ->argument_list(0)
+              ->GetAs<ResolvedColumnRef>()
+              ->column(),
+          visible_columns));
+    } else {
+      VALIDATOR_RET_CHECK_FAIL()
+          << "Unexpected expression type for " << expression_name << ": "
+          << group_threshold_expr->node_kind_string();
+    }
   }
   return absl::OkStatus();
 }
@@ -1459,6 +1528,10 @@ absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
+  VALIDATOR_RET_CHECK(
+      language_options_.LanguageFeatureEnabled(FEATURE_ANONYMIZATION))
+      << "SELECT WITH ANONYMIZATION is not supported";
+
   std::set<ResolvedColumn> input_scan_visible_columns;
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedAggregateScanBase(
       scan, visible_parameters, &input_scan_visible_columns));
@@ -1466,105 +1539,17 @@ absl::Status Validator::ValidateResolvedAnonymizedAggregateScan(
   std::set<ResolvedColumn> visible_columns;
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
                                                    &visible_columns));
-  if (scan->k_threshold_expr() != nullptr) {
-    VALIDATOR_RET_CHECK(scan->k_threshold_expr()->Is<ResolvedExpr>());
-    if (scan->k_threshold_expr()->Is<ResolvedColumnRef>()) {
-      ZETASQL_RETURN_IF_ERROR(CheckColumnIsPresentInColumnSet(
-          scan->k_threshold_expr()->GetAs<ResolvedColumnRef>()->column(),
-          visible_columns));
-    } else if (scan->k_threshold_expr()->Is<ResolvedGetProtoField>()) {
-      // We expect k_threshold_expr be exactly of the following structure:
-      // ResolvedGetProtoField -> ResolvedGetProtoField -> ResolvedColumnRef.
-      // This structure is guaranteed because k_threshold_expr of this form is
-      // being constructed in th anonymization_rewriter in the cases when
-      // the user query contains unique users count in it and the output type is
-      // report (format=PROTO).
-      VALIDATOR_RET_CHECK(scan->k_threshold_expr()
-                              ->GetAs<ResolvedGetProtoField>()
-                              ->expr()
-                              ->Is<ResolvedGetProtoField>());
-      VALIDATOR_RET_CHECK(scan->k_threshold_expr()
-                              ->GetAs<ResolvedGetProtoField>()
-                              ->expr()
-                              ->GetAs<ResolvedGetProtoField>()
-                              ->expr()
-                              ->Is<ResolvedColumnRef>());
-      ZETASQL_RETURN_IF_ERROR(
-          CheckColumnIsPresentInColumnSet(scan->k_threshold_expr()
-                                              ->GetAs<ResolvedGetProtoField>()
-                                              ->expr()
-                                              ->GetAs<ResolvedGetProtoField>()
-                                              ->expr()
-                                              ->GetAs<ResolvedColumnRef>()
-                                              ->column(),
-                                          visible_columns));
-    } else if (scan->k_threshold_expr()->Is<ResolvedFunctionCall>()) {
-      // We expect k_threshold_expr have exactly the following structure:
-      // ResolvedFunctionCall -> ResolvedFunctionCall  -> ResolvedColumnRef.
-      // This structure is guaranteed because k_threshold_expr of this form is
-      // being constructed in the anonymization_rewriter in the cases when the
-      // user query contains unique users count in it and the output type is
-      // report (format=JSON).
-      VALIDATOR_RET_CHECK(scan->k_threshold_expr()
-                              ->GetAs<ResolvedFunctionCall>()
-                              ->argument_list(0)
-                              ->Is<ResolvedFunctionCall>());
-      VALIDATOR_RET_CHECK(scan->k_threshold_expr()
-                              ->GetAs<ResolvedFunctionCall>()
-                              ->argument_list(0)
-                              ->GetAs<ResolvedFunctionCall>()
-                              ->argument_list(0)
-                              ->Is<ResolvedColumnRef>());
-      ZETASQL_RETURN_IF_ERROR(
-          CheckColumnIsPresentInColumnSet(scan->k_threshold_expr()
-                                              ->GetAs<ResolvedFunctionCall>()
-                                              ->argument_list(0)
-                                              ->GetAs<ResolvedFunctionCall>()
-                                              ->argument_list(0)
-                                              ->GetAs<ResolvedColumnRef>()
-                                              ->column(),
-                                          visible_columns));
-    } else {
-      VALIDATOR_RET_CHECK_FAIL()
-          << "Unexpected expression type for k_threshold_expr: "
-          << scan->k_threshold_expr()->node_kind_string();
-    }
-  }
+  ZETASQL_RETURN_IF_ERROR(ValidateGroupSelectionThresholdExpr(
+      scan->k_threshold_expr(), visible_columns, visible_parameters,
+      "k_threshold_expr"));
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->group_by_list(),
                                                    &visible_columns));
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
-  for (const auto& computed_column : scan->aggregate_list()) {
-    VALIDATOR_RET_CHECK_EQ(computed_column->expr()->node_kind(),
-                           RESOLVED_AGGREGATE_FUNCTION_CALL);
-  }
-
-  for (const auto& option : scan->anonymization_option_list()) {
-    VALIDATOR_RET_CHECK(option->qualifier().empty())
-
-        << "Anonymization options must not have a qualifier, but found "
-        << option->qualifier();
-    auto iter =
-        options_.allowed_hints_and_options.anonymization_options_lower.find(
-            absl::AsciiStrToLower(option->name()));
-    if (iter ==
-        options_.allowed_hints_and_options.anonymization_options_lower.end()) {
-      VALIDATOR_RET_CHECK_FAIL()
-          << "Invalid anonymization option name: " << option->name();
-    }
-    const Type* expected_option_type = iter->second.type;
-    if (expected_option_type != nullptr) {
-      VALIDATOR_RET_CHECK(
-          option->value()->type()->Equals(expected_option_type));
-    }
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
-                                         option->value()));
-  }
-
-  VALIDATOR_RET_CHECK(
-      language_options_.LanguageFeatureEnabled(FEATURE_ANONYMIZATION))
-      << "SELECT WITH ANONYMIZATION is not supported";
-  return absl::OkStatus();
+  return ValidateOptionsList(
+      scan->anonymization_option_list(),
+      options_.allowed_hints_and_options.anonymization_options_lower,
+      visible_columns, visible_parameters, "anonymization");
 }
 
 absl::Status Validator::ValidateResolvedDifferentialPrivacyAggregateScan(
@@ -1573,6 +1558,10 @@ absl::Status Validator::ValidateResolvedDifferentialPrivacyAggregateScan(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, scan);
 
+  VALIDATOR_RET_CHECK(
+      language_options_.LanguageFeatureEnabled(FEATURE_DIFFERENTIAL_PRIVACY))
+      << "SELECT WITH DIFFERENTIAL_PRIVACY is not supported";
+
   std::set<ResolvedColumn> input_scan_visible_columns;
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedAggregateScanBase(
       scan, visible_parameters, &input_scan_visible_columns));
@@ -1580,47 +1569,42 @@ absl::Status Validator::ValidateResolvedDifferentialPrivacyAggregateScan(
   std::set<ResolvedColumn> visible_columns;
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
                                                    &visible_columns));
-  if (scan->group_selection_threshold_expr() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(
-        ValidateResolvedExpr(visible_columns, visible_parameters,
-                             scan->group_selection_threshold_expr()));
-    VALIDATOR_RET_CHECK_EQ(scan->group_selection_threshold_expr()->type(),
-                           types::Int64Type());
-  }
+  ZETASQL_RETURN_IF_ERROR(ValidateGroupSelectionThresholdExpr(
+      scan->group_selection_threshold_expr(), visible_columns,
+      visible_parameters, "group_selection_threshold_expr"));
   ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->group_by_list(),
                                                    &visible_columns));
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
-  for (const auto& computed_column : scan->aggregate_list()) {
-    VALIDATOR_RET_CHECK_EQ(computed_column->expr()->node_kind(),
-                           RESOLVED_AGGREGATE_FUNCTION_CALL);
-  }
+  return ValidateOptionsList(
+      scan->option_list(),
+      options_.allowed_hints_and_options.differential_privacy_options_lower,
+      input_scan_visible_columns, visible_parameters, "differential privacy");
+}
 
-  for (const auto& option : scan->option_list()) {
-    VALIDATOR_RET_CHECK(option->qualifier().empty())
-        << "Differential privacy options must not have a qualifier, but found "
-        << option->qualifier();
-    auto iter =
-        options_.allowed_hints_and_options.differential_privacy_options_lower
-            .find(absl::AsciiStrToLower(option->name()));
-    if (iter == options_.allowed_hints_and_options
-                    .differential_privacy_options_lower.end()) {
-      VALIDATOR_RET_CHECK_FAIL()
-          << "Invalid differential privacy option name: " << option->name();
-    }
-    const Type* expected_option_type = iter->second.type;
-    if (expected_option_type != nullptr) {
-      VALIDATOR_RET_CHECK(
-          option->value()->type()->Equals(expected_option_type));
-    }
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(input_scan_visible_columns,
-                                         visible_parameters, option->value()));
-  }
-
+absl::Status Validator::ValidateResolvedAggregationThresholdAggregateScan(
+    const ResolvedAggregationThresholdAggregateScan* scan,
+    const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  PushErrorContext push(this, scan);
   VALIDATOR_RET_CHECK(
-      language_options_.LanguageFeatureEnabled(FEATURE_DIFFERENTIAL_PRIVACY))
-      << "SELECT WITH DIFFERENTIAL_PRIVACY is not supported";
-  return absl::OkStatus();
+      language_options_.LanguageFeatureEnabled(FEATURE_AGGREGATION_THRESHOLD))
+      << "SELECT WITH AGGREGATION_THRESHOLD is not supported";
+
+  std::set<ResolvedColumn> input_scan_visible_columns;
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedAggregateScanBase(
+      scan, visible_parameters, &input_scan_visible_columns));
+
+  std::set<ResolvedColumn> visible_columns;
+  ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->aggregate_list(),
+                                                   &visible_columns));
+  ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(scan->group_by_list(),
+                                                   &visible_columns));
+  ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
+
+  return ValidateOptionsList(
+      scan->option_list(), GetAllowedAggregationThresholdOptions(),
+      input_scan_visible_columns, visible_parameters, "aggregation_threshold");
 }
 
 absl::Status Validator::ValidatePercentArgument(const ResolvedExpr* expr) {
@@ -2038,7 +2022,38 @@ absl::Status Validator::ValidateResolvedSetOperationScan(
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedSetOperationItem(
         input_item.get(), set_op_scan->column_list(), visible_parameters));
   }
-    set_op_scan->op_type();  // Mark field as visited.
+  set_op_scan->op_type();  // Mark field as visited.
+
+  switch (set_op_scan->column_match_mode()) {
+    case ResolvedSetOperationScan::BY_POSITION: {
+      // STRICT is the default and only-allowed column propagation mode for
+      // BY_POSITION.
+      VALIDATOR_RET_CHECK_EQ(set_op_scan->column_propagation_mode(),
+                             ResolvedSetOperationScan::STRICT);
+      break;
+    }
+    case ResolvedSetOperationScan::CORRESPONDING: {
+      // TODO: Remove this check when we are ready to support outer
+      // and strict mode for CORRESPONDING.
+      VALIDATOR_RET_CHECK_EQ(set_op_scan->column_propagation_mode(),
+                             ResolvedSetOperationScan::INNER);
+      absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
+          column_names;
+      for (const auto& column : set_op_scan->column_list()) {
+        // No duplicate names are allowed.
+        VALIDATOR_RET_CHECK(
+            zetasql_base::InsertIfNotPresent(&column_names, column.name_id()));
+        // No anonymous columns are allowed.
+        VALIDATOR_RET_CHECK(!IsInternalAlias(column.name_id()));
+      }
+      break;
+    }
+    case ResolvedSetOperationScan::CORRESPONDING_BY: {
+      // TODO: Remove this check when we are ready to support
+      // CORRESPONDING_BY.
+      VALIDATOR_RET_CHECK_FAIL();
+    }
+  }
 
   // Each output column should be unique. In particular, set operation scans
   // should not reuse column ids from their inputs.
@@ -2668,6 +2683,10 @@ absl::Status Validator::ValidateResolvedStatementInternal(
     case RESOLVED_ABORT_BATCH_STMT:
       status = ValidateResolvedAbortBatchStmt(
           statement->GetAs<ResolvedAbortBatchStmt>());
+      break;
+    case RESOLVED_UNDROP_STMT:
+      status =
+          ValidateResolvedUndropStmt(statement->GetAs<ResolvedUndropStmt>());
       break;
     case RESOLVED_DROP_STMT:
       status = ValidateResolvedDropStmt(
@@ -3873,6 +3892,13 @@ absl::Status Validator::ValidateResolvedAbortBatchStmt(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedUndropStmt(
+    const ResolvedUndropStmt* stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  PushErrorContext push(this, stmt);
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedDropStmt(const ResolvedDropStmt* stmt) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   PushErrorContext push(this, stmt);
@@ -4079,6 +4105,11 @@ absl::Status Validator::ValidateResolvedScan(
     case RESOLVED_DIFFERENTIAL_PRIVACY_AGGREGATE_SCAN:
       scan_subtype_status = ValidateResolvedDifferentialPrivacyAggregateScan(
           scan->GetAs<ResolvedDifferentialPrivacyAggregateScan>(),
+          visible_parameters);
+      break;
+    case RESOLVED_AGGREGATION_THRESHOLD_AGGREGATE_SCAN:
+      scan_subtype_status = ValidateResolvedAggregationThresholdAggregateScan(
+          scan->GetAs<ResolvedAggregationThresholdAggregateScan>(),
           visible_parameters);
       break;
     case RESOLVED_SET_OPERATION_SCAN:
@@ -4310,6 +4341,42 @@ absl::Status Validator::ValidateOptionsList(
         << "Qualifiers should not exist in options (only hints)\n";
   }
 
+  return absl::OkStatus();
+}
+
+template <class MapType>
+absl::Status Validator::ValidateOptionsList(
+    const std::vector<std::unique_ptr<const ResolvedOption>>& list,
+    const MapType& allowed_options,
+    const std::set<ResolvedColumn>& visible_columns,
+    const std::set<ResolvedColumn>& visible_parameters,
+    absl::string_view option_type) {
+  const std::string upper_case_option_type = [option_type]() {
+    std::string result(option_type.data(), option_type.size());
+    if (!result.empty()) {
+      result[0] = absl::ascii_toupper(option_type[0]);
+    }
+    return result;
+  }();
+  for (const auto& option : list) {
+    VALIDATOR_RET_CHECK(!option_type.empty());
+    VALIDATOR_RET_CHECK(option->qualifier().empty())
+        << upper_case_option_type
+        << " options must not have a qualifier, but found "
+        << option->qualifier();
+    auto iter = allowed_options.find(absl::AsciiStrToLower(option->name()));
+    if (iter == allowed_options.end()) {
+      VALIDATOR_RET_CHECK_FAIL()
+          << "Invalid " << option_type << " option name: " << option->name();
+    }
+    const Type* expected_option_type = iter->second.type;
+    if (expected_option_type != nullptr) {
+      VALIDATOR_RET_CHECK(
+          option->value()->type()->Equals(expected_option_type));
+    }
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
+                                         option->value()));
+  }
   return absl::OkStatus();
 }
 
@@ -5170,7 +5237,12 @@ absl::Status Validator::ValidateRelationSchemaInResolvedFunctionArgument(
     for (int col_idx = 0; col_idx < input_relation.columns().size();
          ++col_idx) {
       VALIDATOR_RET_CHECK(input_relation.column(col_idx).type->Equals(
-          required_input_schema.column(col_idx).type));
+          required_input_schema.column(col_idx).type))
+          << "col_idx" << col_idx << " input_type: "
+          << input_relation.column(col_idx).type->DebugString(true)
+          << " required_type: "
+          << required_input_schema.column(col_idx).type->DebugString(true);
+
       VALIDATOR_RET_CHECK(
           zetasql_base::CaseEqual(input_relation.column(col_idx).name,
                                  required_input_schema.column(col_idx).name))

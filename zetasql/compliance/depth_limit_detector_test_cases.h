@@ -27,6 +27,7 @@
 
 #include "zetasql/public/language_options.h"
 #include "absl/base/attributes.h"
+#include "absl/functional/any_invocable.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/time/time.h"
@@ -88,8 +89,9 @@ std::ostream& operator<<(std::ostream& os,
 std::ostream& operator<<(std::ostream& os,
                          const DepthLimitDetectorTestCase& test_case);
 
-std::vector<std::tuple<std::string>> DepthLimitDetectorSeeds(
-    absl::FunctionRef<absl::Status(std::string_view)> test_driver_function);
+absl::AnyInvocable<std::vector<std::tuple<std::string>>() const>
+DepthLimitDetectorSeeds(absl::AnyInvocable<absl::Status(std::string_view) const>
+                            test_driver_function);
 
 }  // namespace zetasql
 

@@ -860,6 +860,8 @@ SELECT LEAD(int64_val, 2, NULL) OVER (ORDER BY int64_val)
 FROM TestTable
 --
 ARRAY<STRUCT<INT64>>[{1}, {1}, {1}, {2}, {2}, {2}, {3}, {4}, {NULL}, {NULL}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=lead_non_constant_default_expr]
@@ -896,6 +898,8 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[
   {NULL, NULL},
   {NULL, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=order_by_nulls_first_analytic_lead]
@@ -915,3 +919,5 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[
   {1, 1},
   {1, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.

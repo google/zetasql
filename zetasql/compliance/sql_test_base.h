@@ -66,6 +66,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <set>
 #include <string>
@@ -92,6 +93,7 @@
 #include "absl/container/btree_set.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/functional/bind_front.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "file_based_test_driver/file_based_test_driver.h"  
@@ -137,6 +139,9 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Returns a debug string.
   static std::string ToString(
       const absl::StatusOr<ComplianceTestCaseResult>& status);
+  static std::string ToString(
+      const absl::StatusOr<ComplianceTestCaseResult>& status,
+      bool is_deterministic_result);
   static std::string ToString(const std::map<std::string, Value>& parameters);
 
   // Returns the error matcher to match legal runtime errors.
@@ -568,11 +573,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // compiled test case.
   const ComplianceTestCaseLabels& TESTONLY_ComplianceTestCaseLabels();
 
-  // There is different behavior when "testing the reference impl" because we
-  // validate against the files and not against the reference impl. This lets
-  // the unit test of SqlTestBase access both codepaths.
-  void TESTONLY_ForceDisableIsTestingReferenceImpl(bool value);
-
   // Allows unit test to set `test_file_options_` so that it can exercise
   // filebased test code paths from a non-file driven unit test.
   void TESTONLY_SetTestFileOptions(
@@ -688,6 +688,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // KnownErrorFilter needs to use stats_ to record failed statements. It also
   // needs to read sql_, location_, full_name_, and known_error_mode() for
   // statements.
+  template <typename ResultType>
   friend class KnownErrorFilter;
 
   static TestCaseInspectorFn* test_case_inspector_;
@@ -703,7 +704,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   FileWorkflow file_workflow_;
 
-  StatementWorkflow statement_workflow_;
+  StatementWorkflow statement_workflow_ = NORMAL;
   std::string sql_;        // The SQL string
   std::string full_name_;  // <filename>:<statement_name>
   std::string
@@ -718,11 +719,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // If true, queries are executed as scripts, rather than standalone
   // statements.
   bool script_mode_ = false;
-
-  // Used by unit tests to force SqlTestBase into the mode it uses for
-  // non-reference tests even when the driver is the reference driver. This lets
-  // the unit test access code paths it otherwise couldn't.
-  bool force_disabled_is_testing_reference_impl_ = false;
 
   // NULL if this object does not own 'test_driver_'.
   std::unique_ptr<TestDriver> test_driver_owner_;
@@ -902,20 +898,50 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // The prefix is in the format: code:<name_prefix>[<result_type_name>].
   std::string GetNamePrefix() const;
 
-  struct TestResults {
+  class TestResults {
+   public:
+    explicit TestResults(absl::StatusOr<ComplianceTestCaseResult> driver_output,
+                         std::optional<bool> is_deterministic);
+
+    absl::StatusOr<ComplianceTestCaseResult> driver_output() const {
+      return driver_output_;
+    }
+
+    // Provide a helper to access the status to make the class compatible with
+    // KnownErrorMatcher.
+    absl::Status status() const { return driver_output_.status(); }
+
+    // Returns the result as the string that is printed in the .test files.
+    absl::string_view ToString() const;
+
+   private:
     // We need the result status to honor the known error filters.
-    absl::StatusOr<ComplianceTestCaseResult> driver_output;
+    const absl::StatusOr<ComplianceTestCaseResult> driver_output_;
+
+    std::optional<bool> is_deterministic_ = std::nullopt;
+
+    // If ToString has been called, we cache its output here to avoid
+    // recomputation.
+    mutable std::string cached_to_string_ = "";
   };
+
+  // Similar to the Returns matchers in the public API, but takes a TestResults
+  // so that it can handle the reference impls non-determinism signal.
+  ::testing::Matcher<const TestResults&> ToStringIs(const std::string& result);
+
+  // Implement the ToString interface for TestResult because it's expected by
+  // the matcher templates.
+  static std::string ToString(const TestResults& result);
 
   // Executes a test case, either as a standalone statement, or as a script,
   // depending on <script_mode_>.
-  absl::StatusOr<ComplianceTestCaseResult> ExecuteTestCase();
+  TestResults ExecuteTestCase();
 
   // NOTE: This implementation is specific to testing the reference
   // implementation.
   // TODO: This should be pulled out to a separate subclass
   // specific to the reference implementation.
-  absl::StatusOr<ComplianceTestCaseResult> RunTestWithFeaturesEnabled(
+  TestResults RunTestWithFeaturesEnabled(
       const std::set<LanguageFeature>& features_set);
 
   // For each required feature, re-runs each iteration of the test with that

@@ -249,6 +249,8 @@ unterminated_raw_bytes_literal  (rb|br)({sqtext_0}|{dqtext_0})
 unterminated_triple_quoted_raw_bytes_literal  (rb|br)({sq3text_0}|{dq3text_0})
 
 /* Identifiers: */
+/* no_generalized_identifier is used only for lookahead rules. */
+not_generalized_identifier      [^A-Z_0-9]
 unquoted_identifier             [A-Z_][A-Z_0-9]*
 unquoted_generalized_identifier [A-Z_0-9]+
 bqtext_0                        {bq}([^\\\`\r\n]|({any_escape}))*
@@ -660,6 +662,15 @@ schema { return BisonParserImpl::token::KW_SCHEMA; }
 search { return BisonParserImpl::token::KW_SEARCH; }
 security { return BisonParserImpl::token::KW_SECURITY; }
 select { return BisonParserImpl::token::KW_SELECT; }
+ /* This is a hack to differentiate F(sequence clamped between x and y), see
+    bison_parser.y for more info.
+    We require the not_generalized_identifier to ensure this doesn't trigger on
+    sequence clampedX.
+ */
+sequence/{whitespace}clamped{not_generalized_identifier} {
+  return BisonParserImpl::token::IDENTIFIER;
+}
+sequence { return BisonParserImpl::token::KW_SEQUENCE; }
 set { return BisonParserImpl::token::KW_SET; }
 show { return BisonParserImpl::token::KW_SHOW; }
 simple { return BisonParserImpl::token::KW_SIMPLE; }
@@ -994,7 +1005,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   if (AreMacrosEnabled()) {
     return BisonParserImpl::token::MACRO_INVOCATION;
   } else {
-    SetOverrideError(*yylloc, "Macros are not supported");
+    SetOverrideError(*yylloc, "Unexpected macro");
     yyterminate();
   }
 }
@@ -1002,7 +1013,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   if (AreMacrosEnabled()) {
     return BisonParserImpl::token::MACRO_ARGUMENT_REFERENCE;
   } else {
-    SetOverrideError(*yylloc, "Macros are not supported");
+    SetOverrideError(*yylloc, "Unexpected macro");
     yyterminate();
   }
 }
@@ -1010,8 +1021,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   if (AreMacrosEnabled()) {
     return BisonParserImpl::token::DOLLAR_SIGN;
   } else {
-    SetOverrideError(*yylloc, "Macros are not supported");
-    yyterminate();
+    RETURN_ILLEGAL_CHARACTER_ERROR
   }
 }
 

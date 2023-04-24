@@ -31,9 +31,13 @@
 #include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/statusor.h"
+#include "zetasql/base/no_destructor.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace testing {
+namespace {
 
 using ::testing::_;
 using ::testing::HasSubstr;
@@ -226,6 +230,43 @@ std::unique_ptr<const ResolvedStatement> MakeWithQuery(IdStringPool& pool,
                               .set_input_scan(MakeResolvedSingleRowScan()))))
       .Build()
       .value();
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedQueryStmt>>
+MakeAggregationThresholdQuery(
+    std::vector<std::unique_ptr<ResolvedOption>> options,
+    IdStringPool& string_pool) {
+  static zetasql_base::NoDestructor<Function> dp_function("count", "test_group",
+                                                 Function::AGGREGATE);
+  FunctionSignature sig(/*result_type=*/FunctionArgumentType(
+                            types::Int64Type(), /*num_occurrences=*/1),
+                        /*arguments=*/{},
+                        /*context_id=*/static_cast<int64_t>(1234));
+
+  ZETASQL_ASSIGN_OR_RETURN(auto dp_count_call, ResolvedAggregateFunctionCallBuilder()
+                                           .set_type(types::Int64Type())
+                                           .set_function(dp_function.get())
+                                           .set_signature(std::move(sig))
+                                           .Build());
+
+  ResolvedColumn column_dp_count = ResolvedColumn(
+      1, string_pool.Make("agg"), string_pool.Make("c"), types::Int64Type());
+  auto aggregation_threshold_builder =
+      ResolvedAggregationThresholdAggregateScanBuilder()
+          .add_column_list(column_dp_count)
+          .set_input_scan(MakeResolvedSingleRowScan())
+          .add_aggregate_list(ResolvedComputedColumnBuilder()
+                                  .set_column(column_dp_count)
+                                  .set_expr(std::move(dp_count_call)));
+  for (auto&& option : options) {
+    aggregation_threshold_builder.add_option_list(std::move(option));
+  }
+  return ResolvedQueryStmtBuilder()
+      .add_output_column_list(MakeResolvedOutputColumn("c", column_dp_count))
+      .set_query(ResolvedProjectScanBuilder()
+                     .add_column_list(column_dp_count)
+                     .set_input_scan(std::move(aggregation_threshold_builder)))
+      .Build();
 }
 
 TEST(ValidatorTest, ValidQueryStatement) {
@@ -1462,5 +1503,82 @@ TEST(ValidateTest, DifferentialPrivacyAggregateScanSelectWithModes) {
   }
 }
 
+TEST(ValidateTest, AggregationThresholdAggregateScanCorrect) {
+  IdStringPool pool;
+  auto threshold_option = MakeResolvedOption(
+      /*qualifier=*/"", /*name=*/"threshold",
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)));
+  auto max_groups_contributed_option = MakeResolvedOption(
+      /*qualifier=*/"", /*name=*/"MAX_GROUPS_CONTRIBUTED",
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)));
+
+  std::vector<std::unique_ptr<ResolvedOption>> options;
+  options.push_back(std::move(threshold_option));
+  options.push_back(std::move(max_groups_contributed_option));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto node_with_threshold,
+                       MakeAggregationThresholdQuery(std::move(options), pool));
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_AGGREGATION_THRESHOLD);
+  Validator validator(language_options);
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(node_with_threshold.get()));
+}
+
+TEST(ValidateTest, AggregationThresholdAggregateScanFeatureDisabled) {
+  IdStringPool pool;
+  auto threshold_option = MakeResolvedOption(
+      /*qualifier=*/"", /*name=*/"threshold",
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)));
+  std::vector<std::unique_ptr<ResolvedOption>> options;
+  options.push_back(std::move(threshold_option));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto node_with_threshold,
+                       MakeAggregationThresholdQuery(std::move(options), pool));
+
+  LanguageOptions language_options;
+  Validator validator(language_options);
+  EXPECT_THAT(validator.ValidateResolvedStatement(node_with_threshold.get()),
+              testing::StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST(ValidateTest, AggregationThresholdAggregateScanQualifier) {
+  IdStringPool pool;
+  auto qualifier_option = MakeResolvedOption(
+      /*qualifier=*/"qualifier", /*name=*/"MAX_rows_contributed",
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)));
+
+  std::vector<std::unique_ptr<ResolvedOption>> options;
+  options.push_back(std::move(qualifier_option));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto node_with_qualifier_option,
+                       MakeAggregationThresholdQuery(std::move(options), pool));
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_AGGREGATION_THRESHOLD);
+  Validator validator(language_options);
+
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(node_with_qualifier_option.get()),
+      testing::StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST(ValidateTest, AggregationThresholdAggregateScanInvalidOption) {
+  IdStringPool pool;
+
+  auto invalid_option = MakeResolvedOption(
+      /*qualifier=*/"", /*name=*/"invalid_option",
+      MakeResolvedLiteral(types::Int64Type(), Value::Int64(1)));
+
+  std::vector<std::unique_ptr<ResolvedOption>> options;
+  options.push_back(std::move(invalid_option));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto node_with_invalid_option,
+                       MakeAggregationThresholdQuery(std::move(options), pool));
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_AGGREGATION_THRESHOLD);
+  Validator validator(language_options);
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(node_with_invalid_option.get()),
+      testing::StatusIs(absl::StatusCode::kInternal));
+}
+
+}  // namespace
 }  // namespace testing
 }  // namespace zetasql

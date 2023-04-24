@@ -845,6 +845,8 @@ ARRAY<STRUCT<bool_val BOOL,
   {false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
   {true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=intersect_all_multiple_cols]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
@@ -892,6 +894,8 @@ ARRAY<STRUCT<bool_val BOOL,
   {false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
   {true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=except_distinct_multiple_cols]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
@@ -925,6 +929,8 @@ ARRAY<STRUCT<bool_val BOOL,
              double_val DOUBLE,
              str_val STRING,
              bytes_val BYTES>>[{false, -4, -4, 4, 4, 0.4, 0.4, "4", b"4"}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=except_all_multiple_cols]
 SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
@@ -970,6 +976,8 @@ ARRAY<STRUCT<bool_val BOOL,
   {true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
   {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # ******************************
 # SELECT enum column.
@@ -1156,6 +1164,8 @@ INTERSECT DISTINCT
 SELECT * FROM UNNEST([@nan_02]);
 --
 ARRAY<STRUCT<DOUBLE>>[{nan}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=except_distinct_nan_different_bitwise_representation_empty1]
@@ -1165,6 +1175,8 @@ EXCEPT DISTINCT
 SELECT * FROM UNNEST([@nan_02]);
 --
 ARRAY<STRUCT<DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=intersect_all_nan_different_bitwise_representation]
@@ -1174,6 +1186,8 @@ INTERSECT ALL
 SELECT * FROM UNNEST([@nan_01]);
 --
 ARRAY<STRUCT<DOUBLE>>[{nan}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=except_all_nan_different_bitwise_representation]
@@ -1183,3 +1197,360 @@ EXCEPT ALL
 SELECT * FROM UNNEST([@nan_02]);
 --
 ARRAY<STRUCT<DOUBLE>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=intersect_distinct_corresponding_different_positions]
+[required_features=V_1_4_CORRESPONDING]
+SELECT bool_val, int32_val FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+SELECT int32_val, bool_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[
+  {true, -1},
+  {NULL, NULL},
+  {false, -2},
+  {true, -3}
+]
+==
+[name=intersect_all_corresponding_different_positions]
+[required_features=V_1_4_CORRESPONDING]
+SELECT bool_val, int32_val FROM Table1
+INTERSECT ALL CORRESPONDING
+SELECT int32_val, bool_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[
+  {true, -1},
+  {NULL, NULL},
+  {false, -2},
+  {false, -2},
+  {true, -3}
+]
+==
+[name=except_distinct_corresponding_different_positions]
+[required_features=V_1_4_CORRESPONDING]
+SELECT bool_val, int32_val FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+SELECT int32_val, bool_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[{false, -4}]
+==
+[name=except_all_corresponding_different_positions]
+[required_features=V_1_4_CORRESPONDING]
+SELECT bool_val, int32_val FROM Table1
+EXCEPT ALL CORRESPONDING
+SELECT int32_val, bool_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[
+  {false, -4},
+  {true, -1},
+  {true, -1},
+  {NULL, NULL}
+]
+==
+[name=intersect_distinct_corresponding_extra_columns]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+SELECT int32_val, bool_val, float_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[
+  {true, -1},
+  {NULL, NULL},
+  {false, -2},
+  {true, -3}
+]
+==
+[name=intersect_all_corresponding_extra_columns]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val FROM Table1
+INTERSECT ALL CORRESPONDING
+SELECT int32_val, bool_val, float_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[
+  {true, -1},
+  {NULL, NULL},
+  {false, -2},
+  {false, -2},
+  {true, -3}
+]
+==
+[name=except_distinct_corresponding_extra_columns]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+SELECT int32_val, bool_val, float_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[{false, -4}]
+==
+[name=except_all_corresponding_extra_columns]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val FROM Table1
+EXCEPT ALL CORRESPONDING
+SELECT int32_val, bool_val, float_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32>>[
+  {false, -4},
+  {true, -1},
+  {true, -1},
+  {NULL, NULL}
+]
+==
+[name=intersect_all_corresponding_parenthesized_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val
+FROM Table1
+INTERSECT ALL CORRESPONDING
+(
+  SELECT bool_val, int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT DISTINCT CORRESPONDING
+  SELECT int32_val, bool_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=intersect_distinct_corresponding_parenthesized_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val
+FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+(
+  SELECT bool_val, int32_val, int64_val, float_val
+  FROM Table2
+  EXCEPT ALL CORRESPONDING
+  SELECT int32_val, bool_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[{-3, true, -3}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=except_all_corresponding_parenthesized_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val
+FROM Table1
+EXCEPT ALL CORRESPONDING
+(
+  SELECT bool_val, int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT DISTINCT CORRESPONDING
+  SELECT int32_val, bool_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[
+  {-4, false, -4},
+  {-2, false, -2},
+  {NULL, NULL, NULL},
+  {-1, true, -1},
+  {-1, true, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=except_distinct_corresponding_parenthesized_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val
+FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+(
+  SELECT bool_val, int32_val, int64_val, float_val
+  FROM Table2
+  INTERSECT ALL CORRESPONDING
+  SELECT int32_val, bool_val, float_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[
+  {-4, false, -4}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=intersect_all_corresponding_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val
+FROM Table1
+INTERSECT ALL CORRESPONDING
+SELECT bool_val, int32_val, int64_val, float_val
+FROM Table2
+INTERSECT ALL CORRESPONDING
+SELECT int32_val, bool_val, float_val, int64_val
+FROM Table1
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[
+  {-2, false, -2},
+  {-2, false, -2},
+  {NULL, NULL, NULL},
+  {-3, true, -3},
+  {-1, true, -1}
+]
+==
+[name=intersect_distinct_corresponding_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val
+FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+SELECT bool_val, int32_val, int64_val, float_val
+FROM Table2
+INTERSECT DISTINCT CORRESPONDING
+SELECT int32_val, bool_val, float_val, int64_val
+FROM Table1
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[
+  {-2, false, -2},
+  {NULL, NULL, NULL},
+  {-3, true, -3},
+  {-1, true, -1}
+]
+==
+[name=except_all_corresponding_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val
+FROM Table1
+EXCEPT ALL CORRESPONDING
+SELECT bool_val, int32_val, int64_val, float_val
+FROM Table2
+EXCEPT ALL CORRESPONDING
+SELECT int32_val, bool_val, float_val, int64_val
+FROM Table1
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[]
+==
+[name=except_distinct_corresponding_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val, int32_val
+FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+SELECT bool_val, int32_val, int64_val, float_val
+FROM Table2
+EXCEPT DISTINCT CORRESPONDING
+SELECT int32_val, bool_val, float_val, int64_val
+FROM Table1
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL, int32_val INT32>>[]
+==
+[name=intersect_all_corresponding_type_coercion]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val AS col1, bool_val AS col2, int32_val AS col3
+FROM Table1
+INTERSECT ALL CORRESPONDING
+SELECT int64_val AS col3, int32_val AS col1, bool_val AS col2
+FROM Table2
+INTERSECT ALL CORRESPONDING
+SELECT int32_val AS col1, bool_val AS col2, float_val AS col3
+FROM Table1
+--
+ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[{NULL, NULL, NULL}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=intersect_distinct_corresponding_type_coercion]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val AS col1, bool_val AS col2, int32_val AS col3
+FROM Table1
+INTERSECT DISTINCT CORRESPONDING
+SELECT int64_val AS col3, int32_val AS col1, bool_val AS col2
+FROM Table2
+INTERSECT DISTINCT CORRESPONDING
+SELECT int32_val AS col1, bool_val AS col2, float_val AS col3
+FROM Table1
+--
+ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[{NULL, NULL, NULL}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=except_all_corresponding_type_coercion]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val AS col1, bool_val AS col2, int32_val AS col3
+FROM Table1
+EXCEPT ALL CORRESPONDING
+SELECT int64_val AS col3, int32_val AS col1, bool_val AS col2
+FROM Table2
+EXCEPT ALL CORRESPONDING
+SELECT int32_val AS col1, bool_val AS col2, float_val AS col3
+FROM Table1
+--
+ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[
+  {-4, false, -4},
+  {-1, true, -1},
+  {-1, true, -1}
+]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=except_distinct_corresponding_type_coercion]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val AS col1, bool_val AS col2, int32_val AS col3
+FROM Table1
+EXCEPT DISTINCT CORRESPONDING
+SELECT int64_val AS col3, int32_val AS col1, bool_val AS col2
+FROM Table2
+EXCEPT DISTINCT CORRESPONDING
+SELECT int32_val AS col1, bool_val AS col2, float_val AS col3
+FROM Table1
+--
+ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[{-4, false, -4}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+[name=intersect_all_corresponding_complex_value]
+[required_features=V_1_2_GROUP_BY_STRUCT,V_1_4_CORRESPONDING]
+SELECT enum_val, struct_val
+FROM TableComplex1
+INTERSECT ALL CORRESPONDING
+SELECT struct_val, enum_val
+FROM TableComplex2
+--
+ARRAY<STRUCT<
+        enum_val ENUM<zetasql_test__.TestEnum>,
+        struct_val STRUCT<INT64, INT64>
+      >>
+[{TESTENUM0, {0, 0}}, {NULL, NULL}, {NULL, NULL}, {TESTENUM1, {1, 1}}]
+==
+[name=intersect_distinct_corresponding_complex_value]
+[required_features=V_1_2_GROUP_BY_STRUCT,V_1_4_CORRESPONDING]
+SELECT enum_val, struct_val
+FROM TableComplex1
+INTERSECT DISTINCT CORRESPONDING
+SELECT struct_val, enum_val
+FROM TableComplex2
+--
+ARRAY<STRUCT<
+        enum_val ENUM<zetasql_test__.TestEnum>,
+        struct_val STRUCT<INT64, INT64>
+      >>
+[{TESTENUM0, {0, 0}}, {NULL, NULL}, {TESTENUM1, {1, 1}}]
+==
+[name=except_all_corresponding_complex_value]
+[required_features=V_1_2_GROUP_BY_STRUCT,V_1_4_CORRESPONDING]
+SELECT enum_val, struct_val
+FROM TableComplex1
+EXCEPT ALL CORRESPONDING
+SELECT struct_val, enum_val
+FROM TableComplex2
+--
+ARRAY<STRUCT<
+        enum_val ENUM<zetasql_test__.TestEnum>,
+        struct_val STRUCT<INT64, INT64>
+      >>
+[{TESTENUM1, {1, 1}}, {TESTENUM1, {1, 1}}]
+==
+[name=except_distinct_corresponding_complex_value]
+[required_features=V_1_2_GROUP_BY_STRUCT,V_1_4_CORRESPONDING]
+SELECT enum_val, struct_val
+FROM TableComplex1
+EXCEPT DISTINCT CORRESPONDING
+SELECT struct_val, enum_val
+FROM TableComplex2
+--
+ARRAY<STRUCT<
+        enum_val ENUM<zetasql_test__.TestEnum>,
+        struct_val STRUCT<INT64, INT64>
+      >>[]
+==

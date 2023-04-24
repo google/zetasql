@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/compliance/depth_limit_detector_internal.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/parser/parser.h"
@@ -41,34 +42,16 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
+#include "absl/time/time.h"
 
-ABSL_DECLARE_FLAG(std::size_t, depth_limit_detector_max_sql_bytes);
+ABSL_FLAG(
+    absl::Duration, depth_limit_detector_reference_max_probing_duration,
+    absl::Seconds(30),
+    "Amount of time to search for failing reference implementation cases");
 
 namespace zetasql {
 namespace depth_limit_detector_internal {
 namespace {
-
-// Simple class to set and restore a flag for testing.
-template <typename Flag>
-class FlagSetInScope {
- public:
-  FlagSetInScope(const FlagSetInScope&) = delete;
-  FlagSetInScope& operator=(const FlagSetInScope&) = delete;
-
-  template <typename Value>
-  FlagSetInScope(Flag& flag, const Value& value)
-      : flag_(flag), previous_value_(absl::GetFlag(flag_)) {
-    absl::SetFlag(&flag, value);
-  }
-  ~FlagSetInScope() { absl::SetFlag(&flag_, previous_value_); }
-
- private:
-  Flag& flag_;
-  decltype(absl::GetFlag(flag_)) previous_value_;
-};
-
-template <typename Flag, typename Value>
-FlagSetInScope(Flag& flag, const Value& value) -> FlagSetInScope<Flag>;
 
 class ReferenceDriverStatementRunner {
   ReferenceDriver driver_;
@@ -100,19 +83,22 @@ class ReferenceDriverStatementRunner {
 TEST(DepthLimitDetectorTest, DepthLimitDetectorSqrtTest) {
   // As the testcase just generates a number, 8 bytes corresponds
   // to 8 digits.
-  FlagSetInScope restore(FLAGS_depth_limit_detector_max_sql_bytes, 8);
+  DepthLimitDetectorRuntimeControl runtime_control;
+  runtime_control.max_sql_bytes = 8;
   DepthLimitDetectorTestCase test_case = DepthLimitDetectorTestCase{
       .depth_limit_test_case_name = "sqrt",
       .depth_limit_template =
           DepthLimitDetectorTemplate({DepthLimitDetectorDepthNumber()}),
   };
-  auto results =
-      RunDepthLimitDetectorTestCase(test_case, [](std::string_view number) {
+  auto results = RunDepthLimitDetectorTestCase(
+      test_case,
+      [](std::string_view number) {
         int64_t i;
         ZETASQL_CHECK(absl::SimpleAtoi(number, &i));
         return absl::ResourceExhaustedError(
             absl::StrCat(static_cast<int64_t>(sqrt(i))));
-      });
+      },
+      runtime_control);
 
   // Prove that there are not two return conditions next to each other with
   // the same return status as they should be merged.
@@ -180,20 +166,23 @@ TEST(DepthLimitDetectorTest, DepthLimitDetectorSleepTest) {
 TEST(DepthLimitDetectorTest, DepthLimitDetectorPayloadTest) {
   // As the testcase just generates a number, 3 bytes corresponds
   // to 3 digits.
-  FlagSetInScope restore(FLAGS_depth_limit_detector_max_sql_bytes, 3);
+  DepthLimitDetectorRuntimeControl runtime_control;
+  runtime_control.max_sql_bytes = 3;
   int64_t call_count = 0;
   DepthLimitDetectorTestCase test_case = DepthLimitDetectorTestCase{
       .depth_limit_test_case_name = "payload",
       .depth_limit_template =
           DepthLimitDetectorTemplate({DepthLimitDetectorDepthNumber()}),
   };
-  auto results =
-      RunDepthLimitDetectorTestCase(test_case, [&](std::string_view number) {
+  auto results = RunDepthLimitDetectorTestCase(
+      test_case,
+      [&](std::string_view number) {
         absl::Status ret = absl::ResourceExhaustedError("payload_test");
         ret.SetPayload("test_payload_url",
                        absl::Cord(absl::StrCat("payload", call_count++)));
         return ret;
-      });
+      },
+      runtime_control);
   // Prove we were called multiple times
   ASSERT_GT(call_count, 1);
   // Prove that all the statuses are merged correctly
@@ -249,6 +238,11 @@ TEST_P(DepthLimitDetectorTemplateTest, ParserAcceptsInstantiation) {
   std::string level10 = DepthLimitDetectorTemplateToString(test_case, 10);
   ZETASQL_EXPECT_OK(zetasql::ParseStatement(level10, parser_options, &output))
       << level10;
+
+  // Very big SQL query that is too big to print out still should have no parser
+  // issues, but we shouldn't try to print it out.
+  std::string level1000 = DepthLimitDetectorTemplateToString(test_case, 1000);
+  ZETASQL_EXPECT_OK(zetasql::ParseStatement(level1000, parser_options, &output));
 }
 
 TEST_P(DepthLimitDetectorTemplateTest, ReferenceImplAcceptsInstantiation) {
@@ -262,17 +256,17 @@ TEST_P(DepthLimitDetectorTemplateTest, ReferenceImplAcceptsInstantiation) {
                            << sql;
   }
 
-  FlagSetInScope restore(FLAGS_depth_limit_detector_max_sql_bytes,
-                         2000
-  );
   DepthLimitDetectorTestResult results;
 
-  ZETASQL_LOG(INFO) << "Disecting reference implementation " << test_case << " up to "
-            << absl::GetFlag(FLAGS_depth_limit_detector_max_sql_bytes)
-            << " bytes";
+  ZETASQL_LOG(INFO) << "Disecting reference implementation " << test_case;
+
+  DepthLimitDetectorRuntimeControl runtime_control;
+  runtime_control.max_probing_duration =
+      absl::GetFlag(FLAGS_depth_limit_detector_reference_max_probing_duration);
 
     results = RunDepthLimitDetectorTestCase(
-        test_case, [&](std::string_view sql) { return driver(sql); });
+        test_case, [&](std::string_view sql) { return driver(sql); },
+        runtime_control);
 
   ZETASQL_LOG(INFO) << "Disection finished " << results;
   EXPECT_THAT(results.depth_limit_detector_return_conditions[0].return_status,

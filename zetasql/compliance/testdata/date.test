@@ -90,6 +90,8 @@ ARRAY<STRUCT<d1 DATE, d2 DATE, INT64, INT64>>[
   {2017-05-17, 2017-05-25, -1, -1},
   {2017-05-22, 2017-05-19, 1, 0}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=date_from_string_literal]

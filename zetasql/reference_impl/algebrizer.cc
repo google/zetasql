@@ -226,9 +226,20 @@ Algebrizer::AlgebrizeFunctionCallWithLambda(
     }
   }
 
+  std::string name =
+      function_call->function()->FullName(/*include_group=*/false);
   ZETASQL_ASSIGN_OR_RETURN(FunctionKind kind,
-                   BuiltinFunctionCatalog::GetKindByName(
-                       function_call->function()->FullName(false)));
+                   BuiltinFunctionCatalog::GetKindByName(name));
+
+  static const auto* const kScalarArrayFunctions =
+      new absl::flat_hash_set<absl::string_view>{
+          "array_offset", "array_find", "array_offsets", "array_find_all"};
+  if (kScalarArrayFunctions->contains(name)) {
+    return AlgebrizeScalarArrayFunctionWithCollation(
+        kind, function_call->type(), name, std::move(args),
+        function_call->collation_list());
+  }
+
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> function_call_expr,
                    BuiltinScalarFunction::CreateCall(
                        kind, language_options_, function_call->type(),
@@ -331,6 +342,9 @@ absl::Status GetCollatedFunctionNameAndArguments(
 
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
     const ResolvedFunctionCall* function_call) {
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
+      "Out of stack space due to deeply nested query expression "
+      "during algebrizing");
   std::string name =
       function_call->function()->FullName(/*include_group=*/false);
   const ResolvedFunctionCallBase::ErrorMode& error_mode =
@@ -437,6 +451,8 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
     return AlgebrizeInArray(
         std::move(arguments[0]), std::move(arguments[1]),
         collation_list.empty() ? ResolvedCollation() : collation_list[0]);
+  } else if (name == "float64") {
+    kind = FunctionKind::kDouble;
   } else {
     absl::StatusOr<FunctionKind> status_or_kind =
         BuiltinFunctionCatalog::GetKindByName(name);
@@ -1422,16 +1438,10 @@ Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
 absl::StatusOr<std::unique_ptr<ValueExpr>>
 Algebrizer::AlgebrizeScalarArrayFunctionWithCollation(
     FunctionKind kind, const Type* output_type, absl::string_view function_name,
-    std::vector<std::unique_ptr<ValueExpr>> args,
+    std::vector<std::unique_ptr<AlgebraArg>> converted_arguments,
     const std::vector<ResolvedCollation>& collation_list) {
   ZETASQL_ASSIGN_OR_RETURN(CollatorList collator_list,
                    MakeCollatorList(collation_list));
-
-  std::vector<std::unique_ptr<AlgebraArg>> converted_arguments;
-  converted_arguments.reserve(args.size());
-  for (auto& e : args) {
-    converted_arguments.push_back(std::make_unique<ExprArg>(std::move(e)));
-  }
 
   switch (kind) {
     case FunctionKind::kArrayMin:
@@ -1456,6 +1466,22 @@ Algebrizer::AlgebrizeScalarArrayFunctionWithCollation(
 }
 
 absl::StatusOr<std::unique_ptr<ValueExpr>>
+Algebrizer::AlgebrizeScalarArrayFunctionWithCollation(
+    FunctionKind kind, const Type* output_type, absl::string_view function_name,
+    std::vector<std::unique_ptr<ValueExpr>> args,
+    const std::vector<ResolvedCollation>& collation_list) {
+  std::vector<std::unique_ptr<AlgebraArg>> converted_arguments;
+  converted_arguments.reserve(args.size());
+  for (auto& e : args) {
+    converted_arguments.push_back(std::make_unique<ExprArg>(std::move(e)));
+  }
+
+  return AlgebrizeScalarArrayFunctionWithCollation(
+      kind, output_type, function_name, std::move(converted_arguments),
+      collation_list);
+}
+
+absl::StatusOr<std::unique_ptr<ValueExpr>>
 Algebrizer::AlgebrizeStandaloneExpression(const ResolvedExpr* expr) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value_expr,
                    AlgebrizeExpression(expr));
@@ -1477,6 +1503,9 @@ Algebrizer::AlgebrizeStandaloneExpression(const ResolvedExpr* expr) {
 
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpression(
     const ResolvedExpr* expr) {
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
+      "Out of stack space due to deeply nested query expression "
+      "during algebrizing");
 
   if (!expr->type()->IsSupportedType(language_options_)) {
     return ::zetasql_base::InvalidArgumentErrorBuilder()
@@ -3174,6 +3203,10 @@ absl::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
       ZETASQL_RET_CHECK(!anonymization_options.max_rows_contributed.has_value())
           << "Anonymization option MAX_ROWS_CONTRIBUTED can only be set once";
       ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+      anonymization_options.max_rows_contributed =
+          option->value()->GetAs<ResolvedLiteral>()->value();
+      // TODO Remove unimplemented error when using
+      // MAX_ROWS_CONTRIBUTED
       return zetasql_base::UnimplementedErrorBuilder()
              << "Unimplemented anonymization option MAX_ROWS_CONTRIBUTED found";
     } else {

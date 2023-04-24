@@ -106,7 +106,7 @@ bool CanBeFusedWithOpenParenOrBracket(const Token& token) {
   const absl::string_view keyword = token.GetKeyword();
   return !token.IsValue() &&
          (!(IsTopLevelClauseKeyword(token) || forbidden->contains(keyword)) ||
-          keyword == "ASSERT" || token.IsMacroCall());
+          keyword == "ASSERT" || keyword == "WITH" || token.IsMacroCall());
 }
 
 bool CanBeFusedWithOpenParenOrBracket(const Chunk& chunk,
@@ -331,7 +331,8 @@ bool Chunk::SpaceBetweenTokens(const Token& token_before,
                                             "INTERVAL", "NOT", "OPTIONS", "ON",
                                             "OVER", "USING", ",", "=>"});
   if (token_after.GetKeyword() == "(") {
-    if (token_before.GetKeyword() == "UNNEST") {
+    if (token_before.GetKeyword() == "UNNEST" ||
+        token_before.GetKeyword() == "WITH") {
       return false;
     }
     if ((token_before.GetKeyword() == ")" &&

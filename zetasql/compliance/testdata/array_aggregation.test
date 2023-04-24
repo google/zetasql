@@ -359,6 +359,8 @@ SELECT ARRAY_AGG(a)[OFFSET(1)] BETWEEN 1 AND 3 FROM
   (SELECT 1 AS a UNION ALL SELECT 2 UNION ALL SELECT 3)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=array_agg_distinct_same]
 SELECT ARRAY_AGG(DISTINCT a) b FROM
@@ -566,6 +568,8 @@ ARRAY<STRUCT<INT64>>[{2}]
 SELECT ARRAY(SELECT 1 UNION ALL SELECT 1)[OFFSET(1)]
 --
 ARRAY<STRUCT<INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 

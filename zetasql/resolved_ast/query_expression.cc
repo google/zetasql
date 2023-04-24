@@ -18,16 +18,21 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
@@ -52,6 +57,31 @@ static std::string JoinListWithAliases(
   return list_str;
 }
 
+absl::StatusOr<QueryExpression::QueryType> QueryExpression::GetQueryType()
+    const {
+  if (set_op_scan_list_.empty()) {
+    ZETASQL_RET_CHECK(!select_list_.empty());
+    ZETASQL_RET_CHECK(set_op_type_.empty());
+    ZETASQL_RET_CHECK(set_op_column_match_mode_.empty());
+    ZETASQL_RET_CHECK(corresponding_set_op_output_column_list_.empty());
+    return QueryExpression::kDefaultQueryType;
+  }
+
+  ZETASQL_RET_CHECK(select_list_.empty());
+  ZETASQL_RET_CHECK(!set_op_type_.empty());
+  if (set_op_column_match_mode_.empty()) {
+    ZETASQL_RET_CHECK(corresponding_set_op_output_column_list_.empty());
+    return QueryExpression::kPositionalSetOpScan;
+  }
+  ZETASQL_RET_CHECK(!corresponding_set_op_output_column_list_.empty());
+  return QueryExpression::kCorrespondenceSetOpScan;
+}
+
+void QueryExpression::set_corresponding_set_op_output_column_list(
+    std::vector<std::pair<std::string, std::string>> select_list) {
+  corresponding_set_op_output_column_list_ = std::move(select_list);
+}
+
 void QueryExpression::ClearAllClauses() {
   with_list_.clear();
   select_list_.clear();
@@ -61,7 +91,9 @@ void QueryExpression::ClearAllClauses() {
   where_.clear();
   set_op_type_.clear();
   set_op_modifier_.clear();
+  set_op_column_match_mode_.clear();
   set_op_scan_list_.clear();
+  corresponding_set_op_output_column_list_.clear();
   group_by_list_.clear();
   group_by_hints_.clear();
   order_by_list_.clear();
@@ -117,6 +149,9 @@ std::string QueryExpression::GetSQLQuery() const {
           absl::StrAppend(&sql, " ", query_hints_);
         }
         absl::StrAppend(&sql, " ", set_op_modifier_);
+        if (!set_op_column_match_mode_.empty()) {
+          absl::StrAppend(&sql, " ", set_op_column_match_mode_);
+        }
       }
       absl::StrAppend(&sql, "(", qe->GetSQLQuery(), ")");
     }
@@ -241,6 +276,7 @@ bool QueryExpression::TrySetWhereClause(const std::string& where) {
 bool QueryExpression::TrySetSetOpScanList(
     std::vector<std::unique_ptr<QueryExpression>>* set_op_scan_list,
     const std::string& set_op_type, const std::string& set_op_modifier,
+    const std::string& set_op_column_match_mode,
     const std::string& query_hints) {
   if (!CanSetSetOpScanList()) {
     return false;
@@ -252,6 +288,7 @@ bool QueryExpression::TrySetSetOpScanList(
   ZETASQL_DCHECK(set_op_modifier_.empty());
   set_op_type_ = set_op_type;
   set_op_modifier_ = set_op_modifier;
+  set_op_column_match_mode_ = set_op_column_match_mode;
   query_hints_ = query_hints;
   return true;
 }
@@ -361,6 +398,9 @@ const std::vector<std::pair<std::string, std::string>>&
 QueryExpression::SelectList() const {
   if (!set_op_scan_list_.empty()) {
     ZETASQL_DCHECK(select_list_.empty());
+    if (!set_op_column_match_mode_.empty()) {
+      return corresponding_set_op_output_column_list_;
+    }
     return set_op_scan_list_[0]->SelectList();
   }
 
@@ -370,15 +410,68 @@ bool QueryExpression::CanSetWithAnonymizationClause() const {
   return !HasWithAnonymizationClause();
 }
 
-void QueryExpression::SetAliasForSelectColumn(int select_column_pos,
-                                              const std::string& alias) {
-  if (!set_op_scan_list_.empty()) {
-    ZETASQL_DCHECK(select_list_.empty());
-    set_op_scan_list_[0]->SetAliasForSelectColumn(select_column_pos, alias);
-  } else {
-    ZETASQL_DCHECK_LT(select_column_pos, select_list_.size());
-    select_list_[select_column_pos].second = alias;
+static bool HasDuplicateAliases(
+    const absl::flat_hash_map<int, absl::string_view>& aliases) {
+  absl::flat_hash_set<absl::string_view, zetasql_base::StringViewCaseHash,
+                      zetasql_base::StringViewCaseEqual>
+      seen_aliases;
+  for (const auto [index, alias] : aliases) {
+    if (!seen_aliases.insert(alias).second) {
+      return true;
+    }
   }
+  return false;
+}
+
+absl::Status QueryExpression::SetAliasesForSelectList(
+    const absl::flat_hash_map<int, absl::string_view>& aliases) {
+  ZETASQL_ASSIGN_OR_RETURN(QueryType type, GetQueryType());
+  switch (type) {
+    case kDefaultQueryType:
+      for (const auto [index, alias] : aliases) {
+        ZETASQL_RET_CHECK_LT(index, select_list_.size());
+        select_list_[index].second = alias;
+      }
+      break;
+    case kPositionalSetOpScan:
+      ZETASQL_RETURN_IF_ERROR(set_op_scan_list_[0]->SetAliasesForSelectList(aliases));
+      break;
+    case kCorrespondenceSetOpScan:
+      ZETASQL_RET_CHECK(!HasDuplicateAliases(aliases));
+      absl::flat_hash_map<absl::string_view, absl::string_view>
+          old_to_new_alias;
+      for (const auto [index, new_alias] : aliases) {
+        ZETASQL_RET_CHECK_LT(index, corresponding_set_op_output_column_list_.size());
+        ZETASQL_RET_CHECK(
+            old_to_new_alias
+                .insert({corresponding_set_op_output_column_list_[index].second,
+                         new_alias})
+                .second);
+      }
+      // Recursively set aliases for each set operation item.
+      for (int item_index = 0; item_index < set_op_scan_list_.size();
+           ++item_index) {
+        absl::flat_hash_map<int, absl::string_view> item_aliases;
+        for (int col_idx = 0;
+             col_idx < set_op_scan_list_[item_index]->SelectList().size();
+             ++col_idx) {
+          absl::string_view old_alias =
+              set_op_scan_list_[item_index]->SelectList()[col_idx].second;
+          const auto new_alias = old_to_new_alias.find(old_alias);
+          if (new_alias != old_to_new_alias.end()) {
+            item_aliases[col_idx] = new_alias->second;
+          }
+        }
+        ZETASQL_RETURN_IF_ERROR(set_op_scan_list_[item_index]->SetAliasesForSelectList(
+            item_aliases));
+      }
+      // Update the select list for CORRESPONDING.
+      for (const auto [index, new_alias] : aliases) {
+        corresponding_set_op_output_column_list_[index].second = new_alias;
+      }
+      break;
+  }
+  return absl::OkStatus();
 }
 
 void QueryExpression::SetSelectAsModifier(const std::string& modifier) {

@@ -196,6 +196,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAbortBatchStmt* node) override;
   absl::Status VisitResolvedDeleteStmt(
       const ResolvedDeleteStmt* node) override;
+  absl::Status VisitResolvedUndropStmt(const ResolvedUndropStmt* node) override;
   absl::Status VisitResolvedDropStmt(
       const ResolvedDropStmt* node) override;
   absl::Status VisitResolvedDropFunctionStmt(
@@ -345,6 +346,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAnonymizedAggregateScan* node) override;
   absl::Status VisitResolvedDifferentialPrivacyAggregateScan(
       const ResolvedDifferentialPrivacyAggregateScan* node) override;
+  absl::Status VisitResolvedAggregationThresholdAggregateScan(
+      const ResolvedAggregationThresholdAggregateScan* node) override;
   absl::Status VisitResolvedRecursiveScan(
       const ResolvedRecursiveScan* node) override;
   absl::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
@@ -454,6 +457,28 @@ class SQLBuilder : public ResolvedASTVisitor {
   // <query_expression>, if not present.
   absl::Status AddSelectListIfNeeded(const ResolvedColumnList& column_list,
                                      QueryExpression* query_expression);
+
+  // Updates the aliases of the columns in `scan_column_list` to the names in
+  // `aliases` if they appear in `columns_to_rename`. The member field
+  // `computed_column_aliases_` is not updated because these columns should not
+  // be referenceable from outside.
+  //
+  // `preserve_order`: If true, the order in which aliases are assigned to
+  // columns will be the same as the order of the columns in the
+  // `columns_to_rename` list.
+  //
+  // Preconditions:
+  // - The input `query_expression` does not have duplicate aliases in its
+  // `SelectList()`.
+  // - `aliases` does not have duplicate names.
+  // - `columns_to_rename` and `aliases` have the same length.
+  // Postconditions:
+  // - `query_expression` still does not have duplicate aliases.
+  absl::Status RenameColumnsForCorresponding(
+      const ResolvedColumnList& scan_column_list,
+      const ResolvedColumnList& columns_to_rename,
+      const std::vector<absl::string_view>& aliases, bool preserve_order,
+      QueryExpression* query_expression);
 
   // Merges the <type> and the <annotations> trees and prints the column
   // schema to <text>.

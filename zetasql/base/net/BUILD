@@ -78,7 +78,7 @@ cc_library(
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "@icu//:headers",
+        "@icu",
     ],
 )
 
@@ -119,7 +119,7 @@ cc_library(
         "//zetasql/base:logging",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "@icu//:headers",
+        "@icu",
     ],
 )
 

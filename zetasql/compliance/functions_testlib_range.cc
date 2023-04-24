@@ -14,19 +14,22 @@
 // limitations under the License.
 //
 
-#include <cstdint>
-#include <string>
 #include <vector>
 
+#include "zetasql/public/civil_time.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT (build/include)
+#include "zetasql/base/check.h"
+#include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 
 namespace zetasql {
 
 using zetasql::Value;
-using zetasql::test_values::Range;
 
 namespace {
 
@@ -79,31 +82,35 @@ std::vector<FunctionTestCall> EqualityTests(const Value& t1, const Value& t2,
   ZETASQL_CHECK(t2.LessThan(t3));
   return {
       // Same ranges
-      {"=", {Range(t1, t2), Range(t1, t2)}, Bool(true)},
+      {"RangeEquals", {Range(t1, t2), Range(t1, t2)}, Bool(true)},
       // Different ends
-      {"=", {Range(t1, t3), Range(t1, t2)}, Bool(false)},
+      {"RangeEquals", {Range(t1, t3), Range(t1, t2)}, Bool(false)},
       // Different starts
-      {"=", {Range(t1, t3), Range(t1, t2)}, Bool(false)},
+      {"RangeEquals", {Range(t1, t3), Range(t1, t2)}, Bool(false)},
       // Different starts and ends
-      {"=", {Range(t1, t2), Range(t2, t3)}, Bool(false)},
+      {"RangeEquals", {Range(t1, t2), Range(t2, t3)}, Bool(false)},
       // Same ranges with unbounded start
-      {"=", {Range(unbounded, t2), Range(unbounded, t2)}, Bool(true)},
+      {"RangeEquals", {Range(unbounded, t2), Range(unbounded, t2)}, Bool(true)},
       // Different ranges, one with unbounded start, same end date
-      {"=", {Range(unbounded, t2), Range(t1, t2)}, Bool(false)},
+      {"RangeEquals", {Range(unbounded, t2), Range(t1, t2)}, Bool(false)},
       // Different ranges, both with unbounded start, different end date
-      {"=", {Range(unbounded, t2), Range(unbounded, t3)}, Bool(false)},
+      {"RangeEquals",
+       {Range(unbounded, t2), Range(unbounded, t3)},
+       Bool(false)},
       // Same ranges with unobunded end
-      {"=", {Range(t1, unbounded), Range(t1, unbounded)}, Bool(true)},
+      {"RangeEquals", {Range(t1, unbounded), Range(t1, unbounded)}, Bool(true)},
       // Different ranges, same start date, one with unbounded end
-      {"=", {Range(t1, unbounded), Range(t1, t2)}, Bool(false)},
+      {"RangeEquals", {Range(t1, unbounded), Range(t1, t2)}, Bool(false)},
       // Different ranges, different start date, both with unbounded end
-      {"=", {Range(t1, unbounded), Range(t2, unbounded)}, Bool(false)},
+      {"RangeEquals",
+       {Range(t1, unbounded), Range(t2, unbounded)},
+       Bool(false)},
       // Same ranges, unbounded start and end
-      {"=",
+      {"RangeEquals",
        {Range(unbounded, unbounded), Range(unbounded, unbounded)},
        Bool(true)},
       // Null compared to non-null
-      {"=", {null_range, Range(t1, t2)}, NullBool()},
+      {"RangeEquals", {null_range, Range(t1, t2)}, NullBool()},
   };
 }
 
@@ -118,86 +125,92 @@ std::vector<FunctionTestCall> ComparisonTests(const Value& t1, const Value& t2,
       // Regular ranges
       // [___)........
       // ........[___)
-      {"<", {Range(t1, t2), Range(t3, t4)}, Bool(true)},
+      {"RangeLessThan", {Range(t1, t2), Range(t3, t4)}, Bool(true)},
       // [___)........
       // ....[_______)
-      {"<", {Range(t1, t2), Range(t2, t4)}, Bool(true)},
+      {"RangeLessThan", {Range(t1, t2), Range(t2, t4)}, Bool(true)},
       // [_______)....
       // ....[_______)
-      {"<", {Range(t1, t3), Range(t2, t4)}, Bool(true)},
+      {"RangeLessThan", {Range(t1, t3), Range(t2, t4)}, Bool(true)},
       // [_______)....
       // ....[___)....
-      {"<", {Range(t1, t3), Range(t2, t3)}, Bool(true)},
+      {"RangeLessThan", {Range(t1, t3), Range(t2, t3)}, Bool(true)},
       // [___________)
       // ....[___)....
-      {"<", {Range(t1, t4), Range(t2, t3)}, Bool(true)},
+      {"RangeLessThan", {Range(t1, t4), Range(t2, t3)}, Bool(true)},
       // [___________)
       // ....[___)....
-      {"<", {Range(t1, t4), Range(t2, t3)}, Bool(true)},
+      {"RangeLessThan", {Range(t1, t4), Range(t2, t3)}, Bool(true)},
       // ....[_______)
       // ....[___)....
-      {"<", {Range(t2, t4), Range(t2, t3)}, Bool(false)},
+      {"RangeLessThan", {Range(t2, t4), Range(t2, t3)}, Bool(false)},
       // ....[___)....
       // ....[___)....
-      {"<", {Range(t2, t3), Range(t2, t3)}, Bool(false)},
+      {"RangeLessThan", {Range(t2, t3), Range(t2, t3)}, Bool(false)},
       // ....[_______)
       // [_______)....
-      {"<", {Range(t2, t4), Range(t1, t3)}, Bool(false)},
+      {"RangeLessThan", {Range(t2, t4), Range(t1, t3)}, Bool(false)},
       // ........[___)
       // [_______)....
-      {"<", {Range(t3, t4), Range(t1, t3)}, Bool(false)},
+      {"RangeLessThan", {Range(t3, t4), Range(t1, t3)}, Bool(false)},
       // ........[___)
       // [___)........
-      {"<", {Range(t3, t4), Range(t1, t2)}, Bool(false)},
+      {"RangeLessThan", {Range(t3, t4), Range(t1, t2)}, Bool(false)},
       // Ranges with unbounded start
       // ____)........
       // ........[___)
-      {"<", {Range(unbounded, t2), Range(t3, t4)}, Bool(true)},
+      {"RangeLessThan", {Range(unbounded, t2), Range(t3, t4)}, Bool(true)},
       // ____)........
       // ....[___)....
-      {"<", {Range(unbounded, t2), Range(t2, t3)}, Bool(true)},
+      {"RangeLessThan", {Range(unbounded, t2), Range(t2, t3)}, Bool(true)},
       // ________)....
       // ....[_______)
-      {"<", {Range(unbounded, t3), Range(t2, t4)}, Bool(true)},
+      {"RangeLessThan", {Range(unbounded, t3), Range(t2, t4)}, Bool(true)},
       // ________)....
       // ....[___)....
-      {"<", {Range(unbounded, t3), Range(t2, t3)}, Bool(true)},
+      {"RangeLessThan", {Range(unbounded, t3), Range(t2, t3)}, Bool(true)},
       // ____________)
       // ....[___)....
-      {"<", {Range(unbounded, t4), Range(t2, t3)}, Bool(true)},
+      {"RangeLessThan", {Range(unbounded, t4), Range(t2, t3)}, Bool(true)},
       // Ranges with unbounded end
       // [____________
       // ....[___)....
-      {"<", {Range(t1, unbounded), Range(t2, t3)}, Bool(true)},
+      {"RangeLessThan", {Range(t1, unbounded), Range(t2, t3)}, Bool(true)},
       // ....[________
       // ....[___)....
-      {"<", {Range(t2, unbounded), Range(t2, t3)}, Bool(false)},
+      {"RangeLessThan", {Range(t2, unbounded), Range(t2, t3)}, Bool(false)},
       // ........[____
       // ....[_______)
-      {"<", {Range(t3, unbounded), Range(t2, t4)}, Bool(false)},
+      {"RangeLessThan", {Range(t3, unbounded), Range(t2, t4)}, Bool(false)},
       // ........[____
       // ....[___)....
-      {"<", {Range(t3, unbounded), Range(t2, t3)}, Bool(false)},
+      {"RangeLessThan", {Range(t3, unbounded), Range(t2, t3)}, Bool(false)},
       // ........[____
       // [___)........
-      {"<", {Range(t3, unbounded), Range(t1, t2)}, Bool(false)},
+      {"RangeLessThan", {Range(t3, unbounded), Range(t1, t2)}, Bool(false)},
       // Ranges with unbounded start and end
       // _____________
       // ....[___)....
-      {"<", {Range(unbounded, unbounded), Range(t2, t3)}, Bool(true)},
+      {"RangeLessThan",
+       {Range(unbounded, unbounded), Range(t2, t3)},
+       Bool(true)},
       // _____________
       // ....[________
-      {"<", {Range(unbounded, unbounded), Range(t2, unbounded)}, Bool(true)},
+      {"RangeLessThan",
+       {Range(unbounded, unbounded), Range(t2, unbounded)},
+       Bool(true)},
       // _____________
       // ___).........
-      {"<", {Range(unbounded, unbounded), Range(unbounded, t2)}, Bool(false)},
+      {"RangeLessThan",
+       {Range(unbounded, unbounded), Range(unbounded, t2)},
+       Bool(false)},
       // _____________
       // _____________
-      {"<",
+      {"RangeLessThan",
        {Range(unbounded, unbounded), Range(unbounded, unbounded)},
        Bool(false)},
       // Null range
-      {"<", {null_range, Range(t2, t3)}, NullBool()},
+      {"RangeLessThan", {null_range, Range(t2, t3)}, NullBool()},
   };
 }
 

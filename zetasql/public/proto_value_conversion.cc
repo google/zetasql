@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -122,12 +123,12 @@ static absl::Status StructValueToProto(const Value& value,
   const StructType* struct_type = value.type()->AsStruct();
   ZETASQL_RET_CHECK(struct_type != nullptr) << value.DebugString();
   ZETASQL_RET_CHECK_EQ(struct_type->num_fields(), value.num_fields());
+  const google::protobuf::Descriptor* descriptor = proto_out->GetDescriptor();
+  ZETASQL_RET_CHECK_LE(struct_type->num_fields(), descriptor->field_count());
   for (int i = 0; i < struct_type->num_fields(); ++i) {
     const Value& field_value = value.field(i);
-    const google::protobuf::FieldDescriptor* field =
-        proto_out->GetDescriptor()->FindFieldByNumber(i + 1);
-    ZETASQL_RET_CHECK(field != nullptr) << i;
-    ZETASQL_RETURN_IF_ERROR(MergeValueToProtoField(field_value, field,
+    const google::protobuf::FieldDescriptor* proto_field = descriptor->field(i);
+    ZETASQL_RETURN_IF_ERROR(MergeValueToProtoField(field_value, proto_field,
                                            use_wire_format_annotations,
                                            message_factory, proto_out));
   }
@@ -414,7 +415,7 @@ absl::Status MergeValueToProtoField(const Value& value,
     case TYPE_ARRAY: {
       // We can require that field is repeated because ARRAY wrappers result
       // in a recursive call using the wrapper's internal repeated field.
-      ZETASQL_RET_CHECK(field->is_repeated());
+      ZETASQL_RET_CHECK(field->is_repeated()) << field->full_name();
 
       // ARRAYs of ARRAYs are not allowed in ZetaSQL.
       const ArrayType* array_type = value.type()->AsArray();
@@ -493,31 +494,10 @@ absl::Status MergeValueToProtoField(const Value& value,
     case TYPE_RANGE: {
       ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_BYTES);
       std::string encoded_range;
-      switch (value.type()->AsRange()->element_type()->kind()) {
-        case TypeKind::TYPE_DATE: {
-          ZETASQL_ASSIGN_OR_RETURN(encoded_range,
-                           value.ToRangeValueDateValues().SerializeAsBytes());
-          break;
-        }
-        case TypeKind::TYPE_DATETIME: {
-          ZETASQL_ASSIGN_OR_RETURN(
-              encoded_range,
-              value.ToRangeValuePacked64DatetimeMicros().SerializeAsBytes());
-          break;
-        }
-        case TypeKind::TYPE_TIMESTAMP: {
-          ZETASQL_ASSIGN_OR_RETURN(
-              encoded_range,
-              value.ToRangeValueTimestampUnixMicros().SerializeAsBytes());
-          break;
-        }
-        default:
-          ZETASQL_RET_CHECK_FAIL()
-              << "Unsupported RANGE element type kind "
-              << Type::TypeKindToString(
-                     value.type()->AsRange()->element_type()->kind(),
-                     PRODUCT_EXTERNAL);
-      }
+      ValueProto value_proto;
+      ZETASQL_RETURN_IF_ERROR(value.Serialize(&value_proto));
+      encoded_range = value_proto.SerializeAsString();
+
       if (field->is_repeated()) {
         reflection->AddString(proto_out, field, std::move(encoded_range));
       } else {
@@ -939,29 +919,16 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           field->is_repeated() ?
           reflection->GetRepeatedString(proto, field, index) :
           reflection->GetString(proto, field);
-      switch (field_format) {
-        case FieldFormat::RANGE_DATES_ENCODED: {
-          ZETASQL_ASSIGN_OR_RETURN(RangeValue<int32_t> range_value,
-                           RangeValue<int32_t>::DeserializeFromBytes(value));
-          ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeRangeDates(range_value));
-          break;
-        }
-        case FieldFormat::RANGE_DATETIMES_ENCODED: {
-          ZETASQL_ASSIGN_OR_RETURN(RangeValue<int64_t> range_value,
-                           RangeValue<int64_t>::DeserializeFromBytes(value));
-          ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeRangeDatetimes(range_value));
-          break;
-        }
-        case FieldFormat::RANGE_TIMESTAMPS_ENCODED: {
-          ZETASQL_ASSIGN_OR_RETURN(RangeValue<int64_t> range_value,
-                           RangeValue<int64_t>::DeserializeFromBytes(value));
-          ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeRangeTimestamps(range_value));
-          break;
-        }
-        default:
-          ZETASQL_RET_CHECK_FAIL() << "Unsupported RANGE field format: "
-                           << FieldFormat::Format_Name(field_format);
+
+      ValueProto value_proto;
+      bool parse_result = value_proto.ParseFromString(value);
+      if (!parse_result) {
+        return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
+               << "Invalid encoded range: " << value
+               << " with format: " << FieldFormat::Format_Name(field_format);
       }
+      ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::Deserialize(value_proto, type));
+
       return absl::OkStatus();
     }
     default:

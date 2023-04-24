@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Debugging functions
 
 ZetaSQL supports the following debugging functions.
@@ -111,21 +113,21 @@ In the following examples, the query successfully evaluates `try_expression`.
 ```sql
 SELECT IFERROR('a', 'b') AS result
 
-+--------+
-| result |
-+--------+
-| a      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | a      |
+ *--------*/
 ```
 
 ```sql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
 
-+--------+
-| result |
-+--------+
-| 1      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
 ```
 
 In the following examples, `IFERROR` catches an evaluation error in the
@@ -134,21 +136,21 @@ In the following examples, `IFERROR` catches an evaluation error in the
 ```sql
 SELECT IFERROR(ERROR('a'), 'b') AS result
 
-+--------+
-| result |
-+--------+
-| b      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | b      |
+ *--------*/
 ```
 
 ```sql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
 
-+--------+
-| result |
-+--------+
-| -1     |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | -1     |
+ *--------*/
 ```
 
 In the following query, the error is handled by the innermost `IFERROR`
@@ -157,11 +159,11 @@ operation, `IFERROR(ERROR('a'), 'b')`.
 ```sql
 SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
 
-+--------+
-| result |
-+--------+
-| b      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | b      |
+ *--------*/
 ```
 
 In the following query, the error is handled by the outermost `IFERROR`
@@ -170,11 +172,11 @@ operation, `IFERROR(..., 'c')`.
 ```sql
 SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
 
-+--------+
-| result |
-+--------+
-| c      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | c      |
+ *--------*/
 ```
 
 In the following example, an evaluation error is produced because the subquery
@@ -183,11 +185,11 @@ passed in as the `try_expression` evaluates to a table, not a scalar value.
 ```sql
 SELECT IFERROR((SELECT e FROM UNNEST([1, 2]) AS e), 3) AS result
 
-+--------+
-| result |
-+--------+
-| 3      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 3      |
+ *--------*/
 ```
 
 In the following example, `IFERROR` catches an evaluation error in `ERROR('a')`
@@ -234,31 +236,31 @@ In the following examples, `ISERROR` successfully evaluates `try_expression`.
 ```sql
 SELECT ISERROR('a') AS is_error
 
-+----------+
-| is_error |
-+----------+
-| false    |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | false    |
+ *----------*/
 ```
 
 ```sql
 SELECT ISERROR(2/1) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| false    |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | false    |
+ *----------*/
 ```
 
 ```sql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| false    |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | false    |
+ *----------*/
 ```
 
 In the following examples, `ISERROR` catches an evaluation error in
@@ -267,31 +269,31 @@ In the following examples, `ISERROR` catches an evaluation error in
 ```sql
 SELECT ISERROR(ERROR('a')) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | true     |
+ *----------*/
 ```
 
 ```sql
 SELECT ISERROR(2/0) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | true     |
+ *----------*/
 ```
 
 ```sql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | true     |
+ *----------*/
 ```
 
 In the following example, an evaluation error is produced because the subquery
@@ -300,11 +302,11 @@ passed in as `try_expression` evaluates to a table, not a scalar value.
 ```sql
 SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
 
-+----------+
-| is_error |
-+----------+
-| true     |
-+----------+
+/*----------*
+ | is_error |
+ +----------+
+ | true     |
+ *----------*/
 ```
 
 ### `NULLIFERROR`
@@ -340,21 +342,21 @@ In the following examples, `NULLIFERROR` successfully evaluates
 ```sql
 SELECT NULLIFERROR('a') AS result
 
-+--------+
-| result |
-+--------+
-| a      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | a      |
+ *--------*/
 ```
 
 ```sql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
 
-+--------+
-| result |
-+--------+
-| 1      |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | 1      |
+ *--------*/
 ```
 
 In the following examples, `NULLIFERROR` catches an evaluation error in
@@ -363,21 +365,21 @@ In the following examples, `NULLIFERROR` catches an evaluation error in
 ```sql
 SELECT NULLIFERROR(ERROR('a')) AS result
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 
 ```sql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 
 In the following example, an evaluation error is produced because the subquery
@@ -386,10 +388,10 @@ passed in as `try_expression` evaluates to a table, not a scalar value.
 ```sql
 SELECT NULLIFERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS result
 
-+--------+
-| result |
-+--------+
-| NULL   |
-+--------+
+/*--------*
+ | result |
+ +--------+
+ | NULL   |
+ *--------*/
 ```
 

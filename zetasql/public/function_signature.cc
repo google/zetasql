@@ -45,6 +45,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
@@ -775,6 +776,11 @@ absl::Status FunctionArgumentType::IsValid(ProductMode product_mode) const {
   }
 
   if (IsLambda()) {
+    if (lambda_ == nullptr) {
+      return absl::InternalError(
+          "FunctionArgumentType with ARG_TYPE_LAMBDA constructed directly is "
+          "not allowed. Use FunctionArgumentType::Lambda instead.");
+    }
     ZETASQL_RET_CHECK_EQ(cardinality(), REQUIRED);
     for (const auto& arg_type : lambda().argument_types()) {
       ZETASQL_RETURN_IF_ERROR(CheckLambdaArgType(arg_type));
@@ -1129,7 +1135,7 @@ absl::StatusOr<bool> FunctionSignature::CheckArgumentConstraints(
   return options_.CheckFunctionSignatureConstraints(*this, arguments);
 }
 
-std::string FunctionSignature::DebugString(const std::string& function_name,
+std::string FunctionSignature::DebugString(absl::string_view function_name,
                                            bool verbose) const {
   std::string result = absl::StrCat(function_name, "(");
   int first = true;
@@ -1154,7 +1160,7 @@ std::string FunctionSignature::DebugString(const std::string& function_name,
 
 std::string FunctionSignature::SignaturesToString(
     const std::vector<FunctionSignature>& signatures, bool verbose,
-    const std::string& prefix, const std::string& separator) {
+    absl::string_view prefix, const std::string& separator) {
   std::string out;
   for (const FunctionSignature& signature : signatures) {
     absl::StrAppend(&out, (out.empty() ? "" : separator), prefix,
@@ -1545,6 +1551,26 @@ bool FunctionSignature::HasEnabledRewriteImplementation() const {
   const std::optional<FunctionSignatureRewriteOptions>& rewrite_opts =
       options().rewrite_options();
   return rewrite_opts.has_value() && rewrite_opts->enabled();
+}
+
+bool FunctionSignature::HideInSupportedSignatureList(
+    const LanguageOptions& language_options) const {
+  return IsDeprecated() || IsInternal() ||
+         HasUnsupportedType(language_options) ||
+         !options().check_all_required_features_are_enabled(
+             language_options.GetEnabledLanguageFeatures());
+}
+
+std::vector<std::string>
+FunctionSignature::GetArgumentsUserFacingTextWithCardinality(
+    const LanguageOptions& language_options,
+    FunctionArgumentType::NamePrintingStyle print_style) const {
+  std::vector<std::string> argument_texts;
+  for (const FunctionArgumentType& argument : arguments()) {
+    argument_texts.push_back(argument.UserFacingNameWithCardinality(
+        language_options.product_mode(), print_style));
+  }
+  return argument_texts;
 }
 
 }  // namespace zetasql

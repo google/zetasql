@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Differentially private aggregate functions 
 <a id="aggregate-dp-functions"></a>
 
@@ -54,12 +56,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| pencil   | 38.5038356810269 |
-| pen      | 13.4725028762032 |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 38.5038356810269 |
+ | pen      | 13.4725028762032 |
+ *----------+------------------*/
 ```
 
 ```sql
@@ -73,21 +75,21 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ *----------+------------------*/
 ```
 
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -137,12 +139,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | pencil   | 5               |
+ | pen      | 2               |
+ *----------+-----------------*/
 ```
 
 ```sql
@@ -156,13 +158,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | scissors | 1               |
+ | pencil   | 4               |
+ | pen      | 3               |
+ *----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -211,12 +213,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | pencil   | 5               |
+ | pen      | 2               |
+ *----------+-----------------*/
 ```
 
 ```sql
@@ -230,13 +232,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | scissors | 1               |
+ | pencil   | 4               |
+ | pen      | 3               |
+ *----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -244,11 +246,11 @@ noise [here][dp-noise].
 
 [dp-clamp-implicit]: #dp_implicit_clamping
 
-[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
+[dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from_rules
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -301,16 +303,16 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+----------------------+
-| item     | percentile_requested |
-+----------+----------------------+
-| pencil   | 72.00011444091797    |
-| scissors | 8.000175476074219    |
-| pen      | 23.001075744628906   |
-+----------+----------------------+
+/*----------+----------------------*
+ | item     | percentile_requested |
+ +----------+----------------------+
+ | pencil   | 72.00011444091797    |
+ | scissors | 8.000175476074219    |
+ | pen      | 23.001075744628906   |
+ *----------+----------------------*/
 ```
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -365,15 +367,15 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+----------------------------------------------------------------------+
-| item     | quantiles_requested                                                  |
-+----------+----------------------------------------------------------------------+
-| pen      | [6.409375,20.647684733072918,41.40625,67.30848524305556,99.80078125] |
-| pencil   | [6.849259,44.010416666666664,62.64204,65.83806818181819,98.59375]    |
-+----------+----------------------------------------------------------------------+
+/*----------+----------------------------------------------------------------------*
+ | item     | quantiles_requested                                                  |
+ +----------+----------------------------------------------------------------------+
+ | pen      | [6.409375,20.647684733072918,41.40625,67.30848524305556,99.80078125] |
+ | pencil   | [6.849259,44.010416666666664,62.64204,65.83806818181819,98.59375]    |
+ *----------+----------------------------------------------------------------------*/
 ```
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -426,16 +428,16 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+------------------------+
-| item     | pop_standard_deviation |
-+----------+------------------------+
-| pencil   | 25.350871122442054     |
-| scissors | 50                     |
-| pen      | 2                      |
-+----------+------------------------+
+/*----------+------------------------*
+ | item     | pop_standard_deviation |
+ +----------+------------------------+
+ | pencil   | 25.350871122442054     |
+ | scissors | 50                     |
+ | pen      | 2                      |
+ *----------+------------------------*/
 ```
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -486,12 +488,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------+
-| item     | quantity  |
-+----------+-----------+
-| pencil   | 143       |
-| pen      | 59        |
-+----------+-----------+
+/*----------+-----------*
+ | item     | quantity  |
+ +----------+-----------+
+ | pencil   | 143       |
+ | pen      | 59        |
+ *----------+-----------*/
 ```
 
 ```sql
@@ -505,21 +507,21 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+----------+
-| item     | quantity |
-+----------+----------+
-| scissors | 8        |
-| pencil   | 144      |
-| pen      | 58       |
-+----------+----------+
+/*----------+----------*
+ | item     | quantity |
+ +----------+----------+
+ | scissors | 8        |
+ | pencil   | 144      |
+ | pen      | 58       |
+ *----------+----------*/
 ```
 
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 
@@ -576,18 +578,18 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | pop_variance    |
-+----------+-----------------+
-| pencil   | 642             |
-| pen      | 2.6666666666665 |
-| scissors | 2500            |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | pop_variance    |
+ +----------+-----------------+
+ | pencil   | 642             |
+ | pen      | 2.6666666666665 |
+ | scissors | 2500            |
+ *----------+-----------------*/
 ```
 
 [dp-clamp-explicit]: #dp_explicit_clamping
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
 [dp-clamp-between]: #dp_clamp_between
 
@@ -637,12 +639,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| pencil   | 38.5038356810269 |
-| pen      | 13.4725028762032 |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | pencil   | 38.5038356810269 |
+ | pen      | 13.4725028762032 |
+ *----------+------------------*/
 ```
 
 ```sql
@@ -656,21 +658,21 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ *----------+------------------*/
 ```
 
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
-[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamped-named]: #dp_clamped_named
 
@@ -724,12 +726,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | pencil   | 5               |
+ | pen      | 2               |
+ *----------+-----------------*/
 ```
 
 ```sql
@@ -743,13 +745,13 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | scissors | 1               |
+ | pencil   | 4               |
+ | pen      | 3               |
+ *----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -800,12 +802,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | pencil   | 5               |
+ | pen      | 2               |
+ *----------+-----------------*/
 ```
 
 ```sql
@@ -819,13 +821,13 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | times_requested |
+ +----------+-----------------+
+ | scissors | 1               |
+ | pencil   | 4               |
+ | pen      | 3               |
+ *----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -835,9 +837,9 @@ noise [here][dp-noise].
 
 [dp-from-clause]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_from
 
-[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamped-named]: #dp_clamped_named
 
@@ -892,18 +894,106 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+----------------------+
-| item     | percentile_requested |
-+----------+----------------------+
-| pencil   | 72.00011444091797    |
-| scissors | 8.000175476074219    |
-| pen      | 23.001075744628906   |
-+----------+----------------------+
+ /*----------+----------------------*
+  | item     | percentile_requested |
+  +----------+----------------------+
+  | pencil   | 72.00011444091797    |
+  | scissors | 8.000175476074219    |
+  | pen      | 23.001075744628906   |
+  *----------+----------------------*/
 ```
 
-[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-clamped-named]: #dp_clamped_named
+
+### `SUM` (differential privacy) 
+<a id="dp_sum"></a>
+
+```sql
+WITH DIFFERENTIAL_PRIVACY ...
+  SUM(expression[, contribution_bounds_per_group => (lower_bound, upper_bound)])
+```
+
+**Description**
+
+Returns the sum of non-`NULL`, non-`NaN` values in the expression. The final
+result is an aggregation across privacy unit columns.
+
+This function must be used with the `DIFFERENTIAL_PRIVACY` clause and
+can support these arguments:
+
++ `expression`: The input expression. This can be any numeric input type,
+  such as `INT64`. `NULL`s are always ignored.
++ `contribution_bounds_per_group`: The
+  [contribution bounds named argument][anon-clamped-named].
+  Perform clamping per each group separately before performing intermediate
+  grouping on the privacy unit column.
+
+**Return type**
+
+One of the following [supertypes][anon-supertype]:
+
++ `INT64`
++ `UINT64`
++ `DOUBLE`
+
+**Examples**
+
+The following differentially private query gets the sum of items requested.
+Smaller aggregations may not be included. This query references a view called
+[`professors`][anon-example-tables].
+
+```sql
+-- With noise
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=10, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
+    item,
+    SUM(quantity, contribution_bounds_per_group => (0,100)) quantity
+FROM professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- Smaller aggregations may be removed.
+/*----------+-----------*
+ | item     | quantity  |
+ +----------+-----------+
+ | pencil   | 143       |
+ | pen      | 59        |
+ *----------+-----------*/
+```
+
+```sql
+-- Without noise (this un-noised version is for demonstration only)
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1, privacy_unit_column=id)
+    item,
+    SUM(quantity) quantity
+FROM professors
+GROUP BY item;
+
+-- These results will not change when you run the query.
+/*----------+----------*
+ | item     | quantity |
+ +----------+----------+
+ | scissors | 8        |
+ | pencil   | 144      |
+ | pen      | 58       |
+ *----------+----------*/
+```
+
+Note: You can learn more about when and when not to use
+noise [here][anon-noise].
+
+[anon-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+
+[anon-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+[anon-clamped-named]: #dp_clamped_named
 
 ### `VAR_POP` (differential privacy) 
 <a id="dp_var_pop"></a>
@@ -958,25 +1048,25 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | pop_variance    |
-+----------+-----------------+
-| pencil   | 642             |
-| pen      | 2.6666666666665 |
-| scissors | 2500            |
-+----------+-----------------+
+/*----------+-----------------*
+ | item     | pop_variance    |
+ +----------+-----------------+
+ | pencil   | 642             |
+ | pen      | 2.6666666666665 |
+ | scissors | 2500            |
+ *----------+-----------------*/
 ```
 
 [dp-clamp-explicit]: #dp_explicit_clamping
 
-[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_tables
+[dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-clamped-named]: #dp_clamped_named
 
 ### Clamp values in a differentially private aggregate function 
 <a id="dp_clamping"></a>
 
-In [differentially private queries][differential-privacy],
+In [differentially private queries][dp-syntax],
 aggregation clamping is used to limit the contribution of outliers. You can
 clamp [implicitly][dp-imp-clamp] or [explicitly][dp-exp-clamp].
 
@@ -1037,13 +1127,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ *----------+------------------*/
 ```
 
 Notice what happens when most or all values fall outside of the clamped range.
@@ -1064,13 +1154,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 54               |
-| pencil   | 58               |
-| pen      | 51               |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 54               |
+ | pencil   | 58               |
+ | pen      | 51               |
+ *----------+------------------*/
 ```
 
 To learn more about when and when not to use noise in
@@ -1116,13 +1206,13 @@ SELECT WITH ANONYMIZATION
 FROM view_on_professors
 GROUP BY item;
 
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 8                |
+ | pencil   | 40               |
+ | pen      | 18.5             |
+ *----------+------------------*/
 ```
 
 Notice what happens when most or all values fall outside of the clamped range.
@@ -1143,13 +1233,13 @@ SELECT WITH ANONYMIZATION
 FROM view_on_professors
 GROUP BY item;
 
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 54               |
-| pencil   | 58               |
-| pen      | 51               |
-+----------+------------------+
+/*----------+------------------*
+ | item     | average_quantity |
+ +----------+------------------+
+ | scissors | 54               |
+ | pencil   | 58               |
+ | pen      | 51               |
+ *----------+------------------*/
 ```
 
 To learn more about when and when not to use noise in
@@ -1199,19 +1289,17 @@ information.
 When clamping is implicit, part of the total epsilon is spent picking bounds.
 This leaves less epsilon for aggregations, so these aggregations are noisier.
 
-[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
+[dp-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_clause
 
 [agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
-
-[differential-privacy]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md
 
 [dp-exp-clamp]: #dp_explicit_clamping
 
 [dp-imp-clamp]: #dp_implicit_clamping
 
-[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#dp_example_views
+[dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
 
-[dp-noise]: https://github.com/google/zetasql/blob/master/docs/differential-privacy.md#eliminate_noise
+[dp-noise]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamp-between]: #dp_clamp_between
 

@@ -748,9 +748,12 @@ void TestMultiplicationDivisionRoundTrip(absl::BitGen* random) {
 
 template <class T>
 struct FromScaledLittleEndianValueOp {
-  absl::StatusOr<T> operator()(absl::string_view input, int scale,
-                               bool allow_rounding) const {
-    return T::FromScaledLittleEndianValue(input, scale, allow_rounding);
+  absl::StatusOr<T> operator()(absl::string_view input, int logical_types_scale,
+                               bool allow_rounding,
+                               bool round_half_even) const {
+    return T::FromScaledLittleEndianValue(input, logical_types_scale,
+                                          T::kMaxFractionalDigits,
+                                          allow_rounding, round_half_even);
   }
 };
 
@@ -1279,33 +1282,42 @@ void TestAggregatorMergeWith(const ValueWrapper (&test_data)[kNumInputs]) {
 }
 
 template <typename T>
-void TestFromScaledValue(absl::string_view bytes, int scale,
-                         bool allow_rounding,
+void TestFromScaledValue(absl::string_view bytes, int source_scale,
+                         int fractional_digits_to_keep, bool allow_rounding,
+                         bool round_half_even,
                          const absl::StatusOr<T>& expected_output) {
-  auto status_or_result =
-      T::FromScaledLittleEndianValue(bytes, scale, allow_rounding);
+  auto status_or_result = T::FromScaledLittleEndianValue(
+      bytes, source_scale, fractional_digits_to_keep, allow_rounding,
+      round_half_even);
   if (expected_output.ok()) {
     EXPECT_THAT(status_or_result, IsOkAndHolds(expected_output.value()))
         << absl::Substitute(
-               "input value: \"$0\", scale: $1, allow_rounding: $2",
-               absl::BytesToHexString(bytes), scale, allow_rounding);
+               "input value: \"$0\", scale: $1, "
+               "fractional_digits_to_keep: $2, "
+               "allow_rounding: $3, "
+               "round_half_even: $4",
+               absl::BytesToHexString(bytes), source_scale,
+               fractional_digits_to_keep, allow_rounding, round_half_even);
   } else {
     EXPECT_THAT(
         status_or_result.status(),
         StatusIs(absl::StatusCode::kOutOfRange,
                  absl::StrCat(expected_output.status().message(),
                               absl::Substitute("; input length: $0; scale: $1",
-                                               bytes.size(), scale))));
+                                               bytes.size(), source_scale))));
   }
 }
 
 template <typename ValueWrapper>
-void TestFromScaledValue(absl::string_view input, int scale,
-                         bool allow_rounding,
-                         const ValueWrapper& expected_output) {
+void TestFromScaledValue(absl::string_view input, int source_scale,
+                         int fractional_digits_to_keep, bool allow_rounding,
+                         bool round_half_even,
+                         const ValueWrapper& expected_output,
+                         bool test_with_added_scale = true) {
   auto status_or_expected_output = GetValue(expected_output);
   if (input.empty()) {
-    TestFromScaledValue(input, scale, allow_rounding,
+    TestFromScaledValue(input, source_scale, fractional_digits_to_keep,
+                        allow_rounding, round_half_even,
                         status_or_expected_output);
     return;
   }
@@ -1330,11 +1342,15 @@ void TestFromScaledValue(absl::string_view input, int scale,
     }
     std::string bytes;
     input_value.SerializeToBytes(&bytes);
-    TestFromScaledValue(bytes, scale, allow_rounding,
+    TestFromScaledValue(bytes, source_scale, fractional_digits_to_keep,
+                        allow_rounding, round_half_even,
                         status_or_expected_output);
 
+    if (!test_with_added_scale) {
+      continue;
+    }
     for (int extra_scale : {1, 2, 5, 9, 38, 76, 100}) {
-      if (static_cast<int64_t>(extra_scale) + scale > kintmax) break;
+      if (static_cast<int64_t>(extra_scale) + source_scale > kintmax) break;
       FixedInt<64, 8> extra_scaled_value = input_value;
       if (extra_scaled_value.MultiplyOverflow(
               FixedInt<64, 8>::PowerOf10(extra_scale))) {
@@ -1345,8 +1361,9 @@ void TestFromScaledValue(absl::string_view input, int scale,
       extra_scaled_value.SerializeToBytes(&bytes);
       // Append some redundant bytes that do not affect the result.
       bytes.append(bytes.size(), input_value.is_negative() ? '\xff' : '\x00');
-      TestFromScaledValue(bytes, scale + extra_scale, allow_rounding,
-                          status_or_expected_output);
+      TestFromScaledValue(bytes, source_scale + extra_scale,
+                          fractional_digits_to_keep, allow_rounding,
+                          round_half_even, status_or_expected_output);
     }
   }
 }
@@ -1367,10 +1384,16 @@ void TestFromScaledValueRoundTrip(absl::BitGen* random) {
     std::string bytes;
     extended_int.SerializeToBytes(&bytes);
     EXPECT_THAT(T::FromScaledLittleEndianValue(
-                    bytes, T::kMaxFractionalDigits + extra_scale, false),
+                    bytes, T::kMaxFractionalDigits + extra_scale,
+                    T::kMaxFractionalDigits, false, false),
                 IsOkAndHolds(original));
     EXPECT_THAT(T::FromScaledLittleEndianValue(
-                    bytes, T::kMaxFractionalDigits + extra_scale, true),
+                    bytes, T::kMaxFractionalDigits + extra_scale,
+                    T::kMaxFractionalDigits, true, false),
+                IsOkAndHolds(original));
+    EXPECT_THAT(T::FromScaledLittleEndianValue(
+                    bytes, T::kMaxFractionalDigits + extra_scale,
+                    T::kMaxFractionalDigits, true, true),
                 IsOkAndHolds(original));
 
     // scaled_int must be a multiple of pow(10, num_truncated_digits).
@@ -1384,10 +1407,16 @@ void TestFromScaledValueRoundTrip(absl::BitGen* random) {
     bytes.clear();
     quotient.SerializeToBytes(&bytes);
     EXPECT_THAT(T::FromScaledLittleEndianValue(
-                    bytes, T::kMaxFractionalDigits - scale_reduction, false),
+                    bytes, T::kMaxFractionalDigits - scale_reduction,
+                    T::kMaxFractionalDigits, false, false),
                 IsOkAndHolds(original));
     EXPECT_THAT(T::FromScaledLittleEndianValue(
-                    bytes, T::kMaxFractionalDigits - scale_reduction, true),
+                    bytes, T::kMaxFractionalDigits - scale_reduction,
+                    T::kMaxFractionalDigits, true, false),
+                IsOkAndHolds(original));
+    EXPECT_THAT(T::FromScaledLittleEndianValue(
+                    bytes, T::kMaxFractionalDigits - scale_reduction,
+                    T::kMaxFractionalDigits, true, true),
                 IsOkAndHolds(original));
   }
 }
@@ -1960,7 +1989,7 @@ TEST_F(NumericValueTest, RoundTripFromUint64) {
   TestRoundTripFromInteger<NumericValue, uint64_t>(&random_);
 }
 
-TEST_F(NumericValueTest, FromScaledValue) {
+TEST_F(NumericValueTest, FromScaledValueToFullPrecision) {
   struct FromScaledValueTestData {
     absl::string_view input_value;
     int scale;
@@ -2009,17 +2038,23 @@ TEST_F(NumericValueTest, FromScaledValue) {
       {kScaledMaxNumericValueStr, kintmin, kNumericFromScaledValueOutOfRange},
   };
   for (const auto& data : kTestDataNoRoundingRequired) {
-    TestFromScaledValue(data.input_value, data.scale, false,
-                        data.expected_output);
-    TestFromScaledValue(data.input_value, data.scale, true,
-                        data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale,
+                        NumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/false,
+                        /*round_half_even=*/false, data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale,
+                        NumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true,
+                        /*round_half_even=*/false, data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale,
+                        NumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true,
+                        /*round_half_even=*/true, data.expected_output);
   }
 
-  static constexpr FromScaledValueTestData kTestDataWithRounding[] = {
-      {"1", 10, 0},
+  static constexpr FromScaledValueTestData kTestDataWithGenericRounding[] = {
       {"449999999999999999999999999999999999999", 47, "4e-9"},
-      {"450000000000000000000000000000000000000", 47, "5e-9"},
-
+      {"450000000000000000000000000000000000001", 47, "5e-9"},
       {kScaledMaxNumericValueStr, 38, 1},
       {kScaledMaxNumericValueStr, 40, "0.01"},
       {kScaledMaxNumericValueStr, 47, "1e-9"},
@@ -2035,13 +2070,159 @@ TEST_F(NumericValueTest, FromScaledValue) {
       {"999999999999999999999999999999999999995"
        "000000000000000000000000000000000000000",
        49, kNumericFromScaledValueOutOfRange},
+      {"1", 10, 0},
+      {"4444444444444444444444444444444444444444", 28,
+       "444444444444.444444444"},
   };
-  for (const auto& data : kTestDataWithRounding) {
+
+  static constexpr FromScaledValueTestData kTestDataRoundHalfEven[] = {
+      {"42023125", 10, "0.004202312"},
+      {"44444444444444444444445", 10, "4444444444444.444444444"},
+      {"450000000000000000000000000000000000000", 47, "4e-9"},
+  };
+
+  static constexpr FromScaledValueTestData kTestDataRoundHalfAwayFromZero[] = {
+      {"42023125", 10, "0.004202313"},
+      {"44444444444444444444445", 10, "4444444444444.444444445"},
+      {"450000000000000000000000000000000000000", 47, "5e-9"},
+  };
+
+  for (const auto& data : kTestDataWithGenericRounding) {
     TestFromScaledValue(
-        data.input_value, data.scale, false,
+        data.input_value, data.scale, NumericValue::kMaxFractionalDigits,
+        /*allow_rounding=*/false,
+        /*round_half_even=*/false,
         NumericValueWrapper(kNumericFromScaledValueRoundingNotAllowed));
-    TestFromScaledValue(data.input_value, data.scale, true,
+    TestFromScaledValue(data.input_value, data.scale,
+                        NumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true, /*round_half_even=*/true,
                         data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale,
+                        NumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true, /*round_half_even=*/false,
+                        data.expected_output);
+  }
+
+  for (const auto& data : kTestDataRoundHalfEven) {
+    TestFromScaledValue(
+        data.input_value, data.scale, NumericValue::kMaxFractionalDigits,
+        /*allow_rounding=*/false,
+        /*round_half_even=*/false,
+        NumericValueWrapper(kNumericFromScaledValueRoundingNotAllowed));
+    TestFromScaledValue(data.input_value, data.scale,
+                        NumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true, /*round_half_even=*/true,
+                        data.expected_output);
+  }
+
+  for (const auto& data : kTestDataRoundHalfAwayFromZero) {
+    TestFromScaledValue(
+        data.input_value, data.scale, NumericValue::kMaxFractionalDigits,
+        /*allow_rounding=*/false,
+        /*round_half_even=*/false,
+        NumericValueWrapper(kNumericFromScaledValueRoundingNotAllowed));
+    TestFromScaledValue(data.input_value, data.scale,
+                        NumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true, /*round_half_even=*/false,
+                        data.expected_output);
+  }
+}
+
+TEST_F(NumericValueTest, FromScaledValueToDestinationScale) {
+  struct FromScaledValueToParameterizedTypeTestData {
+    absl::string_view input_value;
+    int scale;
+    int destination_scale;
+    NumericValueWrapper expected_output;
+  };
+  // No rounding required when scaling up. We scale up when the destination
+  // type scale is larger than the scale of the little endian input.
+  static constexpr FromScaledValueToParameterizedTypeTestData
+      kTestDataScaledUp[] = {
+          {"123456789", 5, 8, "1234.56789"},
+          {"123456789", 5, 9, "1234.56789"},
+          {"123456789", 2, 6, "1234567.89"},
+          {"123456789", 5, 7, "1234.56789"},
+          {"9999999999999999999999999999999999999", 8, 9,
+           "99999999999999999999999999999.99999999"},
+          {"99999999999999999999999999999999999995", 9, 9,
+           "99999999999999999999999999999.999999995"},
+      };
+
+  for (const auto& data : kTestDataScaledUp) {
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/false, /*round_half_even*/ false,
+                        data.expected_output, /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even*/ false,
+                        data.expected_output, /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even*/ true,
+                        data.expected_output, /*test_with_added_scale=*/false);
+  }
+
+  static constexpr FromScaledValueToParameterizedTypeTestData
+      kTestDataWithGenericRounding[] = {
+          {"123456789", 5, 4, "1234.5679"},
+          {"123456789", 5, 2, "1234.57"},
+          {"99999999999999999999999999999999999992", 10, 9,
+           "9999999999999999999999999999.999999999"},
+          {"550000000000000000000000000000000000000", 47, 9, "6e-9"},
+      };
+
+  static constexpr FromScaledValueToParameterizedTypeTestData
+      kTestDataWithRoundHalfEven[] = {
+          {"123456785", 5, 4, "1234.5678"},
+          {"450000000000000000000000000000000000000", 47, 9, "4e-9"},
+          {"12345678912345678912345678945", 2, 1,
+           "123456789123456789123456789.4"},
+      };
+
+  static constexpr FromScaledValueToParameterizedTypeTestData
+      kTestDataWithRoundHalfAwayFromZero[] = {
+          {"123456785", 5, 4, "1234.5679"},
+          {"450000000000000000000000000000000000000", 47, 9, "5e-9"},
+          {"12345678912345678912345678945", 2, 1,
+           "123456789123456789123456789.5"},
+      };
+
+  for (const auto& data : kTestDataWithGenericRounding) {
+    TestFromScaledValue(
+        data.input_value, data.scale, data.destination_scale,
+        /*allow_rounding=*/false, /*round_half_even=*/false,
+        NumericValueWrapper(kNumericFromScaledValueRoundingNotAllowed),
+        /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even=*/false,
+                        data.expected_output, /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true,
+                        /*round_half_even=*/true, data.expected_output,
+                        /*test_with_added_scale=*/false);
+  }
+
+  for (const auto& data : kTestDataWithRoundHalfAwayFromZero) {
+    TestFromScaledValue(
+        data.input_value, data.scale, data.destination_scale,
+        /*allow_rounding=*/false, /*round_half_even=*/false,
+        NumericValueWrapper(kNumericFromScaledValueRoundingNotAllowed),
+        /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even=*/false,
+                        data.expected_output,
+                        /*test_with_added_scale=*/false);
+  }
+
+  for (const auto& data : kTestDataWithRoundHalfEven) {
+    TestFromScaledValue(
+        data.input_value, data.scale, data.destination_scale,
+        /*allow_rounding=*/false, /*round_half_even=*/false,
+        NumericValueWrapper(kNumericFromScaledValueRoundingNotAllowed),
+        /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even=*/true,
+                        data.expected_output,
+                        /*test_with_added_scale=*/false);
   }
 }
 
@@ -7088,7 +7269,7 @@ TEST_F(BigNumericValueTest, NumericValueRoundTrip) {
   }
 }
 
-TEST_F(BigNumericValueTest, FromScaledValue) {
+TEST_F(BigNumericValueTest, FromScaledValueToFullPrecision) {
   struct FromScaledValueTestData {
     absl::string_view input_value;
     int scale;
@@ -7159,17 +7340,23 @@ TEST_F(BigNumericValueTest, FromScaledValue) {
        kBigNumericFromScaledValueOutOfRange},
   };
   for (const auto& data : kTestDataNoRoundingRequired) {
-    TestFromScaledValue(data.input_value, data.scale, false,
-                        data.expected_output);
-    TestFromScaledValue(data.input_value, data.scale, true,
-                        data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale,
+                        BigNumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/false,
+                        /*round_half_even*/ false, data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale,
+                        BigNumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true,
+                        /*round_half_even*/ false, data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale,
+                        BigNumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true,
+                        /*round_half_even*/ true, data.expected_output);
   }
 
-  static constexpr FromScaledValueTestData kTestDataWithRounding[] = {
+  static constexpr FromScaledValueTestData kTestDataWithGenericRounding[] = {
       {"1", 39, 0},
       {"449999999999999999999999999999999999999", 76, "4e-38"},
-      {"450000000000000000000000000000000000000", 76, "5e-38"},
-
       {kScaledMaxBigNumericValueStr, 77,
        "0.57896044618658097711785492504343953927"},
       {kScaledMaxBigNumericValueStr, 110, "5.7896e-34"},
@@ -7177,7 +7364,6 @@ TEST_F(BigNumericValueTest, FromScaledValue) {
       {kScaledMaxBigNumericValueStr, 115, "1e-38"},
       {kScaledMaxBigNumericValueStr, 116, 0},
       {kScaledMaxBigNumericValueStr, kintmax, 0},
-
       {kScaledMinBigNumericValueStr, 77,
        "-0.57896044618658097711785492504343953927"},
       {kScaledMinBigNumericValueStr, 110, "-5.7896e-34"},
@@ -7185,7 +7371,6 @@ TEST_F(BigNumericValueTest, FromScaledValue) {
       {kScaledMinBigNumericValueStr, 115, "-1e-38"},
       {kScaledMinBigNumericValueStr, 116, 0},
       {kScaledMinBigNumericValueStr, kintmax, 0},
-
       {"578960446186580977117854925043439539266"
        "349923328202820197287920039565648199674",
        39, kMaxBigNumericValueStr},
@@ -7195,9 +7380,6 @@ TEST_F(BigNumericValueTest, FromScaledValue) {
       {"-578960446186580977117854925043439539266"
        "349923328202820197287920039565648199684",
        39, kMinBigNumericValueStr},
-      {"578960446186580977117854925043439539266"
-       "349923328202820197287920039565648199685",
-       39, kBigNumericFromScaledValueOutOfRange},  // overflow after rounding
       {"578960446186580977117854925043439539266"
        "349923328202820197287920039565648199674"
        "999999999999999999999999999999999999999",
@@ -7210,10 +7392,6 @@ TEST_F(BigNumericValueTest, FromScaledValue) {
        "349923328202820197287920039565648199684"
        "999999999999999999999999999999999999999",
        78, kMinBigNumericValueStr},
-      {"578960446186580977117854925043439539266"
-       "349923328202820197287920039565648199685"
-       "000000000000000000000000000000000000000",
-       78, kBigNumericFromScaledValueOutOfRange},
       {"115792089237316195423570985008687907853"
        "269984665640564039457584007913129639935",
        39,
@@ -7223,12 +7401,192 @@ TEST_F(BigNumericValueTest, FromScaledValue) {
        "2699846656405640394575840079131296399355",
        39, kBigNumericFromScaledValueOutOfRange},
   };
-  for (const auto& data : kTestDataWithRounding) {
+
+  static constexpr FromScaledValueTestData kTestDataWithRoundHalfEven[] = {
+      {"450000000000000000000000000000000000000", 76, "4e-38"},
+      {"115792089237316195423570985008687907853"
+       "269984665640564039457584007913129639945",
+       39,
+       "115792089237316195423570985008687907853"
+       ".26998466564056403945758400791312963994"},
+  };
+
+  static constexpr FromScaledValueTestData
+      kTestDataWithRoundHalfAwayFromZero[] = {
+          {"450000000000000000000000000000000000000", 76, "5e-38"},
+          {"578960446186580977117854925043439539266"
+           "349923328202820197287920039565648199685",
+           39,
+           kBigNumericFromScaledValueOutOfRange},  // overflow after rounding
+          {"578960446186580977117854925043439539266"
+           "349923328202820197287920039565648199685"
+           "000000000000000000000000000000000000000",
+           78, kBigNumericFromScaledValueOutOfRange},
+          {"115792089237316195423570985008687907853"
+           "269984665640564039457584007913129639945",
+           39,
+           "115792089237316195423570985008687907853"
+           ".26998466564056403945758400791312963995"},
+      };
+
+  for (const auto& data : kTestDataWithGenericRounding) {
     TestFromScaledValue(
-        data.input_value, data.scale, false,
+        data.input_value, data.scale, BigNumericValue::kMaxFractionalDigits,
+        /*allow_rounding=*/false,
+        /*round_half_even=*/false,
         BigNumericValueWrapper(kBigNumericFromScaledValueRoundingNotAllowed));
-    TestFromScaledValue(data.input_value, data.scale, true,
-                        data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale,
+                        BigNumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true,
+                        /*round_half_even=*/false, data.expected_output);
+    TestFromScaledValue(data.input_value, data.scale,
+                        BigNumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true,
+                        /*round_half_even=*/true, data.expected_output);
+  }
+
+  for (const auto& data : kTestDataWithRoundHalfAwayFromZero) {
+    TestFromScaledValue(
+        data.input_value, data.scale, BigNumericValue::kMaxFractionalDigits,
+        /*allow_rounding=*/false,
+        /*round_half_even=*/false,
+        BigNumericValueWrapper(kBigNumericFromScaledValueRoundingNotAllowed));
+    TestFromScaledValue(data.input_value, data.scale,
+                        BigNumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true,
+                        /*round_half_even=*/false, data.expected_output);
+  }
+
+  for (const auto& data : kTestDataWithRoundHalfEven) {
+    TestFromScaledValue(
+        data.input_value, data.scale, BigNumericValue::kMaxFractionalDigits,
+        /*allow_rounding=*/false,
+        /*round_half_even=*/false,
+        BigNumericValueWrapper(kBigNumericFromScaledValueRoundingNotAllowed));
+    TestFromScaledValue(data.input_value, data.scale,
+                        BigNumericValue::kMaxFractionalDigits,
+                        /*allow_rounding=*/true,
+                        /*round_half_even=*/true, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, FromScaledValueToDestinationScale) {
+  struct FromScaledValueToParameterizedTypeTestData {
+    absl::string_view input_value;
+    int scale;
+    int destination_scale;
+    BigNumericValueWrapper expected_output;
+  };
+  // No rounding required when scaling up. We scale up when the destination
+  // type scale is larger than the scale of the little endian input.
+  static constexpr FromScaledValueToParameterizedTypeTestData
+      kTestDataScaledUp[] = {
+          {"123456789", 5, 8, "1234.56789"},
+          {"123456789", 5, 12, "1234.56789"},
+          {"123456789", 2, 16, "1234567.89"},
+          {"123456789", 5, 29, "1234.56789"},
+          {"578960446186580977117854925043439539266"
+           "3499233282028201972879200395656481995",
+           37, 38,
+           "578960446186580977117854925043439539266."
+           "3499233282028201972879200395656481995"},
+          {"578960446186580977117854925043439539266"
+           "34992332820282019728792003956564819965",
+           38, 38,
+           "578960446186580977117854925043439539266."
+           "34992332820282019728792003956564819965"},
+      };
+
+  for (const auto& data : kTestDataScaledUp) {
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/false, /*round_half_even*/ false,
+                        data.expected_output, /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even*/ false,
+                        data.expected_output, /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even*/ true,
+                        data.expected_output, /*test_with_added_scale=*/false);
+  }
+
+  static constexpr FromScaledValueToParameterizedTypeTestData
+      kTestDataWithGenericRounding[] = {
+          {"123456789", 5, 4, "1234.5679"},
+          {"123456789", 5, 2, "1234.57"},
+          {"578960446186580977117854925043439539266"
+           "34992332820282019728792003956564819957",
+           38, 37,
+           "578960446186580977117854925043439539266."
+           "3499233282028201972879200395656481996"},
+          {"578960446186580977117854925043439539266"
+           "34992332820282019728792003956564819967",
+           38, 36, kBigNumericFromScaledValueOutOfRange},
+          {"550000000000000000000000000000000000000", 76, 38, "6e-38"},
+      };
+
+  static constexpr FromScaledValueToParameterizedTypeTestData
+      kTestDataWithRoundHalfEven[] = {
+          {"123456785", 5, 4, "1234.5678"},
+          {"450000000000000000000000000000000000000", 76, 38, "4e-38"},
+          {"115792089237316195423570985008687907853"
+           "269984665640564039457584007913129639945",
+           39, 38,
+           "115792089237316195423570985008687907853."
+           "26998466564056403945758400791312963994"},
+      };
+
+  static constexpr FromScaledValueToParameterizedTypeTestData
+      kTestDataWithRoundHalfAwayFromZero[] = {
+          {"123456785", 5, 4, "1234.5679"},
+          {"450000000000000000000000000000000000000", 76, 38, "5e-38"},
+          {"578960446186580977117854925043439539266"
+           "269984665640564039457584007913129639945"
+           "000000000000000000000000000000000000000",
+           78, 38,
+           "578960446186580977117854925043439539266."
+           "26998466564056403945758400791312963995"},
+          {"115792089237316195423570985008687907853"
+           "269984665640564039457584007913129639945",
+           39, 38,
+           "115792089237316195423570985008687907853."
+           "26998466564056403945758400791312963995"},
+      };
+
+  for (const auto& data : kTestDataWithGenericRounding) {
+    TestFromScaledValue(
+        data.input_value, data.scale, data.destination_scale,
+        /*allow_rounding=*/false, /*round_half_even=*/false,
+        BigNumericValueWrapper(kBigNumericFromScaledValueRoundingNotAllowed),
+        /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even=*/false,
+                        data.expected_output, /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true,
+                        /*round_half_even=*/true, data.expected_output,
+                        /*test_with_added_scale=*/false);
+  }
+
+  for (const auto& data : kTestDataWithRoundHalfAwayFromZero) {
+    TestFromScaledValue(
+        data.input_value, data.scale, data.destination_scale,
+        /*allow_rounding=*/false, /*round_half_even=*/false,
+        BigNumericValueWrapper(kBigNumericFromScaledValueRoundingNotAllowed),
+        /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even=*/false,
+                        data.expected_output, /*test_with_added_scale=*/false);
+  }
+
+  for (const auto& data : kTestDataWithRoundHalfEven) {
+    TestFromScaledValue(
+        data.input_value, data.scale, data.destination_scale,
+        /*allow_rounding=*/false, /*round_half_even=*/false,
+        BigNumericValueWrapper(kBigNumericFromScaledValueRoundingNotAllowed),
+        /*test_with_added_scale=*/false);
+    TestFromScaledValue(data.input_value, data.scale, data.destination_scale,
+                        /*allow_rounding=*/true, /*round_half_even=*/true,
+                        data.expected_output, /*test_with_added_scale=*/false);
   }
 }
 

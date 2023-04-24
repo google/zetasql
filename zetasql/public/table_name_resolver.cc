@@ -379,10 +379,21 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
               RESOLVED_CREATE_MODEL_STMT)) {
         const ASTQuery* query =
             statement->GetAs<ASTCreateModelStatement>()->query();
-        if (query == nullptr) {
-          return absl::OkStatus();
+        const ASTAliasedQueryList* aliased_query_list =
+            statement->GetAs<ASTCreateModelStatement>()->aliased_query_list();
+        if (query != nullptr) {
+          return FindInQuery(query, /*visible_aliases=*/{});
         }
-        return FindInQuery(query, /*visible_aliases=*/{});
+        if (analyzer_options_->language().LanguageFeatureEnabled(
+                FEATURE_V_1_4_CREATE_MODEL_WITH_ALIASED_QUERY_LIST) &&
+            aliased_query_list != nullptr) {
+          for (const ASTAliasedQuery* aliased_query :
+               aliased_query_list->aliased_query_list()) {
+            ZETASQL_RETURN_IF_ERROR(
+                FindInQuery(aliased_query->query(), /*visible_aliases=*/{}));
+          }
+        }
+        return absl::OkStatus();
       }
       break;
     case AST_CREATE_VIEW_STATEMENT:
@@ -586,6 +597,13 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_DELETE_STMT)) {
         return FindInDeleteStatement(statement->GetAs<ASTDeleteStatement>());
+      }
+      break;
+
+    case AST_UNDROP_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_UNDROP_STMT)) {
+        return absl::OkStatus();
       }
       break;
 

@@ -84,7 +84,7 @@ DEFINE MACRO add $1 + $2
 [language_features=]
 SELECT $1 + $2
 --
-ERROR: Macros are not supported [at 1:8]
+ERROR: Unexpected macro [at 1:8]
 SELECT $1 + $2
        ^
 ==

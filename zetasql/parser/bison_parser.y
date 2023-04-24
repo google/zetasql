@@ -358,6 +358,32 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // or reduce DROP as type identifier in Spanner-specific rule. Bison chooses to
 // shift, which is a desired behavior.
 //
+// AMBIGUOUS CASE 14: SEQUENCE CLAMPED
+// ----------------------------------
+// MyFunction(SEQUENCE clamped)
+// Resolve to a function call passing a SEQUENCE input argument type.
+//
+// MyFunction(sequence clamped between x and y)
+// Resolve to a function call passing a column 'sequence' modified
+// with "clamped between x and y".
+//
+// Bison favors reducing the 2nd form to an error, so we add a lexer rule to
+// force SEQUENCE followed by clamped to resolve to an identifier.
+// So bison still thinks there is a conflict but the lexer
+// will _never_ produce:
+// ... KW_SEQUENCE KW_CLAMPED ...
+// it instead produces
+// ... IDENTIFIER KW_CLAMPED
+// Which will resolve toward the second form
+// (sequence clamped between x and y) correctly, and the first form (
+// sequence clamped) will result in an error.
+//
+// In other contexts, CLAMPED will also act as an identifier via the
+// keyword_as_identifier rule.
+//
+// If the user wants to reference a sequence called 'clamped', they must
+// identifier quote it (SEQUENCE `clamped`);
+//
 // Total expected shift/reduce conflicts as described above:
 //   1: INSERT VALUES
 //   1: SAFE CAST
@@ -373,7 +399,8 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: ANALYZE
 //   6: QUALIFY
 //   2: ALTER COLUMN
-%expect 25
+//   1: SUM(SEQUENCE CLAMPED BETWEEN x and y)
+%expect 26
 
 %union {
   bool boolean;
@@ -421,6 +448,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTExpression* expression;
   zetasql::ASTExpressionSubquery* expression_subquery;
   zetasql::ASTFunctionCall* function_call;
+  zetasql::ASTAlias* alias;
   zetasql::ASTIdentifier* identifier;
   zetasql::ASTInsertStatement* insert_statement;
   zetasql::ASTNode* node;
@@ -965,8 +993,8 @@ using zetasql::ASTDropStatement;
 %token KW_REPEATABLE "REPEATABLE"
 %token KW_REPLACE "REPLACE"
 %token KW_REPLACE_FIELDS "REPLACE_FIELDS"
-%token KW_REPORT "REPORT"
 %token KW_REPLICA "REPLICA"
+%token KW_REPORT "REPORT"
 %token KW_RESTRICT "RESTRICT"
 %token KW_RESTRICTION "RESTRICTION"
 %token KW_RETURN "RETURN"
@@ -979,6 +1007,7 @@ using zetasql::ASTDropStatement;
 %token KW_SCHEMA "SCHEMA"
 %token KW_SEARCH "SEARCH"
 %token KW_SECURITY "SECURITY"
+%token KW_SEQUENCE "SEQUENCE"
 %token KW_SHOW "SHOW"
 %token KW_SIMPLE "SIMPLE"
 %token KW_SNAPSHOT "SNAPSHOT"
@@ -1099,6 +1128,8 @@ using zetasql::ASTDropStatement;
 %type <node> create_table_statement
 %type <node> create_view_statement
 %type <node> create_entity_statement
+%type <node> create_replica_materialized_view_statement
+%type <node> replica_materialized_view_data_source
 %type <node> undrop_statement
 %type <node> column_with_options
 %type <node> column_with_options_list
@@ -1254,8 +1285,8 @@ using zetasql::ASTDropStatement;
 %type <expression> numeric_literal
 %type <node> on_clause
 %type <node> opt_and_expression
-%type <node> opt_as_alias
-%type <node> opt_as_alias_with_required_as
+%type <alias> opt_as_alias
+%type <alias> opt_as_alias_with_required_as
 %type <node> opt_as_or_into_alias
 %type <node> opt_as_string_or_integer
 %type <node> opt_as_query
@@ -1287,6 +1318,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_format
 %type <drop_mode> opt_drop_mode
 %type <insertion_mode> append_or_overwrite
+%type <expression> sequence_arg
 %type <node> opt_else
 %type <external_table_with_clauses> opt_external_table_with_clauses
 %type <node> opt_on_path_expression
@@ -1730,6 +1762,7 @@ sql_statement_body:
     | create_external_table_statement
     | create_external_table_function_statement
     | create_model_statement
+    | create_replica_materialized_view_statement
     | create_schema_statement
     | create_snapshot_table_statement
     | create_table_function_statement
@@ -3030,6 +3063,21 @@ create_index_statement:
         create->set_is_if_not_exists($7);
         create->set_is_search($5);
         create->set_spanner_is_null_filtered($4);
+        $$ = create;
+      }
+    ;
+
+create_replica_materialized_view_statement:
+    "CREATE" opt_or_replace "REPLICA" "MATERIALIZED" "VIEW" opt_if_not_exists maybe_dashed_path_expression
+     "FROM" replica_materialized_view_data_source opt_options_list
+      {
+        auto* create =
+            MAKE_NODE(ASTCreateReplicaMaterializedViewStatement, @$, {
+              $maybe_dashed_path_expression,
+              $replica_materialized_view_data_source,
+              $opt_options_list});
+        create->set_is_if_not_exists($6);
+        create->set_is_or_replace($2);
         $$ = create;
       }
     ;
@@ -7787,7 +7835,22 @@ function_call_expression_base:
     ;
 
 function_call_argument:
-    expression
+    expression opt_as_alias_with_required_as
+      {
+        // When "AS alias" shows up in a function call argument, we wrap a new
+        // node ASTExpressionWithAlias with required alias field to indicate
+        // the existence of alias. This approach is taken mainly to avoid
+        // backward compatibility break to existing widespread usage of
+        // ASTFunctionCall.
+        if ($2 != nullptr) {
+          $$ = MAKE_NODE(ASTExpressionWithAlias, @$, {$1, $2});
+        } else {
+          $$ = $1;
+        }
+      }
+    | named_argument
+    | lambda_argument
+    | sequence_arg
     | "SELECT"
       {
         YYERROR_AND_ABORT_AT(
@@ -7796,8 +7859,13 @@ function_call_argument:
         "query as an expression, the query must be wrapped with additional "
         "parentheses to make it a scalar subquery expression");
       }
-    | named_argument
-    | lambda_argument
+    ;
+
+sequence_arg:
+    "SEQUENCE" path_expression
+      {
+        $$ = MAKE_NODE(ASTSequenceArg, @$, {$2});
+      }
     ;
 
 named_argument:
@@ -8523,6 +8591,7 @@ keyword_as_identifier:
     | "SCHEMA"
     | "SEARCH"
     | "SECURITY"
+    | "SEQUENCE"
     | "SHOW"
     | "SIMPLE"
     | "SNAPSHOT"
@@ -8969,6 +9038,13 @@ clone_data_source:
     maybe_dashed_path_expression opt_at_system_time opt_where_clause
       {
         $$ = MAKE_NODE(ASTCloneDataSource, @$, {$1, $2, $3});
+      }
+    ;
+
+replica_materialized_view_data_source:
+  maybe_dashed_path_expression
+      {
+        $$ = MAKE_NODE(ASTReplicaMaterializedViewDataSource, @$, {$1});
       }
     ;
 
@@ -10154,6 +10230,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTCreateMaterializedViewStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "SNAPSHOT" "TABLE"
       { $$ = zetasql::ASTCreateSnapshotTableStatement::kConcreteNodeKind; }
+    | "CREATE" opt_or_replace "REPLICA" "MATERIALIZED" "VIEW"
+      { $$ = zetasql::ASTCreateReplicaMaterializedViewStatement::kConcreteNodeKind; }
     | "CALL"
       { $$ = zetasql::ASTCallStatement::kConcreteNodeKind; }
     | "RETURN"

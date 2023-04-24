@@ -11,29 +11,29 @@ select with anonymization sum();
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization sum(int64)
-from SimpleTypes;
+from SimpleTypesWithAnonymizationUid;
 --
 [PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-parse_location=0-53
-    +-column_list=[$aggregate.$agg1#19]
+    +-parse_location=0-73
+    +-column_list=[$aggregate.$agg1#13]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.$agg1#19]
+        +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(parse_location=42-53, column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+        | +-TableScan(parse_location=42-73, column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#13 :=
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-parse_location=26-29
-              +-ColumnRef(parse_location=30-35, type=INT64, column=SimpleTypes.int64#2)
+              +-ColumnRef(parse_location=30-35, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
 [REPLACED_LITERALS]
 select with anonymization sum(int64)
-from SimpleTypes;
+from SimpleTypesWithAnonymizationUid;
 
 Rewrite ERROR: Unsupported function in SELECT WITH ANONYMIZATION select list: SUM [at 1:27]
 select with anonymization sum(int64)
@@ -42,28 +42,28 @@ select with anonymization sum(int64)
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select anon_sum(int64), sum(int64)
-from SimpleTypes;
+from SimpleTypesWithAnonymizationUid;
 --
 [PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#19 AS `$col1` [INT64]
-| +-$aggregate.$agg2#20 AS `$col2` [INT64]
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
+| +-$aggregate.$agg2#14 AS `$col2` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=$aggregate.[$agg1#19, $agg2#20]
+    +-column_list=$aggregate.[$agg1#13, $agg2#14]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=$aggregate.[$agg1#19, $agg2#20]
+        +-column_list=$aggregate.[$agg1#13, $agg2#14]
         +-input_scan=
-        | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
         +-aggregate_list=
-          +-$agg1#19 :=
+          +-$agg1#13 :=
           | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
-          |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-          +-$agg2#20 :=
+          |   +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+          +-$agg2#14 :=
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
-              +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
 
 Rewrite ERROR: Unsupported function in SELECT WITH ANONYMIZATION select list: SUM
 ==

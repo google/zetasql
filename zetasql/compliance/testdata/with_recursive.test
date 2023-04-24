@@ -937,6 +937,8 @@ WITH RECURSIVE
 SELECT COUNT(*) >= 3, COUNT(*) < 100000 FROM t;
 --
 ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Make sure duplicate-checking logic for UNION DISTINCT is able to handle

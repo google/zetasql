@@ -12,6 +12,8 @@ SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE BERNOULLI(100 PERCENT)
 --
 ARRAY<STRUCT<INT64>>[{50}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=reservoir_none]
@@ -26,6 +28,8 @@ SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(5 ROWS)
 --
 ARRAY<STRUCT<INT64>>[{5}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=reservoir_exact]
@@ -33,6 +37,8 @@ SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(50 ROWS)
 --
 ARRAY<STRUCT<INT64>>[{50}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=reservoir_not_enough_rows_in_input]
@@ -40,6 +46,8 @@ SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(1000 ROWS)
 --
 ARRAY<STRUCT<INT64>>[{50}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=bernoulli_filtered]
@@ -48,6 +56,8 @@ TABLESAMPLE BERNOULLI(100 PERCENT)
 WHERE FALSE
 --
 ARRAY<STRUCT<INT64>>[{0}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=reservoir_filtered]
@@ -56,6 +66,8 @@ TABLESAMPLE RESERVOIR(100 ROWS)
 WHERE FALSE
 --
 ARRAY<STRUCT<INT64>>[{0}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=bernoulli_likely]
@@ -63,6 +75,8 @@ SELECT COUNT(*) > 0 FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE BERNOULLI(95.5 PERCENT)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=error_bernoulli_sample_size_null]
@@ -139,6 +153,8 @@ ARRAY<STRUCT<INT64, weight DOUBLE>>[
   {7, 1},
   {9, 1}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Each row represents 20 rows of the input.
@@ -149,6 +165,8 @@ FROM
    TABLESAMPLE BERNOULLI(5 PERCENT) WITH WEIGHT
 --
 ARRAY<STRUCT<weight DOUBLE>>[{20}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Each row represents 2 rows of the input.
@@ -159,6 +177,8 @@ FROM
    TABLESAMPLE BERNOULLI(50 PERCENT) WITH WEIGHT AS w
 --
 ARRAY<STRUCT<w DOUBLE>>[{2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Each row represents 1 row of the input.
@@ -169,6 +189,8 @@ FROM
    TABLESAMPLE BERNOULLI(100 PERCENT) WITH WEIGHT AS w
 --
 ARRAY<STRUCT<w DOUBLE>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Each row represents just a tiny bit more than 3 rows of the input.
@@ -179,6 +201,8 @@ FROM
    TABLESAMPLE BERNOULLI(33.3333 PERCENT) WITH WEIGHT w
 --
 ARRAY<STRUCT<DOUBLE>>[{3.000003}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=bernoulli_0_with_weight]
@@ -198,6 +222,8 @@ FROM
    TABLESAMPLE RESERVOIR(50 ROWS) WITH WEIGHT
 --
 ARRAY<STRUCT<weight DOUBLE>>[{20}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Each row represents 2 rows of the input.
@@ -208,6 +234,8 @@ FROM
    TABLESAMPLE RESERVOIR(500 ROWS) WITH WEIGHT AS w
 --
 ARRAY<STRUCT<w DOUBLE>>[{2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Each row represents 1 row of the input.
@@ -218,6 +246,8 @@ FROM
    TABLESAMPLE RESERVOIR(1000 ROWS) WITH WEIGHT AS w
 --
 ARRAY<STRUCT<w DOUBLE>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Each row represents 1 row of the input.
@@ -228,6 +258,8 @@ FROM
    TABLESAMPLE RESERVOIR(2500 ROWS) WITH WEIGHT AS w
 --
 ARRAY<STRUCT<w DOUBLE>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Each row represents just a tiny bit more than 3 rows of the input.
@@ -238,6 +270,8 @@ FROM
    TABLESAMPLE RESERVOIR(333 ROWS) WITH WEIGHT w
 --
 ARRAY<STRUCT<DOUBLE>>[{3.003003}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=reservoir_0_with_weight]
@@ -263,6 +297,8 @@ FROM
                          END);
 --
 ARRAY<STRUCT<INT64>>[{3}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Partitioning, like grouping, treats null as a value.
@@ -275,6 +311,8 @@ FROM
 ORDER BY e;
 --
 ARRAY<STRUCT<e INT64>>[{0}, {1}, {2}, {3}, {4}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=stratified_reservoir_case]
@@ -292,6 +330,8 @@ FROM
                          END) WITH WEIGHT w;
 --
 ARRAY<STRUCT<w DOUBLE>>[{1}, {5}, {9}, {90}, {895}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=stratified_reservoir_parameter]
@@ -305,6 +345,8 @@ FROM
                                        WHERE e < p)) WITH WEIGHT w;
 --
 ARRAY<STRUCT<w DOUBLE>>[{1}, {5}, {9}, {90}, {895}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=stratified_reservoir_correlated_ref]
@@ -315,6 +357,8 @@ FROM
    TABLESAMPLE RESERVOIR(3 ROWS PARTITION BY e <= 3) WITH WEIGHT w;
 --
 ARRAY<STRUCT<w DOUBLE>>[{1}, {2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=stratified_reservoir_with_empty_groups]
@@ -342,6 +386,8 @@ FROM
 --
 ARRAY<STRUCT<w DOUBLE>>[{1}]
 
+NOTE: Reference implementation reports non-determinism.
+
 ==
 
 [name=stratified_reservoir_fractional weights]
@@ -365,5 +411,7 @@ ARRAY<STRUCT<w DOUBLE, INT64>>[
   {2, 3},
   {2.3333333333333335, 3}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 

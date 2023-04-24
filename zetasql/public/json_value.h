@@ -47,19 +47,10 @@ struct JSONParsingOptions {
     // Parsing will fail if there is a least one number value that does not
     // round-trip from string -> number -> string.
     kExact,
-    // Ignore 'wide_number_mode' and use 'strict_number_parsing'.
-    kIgnore,
   };
 
-  bool ABSL_DEPRECATED("Use 'wide_number_mode' instead")
-      strict_number_parsing = false;
-
   // This setting specifies how wide number should be handled.
-  // 'wide_number_mode' has precedence over 'strict_number_parsing' if
-  // 'wide_number_mode' != kIgnore with the following mapping:
-  // strict_number_mode: true  <-> wide_number_mode: kExact
-  // strict_number_mode: false <-> wide_number_mode: kRound
-  WideNumberMode wide_number_mode = WideNumberMode::kIgnore;
+  WideNumberMode wide_number_mode = WideNumberMode::kRound;
   // If 'max_nesting' is set to a non-negative number, parsing will fail if the
   // JSON document has more than 'max_nesting' levels of nesting. If it is set
   // to a negative number, the max nesting will be set to 0 instead (i.e. only
@@ -81,9 +72,7 @@ struct JSONParsingOptions {
 // JSONValueParserBase (but this can be moved too).
 absl::Status IsValidJSON(
     absl::string_view json_str,
-    const JSONParsingOptions& parsing_options = {
-        .wide_number_mode = JSONParsingOptions::WideNumberMode::kRound,
-        .max_nesting = std::nullopt});
+    const JSONParsingOptions& parsing_options = JSONParsingOptions());
 
 // JSONValue stores a JSON document. Access to read and update the values and
 // their members and elements is provided through JSONValueRef and
@@ -118,9 +107,7 @@ class JSONValue final {
   // Parses a given JSON document string and returns a JSON value.
   static absl::StatusOr<JSONValue> ParseJSONString(
       absl::string_view str,
-      JSONParsingOptions parsing_options = {
-          .wide_number_mode = JSONParsingOptions::WideNumberMode::kRound,
-          .max_nesting = std::nullopt});
+      JSONParsingOptions parsing_options = JSONParsingOptions());
 
   // Decodes a binary representation of a JSON value produced by
   // JSONValueConstRef::SerializeAndAppendToProtoBytes(). Returns an error if

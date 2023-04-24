@@ -125,6 +125,10 @@ class Unparser : public ParseTreeVisitor {
   }
 
   void visitASTChildren(const ASTNode* node, void* data) {
+    if (!ThreadHasEnoughStack()) {
+      println("<Complex nested expression truncated>");
+      return;
+    }
     node->ChildrenAccept(this, data);
   }
 
@@ -167,10 +171,18 @@ class Unparser : public ParseTreeVisitor {
                                     void* data) override;
   void visitASTCreateSchemaStatement(const ASTCreateSchemaStatement* node,
                                      void* data) override;
+  void visitASTSequenceArg(const ASTSequenceArg* node, void* data) override;
   void visitASTCreateTableStatement(const ASTCreateTableStatement* node,
                                     void* data) override;
   void visitASTCreateSnapshotTableStatement(
       const ASTCreateSnapshotTableStatement* node, void* data) override;
+  void visitASTCreateReplicaMaterializedViewStatement(
+      const ASTCreateReplicaMaterializedViewStatement* node,
+      void* data) override;
+  void visitASTReplicaMaterializedViewDataSource(
+      const ASTReplicaMaterializedViewDataSource* node, void* data) override {
+    UnparseASTTableDataSource(node, data);
+  }
   void visitASTCreateEntityStatement(const ASTCreateEntityStatement* node,
                                      void* data) override;
   void visitASTAlterEntityStatement(const ASTAlterEntityStatement* node,
@@ -424,6 +436,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTIndexUnnestExpressionList* node, void* data) override;
   void visitASTBetweenExpression(const ASTBetweenExpression* node,
                                  void* data) override;
+  void visitASTExpressionWithAlias(const ASTExpressionWithAlias* node,
+                                   void* data) override;
   void visitASTFunctionCall(const ASTFunctionCall* node, void* data) override;
   void visitASTWithGroupRows(const ASTWithGroupRows* node, void* data) override;
   void visitASTArrayElement(const ASTArrayElement* node, void* data) override;

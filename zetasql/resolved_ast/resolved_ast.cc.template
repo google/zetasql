@@ -121,6 +121,20 @@ struct TestIsDefaultValue<TypeModifiers> {
   }
 };
 
+template <>
+struct TestIsDefaultValue<ResolvedSetOperationScan::SetOperationColumnMatchMode> {
+  static bool IsDefaultValue(ResolvedSetOperationScan::SetOperationColumnMatchMode mode) {
+    return mode == ResolvedSetOperationScan::BY_POSITION;
+  }
+};
+
+template <>
+struct TestIsDefaultValue<ResolvedSetOperationScan::SetOperationColumnPropagationMode> {
+  static bool IsDefaultValue(ResolvedSetOperationScan::SetOperationColumnPropagationMode mode) {
+    return mode == ResolvedSetOperationScan::STRICT;
+  }
+};
+
 // Return true if <value> is equal to the default value for its type.
 // e.g. for pointers, return true if <value> is nullptr.
 // TODO This provides no way to distinguish an unset value from a
@@ -174,6 +188,18 @@ static std::string ToStringImpl(ResolvedSetOperationScan::SetOperationType type)
   if (!name.empty()) return name;
   ZETASQL_LOG(DFATAL) << "Invalid SetType: " << type;
   return absl::StrCat("INVALID_SET_TYPE(", type, ")");
+}
+static std::string ToStringImpl(ResolvedSetOperationScan::SetOperationColumnMatchMode mode) {
+  std::string name = ResolvedSetOperationScanEnums::SetOperationColumnMatchMode_Name(mode);
+  if (!name.empty()) return name;
+  ZETASQL_LOG(DFATAL) << "Invalid SetOperationColumnMatchMode: " << mode;
+  return absl::StrCat("INVALID_SET_COLUMN_MATCH_MODE(", mode, ")");
+}
+static std::string ToStringImpl(ResolvedSetOperationScan::SetOperationColumnPropagationMode mode) {
+  std::string name = ResolvedSetOperationScanEnums::SetOperationColumnPropagationMode_Name(mode);
+  if (!name.empty()) return name;
+  ZETASQL_LOG(DFATAL) << "Invalid SetOperationColumnPropagationMode: " << mode;
+  return absl::StrCat("INVALID_SET_COLUMN_PROPAGATION_MODE(", mode, ")");
 }
 static std::string ToStringImpl(ResolvedRecursiveScan::RecursiveSetOperationType type) {
   std::string name = ResolvedRecursiveScanEnums::RecursiveSetOperationType_Name(type);

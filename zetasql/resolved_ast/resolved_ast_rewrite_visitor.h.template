@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/thread_stack.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_node.h"
@@ -154,6 +155,7 @@ class ResolvedASTRewriteVisitor {
   template <typename ExpectedReturnT>
   absl::StatusOr<std::unique_ptr<const ExpectedReturnT>> Dispatch(
       std::unique_ptr<const ResolvedNode> node) {
+    ZETASQL_RETURN_IF_NOT_ENOUGH_STACK("Resolved AST nested too deeply.");
     ZETASQL_RET_CHECK(node != nullptr);
     absl::StatusOr<std::unique_ptr<const ResolvedNode>> visited_node;
     switch(node->node_kind()) {

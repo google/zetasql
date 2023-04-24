@@ -176,6 +176,129 @@ FROM
 HAVING a
 ==
 
+select sum(sequence s1);
+--
+QueryStatement [0-23] [select sum(sequence s1)]
+  Query [0-23] [select sum(sequence s1)]
+    Select [0-23] [select sum(sequence s1)]
+      SelectList [7-23] [sum(sequence s1)]
+        SelectColumn [7-23] [sum(sequence s1)]
+          FunctionCall [7-23] [sum(sequence s1)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            SequenceArg [11-22] [sequence s1]
+              PathExpression [20-22] [s1]
+                Identifier(s1) [20-22] [s1]
+--
+SELECT
+  sum(SEQUENCE s1)
+==
+
+# This is unfortunate, but expected.  Because 'CLAMPED BETWEEN' is the
+# earlier feature, we value backward compatibility (as demonstrated below)
+# above the ability to have a sequence named 'clamped'.
+# users can work around this by using identifier quoting if necessary.
+select sum(sequence clamped);
+--
+
+ERROR: Syntax error: Expected keyword BETWEEN but got ")" [at 1:28]
+select sum(sequence clamped);
+                           ^
+==
+
+select sum(sequence `clamped`);
+--
+QueryStatement [0-30] [select sum(sequence `clamped`)]
+  Query [0-30] [select sum(sequence `clamped`)]
+    Select [0-30] [select sum(sequence `clamped`)]
+      SelectList [7-30] [sum(sequence `clamped`)]
+        SelectColumn [7-30] [sum(sequence `clamped`)]
+          FunctionCall [7-30] [sum(sequence `clamped`)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            SequenceArg [11-29] [sequence `clamped`]
+              PathExpression [20-29] [`clamped`]
+                Identifier(`clamped`) [20-29] [`clamped`]
+--
+SELECT
+  sum(SEQUENCE `clamped`)
+==
+
+select sum(sequence clampedx);
+--
+QueryStatement [0-29] [select sum(sequence clampedx)]
+  Query [0-29] [select sum(sequence clampedx)]
+    Select [0-29] [select sum(sequence clampedx)]
+      SelectList [7-29] [sum(sequence clampedx)]
+        SelectColumn [7-29] [sum(sequence clampedx)]
+          FunctionCall [7-29] [sum(sequence clampedx)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            SequenceArg [11-28] [sequence clampedx]
+              PathExpression [20-28] [clampedx]
+                Identifier(clampedx) [20-28] [clampedx]
+--
+SELECT
+  sum(SEQUENCE clampedx)
+==
+
+select sum(sequence clampedx between x and y);
+--
+ERROR: Syntax error: Expected ")" but got keyword BETWEEN [at 1:30]
+select sum(sequence clampedx between x and y);
+                             ^
+==
+
+select sum(sequence clamped between x and y);
+--
+QueryStatement [0-44] [select sum...between x and y)]
+  Query [0-44] [select sum...between x and y)]
+    Select [0-44] [select sum...between x and y)]
+      SelectList [7-44] [sum(sequence...etween x and y)]
+        SelectColumn [7-44] [sum(sequence...etween x and y)]
+          FunctionCall [7-44] [sum(sequence...etween x and y)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            PathExpression [11-19] [sequence]
+              Identifier(sequence) [11-19] [sequence]
+            ClampedBetweenModifier [20-43] [clamped between x and y]
+              PathExpression [36-37] [x]
+                Identifier(x) [36-37] [x]
+              PathExpression [42-43] [y]
+                Identifier(y) [42-43] [y]
+--
+SELECT
+  sum(sequence
+    CLAMPED BETWEEN x AND y)
+
+==
+
+select sum(1 / sequence clamped between x and y);
+--
+QueryStatement [0-48] [select sum...between x and y)]
+  Query [0-48] [select sum...between x and y)]
+    Select [0-48] [select sum...between x and y)]
+      SelectList [7-48] [sum(1 / sequence...en x and y)]
+        SelectColumn [7-48] [sum(1 / sequence...en x and y)]
+          FunctionCall [7-48] [sum(1 / sequence...en x and y)]
+            PathExpression [7-10] [sum]
+              Identifier(sum) [7-10] [sum]
+            BinaryExpression(/) [11-23] [1 / sequence]
+              IntLiteral(1) [11-12] [1]
+              PathExpression [15-23] [sequence]
+                Identifier(sequence) [15-23] [sequence]
+            ClampedBetweenModifier [24-47] [clamped between x and y]
+              PathExpression [40-41] [x]
+                Identifier(x) [40-41] [x]
+              PathExpression [46-47] [y]
+                Identifier(y) [46-47] [y]
+--
+SELECT
+  sum(1 / sequence
+    CLAMPED BETWEEN x AND y)
+
+==
+
 select sum(f1) as a from T having true;
 --
 QueryStatement [0-38] [select sum...having true]

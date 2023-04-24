@@ -305,6 +305,8 @@ ARRAY<STRUCT<
    NULL
  },
  {2, "1000", "1001", NULL, "1002-1002", "1002-1002"}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_3_PIVOT,V_1_1_ORDER_BY_IN_AGGREGATE]
@@ -331,6 +333,8 @@ ARRAY<STRUCT<
    NULL
  },
  {2, "1000_", "1001_", NULL, "1002_,1002_", "1002_,1002_"}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Non-deterministic input columns should produce the same result in all PIVOT
@@ -384,6 +388,8 @@ FROM (SELECT x, y FROM t1)
 PIVOT(ARRAY_AGG(y IGNORE NULLS LIMIT 3) FOR x IN (1, 2));
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_3_PIVOT,V_1_1_HAVING_IN_AGGREGATE]
@@ -540,6 +546,8 @@ FROM (SELECT x, y FROM t1)
   PIVOT(ANY_VALUE(x) AS any_x FOR y IN (100, 500, NULL AS `null`));
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_3_PIVOT]
@@ -560,6 +568,8 @@ ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[
   {1001, true, true, NULL},
   {1003, true, true, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_3_PIVOT]
@@ -572,6 +582,8 @@ FROM (SELECT [x] AS x, y FROM t1)
   PIVOT(ANY_VALUE(x) AS any_x FOR y IN (100, 500, NULL AS `null`));
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [required_features=V_1_3_PIVOT]
 [name=pivot_any_value_array_groupby]
@@ -591,6 +603,8 @@ ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[
   {1001, true, true, NULL},
   {1003, true, true, NULL}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [required_features=V_1_3_PIVOT]
@@ -651,3 +665,5 @@ ARRAY<STRUCT<BOOL,
              sum_x_null INT64>>[
   {true, true, true, true, true, true, 8, NULL, 4}
 ]
+
+NOTE: Reference implementation reports non-determinism.

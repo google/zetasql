@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Time functions
 
 ZetaSQL supports the following time functions.
@@ -28,11 +30,11 @@ on how to specify a time zone.
 ```sql
 SELECT CURRENT_TIME() as now;
 
-+----------------------------+
-| now                        |
-+----------------------------+
-| 15:31:38.776361            |
-+----------------------------+
+/*----------------------------*
+ | now                        |
+ +----------------------------+
+ | 15:31:38.776361            |
+ *----------------------------*/
 ```
 
 When a column named `current_time` is present, the column name and the function
@@ -46,11 +48,11 @@ column in the `current_time` column.
 WITH t AS (SELECT 'column value' AS `current_time`)
 SELECT current_time() as now, t.current_time FROM t;
 
-+-----------------+--------------+
-| now             | current_time |
-+-----------------+--------------+
-| 15:31:38.776361 | column value |
-+-----------------+--------------+
+/*-----------------+--------------*
+ | now             | current_time |
+ +-----------------+--------------+
+ | 15:31:38.776361 | column value |
+ *-----------------+--------------*/
 ```
 
 [time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
@@ -93,11 +95,11 @@ time part.
 ```sql
 SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 
-+------------------+
-| hour             |
-+------------------+
-| 15               |
-+------------------+
+/*------------------*
+ | hour             |
+ +------------------+
+ | 15               |
+ *------------------*/
 ```
 
 ### `FORMAT_TIME`
@@ -120,11 +122,11 @@ for a list of format elements that this function supports.
 ```sql
 SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
-+----------------+
-| formatted_time |
-+----------------+
-| 15:30          |
-+----------------+
+/*----------------*
+ | formatted_time |
+ +----------------+
+ | 15:30          |
+ *----------------*/
 ```
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -182,21 +184,21 @@ When using `PARSE_TIME`, keep the following in mind:
 ```sql
 SELECT PARSE_TIME("%H", "15") as parsed_time;
 
-+-------------+
-| parsed_time |
-+-------------+
-| 15:00:00    |
-+-------------+
+/*-------------*
+ | parsed_time |
+ +-------------+
+ | 15:00:00    |
+ *-------------*/
 ```
 
 ```sql
 SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 
-+-------------+
-| parsed_time |
-+-------------+
-| 14:23:38    |
-+-------------+
+/*-------------*
+ | parsed_time |
+ +-------------+
+ | 14:23:38    |
+ *-------------*/
 ```
 
 [time-format]: #format_time
@@ -234,21 +236,21 @@ SELECT
   TIME(15, 30, 00) as time_hms,
   TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
 
-+----------+-----------+
-| time_hms | time_tstz |
-+----------+-----------+
-| 15:30:00 | 23:30:00  |
-+----------+-----------+
+/*----------+-----------*
+ | time_hms | time_tstz |
+ +----------+-----------+
+ | 15:30:00 | 23:30:00  |
+ *----------+-----------*/
 ```
 
 ```sql
 SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
 
-+----------+
-| time_dt  |
-+----------+
-| 15:30:00 |
-+----------+
+/*----------*
+ | time_dt  |
+ +----------+
+ | 15:30:00 |
+ *----------*/
 ```
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
@@ -288,11 +290,11 @@ SELECT
   TIME "15:30:00" as original_time,
   TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE) as later;
 
-+-----------------------------+------------------------+
-| original_time               | later                  |
-+-----------------------------+------------------------+
-| 15:30:00                    | 15:40:00               |
-+-----------------------------+------------------------+
+/*-----------------------------+------------------------*
+ | original_time               | later                  |
+ +-----------------------------+------------------------+
+ | 15:30:00                    | 15:40:00               |
+ *-----------------------------+------------------------*/
 ```
 
 ### `TIME_DIFF`
@@ -333,11 +335,11 @@ SELECT
   TIME "14:35:00" as second_time,
   TIME_DIFF(TIME "15:30:00", TIME "14:35:00", MINUTE) as difference;
 
-+----------------------------+------------------------+------------------------+
-| first_time                 | second_time            | difference             |
-+----------------------------+------------------------+------------------------+
-| 15:30:00                   | 14:35:00               | 55                     |
-+----------------------------+------------------------+------------------------+
+/*----------------------------+------------------------+------------------------*
+ | first_time                 | second_time            | difference             |
+ +----------------------------+------------------------+------------------------+
+ | 15:30:00                   | 14:35:00               | 55                     |
+ *----------------------------+------------------------+------------------------*/
 ```
 
 ### `TIME_SUB`
@@ -375,11 +377,11 @@ SELECT
   TIME "15:30:00" as original_date,
   TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE) as earlier;
 
-+-----------------------------+------------------------+
-| original_date                | earlier                |
-+-----------------------------+------------------------+
-| 15:30:00                    | 15:20:00               |
-+-----------------------------+------------------------+
+/*-----------------------------+------------------------*
+ | original_date               | earlier                |
+ +-----------------------------+------------------------+
+ | 15:30:00                    | 15:20:00               |
+ *-----------------------------+------------------------*/
 ```
 
 ### `TIME_TRUNC`
@@ -412,11 +414,11 @@ SELECT
   TIME "15:30:00" as original,
   TIME_TRUNC(TIME "15:30:00", HOUR) as truncated;
 
-+----------------------------+------------------------+
-| original                   | truncated              |
-+----------------------------+------------------------+
-| 15:30:00                   | 15:00:00               |
-+----------------------------+------------------------+
+/*----------------------------+------------------------*
+ | original                   | truncated              |
+ +----------------------------+------------------------+
+ | 15:30:00                   | 15:00:00               |
+ *----------------------------+------------------------*/
 ```
 
 [time-to-string]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#cast

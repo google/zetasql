@@ -249,6 +249,8 @@ ARRAY<STRUCT<array_val ARRAY<>, INT64>>[
     2
   }
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Partition by a correlated column reference.
@@ -446,6 +448,8 @@ ARRAY<STRUCT<double_val DOUBLE, INT64>>[
   {inf, 9},
   {inf, 10}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 [name=rank_orderby_double]

@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -35,6 +37,16 @@ class QueryExpression {
   QueryExpression(const QueryExpression&) = delete;
   QueryExpression& operator=(const QueryExpression&) = delete;
   ~QueryExpression() {}
+
+  enum QueryType {
+    kDefaultQueryType = 0,
+    kPositionalSetOpScan = 1,
+    kCorrespondenceSetOpScan = 2
+  };
+
+  // Returns the query type of this query expression. Returns an error if the
+  // internal state of the query expression is inconsistent.
+  absl::StatusOr<QueryType> GetQueryType() const;
 
   // Returns true if the clauses necessary to form a SQL query, i.e. select_list
   // or set_op_scan_list, are filled in QueryExpression. Otherwise false.
@@ -60,6 +72,7 @@ class QueryExpression {
   bool TrySetSetOpScanList(
       std::vector<std::unique_ptr<QueryExpression>>* set_op_scan_list,
       const std::string& set_op_type, const std::string& set_op_modifier,
+      const std::string& set_op_column_match_mode,
       const std::string& query_hints);
   bool TrySetGroupByClause(const std::map<int, std::string>& group_by_list,
                            const std::string& group_by_hints,
@@ -95,6 +108,9 @@ class QueryExpression {
   bool HasFromClause() const { return !from_.empty(); }
   bool HasWhereClause() const { return !where_.empty(); }
   bool HasSetOpScanList() const { return !set_op_scan_list_.empty(); }
+  bool HasSetOperationColumnMatchMode() const {
+    return !set_op_column_match_mode_.empty();
+  }
   bool HasGroupByClause() const { return !group_by_list_.empty(); }
   bool HasOrderByClause() const { return !order_by_list_.empty(); }
   bool HasLimitClause() const { return !limit_.empty(); }
@@ -113,10 +129,15 @@ class QueryExpression {
   // from a SetOp scan, it returns the select_list_ of its first subquery.
   const std::vector<std::pair<std::string, std::string>>& SelectList() const;
 
-  // Updates the alias for the select column denoted by <select_column_pos> in
-  // select_list_. For QueryExpression built from a SetOp scan, it updates the
-  // select_list_ of its first subquery.
-  void SetAliasForSelectColumn(int select_column_pos, const std::string& alias);
+  // Updates the aliases of the output columns if their indexes appear in
+  // `aliases`. If this query_expression corresponds to a set operation with
+  // CORRESPONDING, each of its query_expression(s) corresponding to its set
+  // operation items will also be updated.
+  //
+  // `aliases`: a map from column index to new alias. For set operations with
+  // CORRESPONDING, the given aliases should not contain duplicates.
+  absl::Status SetAliasesForSelectList(
+      const absl::flat_hash_map<int, absl::string_view>& aliases);
 
   // Set the AS modifier for the SELECT.  e.g. "AS VALUE".
   void SetSelectAsModifier(const std::string& modifier);
@@ -137,6 +158,11 @@ class QueryExpression {
     return &select_list_;
   }
 
+  // Set the `corresponding_set_op_output_column_list` field for set operations
+  // with column_match_mode = CORRESPONDING.
+  void set_corresponding_set_op_output_column_list(
+      std::vector<std::pair<std::string, std::string>> select_list);
+
  private:
   void ClearAllClauses();
 
@@ -153,6 +179,14 @@ class QueryExpression {
   std::vector<std::pair<std::string /* select column */,
                         std::string /* select alias */>>
       select_list_;
+
+  // The output columns of the set operations with column_match_mode =
+  // CORRESPONDING or CORRESPONDING_BY. This field is needed because for those
+  // set operations, the columns that can be "selected" are not the columns in
+  // the select statement of the first query.
+  std::vector<std::pair<std::string, std::string>>
+      corresponding_set_op_output_column_list_;
+
   std::string select_as_modifier_;  // "AS TypeName", "AS STRUCT", or "AS VALUE"
   std::string query_hints_;
 
@@ -164,6 +198,9 @@ class QueryExpression {
   std::string set_op_type_;
   // For a set operation, contains either ALL or DISTINCT.
   std::string set_op_modifier_;
+  // For a set operation, contains one of ["", "CORRESPONDING",
+  // "CORRESPONDING_BY"]; for non set operations it is "".
+  std::string set_op_column_match_mode_;
   // For QueryExpression of a SetOperationScan, the set_op_scan_list will
   // contain QueryExpression for each of the input queries in the set
   // operation.

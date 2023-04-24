@@ -340,3 +340,36 @@ ARRAY<STRUCT<DOUBLE>>[{NULL}]
 SELECT SAFE.double(JSON '-1.1');
 --
 ARRAY<STRUCT<DOUBLE>>[{-1.1}]
+==
+[name=json_array_empty]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_ARRAY();
+--
+ARRAY<STRUCT<JSON>>[{[]}]
+==
+[name=json_array_basic]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_ARRAY(10, "foo", NULL);
+--
+ARRAY<STRUCT<JSON>>[{[10,"foo",null]}]
+==
+[name=json_array_complex]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS]
+SELECT JSON_ARRAY(10, JSON '{"a": [10, true]}', STRUCT("foo" AS abc, [11, 21, 31] AS xyz),
+                  ["foo", "bar"]);
+--
+ARRAY<STRUCT<JSON>>[
+  {[10,{"a":[10,true]},{"abc":"foo","xyz":[11,21,31]},["foo","bar"]]}
+]
+==
+[name=json_array_bignumeric]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS,BIGNUMERIC_TYPE]
+SELECT JSON_ARRAY(BIGNUMERIC '1.111111111111111111');
+--
+ARRAY<STRUCT<JSON>>[{[1.1111111111111112]}]
+==
+[name=json_array_bignumeric_strict]
+[required_features=JSON_TYPE,JSON_CONSTRUCTOR_FUNCTIONS,BIGNUMERIC_TYPE,JSON_STRICT_NUMBER_PARSING]
+SELECT JSON_ARRAY(BIGNUMERIC '1.111111111111111111');
+--
+ERROR: generic::out_of_range: Invalid input to JSON_ARRAY: Failed to convert type BIGNUMERIC to JSON

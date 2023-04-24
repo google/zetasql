@@ -55,6 +55,8 @@ import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedOutputColumn;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedSystemVariable;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedWindowFrame;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedWindowFrameExpr;
+import com.google.zetasql.resolvedast.ResolvedSetOperationScanEnums.SetOperationColumnMatchMode;
+import com.google.zetasql.resolvedast.ResolvedSetOperationScanEnums.SetOperationColumnPropagationMode;
 import com.google.zetasql.resolvedast.ResolvedStatementEnums.ObjectAccess;
 import java.util.ArrayList;
 import java.util.List;
@@ -131,6 +133,14 @@ class DebugStrings {
 
   static boolean isDefaultValue(Table table) {
     return table == null || table.getName().isEmpty();
+  }
+
+  static boolean isDefaultValue(SetOperationColumnMatchMode mode) {
+    return mode == SetOperationColumnMatchMode.BY_POSITION;
+  }
+
+  static boolean isDefaultValue(SetOperationColumnPropagationMode mode) {
+    return mode == SetOperationColumnPropagationMode.STRICT;
   }
 
   // toStringImpl functions for different node field types, similar to the C++ implementation in

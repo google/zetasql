@@ -19,6 +19,7 @@
 
 #include <map>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "absl/strings/string_view.h"
@@ -75,21 +76,28 @@ class SignatureMatchResult {
     tvf_bad_argument_index_ = index;
   }
 
-  // This represents a map from each TVF (argument index, column index) pair to
-  // the result type to coerce the argument to. For more information, please see
-  // the comments for tvf_arg_col_nums_to_coerce_type_.
-  typedef std::map<std::pair<int /* argument index */,
-                   int /* column index */>,
-              const Type* /* coerce-to type */ >
-      TVFArgumentsToCoerceTypeMap;
+  struct ArgumentColumnPair {
+    int argument_index = 0;
+    int column_index = 0;
+    bool operator<(const ArgumentColumnPair& rhs) const {
+      return std::forward_as_tuple(this->argument_index, this->column_index) <
+             std::forward_as_tuple(rhs.argument_index, rhs.column_index);
+    }
+  };
 
-  const TVFArgumentsToCoerceTypeMap& tvf_arg_col_nums_to_coerce_type() const {
-    return tvf_arg_col_nums_to_coerce_type_;
+  // This represents a map from each TVF (argument index, column index) pair to
+  // the result type to coerce each relational argument to. For more
+  // information, please see the comments for tvf_arg_col_nums_to_coerce_type_.
+  using TVFRelationCoercionMap =
+      std::map<ArgumentColumnPair, const Type* /* coerce-to type */>;
+
+  const TVFRelationCoercionMap& tvf_relation_coercion_map() const {
+    return tvf_relation_coercion_map_;
   }
-  const void tvf_map_arg_col_nums_to_coerce_type(
-      int arg_num, int col_num, const Type* coerce_type) {
-    tvf_arg_col_nums_to_coerce_type_.emplace(std::make_pair(arg_num, col_num),
-                                             coerce_type);
+  void AddTVFRelationCoercionEntry(int argument_index, int column_index,
+                                   const Type* coerce_type) {
+    tvf_relation_coercion_map_.emplace(
+        ArgumentColumnPair{argument_index, column_index}, coerce_type);
   }
 
   // Returns whether this result is a better signature match than
@@ -123,9 +131,7 @@ class SignatureMatchResult {
   // column index indicates which column within the relation (defined as the
   // offset in the column_list in that input scan). Both are zero-based. The map
   // value is the result type to coerce to.
-  TVFArgumentsToCoerceTypeMap tvf_arg_col_nums_to_coerce_type_;
-
-  // Copyable;
+  TVFRelationCoercionMap tvf_relation_coercion_map_;
 };
 
 }  // namespace zetasql

@@ -525,3 +525,66 @@ UNION ALL
 SELECT * FROM UNNEST([@nan_02]);
 --
 ARRAY<STRUCT<DOUBLE>>[{nan}, {nan}]
+==
+[name=union_all_corresponding_parenthesized_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val
+FROM Table1
+UNION ALL CORRESPONDING
+(
+  SELECT bool_val, int64_val, str_val
+  FROM Table2
+  UNION ALL CORRESPONDING
+  SELECT bool_val, str_val, int64_val
+  FROM Table1
+)
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL>>[
+  {2, false},
+  {1, true},
+  {3, true},
+  {1, true},
+  {4, false},
+  {2, false}
+]
+==
+[name=union_all_corresponding_multiple_operands]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val, bool_val
+FROM Table1
+UNION ALL CORRESPONDING
+SELECT bool_val, int64_val, str_val
+FROM Table2
+UNION ALL CORRESPONDING
+SELECT bool_val, str_val, int64_val
+FROM Table1
+--
+ARRAY<STRUCT<int64_val INT64, bool_val BOOL>>[
+  {2, false},
+  {1, true},
+  {4, false},
+  {3, true},
+  {2, false},
+  {1, true}
+]
+==
+[name=union_all_corresponding_type_coercion]
+[required_features=V_1_4_CORRESPONDING]
+SELECT int64_val AS col1, bool_val AS col2, double_val AS col3
+FROM Table1
+UNION ALL CORRESPONDING
+SELECT int64_val AS col3, int64_val AS col1, bool_val AS col2
+FROM Table2
+UNION ALL CORRESPONDING
+SELECT int64_val AS col1, bool_val AS col2, int64_val AS col3
+FROM Table1
+--
+ARRAY<STRUCT<col1 INT64, col2 BOOL, col3 DOUBLE>>[
+  {2, false, 0.2},
+  {1, true, 0.1},
+  {3, true, 3},
+  {4, false, 4},
+  {1, true, 1},
+  {2, false, 2}
+]
+==

@@ -1282,6 +1282,8 @@ STRUCT<
     {5, 105},
     {6, 105}
   ]}
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Adapted from above, adding parameters.

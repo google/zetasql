@@ -294,9 +294,7 @@ class JSONValueStandardParser : public JSONValueParserBase {
   JSONValueStandardParser(JSON& value, WideNumberMode wide_number_mode,
                           std::optional<int> max_nesting)
       : value_builder_(value, max_nesting),
-        wide_number_mode_(wide_number_mode) {
-    ZETASQL_DCHECK(wide_number_mode != WideNumberMode::kIgnore);
-  }
+        wide_number_mode_(wide_number_mode) {}
   JSONValueStandardParser() = delete;
 
   bool null() { return MaybeUpdateStatus(value_builder_.ParsedNull()); }
@@ -436,15 +434,9 @@ class JSONValueStandardValidator : public JSONValueParserBase {
 
 absl::Status IsValidJSON(absl::string_view str,
                          const JSONParsingOptions& parsing_options) {
-  WideNumberMode wide_number_mode = parsing_options.wide_number_mode;
-  if (wide_number_mode == WideNumberMode::kIgnore) {
-    wide_number_mode =
-        (parsing_options.strict_number_parsing ? WideNumberMode::kExact
-                                               : WideNumberMode::kRound);
-  }
-  ZETASQL_RET_CHECK(wide_number_mode != WideNumberMode::kIgnore);
   JSONValueStandardValidator validator(
-      wide_number_mode == WideNumberMode::kExact, parsing_options.max_nesting);
+      parsing_options.wide_number_mode == WideNumberMode::kExact,
+      parsing_options.max_nesting);
   JSON::sax_parse(str, &validator);
   return validator.status();
 }
@@ -457,14 +449,9 @@ struct JSONValue::Impl {
 
 StatusOr<JSONValue> JSONValue::ParseJSONString(
     absl::string_view str, JSONParsingOptions parsing_options) {
-  WideNumberMode wide_number_mode = parsing_options.wide_number_mode;
-  if (wide_number_mode == WideNumberMode::kIgnore) {
-    wide_number_mode =
-        (parsing_options.strict_number_parsing ? WideNumberMode::kExact
-                                               : WideNumberMode::kRound);
-  }
   JSONValue json;
-  JSONValueStandardParser parser(json.impl_->value, wide_number_mode,
+  JSONValueStandardParser parser(json.impl_->value,
+                                 parsing_options.wide_number_mode,
                                  parsing_options.max_nesting);
   JSON::sax_parse(str, &parser);
   ZETASQL_RETURN_IF_ERROR(parser.status());

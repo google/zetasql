@@ -1,5 +1,7 @@
 
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 # Work with arrays 
 <a id="working_with_arrays"></a>
 
@@ -35,13 +37,13 @@ WITH
   )
 SELECT * FROM Sequences
 
-+---------------------+
-| some_numbers        |
-+---------------------+
-| [0, 1, 1, 2, 3, 5]  |
-| [2, 4, 8, 16, 32]   |
-| [5, 10]             |
-+---------------------+
+/*---------------------*
+ | some_numbers        |
+ +---------------------+
+ | [0, 1, 1, 2, 3, 5]  |
+ | [2, 4, 8, 16, 32]   |
+ | [5, 10]             |
+ *---------------------*/
 ```
 
 To access array elements in the `some_numbers` column, specify which
@@ -61,13 +63,13 @@ SELECT
   some_numbers[ORDINAL(1)] AS ordinal_1
 FROM Sequences
 
-+--------------------+---------+----------+-----------+
-| some_numbers       | index_0 | offset_1 | ordinal_1 |
-+--------------------+---------+----------+-----------+
-| [0, 1, 1, 2, 3, 5] | 0       | 1        | 0         |
-| [2, 4, 8, 16, 32]  | 2       | 4        | 2         |
-| [5, 10]            | 5       | 10       | 5         |
-+--------------------+---------+----------+-----------+
+/*--------------------+---------+----------+-----------*
+ | some_numbers       | index_0 | offset_1 | ordinal_1 |
+ +--------------------+---------+----------+-----------+
+ | [0, 1, 1, 2, 3, 5] | 0       | 1        | 0         |
+ | [2, 4, 8, 16, 32]  | 2       | 4        | 2         |
+ | [5, 10]            | 5       | 10       | 5         |
+ *--------------------+---------+----------+-----------*/
 ```
 
 Note: `OFFSET` and `ORDINAL` will raise errors if the index is out of
@@ -87,13 +89,13 @@ SELECT some_numbers,
        ARRAY_LENGTH(some_numbers) AS len
 FROM Sequences;
 
-+--------------------+--------+
-| some_numbers       | len    |
-+--------------------+--------+
-| [0, 1, 1, 2, 3, 5] | 6      |
-| [2, 4, 8, 16, 32]  | 5      |
-| [5, 10]            | 2      |
-+--------------------+--------+
+/*--------------------+--------*
+ | some_numbers       | len    |
+ +--------------------+--------+
+ | [0, 1, 1, 2, 3, 5] | 6      |
+ | [2, 4, 8, 16, 32]  | 5      |
+ | [5, 10]            | 2      |
+ *--------------------+--------*/
 ```
 
 ## Flattening nested data into an array 
@@ -133,44 +135,44 @@ You can flatten nested data in an array called `items` with the
 SELECT FLATTEN(items.color) AS colors
 FROM ItemsTable
 
-+----------------------+
-| colors               |
-+----------------------+
-| [red, green, orange] |
-+----------------------+
+/*----------------------*
+ | colors               |
+ +----------------------+
+ | [red, green, orange] |
+ *----------------------*/
 ```
 
 ```sql
 SELECT FLATTEN(items.inventory) AS inventory
 FROM ItemsTable
 
-+---------------+
-| inventory     |
-+---------------+
-| [2, NULL, 10] |
-+---------------+
+/*---------------*
+ | inventory     |
+ +---------------+
+ | [2, NULL, 10] |
+ *---------------*/
 ```
 
 ```sql
 SELECT FLATTEN(items.sales.prices) AS all_prices
 FROM ItemsTable
 
-+------------------------+
-| all_prices             |
-+------------------------+
-| [100, 50, 25, 75, 200] |
-+------------------------+
+/*------------------------*
+ | all_prices             |
+ +------------------------+
+ | [100, 50, 25, 75, 200] |
+ *------------------------*/
 ```
 
 ```sql
 SELECT FLATTEN(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices
 FROM ItemsTable
 
-+------------------------+
-| second_prices          |
-+------------------------+
-| [50, NULL, NULL, NULL] |
-+------------------------+
+/*------------------------*
+ | second_prices          |
+ +------------------------+
+ | [50, NULL, NULL, NULL] |
+ *------------------------*/
 ```
 
 ## Flattening nested data into a table 
@@ -220,13 +222,13 @@ FROM ItemsTable CROSS JOIN UNNEST(items.color) AS colors;
 SELECT colors
 FROM ItemsTable CROSS JOIN ItemsTable.items.color AS colors;
 
-+--------+
-| colors |
-+--------+
-| red    |
-| green  |
-| orange |
-+--------+
+/*--------*
+ | colors |
+ +--------+
+ | red    |
+ | green  |
+ | orange |
+ *--------*/
 ```
 
 ```sql
@@ -242,13 +244,13 @@ FROM ItemsTable CROSS JOIN UNNEST(items.inventory) AS inventory;
 SELECT inventory
 FROM ItemsTable CROSS JOIN ItemsTable.items.inventory AS inventory;
 
-+-----------+
-| inventory |
-+-----------+
-| 2         |
-| NULL      |
-| 10        |
-+-----------+
+/*-----------*
+ | inventory |
+ +-----------+
+ | 2         |
+ | NULL      |
+ | 10        |
+ *-----------*/
 ```
 
 ```sql
@@ -264,15 +266,15 @@ FROM ItemsTable CROSS JOIN UNNEST(items.sales.prices) AS all_prices;
 SELECT all_prices
 FROM ItemsTable CROSS JOIN ItemsTable.items.sales.prices AS all_prices;
 
-+------------+
-| all_prices |
-+------------+
-| 100        |
-| 50         |
-| 25         |
-| 75         |
-| 200        |
-+------------+
+/*------------*
+ | all_prices |
+ +------------+
+ | 100        |
+ | 50         |
+ | 25         |
+ | 75         |
+ | 200        |
+ *------------*/
 ```
 
 ```sql
@@ -288,14 +290,14 @@ FROM ItemsTable CROSS JOIN UNNEST(items.sales.prices[SAFE_OFFSET(1)]) AS second_
 SELECT second_prices
 FROM ItemsTable CROSS JOIN ItemsTable.items.sales.prices[SAFE_OFFSET(1)] AS second_prices;
 
-+---------------+
-| second_prices |
-+---------------+
-| 50            |
-| NULL          |
-| NULL          |
-| NULL          |
-+---------------+
+/*---------------*
+ | second_prices |
+ +---------------+
+ | 50            |
+ | NULL          |
+ | NULL          |
+ | NULL          |
+ *---------------*/
 ```
 
 ## Converting elements in an array to rows in a table 
@@ -320,18 +322,18 @@ FROM UNNEST(['foo', 'bar', 'baz', 'qux', 'corge', 'garply', 'waldo', 'fred'])
 WITH OFFSET AS offset
 ORDER BY offset;
 
-+----------+--------+
-| element  | offset |
-+----------+--------+
-| foo      | 0      |
-| bar      | 1      |
-| baz      | 2      |
-| qux      | 3      |
-| corge    | 4      |
-| garply   | 5      |
-| waldo    | 6      |
-| fred     | 7      |
-+----------+--------+
+/*----------+--------*
+ | element  | offset |
+ +----------+--------+
+ | foo      | 0      |
+ | bar      | 1      |
+ | baz      | 2      |
+ | qux      | 3      |
+ | corge    | 4      |
+ | garply   | 5      |
+ | waldo    | 6      |
+ | fred     | 7      |
+ *----------+--------*/
 ```
 
 To flatten an entire column of `ARRAY`s while preserving the values
@@ -362,23 +364,23 @@ SELECT id, flattened_numbers
 FROM Sequences
 CROSS JOIN UNNEST(Sequences.some_numbers) AS flattened_numbers;
 
-+------+-------------------+
-| id   | flattened_numbers |
-+------+-------------------+
-|    1 |                 0 |
-|    1 |                 1 |
-|    1 |                 1 |
-|    1 |                 2 |
-|    1 |                 3 |
-|    1 |                 5 |
-|    2 |                 2 |
-|    2 |                 4 |
-|    2 |                 8 |
-|    2 |                16 |
-|    2 |                32 |
-|    3 |                 5 |
-|    3 |                10 |
-+------+-------------------+
+/*------+-------------------*
+ | id   | flattened_numbers |
+ +------+-------------------+
+ |    1 |                 0 |
+ |    1 |                 1 |
+ |    1 |                 1 |
+ |    1 |                 2 |
+ |    1 |                 3 |
+ |    1 |                 5 |
+ |    2 |                 2 |
+ |    2 |                 4 |
+ |    2 |                 8 |
+ |    2 |                16 |
+ |    2 |                32 |
+ |    3 |                 5 |
+ |    3 |                10 |
+ *------+-------------------*/
 ```
 
 Note that for correlated cross joins the `UNNEST` operator is optional and the
@@ -393,23 +395,23 @@ WITH Sequences AS
 SELECT id, flattened_numbers
 FROM Sequences, Sequences.some_numbers AS flattened_numbers;
 
-+------+-------------------+
-| id   | flattened_numbers |
-+------+-------------------+
-|    1 |                 0 |
-|    1 |                 1 |
-|    1 |                 1 |
-|    1 |                 2 |
-|    1 |                 3 |
-|    1 |                 5 |
-|    2 |                 2 |
-|    2 |                 4 |
-|    2 |                 8 |
-|    2 |                16 |
-|    2 |                32 |
-|    3 |                 5 |
-|    3 |                10 |
-+------+-------------------+
+/*------+-------------------*
+ | id   | flattened_numbers |
+ +------+-------------------+
+ |    1 |                 0 |
+ |    1 |                 1 |
+ |    1 |                 1 |
+ |    1 |                 2 |
+ |    1 |                 3 |
+ |    1 |                 5 |
+ |    2 |                 2 |
+ |    2 |                 4 |
+ |    2 |                 8 |
+ |    2 |                16 |
+ |    2 |                32 |
+ |    3 |                 5 |
+ |    3 |                10 |
+ *------+-------------------*/
 ```
 
 ## Querying nested and repeated fields
@@ -445,18 +447,18 @@ SELECT
 FROM Races AS r
 CROSS JOIN UNNEST(r.participants) AS participant;
 
-+------+---------------------------------------+
-| race | participant                           |
-+------+---------------------------------------+
-| 800M | {Rudisha, [23.4, 26.3, 26.4, 26.1]}   |
-| 800M | {Makhloufi, [24.5, 25.4, 26.6, 26.1]} |
-| 800M | {Murphy, [23.9, 26, 27, 26]}          |
-| 800M | {Bosse, [23.6, 26.2, 26.5, 27.1]}     |
-| 800M | {Rotich, [24.7, 25.6, 26.9, 26.4]}    |
-| 800M | {Lewandowski, [25, 25.7, 26.3, 27.2]} |
-| 800M | {Kipketer, [23.2, 26.1, 27.3, 29.4]}  |
-| 800M | {Berian, [23.7, 26.1, 27, 29.3]}      |
-+------+---------------------------------------+
+/*------+---------------------------------------*
+ | race | participant                           |
+ +------+---------------------------------------+
+ | 800M | {Rudisha, [23.4, 26.3, 26.4, 26.1]}   |
+ | 800M | {Makhloufi, [24.5, 25.4, 26.6, 26.1]} |
+ | 800M | {Murphy, [23.9, 26, 27, 26]}          |
+ | 800M | {Bosse, [23.6, 26.2, 26.5, 27.1]}     |
+ | 800M | {Rotich, [24.7, 25.6, 26.9, 26.4]}    |
+ | 800M | {Lewandowski, [25, 25.7, 26.3, 27.2]} |
+ | 800M | {Kipketer, [23.2, 26.1, 27.3, 29.4]}  |
+ | 800M | {Berian, [23.7, 26.1, 27, 29.3]}      |
+ *------+---------------------------------------*/
 ```
 
 You can find specific information from repeated fields. For example, the
@@ -489,11 +491,11 @@ SELECT
    LIMIT 1) AS fastest_racer
 FROM Races;
 
-+------+---------------+
-| race | fastest_racer |
-+------+---------------+
-| 800M | Rudisha       |
-+------+---------------+
+/*------+---------------*
+ | race | fastest_racer |
+ +------+---------------+
+ | 800M | Rudisha       |
+ *------+---------------*/
 ```
 
 ### Querying `PROTO` elements in an array
@@ -528,17 +530,17 @@ WITH Albums AS (
 SELECT *
 FROM Albums;
 
-+-------------+---------------------------------+
-| album_name  | charts                          |
-+-------------+---------------------------------+
-| Let It Be   | [chart_name: "US 100", rank: 1, |
-|             | chart_name: "UK 40", rank: 1,   |
-|             | chart_name: "Oricon" rank: 2]   |
-+-------------+---------------------------------+
-| Rubber Soul | [chart_name: "US 100", rank: 1, |
-|             | chart_name: "UK 40", rank: 1,   |
-|             | chart_name: "Oricon" rank: 24]  |
-+-------------+---------------------------------+
+/*-------------+---------------------------------*
+ | album_name  | charts                          |
+ +-------------+---------------------------------+
+ | Let It Be   | [chart_name: "US 100", rank: 1, |
+ |             | chart_name: "UK 40", rank: 1,   |
+ |             | chart_name: "Oricon" rank: 2]   |
+ +-------------+---------------------------------+
+ | Rubber Soul | [chart_name: "US 100", rank: 1, |
+ |             | chart_name: "UK 40", rank: 1,   |
+ |             | chart_name: "Oricon" rank: 24]  |
+ *-------------+---------------------------------*/
 ```
 
 To return the value of the individual fields of the `PROTO`s inside an `ARRAY`,
@@ -577,16 +579,16 @@ SELECT Albums.album_name, chart.chart_name, chart.rank
 FROM Albums
 CROSS JOIN UNNEST(charts) AS chart;
 
-+-------------+------------+------+
-| album_name  | chart_name | rank |
-+-------------+------------+------+
-| Let It Be   | US 100     |    1 |
-| Let It Be   | UK 40      |    1 |
-| Let It Be   | Oricon     |    2 |
-| Rubber Soul | US 100     |    1 |
-| Rubber Soul | UK 40      |    1 |
-| Rubber Soul | Oricon     |   24 |
-+-------------+------------+------+
+/*-------------+------------+------*
+ | album_name  | chart_name | rank |
+ +-------------+------------+------+
+ | Let It Be   | US 100     |    1 |
+ | Let It Be   | UK 40      |    1 |
+ | Let It Be   | Oricon     |    2 |
+ | Rubber Soul | US 100     |    1 |
+ | Rubber Soul | UK 40      |    1 |
+ | Rubber Soul | Oricon     |   24 |
+ *-------------+------------+------*/
 ```
 
 ### Querying `ARRAY`-type fields in a struct
@@ -614,11 +616,11 @@ race,
  ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
 FROM Races;
 
-+------+-------------------------+
-| race | runner_with_fastest_lap |
-+------+-------------------------+
-| 800M | Kipketer                |
-+------+-------------------------+
+/*------+-------------------------*
+ | race | runner_with_fastest_lap |
+ +------+-------------------------+
+ | 800M | Kipketer                |
+ *------+-------------------------*/
 ```
 
 Notice that the preceding query uses the comma operator (`,`) to perform an
@@ -645,11 +647,11 @@ race,
  ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
 FROM Races;
 
-+------+-------------------------+
-| race | runner_with_fastest_lap |
-+------+-------------------------+
-| 800M | Kipketer                |
-+------+-------------------------+
+/*------+-------------------------*
+ | race | runner_with_fastest_lap |
+ +------+-------------------------+
+ | 800M | Kipketer                |
+ *------+-------------------------*/
 ```
 
 Flattening arrays with a `CROSS JOIN` excludes rows that have empty
@@ -674,20 +676,20 @@ SELECT
 FROM Races CROSS JOIN Races.participants LEFT JOIN participants.laps AS duration
 GROUP BY name;
 
-+-------------+--------------------+
-| name        | finish_time        |
-+-------------+--------------------+
-| Murphy      | 102.9              |
-| Rudisha     | 102.19999999999999 |
-| David       | NULL               |
-| Rotich      | 103.6              |
-| Makhloufi   | 102.6              |
-| Berian      | 106.1              |
-| Bosse       | 103.4              |
-| Kipketer    | 106                |
-| Nathan      | NULL               |
-| Lewandowski | 104.2              |
-+-------------+--------------------+
+/*-------------+--------------------*
+ | name        | finish_time        |
+ +-------------+--------------------+
+ | Murphy      | 102.9              |
+ | Rudisha     | 102.19999999999999 |
+ | David       | NULL               |
+ | Rotich      | 103.6              |
+ | Makhloufi   | 102.6              |
+ | Berian      | 106.1              |
+ | Bosse       | 103.4              |
+ | Kipketer    | 106                |
+ | Nathan      | NULL               |
+ | Lewandowski | 104.2              |
+ *-------------+--------------------*/
 ```
 
 ### Querying repeated fields
@@ -719,12 +721,12 @@ WITH
 SELECT band_name, album.album_name, album.song
 FROM Bands;
 
-+-------------+------------------+-----------------------------------------+
-| band_name   | album_name       | song                                    |
-+-------------+------------------+-----------------------------------------+
-| The Beatles | Let It Be        | [Across the Universe, Get Back, Dig It] |
-| The Beatles | Rubber Soul      | [Drive My Car, The Word, Michelle]      |
-+-------------+------------------+-----------------------------------------+
+/*-------------+------------------+-----------------------------------------*
+ | band_name   | album_name       | song                                    |
+ +-------------+------------------+-----------------------------------------+
+ | The Beatles | Let It Be        | [Across the Universe, Get Back, Dig It] |
+ | The Beatles | Rubber Soul      | [Drive My Car, The Word, Michelle]      |
+ *-------------+------------------+-----------------------------------------*/
 ```
 
 To query the individual values of a repeated field, reference the field name
@@ -762,17 +764,16 @@ SELECT band_name, album.album_name, song_name
 FROM Bands
 CROSS JOIN UNNEST(album.song) AS song_name;
 
-+-------------+-------------+---------------------+
-| band_name   | album_name  | song_name           |
-+-------------+-------------+---------------------+
-| The Beatles | Let It Be   | Across the Universe |
-| The Beatles | Let It Be   | Get Back            |
-| The Beatles | Let It Be   | Dig It              |
-| The Beatles | Rubber Soul | Drive My Car        |
-| The Beatles | Rubber Soul | The Word            |
-| The Beatles | Rubber Soul | Michelle            |
-+-------------+-------------+---------------------+
-
+/*-------------+-------------+---------------------*
+ | band_name   | album_name  | song_name           |
+ +-------------+-------------+---------------------+
+ | The Beatles | Let It Be   | Across the Universe |
+ | The Beatles | Let It Be   | Get Back            |
+ | The Beatles | Let It Be   | Dig It              |
+ | The Beatles | Rubber Soul | Drive My Car        |
+ | The Beatles | Rubber Soul | The Word            |
+ | The Beatles | Rubber Soul | Michelle            |
+ *-------------+-------------+---------------------*/
 ```
 
 ## Casting arrays
@@ -789,11 +790,11 @@ is valid; casting from type `ARRAY<INT32>` to `ARRAY<BYTES>` is not valid.
 SELECT CAST(int_array AS ARRAY<DOUBLE>) AS double_array
 FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
 
-+--------------+
-| double_array |
-+--------------+
-| [1, 2, 3]    |
-+--------------+
+/*--------------*
+ | double_array |
+ +--------------+
+ | [1, 2, 3]    |
+ *--------------*/
 ```
 
 ## Constructing arrays
@@ -819,13 +820,13 @@ SELECT some_numbers,
         FROM UNNEST(some_numbers) AS x) AS doubled
 FROM Sequences;
 
-+--------------------+---------------------+
-| some_numbers       | doubled             |
-+--------------------+---------------------+
-| [0, 1, 1, 2, 3, 5] | [0, 2, 2, 4, 6, 10] |
-| [2, 4, 8, 16, 32]  | [4, 8, 16, 32, 64]  |
-| [5, 10]            | [10, 20]            |
-+--------------------+---------------------+
+/*--------------------+---------------------*
+ | some_numbers       | doubled             |
+ +--------------------+---------------------+
+ | [0, 1, 1, 2, 3, 5] | [0, 2, 2, 4, 6, 10] |
+ | [2, 4, 8, 16, 32]  | [4, 8, 16, 32, 64]  |
+ | [5, 10]            | [10, 20]            |
+ *--------------------+---------------------*/
 ```
 
 This example starts with a table named Sequences. This table contains a column,
@@ -855,13 +856,13 @@ SELECT
         WHERE x < 5) AS doubled_less_than_five
 FROM Sequences;
 
-+------------------------+
-| doubled_less_than_five |
-+------------------------+
-| [0, 2, 2, 4, 6]        |
-| [4, 8]                 |
-| []                     |
-+------------------------+
+/*------------------------*
+ | doubled_less_than_five |
+ +------------------------+
+ | [0, 2, 2, 4, 6]        |
+ | [4, 8]                 |
+ | []                     |
+ *------------------------*/
 ```
 
 Notice that the third row contains an empty array, because the elements in the
@@ -878,11 +879,11 @@ SELECT ARRAY(SELECT DISTINCT x
              FROM UNNEST(some_numbers) AS x) AS unique_numbers
 FROM Sequences;
 
-+-----------------+
-| unique_numbers  |
-+-----------------+
-| [0, 1, 2, 3, 5] |
-+-----------------+
+/*-----------------*
+ | unique_numbers  |
+ +-----------------+
+ | [0, 1, 2, 3, 5] |
+ *-----------------*/
 ```
 
 You can also filter rows of arrays by using the
@@ -901,13 +902,13 @@ SELECT
          WHERE 2 IN UNNEST(some_numbers)) AS contains_two
 FROM Sequences;
 
-+--------------------+
-| contains_two       |
-+--------------------+
-| [0, 1, 1, 2, 3, 5] |
-| [2, 4, 8, 16, 32]  |
-| []                 |
-+--------------------+
+/*--------------------*
+ | contains_two       |
+ +--------------------+
+ | [0, 1, 1, 2, 3, 5] |
+ | [2, 4, 8, 16, 32]  |
+ | []                 |
+ *--------------------*/
 ```
 
 Notice again that the third row contains an empty array, because the array in
@@ -931,11 +932,11 @@ The following example returns `true` if the array contains the number 2.
 ```sql
 SELECT 2 IN UNNEST([0, 1, 1, 2, 3, 5]) AS contains_value;
 
-+----------------+
-| contains_value |
-+----------------+
-| true           |
-+----------------+
+/*----------------*
+ | contains_value |
+ +----------------+
+ | true           |
+ *----------------*/
 ```
 
 To return the rows of a table where the array column contains a specific value,
@@ -956,12 +957,12 @@ FROM Sequences
 WHERE 2 IN UNNEST(Sequences.some_numbers)
 ORDER BY matching_rows;
 
-+---------------+
-| matching_rows |
-+---------------+
-| 1             |
-| 2             |
-+---------------+
+/*---------------*
+ | matching_rows |
+ +---------------+
+ | 1             |
+ | 2             |
+ *---------------*/
 ```
 
 ### Scanning for values that satisfy a condition
@@ -988,12 +989,12 @@ SELECT id AS matching_rows
 FROM Sequences
 WHERE EXISTS(SELECT * FROM UNNEST(some_numbers) AS x WHERE x > 5);
 
-+---------------+
-| matching_rows |
-+---------------+
-| 2             |
-| 3             |
-+---------------+
+/*---------------*
+ | matching_rows |
+ +---------------+
+ | 2             |
+ | 3             |
+ *---------------*/
 ```
 
 #### Scanning for `STRUCT` field values that satisfy a condition
@@ -1020,12 +1021,12 @@ SELECT id AS matching_rows
 FROM Sequences
 WHERE EXISTS(SELECT 1 FROM UNNEST(some_numbers) WHERE b > 3);
 
-+---------------+
-| matching_rows |
-+---------------+
-| 2             |
-| 3             |
-+---------------+
+/*---------------*
+ | matching_rows |
+ +---------------+
+ | 2             |
+ | 3             |
+ *---------------*/
 ```
 
 ## Arrays and aggregation
@@ -1041,11 +1042,11 @@ WITH Fruits AS
 SELECT ARRAY_AGG(fruit) AS fruit_basket
 FROM Fruits;
 
-+-----------------------+
-| fruit_basket          |
-+-----------------------+
-| [apple, pear, banana] |
-+-----------------------+
+/*-----------------------*
+ | fruit_basket          |
+ +-----------------------+
+ | [apple, pear, banana] |
+ *-----------------------*/
 ```
 
 The array returned by `ARRAY_AGG()` is in an arbitrary order, since the order in
@@ -1060,11 +1061,11 @@ WITH Fruits AS
 SELECT ARRAY_AGG(fruit ORDER BY fruit) AS fruit_basket
 FROM Fruits;
 
-+-----------------------+
-| fruit_basket          |
-+-----------------------+
-| [apple, banana, pear] |
-+-----------------------+
+/*-----------------------*
+ | fruit_basket          |
+ +-----------------------+
+ | [apple, banana, pear] |
+ *-----------------------*/
 ```
 
 You can also apply aggregate functions such as `SUM()` to the elements in an
@@ -1081,13 +1082,13 @@ SELECT some_numbers,
    FROM UNNEST(s.some_numbers) AS x) AS sums
 FROM Sequences AS s;
 
-+--------------------+------+
-| some_numbers       | sums |
-+--------------------+------+
-| [0, 1, 1, 2, 3, 5] | 12   |
-| [2, 4, 8, 16, 32]  | 62   |
-| [5, 10]            | 15   |
-+--------------------+------+
+/*--------------------+------*
+ | some_numbers       | sums |
+ +--------------------+------+
+ | [0, 1, 1, 2, 3, 5] | 12   |
+ | [2, 4, 8, 16, 32]  | 62   |
+ | [5, 10]            | 15   |
+ *--------------------+------*/
 ```
 
 ZetaSQL also supports an aggregate function, `ARRAY_CONCAT_AGG()`,
@@ -1101,11 +1102,11 @@ WITH Aggregates AS
 SELECT ARRAY_CONCAT_AGG(numbers) AS count_to_six_agg
 FROM Aggregates;
 
-+--------------------------------------------------+
-| count_to_six_agg                                 |
-+--------------------------------------------------+
-| [1, 2, 3, 4, 5, 6]                               |
-+--------------------------------------------------+
+/*--------------------------------------------------*
+ | count_to_six_agg                                 |
+ +--------------------------------------------------+
+ | [1, 2, 3, 4, 5, 6]                               |
+ *--------------------------------------------------*/
 ```
 
 Note: The array returned by `ARRAY_CONCAT_AGG()` is
@@ -1130,11 +1131,11 @@ WITH Words AS
 SELECT ARRAY_TO_STRING(greeting, " ") AS greetings
 FROM Words;
 
-+-------------+
-| greetings   |
-+-------------+
-| Hello World |
-+-------------+
+/*-------------*
+ | greetings   |
+ +-------------+
+ | Hello World |
+ *-------------*/
 ```
 
 The optional third argument takes the place of `NULL` values in the input
@@ -1155,11 +1156,11 @@ SELECT
   ARRAY_TO_STRING(arr, ".") AS omitted
 FROM (SELECT ["a", NULL, "b", NULL, "c", NULL] AS arr);
 
-+------------------+--------------+---------+
-| non_empty_string | empty_string | omitted |
-+------------------+--------------+---------+
-| a.N.b.N.c.N      | a..b..c.     | a.b.c   |
-+------------------+--------------+---------+
+/*------------------+--------------+---------*
+ | non_empty_string | empty_string | omitted |
+ +------------------+--------------+---------+
+ | a.N.b.N.c.N      | a..b..c.     | a.b.c   |
+ *------------------+--------------+---------*/
 ```
 
 ## Combining arrays
@@ -1170,11 +1171,11 @@ You can accomplish this using the `ARRAY_CONCAT()` function.
 ```sql
 SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) AS count_to_six;
 
-+--------------------------------------------------+
-| count_to_six                                     |
-+--------------------------------------------------+
-| [1, 2, 3, 4, 5, 6]                               |
-+--------------------------------------------------+
+/*--------------------------------------------------*
+ | count_to_six                                     |
+ +--------------------------------------------------+
+ | [1, 2, 3, 4, 5, 6]                               |
+ *--------------------------------------------------*/
 ```
 
 ## Zipping arrays
@@ -1208,12 +1209,12 @@ SELECT
     ORDER BY index
   );
 
-+------------------------------+
-| pairs                        |
-+------------------------------+
-| [{ letter: "a", number: 1 }, |
-|  { letter: "b", number: 2 }] |
-+------------------------------+
+/*------------------------------*
+ | pairs                        |
+ +------------------------------+
+ | [{ letter: "a", number: 1 }, |
+ |  { letter: "b", number: 2 }] |
+ *------------------------------*/
 ```
 
 You can use input arrays of different lengths as long as the first array
@@ -1245,13 +1246,13 @@ SELECT
     ORDER BY index
   );
 
-+-------------------------------+
-| pairs                         |
-+-------------------------------+
-| [{ letter: "a", number: 1 },  |
-|  { letter: "b", number: 2 },  |
-|  { letter: null, number: 3 }] |
-+-------------------------------+
+/*-------------------------------*
+ | pairs                         |
+ +-------------------------------+
+ | [{ letter: "a", number: 1 },  |
+ |  { letter: "b", number: 2 },  |
+ |  { letter: null, number: 3 }] |
+ *-------------------------------*/
 ```
 
 ## Building arrays of arrays
@@ -1263,15 +1264,15 @@ containing a field of type `ARRAY`. To illustrate this, consider the following
 `Points` table:
 
 ```sql
-+----------+
-| point    |
-+----------+
-| [1, 5]   |
-| [2, 8]   |
-| [3, 7]   |
-| [4, 1]   |
-| [5, 7]   |
-+----------+
+/*----------*
+ | point    |
+ +----------+
+ | [1, 5]   |
+ | [2, 8]   |
+ | [3, 7]   |
+ | [4, 1]   |
+ | [5, 7]   |
+ *----------*/
 ```
 
 Now, let's say you wanted to create an array consisting of each `point` in the
@@ -1290,15 +1291,15 @@ SELECT ARRAY(
   FROM Points)
   AS coordinates;
 
-+-------------------+
-| coordinates       |
-+-------------------+
-| [{point: [1,5]},  |
-|  {point: [2,8]},  |
-|  {point: [5,7]},  |
-|  {point: [3,7]},  |
-|  {point: [4,1]}]  |
-+--------------------+
+/*-------------------*
+ | coordinates       |
+ +-------------------+
+ | [{point: [1,5]},  |
+ |  {point: [2,8]},  |
+ |  {point: [5,7]},  |
+ |  {point: [3,7]},  |
+ |  {point: [4,1]}]  |
+ *-------------------*/
 ```
 
 You can use this DML statement to insert the example data:
@@ -1320,15 +1321,15 @@ SELECT ARRAY(
   FROM Points)
   AS coordinates;
 
-+--------------+
-| coordinates  |
-+--------------+
-| point: [1,5] |
-| point: [2,8] |
-| point: [3,7] |
-| point: [4,1] |
-| point: [5,7] |
-+--------------+
+/*--------------*
+ | coordinates  |
+ +--------------+
+ | point: [1,5] |
+ | point: [2,8] |
+ | point: [3,7] |
+ | point: [4,1] |
+ | point: [5,7] |
+ *--------------*/
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->

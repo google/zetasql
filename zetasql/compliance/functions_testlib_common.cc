@@ -259,7 +259,18 @@ std::vector<std::vector<Value>> GetRowsOfValues() {
       {KitchenSink("int64_key_1: 1 int64_key_2: 2"),
        KitchenSink("int64_key_1: 10 int64_key_2: 20")},
       {NumericFromDouble(3.14), Numeric(-100)},
-      {BigNumericFromDouble(3.14), BigNumeric(-100)}};
+      {BigNumericFromDouble(3.14), BigNumeric(-100)},
+      {Range(Date(11), Date(443)), Range(Date(51), NullDate())},
+      {Range(Timestamp(11), Timestamp(443)),
+       Range(Timestamp(51), NullTimestamp())},
+      {Range(Datetime(DatetimeValue::FromYMDHMSAndMicros(2010, 7, 11, 13, 46,
+                                                         23, 0)),
+             Datetime(DatetimeValue::FromYMDHMSAndMicros(2050, 3, 5, 21, 18, 27,
+                                                         8))),
+       Range(Datetime(DatetimeValue::FromYMDHMSAndMicros(2015, 2, 6, 2, 31, 58,
+                                                         121)),
+             NullDatetime())},
+  };
   return v;
 }
 

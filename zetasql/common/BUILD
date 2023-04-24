@@ -388,6 +388,7 @@ cc_library(
     deps = [
         ":errors",
         "//zetasql/base",
+        "//zetasql/base:check",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
@@ -402,6 +403,7 @@ cc_library(
         "//zetasql/public:function_cc_proto",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:strings",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
@@ -476,6 +478,7 @@ cc_library(
         "//zetasql/public:type",
         "//zetasql/public:value",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
     ],
 )

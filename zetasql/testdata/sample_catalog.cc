@@ -1023,6 +1023,31 @@ void SampleCatalog::LoadTables() {
   AddOwnedTable(new SimpleTable(
       "name_conflict_table", {{"a", types_->get_string()},
                               {"name_conflict_field", types_->get_string()}}));
+
+  // Add tables for testing create model with aliased queries.
+  AddOwnedTable(
+      new SimpleTable("user_training_data", {{"data", types_->get_int32()}}));
+  AddOwnedTable(new SimpleTable("user_custom_holiday",
+                                {{"region", types_->get_string()},
+                                 {"holiday_name", types_->get_string()},
+                                 {"primary_date", types_->get_date()}}));
+
+  // Create two tables with common prefix.
+  // One table "Int32Array" exists under the catalog "ArrayTableOrCatalog", so
+  // its full path is "ArrayTableOrCatalog.Int32Array".
+  // Another table "ArrayTableOrCatalog" exists under the root catalog, so its
+  // full path is "ArrayTableOrCatalog". "ArrayTableOrCatalog.Int32Array" refers
+  // to an array column.
+  SimpleCatalog* array_catalog =
+      catalog_->MakeOwnedSimpleCatalog("ArrayTableOrCatalog");
+  SimpleTable* array_table_1 =
+      new SimpleTable("Int32Array", {{"Int32Array", int32array_type_}});
+  ZETASQL_CHECK_OK(array_table_1->set_full_name("ArrayTableOrCatalog.Int32Array"));
+  SimpleTable* array_table_2 = new SimpleTable(
+      "ArrayTableOrCatalog", {{"Int32Array", int32array_type_}});
+
+  array_catalog->AddOwnedTable("Int32Array", array_table_1);
+  AddOwnedTable(array_table_2);
 }
 
 void SampleCatalog::LoadProtoTables() {
@@ -2290,6 +2315,31 @@ void SampleCatalog::LoadFunctions() {
          FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
              .set_argument_name("type_name")}},
        /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Function with signatures that should not show up in signature mismatch
+  // error messages.
+  function = new Function("fn_with_hidden_signatures", "sample_functions", mode,
+                          FunctionOptions());
+  // Two good signatures
+  function->AddSignature({{types_->get_string()},
+                          {{types_->get_int64()}},
+                          /*context_id=*/-1});
+  function->AddSignature({{types_->get_string()},
+                          {{types_->get_int32()}},
+                          /*context_id=*/-1});
+  // Two hidden signatures
+  FunctionSignature deprecated_signature{{types_->get_string()},
+                                         {{types_->get_string()}},
+                                         /*context_id=*/-1};
+  deprecated_signature.SetIsDeprecated(true);
+  function->AddSignature(deprecated_signature);
+  FunctionSignature internal_signature{
+      {types_->get_string()},
+      {{types_->get_string()}, {types_->get_string()}},
+      /*context_id=*/-1,
+      FunctionSignatureOptions().set_is_internal(true)};
+  function->AddSignature(internal_signature);
   catalog_->AddOwnedFunction(function);
 }  // NOLINT(readability/fn_size)
 

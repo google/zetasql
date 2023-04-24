@@ -1240,6 +1240,8 @@ ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE, cnt INT64>>[
   {1.25, -0.25, 2},
   {inf, -inf, 2}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=groupby_multi_computed_column_double]
 [forbidden_features=DISALLOW_GROUP_BY_FLOAT]
@@ -1267,6 +1269,8 @@ ARRAY<STRUCT<c1 DOUBLE, c2 STRING, cnt INT64>>[
   {-0.125, "6", 2},
   {inf, "1", 2}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=groupby_multi_computed_column_str]
 SELECT RTRIM(str_val) as c1, bytes_val as c2, count(*) as cnt
@@ -1501,6 +1505,8 @@ ARRAY<STRUCT<c1 FLOAT>>[
   {0.75},
   {inf}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=distinct_single_base_column_double]
 [forbidden_features=DISALLOW_GROUP_BY_FLOAT]
@@ -1524,6 +1530,8 @@ ARRAY<STRUCT<c1 DOUBLE>>[
   {0.625},
   {inf}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=distinct_single_base_column_str]
 SELECT s.c1 FROM (SELECT DISTINCT str_val as c1 FROM AllTypesTable t) s
@@ -1689,6 +1697,8 @@ ARRAY<STRUCT<c1 DOUBLE>>[
   {0.875},
   {inf}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=distinct_single_computed_column_double]
 [forbidden_features=DISALLOW_GROUP_BY_FLOAT]
@@ -1712,6 +1722,8 @@ ARRAY<STRUCT<c1 DOUBLE>>[
   {1.25},
   {inf}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=distinct_single_computed_column_str]
 SELECT s.c1 FROM (SELECT DISTINCT LTRIM(str_val) as c1 FROM AllTypesTable t) s
@@ -1882,6 +1894,8 @@ ARRAY<STRUCT<c1 FLOAT, c2 DOUBLE>>[
   {0.75, -0.25},
   {inf, -inf}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=distinct_multi_base_column_double]
 [forbidden_features=DISALLOW_GROUP_BY_FLOAT]
@@ -1908,6 +1922,8 @@ ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[
   {0.625, "6"},
   {inf, "1"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=distinct_multi_base_column_str]
 SELECT s.c1, s.c2 FROM (
@@ -2198,6 +2214,8 @@ ARRAY<STRUCT<c1 DOUBLE, c2 DOUBLE>>[
   {1.25, -0.25},
   {inf, -inf}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=distinct_multi_computed_column_double]
 [forbidden_features=DISALLOW_GROUP_BY_FLOAT]
@@ -2225,6 +2243,8 @@ ARRAY<STRUCT<c1 DOUBLE, c2 STRING>>[
   {-0.125, "6"},
   {inf, "1"}
 ]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 [name=distinct_multi_computed_column_str]
 SELECT s.c1, s.c2 FROM (

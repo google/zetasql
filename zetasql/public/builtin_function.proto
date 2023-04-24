@@ -26,7 +26,7 @@ option java_outer_classname = "ZetaSQLFunction";
 // A unique ID for ZetaSQL function signatures.  Resolved ZetaSQL functions
 // will provide one of these enums, and ZetaSQL implementations should map
 // them to something they can evaluate.
-// Next id: 1947
+// Next id: 1948
 enum FunctionSignatureId {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -53,8 +53,8 @@ enum FunctionSignatureId {
   // 2000-2199 Geography functions            (NextId: 2090)
   // 2200-2231 Anonymization functions        (NextId: 2232)
   // 2300-2499 Numeric & more math functions  (NextId: 2325)
-  // 2500-2599 Array and proto map functions  (NextId: 2542)
-  // 2600-2699 More misc functions.           (NextId: 2613)
+  // 2500-2599 Array and proto map functions  (NextId: 2552)
+  // 2600-2699 More misc functions.           (NextId: 2615)
   // 2700-2799 Aggregate functions II         (NextId: 2746)
   // 2800-2899 Differential Privacy functions (NextId: 2832)
   // 2900-2999 Range functions                (NextId: 2916)
@@ -578,6 +578,7 @@ enum FunctionSignatureId {
   FN_AVG_BIGNUMERIC = 1479;           // avg
   FN_AVG_INTERVAL = 1490;             // avg
   FN_COUNT = 1405;                    // count
+  FN_GROUPING = 1947;                 // grouping
   FN_MAX = 1406;                      // max
   FN_MIN = 1407;                      // min
   FN_STRING_AGG_STRING = 1408;        // string_agg(s)
@@ -1189,10 +1190,17 @@ enum FunctionSignatureId {
   FN_ARRAY_AVG_NUMERIC = 2533;     // ARRAY_AVG(array<NUMERIC>) -> NUMERIC
   FN_ARRAY_AVG_BIGNUMERIC = 2534;  // ARRAY_AVG(array<BIGNUMERIC>) -> BIGNUMERIC
   FN_ARRAY_AVG_INTERVAL = 2535;    // ARRAY_AVG(array<INTERVAL>) -> INTERVAL
-  FN_ARRAY_OFFSET = 2536;      // ARRAY_OFFSET(array<T>, T [, ENUM]) -> INT64
-  FN_ARRAY_OFFSETS = 2537;     // ARRAY_OFFSETS(array<T>, T) -> ARRAY<INT64>
-  FN_ARRAY_FIND = 2538;        // ARRAY_FIND(array<T>, T [, ENUM]) -> T
-  FN_ARRAY_FIND_ALL = 2539;    // ARRAY_FIND_ALL(array<T>, T) -> ARRAY<T>
+  FN_ARRAY_OFFSET = 2536;    // ARRAY_OFFSET(array<T>, T [, ENUM]) -> INT64
+  FN_ARRAY_OFFSETS = 2537;   // ARRAY_OFFSETS(array<T>, T) -> ARRAY<INT64>
+  FN_ARRAY_FIND = 2538;      // ARRAY_FIND(array<T>, T [, ENUM]) -> T
+  FN_ARRAY_FIND_ALL = 2539;  // ARRAY_FIND_ALL(array<T>, T) -> ARRAY<T>
+  FN_ARRAY_OFFSET_LAMBDA =
+      2548;  // ARRAY_OFFSET(array<T>, lambda [, ENUM]) -> INT64
+  FN_ARRAY_OFFSETS_LAMBDA =
+      2549;  // ARRAY_OFFSETS(array<T>, lambda) -> ARRAY<INT64>
+  FN_ARRAY_FIND_LAMBDA = 2550;  // ARRAY_FIND(array<T>, lambda [, ENUM]) -> T
+  FN_ARRAY_FIND_ALL_LAMBDA =
+      2551;                    // ARRAY_FIND_ALL(array<T>, lambda) -> ARRAY<T>
   FN_ARRAY_MIN = 2540;         // ARRAY_MIN(array<T>) -> T
   FN_ARRAY_MAX = 2541;         // ARRAY_MAX(array<T>) -> T
   FN_ARRAY_MAX_FLOAT = 2542;   // ARRAY_MAX(array<FLOAT>) -> FLOAT
@@ -1209,6 +1217,8 @@ enum FunctionSignatureId {
   FN_JSON_LAX_TO_BOOL = 2607;    // lax_bool(json) -> bool
   FN_JSON_LAX_TO_STRING = 2608;  // lax_string(json) -> string
   FN_JSON_LAX_TO_DOUBLE = 2609;  // lax_double(json) -> double
+
+  FN_JSON_ARRAY = 2614;  // json_array(any, ...) -> json
 
   // Range functions
   FN_RANGE = 2605;                     // RANGE(T start, T end) -> range

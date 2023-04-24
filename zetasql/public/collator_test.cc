@@ -28,6 +28,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 using ::zetasql_base::testing::StatusIs;
@@ -35,7 +36,7 @@ enum class CompareType { kSortKey, kCompare };
 
 class CollatorTest : public ::testing::TestWithParam<CompareType> {
  protected:
-  void TestEquals(const std::string& s1, const std::string& s2,
+  void TestEquals(absl::string_view s1, const std::string& s2,
                   const ZetaSqlCollator* collator) {
     switch (GetParam()) {
       case CompareType::kCompare: {
@@ -56,7 +57,7 @@ class CollatorTest : public ::testing::TestWithParam<CompareType> {
     }
   }
 
-  void TestLessThan(const std::string& s1, const std::string& s2,
+  void TestLessThan(absl::string_view s1, const std::string& s2,
                     const ZetaSqlCollator* collator) {
     switch (GetParam()) {
       case CompareType::kCompare: {

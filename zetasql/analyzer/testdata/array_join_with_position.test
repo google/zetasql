@@ -101,6 +101,58 @@ QueryStmt
             +-ColumnRef(type=INT64, column=$array_offset.pos2#7)
 ==
 
+# Right join unnest array literal to table array scan. Using WITH OFFSET as
+# ON condition.
+select *
+  FROM TestTable T CROSS JOIN
+       T.KitchenSink.repeated_int32_val val1 WITH OFFSET pos1
+       RIGHT JOIN UNNEST([1, 2]) val2 WITH OFFSET pos2 ON pos1 = pos2
+--
+QueryStmt
++-output_column_list=
+| +-TestTable.key#1 AS key [INT32]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
+| +-$array.val1#4 AS val1 [INT32]
+| +-$array_offset.pos1#5 AS pos1 [INT64]
+| +-$array.val2#6 AS val2 [INT64]
+| +-$array_offset.pos2#7 AS pos2 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.val1#4, $array_offset.pos1#5, $array.val2#6, $array_offset.pos2#7]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.val1#4, $array_offset.pos1#5, $array.val2#6, $array_offset.pos2#7]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-ArrayScan
+        |   +-column_list=[TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3, $array.val1#4, $array_offset.pos1#5]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
+        |   +-array_expr=
+        |   | +-GetProtoField
+        |   |   +-type=ARRAY<INT32>
+        |   |   +-expr=
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   +-field_descriptor=repeated_int32_val
+        |   |   +-default_value=[]
+        |   +-element_column=$array.val1#4
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos1#5)
+        +-right_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.val2#6, $array_offset.pos2#7]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        |   +-element_column=$array.val2#6
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos2#7)
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$array_offset.pos1#5)
+            +-ColumnRef(type=INT64, column=$array_offset.pos2#7)
+==
+
 # Joining two unnest(array_literal) with USING on array_offset.
 select *
   FROM UNNEST([1, 2, 3]) WITH OFFSET pos
@@ -136,6 +188,45 @@ QueryStmt
             +-ColumnRef(type=INT64, column=$array_offset.pos#4)
 ==
 
+# Right join two unnest(array_literal) with USING on array_offset.
+select *
+  FROM UNNEST([1, 2, 3]) WITH OFFSET pos
+       RIGHT JOIN UNNEST([4, 5]) WITH OFFSET pos USING(pos)
+--
+QueryStmt
++-output_column_list=
+| +-$array_offset.pos#4 AS pos [INT64]
+| +-$array.$unnest1#1 AS `$unnest1` [INT64]
+| +-$array.$unnest2#3 AS `$unnest2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array_offset.pos#4, $array.$unnest1#1, $array.$unnest2#3]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$array.$unnest1#1, $array_offset.pos#2, $array.$unnest2#3, $array_offset.pos#4]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.$unnest1#1, $array_offset.pos#2]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        |   +-element_column=$array.$unnest1#1
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos#2)
+        +-right_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.$unnest2#3, $array_offset.pos#4]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT64>, value=[4, 5])
+        |   +-element_column=$array.$unnest2#3
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos#4)
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$array_offset.pos#2)
+            +-ColumnRef(type=INT64, column=$array_offset.pos#4)
+==
+
 # Joining two unnest expressions with USING where the visible columns is from
 # lhs (both lhs and rhs requires cast).
 select t1
@@ -160,6 +251,42 @@ QueryStmt
         +-array_expr=
         | +-Literal(type=ARRAY<UINT32>, value=[1], has_explicit_type=TRUE)
         +-element_column=$array.t1#2
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
+            +-Cast(INT32 -> INT64)
+            | +-ColumnRef(type=INT32, column=$array.t1#1)
+            +-Cast(UINT32 -> UINT64)
+              +-ColumnRef(type=UINT32, column=$array.t1#2)
+==
+
+# Right join two unnest expressions with USING where the visible columns is from
+# lhs (both lhs and rhs requires cast).
+select t1
+from UNNEST([CAST(1 AS INT32)]) t1
+     RIGHT JOIN UNNEST([CAST(1 AS UINT32), CAST(2 AS UINT32)]) t1 USING(t1)
+--
+QueryStmt
++-output_column_list=
+| +-$array.t1#2 AS t1 [UINT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.t1#2]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=$array.[t1#1, t1#2]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.t1#1]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT32>, value=[1], has_explicit_type=TRUE)
+        |   +-element_column=$array.t1#1
+        +-right_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.t1#2]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<UINT32>, value=[1, 2], has_explicit_type=TRUE)
+        |   +-element_column=$array.t1#2
         +-join_expr=
           +-FunctionCall(ZetaSQL:$equal(INT64, UINT64) -> BOOL)
             +-Cast(INT32 -> INT64)
@@ -323,6 +450,46 @@ QueryStmt
             +-ColumnRef(type=INT64, column=$array_offset.pos2#4)
 ==
 
+# Right join two unnest(array_literal) using array_offset in ON condition.
+select *
+  FROM UNNEST([1, 2, 3]) WITH OFFSET pos1
+       RIGHT JOIN UNNEST([4, 5]) WITH OFFSET pos2 ON pos1 = pos2
+--
+QueryStmt
++-output_column_list=
+| +-$array.$unnest1#1 AS `$unnest1` [INT64]
+| +-$array_offset.pos1#2 AS pos1 [INT64]
+| +-$array.$unnest2#3 AS `$unnest2` [INT64]
+| +-$array_offset.pos2#4 AS pos2 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.$unnest1#1, $array_offset.pos1#2, $array.$unnest2#3, $array_offset.pos2#4]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$array.$unnest1#1, $array_offset.pos1#2, $array.$unnest2#3, $array_offset.pos2#4]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.$unnest1#1, $array_offset.pos1#2]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        |   +-element_column=$array.$unnest1#1
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos1#2)
+        +-right_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.$unnest2#3, $array_offset.pos2#4]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT64>, value=[4, 5])
+        |   +-element_column=$array.$unnest2#3
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos2#4)
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$array_offset.pos1#2)
+            +-ColumnRef(type=INT64, column=$array_offset.pos2#4)
+==
+
 # Joining two unnest(array_literal) with USING on (array_element, array_offset).
 select *
   FROM UNNEST([1, 2, 3]) val WITH OFFSET pos
@@ -351,6 +518,49 @@ QueryStmt
         +-element_column=$array.val#3
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos#4)
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            | +-ColumnRef(type=INT64, column=$array.val#1)
+            | +-ColumnRef(type=INT64, column=$array.val#3)
+            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+              +-ColumnRef(type=INT64, column=$array_offset.pos#2)
+              +-ColumnRef(type=INT64, column=$array_offset.pos#4)
+==
+
+# Right join two unnest(array_literal) with USING on
+# (array_element, array_offset).
+select *
+  FROM UNNEST([1, 2, 3]) val WITH OFFSET pos
+       RIGHT JOIN UNNEST([1, 2]) val WITH OFFSET pos USING(val, pos)
+--
+QueryStmt
++-output_column_list=
+| +-$array.val#3 AS val [INT64]
+| +-$array_offset.pos#4 AS pos [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.val#3, $array_offset.pos#4]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$array.val#1, $array_offset.pos#2, $array.val#3, $array_offset.pos#4]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.val#1, $array_offset.pos#2]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        |   +-element_column=$array.val#1
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos#2)
+        +-right_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.val#3, $array_offset.pos#4]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        |   +-element_column=$array.val#3
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos#4)
         +-join_expr=
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
@@ -390,6 +600,51 @@ QueryStmt
         +-element_column=$array.val2#3
         +-array_offset_column=
         | +-ColumnHolder(column=$array_offset.pos2#4)
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            | +-ColumnRef(type=INT64, column=$array.val1#1)
+            | +-ColumnRef(type=INT64, column=$array.val2#3)
+            +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+              +-ColumnRef(type=INT64, column=$array_offset.pos1#2)
+              +-ColumnRef(type=INT64, column=$array_offset.pos2#4)
+==
+
+# Right join two unnest(array_literal) using array_element and array_offset
+# columns in ON condition.
+select *
+  FROM UNNEST([1, 2, 3]) val1 WITH OFFSET pos1
+       RIGHT JOIN UNNEST([1, 2]) val2 WITH OFFSET pos2 ON val1 = val2 AND pos1 = pos2
+--
+QueryStmt
++-output_column_list=
+| +-$array.val1#1 AS val1 [INT64]
+| +-$array_offset.pos1#2 AS pos1 [INT64]
+| +-$array.val2#3 AS val2 [INT64]
+| +-$array_offset.pos2#4 AS pos2 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.val1#1, $array_offset.pos1#2, $array.val2#3, $array_offset.pos2#4]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$array.val1#1, $array_offset.pos1#2, $array.val2#3, $array_offset.pos2#4]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.val1#1, $array_offset.pos1#2]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        |   +-element_column=$array.val1#1
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos1#2)
+        +-right_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.val2#3, $array_offset.pos2#4]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        |   +-element_column=$array.val2#3
+        |   +-array_offset_column=
+        |     +-ColumnHolder(column=$array_offset.pos2#4)
         +-join_expr=
           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)

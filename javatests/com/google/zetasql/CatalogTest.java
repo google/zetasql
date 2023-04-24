@@ -43,12 +43,12 @@ public class CatalogTest {
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A"))).isEqualTo("A");
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "B"))).isEqualTo("A.B");
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "B", "C"))).isEqualTo("A.B.C");
-    assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "B.C"))).isEqualTo("");
+    assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "B.C"))).isEmpty();
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A", "", "C"))).isEmpty();
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("A1", "B_2", "z99")))
         .isEqualTo("A1.B_2.z99");
-    assertThat(Catalog.convertPathToProtoName(ImmutableList.of("1a"))).isEqualTo("");
+    assertThat(Catalog.convertPathToProtoName(ImmutableList.of("1a"))).isEmpty();
     assertThat(Catalog.convertPathToProtoName(ImmutableList.of("_a", "_"))).isEqualTo("_a._");
-    assertThat(Catalog.convertPathToProtoName(ImmutableList.of("a-b"))).isEqualTo("");
+    assertThat(Catalog.convertPathToProtoName(ImmutableList.of("a-b"))).isEmpty();
   }
 }

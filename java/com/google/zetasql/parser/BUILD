@@ -45,6 +45,7 @@ java_library(
         "ParseTreeVisitor.java",
     ],
     deps = [
+        "//java/com/google/zetasql:client",
         "//java/com/google/zetasql:debug_printable_node",
         "//zetasql/parser:ast_enums_java_proto",
         "//zetasql/parser:ast_java_proto",

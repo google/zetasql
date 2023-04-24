@@ -62,6 +62,8 @@ ARRAY<STRUCT<INT64>>[{1}]
 SELECT (SELECT 1 FROM Table2 LIMIT 1)
 --
 ARRAY<STRUCT<INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in SELECT clause. Correlated without FROM clause.
@@ -80,6 +82,8 @@ FROM Table2 t
 WHERE id = 1
 --
 ARRAY<STRUCT<INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in SELECT clause. Correlated inside FROM clause.
@@ -89,6 +93,8 @@ FROM Table2 t
 WHERE id = 1
 --
 ARRAY<STRUCT<INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in WHERE clause. Uncorrelated without FROM clause.
@@ -107,6 +113,8 @@ FROM Table2 t
 WHERE (SELECT 1 FROM Table1 LIMIT 1) = id
 --
 ARRAY<STRUCT<id INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in WHERE clause. Correlated without FROM clause.
@@ -125,6 +133,8 @@ FROM Table2 t
 WHERE (SELECT id FROM Table1 LIMIT 1) = 1
 --
 ARRAY<STRUCT<id INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in WHERE clause. Correlated inside FROM clause.
@@ -134,6 +144,8 @@ FROM Table2 t
 WHERE (SELECT 1 FROM t.Info.str_value LIMIT 1) = id
 --
 ARRAY<STRUCT<id INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in HAVING clause. Uncorrelated without FROM clause.
@@ -154,6 +166,8 @@ GROUP BY id
 HAVING (SELECT 1 FROM Table1 LIMIT 1) = id
 --
 ARRAY<STRUCT<id INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in HAVING clause. Correlated without FROM clause.
@@ -174,6 +188,8 @@ GROUP BY id
 HAVING (SELECT id FROM Table1 LIMIT 1) = 1
 --
 ARRAY<STRUCT<id INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in HAVING clause. Correlated inside FROM clause.
@@ -203,6 +219,8 @@ FROM Table2 t
 GROUP BY (SELECT 1 FROM Table1 LIMIT 1)
 --
 ARRAY<STRUCT<id INT64>>[{1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in GROUP BY clause. Correlated without FROM clause.
@@ -222,6 +240,8 @@ FROM Table2 t
 GROUP BY (SELECT id FROM Table1 LIMIT 1)
 --
 ARRAY<STRUCT<id INT64>>[{1}, {1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in GROUP BY clause. Correlated inside FROM clause.
@@ -250,6 +270,8 @@ FROM Table2 t
 ORDER BY (SELECT 1 FROM Table1 LIMIT 1), id
 --
 ARRAY<STRUCT<id INT64>>[{1}, {2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in ORDER BY clause. Correlated without FROM clause.
@@ -268,6 +290,8 @@ FROM Table2 t
 ORDER BY (SELECT id FROM Table1 LIMIT 1)
 --
 ARRAY<STRUCT<id INT64>>[{1}, {2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Scalar subquery expression in ORDER BY clause. Correlated inside FROM clause.
@@ -277,6 +301,8 @@ FROM Table2 t
 ORDER BY (SELECT 1 FROM t.Info.str_value LIMIT 1), id
 --
 ARRAY<STRUCT<id INT64>>[{1}, {2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Array subquery expression in SELECT clause. Uncorrelated without FROM clause.
@@ -453,6 +479,8 @@ FROM Table2 t
 GROUP BY ARRAY(SELECT id FROM Table1)[OFFSET(1)]
 --
 ARRAY<STRUCT<id INT64>>[{1}, {1}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Array subquery expression in GROUP BY clause. Correlated inside FROM clause.
@@ -499,6 +527,8 @@ FROM Table2 t
 ORDER BY ARRAY(SELECT id FROM Table1)[OFFSET(1)]
 --
 ARRAY<STRUCT<id INT64>>[{1}, {2}]
+
+NOTE: Reference implementation reports non-determinism.
 ==
 
 # Array subquery expression in ORDER BY clause. Correlated inside FROM clause.

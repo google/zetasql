@@ -153,27 +153,28 @@ static std::string AnonFunctionBadArgumentErrorPrefix(
 }
 
 static const FunctionOptions AddDefaultFunctionOptions(
-    const std::string& name, FunctionOptions options) {
+    absl::string_view name, FunctionOptions options) {
   if (!options.supports_clamped_between_modifier) {
     // Only apply the anon_* callbacks to functions that support CLAMPED BETWEEN
     return options;
   }
   if (options.get_sql_callback == nullptr) {
-    options.set_get_sql_callback(absl::bind_front(&AnonFunctionSQL, name));
+    options.set_get_sql_callback(
+        absl::bind_front(&AnonFunctionSQL, std::string(name)));
   }
   if (options.supported_signatures_callback == nullptr) {
-    options.set_supported_signatures_callback(
-        absl::bind_front(&SupportedSignaturesForAnonFunction, name));
+    options.set_supported_signatures_callback(absl::bind_front(
+        &SupportedSignaturesForAnonFunction, std::string(name)));
   }
   if (options.bad_argument_error_prefix_callback == nullptr) {
-    options.set_bad_argument_error_prefix_callback(
-        absl::bind_front(AnonFunctionBadArgumentErrorPrefix, name));
+    options.set_bad_argument_error_prefix_callback(absl::bind_front(
+        AnonFunctionBadArgumentErrorPrefix, std::string(name)));
   }
   return options;
 }
 
 AnonFunction::AnonFunction(
-    const std::string& name, const std::string& group,
+    absl::string_view name, const std::string& group,
     const std::vector<FunctionSignature>& function_signatures,
     const FunctionOptions& function_options,
     const std::string& partial_aggregate_name)

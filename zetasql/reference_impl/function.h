@@ -248,6 +248,7 @@ enum class FunctionKind {
   kLaxInt64,
   kLaxDouble,
   kLaxString,
+  kJsonArray,
   // Proto functions
   kFromProto,
   kToProto,
@@ -894,17 +895,14 @@ class ArraySumAvgFunction : public SimpleBuiltinScalarFunction {
 //   ARRAY_FIND(ARRAY<T>, T [ , ARRAY_FIND_MODE ]) -> T.
 //   ARRAY_OFFSETS(ARRAY<T>, T) -> ARRAY<INT64>.
 //   ARRAY_FIND_ALL(ARRAY<T>, T) -> ARRAY<T>.
-// TODO: Add lambda support for
-//   ARRAY_OFFSET(ARRAY<T>, lambda(T) -> BOOL [ , ARRAY_FIND_MODE ]) -> T.
-//   ARRAY_FIND(ARRAY<T>, lambda(T) -> BOOL [ , ARRAY_FIND_MODE ]) -> T.
-//   ARRAY_OFFSETS(ARRAY<T>, lambda(T) -> BOOL) -> T.
-//   ARRAY_FIND_ALL(ARRAY<T>, lambda(T) -> BOOL) -> T.
 class ArrayFindFunctions : public SimpleBuiltinScalarFunction {
  public:
   ArrayFindFunctions(FunctionKind kind, const Type* output_type,
-                     CollatorList collator_list)
+                     CollatorList collator_list,
+                     const InlineLambdaExpr* lambda = nullptr)
       : SimpleBuiltinScalarFunction(kind, output_type),
-        collator_list_(std::move(collator_list)) {}
+        collator_list_(std::move(collator_list)),
+        lambda_(lambda) {}
 
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
@@ -919,6 +917,7 @@ class ArrayFindFunctions : public SimpleBuiltinScalarFunction {
 
  private:
   CollatorList collator_list_;
+  const InlineLambdaExpr* lambda_;
 };
 
 class IsFunction : public BuiltinScalarFunction {
@@ -1910,33 +1909,6 @@ bool HasFloatingPoint(const Type* type);
 // given array has more than one element and is not order-preserving.
 void MaybeSetNonDeterministicArrayOutput(const Value& array,
                                          EvaluationContext* context);
-
-class ConvertJsonFunction : public SimpleBuiltinScalarFunction {
- public:
-  ConvertJsonFunction(FunctionKind kind, const Type* output_type)
-      : SimpleBuiltinScalarFunction(kind, output_type) {}
-  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
-                             absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class ConvertJsonLaxFunction : public SimpleBuiltinScalarFunction {
- public:
-  ConvertJsonLaxFunction(FunctionKind kind, const Type* output_type)
-      : SimpleBuiltinScalarFunction(kind, output_type) {}
-  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
-                             absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class TypeFunction : public SimpleBuiltinScalarFunction {
- public:
-  TypeFunction(FunctionKind kind, const Type* output_type)
-      : SimpleBuiltinScalarFunction(kind, output_type) {}
-  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
-                             absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
 
 // Helper to validate that time related values that are arguments to certain
 // functions don't have significant precieision beyond micros when the nanos

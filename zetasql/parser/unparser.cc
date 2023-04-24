@@ -599,6 +599,11 @@ void Unparser::visitASTAuxLoadDataStatement(
   }
 }
 
+void Unparser::visitASTSequenceArg(const ASTSequenceArg* node, void* data) {
+  print("SEQUENCE ");
+  node->sequence_path()->Accept(this, data);
+}
+
 void Unparser::visitASTCreateTableStatement(
     const ASTCreateTableStatement* node, void* data) {
   print(GetCreateStatementPrefix(node, "TABLE"));
@@ -878,6 +883,21 @@ void Unparser::visitASTCreateSnapshotTableStatement(
   node->name()->Accept(this, data);
   print("CLONE");
   node->clone_data_source()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTCreateReplicaMaterializedViewStatement(
+    const ASTCreateReplicaMaterializedViewStatement* node, void* data) {
+  print("CREATE");
+  if (node->is_or_replace()) print("OR REPLACE");
+  print("REPLICA MATERIALIZED VIEW");
+  if (node->is_if_not_exists()) print("IF NOT EXISTS");
+  node->name()->Accept(this, data);
+  print("FROM");
+  node->data_source()->Accept(this, data);
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
@@ -2019,6 +2039,12 @@ void Unparser::visitASTIntervalExpr(const ASTIntervalExpr* node, void* data) {
 
 void Unparser::visitASTDotIdentifier(const ASTDotIdentifier* node,
                                      void* data) {
+  // The dot identifier actually can be self-recursive in long expressions like
+  // a.b.c.d.e.f, and so needs to be protected here.
+  if (!ThreadHasEnoughStack()) {
+    println("<Complex nested expression truncated>");
+    return;
+  }
   PrintOpenParenIfNeeded(node);
 
   // We need an inner paren to avoid the dot (.) binding tightly to the inner
@@ -2276,6 +2302,12 @@ void Unparser::visitASTBetweenExpression(const ASTBetweenExpression* node,
   print(absl::StrCat(node->is_not() ? "NOT " : "", "BETWEEN"));
   UnparseChildrenWithSeparator(node, data, 2, node->num_children(), "AND");
   PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTExpressionWithAlias(const ASTExpressionWithAlias* node,
+                                           void* data) {
+  node->expression()->Accept(this, data);
+  node->alias()->Accept(this, data);
 }
 
 void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
