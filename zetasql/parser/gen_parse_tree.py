@@ -39,7 +39,7 @@ from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 
-NEXT_NODE_TAG_ID = 396
+NEXT_NODE_TAG_ID = 398
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -732,7 +732,8 @@ class TreeGenerator(object):
 def main(argv):
   if len(argv) != 3:
     raise Exception(
-        'Usage: %s <output/path/to/parse_tree_generated.h> <input/path/to/parse_tree_generated.h.template>'
+        'Usage: %s <output/path/to/parse_tree_generated.h>'
+        ' <input/path/to/parse_tree_generated.h.template>'
     )
 
   output_path = argv[1]
@@ -8071,6 +8072,18 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTCreateApproxViewStatement',
+      tag_id=397,
+      parent='ASTCreateViewStatementBase',
+      init_fields_order=[
+          'name',
+          'column_with_options_list',
+          'options_list',
+          'query',
+      ],
+  )
+
+  gen.AddNode(
       name='ASTLoopStatement',
       tag_id=301,
       parent='ASTScriptStatement',
@@ -8239,6 +8252,12 @@ def main(argv):
       name='ASTAlterMaterializedViewStatement',
       tag_id=310,
       parent='ASTAlterStatementBase')
+
+  gen.AddNode(
+      name='ASTAlterApproxViewStatement',
+      tag_id=396,
+      parent='ASTAlterStatementBase',
+  )
 
   gen.AddNode(
       name='ASTAlterModelStatement',

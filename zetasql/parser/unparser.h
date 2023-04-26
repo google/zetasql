@@ -191,6 +191,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTCreateTableFunctionStatement* node, void* data) override;
   void visitASTCreateViewStatement(const ASTCreateViewStatement* node,
                                    void* data) override;
+  void visitASTCreateApproxViewStatement(
+      const ASTCreateApproxViewStatement* node, void* data) override;
   void visitASTCreateMaterializedViewStatement(
       const ASTCreateMaterializedViewStatement* node, void* data) override;
   void visitASTColumnWithOptions(const ASTColumnWithOptions* node,
@@ -592,6 +594,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTUnpivotInItemLabel(const ASTUnpivotInItemLabel* node,
                                   void* data) override;
   void visitASTUnpivotClause(const ASTUnpivotClause* node, void* data) override;
+  void visitASTAlterApproxViewStatement(const ASTAlterApproxViewStatement* node,
+                                        void* data) override;
   void visitASTAlterMaterializedViewStatement(
       const ASTAlterMaterializedViewStatement* node, void* data) override;
   void visitASTAlterModelStatement(const ASTAlterModelStatement* node,

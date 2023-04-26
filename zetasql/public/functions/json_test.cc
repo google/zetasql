@@ -272,6 +272,64 @@ TEST(JsonTest, JsonEscapingNeededCallback) {
   EXPECT_FALSE(is_null);
 }
 
+TEST(JsonTest, JsonEscapingNeededCallbackWithIsKeyParameter) {
+  const std::string json = R"({"a": {"b": [ { "c" : "\t" } ] } })";
+  const std::string input = "$.a.b[0].c";
+  const std::string output = "\"\t\"";
+
+  SCOPED_TRACE(absl::Substitute("JSON_EXTRACT('$0', '$1')", json, input));
+  MockEscapingNeededCallback callback;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const std::unique_ptr<JsonPathEvaluator> evaluator,
+      JsonPathEvaluator::Create(
+          input,
+          /*sql_standard_mode=*/false,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false));
+  // Check the `is_key` callback parameter.
+  evaluator->set_escaping_needed_callback(
+      [&](absl::string_view str, bool is_key) {
+        callback.Call(str);
+        EXPECT_FALSE(is_key);
+      });
+  EXPECT_CALL(callback, Call("\t"));
+  std::string value;
+  bool is_null;
+  ZETASQL_ASSERT_OK(evaluator->Extract(json, &value, &is_null));
+  EXPECT_EQ(output, value);
+  EXPECT_FALSE(is_null);
+}
+
+TEST(JsonTest, JsonKeyEscapingNeededCallback) {
+  // This json contains an unescaped key.
+  const std::string json = R"({"a": {"b": [ { "c\"ar" : "t" } ] } })";
+  const std::string input = "$.a.b[0]";
+  // b/265948860: When escaping special characters in keys, this output
+  // should be: R"({"c\"ar":"t"})".
+  const std::string output = R"({"c"ar":"t"})";
+
+  SCOPED_TRACE(absl::Substitute("JSON_EXTRACT('$0', '$1')", json, input));
+  MockEscapingNeededCallback callback;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const std::unique_ptr<JsonPathEvaluator> evaluator,
+      JsonPathEvaluator::Create(
+          input,
+          /*sql_standard_mode=*/false,
+          /*enable_special_character_escaping_in_values=*/false,
+          /*enable_special_character_escaping_in_keys=*/false));
+  evaluator->set_escaping_needed_callback(
+      [&](absl::string_view str, bool is_key) {
+        callback.Call(str);
+        EXPECT_TRUE(is_key);
+      });
+  EXPECT_CALL(callback, Call("c\"ar"));
+  std::string value;
+  bool is_null;
+  ZETASQL_ASSERT_OK(evaluator->Extract(json, &value, &is_null));
+  EXPECT_EQ(output, value);
+  EXPECT_FALSE(is_null);
+}
+
 TEST(JsonTest, NativeJsonExtract) {
   const JSONValue json =
       JSONValue::ParseJSONString(R"({"a": {"b": [ { "c" : "foo" } ] } })")
@@ -2969,6 +3027,115 @@ TEST(JsonArray, Compliance) {
     absl::StatusOr<JSONValue> output =
         JsonArray(test.params.params(), language_options,
                   /*canonicalize_zero=*/true);
+
+    const Value expected_value = test.params.result();
+    const absl::Status expected_status = test.params.status();
+
+    if (expected_status.ok()) {
+      ZETASQL_ASSERT_OK(output);
+      EXPECT_EQ(expected_value, values::Json(*std::move(output)));
+    } else {
+      EXPECT_EQ(output.status().code(), expected_status.code());
+    }
+  }
+}
+
+std::string JsonObjectDebugString(const FunctionTestCall& test) {
+  return absl::Substitute(
+      "JSON_OBJECT($0)",
+      absl::StrJoin(test.params.params(), ",",
+                    [](std::string* out, const Value& value) {
+                      absl::StrAppend(out, value.ShortDebugString());
+                    }));
+}
+
+zetasql::LanguageOptions GetLanguageOptionsFromTest(
+    const FunctionTestCall& test) {
+  zetasql::LanguageOptions language_options;
+  for (const auto& feature : test.params.required_features()) {
+    language_options.EnableLanguageFeature(feature);
+  }
+  return language_options;
+}
+
+TEST(JsonObjectTest, VariadicArgs) {
+  // NULL keys are not supported by the library function. They will be handled
+  // by the SQL function implementation.
+  const std::vector<FunctionTestCall> tests =
+      GetFunctionTestsJsonObject(/*include_null_key_tests=*/false);
+
+  for (const FunctionTestCall& test : tests) {
+    SCOPED_TRACE(JsonObjectDebugString(test));
+
+    std::vector<absl::string_view> keys;
+    std::vector<const Value*> values;
+    absl::StatusOr<JSONValue> output;
+
+    if (test.params.num_params() == 0) {
+      // No args.
+      output = JsonObject(keys, absl::MakeSpan(values),
+                          GetLanguageOptionsFromTest(test),
+                          /*canonicalize_zero=*/true);
+    } else {
+      // Signature: JSON_OBJECT(STRING key, ANY value, ...)
+      keys.reserve((test.params.num_params() + 1) / 2);
+      values.reserve(test.params.num_params() / 2);
+      for (int i = 0; i < test.params.num_params(); i += 2) {
+        const Value& key = test.params.param(i);
+        ASSERT_TRUE(key.type()->IsString());
+        ASSERT_FALSE(key.is_null());
+        keys.push_back(key.string_value());
+      }
+      for (int i = 1; i < test.params.num_params(); i += 2) {
+        values.push_back(&test.params.param(i));
+      }
+      output = JsonObject(keys, absl::MakeSpan(values),
+                          GetLanguageOptionsFromTest(test),
+                          /*canonicalize_zero=*/true);
+    }
+
+    const Value expected_value = test.params.result();
+    const absl::Status expected_status = test.params.status();
+
+    if (expected_status.ok()) {
+      ZETASQL_ASSERT_OK(output);
+      EXPECT_EQ(expected_value, values::Json(*std::move(output)));
+    } else {
+      EXPECT_EQ(output.status().code(), expected_status.code());
+    }
+  }
+}
+
+TEST(JsonObjectTest, TwoArrayArgs) {
+  // NULL keys are not supported by the library function. They will be handled
+  // by the SQL function implementation.
+  const std::vector<FunctionTestCall> tests =
+      GetFunctionTestsJsonObjectArrays(/*include_null_key_tests=*/false);
+
+  for (const FunctionTestCall& test : tests) {
+    SCOPED_TRACE(JsonObjectDebugString(test));
+
+    // Signature: JSON_OBJECT(ARRAY<STRING> keys, ARRAY<ANY> values)
+    ASSERT_EQ(test.params.num_params(), 2);
+    ASSERT_TRUE(test.params.param(0).type()->IsArray());
+    ASSERT_TRUE(test.params.param(1).type()->IsArray());
+
+    std::vector<absl::string_view> keys;
+    std::vector<const Value*> values;
+    keys.reserve(test.params.param(0).num_elements());
+    for (const Value& key : test.params.param(0).elements()) {
+      ASSERT_TRUE(key.type()->IsString());
+      ASSERT_FALSE(key.is_null());
+      keys.push_back(key.string_value());
+    }
+
+    for (const Value& value : test.params.param(1).elements()) {
+      values.push_back(&value);
+    }
+
+    absl::StatusOr<JSONValue> output = JsonObject(
+        keys, absl::MakeSpan(values), GetLanguageOptionsFromTest(test),
+        /*canonicalize_zero=*/true);
 
     const Value expected_value = test.params.result();
     const absl::Status expected_status = test.params.status();

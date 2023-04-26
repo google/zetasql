@@ -80,6 +80,7 @@ absl::Status JsonPathEvaluator::Extract(
   parser.set_special_character_key_escaping(
       enable_special_character_escaping_in_keys_);
   parser.set_escaping_needed_callback(&escaping_needed_callback_);
+  parser.set_escaping_needed_callback1(&escaping_needed_callback1_);
   value->clear();
   parser.Extract(value, is_null, issue_warning);
   if (parser.StoppedDueToStackSpace()) {
@@ -539,6 +540,36 @@ absl::StatusOr<JSONValue> JsonArray(absl::Span<const Value> args,
                      ToJson(arg, /*stringify_wide_numbers=*/false,
                             language_options, canonicalize_zero));
     ref.Set(std::move(value));
+  }
+  return json;
+}
+
+absl::StatusOr<JSONValue> JsonObject(absl::Span<const absl::string_view> keys,
+                                     absl::Span<const Value*> values,
+                                     const LanguageOptions& language_options,
+                                     bool canonicalize_zero) {
+  JSONValue json;
+  JSONValueRef json_ref = json.GetRef();
+  json_ref.SetToEmptyObject();
+  if (keys.size() != values.size()) {
+    return MakeEvalError() << "The number of keys and values must match";
+  }
+
+  absl::flat_hash_set<absl::string_view> keys_set;
+
+  for (size_t i = 0; i < keys.size(); ++i) {
+    absl::string_view key = keys[i];
+    const Value* value = values[i];
+    if (!keys_set.insert(key).second) {
+      // Duplicate key, simply ignore.
+      continue;
+    }
+
+    JSONValueRef ref = json_ref.GetMember(key);
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue json_value,
+                     ToJson(*value, /*stringify_wide_numbers=*/false,
+                            language_options, canonicalize_zero));
+    ref.Set(std::move(json_value));
   }
   return json;
 }

@@ -260,8 +260,17 @@ class JsonPathEvaluator {
   // returned for JSON_EXTRACT, but special character escaping was turned off.
   // No callback will be made if this is set to an empty target.
   void set_escaping_needed_callback(
-      std::function<void(absl::string_view)> callback) {
+      std::function<void(absl::string_view, bool)> callback) {
     escaping_needed_callback_ = std::move(callback);
+  }
+
+  // We need to support the existing single parameter callback and the new two
+  // parameter callback at the same time. After all usages have been migrated to
+  // use the new two parameter callback, we can remove this function.
+  ABSL_DEPRECATED("Use the above callback with two parameters instead.")
+  void set_escaping_needed_callback(
+      std::function<void(absl::string_view)> callback) {
+    escaping_needed_callback1_ = std::move(callback);
   }
 
  private:
@@ -271,7 +280,8 @@ class JsonPathEvaluator {
   const std::unique_ptr<json_internal::ValidJSONPathIterator> path_iterator_;
   bool enable_special_character_escaping_in_values_ = false;
   bool enable_special_character_escaping_in_keys_ = false;
-  std::function<void(absl::string_view)> escaping_needed_callback_;
+  std::function<void(absl::string_view, bool)> escaping_needed_callback_;
+  std::function<void(absl::string_view)> escaping_needed_callback1_;
 };
 
 // Converts a JSONPath token (unquoted and unescaped) into a SQL standard
@@ -349,13 +359,26 @@ absl::StatusOr<std::optional<std::string>> LaxConvertJsonToString(
     JSONValueConstRef input);
 
 // Converts a variadic number of arguments into a JSON array of these arguments.
-// If canonicalize_zero is true, the sign on a signed zero is removed when
+// If 'canonicalize_zero' is true, the sign on a signed zero is removed when
 // converting a numeric type to JSON.
 // TODO : remove canonicalize_zero flag when all
 // engines have rolled out this new behavior.
 absl::StatusOr<JSONValue> JsonArray(absl::Span<const Value> args,
                                     const LanguageOptions& language_options,
                                     bool canonicalize_zero);
+
+// Converts a list of key/values pairs into a JSON object.
+// Duplicate keys are discarded (first value is kept).
+// Returns an error if 'keys' and 'values' don't have the same length.
+//
+// If 'canonicalize_zero' is true, the sign on a signed zero is removed when
+// converting a numeric type to JSON.
+// TODO : remove canonicalize_zero flag when all
+// engines have rolled out this new behavior.
+absl::StatusOr<JSONValue> JsonObject(absl::Span<const absl::string_view> keys,
+                                     absl::Span<const Value*> values,
+                                     const LanguageOptions& language_options,
+                                     bool canonicalize_zero);
 
 }  // namespace functions
 }  // namespace zetasql

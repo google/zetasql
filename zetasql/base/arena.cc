@@ -240,7 +240,7 @@ BaseArena::AllocatedBlock* BaseArena::AllocNewBlock(const size_t block_size,
     block = &overflow_blocks_->back();
   }
 
-  // NOTE: this utility is made slightly more complex by
+  // NOTE(tucker): this utility is made slightly more complex by
   // not disallowing the case where alignment > block_size.
   // Can we, without breaking existing code?
 

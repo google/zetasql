@@ -80,6 +80,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_ACTION_LIST] = "AlterActionList";
   map[AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT] =
       "AlterAllRowAccessPoliciesStatement";
+  map[AST_ALTER_APPROX_VIEW_STATEMENT] = "AlterApproxViewStatement";
   map[AST_ALTER_COLUMN_DROP_DEFAULT_ACTION] = "AlterColumnDropDefaultAction";
   map[AST_ALTER_COLUMN_DROP_NOT_NULL_ACTION] = "AlterColumnDropNotNullAction";
   map[AST_ALTER_COLUMN_OPTIONS_ACTION] = "AlterColumnOptionsAction";
@@ -150,6 +151,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CONNECTION_CLAUSE] = "ConnectionClause";
   map[AST_CONTINUE_STATEMENT] = "Continue";
   map[AST_COPY_DATA_SOURCE] = "CopyDataSource";
+  map[AST_CREATE_APPROX_VIEW_STATEMENT] = "CreateApproxViewStatement";
   map[AST_CREATE_CONSTANT_STATEMENT] = "CreateConstantStatement";
   map[AST_CREATE_DATABASE_STATEMENT] = "CreateDatabaseStatement";
   map[AST_CREATE_ENTITY_STATEMENT] = "CreateEntityStatement";
@@ -1947,6 +1949,8 @@ absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
   switch (schema_object_kind) {
     case SchemaObjectKind::kAggregateFunction:
       return "AGGREGATE FUNCTION";
+    case SchemaObjectKind::kApproxView:
+      return "APPROX VIEW";
     case SchemaObjectKind::kConstant:
       return "CONSTANT";
     case SchemaObjectKind::kDatabase:

@@ -1121,8 +1121,9 @@ calculations.
   <td style="vertical-align:middle">
     Precision: 38<br>
     Scale: 9<br>
+    Minimum value greater than 0 that can be handled: 1e9<br>
     Min: -9.9999999999999999999999999999999999999E+28<br>
-    Max: 9.9999999999999999999999999999999999999E+28
+    Max: 9.9999999999999999999999999999999999999E+28<br>
   </td>
 </tr>
 
@@ -1132,8 +1133,9 @@ calculations.
   <td style="vertical-align:middle">
     Precision: 76.76 (the 77th digit is partial)<br>
     Scale: 38<br>
+    Minimum value greater than 0 that can be handled: 1e38<br>
     Min: <small>-5.7896044618658097711785492504343953926634992332820282019728792003956564819968E+38</small><br>
-    Max: <small>5.7896044618658097711785492504343953926634992332820282019728792003956564819967E+38</small>
+    Max: <small>5.7896044618658097711785492504343953926634992332820282019728792003956564819967E+38</small><br>
   </td>
 </tr>
 
@@ -1144,10 +1146,10 @@ calculations.
 
 `BIGDECIMAL` is an alias for `BIGNUMERIC`.
 
-To learn more about the literal representation of a `DECIMAL` type,
+To learn more about the literal representation of a `NUMERIC` type,
 see [`NUMERIC` literals][numeric-literals].
 
-To learn more about the literal representation of a `BIGDECIMAL` type,
+To learn more about the literal representation of a `BIGNUMERIC` type,
 see [`BIGNUMERIC` literals][bignumeric-literals].
 
 ### Floating point types 
@@ -1209,9 +1211,9 @@ Floating point values are approximations.
   In other situations, the approximation can be visible.
 + Summation of floating point values might produce surprising results because
   of [limited precision][floating-point-accuracy]. For example,
-  `(1e30 + 1e-20) - 1e30 = 0`, while `(1e30 - 1e30) + 1e-20 = 1e-20`. This is
+  `(1e30 + 1) - 1e30 = 0`, while `(1e30 - 1e30) + 1 = 1.0`. This is
   because the floating point value does not have enough precision to
-  represent `(1e30 + 1e-20)`, and the result is rounded to `1e30`.
+  represent `(1e30 + 1)`, and the result is rounded to `1e30`.
   This example also shows that the result of the `SUM` aggregate function of
   floating points values depends on the order in which the values are
   accumulated. In general, this order is not deterministic and therefore the

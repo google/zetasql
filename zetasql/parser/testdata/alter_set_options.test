@@ -2,7 +2,7 @@
 # verified as correct.
 [default no_show_parse_location_text]
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo set OPTIONS
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set OPTIONS
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -39,9 +39,16 @@ ALTERNATION GROUP: MODEL
 ERROR: Syntax error: Expected "(" but got end of statement [at 1:28]
 ALTER MODEL foo set OPTIONS
                            ^
+
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:34]
+ALTER APPROX VIEW foo set OPTIONS
+                                 ^
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo set timestamp;
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo set timestamp;
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -79,9 +86,15 @@ ALTERNATION GROUP: MODEL
 ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword ON or keyword OPTIONS but got keyword TIMESTAMP [at 1:21]
 ALTER MODEL foo set timestamp;
                     ^
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword ON or keyword OPTIONS but got keyword TIMESTAMP [at 1:27]
+ALTER APPROX VIEW foo set timestamp;
+                          ^
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo drop;
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo drop;
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -112,17 +125,21 @@ ALTERNATION GROUP: MATERIALIZED VIEW
 ERROR: Syntax error: Unexpected ";" [at 1:33]
 ALTER MATERIALIZED VIEW foo drop;
                                 ^
-
 --
 ALTERNATION GROUP: MODEL
 --
 ERROR: Syntax error: Unexpected ";" [at 1:21]
 ALTER MODEL foo drop;
                     ^
-
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+ERROR: Syntax error: Unexpected ";" [at 1:27]
+ALTER APPROX VIEW foo drop;
+                          ^
 ==
 
-ALTER {{AGGREGATE FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|SCHEMA|TABLE FUNCTION}};
+ALTER {{AGGREGATE FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|SCHEMA|TABLE FUNCTION|APPROX VIEW}};
 --
 ALTERNATION GROUP: AGGREGATE FUNCTION
 --
@@ -189,6 +206,12 @@ ALTERNATION GROUP: TABLE FUNCTION
 ERROR: Syntax error: Unexpected ";" [at 1:21]
 ALTER TABLE FUNCTION;
                     ^
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+ERROR: Syntax error: Unexpected ";" [at 1:18]
+ALTER APPROX VIEW;
+                 ^
 ==
 
 ALTER ;
@@ -198,7 +221,7 @@ ALTER ;
       ^
 ==
 
-ALTER {{Aggregate FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|SCHEMA|TABLE|TABLE FUNCTION}} adsdw.foo
+ALTER {{Aggregate FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|SCHEMA|TABLE|TABLE FUNCTION|APPROX VIEW}} adsdw.foo
 SET OPTIONS ();
 --
 ALTERNATION GROUP: Aggregate FUNCTION
@@ -296,6 +319,18 @@ ALTERNATION GROUP: TABLE FUNCTION
 ERROR: ALTER TABLE FUNCTION is not supported [at 1:7]
 ALTER TABLE FUNCTION adsdw.foo
       ^
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+AlterApproxViewStatement [0-42]
+  PathExpression [18-27]
+    Identifier(adsdw) [18-23]
+    Identifier(foo) [24-27]
+  AlterActionList [28-42]
+    SetOptionsOperation [28-42]
+      OptionsList [40-42]
+--
+ALTER APPROX VIEW adsdw.foo SET OPTIONS()
 ==
 
 ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (), SET OPTIONS (), SET OPTIONS ();
@@ -384,7 +419,7 @@ AlterMaterializedViewStatement [0-80]
 ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS(), SET OPTIONS(), SET OPTIONS()
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} IF EXISTS adsdw.foo SET OPTIONS ();
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|APPROX VIEW}} IF EXISTS adsdw.foo SET OPTIONS ();
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -445,9 +480,21 @@ AlterMaterializedViewStatement(is_if_exists) [0-58]
       OptionsList [56-58]
 --
 ALTER MATERIALIZED VIEW IF EXISTS adsdw.foo SET OPTIONS()
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+AlterApproxViewStatement(is_if_exists) [0-52]
+  PathExpression [28-37]
+    Identifier(adsdw) [28-33]
+    Identifier(foo) [34-37]
+  AlterActionList [38-52]
+    SetOptionsOperation [38-52]
+      OptionsList [50-52]
+--
+ALTER APPROX VIEW IF EXISTS adsdw.foo SET OPTIONS()
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} adsdw.foo SET OPTIONS (
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (
   quota_accounting_owner='adsdw-etl@google.com');
 --
 ALTERNATION GROUP: DATABASE
@@ -543,9 +590,24 @@ AlterModelStatement [0-84]
           StringLiteral('adsdw-etl@google.com') [61-83]
 --
 ALTER MODEL adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+AlterApproxViewStatement [0-90]
+  PathExpression [18-27]
+    Identifier(adsdw) [18-23]
+    Identifier(foo) [24-27]
+  AlterActionList [28-90]
+    SetOptionsOperation [28-90]
+      OptionsList [40-90]
+        OptionsEntry [44-89]
+          Identifier(quota_accounting_owner) [44-66]
+          StringLiteral('adsdw-etl@google.com') [67-89]
+--
+ALTER APPROX VIEW adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} adsdw.foo SET OPTIONS (ttl_seconds=3600);
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=3600);
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -636,9 +698,24 @@ AlterModelStatement [0-52]
           IntLiteral(3600) [47-51]
 --
 ALTER MODEL adsdw.foo SET OPTIONS(ttl_seconds = 3600)
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+AlterApproxViewStatement [0-58]
+  PathExpression [18-27]
+    Identifier(adsdw) [18-23]
+    Identifier(foo) [24-27]
+  AlterActionList [28-58]
+    SetOptionsOperation [28-58]
+      OptionsList [40-58]
+        OptionsEntry [41-57]
+          Identifier(ttl_seconds) [41-52]
+          IntLiteral(3600) [53-57]
+--
+ALTER APPROX VIEW adsdw.foo SET OPTIONS(ttl_seconds = 3600)
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} adsdw.foo SET OPTIONS (ttl_seconds=NULL);
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=NULL);
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -729,9 +806,24 @@ AlterModelStatement [0-52]
           NullLiteral(NULL) [47-51]
 --
 ALTER MODEL adsdw.foo SET OPTIONS(ttl_seconds = NULL)
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+AlterApproxViewStatement [0-58]
+  PathExpression [18-27]
+    Identifier(adsdw) [18-23]
+    Identifier(foo) [24-27]
+  AlterActionList [28-58]
+    SetOptionsOperation [28-58]
+      OptionsList [40-58]
+        OptionsEntry [41-57]
+          Identifier(ttl_seconds) [41-52]
+          NullLiteral(NULL) [53-57]
+--
+ALTER APPROX VIEW adsdw.foo SET OPTIONS(ttl_seconds = NULL)
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo SET OPTIONS (
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL|APPROX VIEW}} foo SET OPTIONS (
   quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds=3600);
 --
 ALTERNATION GROUP: DATABASE
@@ -836,6 +928,23 @@ AlterModelStatement [0-98]
           IntLiteral(3600) [93-97]
 --
 ALTER MODEL foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
+--
+ALTERNATION GROUP: APPROX VIEW
+--
+AlterApproxViewStatement [0-104]
+  PathExpression [18-21]
+    Identifier(foo) [18-21]
+  AlterActionList [22-104]
+    SetOptionsOperation [22-104]
+      OptionsList [34-104]
+        OptionsEntry [38-85]
+          Identifier(quota_accounting_owner) [38-60]
+          StringLiteral('adsdw-etl@google.com') [63-85]
+        OptionsEntry [87-103]
+          Identifier(ttl_seconds) [87-98]
+          IntLiteral(3600) [99-103]
+--
+ALTER APPROX VIEW foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
 ==
 
 ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (

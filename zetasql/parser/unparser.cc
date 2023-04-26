@@ -785,6 +785,24 @@ void Unparser::visitASTCreateViewStatement(
   node->query()->Accept(this, data);
 }
 
+void Unparser::visitASTCreateApproxViewStatement(
+    const ASTCreateApproxViewStatement* node, void* data) {
+  print(GetCreateStatementPrefix(node, "APPROX VIEW"));
+  node->name()->Accept(this, data);
+  if (node->column_with_options_list() != nullptr) {
+    node->column_with_options_list()->Accept(this, data);
+  }
+  if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
+    print(node->GetSqlForSqlSecurity());
+  }
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+  println("AS");
+  node->query()->Accept(this, data);
+}
+
 void Unparser::visitASTCreateMaterializedViewStatement(
     const ASTCreateMaterializedViewStatement* node, void* data) {
   print("CREATE");
@@ -3222,6 +3240,12 @@ void Unparser::VisitAlterStatementBase(const ASTAlterStatementBase* node,
     node->path()->Accept(this, data);
   }
   node->action_list()->Accept(this, data);
+}
+
+void Unparser::visitASTAlterApproxViewStatement(
+    const ASTAlterApproxViewStatement* node, void* data) {
+  print("ALTER APPROX VIEW");
+  VisitAlterStatementBase(node, data);
 }
 
 void Unparser::visitASTAlterMaterializedViewStatement(

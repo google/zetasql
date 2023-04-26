@@ -290,6 +290,10 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxInt64();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxDouble();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJsonLaxString();
 std::vector<FunctionTestCall> GetFunctionTestsJsonArray();
+std::vector<FunctionTestCall> GetFunctionTestsJsonObject(
+    bool include_null_key_tests = true);
+std::vector<FunctionTestCall> GetFunctionTestsJsonObjectArrays(
+    bool include_null_key_tests = true);
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

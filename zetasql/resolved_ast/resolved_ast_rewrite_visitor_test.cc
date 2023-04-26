@@ -88,6 +88,45 @@ class CastFilterScanCopyVisitor : public ResolvedASTRewriteVisitor {
   }
 };
 
+// This class will produce an error at the stated staged when
+// it encounters a ResolvedLiteral of the given int value.
+class ErrorCopyVisitor : public ResolvedASTRewriteVisitor {
+ public:
+  ErrorCopyVisitor(int pre_visit_error_value, int post_visit_error_value,
+                   int wrong_type_error_value)
+      : pre_visit_error_value_(pre_visit_error_value),
+        post_visit_error_value_(post_visit_error_value),
+        wrong_type_error_value_(wrong_type_error_value) {}
+
+ private:
+  absl::Status PreVisitResolvedLiteral(const ResolvedLiteral& node) override {
+    if (node.value().type()->IsInteger() && !node.value().is_null() &&
+        node.value().int64_value() == pre_visit_error_value_) {
+      return absl::Status(absl::StatusCode::kCancelled, "pre visit error");
+    }
+    return absl::OkStatus();
+  }
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> PostVisitResolvedLiteral(
+      std::unique_ptr<const ResolvedLiteral> node) override {
+    if (node->value().type()->IsInteger() && !node->value().is_null() &&
+        node->value().int64_value() == post_visit_error_value_) {
+      return absl::Status(absl::StatusCode::kCancelled, "post visit error");
+    }
+    if (node->value().type()->IsInteger() && !node->value().is_null() &&
+        node->value().int64_value() == wrong_type_error_value_) {
+      // The actual type doesn't matter, but it doesn't share any class
+      // hierarchy with ResolvedLiteral, so it's guaranteed to produce an
+      // error when returned (except at top-level).
+      return ResolvedObjectUnitBuilder().Build();
+    }
+
+    return node;
+  }
+  const int pre_visit_error_value_;
+  const int post_visit_error_value_;
+  const int wrong_type_error_value_;
+};
+
 class ResolvedASTRewriteVisitorTest : public ::testing::Test {
  protected:
   ResolvedASTRewriteVisitorTest() : catalog_("Test catalog", nullptr) {}
@@ -159,6 +198,10 @@ class ResolvedASTRewriteVisitorTest : public ::testing::Test {
       const std::string& query);
   std::unique_ptr<const ResolvedNode> TestCastFilterScanCopyVisitor(
       const std::string& query);
+  absl::Status TestErrorPropagationInVisitor(const std::string& query,
+                                             int pre_visit_error_value,
+                                             int post_visit_error_value,
+                                             int wrong_type_error_value);
 
   // Keeps the analyzer outputs from the tests alive without having to pass them
   // around. This is a vector because there are tests that analyze multiple
@@ -242,6 +285,14 @@ ResolvedASTRewriteVisitorTest::TestCastFilterScanCopyVisitor(
     const std::string& query) {
   CastFilterScanCopyVisitor visitor;
   return ApplyCopyVisitor(query, &visitor);
+}
+
+absl::Status ResolvedASTRewriteVisitorTest::TestErrorPropagationInVisitor(
+    const std::string& query, int pre_visit_error_value,
+    int post_visit_error_value, int wrong_type_error_value) {
+  ErrorCopyVisitor visitor(pre_visit_error_value, post_visit_error_value,
+                           wrong_type_error_value);
+  return ApplyCopyVisitorImpl(query, &visitor).status();
 }
 
 TEST_F(ResolvedASTRewriteVisitorTest, DeepCopyASTTest) {
@@ -334,6 +385,33 @@ TEST_F(ResolvedASTRewriteVisitorTest, TestCastFilterScan) {
   auto desired_ast = TestDeepCopyAST(input_sql_modified);
 
   ASSERT_EQ(ast->DebugString(), desired_ast->DebugString());
+}
+
+TEST_F(ResolvedASTRewriteVisitorTest, TestErrorPropagation) {
+  // Queries are expected to fail at specific stages.
+  {
+    const std::string input_sql = "SELECT 1";
+    EXPECT_THAT(TestErrorPropagationInVisitor(input_sql, 1, 0, 0),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kCancelled,
+                                          "pre visit error"));
+    EXPECT_THAT(TestErrorPropagationInVisitor(input_sql, 0, 1, 0),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kCancelled,
+                                          "post visit error"));
+    EXPECT_THAT(TestErrorPropagationInVisitor(input_sql, 0, 0, 1),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+  }
+  {
+    // Slightly more complicated.
+    const std::string input_sql = "SELECT * from (select 5) where 1 + 1 = 1";
+    EXPECT_THAT(TestErrorPropagationInVisitor(input_sql, 1, 0, 0),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kCancelled,
+                                          "pre visit error"));
+    EXPECT_THAT(TestErrorPropagationInVisitor(input_sql, 0, 1, 0),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kCancelled,
+                                          "post visit error"));
+    EXPECT_THAT(TestErrorPropagationInVisitor(input_sql, 0, 0, 1),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+  }
 }
 
 TEST_F(ResolvedASTRewriteVisitorTest, TestOrderByNotRepropagated) {

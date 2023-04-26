@@ -46,8 +46,9 @@ This function ignores any input pairs that contain one or more NULL values. If
 there are fewer than two input pairs without NULL values, this function returns
 NULL.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -107,8 +108,9 @@ This function ignores any input pairs that contain one or more NULL values. If
 there is no input pair without NULL values, this function returns NULL. If there
 is exactly one input pair without NULL values, this function returns 0.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -168,8 +170,9 @@ This function ignores any input pairs that contain one or more NULL values. If
 there are fewer than two input pairs without NULL values, this function returns
 NULL.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -229,8 +232,9 @@ returns NULL.
 
 If this function receives a single non-NULL input, it returns `0`.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -291,8 +295,9 @@ before aggregation, resulting in a potentially unstable result.
 This function ignores any NULL inputs. If there are fewer than two non-NULL
 inputs, this function returns NULL.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -430,8 +435,9 @@ before aggregation, resulting in a potentially unstable result.
 This function ignores any NULL inputs. If there are fewer than two non-NULL
 inputs, this function returns NULL.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 

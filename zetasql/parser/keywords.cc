@@ -88,6 +88,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"and", KW_AND, kReserved},
     {"anonymization", KW_ANONYMIZATION},
     {"any", KW_ANY, kReserved},
+    {"approx", KW_APPROX},
     {"are", KW_ARE},
     {"array", KW_ARRAY, kReserved},
     {"as", KW_AS, kReserved},

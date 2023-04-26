@@ -651,7 +651,7 @@ TEST_MATHCALL1(rint, 0)
 TEST_MATHCALL1(nearbyint, 0)
 TEST_MATHCALL1(logb, 0)
 
-// NOTE There is a bug in glibc, hence disabling test for wasm.
+// NOTE(b/144576625) There is a bug in glibc, hence disabling test for wasm.
 #ifndef __wasm__
 TEST_MATHCALL1(round, 0)
 #endif
@@ -725,7 +725,7 @@ TEST_F(ExactFloatTest, frexp) {
   TEST_F(ExactFloatTest, func) {                                \
     TestLdexpCall(#func, func, mp_##func);                      \
   }
-// NOTE There's a glibc bug, hence disabling tests on iOS and wasm.
+// NOTE(b/144576625) There's a glibc bug, hence disabling tests on iOS and wasm.
 #if !defined(__APPLE__) && !defined (__wasm__)
 TEST_LDEXP_CALL(int, ldexp);
 TEST_LDEXP_CALL(int, scalbn);

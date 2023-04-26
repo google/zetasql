@@ -133,7 +133,14 @@ class ABSL_MUST_USE_RESULT StatusBuilder {
   // Attaches a proto containing additional details about the error.
   // Returns `*this` to allow method chaining.
   template <typename T>
-  StatusBuilder& Attach(const T& data);
+  StatusBuilder& Attach(const T& data) {
+    return AttachPayload<T>(data);
+  }
+
+  // Attaches a proto containing additional details about the error.
+  // Returns `*this` to allow method chaining.
+  template <typename T>
+  StatusBuilder& AttachPayload(const T& data);
 
   // Sets the error code for the status that will be returned by this
   // StatusBuilder.  Returns `*this` to allow method chaining.
@@ -488,8 +495,8 @@ inline zetasql_base::SourceLocation StatusBuilder::source_location() const {
 // Attaches a proto containing additional details about the error.
 // Returns `*this` to allow method chaining.
 template <typename T>
-StatusBuilder& StatusBuilder::Attach(const T& data) {
-  AttachPayload<T>(&status_, data);
+StatusBuilder& StatusBuilder::AttachPayload(const T& data) {
+  zetasql_base::AttachPayload<T>(&status_, data);
   return *this;
 }
 

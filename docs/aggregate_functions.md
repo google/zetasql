@@ -37,8 +37,9 @@ rows. Returns `NULL` when `expression` is `NULL` for all rows in the group.
 `ANY_VALUE` behaves as if `RESPECT NULLS` is specified;
 rows for which `expression` is `NULL` are considered and may be selected.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -159,8 +160,9 @@ window_specification:
 
 Returns an ARRAY of `expression` values.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -321,8 +323,9 @@ This function ignores `NULL` input arrays, but respects the `NULL` elements in
 non-`NULL` input arrays. Returns `NULL` if there are zero input rows or
 `expression` evaluates to `NULL` for all rows.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -422,8 +425,9 @@ window_specification:
 
 Returns the average of non-`NULL` values in an aggregated group.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -537,8 +541,9 @@ BIT_AND(
 
 Performs a bitwise AND operation on `expression` and returns the result.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -583,8 +588,9 @@ BIT_OR(
 
 Performs a bitwise OR operation on `expression` and returns the result.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -629,8 +635,9 @@ BIT_XOR(
 
 Performs a bitwise XOR operation on `expression` and returns the result.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -717,8 +724,9 @@ window_specification:
 2. Returns the number of rows with `expression` evaluated to any value other
    than `NULL`.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -904,8 +912,9 @@ COUNT(DISTINCT IF(condition, expression, NULL))
 Note that this uses `COUNT`, not `COUNTIF`; the `IF` part has been moved inside.
 To learn more, see the examples for [`COUNT`](#count).
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -989,8 +998,9 @@ window_specification:
 Returns the logical AND of all non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -1055,8 +1065,9 @@ window_specification:
 Returns the logical OR of all non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -1126,8 +1137,9 @@ Caveats:
   the group, returns `NULL`.
 + If the argument is `NaN` for any row in the group, returns `NaN`.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -1217,8 +1229,9 @@ Caveats:
   the group, returns `NULL`.
 + If the argument is `NaN` for any row in the group, returns `NaN`.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -1310,8 +1323,9 @@ evaluates to `NULL` for all rows.
 If a `delimiter` is specified, concatenated values are separated by that
 delimiter; otherwise, a comma is used as a delimiter.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -1446,8 +1460,9 @@ window_specification:
 
 Returns the sum of non-`NULL` values in an aggregated group.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 

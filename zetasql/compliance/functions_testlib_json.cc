@@ -30,8 +30,10 @@
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
+#include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -1272,6 +1274,210 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonArray() {
                        Json(JSONValue::ParseJSONString(
                                 R"([10,null,{"a":123,"b":{"dd":[null,true]}}])")
                                 .value()))});
+  return tests;
+}
+
+// Signature: JSON_OBJECT(STRING key, ANY value, ...)
+std::vector<FunctionTestCall> GetFunctionTestsJsonObject(
+    bool include_null_key_tests) {
+  std::vector<FunctionTestCall> tests;
+  // Test cases from TO_JSON to make sure JSON_OBJECT applies TO_JSON semantics
+  // to arguments.
+  for (FunctionTestCall& test : GetFunctionTestsToJson()) {
+    if (test.params.num_params() == 2) {
+      if (test.params.param(1).is_null() || test.params.param(1).bool_value()) {
+        // No stringify mode in JSON_OBJECT.
+        continue;
+      }
+    }
+    if (test.params.status().ok()) {
+      zetasql::JSONValue json_result;
+      json_result.GetRef().GetMember("field").Set(
+          JSONValue::CopyFrom(test.params.result().json_value()));
+      Value result = Json(std::move(json_result));
+      tests.push_back(
+          {"json_object",
+           QueryParamsWithResult({String("field"), test.params.param(0)},
+                                 result)
+               .AddRequiredFeatures(test.params.required_features())});
+    } else {
+      tests.push_back(
+          {"json_object",
+           QueryParamsWithResult(
+               {String("field"), std::move(test.params.param(0))}, NullJson(),
+               test.params.status())
+               .AddRequiredFeatures(test.params.required_features())});
+    }
+  }
+
+  // Error: NULL key
+  if (include_null_key_tests) {
+    tests.push_back(
+        {"json_object",
+         QueryParamsWithResult({NullString(), 10}, NullJson(), OUT_OF_RANGE)});
+    tests.push_back(
+        {"json_object", QueryParamsWithResult({"a", 10, NullString(), 10},
+                                              NullJson(), OUT_OF_RANGE)});
+  }
+
+  // Error : keys and values array size differ.
+  tests.push_back(
+      {"json_object", QueryParamsWithResult({"a"}, NullJson(), OUT_OF_RANGE)});
+  tests.push_back(
+      {"json_object",
+       QueryParamsWithResult({"a", 10, "b"}, NullJson(), OUT_OF_RANGE)});
+
+  // 0 argument
+  tests.push_back(
+      {"json_object", QueryParamsWithResult(
+                          {}, Json(JSONValue::ParseJSONString("{}").value()))});
+
+  // SQL NULL values
+  tests.push_back(
+      {"json_object",
+       QueryParamsWithResult(
+           {"a", 10, "b", NullInt64(), "c", NullJson()},
+           Json(JSONValue::ParseJSONString(R"({"a":10,"b":null,"c":null})")
+                    .value()))});
+
+  // Duplicate keys
+  tests.push_back(
+      {"json_object",
+       QueryParamsWithResult(
+           {"a", 10, "b", NullInt64(), "b", "foo", "a", true, "a", 2, "c",
+            1.23},
+           Json(JSONValue::ParseJSONString(R"({"a":10,"b":null,"c":1.23})")
+                    .value()))});
+
+  // Complex values and UTF-8 keys
+  tests.push_back(
+      {"json_object",
+       QueryParamsWithResult(
+           {"!@#<>{}", Int64Array({10, -123, 156243}), "Œuf",
+            Json(JSONValue::ParseJSONString(
+                     R"({"1‰": [true, null, {"b": "foo"}]})")
+                     .value()),
+            "Çζ", "β"},
+           Json(JSONValue::ParseJSONString(R"({"!@#<>{}":[10,-123,156243],
+           "Œuf":{"1‰":[true,null,{"b":"foo"}]},"Çζ":"β"})")
+                    .value()))});
+
+  return tests;
+}
+
+// Signature: JSON_OBJECT(ARRAY<STRING> keys, ARRAY<ANY> values)
+std::vector<FunctionTestCall> GetFunctionTestsJsonObjectArrays(
+    bool include_null_key_tests) {
+  std::vector<FunctionTestCall> tests;
+  // Test cases from TO_JSON to make sure JSON_OBJECT applies TO_JSON semantics
+  // to arguments.
+  for (FunctionTestCall& test : GetFunctionTestsToJson()) {
+    if (test.params.num_params() == 2) {
+      if (test.params.param(1).is_null() || test.params.param(1).bool_value()) {
+        // No stringify mode in JSON_OBJECT.
+        continue;
+      }
+    }
+    const ArrayType* array_type;
+    if (auto status = test_values::static_type_factory()->MakeArrayType(
+            test.params.param(0).type(), &array_type);
+        !status.ok()) {
+      continue;
+    }
+
+    if (test.params.status().ok()) {
+      zetasql::JSONValue json_result;
+      json_result.GetRef().GetMember("field").Set(
+          JSONValue::CopyFrom(test.params.result().json_value()));
+      Value result = Json(std::move(json_result));
+      tests.push_back(
+          {"json_object",
+           QueryParamsWithResult(
+               {StringArray({"field"}),
+                values::Array(array_type, {std::move(test.params.param(0))})},
+               result)
+               .AddRequiredFeatures(test.params.required_features())});
+    } else {
+      tests.push_back(
+          {"json_object",
+           QueryParamsWithResult(
+               {StringArray({"field"}),
+                values::Array(array_type, {std::move(test.params.param(0))})},
+               NullJson(), test.params.status())
+               .AddRequiredFeatures(test.params.required_features())});
+    }
+  }
+
+  // Error: NULL key
+  if (include_null_key_tests) {
+    tests.push_back(
+        {"json_object", QueryParamsWithResult(
+                            {values::Array(StringArrayType(), {NullString()}),
+                             Int64Array({10})},
+                            NullJson(), OUT_OF_RANGE)});
+    tests.push_back(
+        {"json_object",
+         QueryParamsWithResult(
+             {values::Array(StringArrayType(), {String("field"), NullString()}),
+              Int64Array({10, 20})},
+             NullJson(), OUT_OF_RANGE)});
+    tests.push_back(
+        {"json_object",
+         QueryParamsWithResult(
+             {values::Array(StringArrayType(), {String("field"), NullString()}),
+              Int64Array({10})},
+             NullJson(), OUT_OF_RANGE)});
+  }
+
+  // Error : keys and values array size differ.
+  tests.push_back(
+      {"json_object",
+       QueryParamsWithResult({StringArray({"a", "b"}), Int64Array({10})},
+                             NullJson(), OUT_OF_RANGE)});
+  tests.push_back(
+      {"json_object", QueryParamsWithResult(
+                          {StringArray({"a", "b"}), Int64Array({10, 20, 30})},
+                          NullJson(), OUT_OF_RANGE)});
+
+  // 0 argument
+  {
+    std::vector<std::string> keys;
+    tests.push_back(
+        {"json_object", QueryParamsWithResult(
+                            {StringArray(keys), Int64Array({})},
+                            Json(JSONValue::ParseJSONString("{}").value()))});
+  }
+
+  // SQL NULL values
+  tests.push_back(
+      {"json_object",
+       QueryParamsWithResult(
+           {StringArray({"a", "b", "c"}),
+            values::Array(StringArrayType(),
+                          {NullString(), String("test"), NullString()})},
+           Json(JSONValue::ParseJSONString(R"({"a":null,"b":"test","c":null})")
+                    .value()))});
+
+  // Duplicate keys
+  tests.push_back(
+      {"json_object",
+       QueryParamsWithResult(
+           {StringArray({"a", "a", "b", "a", "c"}),
+            values::Array(StringArrayType(),
+                          {NullString(), String("test"), String("hi"),
+                           String("foo"), String("bar")})},
+           Json(JSONValue::ParseJSONString(R"({"a":null,"b":"hi","c":"bar"})")
+                    .value()))});
+
+  // Complex values and UTF-8 keys
+  tests.push_back(
+      {"json_object",
+       QueryParamsWithResult({StringArray({"!@#<>{}", "Œuf", "Çζ"}),
+                              BoolArray({true, false, true})},
+                             Json(JSONValue::ParseJSONString(R"({"!@#<>{}":true,
+           "Œuf":false,"Çζ":true})")
+                                      .value()))});
+
   return tests;
 }
 

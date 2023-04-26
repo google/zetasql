@@ -137,10 +137,10 @@ bool ThreadHasEnoughStack() {
 }
 
 void LogStackExhaustion(std::string_view msg) {
-  return;  // TODO: Implement LogStackExhaustion()
+  return;  // TODO -
 }
 
 std::string CurrentStackTrace() {
-  return "";  // TODO: Implement CurrentStackTrace()
+  return "";  // TODO -
 }
 }  // namespace zetasql

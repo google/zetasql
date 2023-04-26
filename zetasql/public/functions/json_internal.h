@@ -147,6 +147,7 @@ class JSONPathExtractor : public zetasql::JSONParser {
         matching_token_(),
         result_json_(),
         path_iterator_(*iter),
+        escaping_needed_callback1_(nullptr),
         escaping_needed_callback_(nullptr) {
     set_special_character_escaping(false);
     Init();
@@ -168,8 +169,13 @@ class JSONPathExtractor : public zetasql::JSONParser {
   // long as any parsing calls that may invoke it.  No callback will be made if
   // this is set to nullptr or points to an empty target.
   void set_escaping_needed_callback(
-      const std::function<void(absl::string_view)>* callback) {
+      const std::function<void(absl::string_view, bool)>* callback) {
     escaping_needed_callback_ = callback;
+  }
+
+  void set_escaping_needed_callback1(
+      const std::function<void(absl::string_view)>* callback1) {
+    escaping_needed_callback1_ = callback1;
   }
 
   bool Extract(std::string* result, bool* is_null,
@@ -383,17 +389,26 @@ class JSONPathExtractor : public zetasql::JSONParser {
   template <bool is_key>
   inline void JsonEscapeAndAppendString(absl::string_view val) {
     if (zetasql::JsonStringNeedsEscaping(val)) {
-      if (is_key && !enable_key_escaping_ && escape_special_characters_) {
-        result_contains_unescaped_key_ = true;
-        absl::StrAppend(&result_json_, "\"", val, "\":");
-      } else if (escape_special_characters_) {
+      bool enable_value_escaping = escape_special_characters_;
+      bool enable_key_escaping =
+          escape_special_characters_ && enable_key_escaping_;
+      if ((is_key && enable_key_escaping) ||
+          (!is_key && enable_value_escaping)) {
         std::string escaped;
         zetasql::JsonEscapeString(val, &escaped);
+        // EscapeString adds quotes.
         absl::StrAppend(&result_json_, escaped, is_key ? ":" : "");
       } else {
+        if (is_key && !enable_key_escaping_ && escape_special_characters_) {
+          result_contains_unescaped_key_ = true;
+        }
         if (escaping_needed_callback_ != nullptr &&
             *escaping_needed_callback_ /* contains a callable target */) {
-          (*escaping_needed_callback_)(val);
+          (*escaping_needed_callback_)(val, is_key);
+        } else if (
+            escaping_needed_callback1_ != nullptr &&
+            *escaping_needed_callback1_ /* contains a callable target */) {
+          (*escaping_needed_callback1_)(val);
         }
         absl::StrAppend(&result_json_, "\"", val, "\"", is_key ? ":" : "");
       }
@@ -440,7 +455,13 @@ class JSONPathExtractor : public zetasql::JSONParser {
   bool result_contains_unescaped_key_ = false;
   // Callback to pass any strings that needed escaping when escaping special
   // characters is turned off.  No callback needed if set to nullptr.
-  const std::function<void(absl::string_view)>* escaping_needed_callback_;
+  const std::function<void(absl::string_view)>* escaping_needed_callback1_;
+  // Similar like above. If the parameter `is_key` is true, this callback is
+  // for JSON keys. Otherwise, this callback is for JSON values.
+  // After all usages of callback with one parameter are migrated, we can
+  // cleanup the `escaping_needed_callback1_`.
+  const std::function<void(absl::string_view, bool is_key)>*
+      escaping_needed_callback_;
   // Whether parsing failed due to running out of stack space.
   bool stopped_due_to_stack_space_ = false;
   // Whether the JSONPath points to an array.

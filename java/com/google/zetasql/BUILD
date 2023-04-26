@@ -373,6 +373,8 @@ java_library(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/public:type_proto_java_proto",
+        "//zetasql/public/functions:array_find_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
+        "//zetasql/public/functions:array_zip_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/public/functions:datetime_java_proto",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/public/functions:normalize_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/public/functions:rounding_mode_java_proto",  # unuseddeps: keep # buildcleaner: keep
@@ -515,6 +517,7 @@ jarjar_library(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/public/functions:array_find_mode_java_proto",
+        "//zetasql/public/functions:array_zip_mode_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/public/functions:differential_privacy_java_proto",
         "//zetasql/public/functions:normalize_mode_java_proto",
@@ -576,6 +579,7 @@ pom_file(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/public/functions:array_find_mode_java_proto",
+        "//zetasql/public/functions:array_zip_mode_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/public/functions:differential_privacy_java_proto",
         "//zetasql/public/functions:normalize_mode_java_proto",

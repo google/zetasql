@@ -19,7 +19,7 @@ already approximate.
 The approximate aggregate functions in this section work directly on the
 input data, rather than an intermediate estimation of the data. These functions
 _do not allow_ users to specify the precision for the estimation with
-sketches. If you would like specify precision with sketches, see:
+sketches. If you would like to specify precision with sketches, see:
 
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
 +  [KLL functions][kll-functions] to estimate quantile values.
@@ -86,8 +86,9 @@ minimum and the last element is the approximate maximum.
 Returns `NULL` if there are zero input rows or `expression` evaluates to
 `NULL` for all rows.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -185,8 +186,9 @@ number of times the value was returned.
 
 Returns `NULL` if there are zero input rows.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -256,8 +258,9 @@ associated with the `value` field.
 
 Returns `NULL` if there are zero input rows.
 
-To learn more about the optional arguments in this function and how to use them,
-see [Aggregate function calls][aggregate-function-calls].
+To learn more about the optional aggregate clauses that you can pass
+into this function, see
+[Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 

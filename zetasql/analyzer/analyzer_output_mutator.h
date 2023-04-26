@@ -75,15 +75,6 @@ class AnalyzerOutputMutator {
   internal::TimedValue& overall_timed_value() {
     return mutable_runtime_info().impl_->overall_timed_value;
   }
-  internal::TimedValue& resolver_timed_value() {
-    return mutable_runtime_info().impl_->resolver_timed_value;
-  }
-  internal::TimedValue& validator_timed_value() {
-    return mutable_runtime_info().impl_->validator_timed_value;
-  }
-  internal::TimedValue& rewriters_timed_value() {
-    return mutable_runtime_info().impl_->rewriters_timed_value;
-  }
 
   static absl::StatusOr<std::unique_ptr<const AnalyzerOutput>>
   FinalizeAnalyzerOutput(std::unique_ptr<AnalyzerOutput> output);

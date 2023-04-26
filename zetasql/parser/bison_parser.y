@@ -883,6 +883,7 @@ using zetasql::ASTDropStatement;
 %token KW_ALTER "ALTER"
 %token KW_ANONYMIZATION "ANONYMIZATION"
 %token KW_ANALYZE "ANALYZE"
+%token KW_APPROX "APPROX"
 %token KW_ARE "ARE"
 %token KW_ASSERT "ASSERT"
 %token KW_BATCH "BATCH"
@@ -2112,6 +2113,8 @@ row_access_policy_alter_action_list:
 schema_object_kind:
     "AGGREGATE" "FUNCTION"
       { $$ = zetasql::SchemaObjectKind::kAggregateFunction; }
+    | "APPROX" "VIEW"
+      { $$ = zetasql::SchemaObjectKind::kApproxView; }
     | "CONSTANT"
       { $$ = zetasql::SchemaObjectKind::kConstant; }
     | "DATABASE"
@@ -2157,9 +2160,11 @@ alter_statement:
       alter_action_list
       {
         zetasql::ASTAlterStatementBase* node = nullptr;
-        // Only ALTER DATABASE, SCHEMA, TABLE, VIEW, MATERIALIZED VIEW and MODEL
-        // are currently supported.
-        if ($2 == zetasql::SchemaObjectKind::kDatabase) {
+        // Only ALTER DATABASE, SCHEMA, TABLE, VIEW, MATERIALIZED VIEW,
+        // APPROX VIEW and MODEL are currently supported.
+        if ($2 == zetasql::SchemaObjectKind::kApproxView) {
+          node = MAKE_NODE(ASTAlterApproxViewStatement, @$);
+        } else if ($2 == zetasql::SchemaObjectKind::kDatabase) {
           node = MAKE_NODE(ASTAlterDatabaseStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kSchema) {
           node = MAKE_NODE(ASTAlterSchemaStatement, @$);
@@ -4077,6 +4082,21 @@ create_view_statement:
         create->set_is_or_replace($2);
         create->set_recursive($4);
         create->set_scope(zetasql::ASTCreateStatement::DEFAULT_SCOPE);
+        create->set_is_if_not_exists($6);
+        create->set_sql_security($9);
+        $$ = create;
+      }
+    |
+    "CREATE" opt_or_replace "APPROX" opt_recursive "VIEW"
+    opt_if_not_exists maybe_dashed_path_expression opt_column_with_options_list
+    opt_sql_security_clause
+    opt_options_list as_query
+      {
+        auto* create = MAKE_NODE(
+          ASTCreateApproxViewStatement, @$, {$7, $8, $10, $11});
+        create->set_is_or_replace($2);
+        create->set_scope(zetasql::ASTCreateStatement::DEFAULT_SCOPE);
+        create->set_recursive($4);
         create->set_is_if_not_exists($6);
         create->set_sql_security($9);
         $$ = create;
@@ -8458,6 +8478,7 @@ keyword_as_identifier:
     | "ALTER"
     | "ANONYMIZATION"
     | "ANALYZE"
+    | "APPROX"
     | "ARE"
     | "ASSERT"
     | "BATCH"
@@ -10146,6 +10167,8 @@ next_statement_kind_without_hint:
     | "RUN" "BATCH" { $$ = zetasql::ASTRunBatchStatement::kConcreteNodeKind; }
     | "ABORT" "BATCH"
       { $$ = zetasql::ASTAbortBatchStatement::kConcreteNodeKind; }
+    | "ALTER" "APPROX" "VIEW"
+      { $$ = zetasql::ASTAlterApproxViewStatement::kConcreteNodeKind; }
     | "ALTER" "DATABASE"
       { $$ = zetasql::ASTAlterDatabaseStatement::kConcreteNodeKind; }
     | "ALTER" "SCHEMA"
@@ -10226,6 +10249,8 @@ next_statement_kind_without_hint:
       {
         $$ = zetasql::ASTCreateViewStatement::kConcreteNodeKind;
       }
+    | "CREATE" opt_or_replace "APPROX" opt_recursive "VIEW"
+      { $$ = zetasql::ASTCreateApproxViewStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "MATERIALIZED" opt_recursive "VIEW"
       { $$ = zetasql::ASTCreateMaterializedViewStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "SNAPSHOT" "TABLE"
